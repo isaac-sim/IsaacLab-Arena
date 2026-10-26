@@ -16,48 +16,36 @@ background:
   registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
   params:
     collision_mode: mesh
-    repair_collision_mesh_non_watertight: false
 objects:
 - id: banana_1
   registry_name: banana_ycb_robolab
-  params: {}
 - id: banana_2
   registry_name: banana_ycb_robolab
-  params: {}
 - id: plate
   registry_name: plate_large_vomp_robolab
-  params: {}
 - id: wooden_bowl
   registry_name: wooden_bowl_hot3d_robolab
-  params: {}
 - id: apple
   registry_name: apple_01_objaverse_robolab
-  params: {}
 - id: orange
   registry_name: orange_01_fruits_veggies_robolab
-  params: {}
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: island
   parent_id: kitchen
   prim_path: island_island_group/top_geometry_right
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: island
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: island
@@ -66,19 +54,15 @@ relations:
 - kind: 'on'
   subject: plate
   reference: island
-  params: {}
 - kind: 'on'
   subject: banana_1
   reference: plate
-  params: {}
 - kind: 'on'
   subject: banana_2
   reference: plate
-  params: {}
 - kind: 'on'
   subject: wooden_bowl
   reference: island
-  params: {}
 - kind: next_to
   subject: wooden_bowl
   reference: plate
@@ -87,11 +71,9 @@ relations:
 - kind: 'on'
   subject: apple
   reference: island
-  params: {}
 - kind: 'on'
   subject: orange
   reference: island
-  params: {}
 task:
   composition: parallel
   description: Pick up both bananas from the plate and place them into the wooden

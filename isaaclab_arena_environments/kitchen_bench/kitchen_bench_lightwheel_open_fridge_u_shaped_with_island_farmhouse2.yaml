@@ -17,14 +17,12 @@ background:
   registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
   params:
     collision_mode: mesh
-    repair_collision_mesh_non_watertight: false
 objects: []
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: fridge
   parent_id: kitchen
   prim_path: fridge_right_group
@@ -34,14 +32,11 @@ object_references:
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: fridge
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: fridge

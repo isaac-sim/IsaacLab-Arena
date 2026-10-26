@@ -18,35 +18,27 @@ background:
 objects:
 - id: banana
   registry_name: banana_ycb_robolab
-  params: {}
 - id: orange
   registry_name: orange_01_fruits_veggies_robolab
-  params: {}
 - id: wooden_bowl
   registry_name: wooden_bowl_hot3d_robolab
-  params: {}
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: KitchenRoom/Floor
   object_type: base
-  params: {}
 - id: corner_counter
   parent_id: kitchen
   prim_path: CornerCounter_00_0
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: corner_counter
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: corner_counter
@@ -61,15 +53,12 @@ relations:
 - kind: 'on'
   subject: banana
   reference: corner_counter
-  params: {}
 - kind: 'on'
   subject: orange
   reference: corner_counter
-  params: {}
 - kind: 'on'
   subject: wooden_bowl
   reference: corner_counter
-  params: {}
 task:
   composition: parallel
   description: Pick up the banana and the orange and place both fruits into the wooden bowl in either

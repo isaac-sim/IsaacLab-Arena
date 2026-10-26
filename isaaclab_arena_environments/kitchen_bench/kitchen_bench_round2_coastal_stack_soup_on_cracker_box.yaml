@@ -16,12 +16,9 @@ background:
   registry_name: lightwheel_kitchen_one_wall_coastal
   params:
     collision_mode: mesh
-    # Preserve room concavities; convex-hull repair would fill free workspace.
-    repair_collision_mesh_non_watertight: false
 objects:
 - id: soup
   registry_name: alphabet_soup_can_hope_robolab
-  params: {}
 - id: cracker_box
   registry_name: cracker_box
   params:
@@ -31,23 +28,18 @@ object_references:
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: counter_top
   parent_id: kitchen
   prim_path: counter_main_main_group/top_geometry_right
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: counter_top
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: counter_top
@@ -61,11 +53,9 @@ relations:
     yaw_rad: 1.57
 - kind: 'on'
   subject: soup
-  params: {}
   reference: counter_top
 - kind: 'on'
   subject: cracker_box
-  params: {}
   reference: counter_top
 - kind: position_limits_box
   subject: cracker_box

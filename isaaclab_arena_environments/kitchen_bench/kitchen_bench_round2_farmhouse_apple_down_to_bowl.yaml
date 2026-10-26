@@ -16,49 +16,36 @@ background:
   registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
   params:
     collision_mode: mesh
-    # Preserve room concavities; convex-hull repair would fill free workspace.
-    repair_collision_mesh_non_watertight: false
 objects:
 - id: apple
   registry_name: apple_02_objaverse_robolab
   params:
-    scale:
-    - 0.8
-    - 0.8
-    - 0.8
+    scale: [0.8, 0.8, 0.8]
 - id: bowl
   registry_name: bowl_ycb_robolab
-  params: {}
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: counter_top
   parent_id: kitchen
   prim_path: counter_main_main_group/top_geometry_right
   object_type: base
-  params: {}
 - id: shelf
   parent_id: kitchen
   prim_path: shelves_main_group/corpus/board_0
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: counter_top
-  params: {}
 - kind: is_anchor
   subject: shelf
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: counter_top
@@ -74,11 +61,9 @@ relations:
 - kind: 'on'
   subject: apple
   reference: shelf
-  params: {}
 - kind: 'on'
   subject: bowl
   reference: counter_top
-  params: {}
 - kind: rotate_around_solution
   subject: apple
   params:

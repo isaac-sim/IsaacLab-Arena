@@ -18,29 +18,23 @@ background:
 objects:
 - id: stand_mixer
   registry_name: stand_mixer
-  params: {}
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: KitchenRoom/Floor
   object_type: base
-  params: {}
 - id: corner_counter
   parent_id: kitchen
   prim_path: CornerCounter_00_0
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: corner_counter
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: corner_counter
@@ -56,7 +50,6 @@ relations:
 - kind: 'on'
   subject: stand_mixer
   reference: corner_counter
-  params: {}
 - kind: rotate_around_solution
   subject: stand_mixer
   params:

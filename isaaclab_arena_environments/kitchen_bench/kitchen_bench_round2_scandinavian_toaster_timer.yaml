@@ -16,15 +16,12 @@ background:
   registry_name: lightwheel_kitchen_l_shaped_scandinavian
   params:
     collision_mode: mesh
-    # Preserve room concavities; convex-hull repair would fill free workspace.
-    repair_collision_mesh_non_watertight: false
 objects: []
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: toaster_timer
   parent_id: kitchen
   prim_path: toaster_oven_main_group
@@ -37,13 +34,10 @@ object_references:
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: toaster_timer
-  params: {}
 - kind: 'on'
   subject: droid
-  params: {}
   reference: floor
 - kind: next_to
   subject: droid
