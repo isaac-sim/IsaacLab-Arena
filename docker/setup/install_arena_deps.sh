@@ -6,10 +6,7 @@ set -euo pipefail
 # from its own lock; --inexact retains that editable workspace and its dependencies.
 uv sync --project /tmp/arena-project --frozen --inexact \
     --no-default-groups --group openpi --extra dev --no-install-project
-# Repair group ownership and write access because package caches can preserve restrictive modes.
-find "${VIRTUAL_ENV}" \( -type f -o -type d \) \
-    \( ! -group isaac-sim -o ! -perm -g+w \) \
-    -exec chgrp isaac-sim {} + -exec chmod g+rwX {} +
+bash /tmp/repair_venv_permissions.sh
 
 # HuggingFace CLI for downloading datasets and models.
 # Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),
