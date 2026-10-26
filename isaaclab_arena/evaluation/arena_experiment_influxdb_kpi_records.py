@@ -11,14 +11,14 @@ database is not part of this repository.
 
 InfluxDB tags and fields
 ------------------------
-InfluxDB stores time series of points. A point has tags, which are indexed strings that identify the series it
+InfluxDB stores time series of records. A record has tags, which are indexed strings that identify the series it
 belongs to and that queries filter and group by, and fields, which are the measured values (here always numbers).
-A point is identified by its measurement, tag set and time, so a second point with the same identity overwrites
-the first.
+A record is identified by its measurement, tag set and time, so a second record with the same identity overwrites
+the first. A record is always flat and can only store scalars, i.e. no nested lists or dicts.
 
 File format
 -----------
-The generated ``arena_experiment_influxdb_kpi_records.json`` holds a JSON list of flat records, one per point:
+The generated ``arena_experiment_influxdb_kpi_records.json`` holds a JSON list of flat records:
 
     [
       {"type": "per_experiment", "timestamp_ns": 1792800000000000000, "git_sha": "1a2b3c4", "git_branch": "main",
@@ -31,17 +31,13 @@ The generated ``arena_experiment_influxdb_kpi_records.json`` holds a JSON list o
        "mean_ms": 10.0, "total_ms": 40.0, "min_ms": 5.0, "max_ms": 15.0, "count": 4}
     ]
 
-- ``timestamp_ns``: Point time, in Unix epoch nanoseconds (UTC) of the latest Run end; the same in every record.
-  It is the only numeric value that is not a field.
-- Other string values are tags and other numeric values are fields; values are never nested, null, or boolean.
-  Optional fields are left out when they have no value. The tag set of each record is unique within the file,
-  so no two points collide.
+Fields appearing in every record:
 
-Tags in every record:
-
+- ``timestamp_ns``: Record time in Unix epoch nanoseconds (UTC) of the latest run end.
 - ``type``: Record type, see below.
 - ``git_sha``: Arena git commit SHA the Experiment ran with.
 - ``git_branch``: Arena git branch the Experiment ran with.
+
 
 Record types, told apart by the ``type`` tag:
 
@@ -112,7 +108,7 @@ def _is_single_line_text(value: object) -> bool:
 
 @dataclass(kw_only=True)
 class InfluxdbKpiRecord(ABC):
-    """Abstract base class for KPI records; only its subclasses are instantiated.
+    """Abstract base class for KPI records.
 
     Each record is written as a flat JSON object for one InfluxDB point. Subclasses set ``record_type`` and add their own tags and fields. Attributes annotated as ``str`` are tags;
     the others, except ``timestamp_ns``, are numeric fields, left out when set to None.
