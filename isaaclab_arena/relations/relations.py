@@ -128,7 +128,7 @@ class AlignWith(Relation):
         tolerance_m: float = 0.02,
         relation_loss_weight: float = 1.0,
     ):
-        """Specify the subject centre relative to the reference centre.
+        """Align the subject's bounding-box centre with the reference centre plus offset_m along axis, within tolerance_m.
 
         Args:
             parent: Reference asset participating in placement.
