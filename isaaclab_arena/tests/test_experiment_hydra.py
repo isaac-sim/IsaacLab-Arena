@@ -68,12 +68,7 @@ def test_getting_started_experiment_composes_typed_runs():
         hdr="home_office_robolab",
         episode_length_s=1.5,
     )
-    assert runs["swap_objects"].environment == PickAndPlaceMapleTableEnvironmentCfg(
-        embodiment="droid_rel_joint_pos",
-        destination_object="wooden_bowl_hot3d_robolab",
-        hdr="home_office_robolab",
-        episode_length_s=1.5,
-    )
+    assert runs["swap_objects"].environment == runs["baseline"].environment
     assert runs["swap_objects"].num_rebuilds == 3
     assert runs["swap_objects"].variations == {
         "pick_up_object.asset_selection.enabled": True,
@@ -82,6 +77,8 @@ def test_getting_started_experiment_composes_typed_runs():
             "orange_01_fruits_veggies_robolab",
             "rubiks_cube_hot3d_robolab",
         ],
+        "destination_object.asset_selection.enabled": True,
+        "destination_object.asset_selection.registry_names": ["wooden_bowl_hot3d_robolab"],
     }
     assert runs["change_background_hdr"].environment.hdr == "billiard_hall_robolab"
     assert runs["parallel_envs"].environment.hdr == "home_office_robolab"
