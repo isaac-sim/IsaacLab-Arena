@@ -38,6 +38,8 @@ def _configure_newton_deformable_physics(
     soft_solver_cfg = VBDSolverCfg(iterations=10, rigid_body_particle_contact_buffer_size=8192)
     # TODO: Pass this in the constructor once Isaac Lab exposes Newton's corresponding VBD option.
     soft_solver_cfg.rigid_body_contact_buffer_size = 1024
+    rigid_solver_cfg.iterations = 200
+    rigid_solver_cfg.ls_iterations = 50
     env_cfg.sim.physics = NewtonCfg(
         solver_cfg=CouplerProxyCfg(
             entries=[
@@ -59,7 +61,7 @@ def _configure_newton_deformable_physics(
                     destination="soft",
                     bodies=deformable_contact_bodies,
                     collide_interval=1,
-                )
+                ),
             ],
             iterations=1,
         ),
@@ -134,7 +136,10 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             destination_location=destination,
             background_scene=table,
             episode_length_s=30.0,
-            velocity_threshold=0.01,
+            # Newton VBD reports the gravity predictor (g * sim_dt ~= 0.082 m/s) in
+            # constrained nodal velocities even when the solved positions are stationary.
+            velocity_threshold=0.1,
+            placement_consecutive_steps=3,
             task_description=f"Pick up the {cfg.pick_object.replace('_', ' ')} and place it on the plate.",
         )
         return IsaacLabArenaEnvironment(

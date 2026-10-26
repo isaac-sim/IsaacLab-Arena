@@ -25,6 +25,9 @@ from isaaclab_arena.assets.deformable_object import DeformableObject
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
+_NEWTON_CUBE_YOUNGS_MODULUS = 2.0e5
+_NEWTON_CUBE_POISSONS_RATIO = 0.3
+
 
 class LibraryDeformableObject(DeformableObject):
     """Base class for registered deformable objects."""
@@ -92,10 +95,15 @@ class DeformableCubeNewton(LibraryDeformableObject):
         deformable_props=NewtonDeformableBodyPropertiesCfg(),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0)),
         physics_material=NewtonDeformableBodyMaterialCfg(
-            # Equivalent Lame parameters for the PhysX cube's E=8.0e4 Pa and nu=0.25.
-            k_mu=3.2e4,
-            k_lambda=3.2e4,
+            # Match the stiffness of the maintained Isaac Lab Franka soft-object example.
+            k_mu=_NEWTON_CUBE_YOUNGS_MODULUS / (2.0 * (1.0 + _NEWTON_CUBE_POISSONS_RATIO)),
+            k_lambda=(
+                _NEWTON_CUBE_YOUNGS_MODULUS
+                * _NEWTON_CUBE_POISSONS_RATIO
+                / ((1.0 + _NEWTON_CUBE_POISSONS_RATIO) * (1.0 - 2.0 * _NEWTON_CUBE_POISSONS_RATIO))
+            ),
             k_damp=0.0,
+            # Retain the lighter DROID cube mass so its lower-force gripper can carry it.
             density=300.0,
             particle_radius=0.0025,
         ),
