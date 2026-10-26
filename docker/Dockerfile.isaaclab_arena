@@ -7,7 +7,7 @@
 # sim-base:       Isaac Sim, common system packages, and runtime permissions.
 # isaaclab:       Isaac Lab checkout and its dependencies, on top of sim-base.
 # arena-deps:     Arena dependencies, policy clients, and developer tools, on isaaclab.
-# dev:            Arena source, editable install, shell setup, entrypoint, and the git commit stamp.
+# dev:            Arena source, editable install, shell setup, entrypoint, and the Arena git commit and branch.
 # curobo-builder: Isolated CUDA toolkit and wheel compilation, branching from isaaclab.
 # dev-curobo:     Dev plus cuRobo installed from the builder's mounted wheel.
 #
@@ -78,7 +78,9 @@ RUN --mount=type=bind,source=docker/setup/configure-shell.sh,target=/tmp/configu
     bash /tmp/configure-shell.sh
 COPY docker/setup/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
-# Commit stamp last, so per-commit values only invalidate layers after it. dev-curobo inherits it.
+# Record the git commit and branch the image is built from, readable at runtime as ARENA_GIT_SHA and
+# ARENA_GIT_BRANCH. Set last, because they change with every commit and invalidate all layers after them.
+# dev-curobo inherits them.
 ARG GIT_SHA=unknown
 ARG GIT_BRANCH=unknown
 ENV ARENA_GIT_SHA=${GIT_SHA} ARENA_GIT_BRANCH=${GIT_BRANCH}

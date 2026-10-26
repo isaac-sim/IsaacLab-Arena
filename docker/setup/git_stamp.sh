@@ -1,5 +1,7 @@
 #!/bin/bash
-# Helpers that name the git commit and branch a Docker image is built from.
+# Helpers that print the git commit SHA and branch name of a checkout.
+# A git worktree or submodule checkout reports its own commit and branch, not those of the main
+# worktree or the parent repository. A submodule on a detached HEAD reports the branch as "unknown".
 
 # Print the HEAD SHA of the checkout containing `$1` (default: cwd), suffixed
 # with "-dirty" when the tree has uncommitted changes, or "unknown" outside git.
