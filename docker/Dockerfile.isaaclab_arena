@@ -89,7 +89,8 @@ COPY --parents \
     isaaclab_arena_environments \
     isaaclab_arena_examples \
     ${WORKDIR}/
-RUN umask 0002 && uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}" && \
+# Repair group ownership and write access because package caches can preserve restrictive modes.
+RUN uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}" && \
     find "${VIRTUAL_ENV}" \( -type f -o -type d \) \
     \( ! -group isaac-sim -o ! -perm -g+w \) \
     -exec chgrp isaac-sim {} + -exec chmod g+rwX {} +
@@ -118,6 +119,7 @@ RUN --mount=type=bind,source=docker/setup/install_cuda.sh,target=/tmp/install_cu
 # Note that we're not inheriting from curobo-builder. Instead we install the wheel through a mount.
 FROM dev AS dev-curobo
 # Retain build provenance for manual inspection in /usr/local/share/arena/curobo-build.json.
+# Repair group ownership and write access because package caches can preserve restrictive modes.
 RUN --mount=type=bind,from=curobo-builder,source=/wheels,target=/wheels \
     --mount=type=bind,source=docker/setup/install_curobo_runtime_deps.sh,target=/tmp/install_curobo_runtime_deps.sh \
     bash /tmp/install_curobo_runtime_deps.sh && \
