@@ -223,7 +223,6 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
             for relation in obj.get_relations():
                 if not isinstance(relation, AlignWith):
                     continue
-                assert relation.parent in positions, "AlignWith reference is missing from the candidate"
                 child_bbox = env_bboxes[obj]
                 parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
                 error = align_with_error(relation, child_bbox.min_point.new_tensor(t_W_C), child_bbox, parent_world)
@@ -231,7 +230,7 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
                     if self._params.verbose:
                         print(
                             f"AlignWith: '{obj.name}' align_with({relation.parent.name}) violated "
-                            f"(world {relation.axis} error={error.item():.4f} m; "
+                            f"(world {relation.axis.value} error={error.item():.4f} m; "
                             f"tolerance_m={relation.tolerance_m})"
                         )
                     return False

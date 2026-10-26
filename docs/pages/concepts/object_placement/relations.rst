@@ -185,17 +185,21 @@ Most environments can be described with a small set of relations:
    (``"x"``, ``"y"``, or ``"z"``). The subject's centre is placed within
    ``tolerance_m`` of the reference centre plus ``offset_m`` on that axis;
    the other axes and both objects' orientations remain unconstrained.
-   The offset is signed, in metres.
+   The offset is signed, in metres. Python accepts ``WorldAxis.X``,
+   ``WorldAxis.Y``, or ``WorldAxis.Z`` as well as strings.
 
    The solver applies zero alignment penalty throughout this tolerance band
    and a linear penalty outside it. Other relations can still favour particular
    positions inside the band, so this does not guarantee uniform sampling.
 
-   ``ON_TREE`` uses alignment bands when sampling objects with ``On`` relations,
+   Candidate orientations are sampled before positions, so ``ON_TREE`` uses
+   rotated bounds for alignment bands when sampling objects with ``On`` relations,
    placing references first where possible. Cycles and infeasible bands are
    left to the solver and validation. Centres account for asset scale and
    candidate orientation. Both assets can move; use ``IsAnchor`` to fix the
-   reference or ``PositionLimitsBox`` to bound its region.
+   reference or ``PositionLimitsBox`` to bound its region. An anchored subject
+   is rejected. ``FaceTo`` headings are applied after solving and can still
+   change off-centre bounds; final validation checks the resulting alignment.
 
    Placement validation rejects an alignment error larger than ``tolerance_m``.
    The ``align_with`` check is enabled and required by default. If specifying

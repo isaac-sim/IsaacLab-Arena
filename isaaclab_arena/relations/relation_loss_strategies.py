@@ -231,7 +231,7 @@ def align_with_error(
     Returns:
         Error in metres, shaped (N,), broadcasting singleton bounds.
     """
-    axis_index = "xyz".index(relation.axis)
+    axis_index = relation.axis.index
     p_W_child_center = t_W_C + child_bbox.center
     return p_W_child_center[..., axis_index] - parent_world_bbox.center[..., axis_index] - relation.offset_m
 

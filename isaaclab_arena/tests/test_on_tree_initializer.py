@@ -18,6 +18,7 @@ from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLi
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.tests.test_object_placer_init import _assert_footprint_within, _make_box, _make_desk, _seed
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose
 
 
 def test_ontree_init_seeds_child_on_its_real_parent():
@@ -359,20 +360,8 @@ def test_ontree_unreachable_alignment_axis_keeps_other_narrowing():
     assert z == pytest.approx(positions[reference][2])
 
 
-def test_ontree_rejects_alignment_reference_outside_placement():
-    desk = _make_desk()
-    subject = _make_box("subject")
-    subject.add_relation(On(desk))
-    subject.add_relation(AlignWith(_make_box("absent"), "x"))
-
-    with pytest.raises(AssertionError, match="must participate"):
-        _seed(OnTreeInitializer(), [desk, subject], {desk})
-
-
 def test_ontree_aligns_to_translated_anchor_with_zero_tolerance():
     """An anchored reference uses its world centre, including its initial translation."""
-    from isaaclab_arena.utils.pose import Pose
-
     desk = _make_desk()
     desk.set_initial_pose(Pose(position_xyz=(3.0, -2.0, 1.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     subject = _make_box("subject")

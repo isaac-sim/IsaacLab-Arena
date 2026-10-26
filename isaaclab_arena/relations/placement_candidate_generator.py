@@ -10,7 +10,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import update_candidate_bounds
+from isaaclab_arena.relations.bounding_box_helpers import rotate_candidate_bboxes
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.initializers.initializer_factory import create_initializer
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
@@ -51,17 +51,18 @@ class PlacementCandidateGenerator:
                 if generator is not None:
                     assert self.params.placement_seed is not None
                     generator.manual_seed(self.params.placement_seed + env_id * candidates_per_env + candidate_id)
+                orientations = self.generate_orientations(objects, anchor_objects, generator)
+                oriented_bounds = rotate_candidate_bboxes(objects, bounds, [orientations])
                 candidates.append(
                     PlacementCandidate(
                         env_id=env_id,
                         candidate_id=candidate_id,
-                        positions=self.generate_positions(objects, anchor_objects, bounds, generator),
-                        orientations=self.generate_orientations(objects, anchor_objects, generator),
-                        bboxes=bounds,
+                        positions=self.generate_positions(objects, anchor_objects, oriented_bounds, generator),
+                        orientations=orientations,
+                        bboxes=oriented_bounds,
                     )
                 )
         batch = PlacementCandidateBatch(candidates)
-        update_candidate_bounds(batch, env_bboxes)
         collision_bboxes = self.get_clutter_collision_bounds(objects, collision_objects)
         for candidate in batch.candidates:
             if generator is not None:
@@ -82,7 +83,7 @@ class PlacementCandidateGenerator:
         """Generate initial positions for all objects, using the configured initializer.
 
         Args:
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            env_bboxes: Bounds at the candidate orientations, relative to each origin, shaped (1, 3).
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
 

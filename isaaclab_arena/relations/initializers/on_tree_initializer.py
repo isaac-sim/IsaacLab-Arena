@@ -71,9 +71,6 @@ class OnTreeInitializer(PlacementInitializerBase):
                     sampling_bbox = _maybe_narrow_bounds(child_bbox_given_parent_position, other_bounds)
                     # One position drawn from what is left.
                     positions[obj] = sample_position_in_bbox(sampling_bbox, generator)
-            # TODO(zhx06, 2026.10.06): Refactor yaw handling to sample yaw -> sample positions
-            # -> solve.
-            # With random_yaw_init=True, yaw is currently sampled after positions.
             sampled_world_bboxes[obj] = asset_to_bbox[obj].translated(positions[obj])
         # Return the positions in the order the caller supplied the objects, rather than in the
         # parents-first order this method sampled them in.
@@ -90,7 +87,6 @@ def _order_parents_before_children(
     ordered: list[PlaceableAsset] = []
     ordered_set: set[PlaceableAsset] = set()
     remaining: list[PlaceableAsset] = []
-    object_set = set(objects)
     alignment_references: dict[PlaceableAsset, list[PlaceableAsset]] = {}
     for obj in objects:
         if obj in anchor_objects or get_relation(obj, On) is None:
@@ -101,9 +97,6 @@ def _order_parents_before_children(
             alignment_references[obj] = []
             for relation in obj.get_relations():
                 if isinstance(relation, AlignWith):
-                    assert (
-                        relation.parent in object_set
-                    ), f"AlignWith reference '{relation.parent.name}' must participate in placement."
                     alignment_references[obj].append(relation.parent)
 
     while remaining:
@@ -179,7 +172,7 @@ def _bounds_from_align_with(
     Returns:
         Bounds on the subject origin, unbounded on the other axes.
     """
-    axis_index = "xyz".index(relation.axis)
+    axis_index = relation.axis.index
     target_origin_W = (
         reference_world_bbox.center[0, axis_index] - child_bbox.center[0, axis_index] + relation.offset_m
     ).item()

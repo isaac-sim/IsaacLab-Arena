@@ -5,18 +5,36 @@
 
 """Alignment geometry, validation, and solver integration."""
 
+import math
 import torch
+import yaml
 
 import pytest
 
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
+from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
+from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relation_loss_strategies import AlignWithLossStrategy
+from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
+from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
+from isaaclab_arena.relations.relation_loss_strategies import AlignWithLossStrategy, align_with_error
+from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import AlignWith
-from isaaclab_arena.relations.validation.pre_physics import AlignWithValidator, build_validators
+from isaaclab_arena.relations.relations import (
+    AlignWith,
+    IsAnchor,
+    NextTo,
+    On,
+    PositionLimitsBox,
+    RotateAroundSolution,
+    WorldAxis,
+)
+from isaaclab_arena.relations.validation.pre_physics import AlignWithValidator, OnRelationValidator, build_validators
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose
 
 
 def _objects():
@@ -97,8 +115,6 @@ def test_alignment_validator_rejects_bad_candidates_and_nonfinite_positions():
 
 
 def test_alignment_failure_is_required_by_default():
-    from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
-
     subject, reference = _objects()
     subject.add_relation(AlignWith(reference, "x", tolerance_m=0.02))
     positions = {subject: (2.0, 9.0, 10.0), reference: (0.0, 0.0, 0.0)}
@@ -127,7 +143,6 @@ def test_alignment_accepts_per_candidate_bounds_after_rotation():
 @pytest.mark.parametrize(
     "params",
     [
-        {"axis": "xy"},
         {"axis": "x", "offset_m": float("nan")},
         {"axis": "x", "tolerance_m": -0.1},
         {"axis": "x", "tolerance_m": float("inf")},
@@ -148,11 +163,6 @@ def test_alignment_requires_a_distinct_participating_reference():
 
 
 def test_alignment_yaml_parameters_reach_the_registered_relation():
-    import yaml
-
-    from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
-    from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
-
     entry = SpatialRelationSpec.model_validate(yaml.safe_load("""
 kind: align_with
 subject: robot
@@ -175,10 +185,6 @@ params:
 
 
 def test_alignment_solver_handles_moving_reference_and_different_heights():
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.relations import IsAnchor, On
-    from isaaclab_arena.utils.pose import Pose
-
     table = DummyObject("table", AxisAlignedBoundingBox((-1.0, -1.0, -0.1), (1.0, 1.0, 0.0)))
     table.set_initial_pose(Pose.identity(), create_reset_event=False)
     table.add_relation(IsAnchor())
@@ -195,10 +201,6 @@ def test_alignment_solver_handles_moving_reference_and_different_heights():
 
 
 def test_alignment_overrides_next_to_soft_cross_axis_preference():
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, PositionLimitsBox
-    from isaaclab_arena.utils.pose import Pose
-
     counter = DummyObject("counter", AxisAlignedBoundingBox((-3.0, -0.5, -0.1), (3.0, 0.5, 0.0)))
     counter.set_initial_pose(Pose.identity(), create_reset_event=False)
     counter.add_relation(IsAnchor())
@@ -213,3 +215,86 @@ def test_alignment_overrides_next_to_soft_cross_axis_preference():
     final = solver.solve([counter, target, robot], [initial])[0]
     assert abs(final[robot][0] - final[target][0]) <= 0.04
     assert 1.99 <= final[target][0] <= 2.21
+
+
+@pytest.mark.parametrize("axis,index", [(WorldAxis.X, 0), (WorldAxis.Y, 1), (WorldAxis.Z, 2)])
+def test_alignment_accepts_axis_enum_and_string(axis, index):
+    _, reference = _objects()
+    assert AlignWith(reference, axis).axis is axis
+    assert AlignWith(reference, axis.value).axis is axis
+    assert axis.index == index
+
+
+def test_alignment_rejects_invalid_axis():
+    _, reference = _objects()
+    with pytest.raises(ValueError):
+        AlignWith(reference, "xy")
+
+
+def test_placer_rejects_missing_alignment_reference_before_sampling():
+    subject, reference = _objects()
+    subject.add_relation(AlignWith(reference, "x"))
+    with pytest.raises(AssertionError, match="must participate"):
+        ObjectPlacer().place([subject])
+
+
+def test_alignment_rejects_anchored_subject_but_accepts_anchored_reference():
+    subject, reference = _objects()
+    reference.add_relation(IsAnchor())
+    relation = AlignWith(reference, "x")
+    relation.validate_placement_configuration(subject, {subject, reference})
+    subject.add_relation(IsAnchor())
+    subject.add_relation(relation)
+    with pytest.raises(AssertionError, match="Anchor object"):
+        ObjectPlacer().place([subject, reference])
+
+
+@pytest.mark.parametrize(
+    "subject_yaw,reference_yaw,random_yaw",
+    [
+        (math.pi / 2, 0.0, False),
+        (0.0, -math.pi / 2, False),
+        (math.pi / 2, -math.pi / 2, False),
+        (math.pi / 2, -math.pi / 2, True),
+    ],
+)
+def test_candidate_alignment_seeds_use_rotated_centres(subject_yaw, reference_yaw, random_yaw):
+    """Off-centre subjects and moving references sample the full band at their candidate yaw."""
+    table = DummyObject(
+        "table", AxisAlignedBoundingBox((-2, -2, -0.1), (2, 2, 0)), relations=[IsAnchor()], initial_pose=Pose.identity()
+    )
+    reference = DummyObject("reference", AxisAlignedBoundingBox((0.3, -0.1, 0), (0.5, 0.1, 0.2)))
+    reference.add_relation(On(table))
+    reference.add_relation(PositionLimitsBox(x_min=-0.2, x_max=0.2, y_min=-0.2, y_max=0.2))
+    reference.add_relation(RotateAroundSolution(yaw_rad=reference_yaw))
+    subject = DummyObject("subject", AxisAlignedBoundingBox((0.2, -0.1, 0), (0.4, 0.1, 0.2)))
+    subject.add_relation(On(table))
+    subject.add_relation(RotateAroundSolution(yaw_rad=subject_yaw))
+    relation = AlignWith(reference, "x", offset_m=0.17, tolerance_m=0.05)
+    subject.add_relation(relation)
+    objects = [table, subject, reference]
+    bounds = build_per_env_bounding_boxes(objects, 1).get_bounding_boxes_for_all_envs()
+    params = ObjectPlacerParams(placement_seed=42, random_yaw_init=random_yaw)
+    candidate_generator = PlacementCandidateGenerator(params)
+    batch = candidate_generator.generate_candidates(objects, {table}, bounds, 100, torch.Generator(), [])
+    repeated = candidate_generator.generate_candidates(objects, {table}, bounds, 100, torch.Generator(), [])
+    assert AlignWithValidator(params).validate_batch(batch, []) == [True] * 100
+    assert OnRelationValidator(params).validate_batch(batch, []) == [True] * 100
+    errors = []
+    for candidate, repeat in zip(batch.candidates, repeated.candidates, strict=True):
+        assert candidate.positions == repeat.positions
+        assert candidate.orientations == repeat.orientations
+        for obj in (subject, reference):
+            yaw = candidate.orientations.get(obj, 0.0)
+            q_W_O = torch.tensor([[0.0, 0.0, math.sin(yaw / 2), math.cos(yaw / 2)]])
+            expected = obj.get_bounding_box().rotated_by_quat(q_W_O)
+            torch.testing.assert_close(candidate.bboxes[obj].center, expected.center)
+        error = align_with_error(
+            relation,
+            torch.tensor(candidate.positions[subject]),
+            candidate.bboxes[subject],
+            candidate.bboxes[reference].translated(candidate.positions[reference]),
+        )
+        errors.append(error.item())
+    assert min(errors) < -0.035 and max(errors) > 0.035
+    assert torch.tensor(errors).std() > 0.02

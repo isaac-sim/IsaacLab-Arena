@@ -35,6 +35,19 @@ class Side(str, Enum):
     NEGATIVE_Y = "negative_y"  # -Y
 
 
+class WorldAxis(str, Enum):
+    """World axis for single-axis relations."""
+
+    X = "x"
+    Y = "y"
+    Z = "z"
+
+    @property
+    def index(self) -> int:
+        """Column of this axis in a position tensor."""
+        return "xyz".index(self.value)
+
+
 class RelationBase:
     """Base for all relation-like concepts on objects.
 
@@ -122,7 +135,7 @@ class AlignWith(Relation):
     def __init__(
         self,
         parent: PlaceableAsset,
-        axis: str,
+        axis: WorldAxis | str,
         offset_m: float = 0.0,
         tolerance_m: float = 0.02,
         relation_loss_weight: float = 1.0,
@@ -137,17 +150,17 @@ class AlignWith(Relation):
             relation_loss_weight: Weight of the alignment objective during solving.
         """
         super().__init__(parent, relation_loss_weight)
-        assert axis in ("x", "y", "z"), f"Expected world axis x, y, or z, got {axis!r}"
         assert math.isfinite(offset_m), "offset_m must be finite"
         assert math.isfinite(tolerance_m) and tolerance_m >= 0, "tolerance_m must be finite and non-negative"
         assert math.isfinite(relation_loss_weight) and relation_loss_weight > 0, "Alignment weight must be positive"
-        self.axis = axis
+        self.axis = WorldAxis(axis)
         self.offset_m = offset_m
         self.tolerance_m = tolerance_m
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
-        """Require a distinct reference that participates in placement."""
+        """Require a movable subject and a distinct reference that participates in placement."""
         assert self.parent is not subject, "AlignWith requires a different reference asset"
+        assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have an AlignWith relation"
         assert self.parent in objects, f"AlignWith reference '{self.parent.name}' must participate in placement"
 
 
