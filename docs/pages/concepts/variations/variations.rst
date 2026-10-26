@@ -38,8 +38,18 @@ Runner gives each rebuild its own seed. Set ``num_rebuilds`` in the Run; with th
 each enabled build-time variation draws one value for the whole Run. A run-time variation can
 produce a new value on each
 reset without rebuilding the scene. Both kinds draw their values from the variation's own
-generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`). The exception is
-in-order :ref:`asset selection <asset-selection-variation>`, which follows the rebuild index.
+generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`).
+
+.. _asset-selection-variation:
+
+In-order asset selection (``RigidAssetSelectionVariation`` in :ref:`available-variations`) is the
+exception: rebuild k spawns the k-th name of its ``registry_names``, so set ``num_rebuilds`` to the
+length of the list to spawn each name once.
+
+A :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` fits neither row: it assigns one member
+to each parallel environment when the environment is built and keeps it for every episode of that
+build. It is part of the environment definition rather than a variation, so it has no
+``asset_selection``.
 
 .. _discovering-available-variations:
 
@@ -184,7 +194,9 @@ variations are sampled once and applied to asset configs before the environment 
      - Description
    * - ``RigidAssetSelectionVariation``
      - build-time
-     - Picks the registered asset a rigid object spawns, from a list of names, when the environment is built.
+     - Picks the registered asset a rigid object spawns from a list of names. Rebuild k spawns the
+       k-th name, or a random one with ``sampler_cfg.random_choice: true``. Episode rows record the
+       name. See the ``swap_objects`` Run of the :ref:`first Arena Experiment <first-arena-experiment>`.
    * - ``CameraExtrinsicsVariation``
      - run-time
      - Adds a small sampled offset to a camera's nominal local position on every reset.
@@ -209,44 +221,3 @@ variations are sampled once and applied to asset configs before the environment 
    * - ``LightIntensityVariation``
      - build-time
      - Samples a single intensity and applies it to a light.
-
-.. _asset-selection-variation:
-
-Asset selection
----------------
-
-To evaluate a Run on several objects, enable the object's ``asset_selection`` and list registered
-rigid objects in its ``registry_names``. The first rebuild of the Run spawns the first name in every
-parallel environment, the second rebuild the second name, and so on. Set ``num_rebuilds`` to the
-length of ``registry_names`` to spawn each entry once. With fewer rebuilds, a name listed only after
-the entry of the last rebuild never spawns.
-
-The ``swap_objects`` Run of the :ref:`first Arena Experiment <first-arena-experiment>` spawns three
-pick-up objects in ``pick_and_place_maple_table``, one per rebuild:
-
-.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
-   :language: yaml
-   :start-at: swap_objects:
-   :end-before: change_background_hdr:
-
-Every rigid ``Object`` except a ``RigidObjectSet`` has a disabled ``asset_selection`` variation, for
-example the ``pick_up_object`` of ``pick_and_place_maple_table``. While it is off, the object spawns
-its own asset. When it is on, each build chooses one name from ``registry_names``, and every parallel
-environment of that build spawns that asset. For different objects in the
-environments of one build, use a :doc:`RigidObjectSet <../scene/concept_rigid_object_set>`. A set
-spawns its own members, so it has no ``asset_selection``.
-
-With more rebuilds than entries, the order starts over after the last entry. The seed does not change
-this order. With ``sampler_cfg.random_choice: true``, each build instead draws a name at random, seeded
-from ``environment_builder.seed`` and the variation key, and names can repeat. To select a name more
-often, list it more than once: in order, it spawns in more rebuilds, and at random it is drawn more
-often.
-
-The object keeps its ``name``, so its variation keys stay the same. Its ``registry_name`` becomes the
-selected name. The default descriptions of ``PickAndPlaceTask`` and ``AssemblyTask`` name the
-selected asset. Other tasks, such as ``GearInsertionTask`` and ``PlaceUprightTask``, still use the
-object's ``name``.
-
-Every episode row records the chosen name, for example
-``"pick_up_object.asset_selection": "mustard_bottle_hot3d_robolab"``, and
-:doc:`recorded variation replay <../experiment_record_replay>` spawns the recorded asset.

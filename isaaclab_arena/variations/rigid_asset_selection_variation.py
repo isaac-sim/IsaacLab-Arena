@@ -50,6 +50,10 @@ class RigidAssetSelectionVariationCfg(VariationBaseCfg):
 class RigidAssetSelectionVariation(BuildTimeVariationBase):
     """Pick the registered asset a rigid object spawns; every environment of a build spawns the same asset.
 
+    Every rigid Object except a RigidObjectSet has one, disabled, under the name ``asset_selection``. The object keeps
+    its name, so its scene key and variation keys stay the same, and takes the spawn configuration and registry_name
+    of the selected asset.
+
     Args:
         rigid_object: Object whose asset the selection sets.
         cfg: Selection settings. By default the selection is off.
