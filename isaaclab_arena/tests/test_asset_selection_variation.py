@@ -279,7 +279,7 @@ def test_random_choice_override_draws_seeded_names_and_swaps_the_sampler(placeho
         variations,
         [
             f"{SELECTION_KEY}.enabled=true",
-            f"{SELECTION_KEY}.random_choice=true",
+            f"{SELECTION_KEY}.sampler_cfg.random_choice=true",
             f"{SELECTION_KEY}.registry_names=[mustard_bottle,sugar_box,tomato_soup_can]",
         ],
     )
@@ -291,14 +291,9 @@ def test_random_choice_override_draws_seeded_names_and_swaps_the_sampler(placeho
     # In order, every build seed would take the first name.
     assert len({select_registry_name(seed) for seed in range(5)}) > 1
 
-    variations_hydra.apply_overrides(variations, [f"{SELECTION_KEY}.random_choice=false"])
+    variations_hydra.apply_overrides(variations, [f"{SELECTION_KEY}.sampler_cfg.random_choice=false"])
     # In order, rebuild 1 takes the second name.
     assert select_registry_name(seed=0, rebuild_index=1) == "sugar_box"
-
-    # Set on the cfg directly, random_choice leaves the in-order sampler bound, so the build fails.
-    variation.cfg.random_choice = True
-    with pytest.raises(AssertionError, match="passing a cfg to apply_cfg"):
-        select_registry_name(seed=0)
 
 
 def test_in_order_selection_takes_repeated_names_in_list_order(placeholder_rigid_objects):

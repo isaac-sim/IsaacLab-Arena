@@ -14,9 +14,9 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.variations.choice_sampler import ChoiceSampler, ChoiceSamplerCfg
-from isaaclab_arena.variations.sampler_base import SamplerBaseCfg
-from isaaclab_arena.variations.sequential_sampler import SequentialSampler, SequentialSamplerCfg
+from isaaclab_arena.variations.choice_sampler import ChoiceSampler
+from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
+from isaaclab_arena.variations.sequential_sampler import SequentialSampler
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
 if TYPE_CHECKING:
@@ -24,20 +24,27 @@ if TYPE_CHECKING:
 
 
 @configclass
-class AssetSelectionVariationCfg(VariationBaseCfg):
-    """Configuration for AssetSelectionVariation."""
+class AssetSelectionSamplerCfg(SamplerBaseCfg):
+    """Config for the sampler that selects a registry name in each build."""
 
     random_choice: bool = False
     """False takes the names in list order, one per rebuild, starting over after the last name. True draws a name at
     random, seeded by the build seed and the variation key."""
 
+    def build(self) -> SamplerBase:
+        return ChoiceSampler() if self.random_choice else SequentialSampler()
+
+
+@configclass
+class AssetSelectionVariationCfg(VariationBaseCfg):
+    """Configuration for AssetSelectionVariation."""
+
     registry_names: list[str] = field(default_factory=list)
     """Registry names of the rigid objects to choose from, in this order. Required when enabled. A name listed more
     than once is selected more often."""
 
-    sampler_cfg: SamplerBaseCfg = field(default_factory=SequentialSamplerCfg)
-    """Sampler that selects the registry name. Set from random_choice when the cfg is applied: SequentialSamplerCfg
-    when it is false, ChoiceSamplerCfg when it is true."""
+    sampler_cfg: AssetSelectionSamplerCfg = field(default_factory=AssetSelectionSamplerCfg)
+    """Sampler that selects the registry name in each build."""
 
 
 class AssetSelectionVariation(BuildTimeVariationBase):
@@ -64,12 +71,6 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         self._variation_key: str | None = None
         self._rebuild_index: int = 0
 
-    def apply_cfg(self, cfg: AssetSelectionVariationCfg) -> None:
-        # Chosen here, not once in __init__, because a Hydra override of random_choice reaches the variation only
-        # through apply_cfg and must swap the sampler as well.
-        cfg.sampler_cfg = ChoiceSamplerCfg() if cfg.random_choice else SequentialSamplerCfg()
-        super().apply_cfg(cfg)
-
     def configure_at_build_time(self, seed: int, variation_key: str, rebuild_index: int = 0) -> None:
         # VariationBase does not keep these: the checks name the key, and in-order selection needs the index.
         self._variation_key = variation_key
@@ -81,14 +82,6 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         assert registry_names, (
             f"'{self._variation_key}' is enabled but its registry_names is empty. List the registered rigid objects"
             f" to choose from, for example '{self._variation_key}.registry_names=[cracker_box,sugar_box]'."
-        )
-        # apply_cfg picks the sampler from random_choice, so a random_choice set directly on the cfg leaves the other
-        # sampler bound.
-        expected_sampler_class = ChoiceSampler if self.cfg.random_choice else SequentialSampler
-        assert isinstance(self.sampler, expected_sampler_class), (
-            f"'{self._variation_key}' has random_choice={self.cfg.random_choice} but samples with a"
-            f" {type(self.sampler).__name__}. Change random_choice by passing a cfg to apply_cfg, which also swaps"
-            " the sampler."
         )
         # Checked at build time because bounding_box can be set after the Object is created.
         assert self._rigid_object.bounding_box is None, (

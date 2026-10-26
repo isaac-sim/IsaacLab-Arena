@@ -25,4 +25,4 @@ runs:
       pick_up_object.asset_selection.enabled: true
       # Registered rigid objects to spawn, in this order. Each episode row records the chosen name.
       pick_up_object.asset_selection.registry_names: [rubiks_cube_hot3d_robolab, mustard_bottle_hot3d_robolab, orange_01_fruits_veggies_robolab]
-      # pick_up_object.asset_selection.random_choice: true  # Each build draws a name at random
+      # pick_up_object.asset_selection.sampler_cfg.random_choice: true  # Each build draws a name at random

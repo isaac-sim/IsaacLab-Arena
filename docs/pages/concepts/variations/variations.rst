@@ -80,9 +80,8 @@ defaults:
      asset_selection (AssetSelectionVariation, build-time)
        Enable: pick_up_object.asset_selection.enabled=true  (default: False)
        Fields:
-         pick_up_object.asset_selection.random_choice = False
          pick_up_object.asset_selection.registry_names = []
-         pick_up_object.asset_selection.sampler_cfg = {}
+         pick_up_object.asset_selection.sampler_cfg.random_choice = False
 
    ...
 
@@ -237,10 +236,10 @@ environments of one build, use a :doc:`RigidObjectSet <../scene/concept_rigid_ob
 spawns its own members, so it has no ``asset_selection``.
 
 With more rebuilds than entries, the order starts over after the last entry. The seed does not change
-this order. With ``random_choice: true``, each build instead draws a name at random, seeded from
-``environment_builder.seed`` and the variation key, and names can repeat. To select a name more
-often, list it more than once: in order, it spawns in more rebuilds, and with ``random_choice: true``
-it is drawn more often.
+this order. With ``sampler_cfg.random_choice: true``, each build instead draws a name at random, seeded
+from ``environment_builder.seed`` and the variation key, and names can repeat. To select a name more
+often, list it more than once: in order, it spawns in more rebuilds, and at random it is drawn more
+often.
 
 The object keeps its ``name``, so its variation keys stay the same. Its ``registry_name`` becomes the
 selected name. The default descriptions of ``PickAndPlaceTask`` and ``AssemblyTask`` name the
