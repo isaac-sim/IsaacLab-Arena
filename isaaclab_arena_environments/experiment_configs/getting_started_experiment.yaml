@@ -14,6 +14,8 @@ shared:
   environment:
     type: pick_and_place_maple_table
     embodiment: droid_rel_joint_pos
+    pick_up_object: rubiks_cube_hot3d_robolab
+    destination_object: bowl_ycb_robolab
     hdr: home_office_robolab
     # Short demo timeout in simulated time, not wall-clock time.
     episode_length_s: 1.5
@@ -26,14 +28,14 @@ runs:
   baseline: {}
 
   swap_objects:
+    environment:
+      destination_object: wooden_bowl_hot3d_robolab
     num_rebuilds: 3
     rollout_limit:
       num_episodes: 3
     variations:
       pick_up_object.asset_selection.enabled: true
       pick_up_object.asset_selection.registry_names: [mustard_bottle_hot3d_robolab, orange_01_fruits_veggies_robolab, rubiks_cube_hot3d_robolab]
-      destination_object.asset_selection.enabled: true
-      destination_object.asset_selection.registry_names: [wooden_bowl_hot3d_robolab]
 
   change_background_hdr:
     environment:
