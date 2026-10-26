@@ -15,6 +15,7 @@ from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_run import RolloutLimitCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_loader import (
     load_arena_experiment_from_yaml,
@@ -252,6 +253,36 @@ runs:
         _load_experiment(config_path, overrides=["shared.missing=true"])
 
 
+def test_run_rollout_limit_replaces_shared_rollout_limit(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+shared:
+  environment:
+    type: pick_and_place_maple_table
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 50
+
+runs:
+  inherited: {}
+  total_episodes:
+    rollout_limit:
+      num_episodes: 4
+  per_rebuild:
+    num_rebuilds: 2
+    rollout_limit:
+      num_episodes_per_rebuild: [3, 1]
+""",
+    )
+
+    runs = _load_experiment(config_path).runs
+    assert runs["inherited"].rollout_limit == RolloutLimitCfg(num_steps=50)
+    assert runs["total_episodes"].rollout_limit == RolloutLimitCfg(num_episodes=4)
+    assert runs["per_rebuild"].rollout_limit == RolloutLimitCfg(num_episodes_per_rebuild=[3, 1])
+
+
 @pytest.mark.parametrize(("operator", "assignment"), [("+", "=75"), ("++", "=75"), ("~", "")])
 @pytest.mark.parametrize("experiment_config_prefix", ["", "experiment_cfg"])
 def test_shared_run_default_overrides_reject_hydra_operators(operator, assignment, experiment_config_prefix):
@@ -335,6 +366,40 @@ runs:
         "recordings/rebuild1.jsonl",
     ]
     assert run.num_rebuilds == 2
+
+    serialized_path = _write_experiment(tmp_path, serialize_arena_experiment_to_yaml(experiment_cfg))
+    assert _load_experiment(serialized_path) == experiment_cfg
+
+
+def test_episodes_per_rebuild_round_trip_and_accept_matching_overrides(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  per_rebuild:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    num_rebuilds: 3
+    rollout_limit:
+      num_episodes_per_rebuild: [20, 5, 5]
+""",
+    )
+
+    experiment_cfg = _load_experiment(config_path)
+    run = experiment_cfg.runs["per_rebuild"]
+    assert run.rollout_limit.num_episodes_per_rebuild == [20, 5, 5]
+
+    overridden_cfg = _load_experiment(
+        config_path,
+        overrides=[
+            "runs.per_rebuild.num_rebuilds=2",
+            "runs.per_rebuild.rollout_limit.num_episodes_per_rebuild=[4,2]",
+        ],
+    )
+    assert overridden_cfg.runs["per_rebuild"].num_rebuilds == 2
+    assert overridden_cfg.runs["per_rebuild"].rollout_limit.num_episodes_per_rebuild == [4, 2]
 
     serialized_path = _write_experiment(tmp_path, serialize_arena_experiment_to_yaml(experiment_cfg))
     assert _load_experiment(serialized_path) == experiment_cfg

@@ -30,14 +30,29 @@ class RolloutLimitCfg:
     """Number of environment steps, or ``None`` for an episode-driven rollout."""
 
     num_episodes: int | None = None
-    """Total number of episodes to start and finish, or ``None`` for a step-driven rollout."""
+    """Total number of episodes to start and finish, split evenly across rebuilds, or ``None`` for another limit."""
+
+    num_episodes_per_rebuild: list[int] | None = None
+    """Number of episodes to start and finish in each rebuild, in rebuild order, or ``None`` for another limit.
+    Its length must equal the Run's ``num_rebuilds``. When ``num_episodes`` is also set, it must equal the sum."""
 
     def __post_init__(self) -> None:
-        assert not (
-            self.num_steps is not None and self.num_episodes is not None
-        ), "num_steps and num_episodes are mutually exclusive"
+        has_episode_limit = self.num_episodes is not None or self.num_episodes_per_rebuild is not None
+        assert (
+            self.num_steps is None or not has_episode_limit
+        ), "num_steps is mutually exclusive with num_episodes and num_episodes_per_rebuild"
         assert self.num_steps is None or self.num_steps > 0, "num_steps must be greater than zero"
         assert self.num_episodes is None or self.num_episodes > 0, "num_episodes must be greater than zero"
+        if self.num_episodes_per_rebuild is not None:
+            assert self.num_episodes_per_rebuild, "num_episodes_per_rebuild must not be empty"
+            assert all(
+                num_episodes > 0 for num_episodes in self.num_episodes_per_rebuild
+            ), f"num_episodes_per_rebuild entries must be greater than zero; got {self.num_episodes_per_rebuild}"
+            total_num_episodes = sum(self.num_episodes_per_rebuild)
+            assert self.num_episodes is None or self.num_episodes == total_num_episodes, (
+                f"num_episodes ({self.num_episodes}) must equal the sum of num_episodes_per_rebuild "
+                f"({total_num_episodes}) when both are set"
+            )
 
 
 @dataclass
@@ -60,7 +75,8 @@ class ArenaRunCfg:
     """Step or episode limit for the policy rollout."""
 
     num_rebuilds: int = 1
-    """Number of fresh environment constructions over which metrics are aggregated."""
+    """Number of fresh environment constructions over which metrics are aggregated. When
+    ``rollout_limit.num_episodes_per_rebuild`` is set, this must equal its length."""
 
     recorded_variation_samples_paths: list[str] | None = None
     """Ordered replay JSONLs, one per environment rebuild."""
@@ -92,6 +108,16 @@ class ArenaRunCfg:
             assert (
                 self.rollout_limit.num_steps is None
             ), "Replay from recorded variation samples does not support a num_steps rollout limit"
+            assert self.rollout_limit.num_episodes_per_rebuild is None, (
+                "Replay from recorded variation samples does not support num_episodes_per_rebuild; "
+                "use num_episodes or leave the limit unset to replay every recorded episode"
+            )
+        if self.rollout_limit.num_episodes_per_rebuild is not None:
+            num_listed_rebuilds = len(self.rollout_limit.num_episodes_per_rebuild)
+            assert self.num_rebuilds == num_listed_rebuilds, (
+                f"Run '{self.name}': num_rebuilds ({self.num_rebuilds}) must equal the {num_listed_rebuilds} "
+                "entries of num_episodes_per_rebuild"
+            )
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
         if self.rollout_limit.num_episodes is not None:
             assert self.rollout_limit.num_episodes >= self.num_rebuilds, (
@@ -139,13 +165,18 @@ def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[Are
     for run_cfg in run_cfgs:
         result = results_by_name.get(run_cfg.name)
         policy_type = policy_registry.get_policy_type_for_cfg(run_cfg.policy)
+        rollout_limit = run_cfg.rollout_limit
+        if rollout_limit.num_episodes_per_rebuild is not None:
+            num_episodes = rollout_limit.num_episodes_per_rebuild
+        else:
+            num_episodes = rollout_limit.num_episodes
         table.add_row([
             run_cfg.name,
             result.status.value if result is not None else "pending",
             policy_type.name,
             run_cfg.environment_builder.num_envs,
-            run_cfg.rollout_limit.num_steps,
-            run_cfg.rollout_limit.num_episodes,
+            rollout_limit.num_steps,
+            num_episodes,
             run_cfg.num_rebuilds,
         ])
     return table

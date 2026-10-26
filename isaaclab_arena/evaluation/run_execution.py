@@ -248,6 +248,8 @@ def _resolve_rollout_limit(
 
 def _episodes_per_rebuild(cfg: ArenaRunCfg) -> list[int | None]:
     """Resolve one rollout episode budget per environment rebuild."""
+    if cfg.rollout_limit.num_episodes_per_rebuild is not None:
+        return list(cfg.rollout_limit.num_episodes_per_rebuild)
     if cfg.recorded_variation_samples_paths is not None:
         if cfg.rollout_limit.num_episodes is None:
             return [_recorded_episode_count(path) for path in cfg.recorded_variation_samples_paths]

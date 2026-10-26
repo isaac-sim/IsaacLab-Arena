@@ -131,6 +131,33 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     assert run.environment_builder.seed == base_seed
 
 
+def test_build_and_run_gives_each_rebuild_its_listed_episodes(monkeypatch, tmp_path):
+    run = _run(rollout_limit=RolloutLimitCfg(num_episodes_per_rebuild=[20, 5, 5]), num_rebuilds=3)
+    rollout_limits = []
+    received_run_cfgs = []
+
+    def make_environment(cfg, render_mode, **kwargs):
+        received_run_cfgs.append(cfg)
+        return _environment()
+
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
+    monkeypatch.setattr(
+        run_execution,
+        "rollout_policy",
+        lambda env, policy, num_steps, num_episodes: rollout_limits.append((num_steps, num_episodes)),
+    )
+
+    run_execution.build_and_run(run, output_dir=tmp_path)
+
+    assert rollout_limits == [(None, 20), (None, 5), (None, 5)]
+    assert [rebuild_cfg.environment_builder.seed for rebuild_cfg in received_run_cfgs] == [
+        run.environment_builder.seed + rebuild_index for rebuild_index in range(3)
+    ]
+
+
 @pytest.mark.parametrize(
     ("configured_episodes", "num_rebuilds", "expected_rollout_limits"),
     [

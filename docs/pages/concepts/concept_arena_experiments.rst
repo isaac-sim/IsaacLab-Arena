@@ -72,7 +72,19 @@ the background. The Run name comes from its key below ``runs``; there is no sepa
 field. Arena uses this name in command-line overrides, output directories, and reports.
 
 Use ``rollout_limit.num_episodes`` instead of ``rollout_limit.num_steps`` to start and finish
-exactly that many episodes per Run, across all rebuilds.
+exactly that many episodes per Run, split as evenly as possible across rebuilds. To choose each
+rebuild's count, list them in ``rollout_limit.num_episodes_per_rebuild`` instead, and set
+``num_rebuilds`` to the length of the list. ``num_episodes`` can stay set only if it equals the
+sum of the list:
+
+.. code-block:: yaml
+
+   num_rebuilds: 3
+   rollout_limit:
+     num_episodes_per_rebuild:
+       - 20   # rebuild 0
+       - 5    # rebuild 1
+       - 5    # rebuild 2
 
 See :doc:`Record and Replay Experiments <experiment_record_replay>` for variation recording,
 partial and complete replay, and episode scheduling across one or more rebuilds.
@@ -154,6 +166,11 @@ Reuse values with ``shared``
 
 ``shared`` removes repetition. Arena applies these values to every Run, then places each Run's
 own values on top. A Run only needs to declare what is different.
+
+``rollout_limit`` is the exception. A Run that declares ``rollout_limit`` replaces the shared one
+as a whole, so a Run can switch from a shared ``num_steps`` to ``num_episodes`` or
+``num_episodes_per_rebuild`` without clearing the shared field. A ``runs.<name>.rollout_limit.*``
+CLI override is applied after this step, so it is still merged with the Run's limit.
 
 Values are applied in this order, from lowest to highest priority:
 
