@@ -9,11 +9,12 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer, _order_parents_before_children
-from isaaclab_arena.relations.initializers.relation_sampling_strategies import (
-    SAMPLING_STRATEGIES,
-    RelationSamplingStrategy,
+from isaaclab_arena.relations.initializers.on_tree_initializer import (
+    RELATION_TO_AABB_STRATEGIES,
+    OnTreeInitializer,
+    RelationToAABBStrategy,
     _bounding_box_from_partial_limits,
+    _order_parents_before_children,
 )
 from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLimitsBox, Relation, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -297,18 +298,18 @@ class _MatchReferenceX(Relation):
     """Test relation whose origin uses its reference's world minimum X."""
 
 
-class _MatchReferenceXSamplingStrategy(RelationSamplingStrategy):
-    def sampling_dependencies(self, relation):
+class _MatchReferenceXToAABBStrategy(RelationToAABBStrategy):
+    def get_dependencies(self, relation):
         return (relation.parent,)
 
-    def sampling_bounds(self, relation, subject_bbox, sampled_world_bboxes):
+    def get_bounds(self, relation, subject_bbox, sampled_world_bboxes):
         x = sampled_world_bboxes[relation.parent].min_point[0, 0].item()
         return _bounding_box_from_partial_limits((x, None, None), (x, None, None))
 
 
 def test_ontree_orders_registered_dependencies_across_levels_and_cycles(monkeypatch):
     """Use generic references across levels, breaking cycles without breaking support order."""
-    monkeypatch.setitem(SAMPLING_STRATEGIES, _MatchReferenceX, _MatchReferenceXSamplingStrategy())
+    monkeypatch.setitem(RELATION_TO_AABB_STRATEGIES, _MatchReferenceX, _MatchReferenceXToAABBStrategy())
     desk = _make_desk()
     tray = _make_box("tray", size=0.5)
     child = _make_box("child", size=0.1)

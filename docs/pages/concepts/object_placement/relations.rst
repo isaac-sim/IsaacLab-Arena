@@ -83,26 +83,8 @@ Most environments can be described with a small set of relations:
    ``ObjectReference`` that identifies the valid support surface.
 
    The default ``ON_TREE`` initializer samples parents before their children,
-   using each parent's sampled pose and bounds. An object becomes eligible as
-   soon as its support is sampled. Among eligible objects, the initializer prefers
-   those whose sampling references are already available. It updates this frontier
-   after every object, allowing references on deeper branches to precede subjects
-   on shallower branches.
-
-   If all eligible objects have unavailable references, it chooses the object with
-   the fewest missing dependencies, then the one whose support subtree contains
-   the most waiting references. Equal scores preserve input order. This heuristic
-   breaks cycles without breaking support ordering; unavailable relation bounds
-   are skipped and remain constraints for the solver.
-
-   Sampling strategies in ``relation_sampling_strategies.py`` supply both
-   ``sampling_dependencies`` and ``sampling_bounds``. Register a strategy in
-   ``SAMPLING_STRATEGIES`` to extend ordering and narrowing together. Currently
-   ``PositionLimitsBox`` and ``AlignWith`` have strategies; unsupported relations
-   affect neither. Bounds narrow the support region only where their intersection
-   is feasible. These are starting poses; the solver optimizes the full layout.
-   Ordering is deterministic for a fixed input graph, but changing the traversal
-   can change the layouts produced by an existing placement seed.
+   using each parent's sampled pose and bounds. This sets the starting poses;
+   the solver then optimizes the complete layout jointly.
 
 .. _clutter-on-relation:
 

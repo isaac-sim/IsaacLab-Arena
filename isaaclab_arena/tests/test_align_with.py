@@ -12,7 +12,7 @@ import pytest
 
 from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
-from isaaclab_arena.relations.initializers.relation_sampling_strategies import _bounds_from_align_with
+from isaaclab_arena.relations.initializers.on_tree_initializer import _bounds_from_align_with
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
