@@ -72,14 +72,12 @@ relations:
   reference: right_bowl
   params:
     axis: y
-    offset_m: 0.0
     tolerance_m: 0.1
 - kind: align_with
   subject: banana
   reference: left_bowl
   params:
     axis: x
-    offset_m: 0.0
     tolerance_m: 0.1
 - kind: align_with
   subject: banana

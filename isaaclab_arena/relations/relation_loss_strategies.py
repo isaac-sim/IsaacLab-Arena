@@ -232,10 +232,8 @@ def align_with_error(
         Error in metres, shaped (N,), broadcasting singleton bounds.
     """
     axis_index = "xyz".index(relation.axis)
-    offset_W_child_center = (child_bbox.min_point + child_bbox.max_point) * 0.5
-    p_W_parent_center = (parent_world_bbox.min_point + parent_world_bbox.max_point) * 0.5
-    p_W_child_center = t_W_C + offset_W_child_center
-    return p_W_child_center[..., axis_index] - p_W_parent_center[..., axis_index] - relation.offset_m
+    p_W_child_center = t_W_C + child_bbox.center
+    return p_W_child_center[..., axis_index] - parent_world_bbox.center[..., axis_index] - relation.offset_m
 
 
 class AlignWithLossStrategy(RelationLossStrategy):

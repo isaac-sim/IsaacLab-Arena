@@ -62,7 +62,6 @@ relations:
   reference: wooden_block
   params:
     axis: x
-    offset_m: 0.0
     tolerance_m: 0.1
 - kind: align_with
   subject: mustard

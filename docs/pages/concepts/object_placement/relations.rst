@@ -191,26 +191,11 @@ Most environments can be described with a small set of relations:
    and a linear penalty outside it. Other relations can still favour particular
    positions inside the band, so this does not guarantee uniform sampling.
 
-   The default ``ON_TREE`` initializer samples the reference first where possible
-   and intersects the subject's ``On`` footprint and position boxes with the
-   alignment band. It samples uniformly within the resulting intervals, using
-   the supplied bounding-box centres to convert centre offsets to origin bounds.
-   If alignment dependencies form a cycle, an unsampled reference is skipped
-   for initialization and left to the solver. An infeasible axis keeps its
-   original ``On`` range, as with position boxes. Objects without ``On`` retain
-   their fallback initialization. Yaw changes sampled after initialization can
-   change the bounds; the solver and placement validators still determine which
-   final layouts are accepted.
-
-   Use this with ``On`` to align objects on different shelves, or with
-   ``NextTo`` to enforce lateral alignment instead of its soft
-   ``cross_position_ratio`` preference. Bounding-box centres, including the
-   candidate's orientation and asset scale, are used rather than asset origins.
-   This relation uses world axes, not the reference object's local axes.
-
-   Both assets can move during solving; this relation does not fix the reference
-   in place. Use ``IsAnchor`` to fix it, or ``PositionLimitsBox`` to bound its
-   placement region.
+   ``ON_TREE`` uses alignment bands when sampling objects with ``On`` relations,
+   placing references first where possible. Cycles and infeasible bands are
+   left to the solver and validation. Centres account for asset scale and
+   candidate orientation. Both assets can move; use ``IsAnchor`` to fix the
+   reference or ``PositionLimitsBox`` to bound its region.
 
    Placement validation rejects an alignment error larger than ``tolerance_m``.
    The ``align_with`` check is enabled and required by default. If specifying

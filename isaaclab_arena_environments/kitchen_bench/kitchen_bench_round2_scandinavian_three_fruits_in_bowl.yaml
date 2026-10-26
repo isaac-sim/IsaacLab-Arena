@@ -80,7 +80,6 @@ relations:
   reference: wooden_bowl
   params:
     axis: x
-    offset_m: -0.0
     tolerance_m: 0.1
 - kind: align_with
   subject: lime
@@ -101,7 +100,6 @@ relations:
   reference: lime
   params:
     axis: y
-    offset_m: -0.0
     tolerance_m: 0.1
 - kind: align_with
   subject: apple
@@ -115,7 +113,6 @@ relations:
   reference: lime
   params:
     axis: y
-    offset_m: -0.0
     tolerance_m: 0.1
 - kind: align_with
   subject: droid

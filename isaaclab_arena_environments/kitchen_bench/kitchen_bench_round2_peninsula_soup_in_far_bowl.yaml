@@ -90,7 +90,6 @@ relations:
   reference: near_bowl
   params:
     axis: y
-    offset_m: -0.0
     tolerance_m: 0.1
 - kind: align_with
   subject: far_bowl
