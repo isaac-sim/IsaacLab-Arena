@@ -217,29 +217,6 @@ class RelationLossStrategy(ABC):
 class AlignWithLossStrategy(RelationLossStrategy):
     """Penalize centre displacement only outside the alignment tolerance band."""
 
-    @staticmethod
-    def center_distance(
-        relation: AlignWith,
-        t_W_C: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
-    ) -> torch.Tensor:
-        """Return signed subject-centre distance from the requested alignment band centre.
-
-        Args:
-            relation: Alignment axis and subject-minus-reference offset.
-            t_W_C: Subject origins in world frame W, shaped (3,) or (N, 3).
-            child_bbox: Oriented subject bounds relative to its origin, shaped (1, 3) or (N, 3).
-            parent_world_bbox: Reference bounds expressed in W, shaped (1, 3) or (N, 3).
-
-        Returns:
-            Signed distance in metres, shaped (N,), broadcasting singleton bounds.
-            This subtracts offset_m but does not apply the tolerance band.
-        """
-        axis_index = relation.axis.index
-        p_W_child_center = t_W_C + child_bbox.center
-        return p_W_child_center[..., axis_index] - parent_world_bbox.center[..., axis_index] - relation.offset_m
-
     def __init__(self, slope: float = 100.0):
         """Set the loss increase per metre of alignment error."""
         self.slope = slope
@@ -252,7 +229,11 @@ class AlignWithLossStrategy(RelationLossStrategy):
         parent_world_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
         """Return alignment loss with the same scalar or batch shape as other relations."""
-        center_distance = self.center_distance(relation, child_pos, child_bbox, parent_world_bbox)
+        axis_index = relation.axis.index
+        p_W_child_center = child_pos + child_bbox.center
+        center_distance = (
+            p_W_child_center[..., axis_index] - parent_world_bbox.center[..., axis_index] - relation.offset_m
+        )
         loss = relation.relation_loss_weight * linear_band_loss(
             center_distance, -relation.tolerance_m, relation.tolerance_m, slope=self.slope
         )

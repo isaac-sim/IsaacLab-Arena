@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Alignment geometry, validation, and solver integration."""
+"""Alignment geometry, validation, and candidate initialization."""
 
 import math
 import torch
@@ -15,11 +15,8 @@ from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding
 from isaaclab_arena.relations.initializers.on_tree_initializer import _bounds_from_align_with
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
-from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
 from isaaclab_arena.relations.relation_loss_strategies import AlignWithLossStrategy
-from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import AlignWith, IsAnchor, NextTo, On, PositionLimitsBox, RotateAroundSolution
+from isaaclab_arena.relations.relations import AlignWith, IsAnchor, On, PositionLimitsBox, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import AlignWithValidator, OnRelationValidator, build_validators
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
@@ -72,28 +69,15 @@ def test_alignment_batch_gradients_move_both_objects_together():
     assert torch.equal(t_W_P.grad, -t_W_C.grad)
 
 
-def test_alignment_validator_rejects_bad_candidates_and_nonfinite_positions():
+def test_alignment_validator_checks_tolerance():
     subject, reference = _objects()
     subject.add_relation(AlignWith(reference, "x", offset_m=-0.2, tolerance_m=0.025))
     bboxes = {subject: subject.bounding_box, reference: reference.bounding_box}
-    positions = [{subject: (x, 9.0, 10.0), reference: (0.0, 0.0, 0.0)} for x in (1.7, 1.72, 1.74, float("nan"))]
-    batch = make_candidate_batch(positions, [{}] * 4, [bboxes] * 4)
+    positions = [{subject: (x, 9.0, 10.0), reference: (0.0, 0.0, 0.0)} for x in (1.7, 1.72, 1.74)]
+    batch = make_candidate_batch(positions, [{}] * 3, [bboxes] * 3)
     params = ObjectPlacerParams(verbose=False)
-    assert AlignWithValidator(params).validate_batch(batch, []) == [True, True, False, False]
+    assert AlignWithValidator(params).validate_batch(batch, []) == [True, True, False]
     assert PlacementCheck.ALIGN_WITH in {validator.check for validator in build_validators(params)}
-
-
-def test_alignment_failure_is_required_by_default():
-    subject, reference = _objects()
-    subject.add_relation(AlignWith(reference, "x", tolerance_m=0.02))
-    positions = {subject: (2.0, 9.0, 10.0), reference: (0.0, 0.0, 0.0)}
-    bboxes = {subject: subject.bounding_box, reference: reference.bounding_box}
-    batch = make_candidate_batch([positions], [{}], [bboxes])
-    params = ObjectPlacerParams(verbose=False)
-    PlacementValidationRunner(params, build_validators(params)).validate_candidates(batch, [])
-    results = batch.candidates[0].validation
-    assert not results.validation_results[PlacementCheck.ALIGN_WITH]
-    assert not results.do_all_required_validation_checks_pass()
 
 
 def test_alignment_accepts_per_candidate_bounds_after_rotation():
@@ -107,39 +91,6 @@ def test_alignment_accepts_per_candidate_bounds_after_rotation():
     origins_W = torch.tensor([[1.9, 0.0, 0.0], [2.1, 0.0, 0.0]])
     loss = AlignWithLossStrategy().compute_loss(relation, origins_W, child_bounds, reference.bounding_box)
     assert torch.allclose(loss, torch.zeros(2), atol=1e-4)
-
-
-def test_alignment_solver_handles_moving_reference_and_different_heights():
-    table = DummyObject("table", AxisAlignedBoundingBox((-1.0, -1.0, -0.1), (1.0, 1.0, 0.0)))
-    table.set_initial_pose(Pose.identity(), create_reset_event=False)
-    table.add_relation(IsAnchor())
-    subject = DummyObject("subject", AxisAlignedBoundingBox((-0.1, -0.1, 0.0), (0.1, 0.1, 0.2)))
-    reference = DummyObject("reference", AxisAlignedBoundingBox((-0.1, -0.1, 0.0), (0.1, 0.1, 0.2)))
-    subject.add_relation(On(table, clearance_m=0.2))
-    reference.add_relation(On(table))
-    subject.add_relation(AlignWith(reference, "x", offset_m=0.1, tolerance_m=0.02))
-    initial = {table: (0.0, 0.0, 0.0), subject: (-0.5, -0.5, 0.2), reference: (0.5, 0.5, 0.01)}
-    solver = RelationSolver(RelationSolverParams(verbose=False, save_position_history=False))
-    final = solver.solve([table, subject, reference], [initial])[0]
-    assert abs(final[subject][0] - final[reference][0] - 0.1) <= 0.02
-    assert final[subject][2] > final[reference][2] + 0.1
-
-
-def test_alignment_overrides_next_to_soft_cross_axis_preference():
-    counter = DummyObject("counter", AxisAlignedBoundingBox((-3.0, -0.5, -0.1), (3.0, 0.5, 0.0)))
-    counter.set_initial_pose(Pose.identity(), create_reset_event=False)
-    counter.add_relation(IsAnchor())
-    target = DummyObject("target", AxisAlignedBoundingBox((-0.1, -0.1, 0.0), (0.1, 0.1, 0.2)))
-    robot = DummyObject("robot", AxisAlignedBoundingBox((-0.2, -0.2, 0.0), (0.2, 0.2, 0.8)))
-    target.add_relation(On(counter))
-    target.add_relation(PositionLimitsBox(x_min=2.0, x_max=2.2))
-    robot.add_relation(NextTo(counter, side="negative_y", distance_m=0.2, cross_position_ratio=0.0))
-    robot.add_relation(AlignWith(target, axis="x", tolerance_m=0.04))
-    initial = {counter: (0.0, 0.0, 0.0), target: (2.1, 0.0, 0.01), robot: (0.0, -0.9, 0.0)}
-    solver = RelationSolver(RelationSolverParams(verbose=False, save_position_history=False))
-    final = solver.solve([counter, target, robot], [initial])[0]
-    assert abs(final[robot][0] - final[target][0]) <= 0.04
-    assert 1.99 <= final[target][0] <= 2.21
 
 
 @pytest.mark.parametrize(

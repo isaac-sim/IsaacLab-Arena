@@ -15,7 +15,6 @@ from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_co
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
-    AlignWithLossStrategy,
     NotNextToLossStrategy,
     next_to_violations,
     not_next_to_violations,
@@ -225,8 +224,10 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
                     continue
                 child_bbox = env_bboxes[obj]
                 parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
-                center_distance = AlignWithLossStrategy.center_distance(
-                    relation, child_bbox.min_point.new_tensor(t_W_C), child_bbox, parent_world
+                axis_index = relation.axis.index
+                p_W_child_center = child_bbox.min_point.new_tensor(t_W_C) + child_bbox.center
+                center_distance = (
+                    p_W_child_center[..., axis_index] - parent_world.center[..., axis_index] - relation.offset_m
                 )
                 if not torch.isfinite(center_distance).all() or center_distance.abs().item() > relation.tolerance_m:
                     if self._params.verbose:
