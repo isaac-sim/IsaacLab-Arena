@@ -26,7 +26,6 @@ case "${1:-}" in
     dependencies)
         ln -sfn /isaac-sim/ "${ISAACLAB_PATH}/_isaac_sim"
         uv venv --seed --python /isaac-sim/kit/python/bin/python3 "${VIRTUAL_ENV}"
-        chgrp -R isaac-sim "${VIRTUAL_ENV}"
         find "${VIRTUAL_ENV}" -type d -exec chmod g+s {} +
         sync_isaaclab --no-install-local
         ;;

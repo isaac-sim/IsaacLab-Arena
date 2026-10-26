@@ -1,5 +1,7 @@
 #!/bin/bash
-# Repair shared-group access after installing packages into the virtual environment.
+# uv can preserve restrictive ownership and modes from its package cache, leaving
+# the shared virtual environment unwritable by runtime users in the isaac-sim group.
+# Repair only mismatches in each install layer to avoid copying the full venv later.
 
 set -euo pipefail
 
