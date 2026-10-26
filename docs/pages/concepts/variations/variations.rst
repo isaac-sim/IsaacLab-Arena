@@ -44,7 +44,8 @@ generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`).
 
 In-order asset selection (``RigidAssetSelectionVariation`` in :ref:`available-variations`) is the
 exception: rebuild k spawns the k-th name of its ``registry_names``, so set ``num_rebuilds`` to the
-length of the list to spawn each name once.
+length of the list to spawn each name once. After the last name the list starts over, so a list with
+one name spawns that asset in every rebuild.
 
 A :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` fits neither row: it assigns one member
 to each parallel environment when the environment is built and keeps it for every episode of that
