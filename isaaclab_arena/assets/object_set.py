@@ -84,6 +84,9 @@ class RigidObjectSet(Object):
             initial_pose=initial_pose,
             **kwargs,
         )
+        # Object gives every rigid object an asset_selection variation. A set spawns its own members, which a
+        # selected asset would replace, so the set does not offer it.
+        del self.variations["asset_selection"]
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return one local bbox for callers that cannot vary by env.

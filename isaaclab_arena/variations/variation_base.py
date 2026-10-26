@@ -189,6 +189,10 @@ class BuildTimeVariationBase(VariationBase):
     asset(s) they mutate and realise the effect in ``_realize_at_build_time``.
     """
 
+    changes_object_geometry: bool = False
+    """Whether this variation changes the geometry of an object. Replaying recorded placement then needs the recorded
+    value, because the recorded poses were solved for that geometry."""
+
     @abstractmethod
     def _realize_at_build_time(self) -> None:
         """Sample and apply this variation to the target configuration once per env build."""

@@ -146,15 +146,23 @@ def _test_rigid_objects_have_disabled_asset_selection(simulation_app):
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
 
     # A rigid Object, even one outside the object library, has a disabled selection.
-    cube = Object(name="cube", object_type=ObjectType.RIGID, spawner_cfg=sim_utils.CuboidCfg(size=(0.1, 0.1, 0.1)))
+    cube = Object(
+        name="cube",
+        object_type=ObjectType.RIGID,
+        spawner_cfg=sim_utils.CuboidCfg(size=(0.1, 0.1, 0.1), rigid_props=sim_utils.RigidBodyPropertiesCfg()),
+    )
     assert not cube.get_variation("asset_selection").enabled
     # A registered library object that is not rigid has none.
     ground_plane = AssetRegistry().get_asset_by_name("ground_plane")()
     assert "asset_selection" not in ground_plane.variations
+    # A RigidObjectSet spawns its own members, so it has none.
+    cube_set = RigidObjectSet(name="cube_set", objects=[cube])
+    assert "asset_selection" not in cube_set.variations
     return True
 
 
@@ -232,15 +240,25 @@ class _RecordingRigidObject:
 
 @pytest.fixture
 def placeholder_rigid_objects(monkeypatch):
-    """Resolve registry names to placeholders instead of building the registered assets.
+    """Accept every registry name and build placeholders instead of the registered assets.
 
-    Building the registered assets needs a SimulationApp, so the tests that use this fixture run in plain Python.
+    Checking and building the registered assets needs a SimulationApp, so the tests that use this fixture run in
+    plain Python.
+
+    Returns:
+        The registry names built, in build order.
     """
     from isaaclab_arena.variations import asset_selection_variation
 
-    monkeypatch.setattr(
-        asset_selection_variation, "_build_rigid_object", lambda registry_name: f"rigid object {registry_name}"
-    )
+    built_registry_names: list[str] = []
+
+    def build_placeholder(registry_name):
+        built_registry_names.append(registry_name)
+        return f"rigid object {registry_name}"
+
+    monkeypatch.setattr(asset_selection_variation, "_assert_registered_rigid_object", lambda registry_name: None)
+    monkeypatch.setattr(asset_selection_variation, "_build_rigid_object", build_placeholder)
+    return built_registry_names
 
 
 def test_random_choice_override_draws_seeded_names_and_swaps_the_sampler(placeholder_rigid_objects):
@@ -261,7 +279,7 @@ def test_random_choice_override_draws_seeded_names_and_swaps_the_sampler(placeho
         variations,
         [
             f"{SELECTION_KEY}.enabled=true",
-            f"{SELECTION_KEY}.random_choice=true",
+            f"{SELECTION_KEY}.sampler_cfg.random_choice=true",
             f"{SELECTION_KEY}.registry_names=[mustard_bottle,sugar_box,tomato_soup_can]",
         ],
     )
@@ -273,14 +291,9 @@ def test_random_choice_override_draws_seeded_names_and_swaps_the_sampler(placeho
     # In order, every build seed would take the first name.
     assert len({select_registry_name(seed) for seed in range(5)}) > 1
 
-    variations_hydra.apply_overrides(variations, [f"{SELECTION_KEY}.random_choice=false"])
+    variations_hydra.apply_overrides(variations, [f"{SELECTION_KEY}.sampler_cfg.random_choice=false"])
     # In order, rebuild 1 takes the second name.
     assert select_registry_name(seed=0, rebuild_index=1) == "sugar_box"
-
-    # Set on the cfg directly, random_choice leaves the in-order sampler bound, so the build fails.
-    variation.cfg.random_choice = True
-    with pytest.raises(AssertionError, match="passing a cfg to apply_cfg"):
-        select_registry_name(seed=0)
 
 
 def test_in_order_selection_takes_repeated_names_in_list_order(placeholder_rigid_objects):
@@ -299,6 +312,9 @@ def test_in_order_selection_takes_repeated_names_in_list_order(placeholder_rigid
 
     # Rebuild k takes entry k % 4, so mustard_bottle spawns in rebuilds 0, 2 and 4.
     assert rigid_object.selected_registry_names == registry_names + registry_names[:2]
+    # Each build constructs only the asset it selects.
+    built_registry_names = placeholder_rigid_objects
+    assert built_registry_names == rigid_object.selected_registry_names
 
 
 def test_asset_selection_rejects_empty_registry_names_and_bounding_box_override(placeholder_rigid_objects):
