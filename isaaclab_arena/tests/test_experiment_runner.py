@@ -9,13 +9,18 @@ import os
 import subprocess
 import yaml
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
+    ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME,
+)
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
@@ -150,6 +155,33 @@ def run_experiment_runner(
     return run_subprocess(args, capture_output=capture_output, timeout_sec=timeout_sec)
 
 
+def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monkeypatch, tmp_path):
+    from isaaclab_arena.evaluation import arena_experiment_result
+    from isaaclab_arena.evaluation.arena_run import ArenaRunResult, RunStatus
+    from isaaclab_arena.evaluation.experiment_runner import _write_arena_experiment_result
+
+    monkeypatch.setattr(
+        arena_experiment_result,
+        "build_arena_run_result_metadata",
+        lambda run_cfg: {
+            "environment": {"name": "env", "definition": "env"},
+            "policy_variant": "zero_action",
+        },
+    )
+    experiment_cfg = SimpleNamespace(runs={"passing": SimpleNamespace(), "failing": SimpleNamespace()})
+    run_results = [
+        ArenaRunResult(run_name="passing", status=RunStatus.COMPLETED, end_timestamp_ns=1792800000000000000),
+        ArenaRunResult(run_name="failing", status=RunStatus.FAILED, end_timestamp_ns=1760313700000000000),
+    ]
+    (tmp_path / "passing").mkdir()
+
+    result_path = _write_arena_experiment_result(experiment_cfg, run_results, tmp_path)
+
+    runs = json.loads(result_path.read_text(encoding="utf-8"))["runs"]
+    assert runs["passing"]["end_timestamp_ns"] == 1792800000000000000
+    assert runs["failing"]["end_timestamp_ns"] == 1760313700000000000
+
+
 @pytest.mark.with_subprocess
 def test_experiment_runner_from_typed_yaml(tmp_path):
     """Execute a typed YAML Experiment through the Experiment Runner CLI."""
@@ -194,7 +226,13 @@ runs:
     }
     assert run_result["policy_variant"] == "zero_action"
     assert run_result["status"] == "completed"
-    assert set(run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+    assert isinstance(run_result["end_timestamp_ns"], int)
+    assert set(run_result) == {"environment", "policy_variant", "status", "end_timestamp_ns", "rebuilds"}
+    experiment_kpis = json.loads(
+        (tmp_path / "output" / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
+    )
+    assert_influxdb_kpi_records_are_valid(experiment_kpis)
+    assert {record["timestamp_ns"] for record in experiment_kpis} == {run_result["end_timestamp_ns"]}
 
 
 @pytest.mark.with_subprocess

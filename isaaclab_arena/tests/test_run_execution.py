@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import time
 from copy import deepcopy
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -340,17 +341,21 @@ def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path)
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
+    before_experiment_ns = time.time_ns()
     results = run_execution.execute_experiment(
         _experiment(_run(name="failing"), _run(name="passing")),
         output_dir=tmp_path,
         continue_on_error=True,
     )
+    after_experiment_ns = time.time_ns()
 
     assert attempted == ["failing", "passing"]
     assert [(result.run_name, result.status) for result in results] == [
         ("failing", RunStatus.FAILED),
         ("passing", RunStatus.COMPLETED),
     ]
+    end_timestamps_ns = [result.end_timestamp_ns for result in results]
+    assert before_experiment_ns <= end_timestamps_ns[0] <= end_timestamps_ns[1] <= after_experiment_ns
 
 
 def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):

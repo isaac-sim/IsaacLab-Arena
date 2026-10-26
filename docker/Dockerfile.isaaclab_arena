@@ -7,7 +7,7 @@
 # sim-base:       Isaac Sim, common system packages, and runtime permissions.
 # isaaclab:       Isaac Lab checkout and its dependencies, on top of sim-base.
 # arena-deps:     Arena dependencies, policy clients, and developer tools, on isaaclab.
-# dev:            Arena source, editable install, shell setup, and entrypoint.
+# dev:            Arena source, editable install, shell setup, entrypoint, and the Arena git commit and branch.
 # curobo-builder: Isolated CUDA toolkit and wheel compilation, branching from isaaclab.
 # dev-curobo:     Dev plus cuRobo installed from the builder's mounted wheel.
 #
@@ -97,6 +97,12 @@ RUN --mount=type=bind,source=docker/setup/configure_shell.sh,target=/tmp/configu
 COPY docs ${WORKDIR}/docs
 COPY docker/setup/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
+# Record the git commit and branch the image is built from. The LABEL uses the OCI standard
+# annotation for the source revision, org.opencontainers.image.revision.
+ARG GIT_SHA=unknown
+ARG GIT_BRANCH=unknown
+ENV ARENA_GIT_SHA=${GIT_SHA} ARENA_GIT_BRANCH=${GIT_BRANCH}
+LABEL org.opencontainers.image.revision=${GIT_SHA}
 
 ###################################
 # STAGE: curobo-builder

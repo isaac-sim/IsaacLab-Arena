@@ -10,6 +10,7 @@ its ``<run-name>/...`` output is included. Completed Run directories are copied 
 ``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. The
 ``arena_experiment_result.json`` and ``index.html`` report list every Run execution and include episode details only
 from completed Runs. ``arena_experiment_timings.json`` holds each completed Run's timings and their per-timer totals.
+``arena_experiment_influxdb_kpi_records.json`` holds the Experiment's KPIs as records ready for InfluxDB.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
+from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import write_experiment_influxdb_kpi_records
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
@@ -54,13 +56,17 @@ def load_experiment_runner_result(
     }, f"Experiment Runner result for Run '{run_name}' must contain metadata for exactly that Run"
     run_metadata = run_metadata_by_name[run_name]
     assert isinstance(run_metadata, dict), f"Experiment Runner metadata for Run '{run_name}' must be a JSON object"
+    end_timestamp_ns = experiment_runner_result["end_timestamp_ns"]
+    assert isinstance(end_timestamp_ns, int) and not isinstance(
+        end_timestamp_ns, bool
+    ), f"Experiment Runner result for Run '{run_name}' must have an integer end_timestamp_ns"
     return (
         RunExecutionReport(
             run_name=run_name,
             status=execution_status,
             process_exit_code=process_exit_code,
         ),
-        run_metadata,
+        {**run_metadata, "end_timestamp_ns": end_timestamp_ns},
     )
 
 
@@ -183,7 +189,9 @@ def build_experiment_output(
         [report.run_name for report in run_execution_reports if report.status is RunStatus.COMPLETED],
     )
     print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
-    return build_report(experiment_output_directory, run_executions=run_execution_reports)
+    report_path = build_report(experiment_output_directory, run_executions=run_execution_reports)
+    write_experiment_influxdb_kpi_records(experiment_output_directory)
+    return report_path
 
 
 def _parse_arguments() -> argparse.Namespace:
