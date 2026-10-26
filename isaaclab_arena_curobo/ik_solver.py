@@ -19,7 +19,7 @@ from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
 from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, world_config_from_cuboids
-from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
+from isaaclab_arena_curobo.utils.robot_cfg_utils import load_robot_yaml
 
 
 class CuroboIKSolver:
@@ -78,7 +78,7 @@ class CuroboIKSolver:
         self.device_cfg = DeviceCfg(device=self.device, dtype=torch.float32)
         collision_cache = collision_cache_size or {"cuboid": 150, "mesh": 150}
 
-        self.robot_cfg = load_patched_robot_yaml(curobo_cfg)["robot_cfg"]
+        self.robot_cfg = load_robot_yaml(curobo_cfg)["robot_cfg"]
         self.hand_link_names = list(curobo_cfg.hand_link_names)
 
         ik_config = InverseKinematicsCfg.create(
