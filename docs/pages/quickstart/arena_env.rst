@@ -73,15 +73,13 @@ Every command below is identical in both runtimes.
 Run the reference scene
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the environment with a Rubik's cube, bowl, and home-office background:
+Run the environment with its default Rubik's cube and bowl, and a home-office background:
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
-     --pick_up_object rubiks_cube_hot3d_robolab \
-     --destination_object bowl_ycb_robolab \
      --hdr home_office_robolab
 
 .. figure:: ../../images/default_srl_pnp.png
@@ -97,16 +95,19 @@ Close Kit before starting the next example.
 Swap the objects
 ^^^^^^^^^^^^^^^^
 
-Keep the same environment and task, but replace the pick-up object and destination:
+Keep the same environment and task, but replace the pick-up object and destination. Each object's
+``asset_selection`` picks the registered asset it spawns:
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
-     --pick_up_object mustard_bottle_hot3d_robolab \
-     --destination_object wooden_bowl_hot3d_robolab \
-     --hdr home_office_robolab
+     --hdr home_office_robolab \
+     pick_up_object.asset_selection.enabled=true \
+     "pick_up_object.asset_selection.registry_names=[mustard_bottle_hot3d_robolab]" \
+     destination_object.asset_selection.enabled=true \
+     "destination_object.asset_selection.registry_names=[wooden_bowl_hot3d_robolab]"
 
 .. figure:: ../../images/swap_objects.gif
    :width: 100%
@@ -119,15 +120,13 @@ Keep the same environment and task, but replace the pick-up object and destinati
 Change the background
 ^^^^^^^^^^^^^^^^^^^^^
 
-Keep the original objects, but select a different background panorama and ambient lighting:
+Keep the default objects, but select a different background panorama and ambient lighting:
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
-     --pick_up_object rubiks_cube_hot3d_robolab \
-     --destination_object bowl_ycb_robolab \
      --hdr billiard_hall_robolab
 
 .. figure:: ../../images/swap_hdr.gif

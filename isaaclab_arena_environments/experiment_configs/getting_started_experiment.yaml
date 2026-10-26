@@ -14,8 +14,6 @@ shared:
   environment:
     type: pick_and_place_maple_table
     embodiment: droid_rel_joint_pos
-    pick_up_object: rubiks_cube_hot3d_robolab
-    destination_object: bowl_ycb_robolab
     hdr: home_office_robolab
     # Short demo timeout in simulated time, not wall-clock time.
     episode_length_s: 1.5
