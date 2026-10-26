@@ -15,16 +15,13 @@ class CuroboEmbodimentCfg:
     """Per-embodiment inputs cuRobo needs to plan for this robot."""
 
     robot_cfg_template: str
-    """Nucleus/S3 path to the cuRobo robot ``.yml`` (its ``urdf_path`` is patched in at runtime)."""
+    """Path to the cuRobo robot ``.yml``; its ``urdf_path`` is resolved at runtime."""
 
     robot_urdf: str
     """Nucleus/S3 path to the robot URDF cuRobo loads for kinematics."""
 
     robot_name: str
     """cuRobo ``robot_name`` (a hardware identifier, not the Arena scene key)."""
-
-    ee_link_name: str
-    """Link cuRobo treats as the end-effector / IK goal frame."""
 
     gripper_joint_names: list[str]
     """Gripper joint names cuRobo actuates."""

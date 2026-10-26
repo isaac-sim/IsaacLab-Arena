@@ -13,6 +13,7 @@ The cuRobo config is a property of the robot hardware, so register under the rob
 from __future__ import annotations
 
 import torch
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
@@ -61,12 +62,12 @@ def get_embodiment_curobo_cfg(embodiment: EmbodimentBase) -> CuroboEmbodimentCfg
 
 
 _DROID_CUROBO_ASSET_DIR = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/droid_fixed_mimic_joint"
+_CUROBO_CONFIG_DIR = Path(__file__).parent / "config"
 
 DROID_CUROBO_CFG = CuroboEmbodimentCfg(
-    robot_cfg_template=f"{_DROID_CUROBO_ASSET_DIR}/franka_robotiq_2f_85_zero_curobo.yml",
+    robot_cfg_template=str(_CUROBO_CONFIG_DIR / "franka_robotiq_2f_85_zero_curobo_v2.yml"),
     robot_urdf=f"{_DROID_CUROBO_ASSET_DIR}/urdf/franka_robotiq_2f_85_zero.urdf",
     robot_name="franka_robotiq",
-    ee_link_name="base_link",
     gripper_joint_names=["finger_joint"],
     gripper_open_joint_pos={"finger_joint": 0.0},
     gripper_closed_joint_pos={"finger_joint": float(torch.pi / 4)},

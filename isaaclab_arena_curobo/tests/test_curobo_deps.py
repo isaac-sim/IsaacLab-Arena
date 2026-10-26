@@ -47,8 +47,8 @@ def test_curobo_reports_version():
     assert getattr(curobo, "__version__", None), "curobo is importable but reports no __version__"
 
 
-def test_v1_robot_yaml_is_updated_for_curobo_v2(monkeypatch, tmp_path):
-    """Arena's existing robot descriptions are converted to the cuRoboV2 schema."""
+def test_robot_yaml_uses_downloaded_urdf_path(monkeypatch, tmp_path):
+    """The configured URDF is resolved independently from the packaged robot YAML."""
     import isaaclab_arena_curobo.utils.robot_cfg_utils as robot_cfg_utils
     from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 
@@ -57,11 +57,12 @@ def test_v1_robot_yaml_is_updated_for_curobo_v2(monkeypatch, tmp_path):
         yaml.safe_dump({
             "robot_cfg": {
                 "kinematics": {
+                    "format_version": 2.0,
                     "base_link": "robot_base",
-                    "ee_link": "old_tool",
-                    "link_names": ["old_tool"],
-                    "use_usd_kinematics": False,
-                    "cspace": {"retract_config": [0.0]},
+                    "tool_frames": ["tool"],
+                    "grasp_contact_link_names": ["hand"],
+                    "urdf_path": "relative/robot.urdf",
+                    "cspace": {"default_joint_position": [0.0]},
                 }
             }
         })
@@ -77,20 +78,40 @@ def test_v1_robot_yaml_is_updated_for_curobo_v2(monkeypatch, tmp_path):
         robot_cfg_template="robot.yml",
         robot_urdf="robot.urdf",
         robot_name="robot",
-        ee_link_name="tool",
         gripper_joint_names=[],
         gripper_open_joint_pos={},
         gripper_closed_joint_pos={},
         hand_link_names=["hand"],
     )
 
-    kinematics = robot_cfg_utils.load_patched_robot_yaml(config)["robot_cfg"]["kinematics"]
+    kinematics = robot_cfg_utils.load_robot_yaml(config)["robot_cfg"]["kinematics"]
 
     assert kinematics["format_version"] == 2.0
     assert kinematics["tool_frames"] == ["tool"]
     assert kinematics["grasp_contact_link_names"] == ["hand"]
     assert kinematics["urdf_path"] == str(robot_urdf_path)
     assert kinematics["cspace"]["default_joint_position"] == [0.0]
-    assert "ee_link" not in kinematics
-    assert "link_names" not in kinematics
+
+
+def test_droid_robot_yaml_uses_curobo_v2_schema():
+    """The packaged DROID configuration contains no retired cuRoboV1 fields."""
+    from isaaclab_arena_curobo.embodiment_curobo_registry import DROID_CUROBO_CFG
+
+    with open(DROID_CUROBO_CFG.robot_cfg_template) as f:
+        kinematics = yaml.safe_load(f)["robot_cfg"]["kinematics"]
+
+    retired_fields = {
+        "ee_link",
+        "isaac_usd_path",
+        "link_names",
+        "usd_flip_joint_limits",
+        "usd_flip_joints",
+        "usd_path",
+        "usd_robot_root",
+        "use_usd_kinematics",
+    }
+    assert kinematics["format_version"] == 2.0
+    assert kinematics["tool_frames"] == ["base_link"]
+    assert not retired_fields.intersection(kinematics)
+    assert "default_joint_position" in kinematics["cspace"]
     assert "retract_config" not in kinematics["cspace"]
