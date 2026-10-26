@@ -311,15 +311,18 @@ class NextToLossStrategy(RelationLossStrategy):
         half_plane_loss = self.slope * half_plane_raw
         distance_loss = self.slope * distance_raw
 
-        # 2. Band position loss: child placed at target position within parent's perpendicular extent
+        # 2. Keep the footprint within the perpendicular extent; prefer a point only when requested.
         parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
         parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
         valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
         valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis]
-        # Convert cross_position_ratio [-1, 1] to interpolation factor [0, 1]: -1 = min, 0 = center, 1 = max
-        t = (relation.cross_position_ratio + 1.0) / 2.0
-        target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
-        band_loss = single_point_linear_loss(child_pos[:, cfg.band_axis], target_band_pos, slope=self.slope)
+        if relation.cross_position_ratio is None:
+            band_loss = linear_band_loss(child_pos[:, cfg.band_axis], valid_band_min, valid_band_max, slope=self.slope)
+        else:
+            # Map [-1, 1] to [0, 1]: -1 = min edge, 0 = centre, 1 = max edge.
+            t = (relation.cross_position_ratio + 1.0) / 2.0
+            target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
+            band_loss = single_point_linear_loss(child_pos[:, cfg.band_axis], target_band_pos, slope=self.slope)
 
         if self.debug and child_pos.shape[0] == 1:
             band_axis_name = cfg.band_axis.name
@@ -329,8 +332,8 @@ class NextToLossStrategy(RelationLossStrategy):
             )
             print(
                 f"    [NextTo] {band_axis_name} band: child_{band_axis_name.lower()}="
-                f"{child_pos[0, cfg.band_axis].item():.4f}, target={target_band_pos[0].item():.4f}"
-                f" (cross_position_ratio={relation.cross_position_ratio:.2f},"
+                f"{child_pos[0, cfg.band_axis].item():.4f}"
+                f" (cross_position_ratio={relation.cross_position_ratio},"
                 f" range=[{valid_band_min[0].item():.4f}, {valid_band_max[0].item():.4f}]),"
                 f" loss={band_loss[0].item():.6f}"
             )

@@ -174,6 +174,12 @@ Most environments can be described with a small set of relations:
    more than ``tolerance_m`` (0.01 m by default). Placing the object closer than
    requested also fails.
 
+   By default, the solver applies zero cross-axis loss anywhere the subject's
+   footprint fits within the parent's perpendicular extent. Set
+   ``cross_position_ratio=0.0`` to opt into centering, or a value from ``-1.0``
+   to ``1.0`` to prefer a position between the two ends. This preference remains
+   soft and is not checked by geometric validation.
+
    With no additional arguments, ``NextTo(parent)`` places the subject on the
    parent's positive X side at a distance of 0.05 m.
 

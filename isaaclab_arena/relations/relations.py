@@ -171,7 +171,7 @@ class NextTo(Relation):
         side: Side | str,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        cross_position_ratio: float = 0.0,
+        cross_position_ratio: float | None = None,
         tolerance_m: float = 1e-2,
     ):
         """
@@ -184,7 +184,8 @@ class NextTo(Relation):
                 (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
                 the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
-                Default: 0.0 (centered).
+                Default: None (any position within the valid cross-axis range).
+                Set 0.0 explicitly to prefer centering.
             tolerance_m: Slack (meters) for placement validation: the child passes when its side and
                 distance violations are each within this value. Raise it to accept the side but care
                 less about the exact distance. cross_position_ratio is a soft preference, not gated.
@@ -192,8 +193,8 @@ class NextTo(Relation):
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
         assert (
-            -1.0 <= cross_position_ratio <= 1.0
-        ), f"cross_position_ratio must be in [-1, 1], got {cross_position_ratio}"
+            cross_position_ratio is None or -1.0 <= cross_position_ratio <= 1.0
+        ), f"cross_position_ratio must be None or in [-1, 1], got {cross_position_ratio}"
         assert tolerance_m >= 0.0, f"tolerance_m must be non-negative, got {tolerance_m}"
         self.distance_m = distance_m
         self.side = Side(side)
