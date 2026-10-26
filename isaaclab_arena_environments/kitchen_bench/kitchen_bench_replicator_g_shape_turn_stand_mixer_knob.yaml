@@ -27,7 +27,6 @@ object_references:
   parent_id: kitchen
   prim_path: CornerCounter_00_0
   object_type: base
-# Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
@@ -36,13 +35,14 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-- kind: align_with
+- kind: next_to
   subject: droid
   reference: corner_counter
   params:
-    axis: y
-    offset_m: -1.04
-    tolerance_m: 0.05
+    side: negative_y
+    distance_m: 0.15
+    tolerance_m: 0.15
+    cross_position_ratio: -0.35
 - kind: rotate_around_solution
   subject: droid
   params:
@@ -58,16 +58,9 @@ relations:
   subject: stand_mixer
   params:
     x_min: -2.06
-    x_max: -1.74
-    y_min: 2.07
-    y_max: 2.19
-- kind: align_with
-  subject: droid
-  reference: stand_mixer
-  params:
-    axis: x
-    offset_m: 0.1
-    tolerance_m: 0.12
+    x_max: -2.04
+    y_min: 2.12
+    y_max: 2.14
 task:
   composition: atomic
   description: Turn the speed knob on the stand mixer clockwise to the lowest speed setting.
@@ -77,7 +70,3 @@ task:
       turnable_object: stand_mixer
       target_level: 0
       reset_level: -1
-
-placer_params:
-  # Fail placement if no layout passes validation instead of using a rejected layout.
-  allow_best_loss_fallbacks: false

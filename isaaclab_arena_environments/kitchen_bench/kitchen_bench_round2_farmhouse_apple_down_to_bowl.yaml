@@ -36,7 +36,6 @@ object_references:
   parent_id: kitchen
   prim_path: shelves_main_group/corpus/board_0
   object_type: base
-# Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
@@ -47,13 +46,14 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-- kind: align_with
+- kind: next_to
   subject: droid
   reference: counter_top
   params:
-    axis: y
-    offset_m: -1.07
-    tolerance_m: 0.05
+    side: negative_y
+    distance_m: 0.15
+    cross_position_ratio: -0.4
+    tolerance_m: 0.04
 - kind: rotate_around_solution
   subject: droid
   params:
@@ -71,24 +71,17 @@ relations:
 - kind: position_limits_box
   subject: bowl
   params:
-    x_min: 4.65
-    x_max: 5.05
-    y_min: -0.55
-    y_max: -0.41
+    x_min: 4.8
+    x_max: 4.9
+    y_min: -0.5
+    y_max: -0.46
 - kind: position_limits_box
   subject: apple
   params:
-    x_min: 4.65
-    x_max: 5.05
-    y_min: -0.34
-    y_max: -0.2
-- kind: align_with
-  subject: droid
-  reference: apple
-  params:
-    axis: x
-    offset_m: -0.14
-    tolerance_m: 0.12
+    x_min: 4.8
+    x_max: 4.9
+    y_min: -0.29
+    y_max: -0.25
 task:
   composition: atomic
   description: Pick up the apple from the shelf and put it in the red bowl on the

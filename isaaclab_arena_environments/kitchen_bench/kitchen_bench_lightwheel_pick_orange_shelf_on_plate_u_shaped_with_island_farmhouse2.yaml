@@ -40,7 +40,6 @@ object_references:
   parent_id: kitchen
   prim_path: shelves_main_group/corpus/board_0
   object_type: base
-# Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
@@ -51,42 +50,35 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-- kind: align_with
+- kind: next_to
   subject: droid
   reference: counter_top
   params:
-    axis: y
-    offset_m: -1.17
-    tolerance_m: 0.05
+    side: negative_y
+    distance_m: 0.3
+    cross_position_ratio: -0.4
 - kind: 'on'
   subject: plate
   reference: counter_top
 - kind: position_limits_box
   subject: plate
   params:
-    x_min: 4.45
-    x_max: 4.95
-    y_min: -0.5
-    y_max: -0.35
+    x_min: 4.6
+    x_max: 4.8
+    y_min: -0.45
+    y_max: -0.4
 - kind: 'on'
   subject: orange
   reference: shelf
 - kind: 'on'
   subject: bowl
   reference: shelf
-- kind: align_with
+- kind: next_to
   subject: orange
   reference: bowl
   params:
-    axis: x
-    tolerance_m: 0.1
-- kind: align_with
-  subject: orange
-  reference: bowl
-  params:
-    axis: y
-    offset_m: -0.17
-    tolerance_m: 0.05
+    side: negative_y
+    distance_m: 0.05
 - kind: 'on'
   subject: lemon
   reference: counter_top
@@ -97,12 +89,6 @@ relations:
   subject: droid
   params:
     yaw_rad: 1.57
-- kind: align_with
-  subject: droid
-  reference: plate
-  params:
-    axis: x
-    tolerance_m: 0.12
 task:
   composition: atomic
   description: Pick up the orange from the shelf and place it on the plate on the counter below.
@@ -113,7 +99,3 @@ task:
       destination_location: plate
       destination_object: plate
       background_scene: kitchen
-
-placer_params:
-  # Fail placement if no layout passes validation instead of using a rejected layout.
-  allow_best_loss_fallbacks: false
