@@ -22,7 +22,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
 from isaaclab_arena.evaluation.provenance import Provenance
-from isaaclab_arena.tests.utils.influxdb_kpi_records_contract import assert_follows_collector_contract
+from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.visualization.report import RunExecutionReport
 from osmo.scripts.build_experiment_output import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
@@ -345,7 +345,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     experiment_kpis = json.loads(
         (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
     )
-    assert_follows_collector_contract(experiment_kpis)
+    assert_influxdb_kpi_records_are_valid(experiment_kpis)
     assert experiment_kpis[0] == {
         "type": "per_experiment",
         "timestamp_ns": END_TIMESTAMP_NS,
@@ -431,7 +431,7 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     experiment_kpis = json.loads(
         (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
     )
-    assert_follows_collector_contract(experiment_kpis)
+    assert_influxdb_kpi_records_are_valid(experiment_kpis)
     per_run_records = {record["run_name"]: record for record in experiment_kpis if record["type"] == "per_run"}
     assert per_run_records["completed-run"]["completed"] == 1
     assert per_run_records["failed-run"]["completed"] == 0
@@ -487,7 +487,7 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
     experiment_kpis = json.loads(
         (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
     )
-    assert_follows_collector_contract(experiment_kpis)
+    assert_influxdb_kpi_records_are_valid(experiment_kpis)
     assert {record["timestamp_ns"] for record in experiment_kpis} == {END_TIMESTAMP_NS}
     assert "success_rate" not in experiment_kpis[0]
     assert experiment_kpis[0]["num_runs_failed"] == 2

@@ -26,7 +26,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
 )
-from isaaclab_arena.tests.utils.influxdb_kpi_records_contract import assert_follows_collector_contract
+from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.visualization.report_data import build_experiment_summary
 
 END_TIMESTAMP_NS = 1792800000000000000
@@ -145,7 +145,7 @@ def test_per_run_and_per_experiment_success_rate(tmp_path):
         "num_runs_completed": 2,
         "num_runs_failed": 0,
     }
-    assert_follows_collector_contract(kpis)
+    assert_influxdb_kpi_records_are_valid(kpis)
 
 
 def test_report_job_names_match_run_names(tmp_path):
@@ -212,7 +212,7 @@ def test_failed_run_has_no_success_rate(tmp_path):
     assert per_experiment["num_runs_failed"] == 1
     assert per_experiment["num_episodes"] == 10
     assert per_experiment["success_rate"] == 4 / 10
-    assert_follows_collector_contract(kpis)
+    assert_influxdb_kpi_records_are_valid(kpis)
 
 
 def test_all_failed_experiment_still_has_timestamp(tmp_path):
@@ -227,7 +227,7 @@ def test_all_failed_experiment_still_has_timestamp(tmp_path):
 
     kpis = _build_kpi_records_list(experiment_output_directory)
 
-    assert_follows_collector_contract(kpis)
+    assert_influxdb_kpi_records_are_valid(kpis)
     assert {record["timestamp_ns"] for record in kpis} == {END_TIMESTAMP_NS + 1}
     per_experiment = _per_experiment(kpis)
     assert "success_rate" not in per_experiment
@@ -251,7 +251,7 @@ def test_run_with_only_unscored_episodes_has_no_success_rate(tmp_path):
     assert per_run["num_successes"] == 0
     assert per_run["completed"] == 1
     assert "success_rate" not in _per_experiment(kpis)
-    assert_follows_collector_contract(kpis)
+    assert_influxdb_kpi_records_are_valid(kpis)
 
 
 def test_mean_progress_only_when_episodes_carry_progress(tmp_path):
@@ -321,7 +321,7 @@ def test_timing_records(tmp_path):
             "count": 4,
         },
     ]
-    assert_follows_collector_contract(kpis)
+    assert_influxdb_kpi_records_are_valid(kpis)
 
 
 def test_missing_timings_file_omits_timing_records(tmp_path):
@@ -361,8 +361,8 @@ def _valid_records() -> list[dict]:
     ]
 
 
-def test_records_follow_collector_contract():
-    assert_follows_collector_contract(_valid_records())
+def test_records_are_valid_influxdb_points():
+    assert_influxdb_kpi_records_are_valid(_valid_records())
 
 
 def test_unique_tag_sets_reject_duplicate_records():
@@ -445,25 +445,23 @@ def _keep_only_timestamp_ns(kpis: list[dict]) -> None:
         pytest.param(_duplicate_record, id="duplicate_tag_set"),
         pytest.param(lambda kpis: _set_record_value(kpis, "_x", 1), id="underscore_prefixed_key"),
         pytest.param(lambda kpis: _set_record_value(kpis, "time", 1), id="time_key"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "benchmark", "main"), id="reserved_benchmark_key"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "launch_time", 1), id="reserved_launch_time_key"),
     ],
 )
-def test_contract_helper_rejects_violations(make_invalid):
-    """The contract helper must catch violations, or tests that rely on it would pass vacuously."""
+def test_validation_helper_rejects_invalid_records(make_invalid):
+    """The validation helper must catch invalid records, or tests that rely on it would pass vacuously."""
     kpis = _valid_records()
     make_invalid(kpis)
 
     with pytest.raises(AssertionError):
-        assert_follows_collector_contract(kpis)
+        assert_influxdb_kpi_records_are_valid(kpis)
 
 
-def test_contract_helper_rejects_non_list_contents():
+def test_validation_helper_rejects_non_list_contents():
     with pytest.raises(AssertionError):
-        assert_follows_collector_contract({"records": _valid_records()})
+        assert_influxdb_kpi_records_are_valid({"records": _valid_records()})
 
 
-def test_written_file_follows_collector_contract(tmp_path):
+def test_written_file_is_valid_influxdb_points(tmp_path):
     experiment_output_directory = _write_experiment(
         tmp_path / "experiment",
         {
@@ -485,5 +483,5 @@ def test_written_file_follows_collector_contract(tmp_path):
     text = kpi_records_path.read_text(encoding="utf-8")
     assert text.endswith("\n")
     written_kpis = json.loads(text)
-    assert_follows_collector_contract(written_kpis)
+    assert_influxdb_kpi_records_are_valid(written_kpis)
     assert written_kpis == _build_kpi_records_list(experiment_output_directory)

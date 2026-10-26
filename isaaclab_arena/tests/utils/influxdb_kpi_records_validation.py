@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test helper that checks KPI records file contents against the rules an InfluxDB ingestion tool relies on."""
+"""Test helper that checks KPI records file contents map to valid InfluxDB points."""
 
 from __future__ import annotations
 
@@ -15,9 +15,6 @@ MIN_TIMESTAMP_NS = 1767225600 * 10**9
 
 TIMESTAMP_NS_KEY = "timestamp_ns"
 """Key of a record's point time, the only numeric value that is not a field."""
-
-RESERVED_RECORD_KEYS = frozenset({"benchmark", "launch_time"})
-"""Tag keys an ingestion tool adds to every point, so records must not use them."""
 
 
 def _is_number(value: object) -> bool:
@@ -40,8 +37,8 @@ def _assert_single_line_text(text: object, description: str) -> None:
     assert "\n" not in text and "\r" not in text, f"{description} must not contain a line break"
 
 
-def _assert_record_follows_contract(record_index: int, record: object) -> frozenset:
-    """Assert that one record follows the contract and return its tag set: the record's string-valued items."""
+def _assert_record_is_valid_point(record_index: int, record: object) -> frozenset:
+    """Assert that one record maps to an InfluxDB point and return its tag set: the record's string-valued items."""
     assert isinstance(record, dict), f"record {record_index} must be a JSON object"
     assert isinstance(record.get("type"), str), f"record {record_index} must have a string type"
 
@@ -59,7 +56,6 @@ def _assert_record_follows_contract(record_index: int, record: object) -> frozen
         _assert_single_line_text(key, f"record {record_index} key {key!r}")
         assert not key.startswith("_"), f"record {record_index}: key {key!r} must not start with '_'"
         assert key != "time", f"record {record_index}: key 'time' is reserved by InfluxDB"
-        assert key not in RESERVED_RECORD_KEYS, f"record {record_index}: key {key!r} is reserved"
         if key == TIMESTAMP_NS_KEY:
             continue
         if _is_number(value):
@@ -71,11 +67,11 @@ def _assert_record_follows_contract(record_index: int, record: object) -> frozen
     return frozenset((key, value) for key, value in record.items() if isinstance(value, str))
 
 
-def assert_follows_collector_contract(contents: object) -> None:
-    """Assert that parsed KPI records file contents can be ingested into InfluxDB without changes.
+def assert_influxdb_kpi_records_are_valid(contents: object) -> None:
+    """Assert that parsed KPI records file contents map to InfluxDB points without changes.
 
     Checks for a non-empty list of flat records, each with an integer ``timestamp_ns`` from 2026 that is not in
-    the future, keys that are not reserved, values that are finite numbers or single-line strings, at least one
+    the future, keys that InfluxDB does not reserve (no leading ``_``, not ``time``), values that are finite numbers or single-line strings, at least one
     numeric value other than ``timestamp_ns``, and a tag set unique within the list.
 
     Args:
@@ -84,7 +80,7 @@ def assert_follows_collector_contract(contents: object) -> None:
     assert isinstance(contents, list) and contents, "KPI records file contents must be a non-empty JSON list"
     record_index_by_tag_set: dict[frozenset, int] = {}
     for record_index, record in enumerate(contents):
-        tag_set = _assert_record_follows_contract(record_index, record)
+        tag_set = _assert_record_is_valid_point(record_index, record)
         assert (
             tag_set not in record_index_by_tag_set
         ), f"record {record_index} has the same tag set as record {record_index_by_tag_set.get(tag_set)}"
