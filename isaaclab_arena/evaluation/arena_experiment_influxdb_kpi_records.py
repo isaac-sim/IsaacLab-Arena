@@ -211,6 +211,36 @@ class PerExperimentRecord(InfluxdbKpiRecord):
     num_runs_failed: int
     """Number of Runs that failed."""
 
+    @classmethod
+    def from_jobs(
+        cls, num_runs: int, completed_jobs: list[JobSummary], *, timestamp_ns: int, provenance: Provenance
+    ) -> PerExperimentRecord:
+        """Return the per-Experiment record, with the success rate episode-weighted over completed Runs.
+
+        Args:
+            num_runs: Number of Runs in the Experiment, completed or failed.
+            completed_jobs: One report job per completed Run, pooling that Run's episodes.
+            timestamp_ns: Point time in Unix epoch nanoseconds (UTC).
+            provenance: Arena git commit and branch the Experiment ran with.
+
+        Returns:
+            The per-Experiment record.
+        """
+        num_scored_episodes = sum(job.num_scored_episodes for job in completed_jobs)
+        success_rate = (
+            sum(job.num_successes for job in completed_jobs) / num_scored_episodes if num_scored_episodes > 0 else None
+        )
+        return cls(
+            timestamp_ns=timestamp_ns,
+            git_sha=provenance.git_sha,
+            git_branch=provenance.git_branch,
+            success_rate=success_rate,
+            num_episodes=sum(job.num_episodes for job in completed_jobs),
+            num_runs=num_runs,
+            num_runs_completed=len(completed_jobs),
+            num_runs_failed=num_runs - len(completed_jobs),
+        )
+
 
 @dataclass(kw_only=True)
 class PerRunRecord(InfluxdbKpiRecord):
@@ -245,6 +275,48 @@ class PerRunRecord(InfluxdbKpiRecord):
     completed: int
     """1 when the Run completed, 0 when it failed."""
 
+    @classmethod
+    def from_run_result(
+        cls,
+        run_name: str,
+        run_result: ArenaExperimentRunData,
+        pooled_job: JobSummary | None,
+        *,
+        timestamp_ns: int,
+        provenance: Provenance,
+    ) -> PerRunRecord:
+        """Return the record of one Run; a failed Run (no pooled job) gets ``completed=0`` and no counts.
+
+        Args:
+            run_name: Name of the Run.
+            run_result: The Run's entry in the Experiment result.
+            pooled_job: Report job pooling the Run's episodes, or None for a failed Run.
+            timestamp_ns: Point time in Unix epoch nanoseconds (UTC).
+            provenance: Arena git commit and branch the Experiment ran with.
+
+        Returns:
+            The per-Run record.
+        """
+        record_tags = {
+            "timestamp_ns": timestamp_ns,
+            "git_sha": provenance.git_sha,
+            "git_branch": provenance.git_branch,
+            "run_name": run_name,
+            "environment": run_result["environment"]["name"],
+            "policy_variant": run_result["policy_variant"],
+        }
+        if pooled_job is None:
+            return cls(**record_tags, completed=0)
+        return cls(
+            **record_tags,
+            success_rate=pooled_job.success_rate,
+            num_episodes=pooled_job.num_episodes,
+            num_successes=pooled_job.num_successes,
+            mean_episode_length=_mean_episode_length(pooled_job.episodes),
+            mean_progress=pooled_job.mean_progress,
+            completed=1,
+        )
+
 
 @dataclass(kw_only=True)
 class TimingRecord(InfluxdbKpiRecord):
@@ -272,6 +344,36 @@ class TimingRecord(InfluxdbKpiRecord):
 
     count: int
     """Number of timed intervals."""
+
+    @classmethod
+    def from_timer_stats(
+        cls, timing: dict[str, Any], run_name: str, *, timestamp_ns: int, provenance: Provenance
+    ) -> TimingRecord:
+        """Return the record of one Experiment timings entry; the entry must have a nonzero count.
+
+        Args:
+            timing: Timer statistics with ``name``, ``count``, ``total_ms``, ``min_ms`` and ``max_ms``.
+            run_name: Name of the Run the statistics belong to, or ``"all"`` for totals over every Run.
+            timestamp_ns: Point time in Unix epoch nanoseconds (UTC).
+            provenance: Arena git commit and branch the Experiment ran with.
+
+        Returns:
+            The timing record, with the mean computed from the total and count.
+        """
+        count = int(timing["count"])
+        total_ms = float(timing["total_ms"])
+        return cls(
+            timestamp_ns=timestamp_ns,
+            git_sha=provenance.git_sha,
+            git_branch=provenance.git_branch,
+            name=timing["name"],
+            run_name=run_name,
+            mean_ms=total_ms / count,
+            total_ms=total_ms,
+            min_ms=float(timing["min_ms"]),
+            max_ms=float(timing["max_ms"]),
+            count=count,
+        )
 
 
 def _run_name_for_job(job_name: str, run_names: set[str]) -> str | None:
@@ -303,67 +405,20 @@ def _mean_episode_length(episodes: list[EpisodeSummary]) -> float | None:
     return None if not episode_lengths else sum(episode_lengths) / len(episode_lengths)
 
 
-def _build_per_run_record(
-    run_name: str, run_result: ArenaExperimentRunData, pooled_job: JobSummary | None, shared_values: dict[str, Any]
-) -> PerRunRecord:
-    """Return the record of one Run; a failed Run (no pooled job) gets ``completed=0`` and no counts."""
-    tags = {
-        **shared_values,
-        "run_name": run_name,
-        "environment": run_result["environment"]["name"],
-        "policy_variant": run_result["policy_variant"],
-    }
-    if pooled_job is None:
-        return PerRunRecord(**tags, completed=0)
-    return PerRunRecord(
-        **tags,
-        success_rate=pooled_job.success_rate,
-        num_episodes=pooled_job.num_episodes,
-        num_successes=pooled_job.num_successes,
-        mean_episode_length=_mean_episode_length(pooled_job.episodes),
-        mean_progress=pooled_job.mean_progress,
-        completed=1,
-    )
-
-
-def _build_per_experiment_record(
-    num_runs: int, completed_jobs: list[JobSummary], shared_values: dict[str, Any]
-) -> PerExperimentRecord:
-    """Return the per-Experiment record, with the success rate episode-weighted over completed Runs."""
-    num_scored_episodes = sum(job.num_scored_episodes for job in completed_jobs)
-    success_rate = (
-        sum(job.num_successes for job in completed_jobs) / num_scored_episodes if num_scored_episodes > 0 else None
-    )
-    return PerExperimentRecord(
-        **shared_values,
-        success_rate=success_rate,
-        num_episodes=sum(job.num_episodes for job in completed_jobs),
-        num_runs=num_runs,
-        num_runs_completed=len(completed_jobs),
-        num_runs_failed=num_runs - len(completed_jobs),
-    )
-
-
-def _build_timing_record(timing: dict[str, Any], run_name: str, shared_values: dict[str, Any]) -> TimingRecord:
-    """Return one timing record from an Experiment timings entry with a nonzero count."""
-    count = int(timing["count"])
-    total_ms = float(timing["total_ms"])
-    return TimingRecord(
-        **shared_values,
-        name=timing["name"],
-        run_name=run_name,
-        mean_ms=total_ms / count,
-        total_ms=total_ms,
-        min_ms=float(timing["min_ms"]),
-        max_ms=float(timing["max_ms"]),
-        count=count,
-    )
-
-
 def _build_timing_records(
-    experiment_output_directory: Path, run_names: set[str], shared_values: dict[str, Any]
+    experiment_output_directory: Path, run_names: set[str], *, timestamp_ns: int, provenance: Provenance
 ) -> list[TimingRecord]:
-    """Return timing records from the Experiment timings file, or none when the file is absent."""
+    """Return timing records from the Experiment timings file, or none when the file is absent.
+
+    Args:
+        experiment_output_directory: Experiment output root that may hold ``arena_experiment_timings.json``.
+        run_names: Names of the Experiment's Runs.
+        timestamp_ns: Point time of every record in Unix epoch nanoseconds (UTC).
+        provenance: Arena git commit and branch the Experiment ran with.
+
+    Returns:
+        Timing records summed over every Run first, then each Run's own, skipping timers that never ran.
+    """
     timings_path = experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME
     if not timings_path.is_file():
         return []
@@ -374,12 +429,14 @@ def _build_timing_records(
     timings = json.loads(timings_path.read_text(encoding="utf-8"))
     # Totals over every Run first, then each Run's own timers; timers that never ran have no statistics.
     records = [
-        _build_timing_record(timing, ALL_RUNS_TIMING_RUN_NAME, shared_values)
+        TimingRecord.from_timer_stats(
+            timing, ALL_RUNS_TIMING_RUN_NAME, timestamp_ns=timestamp_ns, provenance=provenance
+        )
         for timing in timings["totals"]
         if timing["count"] > 0
     ]
     records.extend(
-        _build_timing_record(timing, timing["run_name"], shared_values)
+        TimingRecord.from_timer_stats(timing, timing["run_name"], timestamp_ns=timestamp_ns, provenance=provenance)
         for timing in timings["runs"]
         if timing["count"] > 0
     )
@@ -432,20 +489,27 @@ def build_experiment_influxdb_kpi_records(experiment_output_directory: Path) -> 
     }
 
     # Every record is a point at the latest Run end, tagged with the Experiment's provenance.
-    shared_values = {
-        TIMESTAMP_NS_KEY: max(run_result["end_timestamp_ns"] for run_result in runs.values()),
-        **provenance.to_dict(),
-    }
+    timestamp_ns = max(run_result["end_timestamp_ns"] for run_result in runs.values())
 
     records: list[InfluxdbKpiRecord] = [
-        _build_per_experiment_record(len(runs), list(pooled_jobs_by_run_name.values()), shared_values)
+        PerExperimentRecord.from_jobs(
+            len(runs), list(pooled_jobs_by_run_name.values()), timestamp_ns=timestamp_ns, provenance=provenance
+        )
     ]
     # Failed Runs have no pooled job, so their records carry no episode counts.
     records.extend(
-        _build_per_run_record(run_name, runs[run_name], pooled_jobs_by_run_name.get(run_name), shared_values)
+        PerRunRecord.from_run_result(
+            run_name,
+            runs[run_name],
+            pooled_jobs_by_run_name.get(run_name),
+            timestamp_ns=timestamp_ns,
+            provenance=provenance,
+        )
         for run_name in sorted(runs)
     )
-    records.extend(_build_timing_records(experiment_output_directory, run_names, shared_values))
+    records.extend(
+        _build_timing_records(experiment_output_directory, run_names, timestamp_ns=timestamp_ns, provenance=provenance)
+    )
     assert_unique_tag_sets(records)
     return records
 
