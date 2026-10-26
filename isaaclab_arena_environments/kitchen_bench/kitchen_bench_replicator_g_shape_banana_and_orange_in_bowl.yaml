@@ -31,6 +31,7 @@ object_references:
   parent_id: kitchen
   prim_path: CornerCounter_00_0
   object_type: base
+# Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
@@ -39,13 +40,13 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-- kind: next_to
+- kind: align_with
   subject: droid
   reference: corner_counter
   params:
-    side: negative_y
-    distance_m: 0.15
-    tolerance_m: 0.15
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.05
 - kind: rotate_around_solution
   subject: droid
   params:
@@ -59,6 +60,46 @@ relations:
 - kind: 'on'
   subject: wooden_bowl
   reference: corner_counter
+- kind: position_limits_box
+  subject: wooden_bowl
+  params:
+    x_min: -1.89
+    x_max: -1.55
+    y_min: 2.07
+    y_max: 2.21
+- kind: align_with
+  subject: banana
+  reference: wooden_bowl
+  params:
+    axis: x
+    offset_m: -0.25
+    tolerance_m: 0.05
+- kind: align_with
+  subject: banana
+  reference: wooden_bowl
+  params:
+    axis: y
+    offset_m: -0.1
+    tolerance_m: 0.06
+- kind: align_with
+  subject: orange
+  reference: banana
+  params:
+    axis: x
+    tolerance_m: 0.1
+- kind: align_with
+  subject: orange
+  reference: banana
+  params:
+    axis: y
+    offset_m: 0.23
+    tolerance_m: 0.05
+- kind: align_with
+  subject: droid
+  reference: wooden_bowl
+  params:
+    axis: x
+    tolerance_m: 0.12
 task:
   composition: parallel
   description: Pick up the banana and the orange and place both fruits into the wooden bowl in either
@@ -76,3 +117,8 @@ task:
       destination_location: wooden_bowl
       destination_object: wooden_bowl
       background_scene: kitchen
+
+
+placer_params:
+  # Fail placement if no layout passes validation instead of using a rejected layout.
+  allow_best_loss_fallbacks: false

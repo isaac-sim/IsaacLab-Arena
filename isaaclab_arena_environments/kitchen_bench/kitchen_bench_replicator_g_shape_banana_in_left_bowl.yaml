@@ -31,6 +31,7 @@ object_references:
   parent_id: kitchen
   prim_path: CornerCounter_00_0
   object_type: base
+# Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
@@ -39,14 +40,13 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-- kind: next_to
+- kind: align_with
   subject: droid
   reference: corner_counter
   params:
-    side: negative_y
-    distance_m: 0.15
-    tolerance_m: 0.15
-    cross_position_ratio: -0.35
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.05
 - kind: rotate_around_solution
   subject: droid
   params:
@@ -60,19 +60,39 @@ relations:
 - kind: 'on'
   subject: right_bowl
   reference: corner_counter
-- kind: next_to
+- kind: align_with
   subject: left_bowl
   reference: right_bowl
   params:
-    side: negative_x
-    distance_m: 0.12
-# Keep the pick-up object in front of the target while retaining both bowl choices.
-- kind: next_to
+    axis: x
+    offset_m: -0.28
+    tolerance_m: 0.05
+- kind: align_with
+  subject: left_bowl
+  reference: right_bowl
+  params:
+    axis: y
+    tolerance_m: 0.1
+- kind: align_with
   subject: banana
   reference: left_bowl
   params:
-    side: negative_y
-    distance_m: 0.07
+    axis: x
+    tolerance_m: 0.1
+- kind: align_with
+  subject: banana
+  reference: left_bowl
+  params:
+    axis: y
+    offset_m: -0.24
+    tolerance_m: 0.05
+- kind: align_with
+  subject: droid
+  reference: left_bowl
+  params:
+    axis: x
+    offset_m: 0.3
+    tolerance_m: 0.12
 task:
   composition: atomic
   description: Pick up the banana and place it in the left red bowl.
@@ -83,3 +103,7 @@ task:
       destination_location: left_bowl
       destination_object: left_bowl
       background_scene: kitchen
+
+placer_params:
+  # Fail placement if no layout passes validation instead of using a rejected layout.
+  allow_best_loss_fallbacks: false

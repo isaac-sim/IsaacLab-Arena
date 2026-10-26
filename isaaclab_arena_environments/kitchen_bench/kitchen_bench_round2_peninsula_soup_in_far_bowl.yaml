@@ -35,6 +35,7 @@ object_references:
   parent_id: kitchen
   prim_path: CapSurface_02
   object_type: base
+# Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
@@ -43,13 +44,13 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-- kind: next_to
+- kind: align_with
   subject: droid
   reference: island_top
   params:
-    side: positive_y
-    distance_m: 0.08
-    tolerance_m: 0.04
+    axis: y
+    offset_m: 1.16
+    tolerance_m: 0.05
 - kind: rotate_around_solution
   subject: droid
   params:
@@ -66,34 +67,42 @@ relations:
 - kind: position_limits_box
   subject: near_bowl
   params:
-    x_min: 0.27
-    x_max: 0.32
-    y_min: -0.17
-    y_max: -0.14
-- kind: next_to
+    x_min: -0.55
+    x_max: 0.45
+    y_min: -0.22
+    y_max: -0.09
+- kind: align_with
   subject: far_bowl
-  params:
-    side: negative_y
-    distance_m: 0.07
-    tolerance_m: 0.03
   reference: near_bowl
-- kind: next_to
+  params:
+    axis: y
+    offset_m: -0.27
+    tolerance_m: 0.05
+- kind: align_with
   subject: soup
-  params:
-    side: positive_x
-    distance_m: 0.07
-    tolerance_m: 0.03
   reference: near_bowl
-- kind: position_limits_box
+  params:
+    axis: x
+    offset_m: 0.21
+    tolerance_m: 0.05
+- kind: align_with
+  subject: soup
+  reference: near_bowl
+  params:
+    axis: y
+    tolerance_m: 0.1
+- kind: align_with
   subject: far_bowl
+  reference: near_bowl
   params:
-    x_min: 0.27
-    x_max: 0.32
-- kind: position_limits_box
+    axis: x
+    tolerance_m: 0.06
+- kind: align_with
   subject: droid
+  reference: near_bowl
   params:
-    x_min: 0.25
-    x_max: 0.35
+    axis: x
+    tolerance_m: 0.12
 task:
   composition: atomic
   description: Pick up the soup can and put it in the red bowl farthest from the robot.

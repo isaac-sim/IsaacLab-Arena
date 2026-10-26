@@ -31,6 +31,7 @@ object_references:
     min_level_angle_deg: 30.0
     max_level_angle_deg: 150.0
     num_levels: 5
+# Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
@@ -39,14 +40,20 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-- kind: next_to
+- kind: align_with
   subject: droid
-  params:
-    side: negative_y
-    distance_m: 0.25
-    tolerance_m: 0.08
-    cross_position_ratio: 0.35
   reference: toaster_timer
+  params:
+    axis: x
+    offset_m: -0.11
+    tolerance_m: 0.22
+- kind: align_with
+  subject: droid
+  reference: toaster_timer
+  params:
+    axis: y
+    offset_m: -1.06
+    tolerance_m: 0.10
 - kind: rotate_around_solution
   subject: droid
   params:

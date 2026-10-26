@@ -28,6 +28,7 @@ object_references:
   object_type: articulation
   params:
     openable_joint_name: microjoint
+# Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
@@ -36,23 +37,24 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-- kind: next_to
+- kind: align_with
   subject: droid
   reference: microwave
   params:
-    side: negative_x
-    distance_m: 0.55
-    tolerance_m: 0.08
-    cross_position_ratio: 0.15
+    axis: x
+    offset_m: -1.33
+    tolerance_m: 0.05
 - kind: rotate_around_solution
   subject: droid
   params:
     yaw_rad: 0.0
-- kind: position_limits_box
+- kind: align_with
   subject: droid
+  reference: microwave
   params:
-    y_min: -1.65
-    y_max: -1.5
+    axis: y
+    offset_m: -0.011
+    tolerance_m: 0.12
 task:
   composition: atomic
   description: Pull the handle to open the microwave door on the right wall.
