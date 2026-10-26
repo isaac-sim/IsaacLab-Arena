@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
-from isaaclab_arena.evaluation.provenance import read_provenance
+from isaaclab_arena.evaluation.provenance import Provenance
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
     parse_episode_results_filename,
@@ -118,21 +118,18 @@ class ArenaExperimentResult:
         self,
         experiment_output_directory: str | Path,
         run_metadata_by_name: Mapping[str, Mapping[str, Any]],
-        provenance: Mapping[str, str] | None = None,
+        provenance: Provenance | None = None,
     ) -> None:
         """Collect declared Run outputs from an Experiment output directory.
 
         Args:
             experiment_output_directory: Experiment output root containing one directory per Run.
             run_metadata_by_name: Environment, policy variant, final status, and start time for each declared Run.
-            provenance: Arena ``git_sha`` and ``git_branch``; read from the environment when omitted.
+            provenance: Arena git commit and branch; read from the environment when omitted.
         """
         assert run_metadata_by_name, "run_metadata_by_name must not be empty"
         self.experiment_output_directory = Path(experiment_output_directory)
-        self._provenance = dict(provenance) if provenance is not None else read_provenance()
-        assert set(self._provenance) == {"git_sha", "git_branch"} and all(
-            isinstance(value, str) for value in self._provenance.values()
-        ), f"provenance must have exactly string git_sha and git_branch, got {self._provenance!r}"
+        self._provenance = provenance if provenance is not None else Provenance.from_environment()
         self._runs: dict[str, ArenaExperimentRunData] = {
             run_name: self._collect_run(run_name, run_metadata)
             for run_name, run_metadata in run_metadata_by_name.items()
@@ -178,7 +175,7 @@ class ArenaExperimentResult:
 
     def to_dict(self) -> ArenaExperimentResultData:
         """Return the collected JSON-compatible Experiment result."""
-        return {"provenance": self._provenance, "runs": self._runs}
+        return {"provenance": self._provenance.to_dict(), "runs": self._runs}
 
     def write(self) -> Path:
         """Write all collected Runs to ``arena_experiment_result.json`` in the Experiment output directory."""

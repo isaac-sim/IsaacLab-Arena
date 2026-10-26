@@ -20,6 +20,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ArenaExperimentResult,
     build_arena_run_result_metadata,
 )
+from isaaclab_arena.evaluation.provenance import Provenance
 
 START_TIMESTAMP_NS = 1792800000000000000
 
@@ -129,6 +130,30 @@ def test_provenance_is_unknown_when_unset_or_empty(tmp_path, monkeypatch, value)
     result = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="failed")})
 
     assert result.to_dict()["provenance"] == {"git_sha": "unknown", "git_branch": "unknown"}
+
+
+def test_result_records_given_provenance(tmp_path):
+    provenance = Provenance(git_sha="abc123-dirty", git_branch="feature")
+
+    result = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="failed")}, provenance)
+
+    assert result.to_dict()["provenance"] == {"git_sha": "abc123-dirty", "git_branch": "feature"}
+    assert Provenance.from_dict(result.to_dict()["provenance"]) == provenance
+
+
+@pytest.mark.parametrize(
+    "provenance",
+    [
+        {"git_sha": "abc123"},
+        {"git_sha": "abc123", "git_branch": "main", "extra": "x"},
+        {"git_sha": "", "git_branch": "main"},
+        {"git_sha": "abc123", "git_branch": "a\nb"},
+        {"git_sha": "abc123", "git_branch": None},
+    ],
+)
+def test_provenance_rejects_invalid_values(provenance):
+    with pytest.raises(AssertionError, match="provenance"):
+        Provenance.from_dict(provenance)
 
 
 @pytest.mark.parametrize("status", ["completed", "failed"])
