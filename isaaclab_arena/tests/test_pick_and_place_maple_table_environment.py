@@ -21,7 +21,7 @@ def _test_task_objects_are_named_by_role(simulation_app):
     arena_env = PickAndPlaceMapleTableEnvironment().build(environment_cfg)
 
     assert arena_env.scene.assets["pick_up_object"].registry_name == pick_up_object_name
-    assert arena_env.scene.assets["destination_location"].registry_name == "bowl_ycb_robolab"
+    assert arena_env.scene.assets["destination_object"].registry_name == "bowl_ycb_robolab"
     # The description names the registered objects, as it did when the objects had their registry names.
     expected_description = f"Pick up the {pick_up_object_name}, and place it into the bowl_ycb_robolab"
     assert arena_env.task.get_task_description() == expected_description

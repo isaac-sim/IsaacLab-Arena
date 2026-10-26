@@ -13,7 +13,7 @@ Run a registered environment:
         pick_and_place_maple_table \
         --embodiment droid_rel_joint_pos \
         --pick_up_object banana_ycb_robolab \
-        --destination_location bowl_ycb_robolab
+        --destination_object bowl_ycb_robolab
 
 Run an environment graph spec:
 

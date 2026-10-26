@@ -81,7 +81,7 @@ Run the environment with a Rubik's cube, bowl, and home-office background:
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
-     --destination_location bowl_ycb_robolab \
+     --destination_object bowl_ycb_robolab \
      --hdr home_office_robolab
 
 .. figure:: ../../images/default_srl_pnp.png
@@ -105,7 +105,7 @@ Keep the same environment and task, but replace the pick-up object and destinati
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object mustard_bottle_hot3d_robolab \
-     --destination_location wooden_bowl_hot3d_robolab \
+     --destination_object wooden_bowl_hot3d_robolab \
      --hdr home_office_robolab
 
 .. figure:: ../../images/swap_objects.gif
@@ -127,7 +127,7 @@ Keep the original objects, but select a different background panorama and ambien
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
-     --destination_location bowl_ycb_robolab \
+     --destination_object bowl_ycb_robolab \
      --hdr billiard_hall_robolab
 
 .. figure:: ../../images/swap_hdr.gif

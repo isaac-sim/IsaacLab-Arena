@@ -86,7 +86,7 @@ as the introductory ``First Arena Environment`` walkthrough.
    * - **Object Placement**
      - Relations: ``On(table)``, ``PositionLimitsBox(x=0.55..0.70, y=-0.4..-0.1)``
    * - **CLI Args**
-     - ``--pick_up_object``, ``--destination_location``, ``--additional_table_objects``, ``--embodiment``, ``--teleop_device``, ``--hdr``, ``--light_intensity``
+     - ``--pick_up_object``, ``--destination_object``, ``--additional_table_objects``, ``--embodiment``, ``--teleop_device``, ``--hdr``, ``--light_intensity``
 
 
 galileo_pick_and_place

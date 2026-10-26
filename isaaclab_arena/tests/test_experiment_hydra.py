@@ -70,7 +70,7 @@ def test_getting_started_experiment_composes_typed_runs():
     )
     assert runs["swap_objects"].environment == PickAndPlaceMapleTableEnvironmentCfg(
         embodiment="droid_rel_joint_pos",
-        destination_location="wooden_bowl_hot3d_robolab",
+        destination_object="wooden_bowl_hot3d_robolab",
         hdr="home_office_robolab",
         episode_length_s=1.5,
     )
@@ -218,7 +218,7 @@ runs:
   first:
     environment:
       type: pick_and_place_maple_table
-      destination_location: ${pick_up_object}
+      destination_object: ${pick_up_object}
     policy:
       type: zero_action
   second:
@@ -242,7 +242,7 @@ runs:
     first_run = experiment_cfg.runs["first"]
     second_run = experiment_cfg.runs["second"]
     assert first_run.environment.light_intensity == 750.0
-    assert first_run.environment.destination_location == first_run.environment.pick_up_object
+    assert first_run.environment.destination_object == first_run.environment.pick_up_object
     assert first_run.rollout_limit.num_steps == first_run.environment_builder.num_envs == 2
     assert first_run.variations["camera"]["enabled"] is True
     assert second_run.environment.light_intensity == 650.0
