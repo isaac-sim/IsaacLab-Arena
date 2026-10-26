@@ -188,6 +188,10 @@ class InferenceBackend:
         """OpenAI-compatible client used for completion requests."""
         return self._client
 
+    def close(self) -> None:
+        """Close the owned inference client."""
+        self._client.close()
+
     def run_json(self, request: StructuredOutputRequest) -> dict[str, Any]:
         """Call a JSON-schema structured-output endpoint and parse the response as JSON.
 

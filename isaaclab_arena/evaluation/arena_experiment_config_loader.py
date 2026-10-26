@@ -107,6 +107,9 @@ def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: 
     from isaaclab_arena.assets.registries import PolicyRegistry
 
     registry = PolicyRegistry()
+    # Optional policy packages are imported only when their short names are selected.
+    if policy_name_or_class_path in {"vlm_step", "vlm_chunk", "vlm_goal"}:
+        import_module("isaaclab_arena_vlm_agent.vlm_agent_policy")
     if registry.is_registered(policy_name_or_class_path):
         policy_type = registry.get_policy(policy_name_or_class_path)
     else:

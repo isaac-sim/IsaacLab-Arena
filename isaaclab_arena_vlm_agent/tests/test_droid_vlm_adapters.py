@@ -97,7 +97,7 @@ def _policy(mode, inputs, infer):
     policy = policy_type(
         config,
         inference_backend=SimpleNamespace(infer=infer),
-        observation_adapter=ImageStateObservationAdapter(embodiment),
+        observation_adapter=ImageStateObservationAdapter(),
         action_adapter=adapter,
     )
     policy.set_task_description("Move the gripper")

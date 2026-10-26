@@ -10,12 +10,9 @@ from __future__ import annotations
 import numpy as np
 from abc import ABC, abstractmethod
 from scipy.spatial.transform import Rotation
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
-
-if TYPE_CHECKING:
-    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 POLICY_OBSERVATION_GROUP = "policy"
 """Observation group containing the embodiment's named state terms."""
@@ -93,16 +90,12 @@ class StateObservationAdapter(VLMObservationAdapter):
 
 
 class ImageObservationAdapter(VLMObservationAdapter):
-    """Include RGB views configured by an embodiment or the live environment."""
+    """Include RGB views and calibration from the live environment."""
 
-    def __init__(self, embodiment: EmbodimentBase | None = None):
-        self.camera_keys = None
-        if embodiment is not None:
-            self._set_camera_keys(embodiment.get_observation_cfg())
-
-    def _set_camera_keys(self, observation_cfg):
-        """Select RGB camera terms from the supplied observation configuration."""
-        camera_cfg = getattr(observation_cfg, CAMERA_OBSERVATION_GROUP, None)
+    def extract_vlm_input_from_observation(self, env, observation, env_id: int):
+        """Return RGB views and optical-frame camera calibration for one environment."""
+        base = env.unwrapped
+        camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP, None)
         assert camera_cfg is not None, "RGB modality requires camera observations; enable the embodiment's cameras"
         camera_keys = tuple(
             name
@@ -110,17 +103,7 @@ class ImageObservationAdapter(VLMObservationAdapter):
             if hasattr(term, "func") and term.params.get("data_type") == "rgb"
         )
         assert camera_keys, "RGB modality requires at least one configured RGB observation"
-        self.camera_keys = camera_keys
-
-    def extract_vlm_input_from_observation(self, env, observation, env_id: int):
-        """Return RGB views and optical-frame camera calibration for one environment."""
-        if self.camera_keys is None:
-            self._set_camera_keys(env.unwrapped.cfg.observations)
-        images = extract_rgb_images_from_camera_observations(
-            observation[CAMERA_OBSERVATION_GROUP], self.camera_keys, env_id
-        )
-        base = env.unwrapped
-        camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP)
+        images = extract_rgb_images_from_camera_observations(observation[CAMERA_OBSERVATION_GROUP], camera_keys, env_id)
         roots = {}
         for name in base.action_manager.active_terms:
             asset_name = base.action_manager.get_term(name).cfg.asset_name
@@ -172,9 +155,9 @@ class ImageObservationAdapter(VLMObservationAdapter):
 class ImageStateObservationAdapter(VLMObservationAdapter):
     """Include robot state followed by current RGB camera views."""
 
-    def __init__(self, embodiment: EmbodimentBase | None = None):
+    def __init__(self):
         self.state_adapter = StateObservationAdapter()
-        self.image_adapter = ImageObservationAdapter(embodiment)
+        self.image_adapter = ImageObservationAdapter()
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
         """Return state and RGB views for the selected environment."""

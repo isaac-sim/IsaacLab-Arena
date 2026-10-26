@@ -140,11 +140,12 @@ def test_request_intrinsics_match_encoded_pixels(backend, max_size, expected_siz
     env, observation = inputs()
     pixels = np.zeros((9, 17, 3), dtype=np.uint8)
     intrinsics = np.array([[12.0, 0.0, 8.0], [0.0, 10.0, 4.0], [0.0, 0.0, 1.0]])
-    policy.observation_adapter.extract_vlm_input_from_observation = lambda *args: (
-        {"front_view": pixels},
-        {"camera_geometry": {"front_view": {"image_size_px": [17, 9], "intrinsic_matrix": intrinsics.tolist()}}},
-    )
+    metadata = {"camera_geometry": {"front_view": {"image_size_px": [17, 9], "intrinsic_matrix": intrinsics.tolist()}}}
+    original_metadata = copy.deepcopy(metadata)
+    policy.observation_adapter.extract_vlm_input_from_observation = lambda *args: ({"front_view": pixels}, metadata)
     content = policy._request_content(env, observation, 0)
+    assert policy._request_content(env, observation, 0) == content
+    assert metadata == original_metadata
     geometry = json.loads(content[1]["text"])["camera_geometry"]["front_view"]
     encoded = Image.open(io.BytesIO(base64.b64decode(content[3]["image_url"]["url"].split(",", 1)[1])))
     assert encoded.size == expected_size == tuple(geometry["image_size_px"])

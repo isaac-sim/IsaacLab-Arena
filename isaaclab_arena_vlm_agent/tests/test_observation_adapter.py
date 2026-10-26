@@ -109,7 +109,7 @@ def test_selects_only_requested_modalities_and_configured_terms(adapter_type, in
     if not include_images:
         del observation["camera_obs"]
         embodiment.get_observation_cfg.return_value.camera_obs = None
-    adapter = adapter_type() if adapter_type is StateObservationAdapter else adapter_type(embodiment)
+    adapter = adapter_type()
     images, state = adapter.extract_vlm_input_from_observation(env, observation, 1)
     if include_state:
         assert state["policy"] == {"left_joints": [3.0, 4.0], "right_joints": [7.0, 8.0]}
@@ -149,12 +149,12 @@ def test_state_modality_requires_named_observation_terms():
 
 
 def test_rgb_modality_requires_configured_rgb_views():
-    embodiment, _, _ = _inputs()
+    embodiment, env, observation = _inputs()
     camera_cfg = embodiment.get_observation_cfg.return_value.camera_obs
     del camera_cfg.head_color
     del camera_cfg.hand_color
     with pytest.raises(AssertionError, match="configured RGB"):
-        ImageObservationAdapter(embodiment)
+        ImageObservationAdapter().extract_vlm_input_from_observation(env, observation, 0)
 
 
 def test_observation_base_requires_a_modality_implementation():
@@ -164,7 +164,7 @@ def test_observation_base_requires_a_modality_implementation():
 
 def test_state_uses_live_managers_after_environment_configuration_changes():
     embodiment, env, observation = _inputs()
-    adapter = ImageStateObservationAdapter(embodiment)
+    adapter = ImageStateObservationAdapter()
     env.unwrapped.observation_manager.active_terms["policy"] = ["task_only_term"]
     env.unwrapped.action_manager.active_terms = ["new_arm"]
     env.unwrapped.action_manager.get_term = lambda name: SimpleNamespace(
@@ -226,3 +226,17 @@ def test_camera_geometry_rejects_stale_pose_configuration():
     env.unwrapped.scene["camera_sensor"].cfg.update_latest_camera_pose = False
     with pytest.raises(AssertionError, match="update_latest_camera_pose=True"):
         ImageObservationAdapter().extract_vlm_input_from_observation(env, observation, 0)
+
+
+def test_camera_selection_follows_live_configuration_changes():
+    _, env, observation = _inputs()
+    adapter = ImageObservationAdapter()
+    images, _ = adapter.extract_vlm_input_from_observation(env, observation, 0)
+    assert set(images) == {"head_color", "hand_color"}
+    cfg = env.unwrapped.cfg.observations.camera_obs
+    cfg.new_color = cfg.head_color
+    del cfg.head_color
+    del cfg.hand_color
+    observation["camera_obs"] = {"new_color": observation["camera_obs"]["head_color"]}
+    images, values = adapter.extract_vlm_input_from_observation(env, observation, 0)
+    assert set(images) == set(values["camera_geometry"]) == {"new_color"}

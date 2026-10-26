@@ -13,7 +13,9 @@ import numpy as np
 import torch
 from abc import abstractmethod
 from collections import deque
+from copy import deepcopy
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
@@ -33,6 +35,23 @@ from isaaclab_arena_vlm_agent.response_errors import InvalidAgentResponseError
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_world import ArenaWorld
+
+
+class ObservationModality(str, Enum):
+    """Observations included in each VLM request."""
+
+    # Hydra accepts enum member names, so retain the lowercase YAML vocabulary.
+    image = "image"
+    state = "state"
+    image_state = "image_state"
+
+    def get_adapter_type(self) -> type[VLMObservationAdapter]:
+        """Return the observation adapter selected by this modality."""
+        return {
+            self.image: ImageObservationAdapter,
+            self.state: StateObservationAdapter,
+            self.image_state: ImageStateObservationAdapter,
+        }[self]
 
 
 @dataclass
@@ -55,7 +74,7 @@ class VLMPolicyCfg(PolicyCfg):
     vlm_embodiment_adapter: str | None = None
     """Named action and prompt preset; droid supports the droid_abs_ik embodiment."""
 
-    observation_modality: str = "image_state"
+    observation_modality: ObservationModality = ObservationModality.image_state
     """One of image, state, or image_state; ignored when an observation adapter is injected."""
 
     endpoint: str | None = None
@@ -82,7 +101,7 @@ class VLMPolicyCfg(PolicyCfg):
         else:
             assert isinstance(self.system_prompt, str) and self.system_prompt.strip(), "Set policy.system_prompt"
         assert self.vlm_embodiment_adapter in (None, "droid"), "Unknown vlm_embodiment_adapter; expected 'droid'"
-        assert self.observation_modality in {"image", "state", "image_state"}
+        self.observation_modality = ObservationModality(self.observation_modality)
         assert self.image_max_width_or_height > 0
         assert isinstance(self.max_attempts, int) and self.max_attempts >= 1
         assert type(self.max_tokens) is int and self.max_tokens > 0
@@ -110,7 +129,7 @@ class VLMChunkPolicyCfg(VLMPolicyCfg):
     vlm_embodiment_adapter: str | None = "droid"
     """Named action and prompt preset."""
 
-    chunk_size: int = 1
+    chunk_size: int = field(kw_only=True)
     """Number of commands per prediction; also used by the default prompt."""
 
     def __post_init__(self):
@@ -168,11 +187,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         """
         super().__init__(config)
         if observation_adapter is None:
-            adapter_type = {
-                "image": ImageObservationAdapter,
-                "state": StateObservationAdapter,
-                "image_state": ImageStateObservationAdapter,
-            }[config.observation_modality]
+            adapter_type = ObservationModality(config.observation_modality).get_adapter_type()
             observation_adapter = adapter_type()
         assert isinstance(observation_adapter, VLMObservationAdapter)
         assert isinstance(action_adapter, AgentActionAdapter)
@@ -186,7 +201,6 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             )
         self.task_description = None
         self._owns_inference_backend = inference_backend is None
-        self._closed = False
         # Construct the client last so invalid adapters or schemas cannot leak a connection.
         self._inference_backend = (
             inference_backend
@@ -202,12 +216,9 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         )
 
     def close(self) -> None:
-        """Discard pending commands and close only a policy-owned inference client."""
-        if not self._closed:
-            self.reset()
-            if self._owns_inference_backend:
-                self._inference_backend.client.close()
-            self._closed = True
+        """Close the inference backend when this policy created it."""
+        if self._owns_inference_backend:
+            self._inference_backend.close()
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return a batch of native actions using the policy execution strategy.
@@ -240,6 +251,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
     def _request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
         """Encode selected images and assemble the task and observation values into chat content."""
         images, prompt_values = self.observation_adapter.extract_vlm_input_from_observation(env, observation, env_id)
+        # Injected adapters may reuse calibration dictionaries across predictions.
+        prompt_values = deepcopy(prompt_values)
         encoded_images = {}
         for camera_name, image in images.items():
             url, size = image_to_jpeg_data_url(image, self.config.image_max_width_or_height)

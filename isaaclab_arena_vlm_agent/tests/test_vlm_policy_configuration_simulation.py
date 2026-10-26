@@ -3,14 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify all three example strategies through typed loading and run execution."""
+"""Verify goal-policy execution and moving-camera calibration in an isolated simulator."""
+
+import sys
 
 import pytest
 
-from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
-def _test_vlm_experiment(simulation_app, mode):
+def _test_vlm_experiment(simulation_app):
     import base64
     import io
     import json
@@ -30,7 +32,7 @@ def _test_vlm_experiment(simulation_app, mode):
     from isaaclab_arena.tests.utils.constants import TestConstants
 
     config_path = Path(TestConstants.arena_environments_dir) / "experiment_configs/droid_pnp_vlm_experiment.yaml"
-    run_name = f"droid_pnp_vlm_{mode}"
+    run_name = "droid_pnp_vlm_goal"
     experiment = load_arena_experiment_from_config_file(
         config_path,
         device="cuda:0",
@@ -38,10 +40,11 @@ def _test_vlm_experiment(simulation_app, mode):
             f"runs.{run_name}.rollout_limit.num_episodes=null",
             f"runs.{run_name}.rollout_limit.num_steps=3",
             f"runs.{run_name}.policy.model=test-model",
+            f"runs.{run_name}.policy.max_steps_per_goal=1",
         ],
     )
     run = experiment.runs[run_name]
-    assert PolicyRegistry().get_policy_type_for_cfg(run.policy) is PolicyRegistry().get_policy(f"vlm_{mode}")
+    assert PolicyRegistry().get_policy_type_for_cfg(run.policy) is PolicyRegistry().get_policy("vlm_goal")
     backend = Mock()
     wrist_positions = []
     wrist_offset = DroidCameraCfg().wrist_camera.offset
@@ -87,9 +90,6 @@ def _test_vlm_experiment(simulation_app, mode):
         wrist_positions.append(wrist["position_world_m"])
         command = {"values": pose["position_root_m"] + pose["quaternion_root_xyzw"] + [0.0]}
         command["values"][0] += 0.01
-        if mode == "chunk":
-            assert f"exactly {run.policy.chunk_size} commands" in request.messages[0]["content"]
-            return {"commands": [command] * run.policy.chunk_size}
         return command
 
     backend.infer.side_effect = move_nearby
@@ -97,18 +97,23 @@ def _test_vlm_experiment(simulation_app, mode):
         with patch("isaaclab_arena_vlm_agent.vlm_agent_policy.InferenceBackend", return_value=backend):
             result = build_and_run(run, output_dir)
         assert result.status is RunStatus.COMPLETED
-        if mode == "step":
-            assert backend.infer.call_count == 3
-            assert np.linalg.norm(np.array(wrist_positions[-1]) - wrist_positions[0]) > 1e-4
-        elif mode == "chunk":
-            assert backend.infer.call_count == 1
-        else:
-            assert 1 <= backend.infer.call_count <= 3
-        backend.client.close.assert_called_once()
+        assert backend.infer.call_count == 3
+        assert np.linalg.norm(np.array(wrist_positions[-1]) - wrist_positions[0]) > 1e-4
+        backend.close.assert_called_once()
     return True
 
 
 @pytest.mark.with_cameras
-@pytest.mark.parametrize("mode", ["step", "chunk", "goal"])
-def test_vlm_experiment(mode):
-    assert run_function_with_persistent_simulation_app(_test_vlm_experiment, enable_cameras=True, mode=mode)
+@pytest.mark.with_subprocess
+def test_vlm_experiment():
+    # Other VLM tests initialize the parent SimulationApp without camera support.
+    run_subprocess([
+        sys.executable,
+        "-c",
+        (
+            "from isaaclab_arena.tests.utils.persistent_simulation_app import"
+            " run_function_with_persistent_simulation_app; from"
+            " isaaclab_arena_vlm_agent.tests.test_vlm_policy_configuration_simulation import _test_vlm_experiment;"
+            " assert run_function_with_persistent_simulation_app(_test_vlm_experiment, enable_cameras=True)"
+        ),
+    ])

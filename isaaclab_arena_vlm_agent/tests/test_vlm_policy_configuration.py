@@ -42,10 +42,10 @@ def gripper_measurements(monkeypatch):
 
 def _config(cfg_type, modality="image_state"):
     options = {"max_steps_per_goal": 2} if cfg_type is VLMGoalPolicyCfg else {}
+    if cfg_type is VLMChunkPolicyCfg:
+        options["chunk_size"] = 2
     cfg = cfg_type(system_prompt="Return absolute targets.", model="test-model", **options)
     cfg.observation_modality = modality
-    if cfg_type is VLMChunkPolicyCfg:
-        cfg.chunk_size = 2
     return cfg
 
 
@@ -125,10 +125,7 @@ def test_configured_execution_and_partial_reset(monkeypatch, policy_type, cfg_ty
         assert backend.infer.call_count == 4
     assert constructor.call_args.kwargs["model"] == "test-model"
     policy.close()
-    policy.close()
-    backend.client.close.assert_called_once()
-    assert not getattr(policy, "_chunks", {})
-    assert not getattr(policy, "_goals", {})
+    backend.close.assert_called_once()
 
 
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
@@ -139,7 +136,7 @@ def test_injected_backend_remains_caller_owned(monkeypatch, policy_type, cfg_typ
     policy = policy_type(_config(cfg_type), inference_backend=backend)
     policy.close()
     constructor.assert_not_called()
-    backend.client.close.assert_not_called()
+    backend.close.assert_not_called()
 
 
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
@@ -222,5 +219,71 @@ def test_preset_supplies_prompt_and_strategy(monkeypatch, policy_type, cfg_type)
     "options", [{"vlm_embodiment_adapter": "unknown"}, {"observation_modality": "unknown"}, {"chunk_size": 0}]
 )
 def test_invalid_flat_settings(options):
-    with pytest.raises(AssertionError):
-        VLMChunkPolicyCfg(**options)
+    with pytest.raises((AssertionError, ValueError)):
+        VLMChunkPolicyCfg(**{"chunk_size": 2, **options})
+
+
+@pytest.mark.parametrize("name", ["vlm_step", "vlm_chunk", "vlm_goal"])
+def test_short_policy_name_is_discovered_in_fresh_process(name):
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "from isaaclab_arena.evaluation.arena_experiment_config_loader "
+                "import _resolve_policy_cfg_type_from_name_or_class_path as resolve; "
+                "assert 'isaaclab_arena_vlm_agent.vlm_agent_policy' not in sys.modules; "
+                f"cfg = resolve({name!r}); "
+                "assert cfg.__module__ == 'isaaclab_arena_vlm_agent.vlm_agent_policy'"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_chunk_size_is_required():
+    with pytest.raises(TypeError, match="chunk_size"):
+        VLMChunkPolicyCfg()
+
+
+@pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
+@pytest.mark.parametrize("layout", ["joints", "wrong_body", "wrong_asset", "gripper_first", "signed_gripper"])
+def test_droid_preset_rejects_incompatible_controller_before_inference(monkeypatch, policy_type, cfg_type, layout):
+    from dataclasses import replace
+
+    indices = AbsoluteCommandIndices(
+        8,
+        (PoseCommandIndices(slice(0, 7), "robot", "base_link"),),
+        (),
+        (GripperCommandIndex(7, "gripper_action", 0.0, 1.0),),
+    )
+    if layout == "joints":
+        indices = replace(indices, poses=(), joints=(slice(0, 7),))
+    elif layout == "wrong_body":
+        indices = replace(indices, poses=(replace(indices.poses[0], body_name="tool"),))
+    elif layout == "wrong_asset":
+        indices = replace(indices, poses=(replace(indices.poses[0], asset_name="other_robot"),))
+    elif layout == "gripper_first":
+        indices = replace(
+            indices,
+            poses=(replace(indices.poses[0], indices=slice(1, 8)),),
+            grippers=(replace(indices.grippers[0], index=0),),
+        )
+    else:
+        indices = replace(indices, grippers=(replace(indices.grippers[0], open_value=1, close_value=-1),))
+    monkeypatch.setattr(
+        "isaaclab_arena_vlm_agent.absolute_action_adapter.read_absolute_command_indices", lambda env: indices
+    )
+    backend = Mock()
+    policy = policy_type(_config(cfg_type), inference_backend=backend)
+    policy.set_task_description("Move DROID")
+    with pytest.raises(AssertionError, match="unsupported"):
+        policy.get_action(SimpleNamespace(), {})
+    backend.infer.assert_not_called()

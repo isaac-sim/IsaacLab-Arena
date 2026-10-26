@@ -297,12 +297,19 @@ class DroidAbsoluteDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
 
     registry_name = "droid_abs_ik"
 
-    def get_action_cfg(self):
-        """Return absolute pose actions after applying the selected physics backend's IK settings."""
-        cfg = super().get_action_cfg().copy()
-        cfg.arm_action.controller.use_relative_mode = False
-        cfg.arm_action.scale = 1.0
-        return cfg
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._set_absolute_pose_actions()
+
+    def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
+        """Apply backend IK settings, then accept unscaled absolute pose targets."""
+        super()._configure_physics_backend(backend)
+        self._set_absolute_pose_actions()
+
+    def _set_absolute_pose_actions(self) -> None:
+        """Keep the stored action config in absolute pose mode."""
+        self.action_config.arm_action.controller.use_relative_mode = False
+        self.action_config.arm_action.scale = 1.0
 
 
 @register_asset

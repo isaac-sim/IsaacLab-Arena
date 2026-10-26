@@ -11,7 +11,32 @@ from isaaclab_arena_vlm_agent.absolute_action_adapter import (
     AbsoluteStepActionAdapter,
 )
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter
+from isaaclab_arena_vlm_agent.command_indices import AbsoluteCommandIndices, GripperCommandIndex, PoseCommandIndices
 from isaaclab_arena_vlm_agent.pose_target_motion_generator import PoseTargetMotionGenerator
+
+
+class _DroidPoseActionAdapter:
+    """Require the native pose and gripper layout described by the DROID prompt."""
+
+    def is_robot_action_space_supported(self, env) -> bool:
+        return super().is_robot_action_space_supported(env) and self._command_indices == AbsoluteCommandIndices(
+            action_dim=8,
+            poses=(PoseCommandIndices(slice(0, 7), "robot", "base_link"),),
+            joints=(),
+            grippers=(GripperCommandIndex(7, "gripper_action", 0.0, 1.0),),
+        )
+
+
+class _DroidStepActionAdapter(_DroidPoseActionAdapter, AbsoluteStepActionAdapter):
+    """Decode a DROID pose command."""
+
+
+class _DroidChunkActionAdapter(_DroidPoseActionAdapter, AbsoluteChunkActionAdapter):
+    """Decode a chunk of DROID pose commands."""
+
+
+class _DroidGoalActionAdapter(_DroidPoseActionAdapter, AbsoluteGoalActionAdapter):
+    """Decode a DROID pose goal."""
 
 
 class DroidVLMAdapter:
@@ -19,11 +44,11 @@ class DroidVLMAdapter:
 
     def make_step_action_adapter(self) -> AbsoluteStepActionAdapter:
         """Create a decoder for one absolute pose command."""
-        return AbsoluteStepActionAdapter()
+        return _DroidStepActionAdapter()
 
     def make_chunk_action_adapter(self, chunk_size: int) -> AbsoluteChunkActionAdapter:
         """Create a decoder for the requested number of absolute pose commands."""
-        return AbsoluteChunkActionAdapter(chunk_size)
+        return _DroidChunkActionAdapter(chunk_size)
 
     def make_goal_action_adapter(
         self, position_tolerance_m: float, rotation_tolerance_rad: float
@@ -34,7 +59,7 @@ class DroidVLMAdapter:
             position_tolerance_m=position_tolerance_m,
             rotation_tolerance_rad=rotation_tolerance_rad,
         )
-        return AbsoluteGoalActionAdapter(generator)
+        return _DroidGoalActionAdapter(generator)
 
     def get_system_prompt(self, action_adapter: AgentActionAdapter) -> str:
         """Describe the DROID pose contract and the selected response schema."""
