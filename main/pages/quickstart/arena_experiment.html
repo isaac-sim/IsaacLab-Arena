@@ -614,7 +614,8 @@ keeps the example quick and needs no model weights.</p>
 <div class="sd-card-title sd-font-weight-bold docutils">
 <code class="docutils literal notranslate"><span class="pre">swap_objects</span></code></div>
 <img alt="DROID pick-and-place environment with a mustard bottle and wooden bowl" src="../../_images/swap_objects.gif" />
-<p class="sd-card-text">Replaces the Rubik’s cube and bowl with a mustard bottle and wooden bowl.</p>
+<p class="sd-card-text">Replaces the bowl with a wooden bowl and builds the scene once for each pick-up object in its
+list: a mustard bottle, an orange and a Rubik’s cube.</p>
 </div>
 </div>
 </div>
@@ -660,8 +661,13 @@ keeps the example quick and needs no model weights.</p>
 
 <span class="w">  </span><span class="nt">swap_objects</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">pick_up_object</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mustard_bottle_hot3d_robolab</span>
 <span class="w">      </span><span class="nt">destination_location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">wooden_bowl_hot3d_robolab</span>
+<span class="w">    </span><span class="nt">num_rebuilds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">    </span><span class="nt">variations</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">pick_up_object.asset_selection.enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">pick_up_object.asset_selection.registry_names</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">mustard_bottle_hot3d_robolab</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">orange_01_fruits_veggies_robolab</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">rubiks_cube_hot3d_robolab</span><span class="p p-Indicator">]</span>
 
 <span class="w">  </span><span class="nt">change_background_hdr</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">environment</span><span class="p">:</span>

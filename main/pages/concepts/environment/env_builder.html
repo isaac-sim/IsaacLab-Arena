@@ -722,7 +722,10 @@ assignment. With <code class="docutils literal notranslate"><span class="pre">No
 </div>
 <p>There is no separate variation seed: each variation draws from its own
 generator, seeded from <code class="docutils literal notranslate"><span class="pre">--seed</span></code> and the variation’s
-<code class="docutils literal notranslate"><span class="pre">&lt;asset_name&gt;.&lt;variation_name&gt;</span></code> key. Run-time variations hand out their
+<code class="docutils literal notranslate"><span class="pre">&lt;asset_name&gt;.&lt;variation_name&gt;</span></code> key. In-order
+<a class="reference internal" href="../variations/variations.html#asset-selection-variation"><span class="std std-ref">asset selection</span></a> does not use the seed. It
+takes the name at the rebuild index, which the Experiment Runner passes to
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> for each rebuild. Run-time variations hand out their
 values in episode-start order, so the k-th episode to start gets the same
 values for any <code class="docutils literal notranslate"><span class="pre">num_envs</span></code>. Which environment runs it still depends on
 <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> and on when environments reset. See

@@ -806,8 +806,10 @@ PhysX vs Newton selection and <code class="docutils literal notranslate"><span c
 
         <span class="c1"># Step 1: Retrieve assets from the registry</span>
         <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"maple_table_robolab"</span><span class="p">)()</span>
-        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">pick_up_object</span><span class="p">)()</span>
-        <span class="n">destination_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">destination_location</span><span class="p">)()</span>
+        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">registry_name</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">pick_up_object</span><span class="p">)(</span><span class="n">name</span><span class="o">=</span><span class="s2">"pick_up_object"</span><span class="p">)</span>
+        <span class="n">destination_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">registry_name</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">destination_location</span><span class="p">)(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"destination_location"</span>
+        <span class="p">)</span>
 
         <span class="c1"># Step 2: Describe spatial relationships</span>
         <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>

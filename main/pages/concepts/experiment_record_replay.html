@@ -622,6 +622,9 @@ and build-time/run-time lifecycle mismatches are rejected.</p></li>
 value.</p></li>
 <li><p>Placement must appear in every row or no rows. When absent, the environment
 uses its configured live or fixed placement behavior.</p></li>
+<li><p>When rows have <code class="docutils literal notranslate"><span class="pre">placement</span></code> samples, they must also record every enabled
+<a class="reference internal" href="variations/variations.html#asset-selection-variation"><span class="std std-ref">asset selection</span></a>, because the recorded
+poses were solved for the recorded assets.</p></li>
 </ul>
 <p>These rules prevent a component from switching between recorded and live values
 within one rebuild.</p>

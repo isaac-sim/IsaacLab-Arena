@@ -629,10 +629,19 @@ an environment resets during policy rollouts. Arena calls these <em>build-time</
 </table>
 </div>
 <p>This distinction matters when planning an evaluation. To collect several values of a
-build-time variation, the environment must be rebuilt with different seeds; the Experiment
-Runner gives each rebuild its own seed. A run-time variation can produce a new value on each
+build-time variation, the environment must be rebuilt; the Experiment
+Runner gives each rebuild its own seed. Set <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code> in the Run; with the default of 1,
+each enabled build-time variation draws one value for the whole Run. A run-time variation can
+produce a new value on each
 reset without rebuilding the scene. Both kinds draw their values from the variation’s own
 generator, seeded from <code class="docutils literal notranslate"><span class="pre">--seed</span></code> (see <a class="reference internal" href="../environment/env_builder.html"><span class="doc">Environment Builder</span></a>).</p>
+<p id="asset-selection-variation">In-order asset selection (<code class="docutils literal notranslate"><span class="pre">RigidAssetSelectionVariation</span></code> in <a class="reference internal" href="#available-variations"><span class="std std-ref">Available variations</span></a>) is the
+exception: rebuild k spawns the k-th name of its <code class="docutils literal notranslate"><span class="pre">registry_names</span></code>, so set <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code> to the
+length of the list to spawn each name once.</p>
+<p>A <a class="reference internal" href="../scene/concept_rigid_object_set.html"><span class="doc">RigidObjectSet</span></a> fits neither row: it assigns one member
+to each parallel environment when the environment is built and keeps it for every episode of that
+build. It is part of the environment definition rather than a variation, so it has no
+<code class="docutils literal notranslate"><span class="pre">asset_selection</span></code>.</p>
 </section>
 <section id="discovering-available-variations">
 <span id="id1"></span><h2>Discovering available variations<a class="headerlink" href="#discovering-available-variations" title="Link to this heading">#</a></h2>
@@ -650,21 +659,23 @@ defaults:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Variations (Hydra-configurable)
 ================================
 
-Asset: droid_abs_joint_pos
-  camera_extrinsics_wrist_camera (CameraExtrinsicsVariation, run-time)
-    Enable: droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true  (default: False)
-    Fields:
-      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high = [0.005,0.005,0.005]
-      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low = [-0.005,-0.005,-0.005]
+...
 
-Asset: light
-  hdr_image (HDRImageVariation, build-time)
-    Enable: light.hdr_image.enabled=true  (default: False)
+Asset: pick_up_object
+  mass (ObjectMassVariation, run-time)
+    Enable: pick_up_object.mass.enabled=true  (default: False)
     Fields:
-      light.hdr_image.hdr_names = []
+      pick_up_object.mass.recompute_inertia = True
+      pick_up_object.mass.sampler_cfg.high = [2.0]
+      pick_up_object.mass.sampler_cfg.low = [0.05]
 
-Asset: bowl_ycb_robolab
-  (no variations)
+  ...
+
+  asset_selection (RigidAssetSelectionVariation, build-time)
+    Enable: pick_up_object.asset_selection.enabled=true  (default: False)
+    Fields:
+      pick_up_object.asset_selection.registry_names = []
+      pick_up_object.asset_selection.sampler_cfg.random_choice = False
 
 ...
 </pre></div>
@@ -706,7 +717,7 @@ extrinsics jitter range to ±10 mm per axis.</p>
 see <a class="reference internal" href="#discovering-available-variations"><span class="std std-ref">Discovering available variations</span></a>.</p>
 <p>With Isaac Lab’s <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code> and Arena’s <code class="docutils literal notranslate"><span class="pre">environment_registration_callback</span></code>,
 append the same variation overrides to the recording command, for example
-<code class="docutils literal notranslate"><span class="pre">rubiks_cube_hot3d_robolab.mass.enabled=true</span></code> for <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code>.
+<code class="docutils literal notranslate"><span class="pre">pick_up_object.mass.enabled=true</span></code> for <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code>.
 Arena consumes its variation overrides and returns the remaining arguments to the Isaac Lab script.
 See <a class="reference internal" href="../../example_workflows/static_manipulation/step_2_teleoperation.html"><span class="doc">Teleoperation Data Collection</span></a>
 for recording setup and the full command using the callback.</p>
@@ -775,35 +786,41 @@ variations are sampled once and applied to asset configs before the environment 
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CameraExtrinsicsVariation</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RigidAssetSelectionVariation</span></code></p></td>
+<td><p>build-time</p></td>
+<td><p>Picks the registered asset a rigid object spawns from a list of names. Rebuild k spawns the
+k-th name, or a random one with <code class="docutils literal notranslate"><span class="pre">sampler_cfg.random_choice:</span> <span class="pre">true</span></code>. Episode rows record the
+name. See the <code class="docutils literal notranslate"><span class="pre">swap_objects</span></code> Run of the <a class="reference internal" href="../../quickstart/arena_experiment.html#first-arena-experiment"><span class="std std-ref">first Arena Experiment</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CameraExtrinsicsVariation</span></code></p></td>
 <td><p>run-time</p></td>
 <td><p>Adds a small sampled offset to a camera’s nominal local position on every reset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CameraIntrinsicsBuildTimeVariation</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CameraIntrinsicsBuildTimeVariation</span></code></p></td>
 <td><p>build-time</p></td>
 <td><p>Perturbs a pinhole camera’s focal lengths and principal point when the environment is built.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CameraIntrinsicsRunTimeVariation</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CameraIntrinsicsRunTimeVariation</span></code></p></td>
 <td><p>run-time</p></td>
 <td><p>Perturbs a pinhole camera’s focal lengths and principal point on every reset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">HDRImageVariation</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">HDRImageVariation</span></code></p></td>
 <td><p>build-time</p></td>
 <td><p>Samples a single HDR and attaches it to a dome light.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LightColorTemperatureVariation</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LightColorTemperatureVariation</span></code></p></td>
 <td><p>build-time</p></td>
 <td><p>Samples a white-point color temperature (Kelvin) and applies it to a light.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LightColorVariation</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LightColorVariation</span></code></p></td>
 <td><p>build-time</p></td>
 <td><p>Samples an RGB color and applies it to a light.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LightDirectionVariation</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LightDirectionVariation</span></code></p></td>
 <td><p>build-time</p></td>
 <td><p>Samples a continuous orientation and applies it to a directional light.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LightIntensityVariation</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LightIntensityVariation</span></code></p></td>
 <td><p>build-time</p></td>
 <td><p>Samples a single intensity and applies it to a light.</p></td>
 </tr>
