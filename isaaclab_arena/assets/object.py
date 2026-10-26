@@ -23,7 +23,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import has_light, open_stage
 from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
-from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
+from isaaclab_arena.variations.rigid_asset_selection_variation import RigidAssetSelectionVariation
 
 
 class Object(RootedObjectBase):
@@ -79,7 +79,7 @@ class Object(RootedObjectBase):
         self.object_cfg = self._init_object_cfg()
         self._pose_event_cfg = self._build_reset_event()
         if self.object_type == ObjectType.RIGID:
-            self.add_variation(AssetSelectionVariation(self))
+            self.add_variation(RigidAssetSelectionVariation(self))
 
     def set_spawned_asset(self, registry_name: str, selected_asset: Object) -> None:
         """Spawn ``selected_asset``, registered under ``registry_name``, instead of the declared asset.

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for AssetSelectionVariation, on its own and through ArenaEnvBuilder.build_env_cfg()."""
+"""Tests for RigidAssetSelectionVariation, on its own and through ArenaEnvBuilder.build_env_cfg()."""
 
 import json
 
@@ -105,11 +105,11 @@ def compose_pick_and_place_with_selection(
 
 def _test_selected_asset_is_spawned_placed_recorded_and_described(simulation_app):
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariationCfg
+    from isaaclab_arena.variations.rigid_asset_selection_variation import RigidAssetSelectionVariationCfg
 
     # In order, rebuild 1 takes the second name.
     pickup, env_cfg, env_kwargs = compose_pick_and_place_with_selection(
-        selection_cfg=AssetSelectionVariationCfg(enabled=True, registry_names=["mustard_bottle", "sugar_box"]),
+        selection_cfg=RigidAssetSelectionVariationCfg(enabled=True, registry_names=["mustard_bottle", "sugar_box"]),
         rebuild_index=1,
         solve_relations=True,
     )
@@ -133,11 +133,11 @@ def _test_selected_asset_is_spawned_placed_recorded_and_described(simulation_app
 
 
 def _test_asset_selection_rejects_invalid_configuration(simulation_app, registry_names, message_pattern):
-    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariationCfg
+    from isaaclab_arena.variations.rigid_asset_selection_variation import RigidAssetSelectionVariationCfg
 
     with pytest.raises(AssertionError, match=message_pattern):
         compose_pick_and_place_with_selection(
-            selection_cfg=AssetSelectionVariationCfg(enabled=True, registry_names=registry_names)
+            selection_cfg=RigidAssetSelectionVariationCfg(enabled=True, registry_names=registry_names)
         )
     return True
 
@@ -173,12 +173,12 @@ def _test_scene_validates_the_selected_asset(simulation_app):
 
     from isaaclab_arena.assets.object_library import CrackerBox, GearInsertionMediumGear
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariationCfg
+    from isaaclab_arena.variations.rigid_asset_selection_variation import RigidAssetSelectionVariationCfg
 
     def make_scene_with_selection(declared_asset_class, selected_registry_name):
         pickup = declared_asset_class(name="pickup")
         selection = pickup.get_variation("asset_selection")
-        selection.apply_cfg(AssetSelectionVariationCfg(enabled=True, registry_names=[selected_registry_name]))
+        selection.apply_cfg(RigidAssetSelectionVariationCfg(enabled=True, registry_names=[selected_registry_name]))
         selection.configure_at_build_time(seed=0, variation_key=SELECTION_KEY)
         return Scene(assets=[pickup])
 
@@ -248,7 +248,7 @@ def placeholder_rigid_objects(monkeypatch):
     Returns:
         The registry names built, in build order.
     """
-    from isaaclab_arena.variations import asset_selection_variation
+    from isaaclab_arena.variations import rigid_asset_selection_variation
 
     built_registry_names: list[str] = []
 
@@ -256,8 +256,8 @@ def placeholder_rigid_objects(monkeypatch):
         built_registry_names.append(registry_name)
         return f"rigid object {registry_name}"
 
-    monkeypatch.setattr(asset_selection_variation, "_assert_registered_rigid_object", lambda registry_name: None)
-    monkeypatch.setattr(asset_selection_variation, "_build_rigid_object", build_placeholder)
+    monkeypatch.setattr(rigid_asset_selection_variation, "_assert_registered_rigid_object", lambda registry_name: None)
+    monkeypatch.setattr(rigid_asset_selection_variation, "_build_rigid_object", build_placeholder)
     return built_registry_names
 
 
@@ -265,10 +265,10 @@ def test_random_choice_override_draws_seeded_names_and_swaps_the_sampler(placeho
     import torch
 
     from isaaclab_arena.variations import variations_hydra
-    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
+    from isaaclab_arena.variations.rigid_asset_selection_variation import RigidAssetSelectionVariation
 
     rigid_object = _RecordingRigidObject()
-    variation = AssetSelectionVariation(rigid_object)
+    variation = RigidAssetSelectionVariation(rigid_object)
     variations = {"pickup": [variation]}
 
     def select_registry_name(seed, rebuild_index=0):
@@ -297,12 +297,15 @@ def test_random_choice_override_draws_seeded_names_and_swaps_the_sampler(placeho
 
 
 def test_in_order_selection_takes_repeated_names_in_list_order(placeholder_rigid_objects):
-    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation, AssetSelectionVariationCfg
+    from isaaclab_arena.variations.rigid_asset_selection_variation import (
+        RigidAssetSelectionVariation,
+        RigidAssetSelectionVariationCfg,
+    )
 
     registry_names = ["mustard_bottle", "sugar_box", "mustard_bottle", "tomato_soup_can"]
     rigid_object = _RecordingRigidObject()
-    variation = AssetSelectionVariation(
-        rigid_object, AssetSelectionVariationCfg(enabled=True, registry_names=registry_names)
+    variation = RigidAssetSelectionVariation(
+        rigid_object, RigidAssetSelectionVariationCfg(enabled=True, registry_names=registry_names)
     )
 
     num_rebuilds = 6
@@ -319,10 +322,13 @@ def test_in_order_selection_takes_repeated_names_in_list_order(placeholder_rigid
 
 def test_asset_selection_rejects_empty_registry_names_and_bounding_box_override(placeholder_rigid_objects):
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation, AssetSelectionVariationCfg
+    from isaaclab_arena.variations.rigid_asset_selection_variation import (
+        RigidAssetSelectionVariation,
+        RigidAssetSelectionVariationCfg,
+    )
 
-    selection_without_names = AssetSelectionVariation(
-        _RecordingRigidObject(), AssetSelectionVariationCfg(enabled=True, registry_names=[])
+    selection_without_names = RigidAssetSelectionVariation(
+        _RecordingRigidObject(), RigidAssetSelectionVariationCfg(enabled=True, registry_names=[])
     )
     with pytest.raises(AssertionError, match="'pickup.asset_selection' is enabled but its"):
         selection_without_names.configure_at_build_time(seed=0, variation_key=SELECTION_KEY)
@@ -331,22 +337,25 @@ def test_asset_selection_rejects_empty_registry_names_and_bounding_box_override(
     rigid_object_with_bounding_box.bounding_box = AxisAlignedBoundingBox(
         min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)
     )
-    selection_with_bounding_box = AssetSelectionVariation(
-        rigid_object_with_bounding_box, AssetSelectionVariationCfg(enabled=True, registry_names=["sugar_box"])
+    selection_with_bounding_box = RigidAssetSelectionVariation(
+        rigid_object_with_bounding_box, RigidAssetSelectionVariationCfg(enabled=True, registry_names=["sugar_box"])
     )
     with pytest.raises(AssertionError, match="'pickup' sets a bounding_box override"):
         selection_with_bounding_box.configure_at_build_time(seed=0, variation_key=SELECTION_KEY)
 
 
 def test_placement_replay_needs_recorded_asset_selection(placeholder_rigid_objects, tmp_path):
-    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation, AssetSelectionVariationCfg
     from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
+    from isaaclab_arena.variations.rigid_asset_selection_variation import (
+        RigidAssetSelectionVariation,
+        RigidAssetSelectionVariationCfg,
+    )
 
     def replay(record_row, record_name):
         """Return the names an in-order selection of mustard_bottle and sugar_box spawns while replaying ``record_row``."""
         rigid_object = _RecordingRigidObject()
-        variation = AssetSelectionVariation(
-            rigid_object, AssetSelectionVariationCfg(enabled=True, registry_names=["mustard_bottle", "sugar_box"])
+        variation = RigidAssetSelectionVariation(
+            rigid_object, RigidAssetSelectionVariationCfg(enabled=True, registry_names=["mustard_bottle", "sugar_box"])
         )
         record_path = tmp_path / f"{record_name}.jsonl"
         record_path.write_text(json.dumps(record_row) + "\n")

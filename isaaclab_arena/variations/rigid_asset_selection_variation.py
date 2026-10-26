@@ -36,8 +36,8 @@ class AssetSelectionSamplerCfg(SamplerBaseCfg):
 
 
 @configclass
-class AssetSelectionVariationCfg(VariationBaseCfg):
-    """Configuration for AssetSelectionVariation."""
+class RigidAssetSelectionVariationCfg(VariationBaseCfg):
+    """Configuration for RigidAssetSelectionVariation."""
 
     registry_names: list[str] = field(default_factory=list)
     """Registry names of the rigid objects to choose from, in this order. Required when enabled. A name listed more
@@ -47,7 +47,7 @@ class AssetSelectionVariationCfg(VariationBaseCfg):
     """Sampler that selects the registry name in each build."""
 
 
-class AssetSelectionVariation(BuildTimeVariationBase):
+class RigidAssetSelectionVariation(BuildTimeVariationBase):
     """Pick the registered asset a rigid object spawns; every environment of a build spawns the same asset.
 
     Args:
@@ -56,17 +56,17 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         name: Name of the variation on its Object.
     """
 
-    cfg: AssetSelectionVariationCfg
+    cfg: RigidAssetSelectionVariationCfg
 
     changes_object_geometry = True
 
     def __init__(
         self,
         rigid_object: Object,
-        cfg: AssetSelectionVariationCfg | None = None,
+        cfg: RigidAssetSelectionVariationCfg | None = None,
         name: str = "asset_selection",
     ):
-        super().__init__(cfg=cfg if cfg is not None else AssetSelectionVariationCfg(), name=name)
+        super().__init__(cfg=cfg if cfg is not None else RigidAssetSelectionVariationCfg(), name=name)
         self._rigid_object = rigid_object
         self._variation_key: str | None = None
         self._rebuild_index: int = 0

@@ -77,7 +77,7 @@ defaults:
 
      ...
 
-     asset_selection (AssetSelectionVariation, build-time)
+     asset_selection (RigidAssetSelectionVariation, build-time)
        Enable: pick_up_object.asset_selection.enabled=true  (default: False)
        Fields:
          pick_up_object.asset_selection.registry_names = []
@@ -182,7 +182,7 @@ variations are sampled once and applied to asset configs before the environment 
    * - Variation
      - Type
      - Description
-   * - ``AssetSelectionVariation``
+   * - ``RigidAssetSelectionVariation``
      - build-time
      - Picks the registered asset a rigid object spawns, from a list of names, when the environment is built.
    * - ``CameraExtrinsicsVariation``
