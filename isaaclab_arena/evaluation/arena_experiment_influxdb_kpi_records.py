@@ -9,31 +9,39 @@ This module allow us to track Arena's success rates and timings over time in a t
 such as InfluxDB. Note that module ONLY formats data for InfluxDB. Ingesting the file into a
 database is not part of this repository.
 
+InfluxDB tags and fields
+------------------------
+InfluxDB stores time series of points. A point has tags, which are indexed strings that identify the series it
+belongs to and that queries filter and group by, and fields, which are the measured values (here always numbers).
+A point is identified by its measurement, tag set and time, so a second point with the same identity overwrites
+the first.
+
 File format
 -----------
-The generated ``arena_experiment_influxdb_kpi_records.json`` holds one JSON object:
+The generated ``arena_experiment_influxdb_kpi_records.json`` holds a JSON list of flat records, one per point:
 
-    {
-      "schema_version": 1,
-      "timestamp_ns": 1792800000000000000,
-      "provenance": {"git_sha": "1a2b3c4", "git_branch": "main"},
-      "records": [
-        {"type": "per_experiment", "success_rate": 0.81, "num_episodes": 100,
-         "num_runs": 2, "num_runs_completed": 2, "num_runs_failed": 0},
-        {"type": "per_run", "run_name": "pnp_pi05", "environment": "droid_pnp", "policy_variant": "pi05",
-         "success_rate": 0.82, "num_episodes": 50, "num_successes": 41, "mean_episode_length": 10.0,
-         "completed": 1},
-        {"type": "timing", "name": "rollout/step", "run_name": "all",
-         "mean_ms": 10.0, "total_ms": 40.0, "min_ms": 5.0, "max_ms": 15.0, "count": 4}
-      ]
-    }
+    [
+      {"type": "per_experiment", "timestamp_ns": 1792800000000000000, "git_sha": "1a2b3c4", "git_branch": "main",
+       "success_rate": 0.81, "num_episodes": 100, "num_runs": 2, "num_runs_completed": 2, "num_runs_failed": 0},
+      {"type": "per_run", "timestamp_ns": 1792800000000000000, "git_sha": "1a2b3c4", "git_branch": "main",
+       "run_name": "pnp_pi05", "environment": "droid_pnp", "policy_variant": "pi05",
+       "success_rate": 0.82, "num_episodes": 50, "num_successes": 41, "mean_episode_length": 10.0, "completed": 1},
+      {"type": "timing", "timestamp_ns": 1792800000000000000, "git_sha": "1a2b3c4", "git_branch": "main",
+       "name": "rollout/step", "run_name": "all",
+       "mean_ms": 10.0, "total_ms": 40.0, "min_ms": 5.0, "max_ms": 15.0, "count": 4}
+    ]
 
-- ``schema_version``: Version of this format; changes that break readers increase it.
-- ``timestamp_ns``: Unix epoch nanoseconds (UTC) of the latest Run end. Every record is a point at this time.
-- ``provenance``: Arena git commit SHA and branch the Experiment ran with, for tagging every point.
-- ``records``: Flat JSON objects, one per point. String values are tags and numeric values are fields;
-  values are never nested, null, or boolean. Optional fields are left out when they have no value.
-  The string values of a record (its tag set) are unique within the file, so no two points collide.
+- ``timestamp_ns``: Point time, in Unix epoch nanoseconds (UTC) of the latest Run end; the same in every record.
+  It is the only numeric value that is not a field.
+- Other string values are tags and other numeric values are fields; values are never nested, null, or boolean.
+  Optional fields are left out when they have no value. The tag set of each record is unique within the file,
+  so no two points collide.
+
+Tags in every record:
+
+- ``type``: Record type, see below.
+- ``git_sha``: Arena git commit SHA the Experiment ran with.
+- ``git_branch``: Arena git branch the Experiment ran with.
 
 Record types, told apart by the ``type`` tag:
 
@@ -67,9 +75,6 @@ from isaaclab_arena.visualization.report_data import EpisodeSummary, JobSummary,
 ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME = "arena_experiment_influxdb_kpi_records.json"
 """Name of the KPI records file in an Experiment output directory."""
 
-INFLUXDB_KPI_RECORDS_SCHEMA_VERSION = 1
-"""Version of the KPI records file format."""
-
 MIN_TIMESTAMP_NS = 1767225600 * 10**9
 """2026-01-01T00:00:00Z in Unix epoch nanoseconds.
 
@@ -79,6 +84,9 @@ instead of nanoseconds.
 
 RECORD_TYPE_KEY = "type"
 """Key of the tag that holds a record's type."""
+
+TIMESTAMP_NS_KEY = "timestamp_ns"
+"""Key of a record's point time, the only numeric value that is not a field."""
 
 ALL_RUNS_TIMING_RUN_NAME = "all"
 """``run_name`` tag of timing records summed over every Run."""
@@ -104,10 +112,20 @@ def _is_single_line_text(value: object) -> bool:
 
 @dataclass(kw_only=True)
 class InfluxdbKpiRecord(ABC):
-    """One KPI record, written as a flat JSON object that maps to one InfluxDB point.
+    """Abstract base class for KPI records; only its subclasses are instantiated.
 
-    Attributes annotated as ``str`` are tags; the others are numeric fields, left out when set to None.
+    Each record is written as a flat JSON object for one InfluxDB point. Subclasses set ``record_type`` and add their own tags and fields. Attributes annotated as ``str`` are tags;
+    the others, except ``timestamp_ns``, are numeric fields, left out when set to None.
     """
+
+    timestamp_ns: int
+    """Point time in Unix epoch nanoseconds (UTC); not a field."""
+
+    git_sha: str
+    """Arena git commit SHA the Experiment ran with."""
+
+    git_branch: str
+    """Arena git branch the Experiment ran with."""
 
     @property
     @abstractmethod
@@ -115,8 +133,20 @@ class InfluxdbKpiRecord(ABC):
         """Value of the record's ``type`` tag."""
 
     def __post_init__(self) -> None:
+        # Check that the record can be written as one valid InfluxDB point: a plausible nanosecond timestamp,
+        # non-empty single-line tags, finite numeric fields and at least one field.
+        assert (
+            isinstance(self.timestamp_ns, int)
+            and not isinstance(self.timestamp_ns, bool)
+            and self.timestamp_ns >= MIN_TIMESTAMP_NS
+        ), (
+            f"{self.record_type} record: timestamp_ns must be an integer no earlier than 2026-01-01T00:00:00Z,"
+            f" got {self.timestamp_ns!r}"
+        )
         has_field = False
         for record_field in fields(self):
+            if record_field.name == TIMESTAMP_NS_KEY:
+                continue
             value = getattr(self, record_field.name)
             # Annotations are strings because of ``from __future__ import annotations``.
             if record_field.type == "str":
@@ -132,7 +162,11 @@ class InfluxdbKpiRecord(ABC):
         assert has_field, f"{self.record_type} record must have at least one numeric field"
 
     def to_flat_dict(self) -> dict[str, str | int | float]:
-        """Return the record as a flat JSON object: the ``type`` tag, then every attribute that is not None."""
+        """Return the record as a flat JSON object.
+
+        The keys are ``type``, ``timestamp_ns``, ``git_sha`` and ``git_branch``, then every other attribute that is
+        not None.
+        """
         flat_dict: dict[str, str | int | float] = {RECORD_TYPE_KEY: self.record_type}
         for record_field in fields(self):
             value = getattr(self, record_field.name)
@@ -143,6 +177,21 @@ class InfluxdbKpiRecord(ABC):
     def tag_set(self) -> frozenset[tuple[str, str]]:
         """Return the record's tags as ``(key, value)`` pairs, which identify its InfluxDB series."""
         return frozenset((key, value) for key, value in self.to_flat_dict().items() if isinstance(value, str))
+
+
+def assert_unique_tag_sets(records: list[InfluxdbKpiRecord]) -> None:
+    """Assert that no two records have the same tag set, so each record is a distinct InfluxDB point.
+
+    Args:
+        records: KPI records that share one timestamp.
+    """
+    record_index_by_tag_set: dict[frozenset[tuple[str, str]], int] = {}
+    for record_index, record in enumerate(records):
+        tag_set = record.tag_set()
+        assert (
+            tag_set not in record_index_by_tag_set
+        ), f"record {record_index} has the same tags as record {record_index_by_tag_set.get(tag_set)}"
+        record_index_by_tag_set[tag_set] = record_index
 
 
 @dataclass(kw_only=True)
@@ -229,54 +278,6 @@ class TimingRecord(InfluxdbKpiRecord):
     """Number of timed intervals."""
 
 
-@dataclass(kw_only=True)
-class ArenaExperimentInfluxdbKpiRecords:
-    """Contents of the KPI records file of one Experiment; see the module docstring for the file format."""
-
-    timestamp_ns: int
-    """Unix epoch nanoseconds (UTC) of the latest Run end, shared by every record."""
-
-    provenance: Provenance
-    """Arena git commit and branch the Experiment ran with."""
-
-    per_experiment_record: PerExperimentRecord
-    """KPIs totalled over the Experiment."""
-
-    per_run_records: list[PerRunRecord]
-    """One record per Run, sorted by Run name."""
-
-    timing_records: list[TimingRecord]
-    """Timing records totalled over every Run, then per Run; empty without an Experiment timings file."""
-
-    def __post_init__(self) -> None:
-        assert (
-            isinstance(self.timestamp_ns, int)
-            and not isinstance(self.timestamp_ns, bool)
-            and self.timestamp_ns >= MIN_TIMESTAMP_NS
-        ), f"timestamp_ns must be an integer no earlier than 2026-01-01T00:00:00Z, got {self.timestamp_ns!r}"
-        assert self.per_run_records, "KPI records need at least one per_run record"
-        record_index_by_tag_set: dict[frozenset[tuple[str, str]], int] = {}
-        for record_index, record in enumerate(self.records()):
-            tag_set = record.tag_set()
-            assert (
-                tag_set not in record_index_by_tag_set
-            ), f"record {record_index} has the same tags as record {record_index_by_tag_set.get(tag_set)}"
-            record_index_by_tag_set[tag_set] = record_index
-
-    def records(self) -> list[InfluxdbKpiRecord]:
-        """Return every record in file order: per-Experiment, per-Run, then timing records."""
-        return [self.per_experiment_record, *self.per_run_records, *self.timing_records]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return the JSON-compatible file contents."""
-        return {
-            "schema_version": INFLUXDB_KPI_RECORDS_SCHEMA_VERSION,
-            "timestamp_ns": self.timestamp_ns,
-            "provenance": self.provenance.to_dict(),
-            "records": [record.to_flat_dict() for record in self.records()],
-        }
-
-
 def _run_name_for_job(job_name: str, run_names: set[str]) -> str | None:
     """Return the Run whose output directory holds a report job's results, or None for files outside every Run."""
     job_path_parts = PurePosixPath(job_name).parts
@@ -307,10 +308,11 @@ def _mean_episode_length(episodes: list[EpisodeSummary]) -> float | None:
 
 
 def _build_per_run_record(
-    run_name: str, run_result: ArenaExperimentRunData, pooled_job: JobSummary | None
+    run_name: str, run_result: ArenaExperimentRunData, pooled_job: JobSummary | None, shared_values: dict[str, Any]
 ) -> PerRunRecord:
     """Return the record of one Run; a failed Run (no pooled job) gets ``completed=0`` and no counts."""
     tags = {
+        **shared_values,
         "run_name": run_name,
         "environment": run_result["environment"]["name"],
         "policy_variant": run_result["policy_variant"],
@@ -328,13 +330,16 @@ def _build_per_run_record(
     )
 
 
-def _build_per_experiment_record(num_runs: int, completed_jobs: list[JobSummary]) -> PerExperimentRecord:
+def _build_per_experiment_record(
+    num_runs: int, completed_jobs: list[JobSummary], shared_values: dict[str, Any]
+) -> PerExperimentRecord:
     """Return the per-Experiment record, with the success rate episode-weighted over completed Runs."""
     num_scored_episodes = sum(job.num_scored_episodes for job in completed_jobs)
     success_rate = (
         sum(job.num_successes for job in completed_jobs) / num_scored_episodes if num_scored_episodes > 0 else None
     )
     return PerExperimentRecord(
+        **shared_values,
         success_rate=success_rate,
         num_episodes=sum(job.num_episodes for job in completed_jobs),
         num_runs=num_runs,
@@ -343,11 +348,12 @@ def _build_per_experiment_record(num_runs: int, completed_jobs: list[JobSummary]
     )
 
 
-def _build_timing_record(timing: dict[str, Any], run_name: str) -> TimingRecord:
+def _build_timing_record(timing: dict[str, Any], run_name: str, shared_values: dict[str, Any]) -> TimingRecord:
     """Return one timing record from an Experiment timings entry with a nonzero count."""
     count = int(timing["count"])
     total_ms = float(timing["total_ms"])
     return TimingRecord(
+        **shared_values,
         name=timing["name"],
         run_name=run_name,
         mean_ms=total_ms / count,
@@ -358,7 +364,9 @@ def _build_timing_record(timing: dict[str, Any], run_name: str) -> TimingRecord:
     )
 
 
-def _build_timing_records(experiment_output_directory: Path, run_names: set[str]) -> list[TimingRecord]:
+def _build_timing_records(
+    experiment_output_directory: Path, run_names: set[str], shared_values: dict[str, Any]
+) -> list[TimingRecord]:
     """Return timing records from the Experiment timings file, or none when the file is absent."""
     timings_path = experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME
     if not timings_path.is_file():
@@ -370,15 +378,19 @@ def _build_timing_records(experiment_output_directory: Path, run_names: set[str]
     timings = json.loads(timings_path.read_text(encoding="utf-8"))
     # Totals over every Run first, then each Run's own timers; timers that never ran have no statistics.
     records = [
-        _build_timing_record(timing, ALL_RUNS_TIMING_RUN_NAME) for timing in timings["totals"] if timing["count"] > 0
+        _build_timing_record(timing, ALL_RUNS_TIMING_RUN_NAME, shared_values)
+        for timing in timings["totals"]
+        if timing["count"] > 0
     ]
     records.extend(
-        _build_timing_record(timing, timing["run_name"]) for timing in timings["runs"] if timing["count"] > 0
+        _build_timing_record(timing, timing["run_name"], shared_values)
+        for timing in timings["runs"]
+        if timing["count"] > 0
     )
     return records
 
 
-def build_experiment_influxdb_kpi_records(experiment_output_directory: Path) -> ArenaExperimentInfluxdbKpiRecords:
+def build_experiment_influxdb_kpi_records(experiment_output_directory: Path) -> list[InfluxdbKpiRecord]:
     """Build the KPI records of a finished Experiment output directory.
 
     Reads ``arena_experiment_result.json``, the Runs' episode results and, when present,
@@ -388,8 +400,8 @@ def build_experiment_influxdb_kpi_records(experiment_output_directory: Path) -> 
         experiment_output_directory: Experiment output root holding the result file and one directory per Run.
 
     Returns:
-        One per-Experiment record, one per-Run record per Run and the timing records, all timestamped with the
-        latest Run end and carrying the Experiment's provenance.
+        The per-Experiment record, one per-Run record per Run sorted by Run name, then the timing records, all
+        timestamped with the latest Run end and tagged with the Experiment's provenance.
     """
     experiment_output_directory = Path(experiment_output_directory)
 
@@ -423,19 +435,23 @@ def build_experiment_influxdb_kpi_records(experiment_output_directory: Path) -> 
         if run_result["status"] == RunStatus.COMPLETED.value
     }
 
-    # Failed Runs have no pooled job, so their records carry no episode counts.
-    per_run_records = [
-        _build_per_run_record(run_name, runs[run_name], pooled_jobs_by_run_name.get(run_name))
-        for run_name in sorted(runs)
-    ]
+    # Every record is a point at the latest Run end, tagged with the Experiment's provenance.
+    shared_values = {
+        TIMESTAMP_NS_KEY: max(run_result["end_timestamp_ns"] for run_result in runs.values()),
+        **provenance.to_dict(),
+    }
 
-    return ArenaExperimentInfluxdbKpiRecords(
-        timestamp_ns=max(run_result["end_timestamp_ns"] for run_result in runs.values()),
-        provenance=provenance,
-        per_experiment_record=_build_per_experiment_record(len(runs), list(pooled_jobs_by_run_name.values())),
-        per_run_records=per_run_records,
-        timing_records=_build_timing_records(experiment_output_directory, run_names),
+    records: list[InfluxdbKpiRecord] = [
+        _build_per_experiment_record(len(runs), list(pooled_jobs_by_run_name.values()), shared_values)
+    ]
+    # Failed Runs have no pooled job, so their records carry no episode counts.
+    records.extend(
+        _build_per_run_record(run_name, runs[run_name], pooled_jobs_by_run_name.get(run_name), shared_values)
+        for run_name in sorted(runs)
     )
+    records.extend(_build_timing_records(experiment_output_directory, run_names, shared_values))
+    assert_unique_tag_sets(records)
+    return records
 
 
 def write_experiment_influxdb_kpi_records(experiment_output_directory: Path) -> Path:
@@ -450,6 +466,7 @@ def write_experiment_influxdb_kpi_records(experiment_output_directory: Path) -> 
     experiment_output_directory = Path(experiment_output_directory)
     kpi_records = build_experiment_influxdb_kpi_records(experiment_output_directory)
     kpi_records_path = experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME
-    kpi_records_path.write_text(json.dumps(kpi_records.to_dict(), allow_nan=False, indent=2) + "\n", encoding="utf-8")
+    kpi_records_json = json.dumps([record.to_flat_dict() for record in kpi_records], allow_nan=False, indent=2)
+    kpi_records_path.write_text(kpi_records_json + "\n", encoding="utf-8")
     print(f"Wrote Arena Experiment InfluxDB KPI records to: {kpi_records_path}")
     return kpi_records_path

@@ -232,7 +232,7 @@ runs:
         (tmp_path / "output" / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
     )
     assert_follows_collector_contract(experiment_kpis)
-    assert experiment_kpis["timestamp_ns"] == run_result["end_timestamp_ns"]
+    assert {record["timestamp_ns"] for record in experiment_kpis} == {run_result["end_timestamp_ns"]}
 
 
 @pytest.mark.with_subprocess

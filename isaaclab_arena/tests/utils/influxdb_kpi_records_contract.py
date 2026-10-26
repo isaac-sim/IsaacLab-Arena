@@ -10,17 +10,14 @@ from __future__ import annotations
 import math
 import time
 
-SUPPORTED_SCHEMA_VERSION = 1
-"""Only schema version an ingestion tool accepts."""
-
 MIN_TIMESTAMP_NS = 1767225600 * 10**9
 """2026-01-01T00:00:00Z in Unix epoch nanoseconds; earlier timestamps are rejected."""
 
-RESERVED_RECORD_KEYS = frozenset({"benchmark", "launch_time", "git_sha", "branch"})
-"""Tag keys an ingestion tool adds to every point, so records must not use them."""
+TIMESTAMP_NS_KEY = "timestamp_ns"
+"""Key of a record's point time, the only numeric value that is not a field."""
 
-PROVENANCE_KEYS = ("git_sha", "git_branch")
-"""Keys of the provenance object."""
+RESERVED_RECORD_KEYS = frozenset({"benchmark", "launch_time"})
+"""Tag keys an ingestion tool adds to every point, so records must not use them."""
 
 
 def _is_number(value: object) -> bool:
@@ -47,55 +44,46 @@ def _assert_record_follows_contract(record_index: int, record: object) -> frozen
     """Assert that one record follows the contract and return its tag set: the record's string-valued items."""
     assert isinstance(record, dict), f"record {record_index} must be a JSON object"
     assert isinstance(record.get("type"), str), f"record {record_index} must have a string type"
-    has_number = False
+
+    timestamp_ns = record.get(TIMESTAMP_NS_KEY)
+    assert isinstance(timestamp_ns, int) and not isinstance(
+        timestamp_ns, bool
+    ), f"record {record_index}: timestamp_ns must be an integer, got {timestamp_ns!r}"
+    assert (
+        timestamp_ns >= MIN_TIMESTAMP_NS
+    ), f"record {record_index}: timestamp_ns {timestamp_ns} is before 2026-01-01T00:00:00Z"
+    assert timestamp_ns <= time.time_ns(), f"record {record_index}: timestamp_ns {timestamp_ns} is in the future"
+
+    has_field = False
     for key, value in record.items():
         _assert_single_line_text(key, f"record {record_index} key {key!r}")
         assert not key.startswith("_"), f"record {record_index}: key {key!r} must not start with '_'"
         assert key != "time", f"record {record_index}: key 'time' is reserved by InfluxDB"
         assert key not in RESERVED_RECORD_KEYS, f"record {record_index}: key {key!r} is reserved"
+        if key == TIMESTAMP_NS_KEY:
+            continue
         if _is_number(value):
             assert _is_finite_number(value), f"record {record_index}: value for {key!r} must be finite"
-            has_number = True
+            has_field = True
         else:
             _assert_single_line_text(value, f"record {record_index} value for {key!r}")
-    assert has_number, f"record {record_index} must have at least one numeric value"
+    assert has_field, f"record {record_index} must have at least one numeric value other than timestamp_ns"
     return frozenset((key, value) for key, value in record.items() if isinstance(value, str))
 
 
 def assert_follows_collector_contract(contents: object) -> None:
     """Assert that parsed KPI records file contents can be ingested into InfluxDB without changes.
 
-    Checks the schema version, a timestamp from 2026 that is not in the future, single-line provenance strings,
-    and flat records whose keys are not reserved, whose values are finite numbers or single-line strings,
-    which have at least one numeric value, and whose tag sets are unique.
+    Checks for a non-empty list of flat records, each with an integer ``timestamp_ns`` from 2026 that is not in
+    the future, keys that are not reserved, values that are finite numbers or single-line strings, at least one
+    numeric value other than ``timestamp_ns``, and a tag set unique within the list.
 
     Args:
         contents: Parsed JSON of an ``arena_experiment_influxdb_kpi_records.json`` file.
     """
-    assert isinstance(contents, dict), "KPI records file contents must be a JSON object"
-
-    schema_version = contents.get("schema_version")
-    assert (
-        _is_number(schema_version) and schema_version == SUPPORTED_SCHEMA_VERSION
-    ), f"schema_version must be {SUPPORTED_SCHEMA_VERSION}, got {schema_version!r}"
-
-    timestamp_ns = contents.get("timestamp_ns")
-    assert isinstance(timestamp_ns, int) and not isinstance(
-        timestamp_ns, bool
-    ), f"timestamp_ns must be an integer, got {timestamp_ns!r}"
-    assert timestamp_ns >= MIN_TIMESTAMP_NS, f"timestamp_ns {timestamp_ns} is before 2026-01-01T00:00:00Z"
-    assert timestamp_ns <= time.time_ns(), f"timestamp_ns {timestamp_ns} is in the future"
-
-    provenance = contents.get("provenance")
-    assert isinstance(provenance, dict), "provenance must be a JSON object"
-    assert set(provenance) == set(PROVENANCE_KEYS), f"provenance must have exactly the keys {PROVENANCE_KEYS}"
-    for key in PROVENANCE_KEYS:
-        _assert_single_line_text(provenance[key], f"provenance.{key}")
-
-    records = contents.get("records")
-    assert isinstance(records, list) and records, "records must be a non-empty list"
+    assert isinstance(contents, list) and contents, "KPI records file contents must be a non-empty JSON list"
     record_index_by_tag_set: dict[frozenset, int] = {}
-    for record_index, record in enumerate(records):
+    for record_index, record in enumerate(contents):
         tag_set = _assert_record_follows_contract(record_index, record)
         assert (
             tag_set not in record_index_by_tag_set
