@@ -9,12 +9,14 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.initializers.on_tree_initializer import (
-    OnTreeInitializer,
+from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer, _order_parents_before_children
+from isaaclab_arena.relations.initializers.relation_sampling_strategies import (
+    SAMPLING_STRATEGIES,
+    RelationSamplingStrategy,
     _bounding_box_from_partial_limits,
     _bounds_from_align_with,
 )
-from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLimitsBox, Side
+from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLimitsBox, Relation, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.tests.test_object_placer_init import _assert_footprint_within, _make_box, _make_desk, _seed
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -372,3 +374,98 @@ def test_ontree_aligns_to_translated_anchor_with_zero_tolerance():
 
     assert positions[subject][0] == pytest.approx(3.5)
     _assert_footprint_within(positions[subject], subject.get_bounding_box(), desk.get_world_bounding_box())
+
+
+class _MatchReferenceX(Relation):
+    """Test relation whose origin uses its reference's world minimum X."""
+
+
+class _MatchReferenceXSamplingStrategy(RelationSamplingStrategy):
+    def sampling_dependencies(self, relation):
+        return (relation.parent,)
+
+    def sampling_bounds(self, relation, subject_bbox, sampled_world_bboxes):
+        x = sampled_world_bboxes[relation.parent].min_point[0, 0].item()
+        return _bounding_box_from_partial_limits((x, None, None), (x, None, None))
+
+
+def test_registered_strategy_controls_cross_level_order_and_bounds(monkeypatch):
+    """A new relation supplies ordering and narrowing without initializer changes."""
+    monkeypatch.setitem(SAMPLING_STRATEGIES, _MatchReferenceX, _MatchReferenceXSamplingStrategy())
+    desk = _make_desk()
+    tray = _make_box("tray", size=0.5)
+    tray.add_relation(On(desk))
+    reference = _make_box("reference", size=0.1)
+    reference.add_relation(On(tray))
+    subject = _make_box("subject", size=0.1)
+    subject.add_relation(On(desk))
+    subject.add_relation(_MatchReferenceX(reference))
+    objects = [subject, reference, tray, desk]
+
+    assert _order_parents_before_children(objects, {desk}) == [desk, tray, reference, subject]
+    for seed in range(10):
+        positions = _seed(OnTreeInitializer(), objects, {desk}, generator=torch.Generator().manual_seed(seed))
+        assert positions[subject][0] == pytest.approx(positions[reference][0])
+        assert list(positions) == objects
+
+
+def test_frontier_updates_after_each_object():
+    """A newly eligible child can precede an already eligible object at a shallower level."""
+    desk = _make_desk()
+    parent = _make_box("parent")
+    child = _make_box("child")
+    sibling = _make_box("sibling")
+    parent.add_relation(On(desk))
+    child.add_relation(On(parent))
+    sibling.add_relation(On(desk))
+    objects = [child, parent, sibling, desk]
+
+    assert _order_parents_before_children(objects, {desk}) == [desk, parent, child, sibling]
+
+
+def test_cycle_breaking_prefers_fewer_unavailable_dependencies():
+    """Breaking one dependency is preferable to breaking two, regardless of input order."""
+    desk = _make_desk()
+    first, second, third = (_make_box(name) for name in ("first", "second", "third"))
+    for obj in (first, second, third):
+        obj.add_relation(On(desk))
+    first.add_relation(AlignWith(second, "x"))
+    first.add_relation(AlignWith(third, "y"))
+    second.add_relation(AlignWith(first, "x"))
+    third.add_relation(AlignWith(first, "y"))
+
+    ordered = _order_parents_before_children([desk, first, second, third], {desk})
+
+    assert ordered[:2] == [desk, second]
+    assert set(ordered) == {desk, first, second, third}
+
+
+def test_cycle_breaking_counts_references_to_support_descendants():
+    """Prefer opening a subtree needed by more waiting relations when missing counts tie."""
+    desk = _make_desk()
+    parent = _make_box("parent")
+    child = _make_box("child")
+    sibling = _make_box("sibling")
+    waiting = _make_box("waiting")
+    parent.add_relation(On(desk))
+    child.add_relation(On(parent))
+    sibling.add_relation(On(desk))
+    waiting.add_relation(On(desk))
+    parent.add_relation(AlignWith(sibling, "x"))
+    sibling.add_relation(AlignWith(child, "x"))
+    waiting.add_relation(AlignWith(child, "x"))
+    objects = [sibling, waiting, child, parent, desk]
+
+    assert _order_parents_before_children(objects, {desk}) == [desk, parent, child, sibling, waiting]
+
+
+def test_unsupported_relation_does_not_change_ordering():
+    """References matter only for relations with a registered sampling strategy."""
+    desk = _make_desk()
+    subject = _make_box("subject")
+    reference = _make_box("reference")
+    subject.add_relation(On(desk))
+    reference.add_relation(On(desk))
+    subject.add_relation(NextTo(reference, side=Side.POSITIVE_X))
+
+    assert _order_parents_before_children([desk, subject, reference], {desk}) == [desk, subject, reference]

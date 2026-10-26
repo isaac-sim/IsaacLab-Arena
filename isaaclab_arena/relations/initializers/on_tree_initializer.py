@@ -5,19 +5,21 @@
 
 from __future__ import annotations
 
-import math
 import torch
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.initializers.placement_initializer_base import PlacementInitializerBase
+from isaaclab_arena.relations.initializers.relation_sampling_strategies import (
+    _bounding_box_from_partial_limits,
+    get_sampling_strategy,
+)
 from isaaclab_arena.relations.initializers.sampling import (
     get_child_bbox_given_parent_position,
     get_initial_pose_or_assert_fail,
     get_world_bbox_at_initial_pose,
     sample_position_in_bbox,
 )
-from isaaclab_arena.relations.relations import AlignWith, On, PositionLimitsBox, RelationBase, get_relation
+from isaaclab_arena.relations.relations import On, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -28,7 +30,8 @@ class OnTreeInitializer(PlacementInitializerBase):
     """Generates initial positions for objects by walking down the ``On`` tree in the relation graph.
 
     Each object is sampled inside its parent's footprint, narrowed by position boxes and
-    available AlignWith reference bands. Alignment cycles are left for the solver.
+    available relation bounds. Reference dependencies may cross tree levels; cycles are
+    broken deterministically and left for the solver.
     """
 
     def generate_initial_positions(
@@ -81,106 +84,71 @@ def _order_parents_before_children(
     objects: list[PlaceableAsset],
     anchor_objects: set[PlaceableAsset],
 ) -> list[PlaceableAsset]:
-    """Order On parents first and AlignWith references first when dependencies permit."""
-    # Anchors are at fixed poses and unparented objects fall back to the anchor center, so
-    # neither needs a parent sampled first. These seed the ordering.
+    """Order support parents first, preferring available sampling references across tree levels."""
     ordered: list[PlaceableAsset] = []
-    ordered_set: set[PlaceableAsset] = set()
     remaining: list[PlaceableAsset] = []
-    alignment_references: dict[PlaceableAsset, list[PlaceableAsset]] = {}
+    dependencies: dict[PlaceableAsset, list[PlaceableAsset]] = {}
+    on_children: dict[PlaceableAsset, list[PlaceableAsset]] = {}
     for obj in objects:
-        if obj in anchor_objects or get_relation(obj, On) is None:
+        on_relation = get_relation(obj, On)
+        if obj in anchor_objects or on_relation is None:
             ordered.append(obj)
-            ordered_set.add(obj)
         else:
             remaining.append(obj)
-            alignment_references[obj] = []
+            on_children.setdefault(on_relation.parent, []).append(obj)
+            dependencies[obj] = []
             for relation in obj.get_relations():
-                if isinstance(relation, AlignWith):
-                    alignment_references[obj].append(relation.parent)
+                strategy = get_sampling_strategy(relation)
+                if strategy is not None:
+                    dependencies[obj].extend(strategy.sampling_dependencies(relation))
 
+    ordered_set = set(ordered)
     while remaining:
-        # An object is ready once its parent has been ordered. Each round therefore descends one
-        # more level down the On tree.
+        # Recompute the frontier after each object: a newly eligible descendant may supply a
+        # reference needed by an object at a shallower level.
         ready = [obj for obj in remaining if get_relation(obj, On).parent in ordered_set]
-        # No ready object means every remaining object is waiting on a parent that will never be
-        # ordered, which is a cycle or a parent outside the placement set.
         assert ready, (
             "On relations must form a forest rooted at anchors, but no parent could be resolved for "
             f"{[obj.name for obj in remaining]}. Check for a cycle or a parent outside the placement set."
         )
-        references_ready = [
-            obj for obj in ready if all(reference in ordered_set for reference in alignment_references[obj])
-        ]
-        # Alignment can form cycles, including an On parent aligned to its child. Break
-        # one such dependency without breaking On ordering; unsampled references are
-        # omitted from that object's initial bounds and remain solver constraints.
-        ready = references_ready or ready[:1]
-        ordered += ready
-        ordered_set.update(ready)
-        remaining = [obj for obj in remaining if obj not in ordered_set]
+        missing = {}
+        for obj in remaining:
+            missing[obj] = [reference for reference in dependencies[obj] if reference not in ordered_set]
+        references_ready = [obj for obj in ready if not missing[obj]]
+        if references_ready:
+            selected = references_ready[0]
+        else:
+            # Minimize skipped constraints, then prefer opening a support subtree containing
+            # more waiting references. This is a heuristic, not an optimal graph ordering.
+            # min retains caller order for equal scores, making cycle breaking reproducible.
+            selected = min(
+                ready,
+                key=lambda obj: (len(missing[obj]), -_count_waiting_dependencies(obj, on_children, missing)),
+            )
+        ordered.append(selected)
+        ordered_set.add(selected)
+        remaining.remove(selected)
     return ordered
 
 
-# NOTE(alexmillane, 2026.10.02): Partial limits are not currently supported by our bounding box
-# class, and would break some of the methods there. I'm adding local support to this file, where we
-# need it for intersection with narrowing bounds, however, if we end up needing this in multiple
-# places consider expanding our bounding box class to handle it (or add another class).
-def _bounding_box_from_partial_limits(
-    min_point: tuple[float | None, float | None, float | None],
-    max_point: tuple[float | None, float | None, float | None],
-) -> AxisAlignedBoundingBox:
-    """Build a box from per-axis limits where None means unbounded on that side.
-
-    Unset sides become infinite, which is the identity for ``intersected``, so they narrow
-    nothing. The result may therefore be unbounded: that is fine for ``intersected`` and
-    ``overlaps``, which only compare, but not for ``size``, ``center`` or the rotation helpers.
-    """
-    return AxisAlignedBoundingBox(
-        min_point=tuple(-math.inf if limit is None else limit for limit in min_point),
-        max_point=tuple(math.inf if limit is None else limit for limit in max_point),
-    )
-
-
-def _bounds_from_position_limits_box(relation: PositionLimitsBox) -> AxisAlignedBoundingBox:
-    """Read the region a PositionLimitsBox confines an object's position to."""
-    return _bounding_box_from_partial_limits(
-        (relation.x_min, relation.y_min, relation.z_min),
-        (relation.x_max, relation.y_max, relation.z_max),
-    )
-
-
-# Relations whose narrowing bounds do not depend on sampled reference positions.
-# TODO(alexmillane, 2026.09.27): Expand this list of relations used for narrowing as required.
-_BOUNDS_FACTORY_BY_RELATION_TYPE: dict[type[RelationBase], Callable[[RelationBase], AxisAlignedBoundingBox]] = {
-    PositionLimitsBox: _bounds_from_position_limits_box,
-}
-
-
-def _bounds_from_align_with(
-    relation: AlignWith,
-    child_bbox: AxisAlignedBoundingBox,
-    reference_world_bbox: AxisAlignedBoundingBox,
-) -> AxisAlignedBoundingBox:
-    """Return origin bounds for alignment to a reference's sampled bounding-box centre.
-
-    Args:
-        relation: Alignment axis, signed centre offset, and tolerance band.
-        child_bbox: Subject bounds relative to its origin, expressed along world axes.
-        reference_world_bbox: Reference bounds at its sampled world position.
-
-    Returns:
-        Bounds on the subject origin, unbounded on the other axes.
-    """
-    axis_index = relation.axis.index
-    target_origin_W = (
-        reference_world_bbox.center[0, axis_index] - child_bbox.center[0, axis_index] + relation.offset_m
-    ).item()
-    lower = [None, None, None]
-    upper = [None, None, None]
-    lower[axis_index] = target_origin_W - relation.tolerance_m
-    upper[axis_index] = target_origin_W + relation.tolerance_m
-    return _bounding_box_from_partial_limits(tuple(lower), tuple(upper))
+def _count_waiting_dependencies(
+    obj: PlaceableAsset,
+    on_children: dict[PlaceableAsset, list[PlaceableAsset]],
+    missing: dict[PlaceableAsset, list[PlaceableAsset]],
+) -> int:
+    """Count waiting relation references to an object or its support descendants."""
+    subtree = set()
+    pending = [obj]
+    while pending:
+        descendant = pending.pop()
+        if descendant not in subtree:
+            subtree.add(descendant)
+            pending.extend(on_children.get(descendant, ()))
+    count = 0
+    for subject, references in missing.items():
+        if subject is not obj:
+            count += sum(reference in subtree for reference in references)
+    return count
 
 
 def _get_bounds_from_other_supported_relations(
@@ -191,7 +159,7 @@ def _get_bounds_from_other_supported_relations(
     """Return the box obj's supported non-``On`` relations confine its position to.
 
     Every supported relation contributes a box of allowed positions and the result is their
-    intersection. Unsampled alignment references are skipped to break dependency cycles.
+    intersection. Relations with unsampled dependencies are skipped to break cycles.
 
     Args:
         obj: Object whose starting position is being sampled.
@@ -203,15 +171,11 @@ def _get_bounds_from_other_supported_relations(
     """
     bounds = _bounding_box_from_partial_limits((None, None, None), (None, None, None))
     for relation in obj.get_relations():
-        if isinstance(relation, AlignWith):
-            if relation.parent in sampled_world_bboxes:
-                alignment_bounds = _bounds_from_align_with(relation, child_bbox, sampled_world_bboxes[relation.parent])
-                bounds = bounds.intersected(alignment_bounds)
+        strategy = get_sampling_strategy(relation)
+        if strategy is None:
             continue
-        for relation_type, bounds_factory in _BOUNDS_FACTORY_BY_RELATION_TYPE.items():
-            if isinstance(relation, relation_type):
-                bounds = bounds.intersected(bounds_factory(relation))
-                break
+        if all(reference in sampled_world_bboxes for reference in strategy.sampling_dependencies(relation)):
+            bounds = bounds.intersected(strategy.sampling_bounds(relation, child_bbox, sampled_world_bboxes))
     return bounds
 
 
