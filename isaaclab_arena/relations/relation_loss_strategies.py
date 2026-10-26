@@ -214,13 +214,13 @@ class RelationLossStrategy(ABC):
         pass
 
 
-def align_with_error(
+def align_with_center_distance(
     relation: AlignWith,
     t_W_C: torch.Tensor,
     child_bbox: AxisAlignedBoundingBox,
     parent_world_bbox: AxisAlignedBoundingBox,
 ) -> torch.Tensor:
-    """Return signed alignment errors for subject origins expressed in world coordinates.
+    """Return signed subject-centre distance from the requested alignment band centre.
 
     Args:
         relation: Alignment axis and subject-minus-reference offset.
@@ -229,7 +229,8 @@ def align_with_error(
         parent_world_bbox: Reference bounds expressed in W, shaped (1, 3) or (N, 3).
 
     Returns:
-        Error in metres, shaped (N,), broadcasting singleton bounds.
+        Signed distance in metres, shaped (N,), broadcasting singleton bounds.
+        This subtracts offset_m but does not apply the tolerance band.
     """
     axis_index = relation.axis.index
     p_W_child_center = t_W_C + child_bbox.center
@@ -251,9 +252,9 @@ class AlignWithLossStrategy(RelationLossStrategy):
         parent_world_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
         """Return alignment loss with the same scalar or batch shape as other relations."""
-        error = align_with_error(relation, child_pos, child_bbox, parent_world_bbox)
+        center_distance = align_with_center_distance(relation, child_pos, child_bbox, parent_world_bbox)
         loss = relation.relation_loss_weight * linear_band_loss(
-            error, -relation.tolerance_m, relation.tolerance_m, slope=self.slope
+            center_distance, -relation.tolerance_m, relation.tolerance_m, slope=self.slope
         )
         return loss.squeeze(0) if child_pos.ndim == 1 else loss
 

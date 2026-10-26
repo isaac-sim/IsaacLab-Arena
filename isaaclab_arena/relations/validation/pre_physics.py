@@ -16,7 +16,7 @@ from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidat
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
     NotNextToLossStrategy,
-    align_with_error,
+    align_with_center_distance,
     next_to_violations,
     not_next_to_violations,
 )
@@ -225,12 +225,14 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
                     continue
                 child_bbox = env_bboxes[obj]
                 parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
-                error = align_with_error(relation, child_bbox.min_point.new_tensor(t_W_C), child_bbox, parent_world)
-                if not torch.isfinite(error).all() or error.abs().item() > relation.tolerance_m:
+                center_distance = align_with_center_distance(
+                    relation, child_bbox.min_point.new_tensor(t_W_C), child_bbox, parent_world
+                )
+                if not torch.isfinite(center_distance).all() or center_distance.abs().item() > relation.tolerance_m:
                     if self._params.verbose:
                         print(
                             f"AlignWith: '{obj.name}' align_with({relation.parent.name}) violated "
-                            f"(world {relation.axis.value} error={error.item():.4f} m; "
+                            f"(world {relation.axis.value} band-centre distance={center_distance.item():.4f} m; "
                             f"tolerance_m={relation.tolerance_m})"
                         )
                     return False

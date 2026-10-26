@@ -10,6 +10,7 @@ import torch
 
 import pytest
 
+from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
 from isaaclab_arena.relations.initializers.relation_sampling_strategies import _bounds_from_align_with
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -18,15 +19,7 @@ from isaaclab_arena.relations.placement_validation_runner import PlacementValida
 from isaaclab_arena.relations.relation_loss_strategies import AlignWithLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import (
-    AlignWith,
-    IsAnchor,
-    NextTo,
-    On,
-    PositionLimitsBox,
-    RotateAroundSolution,
-    WorldAxis,
-)
+from isaaclab_arena.relations.relations import AlignWith, IsAnchor, NextTo, On, PositionLimitsBox, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import AlignWithValidator, OnRelationValidator, build_validators
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
@@ -44,7 +37,7 @@ def _objects():
 def test_alignment_representative_axes_offsets_and_bounds():
     """Check centre-based loss and origin bounds on three representative axis/offset pairs."""
     subject, reference = _objects()
-    for axis, offset_m in ((WorldAxis.X, -0.2), (WorldAxis.Y, 0.0), (WorldAxis.Z, 0.3)):
+    for axis, offset_m in ((Axis.X, -0.2), (Axis.Y, 0.0), (Axis.Z, 0.3)):
         relation = AlignWith(reference, axis.value, offset_m=offset_m)
         assert relation.axis is axis
         t_W_C = torch.tensor([-20.0, 10.0, 8.0])

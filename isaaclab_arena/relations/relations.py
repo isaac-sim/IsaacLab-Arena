@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 from isaaclab_arena.assets.register import agent_ready, register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
 if TYPE_CHECKING:
@@ -33,19 +34,6 @@ class Side(str, Enum):
     NEGATIVE_X = "negative_x"  # -X
     POSITIVE_Y = "positive_y"  # +Y
     NEGATIVE_Y = "negative_y"  # -Y
-
-
-class WorldAxis(str, Enum):
-    """World axis for single-axis relations."""
-
-    X = "x"
-    Y = "y"
-    Z = "z"
-
-    @property
-    def index(self) -> int:
-        """Column of this axis in a position tensor."""
-        return "xyz".index(self.value)
 
 
 class RelationBase:
@@ -135,7 +123,7 @@ class AlignWith(Relation):
     def __init__(
         self,
         parent: PlaceableAsset,
-        axis: WorldAxis | str,
+        axis: Axis | str,
         offset_m: float = 0.0,
         tolerance_m: float = 0.02,
         relation_loss_weight: float = 1.0,
@@ -153,7 +141,7 @@ class AlignWith(Relation):
         assert math.isfinite(offset_m), "offset_m must be finite"
         assert math.isfinite(tolerance_m) and tolerance_m >= 0, "tolerance_m must be finite and non-negative"
         assert math.isfinite(relation_loss_weight) and relation_loss_weight > 0, "Alignment weight must be positive"
-        self.axis = WorldAxis(axis)
+        self.axis = Axis(axis)
         self.offset_m = offset_m
         self.tolerance_m = tolerance_m
 

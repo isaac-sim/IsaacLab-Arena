@@ -51,6 +51,8 @@ class PlacementCandidateGenerator:
                 if generator is not None:
                     assert self.params.placement_seed is not None
                     generator.manual_seed(self.params.placement_seed + env_id * candidates_per_env + candidate_id)
+                # Rotate bounds before sampling positions: off-centre assets have different
+                # alignment centres and support footprints at different orientations.
                 orientations = self.generate_orientations(objects, anchor_objects, generator)
                 oriented_bounds = rotate_candidate_bboxes(objects, bounds, [orientations])
                 candidates.append(

@@ -29,9 +29,7 @@ if TYPE_CHECKING:
 class OnTreeInitializer(PlacementInitializerBase):
     """Generates initial positions for objects by walking down the ``On`` tree in the relation graph.
 
-    Each object is sampled inside its parent's footprint, narrowed by position boxes and
-    available relation bounds. Reference dependencies may cross tree levels; cycles are
-    broken deterministically and left for the solver.
+    Each object is sampled inside the footprint its own parent was just sampled at.
     """
 
     def generate_initial_positions(
