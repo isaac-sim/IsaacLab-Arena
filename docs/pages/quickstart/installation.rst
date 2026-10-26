@@ -118,12 +118,8 @@ installation options.
 :docker_run_default:
 
 The container will build (if needed) and drop you into an interactive shell.
-
-For :doc:`cuRobo-based reachability validation
-</pages/concepts/object_placement/validation>`, launch with the ``-c`` flag
-instead (native ``uv`` installs do not support this check):
-
-:docker_run_curobo:
+The default image includes :doc:`cuRobo-based reachability validation
+</pages/concepts/object_placement/validation>`; native ``uv`` installs do not support this check.
 
 .. note::
    The run docker script mounts the following directories from the host machine if they exist:

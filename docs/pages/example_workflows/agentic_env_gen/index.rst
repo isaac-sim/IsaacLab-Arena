@@ -120,8 +120,8 @@ Use either a native ``uv`` environment or the base Docker container (see
 
       :docker_run_default:
 
-For native ``uv``, ``isaaclab_arena_curobo`` is not installed; use the Docker
-container with ``-c`` if you need
+For native ``uv``, ``isaaclab_arena_curobo`` is not installed; use the default Docker
+container if you need
 :doc:`cuRobo-based reachability validation </pages/concepts/object_placement/validation>`.
 
 Available Generated Environments
