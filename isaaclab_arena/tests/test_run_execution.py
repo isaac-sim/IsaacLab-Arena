@@ -484,7 +484,7 @@ def test_build_environment_warns_when_in_order_asset_selection_skips_names(
         variations={
             "light.hdr_image.enabled": True,
             "pick_up_object.asset_selection.enabled": True,
-            "pick_up_object.asset_selection.random_choice": random_choice,
+            "pick_up_object.asset_selection.sampler_cfg.random_choice": random_choice,
             "pick_up_object.asset_selection.registry_names": registry_names,
         },
     )

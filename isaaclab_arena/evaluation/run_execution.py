@@ -189,7 +189,7 @@ def _warn_if_in_order_asset_selection_skips_names(cfg: ArenaRunCfg, arena_builde
     # Read after make_registered(), which applies the Run's variation overrides.
     enabled_variations_by_key = get_enabled_variations_by_key(arena_builder.get_all_variations())
     for variation_key, variation in enabled_variations_by_key.items():
-        if not isinstance(variation, AssetSelectionVariation) or variation.cfg.random_choice:
+        if not isinstance(variation, AssetSelectionVariation) or variation.cfg.sampler_cfg.random_choice:
             continue
         registry_names = variation.cfg.registry_names
         names_spawned = set(registry_names[: cfg.num_rebuilds])
@@ -200,8 +200,8 @@ def _warn_if_in_order_asset_selection_skips_names(cfg: ArenaRunCfg, arena_builde
         print(
             f"[WARNING] Run '{cfg.name}' has num_rebuilds: {cfg.num_rebuilds}, but '{variation_key}' spawns one of its"
             f" {len(registry_names)} registry_names entries per rebuild, in list order, so {names_never_spawned} never"
-            f" spawn. Set num_rebuilds to at least {len(registry_names)}, or set '{variation_key}.random_choice' to"
-            " true to draw a name at random in each build.",
+            f" spawn. Set num_rebuilds to at least {len(registry_names)}, or set"
+            f" '{variation_key}.sampler_cfg.random_choice' to true to draw a name at random in each build.",
             flush=True,
         )
 
