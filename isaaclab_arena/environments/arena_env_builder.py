@@ -207,7 +207,7 @@ class ArenaEnvBuilder:
 
         if not self.cfg.solve_relations:
             return None
-        inputs = self._get_live_placement_inputs()
+        inputs = self._apply_reachability_and_collect_placement_inputs()
         return prepare_live_relation_placement(
             inputs.assets,
             num_envs=self.cfg.num_envs,
@@ -219,13 +219,17 @@ class ArenaEnvBuilder:
         """Apply build-time variations and reachability constraints, then return the live placement inputs.
 
         This modifies the Arena environment in place, as build_env_cfg() does before placement. Unlike
-        build_env_cfg(), it ignores Hydra overrides, recorded replay and solve_relations, and records no variations.
-        Calling build_env_cfg() afterwards applies the build-time variations again.
+        build_env_cfg(), it supports neither Hydra overrides nor recorded replay, ignores solve_relations and records no
+        variations. Calling build_env_cfg() afterwards applies the build-time variations again.
         """
+        assert not self.hydra_overrides, "prepare_live_placement_inputs() does not apply Hydra overrides"
+        assert (
+            self.cfg.recorded_variation_samples_path is None
+        ), "prepare_live_placement_inputs() does not replay recorded variations"
         self._apply_build_time_variations()
-        return self._get_live_placement_inputs()
+        return self._apply_reachability_and_collect_placement_inputs()
 
-    def _get_live_placement_inputs(self) -> LivePlacementInputs:
+    def _apply_reachability_and_collect_placement_inputs(self) -> LivePlacementInputs:
         """Apply the task's reachability constraints and collect the live placement inputs."""
         # Reachability constraints are defined in the task, so apply them before placement.
         if self.arena_env.task is not None:

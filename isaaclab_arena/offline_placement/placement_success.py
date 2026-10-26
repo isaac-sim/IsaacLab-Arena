@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Placement-success benchmark results: results files, suite summaries and run comparisons.
+"""Placement-success benchmark results: settings, results files, suite summaries and run comparisons.
 
-A results file holds the start time, the commit and branch, the settings, a flat list of metrics and one record per
-environment, so that two runs can be compared.
+A results file holds the start time, the commit and branch, the settings and one record per environment, so that two
+runs can be compared.
 """
 
 from __future__ import annotations
@@ -14,16 +14,16 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import asdict, dataclass, field
-from enum import StrEnum
+from enum import Enum, StrEnum
 from pathlib import Path
+
+from isaaclab_arena.relations.collision_mode import CollisionMode
 
 _NORMAL_QUANTILE_95 = 1.959963984540054
 """Two-sided 95% quantile of the standard normal distribution."""
 
 _FAMILY_ALPHA = 0.05
 """Family-wise error rate of the Holm adjustment over every environment and rate."""
-
-_RESULTS_FILE_KEYS = {"start_time", "commit", "branch", "dirty", "settings", "metrics", "environments"}
 
 
 class EnvironmentStatus(StrEnum):
@@ -32,6 +32,34 @@ class EnvironmentStatus(StrEnum):
     SCORED = "scored"
     SKIPPED = "skipped"
     FAILED = "failed"
+
+
+@dataclass
+class PlacementBenchmarkSettings:
+    """Measurement settings shared by every environment of a run."""
+
+    num_layouts: int = 50
+    """Layouts placed per environment and seed."""
+
+    placement_seeds: list[int] = field(default_factory=lambda: [0, 1, 2])
+    """Distinct nonnegative seeds; each seed solves its own candidates."""
+
+    random_yaw_init: bool = False
+    """Whether placed objects, including a relation-placed robot, start from a random yaw instead of each spec's
+    setting. Objects with FaceTo or a tilted RotateAroundSolution keep their own orientation."""
+
+    collision_mode: CollisionMode | None = None
+    """Default collision mode for every spec, or None to keep each spec's own."""
+
+    solver_device: str | None = None
+    """Device the solver ran on, recorded by the run rather than chosen; None before the simulator starts."""
+
+    def __post_init__(self):
+        assert self.num_layouts > 0, "num_layouts must be positive"
+        assert self.placement_seeds, "placement_seeds must not be empty"
+        assert all(seed >= 0 for seed in self.placement_seeds), "placement_seeds must be nonnegative"
+        # A repeated seed would count the same candidates twice.
+        assert len(set(self.placement_seeds)) == len(self.placement_seeds), "placement_seeds must be distinct"
 
 
 @dataclass
@@ -53,23 +81,24 @@ class EnvironmentRecord:
     num_layouts: int = 0
     """Layouts solved; each layout keeps the best of its candidates."""
 
-    layout_successes: int = 0
+    num_successful_layouts: int = 0
     """Layouts whose best candidate passed every required check."""
 
     num_candidates: int = 0
     """Candidates solved."""
 
-    candidate_successes: int = 0
+    num_valid_candidates: int = 0
     """Candidates that passed every required check."""
-
-    failed_checks: dict[str, int] = field(default_factory=dict)
-    """Failed check names, including optional checks, counted over the best candidates of failed layouts."""
 
     checks: dict[str, bool] = field(default_factory=dict)
     """Checks that ran for this environment, mapped to whether they are required for success."""
 
     candidate_failures_per_check: dict[str, int] = field(default_factory=dict)
-    """Candidates rejected by each check, including optional checks."""
+    """Candidates rejected by each check, including optional checks.
+
+    As in PlacementValidationRunner, a check that runs only on candidates that pass the cheaper required checks, such
+    as IK reachability, counts as failed on the candidates it skipped.
+    """
 
     wall_time_s: float = 0.0
     """Time to prepare the placement inputs and place every seed."""
@@ -77,17 +106,17 @@ class EnvironmentRecord:
     @property
     def layout_success_rate(self) -> float:
         """Share of layouts whose best candidate is valid."""
-        return self.layout_successes / self.num_layouts
+        return self.num_successful_layouts / self.num_layouts
 
     @property
     def valid_candidate_rate(self) -> float:
         """Share of candidates that are valid."""
-        return self.candidate_successes / self.num_candidates
+        return self.num_valid_candidates / self.num_candidates
 
 
 @dataclass
-class PlacementBenchmarkRun:
-    """One benchmark invocation: its provenance, settings and one record per environment."""
+class PlacementBenchmarkResults:
+    """Results of one benchmark run: its provenance, settings and one record per environment."""
 
     start_time: str
     """UTC start time in ISO 8601 format."""
@@ -101,78 +130,42 @@ class PlacementBenchmarkRun:
     dirty: bool | None
     """Whether the checkout had uncommitted changes, or None when unknown."""
 
-    settings: dict[str, object]
-    """Benchmark arguments and solver device, shared by every environment."""
+    settings: PlacementBenchmarkSettings
+    """Settings shared by every environment."""
 
     environments: list[EnvironmentRecord]
     """Records in discovery order."""
 
-    def get_metric_records(self) -> list[dict[str, object]]:
-        """Return a flat list of metrics for each suite and each scored environment.
-
-        A suite has no rate metrics when none of its environments were scored or any of them failed.
-        """
-        metrics = []
-        for summary in summarize_suites(self):
-            tags = {"suite": summary.suite}
-            metrics.append(_metric("environments_scored", summary.scored, tags))
-            metrics.append(_metric("environments_skipped", summary.skipped, tags))
-            metrics.append(_metric("environments_failed", summary.failed, tags))
-            metrics.append(_metric("wall_time_s", summary.wall_time_s, tags))
-            if summary.layout_success_rate is not None:
-                metrics.append(_metric("layout_success_rate", summary.layout_success_rate, tags))
-                metrics.append(_metric("valid_candidate_rate", summary.valid_candidate_rate, tags))
-        for record in self.environments:
-            if record.status != EnvironmentStatus.SCORED:
-                continue
-            tags = {"suite": record.suite, "environment": record.environment}
-            metrics.append(_metric("layout_success_rate", record.layout_success_rate, tags))
-            metrics.append(_metric("valid_candidate_rate", record.valid_candidate_rate, tags))
-        return metrics
-
     def save(self, path: str | Path) -> None:
-        """Write the run, its metrics and its environment records as JSON.
+        """Write the results as JSON.
 
         Args:
             path: File to write, replacing any existing file.
         """
-        content = {
-            "start_time": self.start_time,
-            "commit": self.commit,
-            "branch": self.branch,
-            "dirty": self.dirty,
-            "settings": self.settings,
-            "metrics": self.get_metric_records(),
-            "environments": [asdict(record) for record in self.environments],
-        }
         # Write a sibling file and rename it, so a run stopped mid-write keeps the previous results.
         temporary_path = Path(path).with_name(Path(path).name + ".partial")
-        temporary_path.write_text(json.dumps(content, allow_nan=False, indent=2) + "\n", encoding="utf-8")
+        content = json.dumps(asdict(self), default=_enum_to_value, allow_nan=False, indent=2)
+        temporary_path.write_text(content + "\n", encoding="utf-8")
         temporary_path.replace(path)
 
     @classmethod
-    def load(cls, path: str | Path) -> PlacementBenchmarkRun:
-        """Read a run written by save().
+    def load(cls, path: str | Path) -> PlacementBenchmarkResults:
+        """Read results written by save().
 
         Args:
             path: Results file to read.
         """
         content = json.loads(Path(path).read_text(encoding="utf-8"))
-        assert (
-            set(content) == _RESULTS_FILE_KEYS
-        ), f"{path} is not a results file written by this version of the benchmark; rerun the benchmark to update it"
+        settings = content["settings"]
+        if settings["collision_mode"] is not None:
+            settings["collision_mode"] = CollisionMode(settings["collision_mode"])
+        content["settings"] = PlacementBenchmarkSettings(**settings)
         environments = []
         for record in content["environments"]:
             record["status"] = EnvironmentStatus(record["status"])
             environments.append(EnvironmentRecord(**record))
-        return cls(
-            start_time=content["start_time"],
-            commit=content["commit"],
-            branch=content["branch"],
-            dirty=content["dirty"],
-            settings=content["settings"],
-            environments=environments,
-        )
+        content["environments"] = environments
+        return cls(**content)
 
 
 @dataclass
@@ -182,13 +175,13 @@ class SuiteSummary:
     suite: str
     """Suite name."""
 
-    scored: int
+    num_scored: int
     """Environments scored."""
 
-    skipped: int
-    """Environments skipped because they place only anchors and the robot."""
+    num_skipped: int
+    """Environments skipped because they place nothing other than anchors."""
 
-    failed: int
+    num_failed: int
     """Environments that failed to build or place."""
 
     layout_success_rate: float | None
@@ -203,13 +196,13 @@ class SuiteSummary:
 
 @dataclass
 class RateChange:
-    """A rate in two runs and the 95% interval for the difference, candidate minus baseline."""
+    """A rate before and after a change, and the 95% interval for the difference, after minus before."""
 
-    baseline: float
-    """Rate in the baseline run."""
+    before: float
+    """Rate in the run before the change."""
 
-    candidate: float
-    """Rate in the candidate run."""
+    after: float
+    """Rate in the run after the change."""
 
     low: float
     """Lower end of the 95% interval for the difference."""
@@ -223,12 +216,12 @@ class RateChange:
 
 @dataclass
 class SuiteComparison:
-    """Rate changes over the environments a suite scored in both runs with the same checks."""
+    """Rate changes over the environments of a suite that both runs scored with the same success criteria."""
 
     suite: str
     """Suite name."""
 
-    environments: int
+    num_environments: int
     """Environments compared."""
 
     layout_success: RateChange
@@ -259,61 +252,76 @@ class EnvironmentComparison:
 
 
 @dataclass
-class RunComparison:
-    """Comparison of a candidate run against a baseline run."""
+class ExcludedEnvironment:
+    """An environment left out of a comparison, with its record in each run."""
+
+    suite: str
+    """Suite name."""
+
+    environment: str
+    """Spec file stem."""
+
+    before: EnvironmentRecord | None
+    """Record in the run before the change, or None when the run has none."""
+
+    after: EnvironmentRecord | None
+    """Record in the run after the change, or None when the run has none."""
+
+
+@dataclass
+class ResultsComparison:
+    """Comparison of the results after a change against the results before it."""
 
     suites: list[SuiteComparison]
     """One entry per suite with environments compared."""
 
     environments: list[EnvironmentComparison]
-    """One entry per environment scored in both runs with the same checks."""
+    """One entry per environment scored in both runs with the same success criteria."""
 
-    unpaired: list[tuple[str, str, str, str]]
-    """(suite, environment, baseline status, candidate status) for environments not scored in both runs.
+    unpaired: list[ExcludedEnvironment]
+    """Environments not scored in both runs. Environments skipped in both runs are left out."""
 
-    Environments skipped in both runs are left out.
+    settings_differences: dict[str, tuple[object, object]]
+    """Each setting that differs, mapped to its values before and after."""
+
+    check_differences: list[ExcludedEnvironment]
+    """Environments scored in both runs whose success criteria differ, so they are not compared.
+
+    Criteria differ when a check required in only one run rejected candidates in that run.
     """
 
-    settings_differences: list[tuple[str, object, object]]
-    """(setting, baseline value, candidate value) for each setting that differs."""
 
-    check_differences: list[tuple[str, str, dict[str, bool], dict[str, bool]]]
-    """(suite, environment, baseline checks, candidate checks) for environments scored in both runs where a check that
-    rejected candidates in either run is missing from the other run or differs in being required. Their success means
-    something different in each run, so they are not compared."""
-
-
-def summarize_suites(run: PlacementBenchmarkRun) -> list[SuiteSummary]:
+def summarize_suites(results: PlacementBenchmarkResults) -> list[SuiteSummary]:
     """Return one summary per suite, in order of first appearance.
 
     A suite's rates are None when any of its environments failed, since the failed environment could have lowered them.
 
     Args:
-        run: Run to summarize.
+        results: Results to summarize.
     """
     records_per_suite: dict[str, list[EnvironmentRecord]] = {}
-    for record in run.environments:
+    for record in results.environments:
         records_per_suite.setdefault(record.suite, []).append(record)
     summaries = []
     for suite, records in records_per_suite.items():
         scored = [record for record in records if record.status == EnvironmentStatus.SCORED]
-        failed = sum(record.status == EnvironmentStatus.FAILED for record in records)
+        num_failed = sum(record.status == EnvironmentStatus.FAILED for record in records)
         summaries.append(
             SuiteSummary(
                 suite=suite,
-                scored=len(scored),
-                skipped=sum(record.status == EnvironmentStatus.SKIPPED for record in records),
-                failed=failed,
-                layout_success_rate=None if failed else _mean([record.layout_success_rate for record in scored]),
-                valid_candidate_rate=None if failed else _mean([record.valid_candidate_rate for record in scored]),
+                num_scored=len(scored),
+                num_skipped=sum(record.status == EnvironmentStatus.SKIPPED for record in records),
+                num_failed=num_failed,
+                layout_success_rate=None if num_failed else _mean([record.layout_success_rate for record in scored]),
+                valid_candidate_rate=None if num_failed else _mean([record.valid_candidate_rate for record in scored]),
                 wall_time_s=sum(record.wall_time_s for record in records),
             )
         )
     return summaries
 
 
-def compare_runs(baseline: PlacementBenchmarkRun, candidate: PlacementBenchmarkRun) -> RunComparison:
-    """Return a comparison of two runs over the environments scored in both with the same checks.
+def compare_results(before: PlacementBenchmarkResults, after: PlacementBenchmarkResults) -> ResultsComparison:
+    """Return a comparison of two runs over the environments both scored with the same success criteria.
 
     Each environment's interval is the Agresti-Caffo interval for a difference of two proportions. A suite's
     interval combines its environments' variances, treating the set of environments as fixed and their samples as
@@ -321,37 +329,43 @@ def compare_runs(baseline: PlacementBenchmarkRun, candidate: PlacementBenchmarkR
     at a 5% family-wise error rate.
 
     Args:
-        baseline: Run to compare against.
-        candidate: Run measured with the change.
+        before: Results measured before the change.
+        after: Results measured after the change.
     """
-    baseline_records = {(record.suite, record.environment): record for record in baseline.environments}
-    candidate_records = {(record.suite, record.environment): record for record in candidate.environments}
+    records_before = {(record.suite, record.environment): record for record in before.environments}
+    records_after = {(record.suite, record.environment): record for record in after.environments}
     environments = []
     unpaired = []
     check_differences = []
-    for key in sorted(baseline_records.keys() | candidate_records.keys()):
-        before, after = baseline_records.get(key), candidate_records.get(key)
-        if _has_status(before, EnvironmentStatus.SCORED) and _has_status(after, EnvironmentStatus.SCORED):
-            if _success_criteria_differ(before, after):
-                check_differences.append((*key, before.checks, after.checks))
+    for key in sorted(records_before.keys() | records_after.keys()):
+        record_before, record_after = records_before.get(key), records_after.get(key)
+        if _has_status(record_before, EnvironmentStatus.SCORED) and _has_status(record_after, EnvironmentStatus.SCORED):
+            if _success_criteria_differ(record_before, record_after):
+                check_differences.append(ExcludedEnvironment(*key, record_before, record_after))
                 continue
             environments.append(
                 EnvironmentComparison(
                     suite=key[0],
                     environment=key[1],
                     layout_success=_compare_proportions(
-                        before.layout_successes, before.num_layouts, after.layout_successes, after.num_layouts
+                        record_before.num_successful_layouts,
+                        record_before.num_layouts,
+                        record_after.num_successful_layouts,
+                        record_after.num_layouts,
                     ),
                     valid_candidates=_compare_proportions(
-                        before.candidate_successes,
-                        before.num_candidates,
-                        after.candidate_successes,
-                        after.num_candidates,
+                        record_before.num_valid_candidates,
+                        record_before.num_candidates,
+                        record_after.num_valid_candidates,
+                        record_after.num_candidates,
                     ),
                 )
             )
-        elif not (_has_status(before, EnvironmentStatus.SKIPPED) and _has_status(after, EnvironmentStatus.SKIPPED)):
-            unpaired.append((*key, _status_name(before), _status_name(after)))
+        elif not (
+            _has_status(record_before, EnvironmentStatus.SKIPPED)
+            and _has_status(record_after, EnvironmentStatus.SKIPPED)
+        ):
+            unpaired.append(ExcludedEnvironment(*key, record_before, record_after))
 
     _flag_significant_environments(environments)
 
@@ -363,37 +377,38 @@ def compare_runs(baseline: PlacementBenchmarkRun, candidate: PlacementBenchmarkR
         suites.append(
             SuiteComparison(
                 suite=suite,
-                environments=len(comparisons),
-                layout_success=_combine([comparison.layout_success for comparison in comparisons]),
-                valid_candidates=_combine([comparison.valid_candidates for comparison in comparisons]),
+                num_environments=len(comparisons),
+                layout_success=_average_rate_changes([comparison.layout_success for comparison in comparisons]),
+                valid_candidates=_average_rate_changes([comparison.valid_candidates for comparison in comparisons]),
             )
         )
-    settings_differences = []
-    for key in sorted(baseline.settings.keys() | candidate.settings.keys()):
-        if baseline.settings.get(key) != candidate.settings.get(key):
-            settings_differences.append((key, baseline.settings.get(key), candidate.settings.get(key)))
-    return RunComparison(suites, environments, unpaired, settings_differences, check_differences)
+    settings_before, settings_after = asdict(before.settings), asdict(after.settings)
+    settings_differences = {}
+    for key, value_before in settings_before.items():
+        if value_before != settings_after[key]:
+            settings_differences[key] = (value_before, settings_after[key])
+    return ResultsComparison(suites, environments, unpaired, settings_differences, check_differences)
 
 
-def format_run(run: PlacementBenchmarkRun) -> str:
+def format_results(results: PlacementBenchmarkResults) -> str:
     """Return a Markdown table of suite results, followed by the environments that were not scored.
 
     Args:
-        run: Run to format.
+        results: Results to format.
     """
     lines = [
-        f"Placement success at {format_provenance(run)}",
+        f"Placement success at {format_provenance(results)}",
         "",
         "| suite | scored | skipped | failed | layout success | valid candidates | time |",
         "|---|---|---|---|---|---|---|",
     ]
-    for summary in summarize_suites(run):
+    for summary in summarize_suites(results):
         lines.append(
-            f"| {summary.suite} | {summary.scored} | {summary.skipped} | {summary.failed} |"
+            f"| {summary.suite} | {summary.num_scored} | {summary.num_skipped} | {summary.num_failed} |"
             f" {_format_percent(summary.layout_success_rate)} | {_format_percent(summary.valid_candidate_rate)} |"
             f" {summary.wall_time_s:.0f} s |"
         )
-    not_scored = [record for record in run.environments if record.status != EnvironmentStatus.SCORED]
+    not_scored = [record for record in results.environments if record.status != EnvironmentStatus.SCORED]
     if not_scored:
         lines += ["", "Not scored:"]
         for record in not_scored:
@@ -401,41 +416,42 @@ def format_run(run: PlacementBenchmarkRun) -> str:
     return "\n".join(lines)
 
 
-def format_comparison(comparison: RunComparison) -> str:
-    """Return a Markdown table of suite changes, after any settings and check warnings and before the significant and
-    unpaired environments.
+def format_comparison(comparison: ResultsComparison) -> str:
+    """Return the comparison as Markdown: warnings, a table of suite changes, then the significant and unpaired
+    environments.
 
     Args:
-        comparison: Comparison from compare_runs().
+        comparison: Comparison from compare_results().
     """
     lines = []
     if comparison.settings_differences:
         lines.append("Warning: the runs used different settings:")
-        for key, before, after in comparison.settings_differences:
-            lines.append(f"- {key}: baseline {before}, candidate {after}")
+        for key, (value_before, value_after) in comparison.settings_differences.items():
+            lines.append(f"- {key}: before {value_before}, after {value_after}")
         lines.append("")
     if comparison.check_differences:
         lines.append(
-            "Warning: these environments' checks or required checks differ between the runs, so their success"
-            " criteria changed. They are left out of the suite rates and significance tests:"
+            "Warning: a check required in only one run rejected candidates in these environments, so their success"
+            " criteria differ. They are left out of the suite rates and significance tests:"
         )
-        for suite, environment, before, after in comparison.check_differences:
+        for excluded in comparison.check_differences:
             lines.append(
-                f"- {suite}/{environment}: baseline {_format_checks(before)}; candidate {_format_checks(after)}"
+                f"- {excluded.suite}/{excluded.environment}: before {_format_checks(excluded.before.checks)};"
+                f" after {_format_checks(excluded.after.checks)}"
             )
         lines.append("")
     lines += [
         (
-            "| suite | environments compared | layout success, baseline → candidate | change (95% interval) |"
-            " valid candidates, baseline → candidate | change (95% interval) |"
+            "| suite | environments compared | layout success, before → after | change (95% interval) |"
+            " valid candidates, before → after | change (95% interval) |"
         ),
         "|---|---|---|---|---|---|",
     ]
     if not comparison.suites:
-        lines.append("| no environment was scored in both runs with the same checks | | | | | |")
+        lines.append("| no environment was scored in both runs with the same success criteria | | | | | |")
     for suite in comparison.suites:
         lines.append(
-            f"| {suite.suite} | {suite.environments} | {_format_rates(suite.layout_success)} |"
+            f"| {suite.suite} | {suite.num_environments} | {_format_rates(suite.layout_success)} |"
             f" {_format_change(suite.layout_success)} | {_format_rates(suite.valid_candidates)} |"
             f" {_format_change(suite.valid_candidates)} |"
         )
@@ -452,36 +468,44 @@ def format_comparison(comparison: RunComparison) -> str:
             )
     if comparison.unpaired:
         lines += ["", "Not scored in both runs:"]
-        for suite, environment, before, after in comparison.unpaired:
-            lines.append(f"- {suite}/{environment}: baseline {before}, candidate {after}")
+        for excluded in comparison.unpaired:
+            lines.append(
+                f"- {excluded.suite}/{excluded.environment}: before {_format_status(excluded.before)},"
+                f" after {_format_status(excluded.after)}"
+            )
     return "\n".join(lines)
 
 
-def format_provenance(run: PlacementBenchmarkRun) -> str:
-    """Return the run's commit, branch, dirty flag and start time on one line.
+def format_provenance(results: PlacementBenchmarkResults) -> str:
+    """Return the measured commit, branch, dirty flag and start time on one line.
 
     Args:
-        run: Run to describe.
+        results: Results to describe.
     """
-    dirty = {True: ", uncommitted changes", False: "", None: ", unknown changes"}[run.dirty]
-    return f"{run.commit or 'unknown commit'} ({run.branch or 'unknown branch'}{dirty}), started {run.start_time}"
-
-
-def _metric(name: str, value: float | int, tags: dict[str, str]) -> dict[str, object]:
-    return {"name": name, "value": value, "tags": tags}
+    dirty = {True: ", uncommitted changes", False: "", None: ", unknown changes"}[results.dirty]
+    commit = results.commit or "unknown commit"
+    return f"{commit} ({results.branch or 'unknown branch'}{dirty}), started {results.start_time}"
 
 
 def _success_criteria_differ(before: EnvironmentRecord, after: EnvironmentRecord) -> bool:
-    """Return whether a check that rejected candidates in either run is missing from the other or differently required.
+    """Return whether a check required in only one run rejected candidates in that run.
 
-    A check that never rejected a candidate in either run leaves success unchanged, so it is ignored.
+    A missing or optional check does not affect success, and neither does a required check that rejected nothing.
     """
-    active_checks = set()
-    for record in (before, after):
-        for check, failures in record.candidate_failures_per_check.items():
-            if failures:
-                active_checks.add(check)
-    return any(before.checks.get(check) != after.checks.get(check) for check in active_checks)
+    for check in before.checks.keys() | after.checks.keys():
+        required_before = before.checks.get(check, False)
+        required_after = after.checks.get(check, False)
+        if required_before != required_after:
+            record_requiring_check = before if required_before else after
+            if record_requiring_check.candidate_failures_per_check.get(check, 0) > 0:
+                return True
+    return False
+
+
+def _enum_to_value(value: object) -> object:
+    """Return an enum's value, the form in which results files store enums."""
+    assert isinstance(value, Enum), f"Results files cannot store {value!r}"
+    return value.value
 
 
 def _mean(values: list[float]) -> float | None:
@@ -492,21 +516,19 @@ def _has_status(record: EnvironmentRecord | None, status: EnvironmentStatus) -> 
     return record is not None and record.status == status
 
 
-def _status_name(record: EnvironmentRecord | None) -> str:
-    return "missing" if record is None else str(record.status)
-
-
-def _compare_proportions(baseline_successes: int, baseline_trials: int, successes: int, trials: int) -> RateChange:
+def _compare_proportions(
+    successes_before: int, trials_before: int, successes_after: int, trials_after: int
+) -> RateChange:
     """Return observed rates and the Agresti-Caffo 95% interval for their difference."""
-    adjusted_baseline = (baseline_successes + 1) / (baseline_trials + 2)
-    adjusted = (successes + 1) / (trials + 2)
-    variance = _adjusted_variance(baseline_successes, baseline_trials) + _adjusted_variance(successes, trials)
+    adjusted_before = (successes_before + 1) / (trials_before + 2)
+    adjusted_after = (successes_after + 1) / (trials_after + 2)
+    variance = _adjusted_variance(successes_before, trials_before) + _adjusted_variance(successes_after, trials_after)
     standard_error = math.sqrt(variance)
-    difference = adjusted - adjusted_baseline
+    difference = adjusted_after - adjusted_before
     margin = _NORMAL_QUANTILE_95 * standard_error
     return RateChange(
-        baseline_successes / baseline_trials,
-        successes / trials,
+        successes_before / trials_before,
+        successes_after / trials_after,
         difference - margin,
         difference + margin,
         _two_sided_p_value(difference, standard_error),
@@ -518,15 +540,19 @@ def _adjusted_variance(successes: int, trials: int) -> float:
     return adjusted * (1 - adjusted) / (trials + 2)
 
 
-def _combine(changes: list[RateChange]) -> RateChange:
-    """Average per-environment changes, combining their interval half-widths as independent errors."""
+def _average_rate_changes(changes: list[RateChange]) -> RateChange:
+    """Average per-environment changes, combining their interval half-widths as independent errors.
+
+    The interval is centered on the observed change. The Agresti-Caffo centers shift every environment the same way when
+    the runs' sample sizes differ, so averaging them would report a change between identical rates.
+    """
     count = len(changes)
-    baseline = sum(change.baseline for change in changes) / count
-    candidate = sum(change.candidate for change in changes) / count
-    centre = sum((change.low + change.high) / 2 for change in changes) / count
+    before = sum(change.before for change in changes) / count
+    after = sum(change.after for change in changes) / count
+    center = after - before
     half_width = math.sqrt(sum(((change.high - change.low) / 2) ** 2 for change in changes)) / count
-    p_value = _two_sided_p_value(centre, half_width / _NORMAL_QUANTILE_95)
-    return RateChange(baseline, candidate, centre - half_width, centre + half_width, p_value)
+    p_value = _two_sided_p_value(center, half_width / _NORMAL_QUANTILE_95)
+    return RateChange(before, after, center - half_width, center + half_width, p_value)
 
 
 def _two_sided_p_value(difference: float, standard_error: float) -> float:
@@ -552,12 +578,16 @@ def _format_checks(checks: dict[str, bool]) -> str:
     return ", ".join(names) or "none"
 
 
+def _format_status(record: EnvironmentRecord | None) -> str:
+    return "missing" if record is None else str(record.status)
+
+
 def _format_percent(value: float | None) -> str:
     return "n/a" if value is None else f"{100 * value:.1f}%"
 
 
 def _format_rates(change: RateChange) -> str:
-    return f"{_format_percent(change.baseline)} → {_format_percent(change.candidate)}"
+    return f"{_format_percent(change.before)} → {_format_percent(change.after)}"
 
 
 def _format_change(change: RateChange) -> str:

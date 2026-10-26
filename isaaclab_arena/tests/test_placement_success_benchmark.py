@@ -6,179 +6,179 @@
 """Tests for placement-success results files, run comparisons and the benchmark script."""
 
 import copy
-import json
-import math
-import subprocess
+import sys
 
 import pytest
 
 from isaaclab_arena.offline_placement.placement_success import (
     EnvironmentRecord,
     EnvironmentStatus,
-    PlacementBenchmarkRun,
-    compare_runs,
+    PlacementBenchmarkResults,
+    PlacementBenchmarkSettings,
+    compare_results,
     format_comparison,
-    format_run,
+    format_results,
+    summarize_suites,
 )
-from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
 # Defined first so the SimulationApp starts before placement code in later tests imports pxr through Isaac Lab.
-def _test_real_specs_are_scored_or_skipped(simulation_app) -> bool:
-    from isaaclab_arena.scripts.placement_success_benchmark import (
-        discover_specs,
-        get_benchmark_parser,
-        measure_environment,
-    )
+def _test_real_specs_are_scored_or_failed(simulation_app) -> bool:
+    from isaaclab_arena.scripts.placement_success_benchmark import discover_specs, measure_environment
     from isaaclab_arena_environments.cli import ensure_environments_registered
 
     ensure_environments_registered()
-    args_cli = get_benchmark_parser().parse_args(["--num_layouts", "2", "--placement_seeds", "0"])
+    settings = PlacementBenchmarkSettings(num_layouts=2, placement_seeds=[0])
     [(_, scored_spec)] = discover_specs("robolab", ["banana_on_plate"])
     [(_, robot_only_spec)] = discover_specs("kitchen_bench", ["kitchen_bench_lightwheel_open_fridge"])
 
-    scored = measure_environment("robolab", scored_spec, args_cli)
-    skipped = measure_environment("kitchen_bench", robot_only_spec, args_cli)
-    failed = measure_environment("robolab", scored_spec.with_name("missing_spec.yaml"), args_cli)
+    scored = measure_environment("robolab", scored_spec, settings, seed_block_index=0)
+    robot_only = measure_environment("kitchen_bench", robot_only_spec, settings, seed_block_index=1)
+    failed = measure_environment("robolab", scored_spec.with_name("missing_spec.yaml"), settings, seed_block_index=2)
 
     assert scored.status == EnvironmentStatus.SCORED, scored.reason
     assert scored.num_layouts == 2 and scored.checks
-    assert skipped.status == EnvironmentStatus.SKIPPED, skipped.reason
+    assert robot_only.status == EnvironmentStatus.SCORED, robot_only.reason
+    assert robot_only.num_layouts == 2
     assert failed.status == EnvironmentStatus.FAILED and failed.reason
     return True
 
 
-def test_real_specs_are_scored_or_skipped():
-    """A RoboLab spec is placed and scored, and a KitchenBench spec that places only the robot is skipped."""
-    assert run_function_with_persistent_simulation_app(_test_real_specs_are_scored_or_skipped)
+def test_real_specs_are_scored_or_failed():
+    """An object spec and a spec that places only the robot are scored, and a spec that cannot be built fails."""
+    assert run_function_with_persistent_simulation_app(_test_real_specs_are_scored_or_failed)
 
 
-def test_results_file_round_trips_and_reports_suite_and_environment_rates(tmp_path):
+def test_results_file_round_trips_and_reports_suite_rates(tmp_path):
     """Suites report counts for every status, and equal-weight mean rates only when no environment failed."""
-    run = _run([
+    results = _results([
         _scored("robolab", "pick_apple", layouts=(45, 50), candidates=(300, 500)),
         _scored("robolab", "pick_banana", layouts=(25, 25), candidates=(250, 250)),
         _scored("kitchen_bench", "pick_cup", layouts=(50, 50), candidates=(500, 500)),
-        EnvironmentRecord("kitchen_bench", "open_fridge", EnvironmentStatus.SKIPPED, reason="places only the robot"),
+        EnvironmentRecord("kitchen_bench", "static_scene", EnvironmentStatus.SKIPPED, reason="places only anchors"),
         EnvironmentRecord("kitchen_bench", "place_lime", EnvironmentStatus.FAILED, reason="KeyError: 'lime'"),
     ])
-    path = tmp_path / "run.json"
-    run.save(path)
+    from isaaclab_arena.relations.collision_mode import CollisionMode
 
-    assert PlacementBenchmarkRun.load(path) == run
-    assert json.loads(path.read_text())["metrics"] == run.get_metric_records()
-    old_format = tmp_path / "old_format.json"
-    old_format.write_text(json.dumps({"version": 1, **json.loads(path.read_text())}))
-    with pytest.raises(AssertionError, match="not a results file"):
-        PlacementBenchmarkRun.load(old_format)
-    metrics = {
-        (metric["name"], tuple(sorted(metric["tags"].items()))): metric["value"] for metric in run.get_metric_records()
-    }
-    assert metrics[("layout_success_rate", (("suite", "robolab"),))] == pytest.approx(0.95)
-    assert metrics[("valid_candidate_rate", (("suite", "robolab"),))] == pytest.approx(0.8)
-    assert metrics[("layout_success_rate", (("environment", "pick_apple"), ("suite", "robolab")))] == pytest.approx(0.9)
-    assert metrics[("environments_skipped", (("suite", "kitchen_bench"),))] == 1
-    assert metrics[("environments_failed", (("suite", "kitchen_bench"),))] == 1
+    results.settings = PlacementBenchmarkSettings(
+        random_yaw_init=True, collision_mode=CollisionMode.MESH, solver_device="cpu"
+    )
+    path = tmp_path / "run.json"
+    results.save(path)
+
+    assert PlacementBenchmarkResults.load(path) == results
+    robolab, kitchen_bench = summarize_suites(results)
+    # Every environment weighs the same, whatever its layout count.
+    assert robolab.layout_success_rate == pytest.approx(0.95)
+    assert robolab.valid_candidate_rate == pytest.approx(0.8)
+    assert (kitchen_bench.num_scored, kitchen_bench.num_skipped, kitchen_bench.num_failed) == (1, 1, 1)
     # A failed environment could have lowered the suite's rates, so they are left out.
-    assert ("layout_success_rate", (("suite", "kitchen_bench"),)) not in metrics
-    assert metrics[("layout_success_rate", (("environment", "pick_cup"), ("suite", "kitchen_bench")))] == 1.0
-    assert "| kitchen_bench | 1 | 1 | 1 | n/a | n/a |" in format_run(run)
+    assert kitchen_bench.layout_success_rate is None
+    assert "| kitchen_bench | 1 | 1 | 1 | n/a | n/a |" in format_results(results)
 
 
 def test_comparison_flags_only_changes_that_survive_holm():
     """Only changes that survive Holm's step-down are flagged, and environments not scored in both runs are listed."""
-    baseline = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(38)]
-    baseline.append(EnvironmentRecord("robolab", "new_task", EnvironmentStatus.FAILED, reason="missing asset"))
-    baseline.append(EnvironmentRecord("robolab", "open_fridge", EnvironmentStatus.SKIPPED))
-    candidate = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(35)]
-    candidate.append(EnvironmentRecord("robolab", "task_35", EnvironmentStatus.SKIPPED))
-    candidate.append(_scored("robolab", "task_36", layouts=(47, 50), candidates=(400, 500)))
-    candidate.append(_scored("robolab", "task_37", layouts=(12, 25), candidates=(100, 250)))
-    candidate.append(EnvironmentRecord("robolab", "open_fridge", EnvironmentStatus.SKIPPED))
-    candidate_run = _run(candidate)
-    candidate_run.settings = {"num_layouts": 50, "random_yaw_init": True}
+    before = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(38)]
+    before.append(EnvironmentRecord("robolab", "new_task", EnvironmentStatus.FAILED, reason="missing asset"))
+    before.append(EnvironmentRecord("robolab", "static_scene", EnvironmentStatus.SKIPPED))
+    after = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(35)]
+    after.append(EnvironmentRecord("robolab", "task_35", EnvironmentStatus.SKIPPED))
+    after.append(_scored("robolab", "task_36", layouts=(47, 50), candidates=(400, 500)))
+    after.append(_scored("robolab", "task_37", layouts=(12, 25), candidates=(100, 250)))
+    after.append(EnvironmentRecord("robolab", "static_scene", EnvironmentStatus.SKIPPED))
+    after_results = _results(after)
+    after_results.settings = PlacementBenchmarkSettings(random_yaw_init=True)
 
-    comparison = compare_runs(_run(baseline), candidate_run)
+    comparison = compare_results(_results(before), after_results)
 
     [suite] = comparison.suites
-    assert suite.environments == 37
+    assert suite.num_environments == 37
     # Every environment weighs the same, whatever its layout count.
-    assert suite.layout_success.candidate == pytest.approx((36 * 0.94 + 0.48) / 37)
+    assert suite.layout_success.after == pytest.approx((36 * 0.94 + 0.48) / 37)
     changes = {environment.environment: environment for environment in comparison.environments}
-    # The suite interval averages the environment intervals, adding their half-widths as independent errors.
-    layout_changes = [environment.layout_success for environment in comparison.environments]
-    centre = sum((change.low + change.high) / 2 for change in layout_changes) / 37
-    half_width = math.sqrt(sum(((change.high - change.low) / 2) ** 2 for change in layout_changes)) / 37
-    assert (suite.layout_success.low, suite.layout_success.high) == pytest.approx(
-        (centre - half_width, centre + half_width)
-    )
     # Agresti-Caffo for 47/50 -> 12/25: adjusted rates 48/52 and 13/27.
     assert (changes["task_37"].layout_success.low, changes["task_37"].layout_success.high) == pytest.approx(
         (-0.64350, -0.23969), abs=1e-4
     )
     assert [name for name, environment in changes.items() if environment.significant] == ["task_37"]
-    assert comparison.unpaired == [
-        ("robolab", "new_task", "failed", "missing"),
-        ("robolab", "task_35", "scored", "skipped"),
-    ]
-    assert comparison.settings_differences == [("random_yaw_init", None, True)]
+    [new_task, task_35] = comparison.unpaired
+    assert (new_task.environment, new_task.before.status, new_task.after) == ("new_task", "failed", None)
+    assert (task_35.environment, task_35.before.status, task_35.after.status) == ("task_35", "scored", "skipped")
+    assert comparison.settings_differences == {"random_yaw_init": (False, True)}
 
     # p = 0.035 and 0.047: both are below 5%, but the smaller misses Holm's first threshold of 2.5%, so neither is flagged.
-    moderate = compare_runs(
-        _run([_scored("robolab", "task_0", layouts=(47, 50), candidates=(400, 500))]),
-        _run([_scored("robolab", "task_0", layouts=(40, 50), candidates=(372, 500))]),
+    moderate = compare_results(
+        _results([_scored("robolab", "task_0", layouts=(47, 50), candidates=(400, 500))]),
+        _results([_scored("robolab", "task_0", layouts=(40, 50), candidates=(372, 500))]),
     )
     [environment] = moderate.environments
     assert max(environment.layout_success.p_value, environment.valid_candidates.p_value) < 0.05
     assert not environment.significant
 
+    # After two near-zero p-values, task_1's p = 0.014 is checked against 5% / 2 rather than Bonferroni's 5% / 4.
+    step_down = compare_results(
+        _results([_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(2)]),
+        _results([
+            _scored("robolab", "task_0", layouts=(20, 50), candidates=(200, 500)),
+            _scored("robolab", "task_1", layouts=(38, 50), candidates=(400, 500)),
+        ]),
+    )
+    assert [environment.significant for environment in step_down.environments] == [True, True]
 
-def test_comparison_leaves_out_environments_whose_checks_changed():
-    """An environment is left out when a check that rejected candidates changed, but not for a check that never did."""
-    baseline = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(3)]
-    candidate = [_scored("robolab", f"task_{index}", layouts=(25, 50), candidates=(200, 500)) for index in range(3)]
-    for record in baseline + candidate:
+
+def test_suite_interval_is_centered_on_the_observed_change():
+    """Identical rates show no change even when the runs differ in size, and the p-value agrees with the interval."""
+    before = [_scored("robolab", f"task_{index}", layouts=(150, 150), candidates=(1500, 1500)) for index in range(36)]
+    after = [_scored("robolab", f"task_{index}", layouts=(50, 50), candidates=(500, 500)) for index in range(36)]
+
+    [suite] = compare_results(_results(before), _results(after)).suites
+    [single] = compare_results(_results(before[:1]), _results(after[:1])).suites
+
+    assert suite.layout_success.low == pytest.approx(-suite.layout_success.high)
+    assert suite.layout_success.p_value == pytest.approx(1.0)
+    # Independent environment errors add in quadrature, so 36 equal environments narrow the interval six times.
+    single_width = single.layout_success.high - single.layout_success.low
+    assert suite.layout_success.high - suite.layout_success.low == pytest.approx(single_width / 6)
+
+    # Small drops in every environment: the p-value is below 5% exactly when the interval excludes zero.
+    before = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(36)]
+    for successful_layouts in range(44, 48):
+        after = [_scored("robolab", f"task_{index}", (successful_layouts, 50), (400, 500)) for index in range(36)]
+        [suite] = compare_results(_results(before), _results(after)).suites
+        change = suite.layout_success
+        assert (change.high < 0 or change.low > 0) == (change.p_value < 0.05)
+
+
+def test_comparison_leaves_out_environments_whose_success_criteria_changed():
+    """An environment is left out when a check required in only one run rejected candidates in that run."""
+    before = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(5)]
+    after = [_scored("robolab", f"task_{index}", layouts=(25, 50), candidates=(200, 500)) for index in range(5)]
+    for record in before + after:
         record.checks = {"no_overlap": True, "ik_reachable": True}
-    for record in baseline:
+    for record in before:
         record.candidate_failures_per_check = {"ik_reachable": 40}
-    # Both runs run the same checks overall, but task_0 loses ik_reachable and task_1 makes it optional.
-    candidate[0].checks = {"no_overlap": True}
-    candidate[1].checks = {"no_overlap": True, "ik_reachable": False}
-    # task_2 gains a check that never rejects a candidate, so its success is unchanged.
-    candidate[2].checks = {"no_overlap": True, "ik_reachable": True, "face_to": True}
+    # task_0 loses ik_reachable and task_1 makes it optional; it rejected candidates before.
+    after[0].checks = {"no_overlap": True}
+    after[1].checks = {"no_overlap": True, "ik_reachable": False}
+    # task_2 gains a required check that never rejects a candidate, so its success is unchanged.
+    after[2].checks = {"no_overlap": True, "ik_reachable": True, "face_to": True}
+    # task_3 gains a required check that rejects candidates after the change.
+    after[3].checks = {"no_overlap": True, "ik_reachable": True, "on_relation": True}
+    after[3].candidate_failures_per_check = {"on_relation": 10}
+    # task_4 gains an optional check, which does not affect success even though it rejects candidates.
+    after[4].checks = {"no_overlap": True, "ik_reachable": True, "face_to": False}
+    after[4].candidate_failures_per_check = {"face_to": 10}
 
-    comparison = compare_runs(_run(baseline), _run(candidate))
+    comparison = compare_results(_results(before), _results(after))
 
-    assert [environment.environment for environment in comparison.environments] == ["task_2"]
-    [suite] = comparison.suites
-    assert suite.environments == 1
-    assert comparison.check_differences == [
-        ("robolab", "task_0", {"no_overlap": True, "ik_reachable": True}, {"no_overlap": True}),
-        ("robolab", "task_1", {"no_overlap": True, "ik_reachable": True}, {"no_overlap": True, "ik_reachable": False}),
-    ]
+    assert [environment.environment for environment in comparison.environments] == ["task_2", "task_4"]
+    assert [excluded.environment for excluded in comparison.check_differences] == ["task_0", "task_1", "task_3"]
     assert (
-        "- robolab/task_1: baseline ik_reachable, no_overlap; candidate ik_reachable (optional), no_overlap"
+        "- robolab/task_1: before ik_reachable, no_overlap; after ik_reachable (optional), no_overlap"
         in format_comparison(comparison)
     )
-
-
-def test_git_provenance_ignores_only_the_output_file(tmp_path, monkeypatch):
-    """The run's own results file leaves the checkout clean, while a source change marks it dirty."""
-    from isaaclab_arena.scripts import placement_success_benchmark
-
-    monkeypatch.setattr(placement_success_benchmark, "_REPO_ROOT", tmp_path.resolve())
-    git = ["git", "-c", "user.name=test", "-c", "user.email=test@example.com"]
-    (tmp_path / "source.py").write_text("")
-    subprocess.run([*git, "init", "-q"], cwd=tmp_path, check=True)
-    subprocess.run([*git, "add", "source.py"], cwd=tmp_path, check=True)
-    subprocess.run([*git, "commit", "-qm", "source"], cwd=tmp_path, check=True)
-    output = tmp_path / "run.json"
-    output.write_text("{}")
-
-    assert placement_success_benchmark.get_git_provenance(output)[2] is False
-    (tmp_path / "source.py").write_text("changed = True\n")
-    assert placement_success_benchmark.get_git_provenance(output)[2] is True
 
 
 def test_seed_results_count_each_layout_by_its_best_candidate():
@@ -188,6 +188,8 @@ def test_seed_results_count_each_layout_by_its_best_candidate():
     from isaaclab_arena.scripts.placement_success_benchmark import add_seed_results
 
     def candidate(no_overlap: bool, on_relation: bool, ik_reachable: bool = True) -> PlacementResult:
+        # As in PlacementValidationRunner, IK runs only on candidates that pass the required checks.
+        ik_reachable = ik_reachable and no_overlap and on_relation
         checks = {"no_overlap": no_overlap, "on_relation": on_relation, "ik_reachable": ik_reachable}
         validation = PlacementValidationResults(checks, required_checks={"no_overlap", "on_relation"})
         return PlacementResult(validation, positions={}, final_loss=0.0, attempts=1)
@@ -202,11 +204,10 @@ def test_seed_results_count_each_layout_by_its_best_candidate():
     )
     add_seed_results(record, [[candidate(True, False), candidate(True, False)]])
 
-    assert (record.layout_successes, record.num_layouts) == (1, 3)
-    assert (record.candidate_successes, record.num_candidates) == (2, 7)
-    assert record.failed_checks == {"no_overlap": 1, "on_relation": 1}
+    assert (record.num_successful_layouts, record.num_layouts) == (1, 3)
+    assert (record.num_valid_candidates, record.num_candidates) == (2, 7)
     assert record.checks == {"no_overlap": True, "on_relation": True, "ik_reachable": False}
-    assert record.candidate_failures_per_check == {"ik_reachable": 1, "no_overlap": 3, "on_relation": 3}
+    assert record.candidate_failures_per_check == {"ik_reachable": 6, "no_overlap": 3, "on_relation": 3}
 
     # Without declared required checks, every check is required.
     default_record = EnvironmentRecord("robolab", "pick_apple", EnvironmentStatus.SCORED)
@@ -215,16 +216,18 @@ def test_seed_results_count_each_layout_by_its_best_candidate():
     assert default_record.checks == {"no_overlap": True, "on_relation": True}
 
 
-def test_benchmark_placement_matches_object_placer_with_disjoint_seeds():
+def test_candidate_placer_matches_object_placer_with_disjoint_seeds():
     """Each layout's best candidate is ObjectPlacer.place()'s, and seeds and environments solve different candidates.
 
     Two environments with the same scene must not share candidates, or their results would not be independent.
     """
+    from isaaclab_arena.environments.arena_env_builder import LivePlacementInputs
+    from isaaclab_arena.relations.collision_mode import CollisionMode
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
-    from isaaclab_arena.scripts.placement_success_benchmark import _SEED_STREAM_LENGTH, BenchmarkPlacement
+    from isaaclab_arena.scripts.placement_success_benchmark import _SEEDS_PER_ENVIRONMENT, CandidatePlacer
     from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
@@ -238,16 +241,18 @@ def test_benchmark_placement_matches_object_placer_with_disjoint_seeds():
         solver_params=RelationSolverParams(max_iters=10, verbose=False), apply_positions_to_objects=False
     )
     num_layouts = 5
+    inputs = LivePlacementInputs([desk, box], params, scene_assets=[])
+    settings = PlacementBenchmarkSettings(num_layouts=num_layouts)
 
     box_positions_per_sample = []
-    for seed_stream, seed in ((0, 0), (0, 1), (1, 0)):
-        placement = BenchmarkPlacement([desk, box], params, num_layouts, seed_stream)
+    for seed_block_index, seed in ((0, 0), (0, 1), (1, 0)):
+        placer = CandidatePlacer(inputs, settings, seed_block_index)
         reference_params = copy.copy(params)
         reference_params.placement_seed = (
-            seed_stream * _SEED_STREAM_LENGTH + seed * num_layouts * params.max_placement_attempts
+            seed_block_index * _SEEDS_PER_ENVIRONMENT + seed * num_layouts * params.max_placement_attempts
         )
         expected_per_layout = ObjectPlacer(reference_params).place([desk, box], num_envs=num_layouts)
-        ranked_per_layout = placement.place(seed, collision_objects=[])
+        ranked_per_layout = placer.place(seed)
         box_positions = set()
         for ranked, expected in zip(ranked_per_layout, expected_per_layout, strict=True):
             assert len(ranked) == params.max_placement_attempts
@@ -255,12 +260,12 @@ def test_benchmark_placement_matches_object_placer_with_disjoint_seeds():
             for result in ranked:
                 box_positions.add(tuple(result.positions[box]))
         box_positions_per_sample.append(box_positions)
-    from isaaclab_arena.relations.collision_mode import CollisionMode
-
-    overridden = BenchmarkPlacement(
-        [desk, box], params, num_layouts, 0, random_yaw_init=True, collision_mode=CollisionMode.MESH
+    overridden_settings = PlacementBenchmarkSettings(
+        num_layouts=num_layouts, random_yaw_init=True, collision_mode=CollisionMode.MESH
     )
-    assert overridden.collision_mode == CollisionMode.MESH and overridden._placer.params.random_yaw_init
+    overridden = CandidatePlacer(inputs, overridden_settings, 0)
+    overridden_params = overridden._placer.params
+    assert overridden_params.solver_params.collision_mode == CollisionMode.MESH and overridden_params.random_yaw_init
     assert params.solver_params.collision_mode != CollisionMode.MESH and not params.random_yaw_init
 
     first_seed, second_seed, other_environment = box_positions_per_sample
@@ -268,63 +273,34 @@ def test_benchmark_placement_matches_object_placer_with_disjoint_seeds():
     assert not first_seed & other_environment
     # A seed whose candidates would run into the next environment's block is refused.
     with pytest.raises(AssertionError):
-        placement.place(_SEED_STREAM_LENGTH // (num_layouts * params.max_placement_attempts), collision_objects=[])
+        placer.place(_SEEDS_PER_ENVIRONMENT // (num_layouts * params.max_placement_attempts))
 
 
-def test_spec_discovery_filters_by_stem_and_gives_each_spec_its_own_seed_stream():
-    """Every suite contributes specs, a stem glob keeps only matching specs, and every spec has its own stream."""
-    from isaaclab_arena.scripts.placement_success_benchmark import discover_specs, get_seed_stream
+def test_spec_discovery_filters_by_stem_and_gives_each_spec_its_own_seed_block():
+    """Every suite contributes specs, a stem glob keeps only matching specs, and every spec has its own seed block."""
+    from isaaclab_arena.scripts.placement_success_benchmark import discover_specs, get_seed_block_index
 
     specs = discover_specs("all", None)
     assert {suite for suite, _ in specs} == {"robolab", "kitchen_bench"}
     stem = specs[0][1].stem
     assert [path.stem for _, path in discover_specs("all", [stem])] == [stem]
-    streams = [get_seed_stream(suite, path) for suite, path in specs]
-    assert sorted(streams) == list(range(len(specs)))
+    seed_block_indices = [get_seed_block_index(suite, path) for suite, path in specs]
+    assert sorted(seed_block_indices) == list(range(len(specs)))
 
 
-def test_compare_cli_prints_suite_table_without_simulator(tmp_path):
+def test_compare_cli_prints_suite_table_without_simulator(tmp_path, monkeypatch, capsys):
     """--compare reads two results files and prints the suite comparison."""
-    baseline_path, candidate_path = tmp_path / "baseline.json", tmp_path / "candidate.json"
-    _run([_scored("robolab", "pick_apple", layouts=(45, 50), candidates=(300, 500))]).save(baseline_path)
-    _run([_scored("robolab", "pick_apple", layouts=(50, 50), candidates=(450, 500))]).save(candidate_path)
+    from isaaclab_arena.scripts import placement_success_benchmark
 
-    completed = subprocess.run(
-        [
-            TestConstants.python_path,
-            f"{TestConstants.scripts_dir}/placement_success_benchmark.py",
-            "--compare",
-            str(baseline_path),
-            str(candidate_path),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    before_path, after_path = tmp_path / "before.json", tmp_path / "after.json"
+    _results([_scored("robolab", "pick_apple", layouts=(45, 50), candidates=(300, 500))]).save(before_path)
+    _results([_scored("robolab", "pick_apple", layouts=(50, 50), candidates=(450, 500))]).save(after_path)
+    argv = ["placement_success_benchmark.py", "--compare", str(before_path), str(after_path)]
+    monkeypatch.setattr(sys, "argv", argv)
 
-    assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "| robolab | 1 | 90.0% → 100.0% |" in completed.stdout
+    placement_success_benchmark.main()
 
-
-def test_cli_rejects_repeated_seeds_without_simulator():
-    """A repeated seed would count the same candidates twice, so the CLI rejects it before starting the simulator."""
-    completed = subprocess.run(
-        [
-            TestConstants.python_path,
-            f"{TestConstants.scripts_dir}/placement_success_benchmark.py",
-            "--placement_seeds",
-            "0",
-            "0",
-            "--env",
-            "no_such_spec",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-
-    assert completed.returncode != 0
-    assert "--placement_seeds must be distinct" in completed.stderr
+    assert "| robolab | 1 | 90.0% → 100.0% |" in capsys.readouterr().out
 
 
 def _scored(suite: str, environment: str, layouts: tuple[int, int], candidates: tuple[int, int]) -> EnvironmentRecord:
@@ -333,11 +309,13 @@ def _scored(suite: str, environment: str, layouts: tuple[int, int], candidates: 
         environment,
         EnvironmentStatus.SCORED,
         num_layouts=layouts[1],
-        layout_successes=layouts[0],
+        num_successful_layouts=layouts[0],
         num_candidates=candidates[1],
-        candidate_successes=candidates[0],
+        num_valid_candidates=candidates[0],
     )
 
 
-def _run(records: list[EnvironmentRecord]) -> PlacementBenchmarkRun:
-    return PlacementBenchmarkRun("2026-10-21T00:00:00+00:00", "abc123", "main", False, {"num_layouts": 50}, records)
+def _results(records: list[EnvironmentRecord]) -> PlacementBenchmarkResults:
+    return PlacementBenchmarkResults(
+        "2026-10-21T00:00:00+00:00", "abc123", "main", False, PlacementBenchmarkSettings(), records
+    )
