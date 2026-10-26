@@ -42,7 +42,8 @@ def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> st
             enum_to_str=True,
         )
         assert isinstance(run_values, dict)
-        assert run_values.pop("name") == run_name
+        popped_name = run_values.pop("name")
+        assert popped_name == run_name
 
         run_values["environment"] = _environment_yaml_values(environment_registry, run_cfg, run_values["environment"])
         policy_type = policy_registry.get_policy_type_for_cfg(run_cfg.policy)

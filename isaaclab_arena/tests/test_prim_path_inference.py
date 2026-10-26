@@ -70,7 +70,7 @@ def test_validate_against_prim_tree_rejects_non_base_type_mismatch(reference_typ
         prim_path="target",
         object_type=reference_type,
     )
-    with pytest.raises(AssertionError, match="does not match prim tree"):
+    with pytest.raises(ValueError, match="does not match prim tree"):
         _validate_against_prim_tree([reference], [UsdPrimRecord("target", prim_type)])
 
 
