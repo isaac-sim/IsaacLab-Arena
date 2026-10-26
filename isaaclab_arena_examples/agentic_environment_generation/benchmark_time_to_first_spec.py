@@ -35,13 +35,13 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
-from isaaclab_arena.agentic_environment_generation.inference_backend import resolve_inference_endpoint
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+from isaaclab_arena.agentic_environment_generation.simready_search_interface import (
     SimReadySourceKind,
     simready_search_config_from_cli,
 )
 from isaaclab_arena.agentic_environment_generation.spec_io import write_env_graph_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.inference.backend import resolve_inference_endpoint
 from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
 
 DEFAULT_OUTPUT_PATH = Path("outputs/time_to_first_spec.json")
@@ -284,7 +284,7 @@ def main() -> int:
     simready_config = None
     if benchmark_case is not None and benchmark_case.enable_simready_search:
         simready_config = simready_search_config_from_cli(
-            source=benchmark_case.simready_source,
+            sources=[benchmark_case.simready_source],
             s3_url=benchmark_case.simready_s3_url,
             service_url=benchmark_case.simready_service_url,
             max_results_per_object=benchmark_case.simready_max_results_per_object,
