@@ -78,8 +78,3 @@ task:
       target_level: 0
       reset_level: -1
       episode_length_s: 70.0
-
-# Render once per DROID control step (8 physics steps).
-env_cfg_override:
-  sim:
-    render_interval: 8

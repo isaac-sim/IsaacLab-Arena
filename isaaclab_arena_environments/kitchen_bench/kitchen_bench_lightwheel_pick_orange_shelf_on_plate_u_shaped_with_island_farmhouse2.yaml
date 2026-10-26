@@ -118,8 +118,3 @@ task:
       destination_object: plate
       background_scene: kitchen
       episode_length_s: 70.0
-
-# Render once per DROID control step (8 physics steps).
-env_cfg_override:
-  sim:
-    render_interval: 8

@@ -68,8 +68,5 @@ task:
       openness_threshold: 0.25
       reset_openness: 0.0
       episode_length_s: 70.0
-env_cfg_override:
-  sim:
-    render_interval: 8
 placer_params:
   allow_best_loss_fallbacks: false

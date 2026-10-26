@@ -66,8 +66,5 @@ task:
       target_level: 2
       reset_level: -1
       episode_length_s: 70.0
-env_cfg_override:
-  sim:
-    render_interval: 8
 placer_params:
   allow_best_loss_fallbacks: false

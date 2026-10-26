@@ -110,6 +110,3 @@ task:
       episode_length_s: 80.0
 placer_params:
   allow_best_loss_fallbacks: false
-env_cfg_override:
-  sim:
-    render_interval: 8
