@@ -14,9 +14,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-from curobo.inverse_kinematics import InverseKinematics
-from curobo.scene import Cuboid, Scene
-from curobo.types import GoalToolPose, JointState
 
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
@@ -24,6 +21,8 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 
 if TYPE_CHECKING:
+    from curobo.inverse_kinematics import InverseKinematics
+
     from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 
 
@@ -73,6 +72,7 @@ def world_config_from_cuboids(
 
     Each obstacle's world pose is transformed into the robot base frame. Include anchor objects (e.g. a table) here as static cuboids.
     """
+    from curobo.scene import Cuboid, Scene
 
     dev = resolve_cuda_device(device)
     robot_pos = torch.tensor(robot_base_pos_w, dtype=torch.float32, device=dev)
@@ -128,6 +128,8 @@ def solve_ik_feasibility(
     Returns:
         An ``IKFeasibility`` object holding the per-pose verdict, plus the errors and joint configuration.
     """
+    from curobo.types import GoalToolPose
+
     ik_solver = solver.ik_solver
     target_poses = solver._to_curobo_device(target_poses)
     positions, rotations = math_utils.unmake_pose(target_poses)
@@ -199,6 +201,8 @@ def robot_collision_spheres(solver: CuroboIKSolver, joint_positions: torch.Tenso
         shape of (b, num_spheres, 4), b:number of poses, 4:x, y, z, radius; cuRobo leaves unused
         spheres in with a negative radius.
     """
+    from curobo.types import JointState
+
     joint_positions = solver._to_curobo_device(joint_positions)
     joint_state = JointState.from_position(joint_positions, joint_names=solver.ik_solver.joint_names)
     return solver.ik_solver.compute_kinematics(joint_state).robot_spheres[:, 0]

@@ -10,6 +10,8 @@ These are pure import checks—they need no SimulationApp—and guard against cu
 """
 
 import importlib
+import subprocess
+import sys
 import yaml
 
 import pytest
@@ -32,6 +34,21 @@ ARENA_CUROBO_MODULES = [
     "isaaclab_arena_curobo.ik_solver",
     "isaaclab_arena_curobo.ik_reachability_validator",
 ]
+
+
+def test_validator_registration_does_not_import_curobo():
+    """Registering the validator leaves cuRobo unloaded until a reachability solver is constructed."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import isaaclab_arena_curobo, sys; assert 'curobo' not in sys.modules",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.parametrize("module_name", CUROBO_DEPENDENCY_MODULES + ARENA_CUROBO_MODULES)

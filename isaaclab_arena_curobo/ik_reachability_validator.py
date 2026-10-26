@@ -26,7 +26,6 @@ from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
-from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_world_poses
 from isaaclab_arena_curobo.utils.ik_solver_utils import (
     AABBCollisionCuboid,
@@ -43,6 +42,8 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
+
+CuroboIKSolver = None
 
 
 def get_object_world_pose_from_layout(
@@ -74,12 +75,18 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
 
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
         super().__init__(params, visualizer)
+        # Keep validator registration import-light so collecting unrelated Isaac Sim tests does not initialize
+        # cuRobo/Warp before Kit. The solver is loaded only when reachability validation is requested.
+        solver_cls = CuroboIKSolver
+        if solver_cls is None:
+            from isaaclab_arena_curobo.ik_solver import CuroboIKSolver as solver_cls
+
         config = params.reachability_config
         self._grasp_z_offset = config.grasp_z_offset_m
         self._ik_pos_threshold = config.ik_position_threshold_m
         self._ik_rot_threshold = config.ik_rotation_threshold_rad
         self._require_collision_free = config.require_collision_free
-        self._solver = CuroboIKSolver(
+        self._solver = solver_cls(
             get_embodiment_curobo_cfg(config.embodiment),
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
