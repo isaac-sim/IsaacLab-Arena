@@ -822,16 +822,26 @@ AssertionError: composition 'atomic' requires exactly one atomic task
 <p><strong>Automatic default lighting.</strong> No <code class="docutils literal notranslate"><span class="pre">light</span></code>-tagged asset and no light in the
 background USD? The loader adds a dome light and a directional light (off until a
 lighting-direction variation turns it on). In Python, no light means no light.</p>
-<p><strong>Scene reuse across task files.</strong> <code class="docutils literal notranslate"><span class="pre">external_yaml</span></code> merges one scene into many
-task files. Pattern used in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/</span></code>:
-<code class="docutils literal notranslate"><span class="pre">scenes/*.yaml</span></code> for layout, <code class="docutils literal notranslate"><span class="pre">tasks/*.yaml</span></code> for the task block only:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">external_yaml</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">../scenes/bagel_plate_banana_bowl.yaml</span>
+<p><strong>Reuse across task files.</strong> <code class="docutils literal notranslate"><span class="pre">external_yaml</span></code> reuses external definitions across
+tasks. It takes a single path or a list of paths, relative to the including file. For example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">external_yaml</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">../scenes/bagel_plate_banana_bowl.yaml</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">../shared_defaults.yaml</span>
 <span class="nt">env_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">banana_on_plate</span>
 <span class="nt">task</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">composition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">atomic</span>
 <span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </pre></div>
 </div>
+<p>All external YAML files are merged into one spec under the following rules:</p>
+<ul class="simple">
+<li><p>A value can be defined in only one file. A file can never silently override another,
+even if both files hold the same value.</p></li>
+<li><p>Exception: lists of dicts with an <code class="docutils literal notranslate"><span class="pre">id</span></code> (such as <code class="docutils literal notranslate"><span class="pre">objects:</span></code>) are concatenated in file
+order. Each <code class="docutils literal notranslate"><span class="pre">id</span></code> may appear only once across all files.
+Other lists, such as <code class="docutils literal notranslate"><span class="pre">relations</span></code>, may be defined in only one file.</p></li>
+<li><p>Nested includes are not allowed. An included file cannot declare <code class="docutils literal notranslate"><span class="pre">external_yaml</span></code> itself.</p></li>
+</ul>
 <p><strong>Declared CLI overrides.</strong> <code class="docutils literal notranslate"><span class="pre">cli_override_specs</span></code> turns a node into a CLI flag
 with no code change. Below, <code class="docutils literal notranslate"><span class="pre">--object</span></code> replaces that node’s <code class="docutils literal notranslate"><span class="pre">registry_name</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">cli_override_specs</span><span class="p">:</span>
