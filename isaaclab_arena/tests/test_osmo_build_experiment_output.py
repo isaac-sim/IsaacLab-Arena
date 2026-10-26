@@ -11,7 +11,9 @@ from unittest.mock import patch
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_kpis import ARENA_EXPERIMENT_KPIS_FILENAME, validate_experiment_kpis
+from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
+    ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME,
+)
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
@@ -19,6 +21,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
+from isaaclab_arena.tests.utils.influxdb_kpi_records_contract import assert_follows_collector_contract
 from isaaclab_arena.visualization.report import RunExecutionReport
 from osmo.scripts.build_experiment_output import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
@@ -339,9 +342,9 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert "2 run(s) &middot; 2 completed &middot; 0 failed &middot; 2 episode(s)" in report_contents
     assert "Failed runs" not in report_contents
     experiment_kpis = json.loads(
-        (experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME).read_text(encoding="utf-8")
+        (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
     )
-    validate_experiment_kpis(experiment_kpis)
+    assert_follows_collector_contract(experiment_kpis)
     assert experiment_kpis["timestamp_ns"] == END_TIMESTAMP_NS
     assert experiment_kpis["records"][0] == {
         "type": "per_experiment",
@@ -424,9 +427,9 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     assert "<code>17</code>" in report_contents
     assert "These runs did not complete and are excluded from episode results." in report_contents
     experiment_kpis = json.loads(
-        (experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME).read_text(encoding="utf-8")
+        (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
     )
-    validate_experiment_kpis(experiment_kpis)
+    assert_follows_collector_contract(experiment_kpis)
     per_run_records = {
         record["run_name"]: record for record in experiment_kpis["records"] if record["type"] == "per_run"
     }
@@ -482,9 +485,9 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
     assert "<code>2</code>" in report_contents
     assert "No results recorded yet." not in report_contents
     experiment_kpis = json.loads(
-        (experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME).read_text(encoding="utf-8")
+        (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
     )
-    validate_experiment_kpis(experiment_kpis)
+    assert_follows_collector_contract(experiment_kpis)
     assert experiment_kpis["timestamp_ns"] == END_TIMESTAMP_NS
     assert "success_rate" not in experiment_kpis["records"][0]
     assert experiment_kpis["records"][0]["num_runs_failed"] == 2
@@ -507,4 +510,4 @@ def test_failing_kpi_build_fails_after_the_report_is_written(tmp_path):
         build_experiment_output({"all": experiment_runner_output_directory}, experiment_output_directory)
 
     assert (experiment_output_directory / "index.html").is_file()
-    assert not (experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME).exists()
+    assert not (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).exists()

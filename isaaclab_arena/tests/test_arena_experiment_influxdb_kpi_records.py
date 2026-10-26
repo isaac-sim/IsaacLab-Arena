@@ -3,28 +3,32 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for building and validating the Arena Experiment KPI file."""
+"""Tests for building and writing the Arena Experiment InfluxDB KPI records file."""
 
 from __future__ import annotations
 
-import copy
 import json
 import math
 from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_kpis import (
-    ARENA_EXPERIMENT_KPIS_FILENAME,
-    KPI_SCHEMA_VERSION,
-    build_experiment_kpis,
-    validate_experiment_kpis,
-    write_experiment_kpis,
+from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
+    ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME,
+    INFLUXDB_KPI_RECORDS_SCHEMA_VERSION,
+    ArenaExperimentInfluxdbKpiRecords,
+    PerExperimentRecord,
+    PerRunRecord,
+    TimingRecord,
+    build_experiment_influxdb_kpi_records,
+    write_experiment_influxdb_kpi_records,
 )
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
 )
+from isaaclab_arena.evaluation.provenance import Provenance
+from isaaclab_arena.tests.utils.influxdb_kpi_records_contract import assert_follows_collector_contract
 from isaaclab_arena.visualization.report_data import build_experiment_summary
 
 END_TIMESTAMP_NS = 1792800000000000000
@@ -85,30 +89,24 @@ def _write_experiment(
     return experiment_output_directory
 
 
+def _build_kpi_records_dict(experiment_output_directory: Path) -> dict:
+    return build_experiment_influxdb_kpi_records(experiment_output_directory).to_dict()
+
+
 def _records_of_type(kpis: dict, record_type: str) -> list[dict]:
     return [record for record in kpis["records"] if record["type"] == record_type]
 
 
 def _per_run(kpis: dict, run_name: str) -> dict:
-    (record,) = (record for record in _records_of_type(kpis, "per_run") if record["run_name"] == run_name)
+    (record,) = (
+        record for record in _records_of_type(kpis, PerRunRecord.record_type) if record["run_name"] == run_name
+    )
     return record
 
 
 def _per_experiment(kpis: dict) -> dict:
-    (record,) = _records_of_type(kpis, "per_experiment")
+    (record,) = _records_of_type(kpis, PerExperimentRecord.record_type)
     return record
-
-
-def _valid_kpis() -> dict:
-    return {
-        "schema_version": 1,
-        "timestamp_ns": END_TIMESTAMP_NS,
-        "provenance": dict(PROVENANCE),
-        "records": [
-            {"type": "per_experiment", "success_rate": 0.5, "num_runs": 1},
-            {"type": "per_run", "run_name": "a", "environment": "e", "policy_variant": "p", "completed": 1},
-        ],
-    }
 
 
 def test_per_run_and_per_experiment_success_rate(tmp_path):
@@ -120,9 +118,9 @@ def test_per_run_and_per_experiment_success_rate(tmp_path):
         },
     )
 
-    kpis = build_experiment_kpis(experiment_output_directory)
+    kpis = _build_kpi_records_dict(experiment_output_directory)
 
-    assert kpis["schema_version"] == KPI_SCHEMA_VERSION == 1
+    assert kpis["schema_version"] == INFLUXDB_KPI_RECORDS_SCHEMA_VERSION == 1
     assert kpis["provenance"] == PROVENANCE
     assert _per_run(kpis, "pnp_pi05") == {
         "type": "per_run",
@@ -146,7 +144,7 @@ def test_per_run_and_per_experiment_success_rate(tmp_path):
         "num_runs_completed": 2,
         "num_runs_failed": 0,
     }
-    validate_experiment_kpis(kpis)
+    assert_follows_collector_contract(kpis)
 
 
 def test_report_job_names_match_run_names(tmp_path):
@@ -170,7 +168,7 @@ def test_episodes_in_nested_run_directories_are_pooled_into_their_run(tmp_path):
         [{"env_id": 0, "episode_in_env": 0, "success": True, "episode_length": 4}],
     )
 
-    kpis = build_experiment_kpis(experiment_output_directory)
+    kpis = _build_kpi_records_dict(experiment_output_directory)
 
     assert _per_run(kpis, "run_a")["num_episodes"] == 3
     assert _per_run(kpis, "run_a")["num_successes"] == 2
@@ -187,7 +185,7 @@ def test_timestamp_is_latest_run_end(tmp_path):
         },
     )
 
-    assert build_experiment_kpis(experiment_output_directory)["timestamp_ns"] == t2
+    assert _build_kpi_records_dict(experiment_output_directory)["timestamp_ns"] == t2
 
 
 def test_failed_run_has_no_success_rate(tmp_path):
@@ -200,7 +198,7 @@ def test_failed_run_has_no_success_rate(tmp_path):
         },
     )
 
-    kpis = build_experiment_kpis(experiment_output_directory)
+    kpis = _build_kpi_records_dict(experiment_output_directory)
 
     failed_record = _per_run(kpis, "failed_run")
     assert failed_record["completed"] == 0
@@ -211,7 +209,7 @@ def test_failed_run_has_no_success_rate(tmp_path):
     assert per_experiment["num_runs_failed"] == 1
     assert per_experiment["num_episodes"] == 10
     assert per_experiment["success_rate"] == 4 / 10
-    validate_experiment_kpis(kpis)
+    assert_follows_collector_contract(kpis)
 
 
 def test_all_failed_experiment_still_has_timestamp(tmp_path):
@@ -224,9 +222,9 @@ def test_all_failed_experiment_still_has_timestamp(tmp_path):
         timings={"totals": [], "runs": []},
     )
 
-    kpis = build_experiment_kpis(experiment_output_directory)
+    kpis = _build_kpi_records_dict(experiment_output_directory)
 
-    validate_experiment_kpis(kpis)
+    assert_follows_collector_contract(kpis)
     assert kpis["timestamp_ns"] == END_TIMESTAMP_NS + 1
     per_experiment = _per_experiment(kpis)
     assert "success_rate" not in per_experiment
@@ -242,7 +240,7 @@ def test_run_with_only_unscored_episodes_has_no_success_rate(tmp_path):
     ]
     experiment_output_directory = _write_experiment(tmp_path / "experiment", {"run": {"episodes": unscored_episodes}})
 
-    kpis = build_experiment_kpis(experiment_output_directory)
+    kpis = _build_kpi_records_dict(experiment_output_directory)
 
     per_run = _per_run(kpis, "run")
     assert "success_rate" not in per_run
@@ -250,7 +248,7 @@ def test_run_with_only_unscored_episodes_has_no_success_rate(tmp_path):
     assert per_run["num_successes"] == 0
     assert per_run["completed"] == 1
     assert "success_rate" not in _per_experiment(kpis)
-    validate_experiment_kpis(kpis)
+    assert_follows_collector_contract(kpis)
 
 
 def test_mean_progress_only_when_episodes_carry_progress(tmp_path):
@@ -263,7 +261,7 @@ def test_mean_progress_only_when_episodes_carry_progress(tmp_path):
         {"with_progress": {"episodes": progress_episodes}, "without_progress": {"episodes": _episode_records(2, 1)}},
     )
 
-    kpis = build_experiment_kpis(experiment_output_directory)
+    kpis = _build_kpi_records_dict(experiment_output_directory)
 
     assert _per_run(kpis, "with_progress")["mean_progress"] == 0.75
     assert "mean_progress" not in _per_run(kpis, "without_progress")
@@ -294,9 +292,9 @@ def test_timing_records(tmp_path):
         tmp_path / "experiment", {"a": {"episodes": _episode_records(1, 1)}}, timings=timings
     )
 
-    kpis = build_experiment_kpis(experiment_output_directory)
+    kpis = _build_kpi_records_dict(experiment_output_directory)
 
-    assert _records_of_type(kpis, "timing") == [
+    assert _records_of_type(kpis, TimingRecord.record_type) == [
         {
             "type": "timing",
             "name": "rollout/step",
@@ -318,7 +316,7 @@ def test_timing_records(tmp_path):
             "count": 4,
         },
     ]
-    validate_experiment_kpis(kpis)
+    assert_follows_collector_contract(kpis)
 
 
 def test_missing_timings_file_omits_timing_records(tmp_path):
@@ -326,9 +324,9 @@ def test_missing_timings_file_omits_timing_records(tmp_path):
         tmp_path / "experiment", {"a": {"episodes": _episode_records(1, 1)}}
     )
 
-    kpis = build_experiment_kpis(experiment_output_directory)
+    kpis = _build_kpi_records_dict(experiment_output_directory)
 
-    assert _records_of_type(kpis, "timing") == []
+    assert _records_of_type(kpis, TimingRecord.record_type) == []
 
 
 def test_missing_end_timestamp_names_the_run(tmp_path):
@@ -338,7 +336,93 @@ def test_missing_end_timestamp_names_the_run(tmp_path):
     )
 
     with pytest.raises(AssertionError, match="old_run"):
-        build_experiment_kpis(experiment_output_directory)
+        _build_kpi_records_dict(experiment_output_directory)
+
+
+def _records(**overrides) -> dict:
+    """Return valid constructor arguments of ArenaExperimentInfluxdbKpiRecords, updated with ``overrides``."""
+    return {
+        "timestamp_ns": END_TIMESTAMP_NS,
+        "provenance": Provenance(**PROVENANCE),
+        "per_experiment_record": PerExperimentRecord(
+            num_episodes=1, num_runs=1, num_runs_completed=1, num_runs_failed=0
+        ),
+        "per_run_records": [PerRunRecord(run_name="a", environment="e", policy_variant="p", completed=1)],
+        "timing_records": [],
+        **overrides,
+    }
+
+
+def test_records_follow_collector_contract():
+    assert_follows_collector_contract(ArenaExperimentInfluxdbKpiRecords(**_records()).to_dict())
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param({"timestamp_ns": 1.5e18}, id="float_timestamp_ns"),
+        pytest.param({"timestamp_ns": True}, id="bool_timestamp_ns"),
+        pytest.param({"timestamp_ns": 1_000}, id="tiny_timestamp_ns"),
+        pytest.param({"timestamp_ns": 1767225599999999999}, id="timestamp_ns_before_2026"),
+        pytest.param({"per_run_records": []}, id="no_per_run_records"),
+        pytest.param(
+            {
+                "per_run_records": [
+                    PerRunRecord(run_name="a", environment="e", policy_variant="p", completed=1),
+                    PerRunRecord(run_name="a", environment="e", policy_variant="p", completed=0),
+                ]
+            },
+            id="duplicate_tag_set",
+        ),
+    ],
+)
+def test_records_reject_invalid_file_contents(overrides):
+    with pytest.raises(AssertionError):
+        ArenaExperimentInfluxdbKpiRecords(**_records(**overrides))
+
+
+@pytest.mark.parametrize(
+    "build_record",
+    [
+        pytest.param(
+            lambda: PerRunRecord(run_name="", environment="e", policy_variant="p", completed=1), id="empty_tag"
+        ),
+        pytest.param(
+            lambda: PerRunRecord(run_name="a\nb", environment="e", policy_variant="p", completed=1),
+            id="line_break_tag",
+        ),
+        pytest.param(
+            lambda: PerRunRecord(run_name="a", environment="e", policy_variant="p", completed=True), id="bool_field"
+        ),
+        pytest.param(
+            lambda: PerRunRecord(run_name="a", environment="e", policy_variant="p", completed=1, success_rate=math.nan),
+            id="nan_field",
+        ),
+        pytest.param(
+            lambda: PerRunRecord(run_name="a", environment="e", policy_variant="p", completed=1, success_rate=math.inf),
+            id="inf_field",
+        ),
+        pytest.param(
+            lambda: TimingRecord(name="t", run_name="a", mean_ms="1", total_ms=1.0, min_ms=1.0, max_ms=1.0, count=1),
+            id="string_field",
+        ),
+    ],
+)
+def test_record_rejects_invalid_values(build_record):
+    with pytest.raises(AssertionError):
+        build_record()
+
+
+def test_failed_run_record_omits_missing_fields():
+    record = PerRunRecord(run_name="a", environment="e", policy_variant="p", completed=0)
+
+    assert record.to_flat_dict() == {
+        "type": "per_run",
+        "run_name": "a",
+        "environment": "e",
+        "policy_variant": "p",
+        "completed": 0,
+    }
 
 
 def _set_top_level(kpis: dict, key: str, value: object) -> None:
@@ -349,10 +433,6 @@ def _set_record_value(kpis: dict, key: str, value: object) -> None:
     kpis["records"][1][key] = value
 
 
-def _remove_numbers_from_record(kpis: dict) -> None:
-    del kpis["records"][1]["completed"]
-
-
 def _duplicate_record(kpis: dict) -> None:
     kpis["records"].append({**kpis["records"][1], "completed": 0})
 
@@ -361,53 +441,35 @@ def _duplicate_record(kpis: dict) -> None:
     "make_invalid",
     [
         pytest.param(lambda kpis: kpis.pop("timestamp_ns"), id="missing_timestamp_ns"),
-        pytest.param(lambda kpis: _set_top_level(kpis, "timestamp_ns", 1.5e18), id="float_timestamp_ns"),
-        pytest.param(lambda kpis: _set_top_level(kpis, "timestamp_ns", "1"), id="string_timestamp_ns"),
-        pytest.param(lambda kpis: _set_top_level(kpis, "timestamp_ns", True), id="bool_timestamp_ns"),
-        pytest.param(lambda kpis: _set_top_level(kpis, "timestamp_ns", 0), id="non_positive_timestamp_ns"),
-        pytest.param(lambda kpis: _set_top_level(kpis, "timestamp_ns", 1_000), id="tiny_timestamp_ns"),
-        pytest.param(
-            lambda kpis: _set_top_level(kpis, "timestamp_ns", 1767225599999999999), id="timestamp_ns_before_2026"
-        ),
+        pytest.param(lambda kpis: _set_top_level(kpis, "timestamp_ns", 1767225599999999999), id="before_2026"),
+        pytest.param(lambda kpis: _set_top_level(kpis, "timestamp_ns", 2**62), id="future_timestamp_ns"),
         pytest.param(lambda kpis: _set_top_level(kpis, "schema_version", 2), id="wrong_schema_version"),
-        pytest.param(lambda kpis: _set_top_level(kpis, "schema_version", True), id="bool_schema_version"),
-        pytest.param(lambda kpis: _set_top_level(kpis, "records", []), id="no_records"),
         pytest.param(lambda kpis: kpis["provenance"].pop("git_sha"), id="missing_provenance_value"),
-        pytest.param(lambda kpis: kpis["provenance"].__setitem__("git_branch", None), id="non_string_provenance_value"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "nested", {"a": 1}), id="nested_dict_value"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "nested", [1]), id="nested_list_value"),
+        pytest.param(lambda kpis: _set_record_value(kpis, "nested", {"a": 1}), id="nested_value"),
         pytest.param(lambda kpis: _set_record_value(kpis, "missing", None), id="null_value"),
-        pytest.param(_remove_numbers_from_record, id="record_without_numeric_field"),
         pytest.param(_duplicate_record, id="duplicate_tag_set"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "completed", True), id="bool_as_number"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "success_rate", math.nan), id="nan"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "success_rate", math.inf), id="inf"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "type", 3), id="non_string_type"),
-        pytest.param(lambda kpis: kpis["records"][1].pop("type"), id="missing_type"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "tag", ""), id="empty_string_value"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "tag", "a\nb"), id="line_break_string_value"),
         pytest.param(lambda kpis: _set_record_value(kpis, "_x", 1), id="underscore_prefixed_key"),
         pytest.param(lambda kpis: _set_record_value(kpis, "time", 1), id="time_key"),
-        pytest.param(lambda kpis: kpis["provenance"].__setitem__("git_sha", ""), id="empty_provenance_value"),
-        pytest.param(lambda kpis: kpis["provenance"].__setitem__("git_sha", "a\r"), id="line_break_provenance_value"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "branch", "main"), id="reserved_key_branch"),
-        pytest.param(lambda kpis: _set_record_value(kpis, "benchmark", "x"), id="reserved_key_benchmark"),
+        pytest.param(lambda kpis: _set_record_value(kpis, "branch", "main"), id="reserved_key"),
     ],
 )
-def test_validate_rejects_contract_violations(make_invalid):
-    kpis = _valid_kpis()
-    validate_experiment_kpis(copy.deepcopy(kpis))
-
+def test_contract_helper_rejects_violations(make_invalid):
+    """The contract helper must catch violations, or tests that rely on it would pass vacuously."""
+    kpis = ArenaExperimentInfluxdbKpiRecords(**_records()).to_dict()
     make_invalid(kpis)
 
     with pytest.raises(AssertionError):
-        validate_experiment_kpis(kpis)
+        assert_follows_collector_contract(kpis)
 
 
-def test_written_file_round_trips_and_passes_validation(tmp_path):
+def test_written_file_follows_collector_contract(tmp_path):
     experiment_output_directory = _write_experiment(
         tmp_path / "experiment",
-        {"a": {"episodes": _episode_records(4, 3)}, "b": {"status": "failed"}},
+        {
+            "a": {"episodes": _episode_records(4, 3)},
+            "b": {"status": "failed"},
+            "c": {"episodes": [{"env_id": 0, "episode_in_env": 0, "success": None, "episode_length": 5}]},
+        },
         timings={
             "totals": [{"name": "step", "count": 2, "total_ms": 3.0, "min_ms": 1.0, "max_ms": 2.0, "mean_ms": 1.5}],
             "runs": [
@@ -416,11 +478,11 @@ def test_written_file_round_trips_and_passes_validation(tmp_path):
         },
     )
 
-    kpis_path = write_experiment_kpis(experiment_output_directory)
+    kpi_records_path = write_experiment_influxdb_kpi_records(experiment_output_directory)
 
-    assert kpis_path == experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME
-    text = kpis_path.read_text(encoding="utf-8")
+    assert kpi_records_path == experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME
+    text = kpi_records_path.read_text(encoding="utf-8")
     assert text.endswith("\n")
     written_kpis = json.loads(text)
-    validate_experiment_kpis(written_kpis)
-    assert written_kpis == build_experiment_kpis(experiment_output_directory)
+    assert_follows_collector_contract(written_kpis)
+    assert written_kpis == _build_kpi_records_dict(experiment_output_directory)

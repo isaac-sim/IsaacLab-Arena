@@ -12,7 +12,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_experiment_kpis import write_experiment_kpis
+from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import write_experiment_influxdb_kpi_records
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
@@ -203,8 +203,8 @@ def main():
         # Write HTML report.
         report_path = build_report(experiment_output_directory)
 
-        # Written after the report so that a KPI assertion still leaves the report for debugging.
-        write_experiment_kpis(experiment_output_directory)
+        # Write KPI records for InfluxDB.
+        write_experiment_influxdb_kpi_records(experiment_output_directory)
 
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
