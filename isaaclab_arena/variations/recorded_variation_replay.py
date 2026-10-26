@@ -10,7 +10,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
 from isaaclab_arena.variations.recorded_variation_samples import (
     RebuildVariationRecord,
     load_rebuild_variation_record,
@@ -59,7 +58,7 @@ def _validate_variation_replay(
     enabled: dict[str, VariationBase],
     variation_record: RebuildVariationRecord,
 ) -> None:
-    """Validate sample keys, lifecycle phases, per-record presence, and recorded asset selections."""
+    """Validate sample keys, lifecycle phases, per-record presence, and the values recorded placement depends on."""
     validate_recorded_variation_sample_keys(variation_record, set(enabled))
     for variation_key, variation in enabled.items():
         runtime_presence = [
@@ -71,17 +70,17 @@ def _validate_variation_replay(
         ), f"Run-time variation {variation_key!r} must be present in every source record or none."
         if isinstance(variation, BuildTimeVariationBase):
             assert not appears_at_runtime, f"Build-time variation {variation_key!r} cannot appear in run-time samples."
+            if variation_record.has_placement_samples and variation.changes_object_geometry:
+                # Recorded poses were solved for the object geometry of the recording build, so a value drawn live
+                # could put an object of another shape at those poses.
+                assert variation_key in variation_record.build_time_samples, (
+                    f"The replayed record has placement samples but no '{variation_key}' value. Replay a record"
+                    f" that holds both, or disable '{variation_key}' if the poses were recorded without it."
+                )
         elif isinstance(variation, RunTimeVariationBase):
             assert (
                 variation_key not in variation_record.build_time_samples
             ), f"Run-time variation {variation_key!r} cannot appear in build-time samples."
-        if variation_record.has_placement_samples and isinstance(variation, AssetSelectionVariation):
-            # Recorded poses were solved for the assets of the recording build, so a selection drawn live could
-            # put another asset at those poses.
-            assert variation_key in variation_record.build_time_samples, (
-                f"The replayed record has placement samples but no '{variation_key}' value. Replay a record"
-                f" that holds both, or disable '{variation_key}' if the poses were recorded without it."
-            )
 
 
 def _bind_variation_replay_samplers(

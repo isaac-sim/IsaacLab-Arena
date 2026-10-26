@@ -51,6 +51,8 @@ class AssetSelectionVariation(BuildTimeVariationBase):
 
     cfg: AssetSelectionVariationCfg
 
+    changes_object_geometry = True
+
     def __init__(
         self,
         rigid_object: Object,
