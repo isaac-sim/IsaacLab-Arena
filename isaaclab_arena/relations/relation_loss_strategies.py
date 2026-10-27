@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.relations.loss_primitives import (
     interval_overlap_axis_loss,
     linear_band_loss,
@@ -33,14 +34,6 @@ if TYPE_CHECKING:
         Relation,
         UnaryRelation,
     )
-
-
-class Axis(IntEnum):
-    """Spatial axis indices for tensor indexing."""
-
-    X = 0
-    Y = 1
-    Z = 2
 
 
 class Direction(IntEnum):
@@ -66,7 +59,7 @@ class SideConfig:
     @property
     def band_axis(self) -> Axis:
         """Perpendicular axis for band constraint."""
-        return Axis(1 - self.primary_axis)
+        return Axis.Y if self.primary_axis == Axis.X else Axis.X
 
 
 SIDE_CONFIGS: dict[Side, SideConfig] = {
@@ -100,15 +93,15 @@ def next_to_violations(
         (half_plane, distance) tensors of shape (N,), each >= 0 and zero when satisfied.
     """
     if cfg.direction == Direction.POSITIVE:
-        parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
-        child_offset = child_bbox.min_point[:, cfg.primary_axis]
+        parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis.index]
+        child_offset = child_bbox.min_point[:, cfg.primary_axis.index]
         penalty_side = "less"
     else:
-        parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
-        child_offset = child_bbox.max_point[:, cfg.primary_axis]
+        parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis.index]
+        child_offset = child_bbox.max_point[:, cfg.primary_axis.index]
         penalty_side = "greater"
 
-    primary = child_pos[:, cfg.primary_axis]
+    primary = child_pos[:, cfg.primary_axis.index]
     half_plane = single_boundary_linear_loss(primary, parent_edge, slope=1.0, penalty_side=penalty_side)
     target_pos = parent_edge + cfg.direction * distance_m - child_offset
     distance = single_point_linear_loss(primary, target_pos, slope=1.0)
@@ -139,19 +132,19 @@ def not_next_to_violations(
         (remaining_side, remaining_cross) tensors of shape (N,), each >= 0.
     """
     if cfg.direction == Direction.POSITIVE:
-        parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
+        parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis.index]
         blocked_side_penalty = "greater"
     else:
-        parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
+        parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis.index]
         blocked_side_penalty = "less"
 
-    parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
-    parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
-    valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
-    valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis]
+    parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis.index]
+    parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis.index]
+    valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis.index]
+    valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis.index]
 
-    primary = child_pos[:, cfg.primary_axis]
-    cross = child_pos[:, cfg.band_axis]
+    primary = child_pos[:, cfg.primary_axis.index]
+    cross = child_pos[:, cfg.band_axis.index]
 
     safe_edge = parent_edge - cfg.direction * margin_m
     remaining_side = single_boundary_linear_loss(primary, safe_edge, slope=1.0, penalty_side=blocked_side_penalty)
@@ -293,17 +286,23 @@ class NextToLossStrategy(RelationLossStrategy):
         distance_loss = self.slope * distance_raw
 
         # 2. Keep the footprint within the perpendicular extent; prefer a point only when requested.
-        parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
-        parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
-        valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
-        valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis]
+        parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis.index]
+        parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis.index]
+        valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis.index]
+        valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis.index]
         if relation.cross_position_ratio is None:
-            band_loss = linear_band_loss(child_pos[:, cfg.band_axis], valid_band_min, valid_band_max, slope=self.slope)
+            # A wider child has no fitting interval; collapse it to the centred position.
+            band_centre = 0.5 * (valid_band_min + valid_band_max)
+            valid_band_min = torch.minimum(valid_band_min, band_centre)
+            valid_band_max = torch.maximum(valid_band_max, band_centre)
+            band_loss = linear_band_loss(
+                child_pos[:, cfg.band_axis.index], valid_band_min, valid_band_max, slope=self.slope
+            )
         else:
             # Map [-1, 1] to [0, 1]: -1 = min edge, 0 = centre, 1 = max edge.
             t = (relation.cross_position_ratio + 1.0) / 2.0
             target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
-            band_loss = single_point_linear_loss(child_pos[:, cfg.band_axis], target_band_pos, slope=self.slope)
+            band_loss = single_point_linear_loss(child_pos[:, cfg.band_axis.index], target_band_pos, slope=self.slope)
 
         if self.debug and child_pos.shape[0] == 1:
             band_axis_name = cfg.band_axis.name
@@ -313,7 +312,7 @@ class NextToLossStrategy(RelationLossStrategy):
             )
             print(
                 f"    [NextTo] {band_axis_name} band: child_{band_axis_name.lower()}="
-                f"{child_pos[0, cfg.band_axis].item():.4f}"
+                f"{child_pos[0, cfg.band_axis.index].item():.4f}"
                 f" (cross_position_ratio={relation.cross_position_ratio},"
                 f" range=[{valid_band_min[0].item():.4f}, {valid_band_max[0].item():.4f}]),"
                 f" loss={band_loss[0].item():.6f}"

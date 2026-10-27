@@ -254,6 +254,15 @@ def test_next_to_cross_axis_is_free_by_default_and_alignment_is_opt_in():
             expected = 10.0 * (positions[:, cross_axis] - target).abs()
             torch.testing.assert_close(loss, expected)
 
+    # A child wider than its parent has a single zero-loss, centred position.
+    wide_bounds = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (0.2, 1.5, 0.2))
+    positions = torch.tensor([[1.05, y, 0.0] for y in (-0.5, -0.25, 0.0)], requires_grad=True)
+    relation = NextTo(parent, side=Side.POSITIVE_X, distance_m=0.05)
+    loss = strategy.compute_loss(relation, positions, wide_bounds, parent.bounding_box)
+    torch.testing.assert_close(loss, torch.tensor([2.5, 0.0, 2.5]), atol=1e-5, rtol=1e-5)
+    loss.sum().backward()
+    torch.testing.assert_close(positions.grad[:, 1], torch.tensor([-10.0, 0.0, 10.0]))
+
 
 def test_next_to_loss_strategy_penalizes_wrong_side():
     """Test that NextTo loss penalizes child on wrong side of parent."""

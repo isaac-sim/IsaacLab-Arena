@@ -16,7 +16,7 @@ from isaaclab_arena.relations.initializers.on_tree_initializer import _bounds_fr
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.relation_loss_strategies import AlignWithLossStrategy
-from isaaclab_arena.relations.relations import AlignWith, IsAnchor, On, PositionLimitsBox, RotateAroundSolution
+from isaaclab_arena.relations.relations import AlignWith, FaceTo, IsAnchor, On, PositionLimitsBox, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import AlignWithValidator, OnRelationValidator, build_validators
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
@@ -130,3 +130,25 @@ def test_candidate_alignment_seeds_use_rotated_centres(subject_yaw, reference_ya
             q_W_O = torch.tensor([[0.0, 0.0, math.sin(yaw / 2), math.cos(yaw / 2)]])
             expected = obj.get_bounding_box().rotated_by_quat(q_W_O)
             torch.testing.assert_close(candidate.bboxes[obj].center, expected.center)
+
+
+def test_alignment_rejects_face_to_that_moves_subject_or_reference_centre():
+    """Reject unsafe post-solve turns on either asset, retaining centred XY and Z alignment."""
+    for turning_role in ("subject", "reference"):
+        subject, reference = _objects()
+        subject.add_relation(AlignWith(reference, "x"))
+        turning = subject if turning_role == "subject" else reference
+        turning.add_relation(FaceTo(reference if turning is subject else subject))
+        objects = [subject, reference]
+        bounds = {obj: obj.get_bounding_box() for obj in objects}
+        generator = PlacementCandidateGenerator(ObjectPlacerParams())
+        with pytest.raises(AssertionError, match="off-centre bounds"):
+            generator.generate_candidates(objects, set(), [bounds], 1, None, [])
+        # Check every environment's geometry rather than only the first variant.
+        centred_bounds = dict(bounds)
+        centred_bounds[turning] = AxisAlignedBoundingBox((-0.1, -0.2, 0.0), (0.1, 0.2, 0.6))
+        generator._validate_alignment_headings(objects, centred_bounds)
+        with pytest.raises(AssertionError, match="off-centre bounds"):
+            generator._validate_alignment_headings(objects, bounds)
+        subject.relations[0] = AlignWith(reference, "z")
+        generator._validate_alignment_headings(objects, bounds)
