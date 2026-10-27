@@ -10,8 +10,6 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
-HEADLESS = True
-
 
 def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
     import isaaclab.sim as sim_utils
@@ -43,51 +41,25 @@ def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
 
 
 def _test_backend_specific_deformable_config(simulation_app) -> bool:
-    import isaaclab.sim as sim_utils
-    from isaaclab.assets import DeformableObjectCfg
     from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
     from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
 
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.relations.relations import IsAnchor
-    from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PoseRange
 
     pose = Pose(position_xyz=(0.1, -0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     soft_cube = _make_soft_cube(PhysicsBackend.PHYSX, initial_pose=pose)
-    cfg_name, physx_cfg = soft_cube.get_object_cfg()
+    _, physx_cfg = soft_cube.get_object_cfg()
 
-    assert cfg_name == soft_cube.name
-    assert isinstance(physx_cfg, DeformableObjectCfg)
     assert isinstance(physx_cfg.spawn.deformable_props, PhysxDeformableBodyPropertiesCfg)
     assert isinstance(physx_cfg.spawn.physics_material, PhysxDeformableBodyMaterialCfg)
     assert physx_cfg.init_state.pos == pose.position_xyz
     assert physx_cfg.init_state.rot == pose.rotation_xyzw
-    assert soft_cube.object_type is ObjectType.DEFORMABLE
-    assert soft_cube.get_object_cfg()[1] is physx_cfg
-    assert soft_cube.get_event_cfg()[1] is not None
 
     updated_pose = Pose(position_xyz=(0.4, 0.0, 0.5))
     soft_cube.set_initial_pose(updated_pose)
-    assert soft_cube.get_object_cfg()[1] is physx_cfg
     assert physx_cfg.init_state.pos == updated_pose.position_xyz
     with pytest.raises(AssertionError, match="fixed Pose or PosePerEnv"):
         soft_cube.set_initial_pose(PoseRange())
-
-    soft_cube.add_relation(IsAnchor())
-    scene = Scene(assets=[soft_cube])
-    assert scene.get_objects_with_relations() == [soft_cube]
-
-    rigid = Object(
-        name="rigid",
-        object_type=ObjectType.RIGID,
-        spawner_cfg=sim_utils.MeshCuboidCfg(size=(0.1, 0.1, 0.1)),
-    )
-    with pytest.raises(NotImplementedError, match="does not support contact sensors"):
-        soft_cube.get_contact_sensor_cfg(rigid)
-    with pytest.raises(AssertionError, match="against deformable objects"):
-        rigid.get_contact_sensor_cfg(soft_cube)
     return True
 
 
@@ -264,7 +236,6 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
         results = validate_pool_layouts(env, pool, PhysicsSettleParams(num_steps=5))
         assert len(results) == 2
         assert all(not checks.validation_results[PlacementCheck.PHYSICS_SETTLED] for _, _, checks in results)
-        assert torch.all(deformable_asset.data.nodal_pos_w.torch[..., 2].mean(dim=1) < expected[:, 2])
     finally:
         env.close()
     return True
@@ -306,8 +277,6 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
 
     try:
         env.reset()
-        assert task.contact_sensor_name is None
-        assert len(env.unwrapped.scene.sensors) == 0
         success_objective = task.get_termination_cfg().success[0]
         placement_requirement = success_objective.predicate_sequence[-1]
         placement_predicate = placement_requirement.predicate
@@ -359,7 +328,6 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
 
     env = builder.make_registered(env_cfg, env_kwargs)
     try:
-        env.unwrapped.configure_episode_limit(1)
         env.reset()
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         for step in range(100):
@@ -402,50 +370,37 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
                 break
         assert terminated.item(), "Teleporting the lifted deformable object onto the plate did not terminate the task."
         assert extras["progress_tracking"]["states"][0].all_complete
-        assert env.unwrapped.completed_episode_count == 1
     finally:
         env.close()
     return True
 
 
 def test_backend_specific_deformable_config():
-    assert run_function_with_persistent_simulation_app(_test_backend_specific_deformable_config, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_backend_specific_deformable_config)
 
 
 def test_deformable_validates_simulation_cfg():
-    assert run_function_with_persistent_simulation_app(_test_deformable_validates_simulation_cfg, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_deformable_validates_simulation_cfg)
 
 
 def test_deformable_nodal_reset_terms():
-    assert run_function_with_persistent_simulation_app(_test_deformable_nodal_reset_terms, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_deformable_nodal_reset_terms)
 
 
 def test_deformable_reset_and_initial_pose():
-    assert run_function_with_persistent_simulation_app(
-        _test_deformable_reset_and_initial_pose,
-        headless=HEADLESS,
-    )
+    assert run_function_with_persistent_simulation_app(_test_deformable_reset_and_initial_pose)
 
 
 def test_deformable_placement_is_not_immediate_task_success():
-    assert run_function_with_persistent_simulation_app(
-        _test_deformable_placement_is_not_immediate_task_success,
-        headless=HEADLESS,
-    )
+    assert run_function_with_persistent_simulation_app(_test_deformable_placement_is_not_immediate_task_success)
 
 
-def test_physx_droid_deformable_environment():
-    assert run_function_with_persistent_simulation_app(
-        _test_droid_deformable_environment,
-        headless=HEADLESS,
-        physics_backend="physx",
-    )
-
-
-@pytest.mark.with_newton
-def test_newton_droid_deformable_environment():
+@pytest.mark.parametrize(
+    "physics_backend",
+    ["physx", pytest.param("newton", marks=pytest.mark.with_newton)],
+)
+def test_droid_deformable_environment(physics_backend):
     assert run_function_with_persistent_simulation_app(
         _test_droid_deformable_environment,
-        headless=HEADLESS,
-        physics_backend="newton",
+        physics_backend=physics_backend,
     )

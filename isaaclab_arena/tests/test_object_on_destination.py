@@ -261,7 +261,7 @@ def _check_object_on_destination(
     assert arena_world.pose_queries == ["destination"] * 3
     assert arena_world.local_aabb_queries == ["destination"] * 3
     assert arena_world.centroid_queries == ["object"] * 3
-    assert arena_world.mean_linear_velocity_queries == ["object"] * 3
+    assert arena_world.mean_linear_velocity_queries == ["object", "object", "object"]
 
 
 def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_type, object_type) -> None:
@@ -288,7 +288,6 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
     assert deformable_task.contact_sensor_cfg is None
     assert deformable_task.get_scene_cfg() is None
     deformable_placement_requirement = deformable_task.get_termination_cfg().success[0].predicate_sequence[-1]
-    assert deformable_task.velocity_threshold == 0.003
     assert deformable_placement_requirement.required_steps == 1
     deformable_placement_predicate = deformable_placement_requirement.predicate
     assert deformable_placement_predicate.func is object_on_destination

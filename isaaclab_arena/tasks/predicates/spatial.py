@@ -479,9 +479,8 @@ def object_on_destination(
         destination_cfg.name not in env.scene.deformable_objects
     ), "object_on_destination does not support deformable destinations"
 
-    object_centroid_W = arena_world.get_centroid_w(object_cfg.name)
     object_center_over_destination = object_bounds_center_over_destination(
-        object_centroid_W=object_centroid_W,
+        object_centroid_W=arena_world.get_centroid_w(object_cfg.name),
         T_W_D=arena_world.get_pose_w(destination_cfg.name),
         destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
     )

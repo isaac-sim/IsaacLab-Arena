@@ -103,6 +103,11 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
+        assert cfg.embodiment in {"droid_abs_joint_pos", "droid_differential_ik"}, (
+            "The deformable pick-and-place example supports droid_abs_joint_pos and droid_differential_ik, "
+            f"got {cfg.embodiment!r}."
+        )
+
         table = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         light = self.asset_registry.get_asset_by_name("light")()
         directional_light = self.asset_registry.get_asset_by_name("directional_light")()
