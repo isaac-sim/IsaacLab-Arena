@@ -24,10 +24,11 @@ import argparse
 import gc
 import hashlib
 import json
-import math
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_summary import summarize_latencies
 
 
 @dataclass(frozen=True)
@@ -39,15 +40,6 @@ class SampleResult:
     requested_layouts: int
     time_to_resolved_layout_ms: float | None
     error: str | None
-
-
-def percentile(values: list[float], p: float) -> float | None:
-    """Return the nearest-rank percentile, or None when values is empty."""
-    assert 0 <= p <= 100, f"percentile must be in [0, 100], got {p}"
-    if not values:
-        return None
-    ordered = sorted(values)
-    return ordered[max(1, math.ceil(p / 100 * len(ordered))) - 1]
 
 
 def _parse_args() -> argparse.Namespace:
@@ -97,7 +89,7 @@ def _run_sample(env_spec: Path, num_envs: int, run_index: int, placement_seed: i
             ),
         )
         requested_layouts = num_envs * arena_env.placer_params.min_unique_layouts_per_env
-        builder._solve_relations()
+        builder._prepare_relation_placement(scheduler=None)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         elapsed_ms = (time.perf_counter() - started_at) * 1e3
@@ -116,20 +108,6 @@ def _run_sample(env_spec: Path, num_envs: int, run_index: int, placement_seed: i
             time_to_resolved_layout_ms=None,
             error=f"{type(exc).__name__}: {exc}",
         )
-
-
-def _summarize(results: list[SampleResult]) -> dict[str, object]:
-    latencies = [
-        result.time_to_resolved_layout_ms for result in results if result.time_to_resolved_layout_ms is not None
-    ]
-    return {
-        "requested_samples": len(results),
-        "successful_samples": len(latencies),
-        "failed_samples": len(results) - len(latencies),
-        "p50_ms": percentile(latencies, 50),
-        "p95_ms": percentile(latencies, 95),
-        "p99_ms": percentile(latencies, 99),
-    }
 
 
 def _output_payload(
@@ -203,7 +181,7 @@ def main() -> int:
             for run_index in range(len(samples), args.num_runs):
                 samples.append(_run_sample(args.env_spec, num_envs, run_index, args.placement_seed))
                 results_by_num_envs[str(num_envs)] = {
-                    "summary": _summarize(samples),
+                    "summary": summarize_latencies([sample.time_to_resolved_layout_ms for sample in samples]),
                     "samples": [asdict(sample) for sample in samples],
                 }
                 _write_checkpoint(args, results_by_num_envs)
@@ -218,7 +196,12 @@ def main() -> int:
 
         _write_checkpoint(args, results_by_num_envs)
         print(f"[benchmark] wrote {args.output_path}", flush=True)
-    return 1 if failed_sample_count else 0
+        if failed_sample_count:
+            print(f"[benchmark] {failed_sample_count} samples failed", flush=True)
+            # app.close() can end the process with exit code 0, so exit from inside the context,
+            # where SimulationAppContext turns any exception into exit code 1.
+            raise SystemExit(1)
+    return 0
 
 
 if __name__ == "__main__":

@@ -20,25 +20,6 @@ import isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmar
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_resolved_layout_benchmarks as batch_benchmark
 
 
-def test_percentile_and_summary_exclude_failed_samples():
-    samples = [
-        benchmark.SampleResult(1, 0, 5, 10.0, None),
-        benchmark.SampleResult(1, 1, 0, None, "failure"),
-        benchmark.SampleResult(1, 2, 5, 30.0, None),
-    ]
-
-    assert benchmark.percentile([float(value) for value in range(1, 101)], 99) == 99.0
-    assert benchmark.percentile([], 99) is None
-    assert benchmark._summarize(samples) == {
-        "requested_samples": 3,
-        "successful_samples": 2,
-        "failed_samples": 1,
-        "p50_ms": 10.0,
-        "p95_ms": 30.0,
-        "p99_ms": 30.0,
-    }
-
-
 def test_checkpoint_rejects_changed_environment_spec(tmp_path):
     env_spec = tmp_path / "environment.yaml"
     env_spec.write_text("env_name: original\n", encoding="utf-8")
@@ -141,7 +122,9 @@ def test_failed_sample_makes_single_benchmark_exit_nonzero(monkeypatch, tmp_path
         lambda *_args: benchmark.SampleResult(1, 0, 0, None, "failure"),
     )
 
-    assert benchmark.main() == 1
+    with pytest.raises(SystemExit) as exit_info:
+        benchmark.main()
+    assert exit_info.value.code == 1
 
 
 def test_batch_marks_failed_samples_as_failed_configuration(monkeypatch, tmp_path):
@@ -185,6 +168,54 @@ def test_batch_marks_failed_samples_as_failed_configuration(monkeypatch, tmp_pat
     assert batch_benchmark.main() == 1
     combined = json.loads((output_dir / "all_results.json").read_text(encoding="utf-8"))
     assert combined["failed_configurations"] == ["test_case_envs_1"]
+
+
+def test_batch_ignores_result_left_by_an_earlier_run(monkeypatch, tmp_path):
+    env_specs_dir = tmp_path / "env_specs"
+    env_specs_dir.mkdir()
+    (env_specs_dir / "test_case.yaml").write_text("env_name: test_case\n", encoding="utf-8")
+    output_dir = tmp_path / "results"
+    output_dir.mkdir()
+    (output_dir / "test_case_envs_1.json").write_text(json.dumps({"results_by_num_envs": {}}), encoding="utf-8")
+    args = argparse.Namespace(
+        env_specs_dir=env_specs_dir,
+        case=["test_case"],
+        num_envs=[1],
+        num_runs=1,
+        warmup_runs=0,
+        placement_seed=42,
+        output_dir=output_dir,
+        resume=False,
+    )
+
+    monkeypatch.setattr(batch_benchmark, "_parse_args", lambda: args)
+    monkeypatch.setattr(
+        batch_benchmark.subprocess, "run", lambda command, check: subprocess.CompletedProcess(command, 1)
+    )
+
+    assert batch_benchmark.main() == 1
+    combined = json.loads((output_dir / "all_results.json").read_text(encoding="utf-8"))
+    assert combined["failed_configurations"] == ["test_case_envs_1"]
+    assert combined["results"] == []
+
+
+def _test_run_sample_resolves_a_benchmark_spec(simulation_app):
+    sample = benchmark._run_sample(
+        batch_benchmark._DEFAULT_ENV_SPECS_DIR / "tabletop_banana_plate_distractors_0.yaml",
+        num_envs=1,
+        run_index=0,
+        placement_seed=42,
+    )
+    assert sample.error is None, sample.error
+    assert sample.time_to_resolved_layout_ms is not None
+    assert sample.requested_layouts > 0
+    return True
+
+
+def test_run_sample_resolves_a_benchmark_spec():
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    assert run_function_with_persistent_simulation_app(_test_run_sample_resolves_a_benchmark_spec)
 
 
 def test_find_benchmark_cases_names_each_case_after_its_spec_file(tmp_path):

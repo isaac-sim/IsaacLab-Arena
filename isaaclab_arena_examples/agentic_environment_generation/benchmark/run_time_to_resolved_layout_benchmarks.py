@@ -186,6 +186,9 @@ def main() -> int:
                         failed_configurations.append(configuration_name)
                     print(f"[batch] {configuration_name}: already complete, skipping", flush=True)
                     continue
+            if not args.resume:
+                # Without this, a child that dies before its first checkpoint leaves the previous run's file.
+                output_path.unlink(missing_ok=True)
             completed = subprocess.run(
                 _command(args, env_spec, num_envs, output_path),
                 check=False,

@@ -13,6 +13,7 @@ import subprocess
 import pytest
 
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_time_to_first_spec as benchmark
+import isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_summary as latency_summary
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_first_spec_benchmarks as batch_benchmark
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_resolved_layout_benchmarks as resolved_layout_batch
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -23,10 +24,10 @@ from isaaclab_arena_examples.agentic_environment_generation.cli_runner import ad
 def test_percentile_uses_nearest_rank():
     values = [float(value) for value in range(1, 101)]
 
-    assert benchmark.percentile(values, 50) == 50.0
-    assert benchmark.percentile(values, 95) == 95.0
-    assert benchmark.percentile(values, 99) == 99.0
-    assert benchmark.percentile([], 99) is None
+    assert latency_summary.percentile(values, 50) == 50.0
+    assert latency_summary.percentile(values, 95) == 95.0
+    assert latency_summary.percentile(values, 99) == 99.0
+    assert latency_summary.percentile([], 99) is None
 
 
 def test_benchmark_reuses_cli_runner_inference_arguments():
@@ -85,42 +86,77 @@ def test_batch_saves_specs_under_output_dir_by_default(monkeypatch, tmp_path):
     assert args.spec_output_dir == tmp_path / "specs"
 
 
-def test_batch_writes_only_combined_json(monkeypatch, tmp_path):
-    cases_path = tmp_path / "cases.yaml"
-    output_dir = tmp_path / "results"
-    args = batch_benchmark.argparse.Namespace(
-        cases_file=cases_path,
+def _batch_args(tmp_path):
+    return batch_benchmark.argparse.Namespace(
+        cases_file=tmp_path / "cases.yaml",
         num_runs=3,
         temperature=0.1,
         inference_endpoint="internal",
         model="model-id",
-        output_dir=output_dir,
+        output_dir=tmp_path / "results",
         spec_output_dir=tmp_path / "specs",
     )
-    cases = {"first": benchmark.BenchmarkCase("first", "First prompt")}
-    result = {
-        "case": "first",
+
+
+def _case_result(case_name, failed_samples):
+    return {
+        "case": case_name,
         "summary": {
-            "successful_samples": 3,
-            "failed_samples": 0,
+            "successful_samples": 3 - failed_samples,
+            "failed_samples": failed_samples,
             "p50_ms": 1.0,
             "p95_ms": 2.0,
             "p99_ms": 2.0,
         },
     }
 
+
+def test_batch_keeps_failed_case_results(monkeypatch, tmp_path):
+    args = _batch_args(tmp_path)
+    cases = {name: benchmark.BenchmarkCase(name, "Prompt") for name in ("passing", "failing")}
+
     def fake_run(command, check):
         assert not check
-        output_path = command[command.index("--output_path") + 1]
-        batch_benchmark.Path(output_path).write_text(json.dumps(result), encoding="utf-8")
-        return subprocess.CompletedProcess(command, 0)
+        case_name = command[command.index("--case") + 1]
+        failed_samples = 1 if case_name == "failing" else 0
+        output_path = batch_benchmark.Path(command[command.index("--output_path") + 1])
+        output_path.write_text(json.dumps(_case_result(case_name, failed_samples)), encoding="utf-8")
+        return subprocess.CompletedProcess(command, 1 if failed_samples else 0)
+
+    monkeypatch.setattr(batch_benchmark, "parse_args", lambda: args)
+    monkeypatch.setattr(batch_benchmark, "load_benchmark_cases", lambda path: (cases, "passing"))
+    monkeypatch.setattr(batch_benchmark.subprocess, "run", fake_run)
+
+    assert batch_benchmark.main() == 1
+    assert sorted(path.name for path in args.output_dir.iterdir()) == [
+        "all_results.json",
+        "failing.json",
+        "passing.json",
+    ]
+    combined = json.loads((args.output_dir / "all_results.json").read_text(encoding="utf-8"))
+    assert combined["failed_cases"] == ["failing"]
+    assert [(result["case"], result["child_returncode"]) for result in combined["results"]] == [
+        ("passing", 0),
+        ("failing", 1),
+    ]
+
+
+def test_batch_ignores_result_left_by_an_earlier_run(monkeypatch, tmp_path):
+    args = _batch_args(tmp_path)
+    args.output_dir.mkdir()
+    (args.output_dir / "first.json").write_text(json.dumps(_case_result("first", 0)), encoding="utf-8")
+    cases = {"first": benchmark.BenchmarkCase("first", "Prompt")}
 
     monkeypatch.setattr(batch_benchmark, "parse_args", lambda: args)
     monkeypatch.setattr(batch_benchmark, "load_benchmark_cases", lambda path: (cases, "first"))
-    monkeypatch.setattr(batch_benchmark.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        batch_benchmark.subprocess, "run", lambda command, check: subprocess.CompletedProcess(command, 1)
+    )
 
-    assert batch_benchmark.main() == 0
-    assert [path.name for path in output_dir.iterdir()] == ["all_results.json"]
+    assert batch_benchmark.main() == 1
+    combined = json.loads((args.output_dir / "all_results.json").read_text(encoding="utf-8"))
+    assert combined["failed_cases"] == ["first"]
+    assert combined["results"] == []
 
 
 def test_run_sample_stops_after_generate_spec_returns(monkeypatch):
@@ -148,11 +184,10 @@ def test_run_sample_stops_after_generate_spec_returns(monkeypatch):
     )
 
     assert result.time_to_first_spec_ms == pytest.approx(250.0)
-    assert result.final_spec_accepted
     assert result.error is None
 
 
-def test_run_sample_writes_first_generated_spec_after_measurement(monkeypatch, tmp_path):
+def test_run_sample_writes_accepted_spec_after_measurement(monkeypatch, tmp_path):
     spec = ArenaEnvGraphSpec.model_validate(minimal_spec_dict())
 
     class FakeAgent:
@@ -234,6 +269,14 @@ def test_load_benchmark_cases_rejects_unknown_fields(tmp_path):
         benchmark.load_benchmark_cases(cases_path)
 
 
+def test_load_benchmark_cases_rejects_a_case_without_a_prompt_string(tmp_path):
+    cases_path = tmp_path / "cases.yaml"
+    cases_path.write_text("default_case: first\ncases:\n  first:\n    prompt:\n", encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="must define a prompt string"):
+        benchmark.load_benchmark_cases(cases_path)
+
+
 def test_load_benchmark_cases_rejects_unknown_default(tmp_path):
     cases_path = tmp_path / "cases.yaml"
     cases_path.write_text("default_case: missing\ncases:\n  first:\n    prompt: First prompt\n", encoding="utf-8")
@@ -242,7 +285,7 @@ def test_load_benchmark_cases_rejects_unknown_default(tmp_path):
         benchmark.load_benchmark_cases(cases_path)
 
 
-def test_run_sample_rejects_a_kitchen_result_that_skips_object_references(monkeypatch):
+def test_run_sample_rejects_a_kitchen_result_that_skips_object_references(monkeypatch, tmp_path):
     spec = ArenaEnvGraphSpec.model_validate(minimal_spec_dict())
 
     class FakeAgent:
@@ -263,21 +306,17 @@ def test_run_sample_rejects_a_kitchen_result_that_skips_object_references(monkey
         relation_catalog="relations",
         task_catalog="tasks",
         object_references_expected=True,
+        spec_output_dir=tmp_path / "case",
     )
 
     assert result.time_to_first_spec_ms is None
-    assert result.final_spec_accepted
     assert result.error == "workload expected a spec with object_references, got one without them"
+    assert result.generated_spec_path is None
+    assert not (tmp_path / "case").exists()
 
 
 def test_summary_excludes_failed_samples_from_percentiles():
-    results = [
-        benchmark.SampleResult(1, 10.0, final_spec_accepted=True),
-        benchmark.SampleResult(2, None, final_spec_accepted=False, error="no spec"),
-        benchmark.SampleResult(3, 30.0, final_spec_accepted=False),
-    ]
-
-    assert benchmark._summary(results) == {
+    assert latency_summary.summarize_latencies([10.0, None, 30.0]) == {
         "requested_samples": 3,
         "successful_samples": 2,
         "failed_samples": 1,

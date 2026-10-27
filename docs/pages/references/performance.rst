@@ -355,7 +355,7 @@ one after another. It calls the inference endpoint directly and does not start I
 * ``--model`` and ``--temperature`` override the endpoint's model and sampling temperature. The model
   must support OpenAI-compatible strict structured output. The internal and OpenAI endpoints ignore
   ``--temperature``.
-* The first generated spec of each case is saved under ``<output_dir>/specs/<case>/``. Pass
+* The first accepted spec of each case is saved under ``<output_dir>/specs/<case>/``. Pass
   ``--no_save_specs`` to skip saving.
 
 To measure one case, run ``benchmark_time_to_first_spec.py`` with ``--case <name>`` and
@@ -378,16 +378,20 @@ To measure one case, run ``benchmark_time_to_first_spec.py`` with ``--case <name
   directory of specs.
 * Every sample is written as soon as it finishes. Add ``--resume`` to the same command to continue an
   interrupted run. Resuming requires the same specs, placement seed, warmup count, and run count.
-* The full matrix of eight cases took about 50 hours on one RTX 6000 Ada.
+* The full matrix took about 50 hours on one RTX 6000 Ada, measured before the SimReady case was
+  added. Expect longer with all nine cases.
 
-**Results.** Each batch runner prints a p50/p95/p99 table and writes ``<output_dir>/all_results.json``.
-The file holds every sample and a summary for each case:
+**Results.** Each batch runner prints a p50/p95/p99 table and writes one JSON file per case, or per
+case and environment count, plus ``<output_dir>/all_results.json``, which combines them. Each file
+holds every sample and a summary:
 
 * ``successful_samples`` and ``failed_samples`` count the samples that did and did not return a result.
   A first-spec sample also fails when the spec does not match the case's expected
   ``object_references``.
 * ``p50_ms``, ``p95_ms``, and ``p99_ms`` are nearest-rank percentiles of successful samples only, so
   read them together with the failure count. Use at least 100 samples when reporting p99.
+* A batch runner exits nonzero when any sample fails, and lists the affected cases in ``failed_cases``
+  or ``failed_configurations``.
 
 To list the failed samples of a time-to-first-spec run:
 

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import time
 import yaml
 from dataclasses import asdict, dataclass, field, fields
@@ -42,6 +41,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
 from isaaclab_arena.agentic_environment_generation.spec_io import write_env_graph_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.inference.backend import resolve_inference_endpoint
+from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_summary import summarize_latencies
 from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
 
 DEFAULT_OUTPUT_PATH = Path("outputs/time_to_first_spec.json")
@@ -104,7 +104,9 @@ def load_benchmark_cases(path: Path) -> tuple[dict[str, BenchmarkCase], str]:
         assert isinstance(values, dict), f"benchmark case {name!r} must contain a mapping"
         unexpected = set(values) - case_fields
         assert not unexpected, f"benchmark case {name!r} has unknown fields: {sorted(unexpected)}"
-        cases[name] = BenchmarkCase(name=name, **{**values, "prompt": str(values.get("prompt", "")).strip()})
+        prompt = values.get("prompt")
+        assert isinstance(prompt, str), f"benchmark case {name!r} must define a prompt string"
+        cases[name] = BenchmarkCase(name=name, **{**values, "prompt": prompt.strip()})
 
     default_case = data.get("default_case")
     assert (
@@ -119,27 +121,8 @@ class SampleResult:
 
     run_index: int
     time_to_first_spec_ms: float | None
-    final_spec_accepted: bool
     error: str | None = None
     generated_spec_path: str | None = None
-
-
-def percentile(values: list[float], p: float) -> float | None:
-    """Return the nearest-rank percentile, or None when ``values`` is empty.
-
-    Args:
-        values: Measurements to summarize.
-        p: Percentile in the range ``[0, 100]``.
-
-    Returns:
-        The nearest-rank percentile value.
-    """
-    assert 0 <= p <= 100, f"percentile must be in [0, 100], got {p}"
-    if not values:
-        return None
-    ordered = sorted(values)
-    rank = max(1, math.ceil(p / 100 * len(ordered)))
-    return ordered[rank - 1]
 
 
 def _run_sample(
@@ -178,27 +161,14 @@ def _run_sample(
         error = "; ".join(agent.traces) or "agent returned no parseable ArenaEnvGraphSpec"
 
     generated_spec_path = None
-    if spec is not None and spec_output_dir is not None:
+    if latency_ms is not None and spec_output_dir is not None:
         generated_spec_path = str(write_env_graph_spec(spec, spec_output_dir))
     return SampleResult(
         run_index=run_index,
         time_to_first_spec_ms=latency_ms,
-        final_spec_accepted=spec is not None,
         error=error,
         generated_spec_path=generated_spec_path,
     )
-
-
-def _summary(results: list[SampleResult]) -> dict[str, int | float | None]:
-    latencies = [result.time_to_first_spec_ms for result in results if result.time_to_first_spec_ms is not None]
-    return {
-        "requested_samples": len(results),
-        "successful_samples": len(latencies),
-        "failed_samples": len(results) - len(latencies),
-        "p50_ms": percentile(latencies, 50),
-        "p95_ms": percentile(latencies, 95),
-        "p99_ms": percentile(latencies, 99),
-    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -234,13 +204,13 @@ def parse_args() -> argparse.Namespace:
         "--spec_output_dir",
         type=Path,
         default=None,
-        help="Optional directory for the first generated spec, named from its env_name.",
+        help="Optional directory for the first accepted spec, named from its env_name.",
     )
     return parser.parse_args()
 
 
 def main() -> int:
-    """Run the benchmark and write sample-level results plus p50/p95/p99."""
+    """Run the benchmark, write sample-level results plus p50/p95/p99, and return 1 if any sample failed."""
     args = parse_args()
     assert args.num_runs > 0, f"num_runs must be positive, got {args.num_runs}"
 
@@ -279,6 +249,7 @@ def main() -> int:
     task_catalog = build_task_catalogue()
 
     results: list[SampleResult] = []
+    spec_output_dir = args.spec_output_dir
     for run_index in range(1, args.num_runs + 1):
         print(f"[benchmark] sample {run_index}/{args.num_runs}", flush=True)
         result = _run_sample(
@@ -291,15 +262,17 @@ def main() -> int:
             object_references_expected=(
                 benchmark_case.object_references_expected if benchmark_case is not None else None
             ),
-            spec_output_dir=args.spec_output_dir if run_index == 1 else None,
+            spec_output_dir=spec_output_dir,
         )
         results.append(result)
+        if result.generated_spec_path is not None:
+            spec_output_dir = None
         if result.time_to_first_spec_ms is None:
             print(f"[benchmark] sample {run_index}: FAILED ({result.error})", flush=True)
         else:
             print(f"[benchmark] sample {run_index}: {result.time_to_first_spec_ms:.3f} ms", flush=True)
 
-    summary = _summary(results)
+    summary = summarize_latencies([result.time_to_first_spec_ms for result in results])
     payload = {
         "type": "timing_benchmark",
         "name": "time_to_first_environment_spec",
@@ -337,7 +310,7 @@ def main() -> int:
         formatted = "n/a" if value is None else f"{value:.3f} ms"
         print(f"  {name.removesuffix('_ms')}: {formatted}", flush=True)
     print(f"  results: {args.output_path}", flush=True)
-    return 0 if summary["successful_samples"] else 1
+    return 1 if summary["failed_samples"] else 0
 
 
 if __name__ == "__main__":

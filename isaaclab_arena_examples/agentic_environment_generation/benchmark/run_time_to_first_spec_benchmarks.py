@@ -18,7 +18,6 @@ import argparse
 import json
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -124,16 +123,19 @@ def main() -> int:
 
     results: list[dict[str, Any]] = []
     failed_cases: list[str] = []
-    with tempfile.TemporaryDirectory(prefix="arena-time-to-first-spec-") as temporary_output_dir:
-        for case_index, case_name in enumerate(cases, start=1):
-            output_path = Path(temporary_output_dir) / f"{case_name}.json"
-            print(f"\n[batch] case {case_index}/{len(cases)}: {case_name}", flush=True)
-            completed = subprocess.run(_benchmark_command(args, case_name, output_path), check=False)
-            if completed.returncode != 0 or not output_path.is_file():
-                failed_cases.append(case_name)
-                print(f"[batch] {case_name}: child exited {completed.returncode}", flush=True)
-                continue
-            results.append(json.loads(output_path.read_text(encoding="utf-8")))
+    for case_index, case_name in enumerate(cases, start=1):
+        output_path = args.output_dir / f"{case_name}.json"
+        # Without this, a child that dies before writing leaves the previous run's file.
+        output_path.unlink(missing_ok=True)
+        print(f"\n[batch] case {case_index}/{len(cases)}: {case_name}", flush=True)
+        completed = subprocess.run(_benchmark_command(args, case_name, output_path), check=False)
+        if completed.returncode != 0:
+            failed_cases.append(case_name)
+            print(f"[batch] {case_name}: child exited {completed.returncode}", flush=True)
+        if output_path.is_file():
+            result = json.loads(output_path.read_text(encoding="utf-8"))
+            result["child_returncode"] = completed.returncode
+            results.append(result)
 
     combined_path = args.output_dir / "all_results.json"
     combined = {
