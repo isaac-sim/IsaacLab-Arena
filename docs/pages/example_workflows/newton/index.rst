@@ -17,3 +17,4 @@ Choose an environment below. Each page includes its prerequisites, commands, and
    :maxdepth: 1
 
    gear_insertion
+   deformable_pick_and_place

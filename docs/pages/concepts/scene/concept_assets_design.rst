@@ -155,10 +155,45 @@ Every asset has an object type that determines how it is simulated:
 
 - **RIGID** — a single rigid body (boxes, bottles, tools, furniture).
 - **ARTICULATION** — a multi-body scene object with joints (doors, drawers, appliances).
+- **DEFORMABLE** — a body represented by deformable simulation nodes (soft cubes, cloth,
+  or other compliant objects).
 - **BASE** — no physics; used for static backgrounds and markers.
 
 Deformable and backend-specific spawn configs must match the environment's resolved physics
 backend (PhysX or Newton). See :doc:`../environment/physics_backend_selection`.
+
+Deformable objects
+------------------
+
+``DeformableObject`` represents a body whose geometry changes during simulation. Its spawn
+configuration selects the physics implementation: ``PhysxDeformableBodyPropertiesCfg`` for
+PhysX or ``NewtonDeformableBodyPropertiesCfg`` for Newton. The selected implementation must
+match the environment's physics backend.
+
+Arena uses two complementary geometry representations for a deformable:
+
+* Before simulation, ``get_bounding_box()`` returns the undeformed, local-frame bounds from
+  the spawn configuration or USD. Relation placement uses these rest bounds to sample an
+  initial pose without requiring a running physics view.
+* During simulation, ``ArenaWorld`` reads the live deformable state. It exposes the current
+  nodal vertices, centroid, world bounds, and mean nodal velocity through the same geometry
+  query interface used by task predicates.
+
+Predicates therefore evaluate the deformed object rather than its rest bounds. For example,
+pick-and-place checks use the live centroid and velocity, while deformable support checks use
+the lowest live nodes near the destination geometry. Deformables do not currently provide an
+Isaac Lab contact sensor, so predicates that support them use these geometry queries.
+
+The following image shows four initial placements sampled from the same ``On`` and ``NextTo``
+relations. The undeformed cube bounds keep every sample on the table and beside the plate;
+the live nodal geometry takes over after simulation starts.
+
+.. image:: ../../../images/deformable_pick_and_place_sampled_placements.png
+   :align: center
+   :alt: Four relation-sampled placements of a deformable cube beside a plate
+
+For a complete task and backend-specific commands, see
+:doc:`../../example_workflows/newton/deformable_pick_and_place`.
 
 Backgrounds
 -----------
