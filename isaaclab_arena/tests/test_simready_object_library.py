@@ -74,8 +74,8 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
 def test_simready_search_registry_name_derives_an_identifier_from_the_phrase():
     from isaaclab_arena.assets.simready_object_library import simready_search_registry_name
 
-    assert simready_search_registry_name("green trash can") == "simready_green_trash_can"
-    assert simready_search_registry_name("  Chrome/Watering-Can  ") == "simready_chrome_watering_can"
+    assert simready_search_registry_name("green trash can", "a.usd").startswith("simready_green_trash_can_")
+    assert simready_search_registry_name("  Chrome/Watering-Can  ", "a.usd").startswith("simready_chrome_watering_can_")
 
 
 def test_register_searched_simready_object_makes_it_a_catalogue_entry():
@@ -86,8 +86,8 @@ def test_register_searched_simready_object_makes_it_a_catalogue_entry():
     asset_cls = register_searched_simready_object(
         "green trash can", "s3://bucket/trash_can.usd", ("sim-ready", "green")
     )
-    assert asset_cls.registry_name == "simready_green_trash_can"
-    assert AssetRegistry().get_asset_by_name("simready_green_trash_can") is asset_cls
+    assert asset_cls.registry_name.startswith("simready_green_trash_can_")
+    assert AssetRegistry().get_asset_by_name(asset_cls.registry_name) is asset_cls
     # Rigid, so the entry can also be an object_set member; the search only accepts one rigid body.
     assert asset_cls.object_type is ObjectType.RIGID
     assert "green" in asset_cls.tags
@@ -97,16 +97,20 @@ def test_a_searched_asset_resolves_its_usd_path_without_spec_params():
     from isaaclab_arena.assets.simready_object_library import register_searched_simready_object
 
     ensure_assets_registered()
-    register_searched_simready_object("chrome watering can", "s3://bucket/watering_can.usd")
+    asset_cls = register_searched_simready_object("chrome watering can", "s3://bucket/watering_can.usd")
     # The path is baked into the registered class, so a spec naming it carries no params at all.
-    spec = AssetSpec(id="watering_can", registry_name="simready_chrome_watering_can")
+    spec = AssetSpec(id="watering_can", registry_name=asset_cls.registry_name)
     assert spec.resolve_usd_path() == "s3://bucket/watering_can.usd"
 
 
-def test_registering_the_same_phrase_twice_keeps_the_first_asset():
+def test_registering_distinct_assets_for_the_same_phrase_preserves_both():
     from isaaclab_arena.assets.simready_object_library import register_searched_simready_object
 
     ensure_assets_registered()
     first = register_searched_simready_object("steel kettle", "s3://bucket/kettle_a.usd")
     second = register_searched_simready_object("steel kettle", "s3://bucket/kettle_b.usd")
-    assert second is first
+    assert second is not first
+    assert first.registry_name != second.registry_name
+    assert AssetSpec(id="first", registry_name=first.registry_name).resolve_usd_path() == "s3://bucket/kettle_a.usd"
+    assert AssetSpec(id="second", registry_name=second.registry_name).resolve_usd_path() == "s3://bucket/kettle_b.usd"
+    assert register_searched_simready_object("steel kettle", "s3://bucket/kettle_a.usd") is first

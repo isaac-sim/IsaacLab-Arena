@@ -268,14 +268,14 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
         if (
             pending is None
             or pending[1] >= self.config.max_steps_per_goal
-            or self.action_adapter.motion_generator.goal_reached(pending[0], env.unwrapped.arena_world, env_id)
+            or self.action_adapter.motion_generator.goal_reached(pending[0], env, env_id)
         ):
             goal = self._infer(self._request_content(env, observation, env_id), env.unwrapped.arena_world, env_id)
             executed = 0
         else:
             goal, executed = pending
         command = np.asarray(
-            self.action_adapter.motion_generator.compute_command(goal, env.unwrapped.arena_world, env_id),
+            self.action_adapter.motion_generator.compute_command(goal, env, env_id),
             dtype=np.float32,
         )
         expected_dim = env.unwrapped.action_dim

@@ -6,6 +6,7 @@ set -euo pipefail
 # from its own lock; --inexact retains that editable workspace and its dependencies.
 uv sync --project /tmp/arena-project --frozen --inexact \
     --no-default-groups --group openpi --extra dev --no-install-project
+bash /tmp/repair_venv_permissions.sh
 
 # HuggingFace CLI for downloading datasets and models.
 # Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),

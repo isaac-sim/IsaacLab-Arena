@@ -33,10 +33,23 @@ an environment resets during policy rollouts. Arena calls these *build-time* and
      - Camera extrinsics, camera intrinsics
 
 This distinction matters when planning an evaluation. To collect several values of a
-build-time variation, the environment must be rebuilt with different seeds; the Experiment
-Runner gives each rebuild its own seed. A run-time variation can produce a new value on each
+build-time variation, the environment must be rebuilt; the Experiment
+Runner gives each rebuild its own seed. Set ``num_rebuilds`` in the Run; with the default of 1,
+each enabled build-time variation draws one value for the whole Run. A run-time variation can
+produce a new value on each
 reset without rebuilding the scene. Both kinds draw their values from the variation's own
 generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`).
+
+.. _asset-selection-variation:
+
+In-order asset selection (``RigidAssetSelectionVariation`` in :ref:`available-variations`) is the
+exception: rebuild k spawns the k-th name of its ``registry_names``, so set ``num_rebuilds`` to the
+length of the list to spawn each name once.
+
+A :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` fits neither row: it assigns one member
+to each parallel environment when the environment is built and keeps it for every episode of that
+build. It is part of the environment definition rather than a variation, so it has no
+``asset_selection``.
 
 .. _discovering-available-variations:
 
@@ -62,21 +75,23 @@ defaults:
    Variations (Hydra-configurable)
    ================================
 
-   Asset: droid_abs_joint_pos
-     camera_extrinsics_wrist_camera (CameraExtrinsicsVariation, run-time)
-       Enable: droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true  (default: False)
-       Fields:
-         droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high = [0.005,0.005,0.005]
-         droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low = [-0.005,-0.005,-0.005]
+   ...
 
-   Asset: light
-     hdr_image (HDRImageVariation, build-time)
-       Enable: light.hdr_image.enabled=true  (default: False)
+   Asset: pick_up_object
+     mass (ObjectMassVariation, run-time)
+       Enable: pick_up_object.mass.enabled=true  (default: False)
        Fields:
-         light.hdr_image.hdr_names = []
+         pick_up_object.mass.recompute_inertia = True
+         pick_up_object.mass.sampler_cfg.high = [2.0]
+         pick_up_object.mass.sampler_cfg.low = [0.05]
 
-   Asset: bowl_ycb_robolab
-     (no variations)
+     ...
+
+     asset_selection (RigidAssetSelectionVariation, build-time)
+       Enable: pick_up_object.asset_selection.enabled=true  (default: False)
+       Fields:
+         pick_up_object.asset_selection.registry_names = []
+         pick_up_object.asset_selection.sampler_cfg.random_choice = False
 
    ...
 
@@ -124,7 +139,7 @@ see :ref:`discovering-available-variations`.
 
 With Isaac Lab's ``record_demos.py`` and Arena's ``environment_registration_callback``,
 append the same variation overrides to the recording command, for example
-``rubiks_cube_hot3d_robolab.mass.enabled=true`` for ``pick_and_place_maple_table``.
+``pick_up_object.mass.enabled=true`` for ``pick_and_place_maple_table``.
 Arena consumes its variation overrides and returns the remaining arguments to the Isaac Lab script.
 See :doc:`Teleoperation Data Collection <../../example_workflows/static_manipulation/step_2_teleoperation>`
 for recording setup and the full command using the callback.
@@ -177,6 +192,11 @@ variations are sampled once and applied to asset configs before the environment 
    * - Variation
      - Type
      - Description
+   * - ``RigidAssetSelectionVariation``
+     - build-time
+     - Picks the registered asset a rigid object spawns from a list of names. Rebuild k spawns the
+       k-th name, or a random one with ``sampler_cfg.random_choice: true``. Episode rows record the
+       name. See the ``swap_objects`` Run of the :ref:`first Arena Experiment <first-arena-experiment>`.
    * - ``CameraExtrinsicsVariation``
      - run-time
      - Adds a small sampled offset to a camera's nominal local position on every reset.

@@ -21,10 +21,8 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
 )
 from isaaclab_arena.agentic_environment_generation.missing_object_inference import MissingObjectInference
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
-    SimReadySearchConfig,
-    search_simready_objects,
-)
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import search_simready_objects
+from isaaclab_arena.agentic_environment_generation.simready_search_interface import SimReadySearchConfig
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -211,14 +209,15 @@ class EnvironmentGenerationAgent:
             return asset_catalog
         extended = replace(asset_catalog, objects=list(asset_catalog.objects))
         for candidate in search_result.candidates:
-            asset_cls = register_searched_simready_object(candidate.search_phrase, candidate.usd_path, candidate.tags)
+            usd_path = candidate.usd_path
+            asset_cls = register_searched_simready_object(candidate.search_phrase, usd_path, candidate.tags)
             tags = [tag for tag in asset_cls.tags if tag != "object"]
             extended.objects.append({
                 "name": asset_cls.registry_name,
                 "tags": tags,
                 "object_type": asset_cls.object_type.value,
             })
-            self._simready_usd_paths[asset_cls.registry_name] = candidate.usd_path
+            self._simready_usd_paths[asset_cls.registry_name] = usd_path
             _logger.info(
                 "catalogued %r for %r: %s", asset_cls.registry_name, candidate.search_phrase, candidate.usd_path
             )

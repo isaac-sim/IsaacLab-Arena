@@ -9,22 +9,18 @@ from __future__ import annotations
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_world import ArenaWorld
 
 
 class MotionGenerator(ABC):
     """Generate commands toward goals using live Arena scene state."""
 
     @abstractmethod
-    def goal_reached(self, goal: np.ndarray, arena_world: ArenaWorld, env_id: int) -> bool:
+    def goal_reached(self, goal: np.ndarray, env, env_id: int) -> bool:
         """Check goal completion against the current measured state.
 
         Args:
             goal: Validated goal for one environment.
-            arena_world: Live Arena scene queries for feedback control.
+            env: Arena environment, optionally gym-wrapped.
             env_id: Environment index within the batched world state.
 
         Returns:
@@ -32,12 +28,12 @@ class MotionGenerator(ABC):
         """
 
     @abstractmethod
-    def compute_command(self, goal: np.ndarray, arena_world: ArenaWorld, env_id: int) -> np.ndarray:
+    def compute_command(self, goal: np.ndarray, env, env_id: int) -> np.ndarray:
         """Compute one command toward the goal using current measured state.
 
         Args:
             goal: Validated goal for one environment.
-            arena_world: Live Arena scene queries for feedback control.
+            env: Arena environment, optionally gym-wrapped.
             env_id: Environment index within the batched world state.
 
         Returns:

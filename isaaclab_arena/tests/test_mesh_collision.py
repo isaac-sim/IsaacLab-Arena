@@ -1114,6 +1114,7 @@ def test_anchor_initial_pose_yaw_affects_collision():
 def test_aabb_gate_does_not_reject_diagonal_cylinders():
     """Regression: MESH-mode validator accepts cylinders whose AABBs overlap but meshes don't."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
     from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _make_table()
@@ -1134,14 +1135,15 @@ def test_aabb_gate_does_not_reject_diagonal_cylinders():
 
     # Sanity: AABB check without skip_mesh_pairs REJECTS this layout
     env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
-    assert not validator._validate_no_overlap(
-        positions, env_bboxes, skip_mesh_pairs=False
-    ), "Sanity check failed: AABB should reject diagonal cylinders"
+    batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, env_bboxes)])
+    assert validator._validate_no_overlap(batch, [], skip_mesh_pairs=False) == [
+        False
+    ], "Sanity check failed: AABB should reject diagonal cylinders"
 
     # With skip_mesh_pairs=True (MESH mode), AABB validator skips this pair
-    assert validator._validate_no_overlap(
-        positions, env_bboxes, skip_mesh_pairs=True
-    ), "AABB validator with skip_mesh_pairs should accept this pair"
+    assert validator._validate_no_overlap(batch, [], skip_mesh_pairs=True) == [
+        True
+    ], "AABB validator with skip_mesh_pairs should accept this pair"
 
     # Mesh validator accepts (cylinders don't actually overlap)
     assert validator._validate_no_overlap_mesh(

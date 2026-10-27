@@ -240,7 +240,7 @@ def _collect_mesh_pairs(
             fallback = (
                 "using an AABB-sphere approximation for mesh-obstacle pairs"
                 if child_bbox_is_invariant
-                else "pair will use AABB fallback for varying per-env bboxes"
+                else "pair will use bounding-box fallback for varying per-env bboxes"
             )
             print(f"[NoCollision] '{child.name}' has no collision mesh; {fallback}.")
         child_spheres = _get_subject_spheres(child_mesh, child_bbox, child, manager, device)
@@ -260,7 +260,9 @@ def _collect_mesh_pairs(
             if obstacle_mesh is None:
                 if object_uses_mesh_collision(obstacle, default_collision_mode) and obstacle.name not in warned_no_mesh:
                     warned_no_mesh.add(obstacle.name)
-                    print(f"[NoCollision] '{obstacle.name}' has no collision mesh; pair will use AABB fallback.")
+                    print(
+                        f"[NoCollision] '{obstacle.name}' has no collision mesh; pair will use bounding-box fallback."
+                    )
                 continue
             pose = obstacle.get_initial_pose()
             assert pose is not None and isinstance(
@@ -309,7 +311,7 @@ def _collect_mesh_pairs(
                     fallback = (
                         "using an AABB-sphere approximation for mesh-obstacle pairs"
                         if other_bbox_is_invariant
-                        else "pair will use AABB fallback for varying per-env bboxes"
+                        else "pair will use bounding-box fallback for varying per-env bboxes"
                     )
                     print(f"[NoCollision] '{other.name}' has no collision mesh; {fallback}.")
                 continue

@@ -120,18 +120,12 @@ class BoundingBox(ABC):
         """
         from isaaclab.utils.math import matrix_from_quat
 
-        _assert_valid_margin(margin)
         # Here A and B are the local frames of this box and other.
         center_a_W, half_extents_a, q_W_A, center_b_W, half_extents_b, q_W_B = self._get_paired_geometry(other)
-        return _oriented_projected_overlap_volume(
-            center_a_W,
-            half_extents_a,
-            matrix_from_quat(q_W_A),
-            center_b_W,
-            half_extents_b,
-            matrix_from_quat(q_W_B),
-            margin,
+        overlap_bound = CachedOverlapVolumeUpperBound(
+            half_extents_a, matrix_from_quat(q_W_A), half_extents_b, matrix_from_quat(q_W_B)
         )
+        return overlap_bound.compute(center_a_W, center_b_W, margin)
 
     def _get_paired_geometry(self, other: "BoundingBox") -> tuple[torch.Tensor, ...]:
         """Return both boxes' finite geometry on a shared device, broadcast to shared rows.
@@ -693,6 +687,70 @@ class AxisAlignedBoundingBox(BoundingBox):
         return AxisAlignedBoundingBox(min_point=rotated.amin(dim=1), max_point=rotated.amax(dim=1))
 
 
+class CachedOverlapVolumeUpperBound:
+    """Overlap-volume upper bound for box pairs whose half-extents and rotations stay fixed while centers move.
+
+    For each box, the bound multiplies the interval overlaps along that box's 3 axes and keeps the smaller
+    of the two products. Projections that depend only on half-extents and rotations are cached at construction.
+    """
+
+    def __init__(
+        self,
+        half_extents_a: torch.Tensor,
+        R_W_A: torch.Tensor,
+        half_extents_b: torch.Tensor,
+        R_W_B: torch.Tensor,
+    ):
+        """Cache projections for boxes A and B, with broadcast leading dimensions.
+
+        Args:
+            half_extents_a: Box A local half-lengths, shape (..., 3).
+            R_W_A: Rotations mapping box A's local frame A into W, shape (..., 3, 3).
+            half_extents_b: Box B local half-lengths, shape (..., 3).
+            R_W_B: Rotations mapping box B's local frame B into W, shape (..., 3, 3).
+        """
+        self._half_extents_a = half_extents_a
+        self._half_extents_b = half_extents_b
+        self._R_A_W = R_W_A.transpose(-1, -2)
+        R_A_B = self._R_A_W @ R_W_B
+        self._R_B_A = R_A_B.transpose(-1, -2)
+        abs_R_A_B = R_A_B.abs()
+        # Projected radii of each box along the other box's face axes.
+        self._radius_b_A = (abs_R_A_B * half_extents_b.unsqueeze(-2)).sum(dim=-1)
+        self._radius_a_B = (abs_R_A_B * half_extents_a.unsqueeze(-1)).sum(dim=-2)
+
+    def compute(self, center_a_W: torch.Tensor, center_b_W: torch.Tensor, margin: float = 0.0) -> torch.Tensor:
+        """Return upper bounds in cubed length units with the broadcast leading shape, differentiable in the centers.
+
+        Args:
+            center_a_W: Box A centers in W, shape (..., 3).
+            center_b_W: Box B centers in W, shape (..., 3).
+            margin: Finite nonnegative length added to box B's projected radius on every face axis.
+        """
+        return torch.minimum(*self.compute_face_axis_volumes(center_a_W, center_b_W, margin))
+
+    def compute_face_axis_volumes(
+        self, center_a_W: torch.Tensor, center_b_W: torch.Tensor, margin: float = 0.0
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return the interval-overlap volumes along box A's and along box B's face axes.
+
+        Each volume is an upper bound on the overlap volume, in cubed length units with the broadcast leading shape.
+
+        Args:
+            center_a_W: Box A centers in W, shape (..., 3).
+            center_b_W: Box B centers in W, shape (..., 3).
+            margin: Finite nonnegative length added to box B's projected radius on every face axis.
+        """
+        _assert_valid_margin(margin)
+        # Offset from A's center to B's center, expressed in A and then in B.
+        offset_W = center_b_W - center_a_W
+        offset_A = (self._R_A_W @ offset_W.unsqueeze(-1)).squeeze(-1)
+        offset_B = (self._R_B_A @ offset_A.unsqueeze(-1)).squeeze(-1)
+        volume_A = _interval_overlap_volume(self._half_extents_a, self._radius_b_A, offset_A, margin)
+        volume_B = _interval_overlap_volume(self._radius_a_B, self._half_extents_b, offset_B, margin)
+        return volume_A, volume_B
+
+
 def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
     """Convert a quaternion to 90° rotation quarters around Z axis.
 
@@ -813,39 +871,3 @@ def _interval_overlap_volume(
     upper = torch.minimum(radius_a, offset + radius_b + margin)
     lower = torch.maximum(-radius_a, offset - radius_b - margin)
     return torch.relu(upper - lower).prod(dim=-1)
-
-
-def _oriented_projected_overlap_volume(
-    center_a_W: torch.Tensor,
-    half_extents_a: torch.Tensor,
-    R_W_A: torch.Tensor,
-    center_b_W: torch.Tensor,
-    half_extents_b: torch.Tensor,
-    R_W_B: torch.Tensor,
-    margin: float,
-) -> torch.Tensor:
-    """Return the smaller of the interval-overlap volumes along box A's and box B's face axes.
-
-    Args:
-        center_a_W: Box A centers in W, shape (N, 3).
-        half_extents_a: Box A local half-lengths, shape (N, 3).
-        R_W_A: Rotations mapping box A's local frame A into W, shape (N, 3, 3).
-        center_b_W: Box B centers in W, shape (N, 3).
-        half_extents_b: Box B local half-lengths, shape (N, 3).
-        R_W_B: Rotations mapping box B's local frame B into W, shape (N, 3, 3).
-        margin: Length added to box B's projected radius on every face axis.
-    """
-    R_A_W = R_W_A.transpose(-1, -2)
-    R_A_B = R_A_W @ R_W_B
-    R_B_A = R_A_B.transpose(-1, -2)
-    abs_R_A_B = R_A_B.abs()
-    # Projected radii of each box along the other box's face axes.
-    radius_b_A = (abs_R_A_B * half_extents_b.unsqueeze(-2)).sum(dim=-1)
-    radius_a_B = (abs_R_A_B * half_extents_a.unsqueeze(-1)).sum(dim=-2)
-    # Offset from A's center to B's center, expressed in A and then in B.
-    offset_W = center_b_W - center_a_W
-    offset_A = (R_A_W @ offset_W.unsqueeze(-1)).squeeze(-1)
-    offset_B = (R_B_A @ offset_A.unsqueeze(-1)).squeeze(-1)
-    volume_A = _interval_overlap_volume(half_extents_a, radius_b_A, offset_A, margin)
-    volume_B = _interval_overlap_volume(radius_a_B, half_extents_b, offset_B, margin)
-    return torch.minimum(volume_A, volume_B)

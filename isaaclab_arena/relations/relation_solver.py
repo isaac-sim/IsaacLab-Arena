@@ -9,8 +9,13 @@ import time
 import torch
 from typing import TYPE_CHECKING, cast
 
+from isaaclab_arena.relations.bounding_box_helpers import get_candidate_collision_bboxes
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
-from isaaclab_arena.relations.no_overlap_aabb import compute_no_overlap_loss_aabb
+from isaaclab_arena.relations.no_overlap_bbox import (
+    compute_no_overlap_loss_bbox,
+    get_on_linked_pairs,
+    prepare_no_overlap_pair_cache,
+)
 from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relation_loss_strategies import (
@@ -20,14 +25,15 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
+    from isaaclab_arena.relations.no_overlap_bbox import NoOverlapPairCache
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox
 
 
 class RelationSolver:
@@ -60,6 +66,8 @@ class RelationSolver:
         self._mesh_manager: WarpMeshAndSphereCache | None = None
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
+        self._no_overlap_pair_cache: NoOverlapPairCache | None = None
+        self._collision_cache_state: RelationSolverState | None = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.
@@ -149,9 +157,16 @@ class RelationSolver:
         - Non-anchor vs fixed obstacle (anchor or background): gradient flows to the non-anchor only.
         - Non-anchor vs non-anchor pairs with two mesh targets are checked in both directions.
         """
+        if self._collision_cache_state is not state:
+            # States built outside solve() get their pair routing on first use.
+            self._prepare_collision_caches(state)
+        loss, n = compute_no_overlap_loss_bbox(
+            state, self._no_overlap_pair_cache, self._no_collision_strategy, self.params.clearance_m, debug=debug
+        )
+        self._last_no_overlap_pair_count = n
         if self._mesh_collision_enabled:
             assert self._mesh_manager is not None, "MESH collision requires a mesh manager."
-            mesh_loss = compute_no_overlap_loss_mesh(
+            loss = loss + compute_no_overlap_loss_mesh(
                 state,
                 self._mesh_cache,
                 self._mesh_manager,
@@ -160,27 +175,49 @@ class RelationSolver:
                 self._no_collision_strategy.slope,
                 debug,
             )
-            aabb_loss, n = compute_no_overlap_loss_aabb(
-                state,
-                self._no_collision_strategy,
-                self.params.clearance_m,
-                self._mesh_manager,
-                self.params.collision_mode,
-                skip_mesh_pairs=True,
-                debug=debug,
-            )
-            self._last_no_overlap_pair_count = n
-            return mesh_loss + aabb_loss
-        loss, n = compute_no_overlap_loss_aabb(
-            state,
-            self._no_collision_strategy,
-            self.params.clearance_m,
-            self._mesh_manager,
-            self.params.collision_mode,
-            debug=debug,
-        )
-        self._last_no_overlap_pair_count = n
         return loss
+
+    def _prepare_collision_caches(
+        self,
+        state: RelationSolverState,
+        bboxes_include_yaw: bool = False,
+        orientations: list[dict[PlaceableAsset, float]] | None = None,
+    ) -> None:
+        """Prepare the mesh and box pair routing that no-overlap losses on state use.
+
+        Args:
+            state: Solver state whose losses are computed next.
+            bboxes_include_yaw: Whether the state's env_bboxes already enclose each object's yawed footprint.
+            orientations: Per-env yaw angles (radians about Z) per object, used to orient MESH sphere centers.
+        """
+        on_pairs = get_on_linked_pairs([*state.optimizable_objects, *state.anchor_objects])
+        self._mesh_collision_enabled = self._should_use_mesh_collision(state)
+        if self._mesh_collision_enabled:
+            self._mesh_orientations = orientations
+            device_str = str(state.device)
+            if self._mesh_manager is None or self._mesh_manager.device != device_str:
+                from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
+                self._mesh_manager = WarpMeshAndSphereCache(num_spheres=self.params.num_spheres, device=device_str)
+            self._mesh_cache = prepare_mesh_collision_cache(
+                state,
+                self._mesh_manager,
+                on_pairs,
+                self._warned_no_mesh,
+                default_collision_mode=self.params.collision_mode,
+                bboxes_include_yaw=bboxes_include_yaw,
+            )
+            self._mesh_manager.reset_sentinel_warning()
+        else:
+            self._mesh_orientations = None
+            self._mesh_cache = None
+        self._no_overlap_pair_cache = prepare_no_overlap_pair_cache(
+            state,
+            on_pairs,
+            self._mesh_manager if self._mesh_collision_enabled else None,
+            self.params.collision_mode,
+        )
+        self._collision_cache_state = state
 
     def solve_candidates(
         self,
@@ -196,6 +233,7 @@ class RelationSolver:
             env_bboxes_include_yaw=any(candidate.orientations for candidate in batch.candidates),
             orientations=[candidate.orientations for candidate in batch.candidates],
             collision_objects=collision_objects,
+            collision_bboxes=batch.stacked_collision_bboxes(),
         )
         assert self.last_loss_per_env is not None
         for candidate, position, loss in zip(
@@ -213,6 +251,7 @@ class RelationSolver:
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[PlaceableAsset, float]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
+        collision_bboxes: dict[PlaceableAsset, BoundingBox] | None = None,
     ) -> list[dict[PlaceableAsset, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -225,22 +264,36 @@ class RelationSolver:
                 ObjectPlacer always supplies these, with each
                 AxisAlignedBoundingBox shaped (batch, 3). Direct solver calls
                 may omit them to use each object's default get_bounding_box().
-            env_bboxes_include_yaw: Whether env_bboxes already enclose each object's
-                yawed footprint. ObjectPlacer sets this after applying candidate yaw;
-                direct callers should leave it False unless they expanded the bboxes.
+            env_bboxes_include_yaw: Whether supplied env_bboxes already enclose each object's
+                yawed footprint and serve as its collision bounds unchanged; otherwise they are rotated
+                by orientations. Direct callers should leave this False unless they expanded the supplied bboxes.
             orientations: Optional per-env yaw angles (radians about Z) per object.
-                Used in MESH mode to rotate sphere centers before collision queries.
+                Used to orient collision boxes and MESH sphere centers.
             collision_objects: Optional fixed background obstacles included in the
                 no-overlap collision term only. They are not optimized and carry no
                 relation constraints.
+            collision_bboxes: Optional collision bounds for box-only pairs, oriented or axis-aligned, relative to
+                movable object origins.
+                Supplied entries take precedence. Omitted entries use env_bboxes or default object
+                bounds, applying orientations only when those bounds do not already enclose rotations.
+                Bounds and orientations are fixed during solving. Mixed MESH fallbacks use env_bboxes;
+                supply enclosing bounds for those pairs.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        collision_bboxes_with_defaults = _get_collision_bboxes_with_defaults(
+            objects, len(initial_positions), env_bboxes, env_bboxes_include_yaw, orientations, collision_bboxes
+        )
         state = RelationSolverState(
-            objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
+            objects,
+            initial_positions,
+            device=device,
+            env_bboxes=env_bboxes,
+            collision_objects=collision_objects,
+            collision_bboxes=collision_bboxes_with_defaults,
         )
 
         if self.params.verbose:
@@ -265,35 +318,8 @@ class RelationSolver:
             torch.cuda.synchronize()
         solve_start = time.perf_counter()
 
-        # Precompute mesh collision cache (once per solve, before opt loop)
-        self._mesh_collision_enabled = self._should_use_mesh_collision(state)
-        if self._mesh_collision_enabled:
-            non_anchor_objects = state.optimizable_objects
-            anchor_objects = list(state.anchor_objects)
-            on_pairs: set[tuple[int, int]] = set()
-            for obj in [*non_anchor_objects, *anchor_objects]:
-                for rel in obj.get_relations():
-                    if isinstance(rel, On):
-                        on_pairs.add((id(obj), id(rel.parent)))
-                        on_pairs.add((id(rel.parent), id(obj)))
-            self._mesh_orientations = orientations
-            device_str = str(state.device)
-            if self._mesh_manager is None or self._mesh_manager.device != device_str:
-                from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-
-                self._mesh_manager = WarpMeshAndSphereCache(num_spheres=self.params.num_spheres, device=device_str)
-            self._mesh_cache = prepare_mesh_collision_cache(
-                state,
-                self._mesh_manager,
-                on_pairs,
-                self._warned_no_mesh,
-                default_collision_mode=self.params.collision_mode,
-                bboxes_include_yaw=env_bboxes_include_yaw,
-            )
-            self._mesh_manager.reset_sentinel_warning()
-        else:
-            self._mesh_orientations = None
-            self._mesh_cache = None
+        # Precompute collision pair routing (once per solve, before opt loop)
+        self._prepare_collision_caches(state, env_bboxes_include_yaw, orientations)
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
@@ -356,6 +382,9 @@ class RelationSolver:
 
         self._last_loss_history = loss_history
         self._last_position_history = position_history
+        # Free the per-solve pair cache together with the state.
+        self._no_overlap_pair_cache = None
+        self._collision_cache_state = None
 
         return state.get_final_positions()
 
@@ -406,6 +435,37 @@ class RelationSolver:
         state = RelationSolverState(objects, [final_positions])
         self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
+
+
+def _get_collision_bboxes_with_defaults(
+    objects: list[PlaceableAsset],
+    num_candidates: int,
+    env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None,
+    env_bboxes_include_yaw: bool,
+    orientations: list[dict[PlaceableAsset, float]] | None,
+    collision_bboxes: dict[PlaceableAsset, BoundingBox] | None,
+) -> dict[PlaceableAsset, BoundingBox]:
+    """Return collision_bboxes extended with oriented env_bboxes or object bounds for omitted movable objects."""
+    collision_bboxes_with_defaults = dict(collision_bboxes or {})
+    base_bounds = {}
+    for obj in objects:
+        # Anchors use their fixed world bounds, so they need no candidate collision bounds.
+        if obj.is_anchor or obj in collision_bboxes_with_defaults:
+            continue
+        if env_bboxes is not None and obj in env_bboxes:
+            if env_bboxes_include_yaw:
+                collision_bboxes_with_defaults[obj] = env_bboxes[obj]
+            else:
+                base_bounds[obj] = env_bboxes[obj]
+        else:
+            base_bounds[obj] = obj.get_bounding_box()
+    if base_bounds:
+        collision_bboxes_with_defaults.update(
+            get_candidate_collision_bboxes(
+                list(base_bounds), base_bounds, orientations or [{} for _ in range(num_candidates)]
+            )
+        )
+    return collision_bboxes_with_defaults
 
 
 def _print_relation_debug(

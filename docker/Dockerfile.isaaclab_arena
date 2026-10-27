@@ -48,10 +48,12 @@ COPY submodules/IsaacLab/pyproject.toml \
     ${ISAACLAB_PATH}/
 COPY --parents submodules/IsaacLab/source/*/pyproject.toml ${WORKDIR}/
 RUN --mount=type=bind,source=docker/setup/install_isaaclab.sh,target=/tmp/install_isaaclab.sh \
+    --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
     --mount=type=cache,target=/root/.cache/uv \
     bash /tmp/install_isaaclab.sh dependencies
 COPY submodules/IsaacLab ${ISAACLAB_PATH}
 RUN --mount=type=bind,source=docker/setup/install_isaaclab.sh,target=/tmp/install_isaaclab.sh \
+    --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
     --mount=type=cache,target=/root/.cache/uv \
     bash /tmp/install_isaaclab.sh workspace
 
@@ -63,8 +65,10 @@ COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
 RUN --mount=type=bind,source=pyproject.toml,target=/tmp/arena-project/pyproject.toml \
     --mount=type=bind,source=uv.lock,target=/tmp/arena-project/uv.lock \
     --mount=type=bind,source=docker/setup/install_arena_deps.sh,target=/tmp/install_arena_deps.sh \
+    --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
     bash /tmp/install_arena_deps.sh
 RUN --mount=type=bind,source=docker/setup/install_gr00t_policy_client.sh,target=/tmp/install_gr00t_policy_client.sh \
+    --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
     bash /tmp/install_gr00t_policy_client.sh
 COPY --from=nvcr.io/nvidia/osmo/client:6.3.1 /osmo/osmo_cli_onedir/osmo /usr/local/osmo
 RUN ln -sf /usr/local/osmo/osmo /usr/local/bin/osmo
@@ -89,8 +93,9 @@ COPY --parents \
     isaaclab_arena_environments \
     isaaclab_arena_examples \
     ${WORKDIR}/
-RUN uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}" && \
-    chmod -R a+rwX "${VIRTUAL_ENV}"
+RUN --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
+    uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}" && \
+    bash /tmp/repair_venv_permissions.sh
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 RUN --mount=type=bind,source=docker/setup/configure_shell.sh,target=/tmp/configure_shell.sh \
     bash /tmp/configure_shell.sh
@@ -118,8 +123,10 @@ FROM dev AS dev-curobo
 # Retain build provenance for manual inspection in /usr/local/share/arena/curobo-build.json.
 RUN --mount=type=bind,from=curobo-builder,source=/wheels,target=/wheels \
     --mount=type=bind,source=docker/setup/install_curobo_runtime_deps.sh,target=/tmp/install_curobo_runtime_deps.sh \
+    --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
     bash /tmp/install_curobo_runtime_deps.sh && \
     uv pip install --no-deps /wheels/*.whl && \
+    bash /tmp/repair_venv_permissions.sh && \
     mkdir -p /usr/local/share/arena && cp /wheels/build.json /usr/local/share/arena/curobo-build.json
 
 # Default to dev (without cuRobo).

@@ -22,7 +22,7 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+from isaaclab_arena.agentic_environment_generation.simready_search_interface import (
     SimReadySearchConfig,
     SimReadySourceKind,
     simready_search_config_from_cli,
@@ -63,12 +63,13 @@ def get_catalogue_bundle() -> CatalogueBundle:
 
 def _simready_config_from_session() -> SimReadySearchConfig:
     """Read the SimReady search settings from Streamlit session state."""
-    return simready_search_config_from_cli(
-        source=st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value),
+    config = simready_search_config_from_cli(
+        sources=st.session_state.get("simready_sources", [SimReadySourceKind.ISAAC_SIM_GA.value]),
         s3_url=st.session_state.get("simready_s3_url") or None,
         service_url=st.session_state.get("simready_service_url") or None,
         max_results_per_object=int(st.session_state.get("simready_max_results_per_object", 1)),
     )
+    return config
 
 
 def available_inference_endpoints() -> list[str]:
@@ -111,7 +112,7 @@ def _generation_agent_cache_key(
         "generation_agent",
         endpoint_name,
         simready_enabled,
-        simready_config.source.value,
+        tuple(source.value for source in simready_config.sources),
         simready_config.s3_url,
         simready_config.service_url,
         simready_config.max_results_per_object,
@@ -318,13 +319,14 @@ def render_generation_panel() -> None:
         st.session_state["enable_simready_search"] = st.checkbox(
             "Enable SimReady search",
             value=bool(st.session_state.get("enable_simready_search", False)),
-            help="Search Isaac Sim GA SimReady props for objects the Arena asset catalog does not cover.",
+            help="Search SimReady for objects the Arena asset catalog does not cover.",
         )
         source_options = [kind.value for kind in SimReadySourceKind]
-        st.session_state["simready_source"] = st.selectbox(
-            "SimReady source",
+        st.session_state["simready_sources"] = st.multiselect(
+            "SimReady sources",
             options=source_options,
-            index=source_options.index(st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value)),
+            help="Search each selected backend; the result limit applies to each backend.",
+            default=st.session_state.get("simready_sources", [SimReadySourceKind.ISAAC_SIM_GA.value]),
         )
         st.session_state["simready_max_results_per_object"] = st.number_input(
             "Max results per object",
@@ -332,25 +334,29 @@ def render_generation_panel() -> None:
             max_value=10,
             value=int(st.session_state.get("simready_max_results_per_object", 1)),
         )
-        # Each source reads exactly one location, so only that one is offered. Showing both
-        # invites filling in a field the search then ignores.
-        source = st.session_state["simready_source"]
-        if source == SimReadySourceKind.S3.value:
+        sources = st.session_state["simready_sources"]
+        if SimReadySourceKind.S3.value in sources:
             st.session_state["simready_s3_url"] = st.text_input(
                 "S3 URL",
                 value=st.session_state.get("simready_s3_url", ""),
                 placeholder="Leave empty for the Isaac Sim 6.0 GA SimReady bucket",
             )
-        elif source == SimReadySourceKind.SERVICE.value:
+        if SimReadySourceKind.CENTRAL.value in sources:
+            st.caption(
+                "Searches Hugging Face SimReady Central; accepts only single rigid bodies without articulations."
+            )
+        if SimReadySourceKind.SERVICE.value in sources:
             st.session_state["simready_service_url"] = st.text_input(
                 "Service URL",
                 value=st.session_state.get("simready_service_url", ""),
                 placeholder=DEFAULT_SIMREADY_SERVICE_URL,
             )
-        else:
+        if SimReadySourceKind.ISAAC_SIM_GA.value in sources:
             st.caption("Searches the Isaac Sim 6.0 GA SimReady library — no further configuration needed.")
 
-    generate_disabled = not available
+    generate_disabled = not available or (
+        st.session_state.get("enable_simready_search", False) and not st.session_state.get("simready_sources")
+    )
     if st.button("Generate spec", type="primary", width="stretch", disabled=generate_disabled):
         with st.spinner("Generating spec (LLM call)…"):
             ok, message = run_generation_pipeline(st.session_state["generation_prompt"])

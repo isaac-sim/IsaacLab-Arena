@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Sequence
 from typing import Any
@@ -57,6 +58,13 @@ class SimReadyUsdObject(Object):
         """
         assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
         assert usd_path, "simready_usd_object requires params.usd_path"
+        from isaaclab_arena.assets.simready_central_asset_loader import (
+            download_and_wrap_central_asset,
+            is_central_asset_url,
+        )
+
+        if is_central_asset_url(usd_path):
+            usd_path = download_and_wrap_central_asset(usd_path)
         spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
         spawn_cfg_addon.setdefault("variants", dict(SIMREADY_PHYSICS_VARIANTS))
         super().__init__(
@@ -72,11 +80,12 @@ class SimReadyUsdObject(Object):
         )
 
 
-def simready_search_registry_name(search_phrase: str) -> str:
-    """Return the catalogue name used to register the SimReady asset found for a search phrase."""
+def simready_search_registry_name(search_phrase: str, usd_path: str) -> str:
+    """Return a stable catalogue name for a phrase and asset path."""
     slug = _NON_IDENTIFIER_CHARACTERS.sub("_", search_phrase.strip().lower()).strip("_")
     assert slug, f"search phrase {search_phrase!r} has no characters usable in a registry name"
-    return f"{SIMREADY_SEARCH_REGISTRY_PREFIX}{slug}"
+    digest = hashlib.sha256(usd_path.encode()).hexdigest()[:16]
+    return f"{SIMREADY_SEARCH_REGISTRY_PREFIX}{slug}_{digest}"
 
 
 def register_searched_simready_object(
@@ -87,14 +96,14 @@ def register_searched_simready_object(
     """Register a searched SimReady asset so it can be picked like any other catalogue object.
 
     Args:
-        search_phrase: Phrase the asset was found for; it determines the catalogue name.
+        search_phrase: Phrase the asset was found for; used with its path to name the catalogue entry.
         usd_path: USD path or URL of the found asset.
         tags: Extra catalogue tags to expose alongside the SimReady ones.
 
     Returns:
         The registered asset class.
     """
-    searched_registry_name = simready_search_registry_name(search_phrase)
+    searched_registry_name = simready_search_registry_name(search_phrase, usd_path)
     registry = AssetRegistry()
     if registry.is_registered(searched_registry_name, ensure_loaded=False):
         return registry.get_asset_by_name(searched_registry_name)

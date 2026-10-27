@@ -50,7 +50,7 @@ class AssemblyTask(TaskBase):
         min_separation: float = 0.10,
         randomization_mode: Literal["held_and_fixed_only", "held_fixed_and_auxiliary"] = "held_and_fixed_only",
     ):
-        super().__init__(episode_length_s=episode_length_s)
+        super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         self.fixed_asset = fixed_asset
         self.held_asset = held_asset
         self.auxiliary_asset_list = auxiliary_asset_list
@@ -69,11 +69,17 @@ class AssemblyTask(TaskBase):
             auxiliary_asset_cfgs=[SceneEntityCfg(asset.name) for asset in self.auxiliary_asset_list],
             randomization_mode=randomization_mode,
         )
-        self.task_description = (
-            f"Assemble the {self.held_asset.name} with the {self.fixed_asset.name}"
-            if task_description is None
-            else task_description
-        )
+
+    def get_task_description(self) -> str:
+        """Return the task description passed to the task, or one that names the spawned assets.
+
+        Each asset is named by its registry_name, or by its name when it has none.
+        """
+        if self.task_description is not None:
+            return self.task_description
+        held_asset_label = self.held_asset.registry_name or self.held_asset.name
+        fixed_asset_label = self.fixed_asset.registry_name or self.fixed_asset.name
+        return f"Assemble the {held_asset_label} with the {fixed_asset_label}"
 
     def disable_default_pose_resets(self):
         for asset in [self.fixed_asset, self.held_asset, *self.auxiliary_asset_list]:

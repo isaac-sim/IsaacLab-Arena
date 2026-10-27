@@ -228,7 +228,7 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
 
     expected_variation_keys = {
         "light.hdr_image",
-        "rubiks_cube_hot3d_robolab.disappear",
+        "pick_up_object.disappear",
         "droid_rel_joint_pos.camera_extrinsics_wrist_camera",
     }
     for rebuild_index, record_results_path in enumerate(record_results_paths):

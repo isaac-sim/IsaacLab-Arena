@@ -308,11 +308,13 @@ class JointMotionGenerator(MotionGenerator):
         self.joint_names = tuple(f"joint_{i}" for i in range(action_dim))
         self.max_step = max_step
 
-    def goal_reached(self, goal, arena_world, env_id):
+    def goal_reached(self, goal, env, env_id):
+        arena_world = env.unwrapped.arena_world
         positions = arena_world.get_joint_positions("robot", self.joint_names)[env_id].cpu().numpy()
         return np.allclose(goal, positions)
 
-    def compute_command(self, goal, arena_world, env_id):
+    def compute_command(self, goal, env, env_id):
+        arena_world = env.unwrapped.arena_world
         positions = arena_world.get_joint_positions("robot", self.joint_names)[env_id].cpu().numpy()
         return np.clip(goal - positions, -self.max_step, self.max_step)
 

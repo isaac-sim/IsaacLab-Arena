@@ -10,3 +10,4 @@ uv pip install --no-deps \
 # Its metadata requires Python 3.10; Arena's client runs on the Lab venv's Python 3.12.
 "${VIRTUAL_ENV}/bin/python" -m pip install \
     --no-deps --ignore-requires-python --editable "${WORKDIR}/submodules/Isaac-GR00T/"
+bash /tmp/repair_venv_permissions.sh

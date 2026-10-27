@@ -18,7 +18,7 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+from isaaclab_arena.agentic_environment_generation.simready_search_interface import (
     SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
 )
@@ -219,6 +219,8 @@ class TestGenerateSpec:
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_generate_spec_catalogues_what_the_search_finds_before_inferring_the_spec(self, mock_search, agent):
+        from isaaclab_arena.assets.simready_object_library import simready_search_registry_name
+
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(
             candidates=[
@@ -240,12 +242,16 @@ class TestGenerateSpec:
         # The found asset reaches spec inference as an ordinary OBJECTS entry, so the model picks
         # it by name and the spec needs no usd_path of its own.
         spec_user_msg = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
-        assert "simready_green_trash_can" in spec_user_msg
+        assert simready_search_registry_name("green trash can", "s3://bucket/trash_can.usd") in spec_user_msg
         assert "s3://bucket/trash_can.usd" not in spec_user_msg
-        assert AssetRegistry().is_registered("simready_green_trash_can")
+        assert AssetRegistry().is_registered(
+            simready_search_registry_name("green trash can", "s3://bucket/trash_can.usd")
+        )
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_a_searched_simready_object_reaches_the_spec_with_its_usd_path(self, mock_search, agent):
+        from isaaclab_arena.assets.simready_object_library import simready_search_registry_name
+
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(
             candidates=[
@@ -259,7 +265,7 @@ class TestGenerateSpec:
         spec_dict = minimal_spec_dict()
         spec_dict["objects"].append({
             "id": "trash_can",
-            "registry_name": "simready_green_trash_can",
+            "registry_name": simready_search_registry_name("green trash can", "s3://bucket/trash_can.usd"),
             "params": {},
         })
         client.chat.completions.create.side_effect = [
@@ -277,13 +283,55 @@ class TestGenerateSpec:
         assert all("tags" not in asset["params"] for asset in spec.to_dict()["objects"])
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_multiple_candidates_export_distinct_portable_paths(self, mock_search, agent):
+        from isaaclab_arena.assets.simready_object_library import simready_search_registry_name
+
+        agent_obj, client = agent
+        central_url = (
+            "https://huggingface.co/datasets/nvidia/simready-assets/resolve/" + "a" * 40 + "/can/simready_usd/can.usd"
+        )
+        paths = ["s3://bucket/can.usd", central_url]
+        mock_search.return_value = SimReadyCandidateCatalogue(
+            candidates=[
+                SimReadyObjectCandidate(search_phrase="can", usd_path=paths[0], tags=("ga-can",)),
+                SimReadyObjectCandidate(
+                    search_phrase="can",
+                    usd_path=central_url,
+                    tags=("central-can",),
+                ),
+            ]
+        )
+        spec_dict = minimal_spec_dict()
+        for index, path in enumerate(paths):
+            spec_dict["objects"].append(
+                {"id": f"can_{index}", "registry_name": simready_search_registry_name("can", path), "params": {}}
+            )
+        client.chat.completions.create.side_effect = [
+            self._missing_objects_response("can"),
+            chat_response(content=json.dumps(spec_dict)),
+        ]
+        spec, _ = self._generate_with_simready(agent_obj)
+        assert isinstance(spec, ArenaEnvGraphSpec)
+        exported = spec.to_dict()
+        selected = [obj for obj in exported["objects"] if obj["id"].startswith("can_")]
+        assert [obj["params"]["usd_path"] for obj in selected] == paths
+        assert all(obj["registry_name"] == SIMREADY_USD_OBJECT_REGISTRY_NAME for obj in selected)
+        for path, tag in zip(paths, ["ga-can", "central-can"], strict=True):
+            cls = AssetRegistry().get_asset_by_name(simready_search_registry_name("can", path))
+            assert tag in cls.tags
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_a_searched_simready_object_in_an_object_set_is_rejected(self, mock_search, agent):
+        from isaaclab_arena.assets.simready_object_library import simready_search_registry_name
+
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(
             candidates=[SimReadyObjectCandidate(search_phrase="green trash can", usd_path="s3://bucket/trash_can.usd")]
         )
         spec_dict = minimal_spec_dict()
-        spec_dict["object_sets"] = [{"id": "bins", "members": ["simready_green_trash_can"]}]
+        spec_dict["object_sets"] = [
+            {"id": "bins", "members": [simready_search_registry_name("green trash can", "s3://bucket/trash_can.usd")]}
+        ]
         client.chat.completions.create.side_effect = [
             self._missing_objects_response("green trash can"),
             chat_response(content=json.dumps(spec_dict)),

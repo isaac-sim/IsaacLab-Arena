@@ -72,7 +72,7 @@ class _ArenaEnvBuilder:
 
 def _builder(monkeypatch, recorders):
     builder = _ArenaEnvBuilder(recorders)
-    monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", lambda cfg: builder)
+    monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", lambda cfg, rebuild_index: builder)
     return builder
 
 
@@ -377,8 +377,9 @@ def test_build_environment_exports_recorder_dataset_to_the_run_directory(monkeyp
     captured = {}
     run = _run(name="pick", environment_builder=ArenaEnvBuilderCfg(record_trajectories=record_trajectories))
 
-    def capture_builder(cfg):
+    def capture_builder(cfg, rebuild_index):
         captured["environment_builder"] = cfg.environment_builder
+        captured["rebuild_index"] = rebuild_index
         return builder
 
     monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", capture_builder)
@@ -393,6 +394,7 @@ def test_build_environment_exports_recorder_dataset_to_the_run_directory(monkeyp
     assert captured["environment_builder"].record_trajectories is record_trajectories
     assert captured["environment_builder"].recorder_dataset_export_dir_path == str(tmp_path)
     assert captured["environment_builder"].recorder_dataset_filename == "dataset_pick_rebuild2"
+    assert captured["rebuild_index"] == 2
     assert run.environment_builder.recorder_dataset_export_dir_path is None
     assert run.environment_builder.recorder_dataset_filename is None
     assert builder.made_with.render_mode == "rgb_array"

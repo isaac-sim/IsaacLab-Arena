@@ -53,6 +53,7 @@ dev = [
     # its own: it adds one wheel, since Isaac Sim already brings everything it depends on, and an
     # extra only bought a way to install the review GUI with its asset search missing.
     "simready-search>=2026.4.2",
+    "huggingface-hub>=0.36",
 ]
 
 # PEP 735 dependency groups for the native uv install. Docker selects only its
