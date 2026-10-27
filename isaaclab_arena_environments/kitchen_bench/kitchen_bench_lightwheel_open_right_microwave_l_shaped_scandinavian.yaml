@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_round2_scandinavian_open_right_microwave
+env_name: kitchen_bench_lightwheel_open_right_microwave_l_shaped_scandinavian
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
