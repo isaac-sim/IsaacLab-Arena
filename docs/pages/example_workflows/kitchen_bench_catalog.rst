@@ -4,6 +4,32 @@ Kitchen Benchmark Catalog
 The kitchen benchmark contains 42 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
+
+.. list-table:: Task categories
+   :header-rows: 1
+   :widths: 80 20
+
+   * - Task category
+     - Number of tasks
+   * - Open door
+     - 9
+   * - Press button
+     - 2
+   * - Turn knob
+     - 3
+   * - Single-object pick-and-place (container)
+     - 18
+   * - Multi-level pick-and-place
+     - 3
+   * - Multi-object pick-and-place
+     - 3
+   * - Spatial placement
+     - 2
+   * - Stacking
+     - 2
+   * - **Total**
+     - **42**
+
 Each row links to the source YAML and shows a Pi policy execution recorded from
 the maintained DROID external camera. Rows are grouped by task category.
 

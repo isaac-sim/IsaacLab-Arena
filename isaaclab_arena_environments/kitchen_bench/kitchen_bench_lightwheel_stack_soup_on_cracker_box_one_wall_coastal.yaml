@@ -99,6 +99,3 @@ task:
       destination_location: cracker_box
       destination_object: cracker_box
       background_scene: kitchen
-placer_params:
-  # Fail placement if no layout passes validation instead of using a rejected layout.
-  allow_best_loss_fallbacks: false

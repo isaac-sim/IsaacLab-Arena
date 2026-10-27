@@ -59,6 +59,3 @@ task:
     params:
       turnable_object: toaster_timer
       target_level: 2
-placer_params:
-  # Fail placement if no layout passes validation instead of using a rejected layout.
-  allow_best_loss_fallbacks: false
