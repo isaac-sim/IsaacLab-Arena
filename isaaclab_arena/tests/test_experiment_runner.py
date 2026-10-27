@@ -13,10 +13,14 @@ from types import SimpleNamespace
 
 import pytest
 
+from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
+    ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME,
+)
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
@@ -224,6 +228,11 @@ runs:
     assert run_result["status"] == "completed"
     assert isinstance(run_result["end_timestamp_ns"], int)
     assert set(run_result) == {"environment", "policy_variant", "status", "end_timestamp_ns", "rebuilds"}
+    experiment_kpis = json.loads(
+        (tmp_path / "output" / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
+    )
+    assert_influxdb_kpi_records_are_valid(experiment_kpis)
+    assert {record["timestamp_ns"] for record in experiment_kpis} == {run_result["end_timestamp_ns"]}
 
 
 @pytest.mark.with_subprocess
