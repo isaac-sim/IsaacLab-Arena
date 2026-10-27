@@ -1,0 +1,151 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Agentic Env Gen Benchmark
+
+on:
+  schedule:
+    # Weekly on Sunday at 06:00 UTC.
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+  OMNI_PASS: ${{ secrets.OMNI_PASS }}
+  OMNI_USER: ${{ secrets.OMNI_USER }}
+  # Disable omniclient hub mode to avoid ~10s startup time for sim startup.
+  OMNICLIENT_HUB_MODE: disabled
+
+
+jobs:
+
+  agentic_env_gen_benchmark:
+    name: Agentic env gen benchmark
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 180
+    env:
+      ARENA_INFERENCE_ENDPOINT: public
+      NVIDIA_API_KEY: ${{ secrets.ARENA_PUBLIC_NVIDIA_API_KEY }}
+      BENCHMARK_OUTPUT_DIR: outputs/agentic_env_gen_benchmark
+      # A reduced matrix that fits a CI job; docs/pages/references/performance.rst gives the
+      # reporting configuration.
+      TIME_TO_FIRST_SPEC_NUM_RUNS: "3"
+      TIME_TO_RESOLVED_LAYOUT_NUM_RUNS: "3"
+
+    # The Arena image that main's CI tested and published after the latest merge.
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    steps:
+      - name: Require the public inference API key
+        run: |
+          if [ -z "${NVIDIA_API_KEY}" ]; then
+            echo "::error::ARENA_PUBLIC_NVIDIA_API_KEY must be configured for the benchmark."
+            exit 1
+          fi
+
+      - name: nvidia-smi
+        run: nvidia-smi
+
+      - name: lscpu
+        run: lscpu
+
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates make
+          git --version
+          git lfs version
+
+      # Clean up residual stuff due to symlinks in the submodules directory.
+      - name: Clean up symlinks in submodules directory
+        run: |
+          rm -f .git/modules/submodules/IsaacLab/index.lock || true
+          rm -rf submodules/* || true
+
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Git LFS
+        run: |
+          git lfs update --force
+          git lfs install --local
+          git lfs pull
+
+      - name: Install project and link isaac-sim
+        run: |
+          uv pip install --no-deps --no-build-isolation --editable .
+          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+
+      - name: Setup Isaac Sim kit cache (shader warmup on miss)
+        uses: ./.github/actions/setup-isaac-sim-kit-cache
+
+      - name: Run benchmark unit tests
+        run: |
+          isaaclab.sh -p -m pytest -sv --durations=0 \
+            isaaclab_arena_examples/tests/test_benchmark_time_to_first_spec.py \
+            isaaclab_arena_examples/tests/test_benchmark_time_to_resolved_layout.py
+
+      - name: Benchmark time to first environment spec
+        timeout-minutes: 60
+        shell: bash
+        run: |
+          set -o pipefail
+          isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/benchmark/run_time_to_first_spec_benchmarks.py \
+            --num_runs "${TIME_TO_FIRST_SPEC_NUM_RUNS}" \
+            --output_dir "${BENCHMARK_OUTPUT_DIR}/time_to_first_spec" \
+            | tee time_to_first_spec.log
+
+      - name: Benchmark time to resolved layout
+        if: ${{ !cancelled() }}
+        timeout-minutes: 90
+        shell: bash
+        run: |
+          set -o pipefail
+          isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/benchmark/run_time_to_resolved_layout_benchmarks.py \
+            --num_runs "${TIME_TO_RESOLVED_LAYOUT_NUM_RUNS}" \
+            --num_envs 1 \
+            --num_envs 16 \
+            --output_dir "${BENCHMARK_OUTPUT_DIR}/time_to_resolved_layout" \
+            | tee time_to_resolved_layout.log
+
+      - name: Write benchmark summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          for log in time_to_first_spec.log time_to_resolved_layout.log; do
+            [ -f "${log}" ] || continue
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            # Each batch runner ends with its summary table and the combined results path.
+            sed -n '/^Combined time-to-first-spec results$/,$p; /^Valid spec to resolved layout pool$/,$p' "${log}" \
+              >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          done
+
+      - name: Upload benchmark results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agentic-env-gen-benchmark-${{ github.run_attempt }}
+          path: |
+            ${{ env.BENCHMARK_OUTPUT_DIR }}
+            time_to_first_spec.log
+            time_to_resolved_layout.log
+          if-no-files-found: warn
