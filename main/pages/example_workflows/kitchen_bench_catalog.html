@@ -588,175 +588,327 @@
                   
   <section id="kitchen-benchmark-catalog">
 <h1>Kitchen Benchmark Catalog<a class="headerlink" href="#kitchen-benchmark-catalog" title="Link to this heading">#</a></h1>
-<p>The kitchen benchmark contains 31 DROID tasks defined as environment graph
+<p>The kitchen benchmark contains 42 DROID tasks defined as environment graph
 YAML specs under <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/kitchen_bench/</span></code>. Pass a spec
-to <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> with <code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> to run that environment.
-Each row links to the source YAML and shows a Pi policy execution recorded from
-the maintained DROID external camera.</p>
-<div class="pst-scrollable-table-container"><table class="kitchen-bench-catalog table">
+to <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> with <code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> to run that environment.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id1">
+<caption><span class="caption-text">Task categories</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
 <colgroup>
-<col style="width: 45.0%" />
-<col style="width: 55.0%" />
+<col style="width: 80.0%" />
+<col style="width: 20.0%" />
 </colgroup>
 <thead>
-<tr class="row-odd"><th class="head"><p>Environment graph YAML</p></th>
+<tr class="row-odd"><th class="head"><p>Task category</p></th>
+<th class="head"><p>Number of tasks</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Open door</p></td>
+<td><p>9</p></td>
+</tr>
+<tr class="row-odd"><td><p>Press button</p></td>
+<td><p>2</p></td>
+</tr>
+<tr class="row-even"><td><p>Turn knob</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p>18</p></td>
+</tr>
+<tr class="row-even"><td><p>Multi-level pick-and-place</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-odd"><td><p>Multi-object pick-and-place</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-even"><td><p>Spatial placement</p></td>
+<td><p>2</p></td>
+</tr>
+<tr class="row-odd"><td><p>Stacking</p></td>
+<td><p>2</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Total</strong></p></td>
+<td><p><strong>42</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Each row links to the source YAML and shows a Pi policy execution recorded from
+the maintained DROID external camera. Rows are grouped by task category.</p>
+<div class="pst-scrollable-table-container"><table class="kitchen-bench-catalog table">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 35.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Task category</p></th>
+<th class="head"><p>Environment graph YAML</p></th>
 <th class="head"><p>Pi policy execution</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.yaml</a></p></td>
+<tr class="row-even"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.gif"><img alt="Pi policy opening a cabinet in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_freezer_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_open_freezer_g_shaped_large_scandinavian.yaml</a></p></td>
+<tr class="row-odd"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_freezer_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_open_freezer_g_shaped_large_scandinavian.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_freezer_g_shaped_large_scandinavian.gif"><img alt="Pi policy opening the freezer in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_open_freezer_g_shaped_large_scandinavian.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml">kitchen_bench_lightwheel_open_fridge.yaml</a></p></td>
+<tr class="row-even"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml">kitchen_bench_lightwheel_open_fridge.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_fridge_pi.gif"><img alt="Pi policy opening the refrigerator in the Lightwheel kitchen" src="../../_images/kitchen_bench_lightwheel_open_fridge_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian.yaml</a></p></td>
+<tr class="row-odd"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian.gif"><img alt="Pi policy opening the refrigerator in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2.yaml</a></p></td>
+<tr class="row-even"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2.gif"><img alt="Pi policy opening the refrigerator in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_microwave.yaml">kitchen_bench_lightwheel_open_microwave.yaml</a></p></td>
+<tr class="row-odd"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_microwave.yaml">kitchen_bench_lightwheel_open_microwave.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_microwave_pi.gif"><img alt="Pi policy opening the microwave in the Lightwheel kitchen" src="../../_images/kitchen_bench_lightwheel_open_microwave_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_microwave_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_open_microwave_g_shaped_large_scandinavian.yaml</a></p></td>
+<tr class="row-even"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_microwave_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_open_microwave_g_shaped_large_scandinavian.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_microwave_g_shaped_large_scandinavian.gif"><img alt="Pi policy opening the microwave in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_open_microwave_g_shaped_large_scandinavian.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian.yaml</a></p></td>
+<tr class="row-odd"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian.gif"><img alt="Pi policy opening the oven in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml">kitchen_bench_lightwheel_pick_and_place.yaml</a></p></td>
-<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_pick_and_place_pi.gif"><img alt="Pi policy placing mustard in a bowl in the Lightwheel kitchen" src="../../_images/kitchen_bench_lightwheel_pick_and_place_pi.gif" style="width: 100%;" />
+<tr class="row-even"><td><p>Open door</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_right_microwave_l_shaped_scandinavian.yaml">kitchen_bench_lightwheel_open_right_microwave_l_shaped_scandinavian.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_open_right_microwave_l_shaped_scandinavian_pi05.gif"><img alt="Pi0.5 policy opening the right-wall microwave in the Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_open_right_microwave_l_shaped_scandinavian_pi05.gif" style="width: 100%;" />
 </a>
+<p>Pi0.5, 2x speed.</p>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml</a></p></td>
-<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_lightwheel_kitchen_u_shaped_with_island_farmhouse2.gif"><img alt="Pi policy picking a lemon from a shelf onto a plate in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_lightwheel_kitchen_u_shaped_with_island_farmhouse2.gif" style="width: 100%;" />
-</a>
-</td>
-</tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml</a></p></td>
-<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_pi.gif"><img alt="Pi policy placing bananas in a wooden bowl in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_pi.gif" style="width: 100%;" />
-</a>
-</td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian.yaml</a></p></td>
-<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian_pi.gif"><img alt="Pi policy placing a ladle in a plate in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian_pi.gif" style="width: 100%;" />
-</a>
-</td>
-</tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian.yaml">kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian.yaml</a></p></td>
-<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian_pi.gif"><img alt="Pi policy placing a lime in a wooden bowl in the L-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian_pi.gif" style="width: 100%;" />
-</a>
-</td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2.yaml</a></p></td>
-<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2_pi.gif"><img alt="Pi policy placing a Pepsi can in a basket in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2_pi.gif" style="width: 100%;" />
-</a>
-</td>
-</tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_press_left_toaster_cancel_button_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_press_left_toaster_cancel_button_g_shaped_large_scandinavian.yaml</a></p></td>
+<tr class="row-odd"><td><p>Press button</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_press_left_toaster_cancel_button_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_press_left_toaster_cancel_button_g_shaped_large_scandinavian.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_press_left_toaster_cancel_button_g_shaped_large_scandinavian.gif"><img alt="Pi policy pressing the left toaster cancel button in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_press_left_toaster_cancel_button_g_shaped_large_scandinavian.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian.yaml</a></p></td>
+<tr class="row-even"><td><p>Press button</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian.gif"><img alt="Pi policy pressing the right toaster cancel button in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.yaml</a></p></td>
+<tr class="row-odd"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.gif"><img alt="Pi policy turning the oven temperature knob in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_bowl.yaml">kitchen_bench_replicator_g_shape_banana_bowl.yaml</a></p></td>
+<tr class="row-even"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_turn_stand_mixer_knob.yaml">kitchen_bench_replicator_g_shape_turn_stand_mixer_knob.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_g_shape_turn_stand_mixer_knob_pi05.gif"><img alt="Pi0.5 policy turning the stand mixer speed knob in the G-shaped kitchen" src="../../_images/kitchen_bench_replicator_g_shape_turn_stand_mixer_knob_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian.yaml">kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian_pi05.gif"><img alt="Pi0.5 policy turning the toaster oven timer in the Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml">kitchen_bench_lightwheel_pick_and_place.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_pick_and_place_pi.gif"><img alt="Pi policy placing mustard in a bowl in the Lightwheel kitchen" src="../../_images/kitchen_bench_lightwheel_pick_and_place_pi.gif" style="width: 100%;" />
+</a>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian.yaml">kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian_pi.gif"><img alt="Pi policy placing a ladle in a plate in the G-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian_pi.gif" style="width: 100%;" />
+</a>
+</td>
+</tr>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian.yaml">kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian_pi.gif"><img alt="Pi policy placing a lime in a wooden bowl in the L-shaped Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian_pi.gif" style="width: 100%;" />
+</a>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2_pi.gif"><img alt="Pi policy placing a Pepsi can in a basket in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2_pi.gif" style="width: 100%;" />
+</a>
+</td>
+</tr>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_bowl.yaml">kitchen_bench_replicator_g_shape_banana_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_g_shape_banana_bowl_pi.gif"><img alt="Pi policy placing a banana in a bowl in the G-shaped kitchen" src="../../_images/kitchen_bench_replicator_g_shape_banana_bowl_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_bowl_sink.yaml">kitchen_bench_replicator_g_shape_bowl_sink.yaml</a></p></td>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_bowl_sink.yaml">kitchen_bench_replicator_g_shape_bowl_sink.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_g_shape_bowl_sink_pi.gif"><img alt="Pi policy placing a bowl in the sink in the G-shaped kitchen" src="../../_images/kitchen_bench_replicator_g_shape_bowl_sink_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_bowl.yaml">kitchen_bench_replicator_g_shape_mustard_bowl.yaml</a></p></td>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_bowl.yaml">kitchen_bench_replicator_g_shape_mustard_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_g_shape_mustard_bowl_pi.gif"><img alt="Pi policy placing mustard in a bowl in the G-shaped kitchen" src="../../_images/kitchen_bench_replicator_g_shape_mustard_bowl_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_banana_bowl.yaml">kitchen_bench_replicator_l_island_banana_bowl.yaml</a></p></td>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_banana_bowl.yaml">kitchen_bench_replicator_l_island_banana_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_l_island_banana_bowl_pi.gif"><img alt="Pi policy placing a banana in a bowl in the L-shaped island kitchen" src="../../_images/kitchen_bench_replicator_l_island_banana_bowl_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_bowl_sink.yaml">kitchen_bench_replicator_l_island_bowl_sink.yaml</a></p></td>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_bowl_sink.yaml">kitchen_bench_replicator_l_island_bowl_sink.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_l_island_bowl_sink_pi.gif"><img alt="Pi policy placing a bowl in the sink in the L-shaped island kitchen" src="../../_images/kitchen_bench_replicator_l_island_bowl_sink_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_mustard_bowl.yaml">kitchen_bench_replicator_l_island_mustard_bowl.yaml</a></p></td>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_mustard_bowl.yaml">kitchen_bench_replicator_l_island_mustard_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_l_island_mustard_bowl_pi.gif"><img alt="Pi policy placing mustard in a bowl in the L-shaped island kitchen" src="../../_images/kitchen_bench_replicator_l_island_mustard_bowl_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_banana_bowl.yaml">kitchen_bench_replicator_l_shape_banana_bowl.yaml</a></p></td>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_banana_bowl.yaml">kitchen_bench_replicator_l_shape_banana_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_l_shape_banana_bowl_pi.gif"><img alt="Pi policy placing a banana in a bowl in the L-shaped kitchen" src="../../_images/kitchen_bench_replicator_l_shape_banana_bowl_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_bowl_sink.yaml">kitchen_bench_replicator_l_shape_bowl_sink.yaml</a></p></td>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_bowl_sink.yaml">kitchen_bench_replicator_l_shape_bowl_sink.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_l_shape_bowl_sink_pi.gif"><img alt="Pi policy placing a bowl in the sink in the L-shaped kitchen" src="../../_images/kitchen_bench_replicator_l_shape_bowl_sink_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_mustard_bowl.yaml">kitchen_bench_replicator_l_shape_mustard_bowl.yaml</a></p></td>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_mustard_bowl.yaml">kitchen_bench_replicator_l_shape_mustard_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_l_shape_mustard_bowl_pi.gif"><img alt="Pi policy placing mustard in a bowl in the L-shaped kitchen" src="../../_images/kitchen_bench_replicator_l_shape_mustard_bowl_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_bowl_sink.yaml">kitchen_bench_replicator_peninsula_bowl_sink.yaml</a></p></td>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_bowl_sink.yaml">kitchen_bench_replicator_peninsula_bowl_sink.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_peninsula_bowl_sink_pi.gif"><img alt="Pi policy placing a bowl in the sink in the peninsula kitchen" src="../../_images/kitchen_bench_replicator_peninsula_bowl_sink_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_mustard_bowl.yaml">kitchen_bench_replicator_peninsula_mustard_bowl.yaml</a></p></td>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_mustard_bowl.yaml">kitchen_bench_replicator_peninsula_mustard_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_peninsula_mustard_bowl_pi.gif"><img alt="Pi policy placing mustard in a bowl in the peninsula kitchen" src="../../_images/kitchen_bench_replicator_peninsula_mustard_bowl_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_banana_bowl.yaml">kitchen_bench_replicator_u_shape_banana_bowl.yaml</a></p></td>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_banana_bowl.yaml">kitchen_bench_replicator_u_shape_banana_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_u_shape_banana_bowl_pi.gif"><img alt="Pi policy placing a banana in a bowl in the U-shaped kitchen" src="../../_images/kitchen_bench_replicator_u_shape_banana_bowl_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_bowl_sink.yaml">kitchen_bench_replicator_u_shape_bowl_sink.yaml</a></p></td>
+<tr class="row-even"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_bowl_sink.yaml">kitchen_bench_replicator_u_shape_bowl_sink.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_u_shape_bowl_sink_pi.gif"><img alt="Pi policy placing a bowl in the sink in the U-shaped kitchen" src="../../_images/kitchen_bench_replicator_u_shape_bowl_sink_pi.gif" style="width: 100%;" />
 </a>
 </td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_mustard_bowl.yaml">kitchen_bench_replicator_u_shape_mustard_bowl.yaml</a></p></td>
+<tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_mustard_bowl.yaml">kitchen_bench_replicator_u_shape_mustard_bowl.yaml</a></p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_u_shape_mustard_bowl_pi.gif"><img alt="Pi policy placing mustard in a bowl in the U-shaped kitchen" src="../../_images/kitchen_bench_replicator_u_shape_mustard_bowl_pi.gif" style="width: 100%;" />
 </a>
+</td>
+</tr>
+<tr class="row-even"><td><p>Multi-level pick-and-place</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_lightwheel_kitchen_u_shaped_with_island_farmhouse2.gif"><img alt="Pi policy picking a lemon from a shelf onto a plate in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_lightwheel_kitchen_u_shaped_with_island_farmhouse2.gif" style="width: 100%;" />
+</a>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Multi-level pick-and-place</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2_pi05.gif"><img alt="Pi0.5 policy moving an orange from the shelf to a plate in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Multi-level pick-and-place</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_apple_shelf_in_bowl_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_pick_apple_shelf_in_bowl_u_shaped_with_island_farmhouse2.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_pick_apple_shelf_in_bowl_u_shaped_with_island_farmhouse2_pi05.gif"><img alt="Pi0.5 policy moving an apple from the shelf to a red bowl in the farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_pick_apple_shelf_in_bowl_u_shaped_with_island_farmhouse2_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Multi-object pick-and-place</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_pi.gif"><img alt="Pi policy placing bananas in a wooden bowl in the U-shaped farmhouse kitchen" src="../../_images/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_pi.gif" style="width: 100%;" />
+</a>
+</td>
+</tr>
+<tr class="row-even"><td><p>Multi-object pick-and-place</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml">kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl_pi05.gif"><img alt="Pi0.5 policy placing a banana and an orange into a wooden bowl in the G-shaped kitchen" src="../../_images/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Multi-object pick-and-place</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian.yaml">kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian_pi05.gif"><img alt="Pi0.5 policy placing a lime, lemon, and apple into a wooden bowl in the Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_in_left_bowl.yaml">kitchen_bench_replicator_g_shape_banana_in_left_bowl.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_g_shape_banana_in_left_bowl_pi05.gif"><img alt="Pi0.5 policy placing a banana into the left red bowl in the G-shaped kitchen" src="../../_images/kitchen_bench_replicator_g_shape_banana_in_left_bowl_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_soup_in_far_bowl.yaml">kitchen_bench_replicator_peninsula_soup_in_far_bowl.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_peninsula_soup_in_far_bowl_pi05.gif"><img alt="Pi0.5 policy placing a soup can into the farther red bowl in the peninsula kitchen" src="../../_images/kitchen_bench_replicator_peninsula_soup_in_far_bowl_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Stacking</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml">kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_g_shape_mustard_on_wooden_block_pi05.gif"><img alt="Pi0.5 policy placing a mustard bottle onto a wooden block in the G-shaped kitchen" src="../../_images/kitchen_bench_replicator_g_shape_mustard_on_wooden_block_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Stacking</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal.yaml">kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal.yaml</a></p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal_pi05.gif"><img alt="Pi0.5 policy placing a soup can onto a cracker box in the coastal kitchen" src="../../_images/kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
 </td>
 </tr>
 </tbody>
