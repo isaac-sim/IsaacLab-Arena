@@ -32,9 +32,6 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
         """Return the (height, width) of the camera images this policy is designed for, or None if it has none.
 
         Policies accept images of any size; this is the size that their image preprocessing targets.
-
-        Environments built with ``camera_resolution_mode: policy_default`` shrink their cameras to fit inside this
-        box instead of rendering at the embodiment's native resolution.
         """
         return None  # noqa: R501 - subclasses with image inputs return a size
 

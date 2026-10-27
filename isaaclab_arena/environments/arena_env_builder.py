@@ -123,12 +123,12 @@ class ArenaEnvBuilder:
         self.cfg = cfg
         self.hydra_overrides = hydra_overrides
         self.rebuild_index = rebuild_index
-        self._apply_camera_resolution_mode(policy_cfg)
+        self.policy_cfg = policy_cfg
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
 
-    def _apply_camera_resolution_mode(self, policy_cfg: PolicyCfg | None) -> None:
+    def _apply_camera_resolution_mode(self) -> None:
         """Resize the embodiment camera rig as selected by ``cfg.camera_resolution_mode``."""
         if self.cfg.camera_resolution_mode == CameraResolutionMode.EMBODIMENT_DEFAULT:
             return
@@ -141,9 +141,9 @@ class ArenaEnvBuilder:
         assert (
             embodiment.camera_config is not None
         ), "camera_resolution_mode 'policy_default' requires an embodiment camera rig"
-        assert policy_cfg is not None, "camera_resolution_mode 'policy_default' requires the policy config"
-        policy_type = PolicyRegistry().get_policy_type_for_cfg(policy_cfg)
-        policy_image_size = policy_type.default_image_size(policy_cfg)
+        assert self.policy_cfg is not None, "camera_resolution_mode 'policy_default' requires the policy config"
+        policy_type = PolicyRegistry().get_policy_type_for_cfg(self.policy_cfg)
+        policy_image_size = policy_type.default_image_size(self.policy_cfg)
         assert policy_image_size is not None, (
             "camera_resolution_mode 'policy_default' requires a policy that declares a default image size"
             f" (PolicyBase.default_image_size), but {policy_type.__name__} declares none; select"
@@ -374,6 +374,8 @@ class ArenaEnvBuilder:
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
         embodiment.configure_physics_backend(resolved_physics_backend)
+        # Fit the cameras before embodiment.get_scene_cfg() and the observation cfgs read their dimensions.
+        self._apply_camera_resolution_mode()
         task = self.arena_env.task or NoTask()
         task.configure_for_embodiment(embodiment)
         scene_cfg = combine_configclass_instances(

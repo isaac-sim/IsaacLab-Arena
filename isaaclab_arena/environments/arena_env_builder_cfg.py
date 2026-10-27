@@ -57,8 +57,7 @@ class ArenaEnvBuilderCfg:
 
     ``EMBODIMENT_DEFAULT`` keeps the dimensions the camera rig declares; ``POLICY_DEFAULT`` shrinks each
     camera, keeping its aspect ratio, to fit inside the image size the policy declares through
-    ``PolicyBase.default_image_size``. Experiment YAML names the member (``POLICY_DEFAULT``); Python
-    callers may also pass the value (``"policy_default"``).
+    ``PolicyBase.default_image_size``.
     """
 
     def __post_init__(self) -> None:

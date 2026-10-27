@@ -147,23 +147,34 @@ def _test_builder_applies_camera_resolution_mode(simulation_app):
     policy_default_cfg = ArenaEnvBuilderCfg(camera_resolution_mode="policy_default")
 
     embodiment_default_environment = arena_environment(enable_cameras=False)
-    ArenaEnvBuilder(embodiment_default_environment, ArenaEnvBuilderCfg(camera_resolution_mode="embodiment_default"))
+    ArenaEnvBuilder(
+        embodiment_default_environment, ArenaEnvBuilderCfg(camera_resolution_mode="embodiment_default")
+    )._apply_camera_resolution_mode()
     assert embodiment_default_environment.embodiment.camera_config.calls == []
 
     with mock.patch.object(arena_env_builder, "PolicyRegistry", FakePolicyRegistry):
         policy_default_environment = arena_environment()
-        ArenaEnvBuilder(policy_default_environment, policy_default_cfg, policy_cfg=ImagePolicyCfg())
+        policy_default_builder = ArenaEnvBuilder(
+            policy_default_environment, policy_default_cfg, policy_cfg=ImagePolicyCfg()
+        )
+        # The rig is fitted when the environment config is built, not when the builder is constructed.
+        assert policy_default_environment.embodiment.camera_config.calls == []
+        policy_default_builder._apply_camera_resolution_mode()
         assert policy_default_environment.embodiment.camera_config.calls == [("fit", 224, 224)]
 
         with pytest.raises(AssertionError, match="requires embodiment cameras to be enabled"):
-            ArenaEnvBuilder(arena_environment(enable_cameras=False), policy_default_cfg, policy_cfg=ImagePolicyCfg())
+            ArenaEnvBuilder(
+                arena_environment(enable_cameras=False), policy_default_cfg, policy_cfg=ImagePolicyCfg()
+            )._apply_camera_resolution_mode()
 
     with pytest.raises(AssertionError, match="requires the policy config"):
-        ArenaEnvBuilder(arena_environment(), policy_default_cfg)
+        ArenaEnvBuilder(arena_environment(), policy_default_cfg)._apply_camera_resolution_mode()
 
     # The zero-action policy is registered and declares no image size.
     with pytest.raises(AssertionError, match="ZeroActionPolicy declares none"):
-        ArenaEnvBuilder(arena_environment(), policy_default_cfg, policy_cfg=ZeroActionPolicyCfg())
+        ArenaEnvBuilder(
+            arena_environment(), policy_default_cfg, policy_cfg=ZeroActionPolicyCfg()
+        )._apply_camera_resolution_mode()
     return True
 
 

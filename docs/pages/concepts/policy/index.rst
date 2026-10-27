@@ -80,17 +80,6 @@ The typed registration lets the single-job runner generate CLI flags from
 Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
 runner flags, so their defaults must match the runner defaults.
 
-Camera-aware policies
----------------------
-
-An optional ``PolicyBase`` hook lets Arena avoid rendering work that an image
-policy never uses:
-
-- ``default_image_size(config)`` is a classmethod returning the ``(height, width)``
-  of the camera images the policy is designed for, or ``None``. With
-  ``environment_builder.camera_resolution_mode: POLICY_DEFAULT`` Arena shrinks every
-  embodiment camera, keeping its aspect ratio, to fit inside that box.
-
 .. note::
 
    ``policy_runner.py`` remains an argparse frontend, but policies do not
