@@ -48,7 +48,7 @@ class OnTreeInitializer(PlacementInitializerBase):
         # bounding boxes translated by the position each one was just sampled at.
         sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] = {}
         # Sampling a child needs its parent's position, so visit parents first.
-        ordered_objects: list[PlaceableAsset] = _order_parents_before_children(objects, anchor_objects)
+        ordered_objects: list[PlaceableAsset] = _order_objects_for_sampling(objects, anchor_objects)
         for obj in ordered_objects:
             if obj in anchor_objects:
                 positions[obj] = get_initial_pose_or_assert_fail(obj).position_xyz
@@ -76,7 +76,7 @@ class OnTreeInitializer(PlacementInitializerBase):
         return {obj: positions[obj] for obj in objects}
 
 
-def _order_parents_before_children(
+def _order_objects_for_sampling(
     objects: list[PlaceableAsset],
     anchor_objects: set[PlaceableAsset],
 ) -> list[PlaceableAsset]:
@@ -84,7 +84,7 @@ def _order_parents_before_children(
 
     Eligible objects form a frontier across On-tree levels. Prefer objects with all
     relation references available; otherwise break cycles by choosing the fewest
-    missing dependencies, then the most waiting references in the support subtree.
+    missing dependencies.
     Equal scores preserve input order. Anchors and objects without On seed the order.
 
     Args:
@@ -97,14 +97,12 @@ def _order_parents_before_children(
     ordered: list[PlaceableAsset] = []
     remaining: list[PlaceableAsset] = []
     dependencies: dict[PlaceableAsset, list[PlaceableAsset]] = {}
-    on_children: dict[PlaceableAsset, list[PlaceableAsset]] = {}
     for obj in objects:
         on_relation = get_relation(obj, On)
         if obj in anchor_objects or on_relation is None:
             ordered.append(obj)
         else:
             remaining.append(obj)
-            on_children.setdefault(on_relation.parent, []).append(obj)
             dependencies[obj] = []
             for relation in obj.get_relations():
                 strategy = get_relation_to_aabb_strategy(relation)
@@ -132,40 +130,13 @@ def _order_parents_before_children(
         if references_ready:
             selected = references_ready[0]
         else:
-            # Minimize skipped constraints, then prefer opening a support subtree containing
-            # more waiting references. This is a heuristic, not an optimal graph ordering.
-            # min retains caller order for equal scores, making cycle breaking reproducible.
-            priorities = {}
-            for obj in ready:
-                missing_count = len(missing[obj])
-                waiting_count = _count_waiting_dependencies(obj, on_children, missing)
-                priorities[obj] = (missing_count, -waiting_count)
-            selected = min(ready, key=priorities.__getitem__)
+            # Minimize skipped constraints; equal counts preserve caller order.
+            selected = min(ready, key=lambda obj: len(missing[obj]))
         # Make the selected object available to its support children and relation dependents.
         ordered.append(selected)
         ordered_set.add(selected)
         remaining.remove(selected)
     return ordered
-
-
-def _count_waiting_dependencies(
-    obj: PlaceableAsset,
-    on_children: dict[PlaceableAsset, list[PlaceableAsset]],
-    missing: dict[PlaceableAsset, list[PlaceableAsset]],
-) -> int:
-    """Count waiting relation references to an object or its support descendants."""
-    subtree = set()
-    pending = [obj]
-    while pending:
-        descendant = pending.pop()
-        if descendant not in subtree:
-            subtree.add(descendant)
-            pending.extend(on_children.get(descendant, ()))
-    count = 0
-    for subject, references in missing.items():
-        if subject is not obj:
-            count += sum(reference in subtree for reference in references)
-    return count
 
 
 def _get_bounds_from_other_supported_relations(
@@ -240,20 +211,30 @@ class RelationToAABBStrategy(ABC):
 class PositionLimitsBoxToAABBStrategy(RelationToAABBStrategy):
     """Narrow origins to absolute position limits without reference dependencies."""
 
-    def get_dependencies(self, relation):
+    def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
         return ()
 
-    def get_bounds(self, relation, subject_bbox, sampled_world_bboxes):
+    def get_bounds(
+        self,
+        relation: RelationBase,
+        subject_bbox: AxisAlignedBoundingBox,
+        sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> AxisAlignedBoundingBox:
         return _bounds_from_position_limits_box(relation)
 
 
 class AlignWithToAABBStrategy(RelationToAABBStrategy):
     """Narrow origins to an alignment band after its reference has been sampled."""
 
-    def get_dependencies(self, relation):
+    def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
         return (relation.parent,)
 
-    def get_bounds(self, relation, subject_bbox, sampled_world_bboxes):
+    def get_bounds(
+        self,
+        relation: RelationBase,
+        subject_bbox: AxisAlignedBoundingBox,
+        sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> AxisAlignedBoundingBox:
         return _bounds_from_align_with(relation, subject_bbox, sampled_world_bboxes[relation.parent])
 
 

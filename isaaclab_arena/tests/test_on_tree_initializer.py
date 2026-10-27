@@ -14,7 +14,7 @@ from isaaclab_arena.relations.initializers.on_tree_initializer import (
     OnTreeInitializer,
     RelationToAABBStrategy,
     _bounding_box_from_partial_limits,
-    _order_parents_before_children,
+    _order_objects_for_sampling,
 )
 from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLimitsBox, Relation, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -329,14 +329,14 @@ def test_ontree_orders_registered_dependencies_across_levels_and_cycles(monkeypa
     objects = [distracting, middle, subject, extra, child, tray, desk]
 
     # All eligible objects initially wait for references. Distracting has two missing
-    # dependencies; tray has one and opens a subtree needed by three waiting objects.
-    # Once tray is sampled, child must precede its shallower-level dependents.
-    assert _order_parents_before_children(objects, {desk}) == [desk, tray, child, middle, subject, distracting, extra]
+    # dependencies; middle wins the input-order tie among objects with one.
+    # Once tray is sampled, child precedes its remaining shallower-level dependents.
+    assert _order_objects_for_sampling(objects, {desk}) == [desk, middle, tray, child, subject, distracting, extra]
     positions = _seed(OnTreeInitializer(), objects, {desk}, generator=torch.Generator().manual_seed(42))
     repeated = _seed(OnTreeInitializer(), objects, {desk}, generator=torch.Generator().manual_seed(42))
     assert positions == repeated
     assert list(positions) == objects
-    for obj in (middle, subject, extra):
+    for obj in (subject, extra):
         assert positions[obj][0] == pytest.approx(positions[child][0])
     for obj in objects:
         if obj is not desk:
