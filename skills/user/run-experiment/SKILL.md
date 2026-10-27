@@ -114,8 +114,8 @@ declared field can be changed with an override.
 ## Execute and monitor
 
 Run the command in the selected ready runtime and wait for it to finish. Runs execute in YAML order
-inside one SimulationApp; each Run builds a fresh environment. Report meaningful progress during a
-long evaluation.
+inside one SimulationApp; each Run builds a fresh environment, and one per rebuild when it sets
+`num_rebuilds`. Report meaningful progress during a long evaluation.
 
 On failure, preserve the logs and partial output. Do not delete artifacts or silently rerun with
 different settings. By default, an early failure can prevent creation of the canonical result and

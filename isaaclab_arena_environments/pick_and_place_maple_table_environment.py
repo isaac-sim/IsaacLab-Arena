@@ -24,7 +24,7 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     hdr: str | None = None
     light_intensity: float = 500.0
     pick_up_object: str = "rubiks_cube_hot3d_robolab"
-    destination_location: str = "bowl_ycb_robolab"
+    destination_object: str = "bowl_ycb_robolab"
     additional_table_objects: list[str] = field(default_factory=list)
     episode_length_s: float = 70.0
 
@@ -53,8 +53,8 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         # Step 1: Retrieve assets from the registry
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         pick_up_object = self.asset_registry.get_asset_by_name(registry_name=cfg.pick_up_object)(name="pick_up_object")
-        destination_location = self.asset_registry.get_asset_by_name(registry_name=cfg.destination_location)(
-            name="destination_location"
+        destination_object = self.asset_registry.get_asset_by_name(registry_name=cfg.destination_object)(
+            name="destination_object"
         )
 
         # Step 2: Describe spatial relationships
@@ -67,7 +67,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         table_reference.add_relation(IsAnchor())
 
         pick_up_object.add_relation(On(table_reference))
-        destination_location.add_relation(On(table_reference))
+        destination_object.add_relation(On(table_reference))
 
         additional_table_objects = [
             self.asset_registry.get_asset_by_name(name)() for name in cfg.additional_table_objects
@@ -94,7 +94,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
                 light,
                 directional_light,
                 pick_up_object,
-                destination_location,
+                destination_object,
                 table_reference,
                 *additional_table_objects,
             ]
@@ -103,7 +103,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         # Step 6: Define the task
         task = PickAndPlaceTask(
             pick_up_object=pick_up_object,
-            destination_location=destination_location,
+            destination_location=destination_object,
             background_scene=background,
             episode_length_s=cfg.episode_length_s,
         )

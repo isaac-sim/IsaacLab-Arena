@@ -29,7 +29,7 @@ runs:
       enable_cameras: true
       embodiment: droid_abs_joint_pos
       pick_up_object: rubiks_cube_hot3d_robolab
-      destination_location: wooden_bowl_hot3d_robolab
+      destination_object: wooden_bowl_hot3d_robolab
       hdr: home_office_robolab
     environment_builder:
       language_instruction: Pick up the Rubik's cube and place it in the bowl.
@@ -43,7 +43,7 @@ runs:
       enable_cameras: true
       embodiment: droid_abs_joint_pos
       pick_up_object: alphabet_soup_can_hope_robolab
-      destination_location: bowl_ycb_robolab
+      destination_object: bowl_ycb_robolab
       hdr: empty_warehouse_robolab
     environment_builder:
       language_instruction: Pick up the soup can and place it in the bowl.
@@ -57,7 +57,7 @@ runs:
       enable_cameras: true
       embodiment: droid_abs_joint_pos
       pick_up_object: orange_01_fruits_veggies_robolab
-      destination_location: wooden_bowl_hot3d_robolab
+      destination_object: wooden_bowl_hot3d_robolab
       hdr: aerodynamics_workshop_robolab
     environment_builder:
       language_instruction: Pick up the orange and place it in the bowl.
@@ -71,7 +71,7 @@ runs:
       enable_cameras: true
       embodiment: droid_abs_joint_pos
       pick_up_object: lemon_01_fruits_veggies_robolab
-      destination_location: bowl_ycb_robolab
+      destination_object: bowl_ycb_robolab
       hdr: wooden_lounge_robolab
     environment_builder:
       language_instruction: Pick up the lemon and place it in the bowl.
@@ -85,7 +85,7 @@ runs:
       enable_cameras: true
       embodiment: droid_abs_joint_pos
       pick_up_object: tomato_sauce_can_hot3d_robolab
-      destination_location: wooden_bowl_hot3d_robolab
+      destination_object: wooden_bowl_hot3d_robolab
       hdr: garage_robolab
     environment_builder:
       language_instruction: Pick up the tomato sauce can and place it in the bowl.
@@ -99,7 +99,7 @@ runs:
       enable_cameras: true
       embodiment: droid_abs_joint_pos
       pick_up_object: mustard_bottle_hot3d_robolab
-      destination_location: wooden_bowl_hot3d_robolab
+      destination_object: wooden_bowl_hot3d_robolab
       hdr: kiara_interior_robolab
     environment_builder:
       language_instruction: Pick up the mustard bottle and place it in the bowl.
@@ -113,7 +113,7 @@ runs:
       enable_cameras: true
       embodiment: droid_abs_joint_pos
       pick_up_object: sugar_box_ycb_robolab
-      destination_location: bowl_ycb_robolab
+      destination_object: bowl_ycb_robolab
       hdr: brown_photostudio_robolab
     environment_builder:
       language_instruction: Pick up the sugar box and place it in the bowl.
@@ -127,7 +127,7 @@ runs:
       enable_cameras: true
       embodiment: droid_abs_joint_pos
       pick_up_object: mug_ycb_robolab
-      destination_location: wooden_bowl_hot3d_robolab
+      destination_object: wooden_bowl_hot3d_robolab
       hdr: carpentry_shop_robolab
     environment_builder:
       language_instruction: Pick up the mug and place it in the bowl.
