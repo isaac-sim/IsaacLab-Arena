@@ -27,8 +27,13 @@ import json
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
-from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_summary import summarize_latencies
+from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results import (
+    format_ms,
+    summarize_latencies,
+    write_json,
+)
 
 
 @dataclass(frozen=True)
@@ -132,24 +137,43 @@ def _output_payload(
 
 
 def _write_checkpoint(args: argparse.Namespace, results_by_num_envs: dict[str, object]) -> None:
-    args.output_path.parent.mkdir(parents=True, exist_ok=True)
-    output = _output_payload(args, results_by_num_envs)
-    args.output_path.write_text(json.dumps(output, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    write_json(args.output_path, _output_payload(args, results_by_num_envs))
+
+
+def check_checkpoint_matches(
+    checkpoint: dict[str, Any],
+    env_spec: Path,
+    placement_seed: int,
+    warmup_runs: int,
+    num_runs: int,
+) -> None:
+    """Assert that a saved result came from the same spec and settings, with at most ``num_runs`` samples each.
+
+    Args:
+        checkpoint: Result JSON previously written by this benchmark.
+        env_spec: Environment spec the run is about to measure.
+        placement_seed: Placement seed of the run.
+        warmup_runs: Warmup runs per environment count.
+        num_runs: Measured samples per environment count.
+    """
+    assert checkpoint["env_spec"] == str(env_spec), "checkpoint environment spec does not match"
+    expected_spec_sha256 = hashlib.sha256(env_spec.read_bytes()).hexdigest()
+    assert (
+        checkpoint.get("env_spec_sha256") == expected_spec_sha256
+    ), "checkpoint environment spec contents do not match"
+    assert checkpoint["placement_seed"] == placement_seed, "checkpoint placement seed does not match"
+    assert checkpoint["warmup_runs"] == warmup_runs, "checkpoint warmup count does not match"
+    assert checkpoint.get("requested_num_runs") == num_runs, "checkpoint requested sample count does not match"
+    for measurement in checkpoint["results_by_num_envs"].values():
+        assert len(measurement.get("samples", [])) <= num_runs, "checkpoint has more samples than requested"
 
 
 def _load_checkpoint(args: argparse.Namespace) -> dict[str, object]:
     if not args.resume or not args.output_path.is_file():
         return {}
-    output = json.loads(args.output_path.read_text(encoding="utf-8"))
-    assert output["env_spec"] == str(args.env_spec), "checkpoint environment spec does not match"
-    expected_spec_sha256 = hashlib.sha256(args.env_spec.read_bytes()).hexdigest()
-    assert output.get("env_spec_sha256") == expected_spec_sha256, "checkpoint environment spec contents do not match"
-    assert output["placement_seed"] == args.placement_seed, "checkpoint placement seed does not match"
-    assert output["warmup_runs"] == args.warmup_runs, "checkpoint warmup count does not match"
-    assert output.get("requested_num_runs") == args.num_runs, "checkpoint requested sample count does not match"
-    for measurement in output["results_by_num_envs"].values():
-        assert len(measurement.get("samples", [])) <= args.num_runs, "checkpoint has more samples than requested"
-    return output["results_by_num_envs"]
+    checkpoint = json.loads(args.output_path.read_text(encoding="utf-8"))
+    check_checkpoint_matches(checkpoint, args.env_spec, args.placement_seed, args.warmup_runs, args.num_runs)
+    return checkpoint["results_by_num_envs"]
 
 
 def main() -> int:
@@ -190,7 +214,7 @@ def main() -> int:
             failed_sample_count += summary["failed_samples"]
             print(
                 f"[benchmark] num_envs={num_envs}: "
-                f"p50={summary['p50_ms']} ms, successes={summary['successful_samples']}/{args.num_runs}",
+                f"p50={format_ms(summary['p50_ms'])} ms, successes={summary['successful_samples']}/{args.num_runs}",
                 flush=True,
             )
 

@@ -14,13 +14,17 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+from isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_time_to_resolved_layout import (
+    check_checkpoint_matches,
+)
+from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results import format_ms, write_json
 
 _BENCHMARK_SCRIPT = Path(__file__).with_name("benchmark_time_to_resolved_layout.py")
 _DEFAULT_ENV_SPECS_DIR = (
@@ -111,7 +115,7 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
         num_envs, measurement = next(iter(result["results_by_num_envs"].items()))
         summary = measurement["summary"]
         values = [summary[name] for name in ("p50_ms", "p95_ms", "p99_ms")]
-        formatted = ["n/a" if value is None else f"{value:.3f}" for value in values]
+        formatted = [format_ms(value) for value in values]
         print(
             f"{result['case']:<{case_width}} {num_envs:>6} "
             f"{summary['successful_samples']:>6} {summary['failed_samples']:>6} "
@@ -124,25 +128,6 @@ def _has_failed_samples(result: dict[str, Any], num_envs: int) -> bool:
     """Return whether an environment-count result contains failed samples."""
     measurement = result.get("results_by_num_envs", {}).get(str(num_envs), {})
     return bool(measurement.get("summary", {}).get("failed_samples", 0))
-
-
-def _validate_checkpoint(
-    result: dict[str, Any],
-    args: argparse.Namespace,
-    env_spec: Path,
-    num_envs: int,
-) -> list[dict[str, Any]]:
-    """Validate checkpoint compatibility and return its samples."""
-    assert result["env_spec"] == str(env_spec), "checkpoint environment spec does not match"
-    expected_spec_sha256 = hashlib.sha256(env_spec.read_bytes()).hexdigest()
-    assert result.get("env_spec_sha256") == expected_spec_sha256, "checkpoint environment spec contents do not match"
-    assert result["placement_seed"] == args.placement_seed, "checkpoint placement seed does not match"
-    assert result["warmup_runs"] == args.warmup_runs, "checkpoint warmup count does not match"
-    assert result.get("requested_num_runs") == args.num_runs, "checkpoint requested sample count does not match"
-    measurement = result.get("results_by_num_envs", {}).get(str(num_envs), {})
-    samples = measurement.get("samples", [])
-    assert len(samples) <= args.num_runs, "checkpoint has more samples than requested"
-    return samples
 
 
 def main() -> int:
@@ -175,7 +160,10 @@ def main() -> int:
             )
             if args.resume and output_path.is_file():
                 existing_result = json.loads(output_path.read_text(encoding="utf-8"))
-                existing_samples = _validate_checkpoint(existing_result, args, env_spec, num_envs)
+                check_checkpoint_matches(
+                    existing_result, env_spec, args.placement_seed, args.warmup_runs, args.num_runs
+                )
+                existing_samples = existing_result["results_by_num_envs"].get(str(num_envs), {}).get("samples", [])
                 if len(existing_samples) >= args.num_runs:
                     has_failed_samples = _has_failed_samples(existing_result, num_envs)
                     existing_result["case"] = case_name
@@ -216,7 +204,7 @@ def main() -> int:
         "failed_configurations": failed_configurations,
         "results": results,
     }
-    combined_path.write_text(json.dumps(combined, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    write_json(combined_path, combined)
     _print_summary(results)
     print(f"\n[batch] combined results: {combined_path}", flush=True)
     if failed_configurations:

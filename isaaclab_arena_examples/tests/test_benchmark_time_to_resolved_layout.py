@@ -37,7 +37,6 @@ def test_checkpoint_rejects_changed_environment_spec(tmp_path):
     output_path.write_text(json.dumps(output), encoding="utf-8")
 
     assert benchmark._load_checkpoint(args) == results
-    assert batch_benchmark._validate_checkpoint(output, args, env_spec, 1) == []
 
     env_spec.write_text("env_name: changed\n", encoding="utf-8")
     with pytest.raises(AssertionError, match="contents do not match"):
@@ -70,8 +69,6 @@ def test_checkpoint_rejects_incompatible_arguments(tmp_path, argument, incompati
 
     with pytest.raises(AssertionError, match=error):
         benchmark._load_checkpoint(args)
-    with pytest.raises(AssertionError, match=error):
-        batch_benchmark._validate_checkpoint(output, args, env_spec, 1)
 
 
 def test_batch_command_forwards_benchmark_arguments(tmp_path):

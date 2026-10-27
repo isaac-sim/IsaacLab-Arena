@@ -21,7 +21,6 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import json
 import time
 import yaml
 from dataclasses import asdict, dataclass, field, fields
@@ -41,7 +40,11 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
 from isaaclab_arena.agentic_environment_generation.spec_io import write_env_graph_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.inference.backend import resolve_inference_endpoint
-from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_summary import summarize_latencies
+from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results import (
+    format_ms,
+    summarize_latencies,
+    write_json,
+)
 from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
 
 DEFAULT_OUTPUT_PATH = Path("outputs/time_to_first_spec.json")
@@ -300,15 +303,12 @@ def main() -> int:
         "summary": summary,
         "samples": [asdict(result) for result in results],
     }
-    args.output_path.parent.mkdir(parents=True, exist_ok=True)
-    args.output_path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    write_json(args.output_path, payload)
 
     print("\nTime to first environment spec", flush=True)
     print(f"  successful: {summary['successful_samples']}/{summary['requested_samples']}", flush=True)
     for name in ("p50_ms", "p95_ms", "p99_ms"):
-        value = summary[name]
-        formatted = "n/a" if value is None else f"{value:.3f} ms"
-        print(f"  {name.removesuffix('_ms')}: {formatted}", flush=True)
+        print(f"  {name.removesuffix('_ms')}: {format_ms(summary[name])} ms", flush=True)
     print(f"  results: {args.output_path}", flush=True)
     return 1 if summary["failed_samples"] else 0
 

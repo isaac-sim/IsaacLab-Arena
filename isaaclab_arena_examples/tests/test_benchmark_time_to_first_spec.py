@@ -13,7 +13,7 @@ import subprocess
 import pytest
 
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_time_to_first_spec as benchmark
-import isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_summary as latency_summary
+import isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results as latency_results
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_first_spec_benchmarks as batch_benchmark
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_resolved_layout_benchmarks as resolved_layout_batch
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -24,10 +24,10 @@ from isaaclab_arena_examples.agentic_environment_generation.cli_runner import ad
 def test_percentile_uses_nearest_rank():
     values = [float(value) for value in range(1, 101)]
 
-    assert latency_summary.percentile(values, 50) == 50.0
-    assert latency_summary.percentile(values, 95) == 95.0
-    assert latency_summary.percentile(values, 99) == 99.0
-    assert latency_summary.percentile([], 99) is None
+    assert latency_results.percentile(values, 50) == 50.0
+    assert latency_results.percentile(values, 95) == 95.0
+    assert latency_results.percentile(values, 99) == 99.0
+    assert latency_results.percentile([], 99) is None
 
 
 def test_benchmark_reuses_cli_runner_inference_arguments():
@@ -316,7 +316,7 @@ def test_run_sample_rejects_a_kitchen_result_that_skips_object_references(monkey
 
 
 def test_summary_excludes_failed_samples_from_percentiles():
-    assert latency_summary.summarize_latencies([10.0, None, 30.0]) == {
+    assert latency_results.summarize_latencies([10.0, None, 30.0]) == {
         "requested_samples": 3,
         "successful_samples": 2,
         "failed_samples": 1,

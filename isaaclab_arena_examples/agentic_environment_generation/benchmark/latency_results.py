@@ -3,11 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Percentile summaries shared by the agentic environment generation latency benchmarks."""
+"""Summaries, formatting, and JSON output for the agentic environment generation latency benchmarks."""
 
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
+from typing import Any
 
 
 def percentile(values: list[float], p: float) -> float | None:
@@ -46,3 +49,14 @@ def summarize_latencies(latencies_ms: list[float | None]) -> dict[str, int | flo
         "p95_ms": percentile(successful_latencies_ms, 95),
         "p99_ms": percentile(successful_latencies_ms, 99),
     }
+
+
+def format_ms(value_ms: float | None) -> str:
+    """Format a latency in milliseconds with three decimals, or ``"n/a"`` when it is None."""
+    return "n/a" if value_ms is None else f"{value_ms:.3f}"
+
+
+def write_json(path: Path, payload: dict[str, Any]) -> None:
+    """Write ``payload`` as indented JSON to ``path``, creating parent directories."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")

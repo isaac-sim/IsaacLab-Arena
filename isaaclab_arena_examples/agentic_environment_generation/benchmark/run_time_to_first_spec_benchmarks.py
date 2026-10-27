@@ -25,6 +25,7 @@ from isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_
     DEFAULT_CASES_PATH,
     load_benchmark_cases,
 )
+from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results import format_ms, write_json
 from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
 
 _BENCHMARK_SCRIPT = Path(__file__).with_name("benchmark_time_to_first_spec.py")
@@ -106,7 +107,7 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
     for result in results:
         summary = result["summary"]
         percentiles = [summary[name] for name in ("p50_ms", "p95_ms", "p99_ms")]
-        formatted = ["n/a" if value is None else f"{value:.3f}" for value in percentiles]
+        formatted = [format_ms(value) for value in percentiles]
         print(
             f"{result['case']:<{case_width}} {summary['successful_samples']:>7} {summary['failed_samples']:>7} "
             f"{formatted[0]:>12} {formatted[1]:>12} {formatted[2]:>12}",
@@ -145,7 +146,7 @@ def main() -> int:
         "failed_cases": failed_cases,
         "results": results,
     }
-    combined_path.write_text(json.dumps(combined, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    write_json(combined_path, combined)
     _print_summary(results)
     print(f"\n[batch] combined results: {combined_path}", flush=True)
     if failed_cases:
