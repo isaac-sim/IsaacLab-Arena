@@ -2,3 +2,5 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+"""Strategies that seed candidate positions before the solver optimizes them."""

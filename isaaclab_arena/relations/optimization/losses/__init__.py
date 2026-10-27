@@ -2,3 +2,5 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+"""Losses the solver minimizes: one strategy per relation type, shared primitives and no-overlap losses."""

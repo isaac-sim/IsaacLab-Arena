@@ -2,3 +2,5 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+"""Run-time placement: chooses a layout for each resetting environment and writes its poses to the simulation."""

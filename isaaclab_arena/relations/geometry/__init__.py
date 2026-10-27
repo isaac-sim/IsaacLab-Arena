@@ -2,3 +2,5 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+"""Collision geometry for placement: collision objects, fixed obstacles, per-environment bounds and Warp meshes."""

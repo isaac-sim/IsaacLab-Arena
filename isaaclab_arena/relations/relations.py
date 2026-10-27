@@ -160,7 +160,7 @@ class NextTo(Relation):
     This relation specifies that a child object should be placed adjacent to
     the parent object on a specified side, at a given distance.
 
-    Note: Loss computation is handled by NextToLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by NextToLossStrategy in optimization/losses/relation_loss_strategies.py.
     """
 
     name = "next_to"
@@ -215,7 +215,7 @@ class On(Relation):
 
     Note: Footprint overlap does not guarantee stable support; the child may tip or fall.
 
-    Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by OnLossStrategy in optimization/losses/relation_loss_strategies.py.
     """
 
     name = "on"
@@ -345,7 +345,7 @@ class NotNextTo(Relation):
     all of ``+Y`` past the ``+Y`` edge, clipped to the parent's ``X`` extent).
     Anywhere off to either side of that footprint stays free, at any distance.
 
-    Note: Loss computation is handled by NotNextToLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by NotNextToLossStrategy in optimization/losses/relation_loss_strategies.py.
     """
 
     name = "not_next_to"
@@ -484,7 +484,7 @@ class AtPosition(UnaryRelation):
     unconstrained by this relation (allowing other relations like On to
     control that axis).
 
-    Note: Loss computation is handled by AtPositionLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by AtPositionLossStrategy in optimization/losses/relation_loss_strategies.py.
 
     Usage:
         # Pin object to x=0.5, y=1.0 in world coords (z controlled by On relation)

@@ -2,3 +2,5 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+"""Placement solving: seeds candidate layouts and optimizes them against the relation losses."""
