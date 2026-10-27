@@ -18,7 +18,6 @@ variations subclass one of two flavors:
 
 from __future__ import annotations
 
-import hashlib
 import torch
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -28,6 +27,7 @@ from typing import Any
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.utils.random import derive_seed
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 
 
@@ -121,9 +121,7 @@ class VariationBase(ABC):
         """
         # The key gives each variation its own random stream: with the seed alone, equal sampler cfgs draw equal values,
         # and with one shared generator, a variation's values change when others are enabled, disabled or reordered.
-        digest = hashlib.sha256(f"{seed}:{variation_key}".encode()).digest()
-        # Torch generator seeds are 64-bit, so keep the first 8 bytes of the digest.
-        variation_seed = int.from_bytes(digest[:8], "big")
+        variation_seed = derive_seed(seed, variation_key)
         # Keep the generator on CPU: there, torch.rand and torch.randint give the same values however the draws are
         # split across resets, so the k-th episode to start gets the same run-time values for any num_envs.
         self._generator = torch.Generator(device="cpu").manual_seed(variation_seed)

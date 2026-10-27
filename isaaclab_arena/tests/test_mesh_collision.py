@@ -1372,4 +1372,6 @@ def test_tilted_clutter_requires_bbox_collision():
         for rod in rods
     ]
     assert all(float(box.min_point[0, 2]) >= 0.025 for box in bounds)
-    assert float(bounds[1].min_point[0, 2] - bounds[0].max_point[0, 2]) >= 0
+    # The seed decides whether the rods are released side by side or stacked, and in which order, so only
+    # require that the rotated bounds do not intersect.
+    assert not bool(bounds[0].overlaps(bounds[1]).item())

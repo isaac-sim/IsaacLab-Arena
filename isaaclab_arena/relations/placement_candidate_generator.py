@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import torch
 from typing import TYPE_CHECKING
 
@@ -17,7 +16,7 @@ from isaaclab_arena.relations.initializers.initializer_factory import create_ini
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.relations import ClutterOn, FaceTo, RotateAroundSolution, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.random import get_random_rotation
+from isaaclab_arena.utils.random import derive_seed, get_random_rotation
 from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
@@ -71,10 +70,13 @@ class PlacementCandidateGenerator:
         return batch
 
     def _seed_candidate(self, generator: torch.Generator, env_id: int, candidate_id: int) -> None:
-        """Seed the generator for one candidate, independently of every other placement seed and candidate."""
+        """Seed the generator for one candidate, independently of every other placement seed and candidate.
+
+        The seed depends only on (placement_seed, env_id, candidate_id), so env e's candidates do not change with
+        num_envs, and candidate c does not change with the number of candidates per env.
+        """
         assert self.params.placement_seed is not None
-        key = f"{self.params.placement_seed}:{env_id}:{candidate_id}".encode()
-        generator.manual_seed(int.from_bytes(hashlib.sha256(key).digest()[:8], "little"))
+        generator.manual_seed(derive_seed(self.params.placement_seed, env_id, candidate_id))
 
     def generate_positions(
         self,
