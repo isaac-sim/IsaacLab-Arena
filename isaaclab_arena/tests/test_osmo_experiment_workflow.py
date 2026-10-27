@@ -261,6 +261,10 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
     assert "experiment_runner_execution_status=failed" in experiment_runner_command
     assert '"runs":%s' in experiment_runner_command
+    assert '"end_timestamp_ns":%d' in experiment_runner_command
+    # The end time is taken once the Experiment Runner process has exited, before the result is written.
+    assert "fi\nexperiment_runner_end_timestamp_ns=$(date +%s%N)\n" in experiment_runner_command
+    assert '"$experiment_runner_end_timestamp_ns"' in experiment_runner_command
     assert '"policy_variant": "pi05"' in experiment_runner_command
     assert '"name": "pick_and_place_maple_table"' in experiment_runner_command
     assert f"'{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}'" in experiment_runner_command

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import time
 import traceback
 from copy import deepcopy
 from dataclasses import fields, replace
@@ -74,16 +75,23 @@ def execute_experiment(
                 ),
             )
         except Exception as error:
-            results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
+            results.append(
+                ArenaRunResult(
+                    run_name=run_cfg.name,
+                    status=RunStatus.FAILED,
+                    end_timestamp_ns=time.time_ns(),
+                )
+            )
             print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
             print(f"Traceback: {traceback.format_exc()}", flush=True)
             if not continue_on_error:
                 raise
             continue
 
+        end_timestamp_ns = time.time_ns()
         print_timer_stats()
         write_run_timings(run_output_dir)
-        results.append(result)
+        results.append(replace(result, end_timestamp_ns=end_timestamp_ns))
     return results
 
 

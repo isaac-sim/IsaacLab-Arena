@@ -132,8 +132,9 @@ class ExperimentRunnerTask(BaseTask):
             })
         )
         write_experiment_runner_result_command = (
-            'printf \'{"execution_status":"%s","process_exit_code":%d,"runs":%s}\\n\' '
+            'printf \'{"execution_status":"%s","process_exit_code":%d,"end_timestamp_ns":%d,"runs":%s}\\n\' '
             '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
+            '"$experiment_runner_end_timestamp_ns" '
             f"{run_metadata_json} > {experiment_runner_result_path}"
         )
         return "\n".join([
@@ -145,6 +146,7 @@ class ExperimentRunnerTask(BaseTask):
             "  experiment_runner_process_exit_code=$?",
             f"  experiment_runner_execution_status={RunStatus.FAILED.value}",
             "fi",
+            "experiment_runner_end_timestamp_ns=$(date +%s%N)",
             "",
             "# Publish the result for the collector, then always report success to OSMO.",
             write_experiment_runner_result_command,
