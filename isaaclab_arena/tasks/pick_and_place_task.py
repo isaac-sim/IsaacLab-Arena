@@ -26,7 +26,11 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
-from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
+from isaaclab_arena.tasks.predicates.spatial import (
+    ObjectOnDestinationFromCentroidDisplacement,
+    object_is_above_height,
+    object_on_destination,
+)
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -158,6 +162,21 @@ class PickAndPlaceTask(TaskBase):
                 "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
             },
         )
+        placement_params = {
+            "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+            "destination_cfg": SceneEntityCfg(self.destination_location.name),
+            "contact_sensor_cfg": self.contact_sensor_cfg,
+            "force_threshold": self.force_threshold,
+            "velocity_threshold": self.velocity_threshold,
+            "support_cone_half_angle_rad": self.support_cone_half_angle_rad,
+        }
+        if self.pick_up_object.object_type == ObjectType.DEFORMABLE:
+            placement_predicate = TerminationTermCfg(
+                func=ObjectOnDestinationFromCentroidDisplacement,
+                params=placement_params,
+            )
+        else:
+            placement_predicate = partial(object_on_destination, **placement_params)
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
@@ -176,15 +195,7 @@ class PickAndPlaceTask(TaskBase):
                             use_settled_state=True,
                         ),
                         TrueForConsecutiveStepsCfg(
-                            predicate=partial(
-                                object_on_destination,
-                                object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                                destination_cfg=SceneEntityCfg(self.destination_location.name),
-                                contact_sensor_cfg=self.contact_sensor_cfg,
-                                force_threshold=self.force_threshold,
-                                velocity_threshold=self.velocity_threshold,
-                                support_cone_half_angle_rad=self.support_cone_half_angle_rad,
-                            ),
+                            predicate=placement_predicate,
                             required_steps=self.placement_consecutive_steps,
                         ),
                     ],

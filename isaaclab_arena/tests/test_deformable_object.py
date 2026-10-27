@@ -397,12 +397,18 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
 def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> bool:
     import torch
 
+    from isaaclab.managers import TerminationTermCfg
+
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+    from isaaclab_arena.tasks.predicates.spatial import (
+        ObjectOnDestinationFromCentroidDisplacement,
+        object_on_destination,
+    )
     from isaaclab_arena.utils.pose import Pose
 
     soft_cube = AssetRegistry().get_asset_by_name("deformable_cube_physx")(name="soft_cube")
@@ -434,8 +440,14 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
         assert len(env.unwrapped.scene.sensors) == 0
         success_objective = task.get_termination_cfg().success[0]
         placement_requirement = success_objective.predicate_sequence[-1]
-        placement_predicate = placement_requirement.predicate
-        placed = placement_predicate(env.unwrapped)
+        placement_predicate_cfg = placement_requirement.predicate
+        assert isinstance(placement_predicate_cfg, TerminationTermCfg)
+        assert placement_predicate_cfg.func is ObjectOnDestinationFromCentroidDisplacement
+        placed = object_on_destination(
+            env.unwrapped,
+            **placement_predicate_cfg.params,
+            object_mean_linear_velocity_w=torch.zeros((1, 3), device=env.unwrapped.device),
+        )
         torch.testing.assert_close(placed, torch.ones(1, dtype=torch.bool, device=env.unwrapped.device))
 
         # Starting on the destination must not skip the required lift.
@@ -483,8 +495,13 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         assert isinstance(env_cfg.sim.physics, NewtonCfg)
         assert isinstance(env_cfg.sim.physics.solver_cfg, CouplerProxyCfg)
         soft_solver_cfg = env_cfg.sim.physics.solver_cfg.entries[1].solver_cfg
+        assert soft_solver_cfg.iterations == 15
         assert soft_solver_cfg.rigid_body_contact_buffer_size == 1024
         assert soft_solver_cfg.rigid_body_particle_contact_buffer_size == 8192
+        assert env_cfg.sim.physics.soft_contact_cfg.soft_contact_kd == 10.0
+        assert env_cfg.sim.physics.soft_contact_cfg.soft_contact_mu == 3.0
+        assert env_cfg.sim.physics.num_substeps == 8
+        assert env_cfg.scene.robot.actuators["gripper"].joint_velocity_limit == 0.5
     else:
         assert isinstance(env_cfg.sim.physics, PhysxCfg)
 

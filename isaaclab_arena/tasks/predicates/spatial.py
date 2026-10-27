@@ -453,6 +453,8 @@ def object_on_destination(
     force_threshold: float,
     velocity_threshold: float,
     support_cone_half_angle_rad: float = math.pi / 4,
+    object_centroid_W: torch.Tensor | None = None,
+    object_mean_linear_velocity_w: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Check whether an object is stably placed on its destination.
 
@@ -469,6 +471,8 @@ def object_on_destination(
         force_threshold: Minimum upward support force in newtons.
         velocity_threshold: Maximum object linear speed in meters per second.
         support_cone_half_angle_rad: Maximum angle in radians from world ``+Z`` for the support force.
+        object_centroid_W: Optional measured object centroid. The scene centroid is used when omitted.
+        object_mean_linear_velocity_w: Optional measured object velocity. The scene velocity is used when omitted.
 
     Returns:
         One Boolean result per environment.
@@ -479,8 +483,10 @@ def object_on_destination(
         destination_cfg.name not in env.scene.deformable_objects
     ), "object_on_destination does not support deformable destinations"
 
+    if object_centroid_W is None:
+        object_centroid_W = arena_world.get_centroid_w(object_cfg.name)
     object_center_over_destination = object_bounds_center_over_destination(
-        object_centroid_W=arena_world.get_centroid_w(object_cfg.name),
+        object_centroid_W=object_centroid_W,
         T_W_D=arena_world.get_pose_w(destination_cfg.name),
         destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
     )
@@ -516,9 +522,54 @@ def object_on_destination(
             support_cone_half_angle_rad=support_cone_half_angle_rad,
         )
 
-    object_mean_linear_velocity_w = arena_world.get_mean_linear_velocity_w(object_cfg.name)
+    if object_mean_linear_velocity_w is None:
+        object_mean_linear_velocity_w = arena_world.get_mean_linear_velocity_w(object_cfg.name)
     object_moves_slowly = object_is_moving_slowly(object_mean_linear_velocity_w, velocity_threshold)
     return object_center_over_destination & destination_provides_upward_support & object_moves_slowly
+
+
+class ObjectOnDestinationFromCentroidDisplacement:
+    """Check placement using centroid displacement between control steps for deformable speed."""
+
+    def __init__(self, _cfg, _env):
+        self._previous_centroid_W: torch.Tensor | None = None
+        self._previous_control_step: int | None = None
+
+    def __call__(
+        self,
+        env: IsaacLabArenaManagerBasedRLEnv,
+        object_cfg: SceneEntityCfg,
+        destination_cfg: SceneEntityCfg,
+        contact_sensor_cfg: SceneEntityCfg | None,
+        force_threshold: float,
+        velocity_threshold: float,
+        support_cone_half_angle_rad: float = math.pi / 4,
+    ) -> torch.Tensor:
+        """Check current placement using finite-difference centroid velocity."""
+        current_centroid_W = env.arena_world.get_centroid_w(object_cfg.name)
+        current_control_step = int(env.common_step_counter)
+        if self._previous_centroid_W is None or self._previous_control_step is None:
+            centroid_velocity_W = torch.full_like(current_centroid_W, torch.inf)
+        else:
+            elapsed_control_steps = current_control_step - self._previous_control_step
+            if elapsed_control_steps <= 0:
+                centroid_velocity_W = torch.full_like(current_centroid_W, torch.inf)
+            else:
+                elapsed_time_s = elapsed_control_steps * env.step_dt
+                centroid_velocity_W = (current_centroid_W - self._previous_centroid_W) / elapsed_time_s
+        self._previous_centroid_W = current_centroid_W.detach().clone()
+        self._previous_control_step = current_control_step
+        return object_on_destination(
+            env,
+            object_cfg=object_cfg,
+            destination_cfg=destination_cfg,
+            contact_sensor_cfg=contact_sensor_cfg,
+            force_threshold=force_threshold,
+            velocity_threshold=velocity_threshold,
+            support_cone_half_angle_rad=support_cone_half_angle_rad,
+            object_centroid_W=current_centroid_W,
+            object_mean_linear_velocity_w=centroid_velocity_W,
+        )
 
 
 def object_in_target_aabb(

@@ -158,6 +158,8 @@ def _check_object_on_destination(
             self.arena_world = arena_world
             self.scene = SceneDouble(contact_sensor)
             self.unwrapped = self
+            self.common_step_counter = 0
+            self.step_dt = 0.02
 
     class RuntimeBufferDouble:
         def __init__(self, tensor: torch.Tensor):
@@ -247,6 +249,20 @@ def _check_object_on_destination(
     deformable_result = spatial.object_on_destination(env, **deformable_parameters)
     torch.testing.assert_close(deformable_result, torch.tensor([True, False, False, False]))
 
+    displacement_predicate = spatial.ObjectOnDestinationFromCentroidDisplacement(None, env)
+    first_result = displacement_predicate(env, **{**deformable_parameters, "velocity_threshold": 0.01})
+    assert not first_result.any()
+    previous_velocity_query_count = len(arena_world.mean_linear_velocity_queries)
+    T_W_O[0, 0] += 0.0001  # 0.005 m/s
+    T_W_O[3, 0] += 0.001  # 0.05 m/s
+    env.common_step_counter += 1
+    displacement_result = displacement_predicate(
+        env,
+        **{**deformable_parameters, "velocity_threshold": 0.01},
+    )
+    torch.testing.assert_close(displacement_result, torch.tensor([True, False, False, False]))
+    assert len(arena_world.mean_linear_velocity_queries) == previous_velocity_query_count
+
     env.scene.deformable_objects = {"destination": object()}
     try:
         spatial.object_on_destination(env, **predicate_parameters)
@@ -258,15 +274,20 @@ def _check_object_on_destination(
     env.scene.deformable_objects = {}
     T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
-    assert arena_world.pose_queries == ["destination"] * 3
-    assert arena_world.local_aabb_queries == ["destination"] * 3
-    assert arena_world.centroid_queries == ["object"] * 3
+    assert arena_world.pose_queries == ["destination"] * 5
+    assert arena_world.local_aabb_queries == ["destination"] * 5
+    assert arena_world.centroid_queries == ["object"] * 5
     assert arena_world.mean_linear_velocity_queries == ["object", "object", "object"]
 
 
 def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_type, object_type) -> None:
     """Check that deformable pick-and-place omits contact sensors."""
-    from isaaclab_arena.tasks.predicates.spatial import object_on_destination
+    from isaaclab.managers import TerminationTermCfg
+
+    from isaaclab_arena.tasks.predicates.spatial import (
+        ObjectOnDestinationFromCentroidDisplacement,
+        object_on_destination,
+    )
 
     class AssetDouble:
         def __init__(self, name, asset_object_type):
@@ -290,8 +311,9 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
     deformable_placement_requirement = deformable_task.get_termination_cfg().success[0].predicate_sequence[-1]
     assert deformable_placement_requirement.required_steps == 1
     deformable_placement_predicate = deformable_placement_requirement.predicate
-    assert deformable_placement_predicate.func is object_on_destination
-    assert deformable_placement_predicate.keywords["contact_sensor_cfg"] is None
+    assert isinstance(deformable_placement_predicate, TerminationTermCfg)
+    assert deformable_placement_predicate.func is ObjectOnDestinationFromCentroidDisplacement
+    assert deformable_placement_predicate.params["contact_sensor_cfg"] is None
 
     try:
         pick_and_place_task_type(rigid_object, deformable_object, background)
