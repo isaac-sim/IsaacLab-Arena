@@ -5,7 +5,7 @@
 
 import torch
 
-from isaaclab_arena.relations.loss_primitives import (
+from isaaclab_arena.relations.optimization.losses.loss_primitives import (
     linear_band_loss,
     single_boundary_linear_loss,
     single_point_linear_loss,

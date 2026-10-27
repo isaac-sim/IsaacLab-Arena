@@ -17,8 +17,8 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
+    from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 
 
 def has_heterogeneous_objects(objects: list[PlaceableAsset]) -> bool:

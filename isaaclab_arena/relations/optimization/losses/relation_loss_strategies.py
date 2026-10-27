@@ -12,7 +12,7 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.axis import Axis
-from isaaclab_arena.relations.loss_primitives import (
+from isaaclab_arena.relations.optimization.losses.loss_primitives import (
     interval_overlap_axis_loss,
     linear_band_loss,
     single_boundary_linear_loss,

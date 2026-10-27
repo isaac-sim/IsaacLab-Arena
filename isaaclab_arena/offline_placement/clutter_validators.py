@@ -93,8 +93,8 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
         import torch
 
         from isaaclab_arena.offline_placement.clutter_geometry import fixed_poses_match
-        from isaaclab_arena.relations.placement_poses import get_pose_from_layout
         from isaaclab_arena.relations.relations import ClutterOn, get_relation
+        from isaaclab_arena.relations.runtime.placement_poses import get_pose_from_layout
         from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
         reports = []

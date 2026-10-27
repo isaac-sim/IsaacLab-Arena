@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
+    from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 
 

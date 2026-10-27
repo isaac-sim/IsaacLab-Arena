@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
-from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
-from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer
-from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType, PlacementInitializerBase
+from isaaclab_arena.relations.optimization.initializers.anchor_initializer import AnchorInitializer
+from isaaclab_arena.relations.optimization.initializers.on_tree_initializer import OnTreeInitializer
+from isaaclab_arena.relations.optimization.initializers.placement_initializer_base import (
+    InitializerType,
+    PlacementInitializerBase,
+)
 
 
 def create_initializer(initializer_type: InitializerType) -> PlacementInitializerBase:

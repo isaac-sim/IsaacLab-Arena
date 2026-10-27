@@ -9,14 +9,14 @@ import torch
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+from isaaclab_arena.relations.geometry.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 

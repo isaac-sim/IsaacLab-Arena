@@ -15,16 +15,16 @@ from typing import TYPE_CHECKING
 import warp as wp
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
-from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache, MeshPairEntry
-from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
+from isaaclab_arena.relations.geometry.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
+from isaaclab_arena.relations.optimization.losses.mesh_pair_cache import MeshPairCache, MeshPairEntry
+from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_points_by_yaw_batch, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 

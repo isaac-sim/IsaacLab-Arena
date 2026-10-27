@@ -15,7 +15,7 @@ from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_layout
+from isaaclab_arena.relations.runtime.placement_poses import get_scene_root_poses_from_layout
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.sampler_base import SamplerBase
 

@@ -17,10 +17,10 @@ from typing import TYPE_CHECKING
 
 import warp as wp
 
-from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, sdf_sentinel_count
+from isaaclab_arena.relations.geometry.warp_sdf_kernels import has_sdf_sentinel, sdf_sentinel_count
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
 
 
 def _mesh_content_hash(mesh: trimesh.Trimesh) -> int:

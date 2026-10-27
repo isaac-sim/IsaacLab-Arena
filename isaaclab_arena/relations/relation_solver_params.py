@@ -6,7 +6,7 @@
 from dataclasses import dataclass, field
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.relations.relation_loss_strategies import (
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     AlignWithLossStrategy,
     AtPositionLossStrategy,
     ClutterOnLossStrategy,

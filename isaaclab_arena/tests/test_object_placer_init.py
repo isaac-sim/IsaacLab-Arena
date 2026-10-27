@@ -9,11 +9,11 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
-from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer
-from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.optimization.initializers.anchor_initializer import AnchorInitializer
+from isaaclab_arena.relations.optimization.initializers.on_tree_initializer import OnTreeInitializer
+from isaaclab_arena.relations.optimization.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, NextTo, On, PositionLimitsBox, Side
 from isaaclab_arena.tests.dummy_object import DummyObject

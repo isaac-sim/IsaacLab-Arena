@@ -136,8 +136,8 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path, backe
     from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.relations import ClutterOn, RequiresReachability, get_relation
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
     from isaaclab_arena.utils.physics_settle import step_physics
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
@@ -228,13 +228,13 @@ def _test_clutter_recording_replays_movable_supports(simulation_app, tmp_path, b
     from isaaclab_arena.offline_placement.post_physics_validation import evaluate_settled_batch
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool
-    from isaaclab_arena.relations.placement_poses import get_pose_from_layout
-    from isaaclab_arena.relations.placement_sampler import (
+    from isaaclab_arena.relations.relations import ClutterOn, On, get_relation
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
+    from isaaclab_arena.relations.runtime.placement_poses import get_pose_from_layout
+    from isaaclab_arena.relations.runtime.placement_sampler import (
         deserialize_placement_samples,
         placement_samples_to_pose_columns,
     )
-    from isaaclab_arena.relations.relations import ClutterOn, On, get_relation
     from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
 
     arena_env = _make_primitive_clutter_scene(tmp_path, movable_supports=True)
@@ -376,12 +376,12 @@ def _test_movable_bowl_recording_and_replay(simulation_app, tmp_path):
     from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
     from isaaclab_arena.offline_placement.post_physics_validation import evaluate_settled_batch
     from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
-    from isaaclab_arena.relations.placement_poses import get_pose_from_layout
-    from isaaclab_arena.relations.placement_sampler import (
+    from isaaclab_arena.relations.relations import On, get_relation
+    from isaaclab_arena.relations.runtime.placement_poses import get_pose_from_layout
+    from isaaclab_arena.relations.runtime.placement_sampler import (
         deserialize_placement_samples,
         placement_samples_to_pose_columns,
     )
-    from isaaclab_arena.relations.relations import On, get_relation
     from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
     from isaaclab_arena.tests.utils.constants import TestConstants
 

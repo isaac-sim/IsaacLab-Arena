@@ -9,7 +9,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.initializers.on_tree_initializer import (
+from isaaclab_arena.relations.optimization.initializers.on_tree_initializer import (
     RELATION_TO_AABB_STRATEGIES,
     OnTreeInitializer,
     RelationToAABBStrategy,

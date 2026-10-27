@@ -15,9 +15,9 @@ from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
-from isaaclab_arena.relations.collision_object import CollisionObject
+from isaaclab_arena.relations.geometry.background_collision_object import make_fixed_collision_objects
+from isaaclab_arena.relations.geometry.collision_object import CollisionObject
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:

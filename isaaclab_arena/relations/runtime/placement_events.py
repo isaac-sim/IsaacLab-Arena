@@ -8,8 +8,12 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.placement_poses import get_base_rotation_xyzw, get_scene_root_poses_from_layout
-from isaaclab_arena.relations.placement_sampler import PlacementSample, PlacementSampler, RecordedPlacementSampler
+from isaaclab_arena.relations.runtime.placement_poses import get_base_rotation_xyzw, get_scene_root_poses_from_layout
+from isaaclab_arena.relations.runtime.placement_sampler import (
+    PlacementSample,
+    PlacementSampler,
+    RecordedPlacementSampler,
+)
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv

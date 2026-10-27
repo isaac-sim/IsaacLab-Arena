@@ -9,26 +9,26 @@ import math
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import (
+from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
+from isaaclab_arena.relations.geometry.bounding_box_helpers import (
     assign_variants_for_envs,
     build_per_env_bounding_boxes,
     update_candidate_bounds,
 )
-from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.optimization.placement_candidate_generator import PlacementCandidateGenerator
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
-from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
-from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import ClutterOn, FaceTo, RotateAroundSolution, get_anchor_objects, get_relation
+from isaaclab_arena.relations.validation.placement_validation_runner import PlacementValidationRunner
+from isaaclab_arena.relations.validation.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.validation.pre_physics import build_validators
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw_toward_positions
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox

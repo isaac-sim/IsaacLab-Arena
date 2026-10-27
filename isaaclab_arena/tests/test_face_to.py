@@ -18,7 +18,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelatio
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import AtPosition, FaceTo, IsAnchor, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator

@@ -11,11 +11,11 @@ import torch
 import pytest
 
 from isaaclab_arena.relations.axis import Axis
-from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
-from isaaclab_arena.relations.initializers.on_tree_initializer import _bounds_from_align_with
+from isaaclab_arena.relations.geometry.bounding_box_helpers import build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
-from isaaclab_arena.relations.relation_loss_strategies import AlignWithLossStrategy
+from isaaclab_arena.relations.optimization.initializers.on_tree_initializer import _bounds_from_align_with
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import AlignWithLossStrategy
+from isaaclab_arena.relations.optimization.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.relations import AlignWith, FaceTo, IsAnchor, On, PositionLimitsBox, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import AlignWithValidator, OnRelationValidator, build_validators
 from isaaclab_arena.relations.validation.types import PlacementCheck

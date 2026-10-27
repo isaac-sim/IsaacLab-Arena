@@ -11,9 +11,9 @@ import pytest
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.tests.dummy_object import DummyObject

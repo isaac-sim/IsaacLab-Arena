@@ -12,13 +12,14 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.relation_loss_strategies import (
+from isaaclab_arena.relations.geometry.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     SIDE_CONFIGS,
     NotNextToLossStrategy,
     next_to_violations,
     not_next_to_violations,
 )
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relations import (
     AlignWith,
     ClutterOn,
@@ -32,16 +33,15 @@ from isaaclab_arena.relations.relations import (
 from isaaclab_arena.relations.validation import base
 from isaaclab_arena.relations.validation.registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.validation.types import PlacementCheck
-from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -514,7 +514,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
     def _get_cpu_mesh_manager(self) -> WarpMeshAndSphereCache:
         """Return the CPU-device mesh manager, creating it on first call."""
         if self._cpu_mesh_manager is None:
-            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+            from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
 
             self._cpu_mesh_manager = WarpMeshAndSphereCache(
                 num_spheres=self._params.solver_params.num_spheres,

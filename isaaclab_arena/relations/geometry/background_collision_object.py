@@ -17,7 +17,7 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.trimesh import bounding_box_from_mesh, mesh_in_world_frame
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.relations import RelationBase
 
 
@@ -117,7 +117,7 @@ def _combine_fixed_meshes(
     excluded_prim_paths_by_object: Mapping[CollisionObject, Collection[str]] | None = None,
 ) -> tuple[trimesh.Trimesh | None, list[CollisionObject]]:
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
 
     manager = WarpMeshAndSphereCache(device="cpu")
     excluded_prim_paths_by_object = excluded_prim_paths_by_object or {}

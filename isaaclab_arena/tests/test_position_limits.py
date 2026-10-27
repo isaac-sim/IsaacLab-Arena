@@ -9,7 +9,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.relation_loss_strategies import (
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     PositionLimitsBoxLossStrategy,
     PositionLimitsCylindricalLossStrategy,
 )
@@ -279,7 +279,7 @@ def test_position_limits_cylindrical_unconstrained_z_ignored():
 # =============================================================================
 
 
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject

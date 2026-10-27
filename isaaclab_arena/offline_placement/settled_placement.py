@@ -19,8 +19,8 @@ from isaaclab_arena.offline_placement.post_physics_validation import (
 )
 from isaaclab_arena.offline_placement.settled_batch import sample_and_settle_batch
 from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-from isaaclab_arena.relations.placement_events import get_placement_pool
 from isaaclab_arena.relations.relations import ClutterOn, get_relation
+from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:

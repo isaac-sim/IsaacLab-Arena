@@ -12,7 +12,7 @@
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox

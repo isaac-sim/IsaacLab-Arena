@@ -8,8 +8,8 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.initializers.placement_initializer_base import PlacementInitializerBase
-from isaaclab_arena.relations.initializers.sampling import (
+from isaaclab_arena.relations.optimization.initializers.placement_initializer_base import PlacementInitializerBase
+from isaaclab_arena.relations.optimization.initializers.sampling import (
     get_child_bbox_given_parent_position,
     get_initial_pose_or_assert_fail,
     get_world_bbox_at_initial_pose,

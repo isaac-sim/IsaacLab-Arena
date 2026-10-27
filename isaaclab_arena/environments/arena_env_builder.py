@@ -50,14 +50,14 @@ from isaaclab_arena.recording.common_terms import (
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-from isaaclab_arena.relations.placement_sampler import (
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
+from isaaclab_arena.relations.runtime.placement_sampler import (
     PlacementSampler,
     RecordedPlacementSampler,
     serialize_placement_samples,
     supports_recorded_placement,
 )
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import task_success_from_progress

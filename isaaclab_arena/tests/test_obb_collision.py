@@ -10,11 +10,11 @@ import trimesh
 
 import pytest
 
-from isaaclab_arena.relations.bounding_box_helpers import update_candidate_bounds
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.geometry.bounding_box_helpers import update_candidate_bounds
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, NextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator

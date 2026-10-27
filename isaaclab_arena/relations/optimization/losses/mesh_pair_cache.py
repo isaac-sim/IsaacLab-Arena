@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import warp as wp
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 

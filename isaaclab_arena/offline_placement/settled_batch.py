@@ -89,7 +89,7 @@ def sample_and_settle_batch(
     import torch
 
     from isaaclab_arena.offline_placement.pool_validation import solver_validation_failure, step_placement_physics
-    from isaaclab_arena.relations.placement_events import get_placement_pool, get_reset_placement_results
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool, get_reset_placement_results
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     env = env.unwrapped

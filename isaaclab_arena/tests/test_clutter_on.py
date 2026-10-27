@@ -12,11 +12,11 @@ import pytest
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
-from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
-from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
-from isaaclab_arena.relations.relation_loss_strategies import ClutterOnLossStrategy
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import ClutterOnLossStrategy
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
+from isaaclab_arena.relations.optimization.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On, RotateAroundSolution
+from isaaclab_arena.relations.validation.placement_validation_runner import PlacementValidationRunner
 from isaaclab_arena.relations.validation.pre_physics import (
     ClutterOnRelationValidator,
     NoOverlapValidator,

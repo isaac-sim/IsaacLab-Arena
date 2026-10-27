@@ -12,15 +12,15 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
-from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
-from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import NoCollisionLossStrategy
+from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On
 from isaaclab_arena.utils.bounding_box import CachedOverlapVolumeUpperBound
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 _MIN_LOSS_HALF_EXTENT_M = 1e-3
 """Smallest box half-extent in the oriented loss, so a zero-thickness box has an overlap volume to reduce."""

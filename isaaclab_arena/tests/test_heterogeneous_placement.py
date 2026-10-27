@@ -13,12 +13,15 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, get_bounding_box_per_env
+from isaaclab_arena.relations.geometry.bounding_box_helpers import (
+    build_per_env_bounding_boxes,
+    get_bounding_box_per_env,
+)
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
@@ -45,7 +48,7 @@ def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
     lightweight DummyObject subclasses with get_bounding_box_per_env(...).
     Patch modules that bind the heterogeneous check by name at import time.
     """
-    from isaaclab_arena.relations import bounding_box_helpers
+    from isaaclab_arena.relations.geometry import bounding_box_helpers
 
     original_has_het = bounding_box_helpers.has_heterogeneous_objects
     original_bbox_per_env = bounding_box_helpers.get_bounding_box_per_env
@@ -59,13 +62,13 @@ def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
         return original_bbox_per_env(obj, num_envs)
 
     has_het_sites = [
-        "isaaclab_arena.relations.bounding_box_helpers.has_heterogeneous_objects",
+        "isaaclab_arena.relations.geometry.bounding_box_helpers.has_heterogeneous_objects",
         "isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects",
     ]
     for site in has_het_sites:
         monkeypatch.setattr(site, has_het_with_doubles)
     monkeypatch.setattr(
-        "isaaclab_arena.relations.bounding_box_helpers.get_bounding_box_per_env", bbox_per_env_with_doubles
+        "isaaclab_arena.relations.geometry.bounding_box_helpers.get_bounding_box_per_env", bbox_per_env_with_doubles
     )
 
 
@@ -906,7 +909,7 @@ def test_real_rigid_object_set_through_pooled_placer():
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry
-    from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+    from isaaclab_arena.relations.geometry.bounding_box_helpers import has_heterogeneous_objects
 
     desk = _make_desk()
 

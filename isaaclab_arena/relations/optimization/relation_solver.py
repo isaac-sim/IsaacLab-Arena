@@ -9,30 +9,33 @@ import time
 import torch
 from typing import TYPE_CHECKING, cast
 
-from isaaclab_arena.relations.bounding_box_helpers import get_candidate_collision_bboxes
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
-from isaaclab_arena.relations.no_overlap_bbox import (
+from isaaclab_arena.relations.geometry.bounding_box_helpers import get_candidate_collision_bboxes
+from isaaclab_arena.relations.optimization.losses.no_overlap_bbox import (
     compute_no_overlap_loss_bbox,
     get_on_linked_pairs,
     prepare_no_overlap_pair_cache,
 )
-from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.relation_loss_strategies import (
+from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import (
+    compute_no_overlap_loss_mesh,
+    prepare_mesh_collision_cache,
+)
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     NoCollisionLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
 )
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
-    from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
-    from isaaclab_arena.relations.no_overlap_bbox import NoOverlapPairCache
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.optimization.losses.mesh_pair_cache import MeshPairCache
+    from isaaclab_arena.relations.optimization.losses.no_overlap_bbox import NoOverlapPairCache
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox
 
 
@@ -196,7 +199,7 @@ class RelationSolver:
             self._mesh_orientations = orientations
             device_str = str(state.device)
             if self._mesh_manager is None or self._mesh_manager.device != device_str:
-                from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+                from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
 
                 self._mesh_manager = WarpMeshAndSphereCache(num_spheres=self.params.num_spheres, device=device_str)
             self._mesh_cache = prepare_mesh_collision_cache(

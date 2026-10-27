@@ -10,17 +10,17 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import rotate_candidate_bboxes
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
-from isaaclab_arena.relations.initializers.initializer_factory import create_initializer
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
+from isaaclab_arena.relations.geometry.bounding_box_helpers import rotate_candidate_bboxes
+from isaaclab_arena.relations.optimization.initializers.initializer_factory import create_initializer
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.relations import AlignWith, ClutterOn, FaceTo, RotateAroundSolution, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.random import get_random_rotation
 from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 

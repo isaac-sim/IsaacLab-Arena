@@ -257,7 +257,7 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
 
 def test_reachability_layer_records_to_rrd(tmp_path):
     """The layer's grasps and verdicts reach a recording without a viewer or cuRobo."""
-    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
+    from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
     rrd_path = tmp_path / "placement.rrd"

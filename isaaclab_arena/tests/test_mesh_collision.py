@@ -14,11 +14,11 @@ import trimesh
 
 import pytest
 
-from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache, greedy_sphere_decomposition
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import NoCollisionLossStrategy
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
-from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache, greedy_sphere_decomposition
 from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -89,8 +89,8 @@ def _compute_no_overlap_loss_mesh_serial_for_test(
     slope: float,
 ) -> torch.Tensor:
     """Reference the pre-batching per-candidate mesh loss for equivalence testing."""
-    from isaaclab_arena.relations.no_overlap_mesh import _rotate_bbox_extents
-    from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
+    from isaaclab_arena.relations.geometry.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
+    from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import _rotate_bbox_extents
     from isaaclab_arena.utils.yaw import rotate_points_by_yaw_batch
 
     total_loss = torch.zeros(state.batch_size, device=state.device, dtype=torch.float32)
@@ -232,7 +232,7 @@ def test_effective_yaw_ignores_placed_initial_pose_unless_allowed():
 
 def test_mesh_broadphase_rotates_bbox_about_object_origin():
     """Mesh broadphase bbox rotation matches AxisAlignedBoundingBox origin-frame semantics."""
-    from isaaclab_arena.relations.no_overlap_mesh import _rotate_bbox_extents
+    from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import _rotate_bbox_extents
 
     bbox = AxisAlignedBoundingBox(min_point=(0.1, -0.01, -0.02), max_point=(0.3, 0.01, 0.02))
     expected = bbox.rotated_around_z(torch.tensor([math.pi / 2]))
@@ -590,7 +590,7 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
 @requires_warp
 def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     """A sentinel SDF (no resolvable face) must fail validation, not certify collision-free."""
-    from isaaclab_arena.relations import warp_sdf_kernels
+    from isaaclab_arena.relations.geometry import warp_sdf_kernels
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
@@ -661,7 +661,7 @@ def test_validate_no_overlap_mesh_respects_anchor_yaw():
 @requires_warp
 def test_mesh_sdf_backward_gradient():
     """mesh_sdf backward gradient points toward the nearest face for an interior point."""
-    from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
+    from isaaclab_arena.relations.geometry.warp_sdf_kernels import mesh_sdf
 
     mesh = trimesh.creation.box(extents=(0.2, 0.2, 0.2))
     manager = WarpMeshAndSphereCache(num_spheres=10, device="cpu")
@@ -977,7 +977,7 @@ def test_solver_mesh_loss_broadphase_respects_yawed_collision_object():
 @requires_warp
 def test_multi_mesh_sdf_distinct_meshes():
     """Regression: mesh_indices routing could silently query only mesh 0."""
-    from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
+    from isaaclab_arena.relations.geometry.warp_sdf_kernels import multi_mesh_sdf
 
     # Tall cylinder vs flat box — maximally different SDF at the query point.
     cylinder = trimesh.creation.cylinder(radius=0.05, height=0.3, sections=32)
@@ -1006,7 +1006,7 @@ def test_multi_mesh_sdf_distinct_meshes():
 
 @requires_warp
 def test_multi_mesh_sdf_backward():
-    from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
+    from isaaclab_arena.relations.geometry.warp_sdf_kernels import multi_mesh_sdf
 
     mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
     mgr = WarpMeshAndSphereCache(num_spheres=10, device="cpu")
@@ -1114,7 +1114,10 @@ def test_anchor_initial_pose_yaw_affects_collision():
 def test_aabb_gate_does_not_reject_diagonal_cylinders():
     """Regression: MESH-mode validator accepts cylinders whose AABBs overlap but meshes don't."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
+    from isaaclab_arena.relations.optimization.placement_candidate_batch import (
+        PlacementCandidate,
+        PlacementCandidateBatch,
+    )
     from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _make_table()
@@ -1214,7 +1217,7 @@ def test_mesh_mode_queries_aabb_subject_against_mesh_background():
 @requires_warp
 def test_mesh_mode_scores_background_collision_object():
     """Aggregated background meshes participate in MESH-mode solve and validation."""
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
@@ -1272,9 +1275,9 @@ def test_mesh_mode_scores_mixed_mesh_aabb_placed_pair():
 @requires_warp
 def test_batched_mesh_loss_matches_test_only_serial_oracle():
     """Batched mesh loss matches the former serial calculation for losses and position gradients."""
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
-    from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh
-    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import compute_no_overlap_loss_mesh
+    from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
 
     table = _make_table()
     a = _make_box_obj("box_a", sx=0.16, sy=0.06, sz=0.08)
