@@ -1348,8 +1348,10 @@ def test_tilted_clutter_requires_bbox_collision():
 
     support = _make_table()
     rods = [_make_box_obj(f"rod_{i}", 0.8, 0.04, 0.04) for i in range(2)]
+    # A 5 cm release region forces the tilted 4 cm footprints to overlap in XY,
+    # so vertical separation is required regardless of the sampled positions.
     for rod in rods:
-        rod.relations = [ClutterOn(support, random_yaw=False), RotateAroundSolution(pitch_rad=math.pi / 2)]
+        rod.relations = [ClutterOn(support, spread=0.05, random_yaw=False), RotateAroundSolution(pitch_rad=math.pi / 2)]
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False),
         enabled_checks={PlacementCheck.NO_OVERLAP, PlacementCheck.CLUTTER_ON_RELATION},
