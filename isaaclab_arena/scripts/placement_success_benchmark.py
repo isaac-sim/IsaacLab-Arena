@@ -6,9 +6,9 @@
 """Measure relation-placement success across the RoboLab and KitchenBench environment specs.
 
 Each spec's placement inputs are built as ArenaEnvBuilder builds them, without stepping physics, then placed for every
-placement seed. A layout succeeds when the best of its max_placement_attempts candidates passes every required
-pre-physics check, as in ObjectPlacer.place(). The share of valid candidates is also reported, because it changes
-before the best-of-candidates rate does.
+placement seed. Two rates are reported: the share of valid candidates, which pass every required pre-physics check
+and are what an environment build's placement pool keeps, and the share of layouts whose best of
+max_placement_attempts candidates is valid, as in ObjectPlacer.place().
 
 Run inside the container and write a results file:
 
@@ -274,9 +274,9 @@ class CandidatePlacer:
             settings: Benchmark settings.
             seed_block_index: Index of the environment's own block of candidate seeds.
         """
-        from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs
+        from isaaclab_arena.relations.geometry.bounding_box_helpers import assign_variants_for_envs
+        from isaaclab_arena.relations.geometry.passive_collision_objects import get_placement_collision_objects
         from isaaclab_arena.relations.object_placer import ObjectPlacer
-        from isaaclab_arena.relations.passive_collision_objects import get_placement_collision_objects
 
         params = copy.copy(inputs.placer_params)
         params.solver_params = copy.copy(params.solver_params)

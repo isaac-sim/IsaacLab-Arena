@@ -217,7 +217,7 @@ class RateChange:
 
 @dataclass
 class SuiteComparison:
-    """Rate changes over the environments of a suite that both runs scored with the same success criteria."""
+    """Rate changes over the environments of a suite that both runs scored."""
 
     suite: str
     """Suite name."""
@@ -225,11 +225,15 @@ class SuiteComparison:
     num_environments: int
     """Environments compared."""
 
-    layout_success: RateChange
-    """Change in mean layout success rate."""
+    num_not_compared: int
+    """Environments not scored in both runs, such as ones that failed in either run. Environments skipped in both
+    runs are not counted."""
 
-    valid_candidates: RateChange
-    """Change in mean valid-candidate rate."""
+    layout_success: RateChange | None
+    """Change in mean layout success rate, or None when no environment was compared."""
+
+    valid_candidates: RateChange | None
+    """Change in mean valid-candidate rate, or None when no environment was compared."""
 
 
 @dataclass
@@ -253,8 +257,8 @@ class EnvironmentComparison:
 
 
 @dataclass
-class ExcludedEnvironment:
-    """An environment left out of a comparison, with its record in each run."""
+class EnvironmentRecordPair:
+    """An environment's record in each of two runs."""
 
     suite: str
     """Suite name."""
@@ -274,22 +278,20 @@ class ResultsComparison:
     """Comparison of the results after a change against the results before it."""
 
     suites: list[SuiteComparison]
-    """One entry per suite with environments compared."""
+    """One entry per suite in either run."""
 
     environments: list[EnvironmentComparison]
-    """One entry per environment scored in both runs with the same success criteria."""
+    """One entry per environment scored in both runs."""
 
-    unpaired: list[ExcludedEnvironment]
+    unpaired: list[EnvironmentRecordPair]
     """Environments not scored in both runs. Environments skipped in both runs are left out."""
 
     settings_differences: dict[str, tuple[object, object]]
     """Each setting that differs, mapped to its values before and after."""
 
-    check_differences: list[ExcludedEnvironment]
-    """Environments scored in both runs whose success criteria differ, so they are not compared.
-
-    Criteria differ when a check required in only one run rejected candidates in that run.
-    """
+    check_differences: list[EnvironmentRecordPair]
+    """Environments scored in both runs whose required checks differ, so their success criteria differ. They are
+    still compared, because a change to the checks is often the change being measured."""
 
 
 def summarize_suites(results: PlacementBenchmarkResults) -> list[SuiteSummary]:
@@ -322,7 +324,7 @@ def summarize_suites(results: PlacementBenchmarkResults) -> list[SuiteSummary]:
 
 
 def compare_results(before: PlacementBenchmarkResults, after: PlacementBenchmarkResults) -> ResultsComparison:
-    """Return a comparison of two runs over the environments both scored with the same success criteria.
+    """Return a comparison of two runs over the environments both scored.
 
     Each environment's interval is the Agresti-Caffo interval for a difference of two proportions. A suite's
     interval combines its environments' variances, treating the set of environments as fixed and their samples as
@@ -341,9 +343,8 @@ def compare_results(before: PlacementBenchmarkResults, after: PlacementBenchmark
     for key in sorted(records_before.keys() | records_after.keys()):
         record_before, record_after = records_before.get(key), records_after.get(key)
         if _has_status(record_before, EnvironmentStatus.SCORED) and _has_status(record_after, EnvironmentStatus.SCORED):
-            if _success_criteria_differ(record_before, record_after):
-                check_differences.append(ExcludedEnvironment(*key, record_before, record_after))
-                continue
+            if _required_checks(record_before) != _required_checks(record_after):
+                check_differences.append(EnvironmentRecordPair(*key, record_before, record_after))
             environments.append(
                 EnvironmentComparison(
                     suite=key[0],
@@ -366,21 +367,23 @@ def compare_results(before: PlacementBenchmarkResults, after: PlacementBenchmark
             _has_status(record_before, EnvironmentStatus.SKIPPED)
             and _has_status(record_after, EnvironmentStatus.SKIPPED)
         ):
-            unpaired.append(ExcludedEnvironment(*key, record_before, record_after))
+            unpaired.append(EnvironmentRecordPair(*key, record_before, record_after))
 
     _flag_significant_environments(environments)
 
-    comparisons_per_suite: dict[str, list[EnvironmentComparison]] = {}
-    for comparison in environments:
-        comparisons_per_suite.setdefault(comparison.suite, []).append(comparison)
     suites = []
-    for suite, comparisons in comparisons_per_suite.items():
+    for suite in dict.fromkeys(record.suite for record in before.environments + after.environments):
+        comparisons = [comparison for comparison in environments if comparison.suite == suite]
+        num_not_compared = sum(pair.suite == suite for pair in unpaired)
+        layout_changes = [comparison.layout_success for comparison in comparisons]
+        valid_changes = [comparison.valid_candidates for comparison in comparisons]
         suites.append(
             SuiteComparison(
                 suite=suite,
                 num_environments=len(comparisons),
-                layout_success=_average_rate_changes([comparison.layout_success for comparison in comparisons]),
-                valid_candidates=_average_rate_changes([comparison.valid_candidates for comparison in comparisons]),
+                num_not_compared=num_not_compared,
+                layout_success=_average_rate_changes(layout_changes) if comparisons else None,
+                valid_candidates=_average_rate_changes(valid_changes) if comparisons else None,
             )
         )
     settings_before, settings_after = asdict(before.settings), asdict(after.settings)
@@ -425,6 +428,12 @@ def format_comparison(comparison: ResultsComparison) -> str:
         comparison: Comparison from compare_results().
     """
     lines = []
+    failed_after = [pair for pair in comparison.unpaired if _has_status(pair.after, EnvironmentStatus.FAILED)]
+    if failed_after:
+        lines.append("Warning: these environments failed after the change:")
+        for pair in failed_after:
+            lines.append(f"- {pair.suite}/{pair.environment}: {pair.after.reason}")
+        lines.append("")
     if comparison.settings_differences:
         lines.append("Warning: the runs used different settings:")
         for key, (value_before, value_after) in comparison.settings_differences.items():
@@ -432,34 +441,26 @@ def format_comparison(comparison: ResultsComparison) -> str:
         lines.append("")
     if comparison.check_differences:
         lines.append(
-            "Warning: a check required in only one run rejected candidates in these environments, so their success"
-            " criteria differ. They are left out of the suite rates and significance tests, and their rates are shown"
-            " without intervals:"
+            "Warning: these environments require different checks in each run, so their success criteria differ:"
         )
-        for excluded in comparison.check_differences:
+        for pair in comparison.check_differences:
             lines.append(
-                f"- {excluded.suite}/{excluded.environment}: before {_format_checks(excluded.before.checks)};"
-                f" after {_format_checks(excluded.after.checks)}; layout success"
-                f" {_format_percent(excluded.before.layout_success_rate)} →"
-                f" {_format_percent(excluded.after.layout_success_rate)}, valid candidates"
-                f" {_format_percent(excluded.before.valid_candidate_rate)} →"
-                f" {_format_percent(excluded.after.valid_candidate_rate)}"
+                f"- {pair.suite}/{pair.environment}: before {_format_checks(pair.before.checks)};"
+                f" after {_format_checks(pair.after.checks)}"
             )
         lines.append("")
     lines += [
         (
-            "| suite | environments compared | layout success, before → after | change (95% interval) |"
+            "| suite | compared | not compared | layout success, before → after | change (95% interval) |"
             " valid candidates, before → after | change (95% interval) |"
         ),
-        "|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|",
     ]
-    if not comparison.suites:
-        lines.append("| no environment was scored in both runs with the same success criteria | | | | | |")
     for suite in comparison.suites:
         lines.append(
-            f"| {suite.suite} | {suite.num_environments} | {_format_rates(suite.layout_success)} |"
-            f" {_format_change(suite.layout_success)} | {_format_rates(suite.valid_candidates)} |"
-            f" {_format_change(suite.valid_candidates)} |"
+            f"| {suite.suite} | {suite.num_environments} | {suite.num_not_compared} |"
+            f" {_format_rates(suite.layout_success)} | {_format_change(suite.layout_success)} |"
+            f" {_format_rates(suite.valid_candidates)} | {_format_change(suite.valid_candidates)} |"
         )
     significant = [environment for environment in comparison.environments if environment.significant]
     if significant:
@@ -474,10 +475,10 @@ def format_comparison(comparison: ResultsComparison) -> str:
             )
     if comparison.unpaired:
         lines += ["", "Not scored in both runs:"]
-        for excluded in comparison.unpaired:
+        for pair in comparison.unpaired:
             lines.append(
-                f"- {excluded.suite}/{excluded.environment}: before {_format_status(excluded.before)},"
-                f" after {_format_status(excluded.after)}"
+                f"- {pair.suite}/{pair.environment}: before {_format_status(pair.before)},"
+                f" after {_format_status(pair.after)}"
             )
     return "\n".join(lines)
 
@@ -493,19 +494,8 @@ def format_provenance(results: PlacementBenchmarkResults) -> str:
     return f"{commit} ({results.branch or 'unknown branch'}{dirty}), started {results.start_time}"
 
 
-def _success_criteria_differ(before: EnvironmentRecord, after: EnvironmentRecord) -> bool:
-    """Return whether a check required in only one run rejected candidates in that run.
-
-    A missing or optional check does not affect success, and neither does a required check that rejected nothing.
-    """
-    for check in before.checks.keys() | after.checks.keys():
-        required_before = before.checks.get(check, False)
-        required_after = after.checks.get(check, False)
-        if required_before != required_after:
-            record_requiring_check = before if required_before else after
-            if record_requiring_check.candidate_failures_per_check.get(check, 0) > 0:
-                return True
-    return False
+def _required_checks(record: EnvironmentRecord) -> set[str]:
+    return {check for check, required in record.checks.items() if required}
 
 
 def _enum_to_value(value: object) -> object:
@@ -596,11 +586,13 @@ def _format_percent(value: float | None) -> str:
     return "n/a" if value is None else f"{100 * value:.1f}%"
 
 
-def _format_rates(change: RateChange) -> str:
-    return f"{_format_percent(change.before)} → {_format_percent(change.after)}"
+def _format_rates(change: RateChange | None) -> str:
+    return "n/a" if change is None else f"{_format_percent(change.before)} → {_format_percent(change.after)}"
 
 
-def _format_change(change: RateChange) -> str:
+def _format_change(change: RateChange | None) -> str:
+    if change is None:
+        return "n/a"
     # A difference of two rates lies between -100 and +100 points, so the printed interval stops there.
     low, high = max(change.low, -1.0), min(change.high, 1.0)
     return f"[{100 * low:+.1f}, {100 * high:+.1f}] pts"

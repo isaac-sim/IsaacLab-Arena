@@ -15,15 +15,16 @@ variations and the task's reachability constraints. It then places
 ``--num_layouts`` layouts for every seed in ``--placement_seeds``, without
 stepping physics. It reports two rates:
 
-* **Layout success:** the share of layouts whose best candidate passes every
-  required :doc:`pre-physics check <./validation>`. Each layout keeps the best of
-  ``max_placement_attempts`` candidates, as ``ObjectPlacer.place()`` does. A
-  full environment build fills its :doc:`placement pool <./pooled_placement>`
-  differently, with retries and best-loss fallbacks, so this rate measures the
-  solver and validators rather than the pool.
 * **Valid candidates:** the share of all solved candidates that pass every
-  required check. Best-of-candidates selection hides moderate changes, so this
-  rate moves before layout success does.
+  required :doc:`pre-physics check <./validation>`. This rate is closest to an
+  environment build: the build's :doc:`placement pool <./pooled_placement>`
+  keeps only valid candidates and solves more batches until it has enough, so
+  this rate decides how much solving a build needs and whether it falls back to
+  best-loss layouts.
+* **Layout success:** the share of layouts whose best candidate passes every
+  required check. Each layout keeps the best of ``max_placement_attempts``
+  candidates, as ``ObjectPlacer.place()`` does. Best-of-candidates selection
+  saturates, so this rate moves only once valid candidates become rare.
 
 Each environment is reported as scored, skipped or failed. Specs that place
 nothing other than anchors are skipped. Specs that fail to build or place are
@@ -122,21 +123,25 @@ Then compare the two results files. Comparing does not start the simulator:
    python isaaclab_arena/scripts/placement_success_benchmark.py \
      --compare outputs/placement_success/before.json outputs/placement_success/after.json
 
-The comparison first names each run's commit, then reports each suite's rates
-in both runs over the environments scored in both, with a 95% interval for the
+The comparison first names each run's commit and warns about environments
+that failed after the change. Each suite row then counts the environments
+compared and the ones that were not, such as environments that failed in either
+run, and reports the suite's rates in both runs with a 95% interval for the
 change, after minus before, in percentage points. A negative change is a
-regression, and an interval that contains zero is inconclusive. Two full runs
-of the same code gave suite changes of zero, with intervals of about ±1 point
-for layout success and ±0.5 points for valid candidates. A random asset
-variant, as noted above, can still move a single environment slightly.
+regression, and an interval that contains zero is inconclusive. At the
+defaults, a suite's interval is about ±1 point for layout success and ±0.5
+points for valid candidates.
 
 The interval treats the set of specs as fixed and covers only the noise of
-sampling their candidates. It also treats candidates as independent, although
-the solver optimizes a seed's layouts as one batch and stops them together, so
-it may be somewhat too narrow.
+sampling their candidates. Both runs start from the same candidates, so for a
+change that leaves the solver alone, such as a new validator, the two runs are
+correlated and the interval is wider than it needs to be. Candidates in a
+seed's batch are solved together, which can make it somewhat too narrow.
 
 The comparison then lists the environments whose change is significant, and
-the environments that were not scored in both runs. Testing every environment
+the environments that were not scored in both runs. With the 69 specs at the
+defaults, a single environment is flagged once its valid-candidate rate changes
+by about 6 points or its layout success by about 15. Testing every environment
 and rate at 5% would flag a few by chance, so the Holm adjustment lowers each
 threshold until the chance of flagging any unchanged environment is at most
 5%. Each environment's interval uses the Agresti-Caffo adjustment, which adds
@@ -144,12 +149,12 @@ one success and one failure to each run so that rates of 0% and 100% still get
 a sensible interval. That interval is therefore not always centered on the
 observed change, while a suite's interval is.
 
-The comparison warns when the two runs used different settings. It also names
-the environments where a check required in only one run rejected candidates in
-that run, and prints their rates without intervals. Their success criteria
-differ, so they are left out of the suite rates and significance tests. A
-missing or optional check does not change success, and neither does a required
-check that never rejected a candidate.
+The comparison also warns when the two runs used different settings, and
+names the environments whose required checks differ, since their success
+criteria differ. Those environments stay in the suite rates, because a change
+to the checks is often the change being measured. A check that one image lacks,
+such as inverse kinematics (IK) reachability without cuRobo, also shows up
+here.
 
 ``--compare`` only reports; its exit status does not signal a regression.
 
@@ -164,8 +169,8 @@ other untracked files, such as local tool settings, do not. Each record holds
 the environment's status, its layout and candidate counts, its wall time, the
 checks that ran, with whether each is required, and how many candidates each
 check rejected. A check that
-runs only on candidates that pass the cheaper required checks, such as inverse
-kinematics (IK) reachability, counts as rejecting the candidates it skipped.
+runs only on candidates that pass the cheaper required checks, such as IK
+reachability, counts as rejecting the candidates it skipped.
 
 A suite has no rates when any of its environments failed, and the script exits
 with an error after writing the file.

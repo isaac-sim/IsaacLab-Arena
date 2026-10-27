@@ -93,7 +93,7 @@ def test_comparison_flags_only_changes_that_survive_holm():
     comparison = compare_results(_results(before), after_results)
 
     [suite] = comparison.suites
-    assert suite.num_environments == 37
+    assert (suite.num_environments, suite.num_not_compared) == (37, 2)
     # Every environment weighs the same, whatever its layout count.
     assert suite.layout_success.after == pytest.approx((36 * 0.94 + 0.48) / 37)
     changes = {environment.environment: environment for environment in comparison.environments}
@@ -162,38 +162,47 @@ def test_suite_interval_is_centered_on_the_observed_change():
         _results([_scored("robolab", "task_0", layouts=(0, 50), candidates=(0, 500))]),
     )
     assert collapse.environments[0].layout_success.low < -1
-    assert "| robolab | 1 | 100.0% → 0.0% | [-100.0, " in format_comparison(collapse)
+    assert "| robolab | 1 | 0 | 100.0% → 0.0% | [-100.0, " in format_comparison(collapse)
 
 
-def test_comparison_leaves_out_environments_whose_success_criteria_changed():
-    """An environment is left out when a check required in only one run rejected candidates in that run."""
-    before = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(5)]
-    after = [_scored("robolab", f"task_{index}", layouts=(25, 50), candidates=(200, 500)) for index in range(5)]
+def test_comparison_keeps_environments_whose_required_checks_changed_and_warns():
+    """Environments whose required checks differ stay in the comparison and are named; optional checks don't count."""
+    before = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(4)]
+    after = [_scored("robolab", f"task_{index}", layouts=(25, 50), candidates=(200, 500)) for index in range(4)]
     for record in before + after:
         record.checks = {"no_overlap": True, "ik_reachable": True}
-    for record in before:
-        record.candidate_failures_per_check = {"ik_reachable": 40}
-    # task_0 loses ik_reachable and task_1 makes it optional; it rejected candidates before.
+    # task_0 loses ik_reachable, task_1 makes it optional and task_2 gains a required check.
     after[0].checks = {"no_overlap": True}
     after[1].checks = {"no_overlap": True, "ik_reachable": False}
-    # task_2 gains a required check that never rejects a candidate, so its success is unchanged.
-    after[2].checks = {"no_overlap": True, "ik_reachable": True, "face_to": True}
-    # task_3 gains a required check that rejects candidates after the change.
-    after[3].checks = {"no_overlap": True, "ik_reachable": True, "on_relation": True}
-    after[3].candidate_failures_per_check = {"on_relation": 10}
-    # task_4 gains an optional check, which does not affect success even though it rejects candidates.
-    after[4].checks = {"no_overlap": True, "ik_reachable": True, "face_to": False}
-    after[4].candidate_failures_per_check = {"face_to": 10}
+    after[2].checks = {"no_overlap": True, "ik_reachable": True, "on_relation": True}
+    # task_3 gains an optional check, which does not change success.
+    after[3].checks = {"no_overlap": True, "ik_reachable": True, "face_to": False}
 
     comparison = compare_results(_results(before), _results(after))
 
-    assert [environment.environment for environment in comparison.environments] == ["task_2", "task_4"]
-    assert [excluded.environment for excluded in comparison.check_differences] == ["task_0", "task_1", "task_3"]
+    # A change to the required checks is often the change being measured, so its effect stays in the suite rates.
+    assert len(comparison.environments) == 4
+    assert [pair.environment for pair in comparison.check_differences] == ["task_0", "task_1", "task_2"]
     assert (
-        "- robolab/task_1: before ik_reachable, no_overlap; after ik_reachable (optional), no_overlap;"
-        " layout success 94.0% → 50.0%, valid candidates 80.0% → 40.0%"
+        "- robolab/task_1: before ik_reachable, no_overlap; after ik_reachable (optional), no_overlap"
         in format_comparison(comparison)
     )
+
+
+def test_comparison_headline_counts_environments_that_failed_after_the_change():
+    """Failures after a change open the comparison, and every suite row counts what it could not compare."""
+    before = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(3)]
+    before.append(_scored("kitchen_bench", "open_fridge", layouts=(50, 50), candidates=(500, 500)))
+    after = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(2)]
+    after.append(EnvironmentRecord("robolab", "task_2", EnvironmentStatus.FAILED, reason="KeyError: 'lime'"))
+    after.append(EnvironmentRecord("kitchen_bench", "open_fridge", EnvironmentStatus.FAILED, reason="ValueError"))
+
+    text = format_comparison(compare_results(_results(before), _results(after)))
+
+    assert text.startswith("Warning: these environments failed after the change:\n- kitchen_bench/open_fridge")
+    assert "| robolab | 2 | 1 | 94.0% → 94.0% |" in text
+    # A suite whose every environment failed still has a row.
+    assert "| kitchen_bench | 0 | 1 | n/a | n/a | n/a | n/a |" in text
 
 
 def test_seed_results_count_each_layout_by_its_best_candidate():
@@ -314,7 +323,7 @@ def test_compare_cli_prints_suite_table_without_simulator(tmp_path, monkeypatch,
 
     placement_success_benchmark.main()
 
-    assert "| robolab | 1 | 90.0% → 100.0% |" in capsys.readouterr().out
+    assert "| robolab | 1 | 0 | 90.0% → 100.0% |" in capsys.readouterr().out
 
 
 def _scored(suite: str, environment: str, layouts: tuple[int, int], candidates: tuple[int, int]) -> EnvironmentRecord:
