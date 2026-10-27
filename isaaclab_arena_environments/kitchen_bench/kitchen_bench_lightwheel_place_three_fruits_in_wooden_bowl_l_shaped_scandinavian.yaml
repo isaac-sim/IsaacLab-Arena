@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_round2_scandinavian_three_fruits_in_bowl
+env_name: kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

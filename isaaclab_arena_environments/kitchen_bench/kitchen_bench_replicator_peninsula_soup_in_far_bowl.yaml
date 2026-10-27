@@ -1,0 +1,118 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_replicator_peninsula_soup_in_far_bowl
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_peninsula
+  params:
+    collision_mode: mesh
+objects:
+- id: soup
+  registry_name: alphabet_soup_can_hope_robolab
+- id: near_bowl
+  registry_name: bowl_ycb_robolab
+  params:
+    scale: [1.25, 1.25, 1.0]
+- id: far_bowl
+  registry_name: bowl_ycb_robolab
+  params:
+    scale: [1.25, 1.25, 1.0]
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: island_top
+  parent_id: kitchen
+  prim_path: CapSurface_02
+  object_type: base
+# Sample within alignment bands instead of pulling each layout to a single offset.
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: island_top
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: island_top
+  params:
+    axis: y
+    offset_m: 1.16
+    tolerance_m: 0.05
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: -1.57
+- kind: 'on'
+  subject: soup
+  reference: island_top
+- kind: 'on'
+  subject: near_bowl
+  reference: island_top
+- kind: 'on'
+  subject: far_bowl
+  reference: island_top
+- kind: position_limits_box
+  subject: near_bowl
+  params:
+    x_min: -0.55
+    x_max: 0.45
+    y_min: -0.22
+    y_max: -0.09
+- kind: align_with
+  subject: far_bowl
+  reference: near_bowl
+  params:
+    axis: y
+    offset_m: -0.27
+    tolerance_m: 0.05
+- kind: align_with
+  subject: soup
+  reference: near_bowl
+  params:
+    axis: x
+    offset_m: 0.21
+    tolerance_m: 0.05
+- kind: align_with
+  subject: soup
+  reference: near_bowl
+  params:
+    axis: y
+    tolerance_m: 0.1
+- kind: align_with
+  subject: far_bowl
+  reference: near_bowl
+  params:
+    axis: x
+    tolerance_m: 0.06
+- kind: align_with
+  subject: droid
+  reference: near_bowl
+  params:
+    axis: x
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the soup can and put it in the red bowl farthest from the robot.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: soup
+      destination_location: far_bowl
+      destination_object: far_bowl
+      background_scene: kitchen
+placer_params:
+  # Fail placement if no layout passes validation instead of using a rejected layout.
+  allow_best_loss_fallbacks: false

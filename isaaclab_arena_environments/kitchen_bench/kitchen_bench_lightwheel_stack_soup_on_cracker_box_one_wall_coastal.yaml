@@ -3,115 +3,105 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_round2_peninsula_soup_in_far_bowl
+env_name: kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
   params:
     stand_height_m: 0.8
     placement_bbox_stand_only: true
+    collision_mode: mesh
 background:
   id: kitchen
-  registry_name: replicator_kitchen_peninsula
+  registry_name: lightwheel_kitchen_one_wall_coastal
   params:
     collision_mode: mesh
 objects:
 - id: soup
   registry_name: alphabet_soup_can_hope_robolab
-- id: near_bowl
-  registry_name: bowl_ycb_robolab
+- id: cracker_box
+  registry_name: cracker_box
   params:
-    scale: [1.25, 1.25, 1.0]
-- id: far_bowl
-  registry_name: bowl_ycb_robolab
-  params:
-    scale: [1.25, 1.25, 1.0]
+    collision_mode: bbox
 object_references:
 - id: floor
   parent_id: kitchen
-  prim_path: KitchenRoom/Floor
+  prim_path: floor_room/geometry
   object_type: base
-- id: island_top
+- id: counter_top
   parent_id: kitchen
-  prim_path: CapSurface_02
+  prim_path: counter_main_main_group/top_geometry_right
   object_type: base
 # Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
 - kind: is_anchor
-  subject: island_top
+  subject: counter_top
 - kind: 'on'
   subject: droid
   reference: floor
 - kind: align_with
   subject: droid
-  reference: island_top
+  reference: counter_top
   params:
     axis: y
-    offset_m: 1.16
+    offset_m: -1.07
     tolerance_m: 0.05
 - kind: rotate_around_solution
   subject: droid
   params:
-    yaw_rad: -1.57
+    yaw_rad: 1.57
 - kind: 'on'
   subject: soup
-  reference: island_top
+  reference: counter_top
 - kind: 'on'
-  subject: near_bowl
-  reference: island_top
-- kind: 'on'
-  subject: far_bowl
-  reference: island_top
+  subject: cracker_box
+  reference: counter_top
 - kind: position_limits_box
-  subject: near_bowl
+  subject: cracker_box
   params:
-    x_min: -0.55
-    x_max: 0.45
-    y_min: -0.22
-    y_max: -0.09
-- kind: align_with
-  subject: far_bowl
-  reference: near_bowl
-  params:
-    axis: y
-    offset_m: -0.27
-    tolerance_m: 0.05
+    x_min: 2.0
+    x_max: 2.4
+    y_min: -0.55
+    y_max: -0.43
 - kind: align_with
   subject: soup
-  reference: near_bowl
+  reference: cracker_box
   params:
     axis: x
-    offset_m: 0.21
+    offset_m: 0.2
     tolerance_m: 0.05
-- kind: align_with
+- kind: rotate_around_solution
   subject: soup
-  reference: near_bowl
   params:
-    axis: y
-    tolerance_m: 0.1
-- kind: align_with
-  subject: far_bowl
-  reference: near_bowl
+    yaw_rad: 0.1
+- kind: rotate_around_solution
+  subject: cracker_box
   params:
-    axis: x
-    tolerance_m: 0.06
+    yaw_rad: 0.0
 - kind: align_with
   subject: droid
-  reference: near_bowl
+  reference: cracker_box
   params:
     axis: x
     tolerance_m: 0.12
+- kind: align_with
+  subject: soup
+  reference: cracker_box
+  params:
+    axis: y
+    tolerance_m: 0.06
+    offset_m: -0.025
 task:
   composition: atomic
-  description: Pick up the soup can and put it in the red bowl farthest from the robot.
+  description: Place the soup can on top of the cracker box.
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: soup
-      destination_location: far_bowl
-      destination_object: far_bowl
+      destination_location: cracker_box
+      destination_object: cracker_box
       background_scene: kitchen
 placer_params:
   # Fail placement if no layout passes validation instead of using a rejected layout.
