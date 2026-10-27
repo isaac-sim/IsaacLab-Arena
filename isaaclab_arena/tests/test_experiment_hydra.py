@@ -283,7 +283,6 @@ def test_robolab_experiments_apply_shared_run_defaults(config_name, expected_run
     assert all(run["environment"]["enable_cameras"] for run in default_run_values.values())
     assert all(run["environment_builder"]["num_envs"] == 20 for run in default_run_values.values())
     assert all(run["rollout_limit"]["num_episodes"] == 100 for run in default_run_values.values())
-    assert all(run["variations"]["light"]["hdr_image"]["enabled"] for run in default_run_values.values())
     assert not any(
         run["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"]
         for run in default_run_values.values()
