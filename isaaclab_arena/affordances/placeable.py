@@ -114,7 +114,7 @@ class Placeable(AffordanceBase):
 def get_object_axis_in_world_frame(object_quat: torch.tensor, upright_axis_name: str) -> torch.tensor:
     """Get the object axis in the world frame.
     Args:
-        object_quat: The quaternion of the object. Shape: [num_envs, 4] (w, x, y, z).
+        object_quat: The quaternion of the object. Shape: [num_envs, 4] (x, y, z, w).
         upright_axis_name: The name of the object axis to get in the world frame. Can be "x", "y", or "z".
 
     Returns:
@@ -210,7 +210,7 @@ def _compute_target_quaternions(
     """Compute the target quaternions for the object given the current orientation and the upright percentage.
 
     Args:
-        object_quat: Current quaternion orientations of the objects. Shape: [num_envs, 4] (w, x, y, z).
+        object_quat: Current quaternion orientations of the objects. Shape: [num_envs, 4] (x, y, z, w).
         upright_percentage: Target upright percentage(s) in [0, 1]. Can be:
             - A scalar float applied to all environments
             - A tensor with num_envs elements (shape [num_envs] or [num_envs, 1])
@@ -219,7 +219,7 @@ def _compute_target_quaternions(
         upright_axis_name: Name of the object's local axis to align ("x", "y", or "z").
 
     Returns:
-        Target quaternions for the object. Shape: [num_envs, 4] (w, x, y, z).
+        Target quaternions for the object. Shape: [num_envs, 4] (x, y, z, w).
     """
 
     upright_percentage_t = torch.as_tensor(upright_percentage, device=object_quat.device, dtype=object_quat.dtype)

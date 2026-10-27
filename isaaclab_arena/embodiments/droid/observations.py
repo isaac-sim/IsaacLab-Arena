@@ -54,7 +54,7 @@ def ee_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("r
 
 
 def ee_quat(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Returns the end effector orientation as quaternion (w, x, y, z) in the world frame."""
+    """Returns the end effector orientation as quaternion (x, y, z, w) in the world frame."""
     robot = env.scene[asset_cfg.name]
     body_idx = robot.data.body_names.index("base_link")  # Robotiq gripper base link
     return wp.to_torch(robot.data.body_quat_w)[:, body_idx, :]

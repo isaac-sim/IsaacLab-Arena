@@ -14,7 +14,7 @@ class EefPose:
     """Eef position in meters"""
 
     eef_quat: torch.Tensor
-    """Eef orientation in quaternions w, x, y, z"""
+    """Eef orientation in quaternions x, y, z, w"""
 
     device: torch.device
     """Device to store the tensor on"""
@@ -23,7 +23,7 @@ class EefPose:
     def identity(device: torch.device, batch_size: int = 1):
         return EefPose(
             eef_pos=torch.zeros((batch_size, 3), device=device),
-            eef_quat=torch.tensor([1, 0, 0, 0], device=device).repeat(batch_size, 1),
+            eef_quat=torch.tensor([0, 0, 0, 1], device=device).repeat(batch_size, 1),
             device=device,
         )
 
