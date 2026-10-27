@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_place_banana_on_plate
+env_name: kitchen_banana_plate_distractors_14
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

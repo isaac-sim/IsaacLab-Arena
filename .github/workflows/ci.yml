@@ -512,8 +512,8 @@ jobs:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_PUBLIC_NVIDIA_API_KEY }}
       BENCHMARK_OUTPUT_DIR: outputs/weekly_benchmark
-      # A reduced matrix that fits a CI job; the READMEs under
-      # isaaclab_arena_examples/agentic_environment_generation/ give the reporting configuration.
+      # A reduced matrix that fits a CI job; docs/pages/references/performance.rst gives the
+      # reporting configuration.
       TIME_TO_FIRST_SPEC_NUM_RUNS: "3"
       TIME_TO_RESOLVED_LAYOUT_NUM_RUNS: "3"
 
@@ -552,7 +552,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
+          isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/benchmark/run_time_to_first_spec_benchmarks.py \
             --num_runs "${TIME_TO_FIRST_SPEC_NUM_RUNS}" \
             --output_dir "${BENCHMARK_OUTPUT_DIR}/time_to_first_spec" \
             | tee time_to_first_spec.log
@@ -563,7 +563,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/run_time_to_resolved_layout_benchmarks.py \
+          isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/benchmark/run_time_to_resolved_layout_benchmarks.py \
             --num_runs "${TIME_TO_RESOLVED_LAYOUT_NUM_RUNS}" \
             --num_envs 1 \
             --num_envs 16 \

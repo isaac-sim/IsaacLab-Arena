@@ -16,8 +16,8 @@ from types import ModuleType
 
 import pytest
 
-import isaaclab_arena_examples.agentic_environment_generation.benchmark_time_to_resolved_layout as benchmark
-import isaaclab_arena_examples.agentic_environment_generation.run_time_to_resolved_layout_benchmarks as batch_benchmark
+import isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_time_to_resolved_layout as benchmark
+import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_resolved_layout_benchmarks as batch_benchmark
 
 
 def test_percentile_and_summary_exclude_failed_samples():
@@ -146,8 +146,8 @@ def test_failed_sample_makes_single_benchmark_exit_nonzero(monkeypatch, tmp_path
 
 def test_batch_marks_failed_samples_as_failed_configuration(monkeypatch, tmp_path):
     env_specs_dir = tmp_path / "env_specs"
-    (env_specs_dir / "test_case").mkdir(parents=True)
-    (env_specs_dir / "test_case" / "environment.yaml").write_text("env_name: test\n", encoding="utf-8")
+    env_specs_dir.mkdir()
+    (env_specs_dir / "test_case.yaml").write_text("env_name: test_case\n", encoding="utf-8")
     output_dir = tmp_path / "results"
     args = argparse.Namespace(
         env_specs_dir=env_specs_dir,
@@ -187,19 +187,8 @@ def test_batch_marks_failed_samples_as_failed_configuration(monkeypatch, tmp_pat
     assert combined["failed_configurations"] == ["test_case_envs_1"]
 
 
-def test_find_benchmark_cases_maps_each_case_directory_to_its_spec(tmp_path):
-    (tmp_path / "case_a").mkdir()
-    (tmp_path / "case_a" / "a.yaml").write_text("env_name: a\n", encoding="utf-8")
-    (tmp_path / "screenshots").mkdir()
-    (tmp_path / "screenshots" / "a.png").write_bytes(b"")
+def test_find_benchmark_cases_names_each_case_after_its_spec_file(tmp_path):
+    (tmp_path / "case_a.yaml").write_text("env_name: case_a\n", encoding="utf-8")
+    (tmp_path / "notes.md").write_text("", encoding="utf-8")
 
-    assert batch_benchmark.find_benchmark_cases(tmp_path) == {"case_a": tmp_path / "case_a" / "a.yaml"}
-
-
-def test_find_benchmark_cases_rejects_a_case_with_several_specs(tmp_path):
-    (tmp_path / "case_a").mkdir()
-    for name in ("a.yaml", "b.yaml"):
-        (tmp_path / "case_a" / name).write_text("env_name: a\n", encoding="utf-8")
-
-    with pytest.raises(AssertionError, match="must hold one spec YAML"):
-        batch_benchmark.find_benchmark_cases(tmp_path)
+    assert batch_benchmark.find_benchmark_cases(tmp_path) == {"case_a": tmp_path / "case_a.yaml"}

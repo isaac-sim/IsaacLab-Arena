@@ -8,7 +8,7 @@
 Usage::
 
     /isaac-sim/python.sh \
-        isaaclab_arena_examples/agentic_environment_generation/run_time_to_resolved_layout_benchmarks.py
+        isaaclab_arena_examples/agentic_environment_generation/benchmark/run_time_to_resolved_layout_benchmarks.py
 """
 
 from __future__ import annotations
@@ -32,22 +32,16 @@ _DEFAULT_NUM_ENVS = (1, 16, 64, 256)
 
 
 def find_benchmark_cases(env_specs_dir: Path) -> dict[str, Path]:
-    """Map each subdirectory of ``env_specs_dir`` that holds environment YAML to that YAML.
+    """Map each environment spec YAML in ``env_specs_dir`` to a case named after its file stem.
 
     Args:
-        env_specs_dir: Directory with one subdirectory per case, each holding exactly one spec YAML.
+        env_specs_dir: Directory holding one spec YAML per case.
 
     Returns:
         Spec paths keyed by case name, sorted by case name.
     """
     assert env_specs_dir.is_dir(), f"benchmark environment spec directory not found: {env_specs_dir}"
-    cases: dict[str, Path] = {}
-    for case_dir in sorted(path for path in env_specs_dir.iterdir() if path.is_dir()):
-        env_specs = sorted(case_dir.glob("*.yaml"))
-        if not env_specs:
-            continue
-        assert len(env_specs) == 1, f"benchmark case {case_dir.name!r} must hold one spec YAML, found {env_specs}"
-        cases[case_dir.name] = env_specs[0]
+    cases = {env_spec.stem: env_spec for env_spec in sorted(env_specs_dir.glob("*.yaml"))}
     assert cases, f"no benchmark environment specs found under {env_specs_dir}"
     return cases
 
@@ -58,12 +52,12 @@ def _parse_args() -> argparse.Namespace:
         "--env_specs_dir",
         type=Path,
         default=_DEFAULT_ENV_SPECS_DIR,
-        help=f"Directory with one subdirectory per case (default: {_DEFAULT_ENV_SPECS_DIR}).",
+        help=f"Directory with one spec YAML per case (default: {_DEFAULT_ENV_SPECS_DIR}).",
     )
     parser.add_argument(
         "--case",
         action="append",
-        help="Case subdirectory name under --env_specs_dir. Repeat to select multiple cases; defaults to all cases.",
+        help="Spec YAML stem under --env_specs_dir. Repeat to select multiple cases; defaults to all cases.",
     )
     parser.add_argument(
         "--num_envs",

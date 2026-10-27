@@ -210,6 +210,36 @@ uses five cached layouts.
    "Kitchen homogeneous pick and place", "DROID picks a banana to a plate on a kitchen countertop. DROID is next to the countertop, on the floor.", "0, 6, or 14 fruit/vegetable distractors"
    "Kitchen open door", "DROID opens the fridge door in the kitchen. DROID is next to the fridge, on the floor.", "Referenced articulated fridge"
 
+The environment specs are in ``isaaclab_arena_environments/agentic_env_gen_benchmark/``, one YAML file
+per environment. The kitchen environments are shown below.
+
+.. grid:: 1 1 2 2
+   :gutter: 3
+
+   .. grid-item-card:: ``kitchen_banana_plate_distractors_0``
+      :class-card: sd-shadow-sm
+
+      .. image:: ../../images/agentic_environment_generation/agentic_env_gen_benchmark_kitchen_banana_plate_distractors_0.png
+         :alt: DROID next to the kitchen counter with a banana and a plate
+
+   .. grid-item-card:: ``kitchen_banana_plate_distractors_6``
+      :class-card: sd-shadow-sm
+
+      .. image:: ../../images/agentic_environment_generation/agentic_env_gen_benchmark_kitchen_banana_plate_distractors_6.png
+         :alt: DROID next to the kitchen counter with a banana, a plate, and six distractors
+
+   .. grid-item-card:: ``kitchen_banana_plate_distractors_14``
+      :class-card: sd-shadow-sm
+
+      .. image:: ../../images/agentic_environment_generation/agentic_env_gen_benchmark_kitchen_banana_plate_distractors_14.png
+         :alt: DROID next to the kitchen counter with a banana, a plate, and fourteen distractors
+
+   .. grid-item-card:: ``kitchen_open_fridge_door``
+      :class-card: sd-shadow-sm
+
+      .. image:: ../../images/agentic_environment_generation/agentic_env_gen_benchmark_kitchen_open_fridge_door.png
+         :alt: DROID on the kitchen floor facing the fridge
+
 Factors expected to affect prompt-to-spec latency include the number of objects and relations, scene complexity,
 SimReady Search API use, inference endpoint, and agentic model. Factors expected to affect layout resolution
 include GPU, layout-pool size, the number of objects and relations, homogeneous versus heterogeneous geometry,
@@ -297,6 +327,76 @@ environments.
       "kitchen_open_fridge_door", "Kitchen", "0", "No", "16", "80", "3.376", "3.627", "3.779"
       "kitchen_open_fridge_door", "Kitchen", "0", "No", "64", "320", "4.186", "4.623", "5.235"
       "kitchen_open_fridge_door", "Kitchen", "0", "No", "256", "1280", "7.696", "8.075", "9.833"
+
+
+.. _performance-agentic-environment-generation-run:
+
+Run the benchmark
+^^^^^^^^^^^^^^^^^
+
+Complete the :ref:`agentic environment generation prerequisites <agentic-env-gen-prerequisites>`
+first. Run the commands below from the repository root inside the Arena container. A reduced version
+of both benchmarks also runs weekly in CI and uploads its results as a workflow artifact.
+
+**Prompt to first environment spec.** The batch runner runs every case in
+``isaaclab_arena_examples/agentic_environment_generation/benchmark/time_to_first_spec_cases.yaml``,
+one after another. It calls the inference endpoint directly and does not start Isaac Sim.
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh \
+     isaaclab_arena_examples/agentic_environment_generation/benchmark/run_time_to_first_spec_benchmarks.py \
+     --inference_endpoint internal \
+     --num_runs 100 \
+     --output_dir outputs/time_to_first_spec/internal
+
+* ``--inference_endpoint`` accepts ``internal``, ``public``, or ``openai``. Without it, the runner
+  uses the ``ARENA_INFERENCE_ENDPOINT`` environment variable, then the public endpoint.
+* ``--model`` and ``--temperature`` override the endpoint's model and sampling temperature. The model
+  must support OpenAI-compatible strict structured output. The internal and OpenAI endpoints ignore
+  ``--temperature``.
+* The first generated spec of each case is saved under ``<output_dir>/specs/<case>/``. Pass
+  ``--no_save_specs`` to skip saving.
+
+To measure one case, run ``benchmark_time_to_first_spec.py`` with ``--case <name>`` and
+``--output_path <file>.json``, or pass ``--prompt "..."`` to measure a custom prompt.
+
+**Valid spec to resolved layouts.** The batch runner runs every environment spec in
+``isaaclab_arena_environments/agentic_env_gen_benchmark/``. Each case is named after its YAML file.
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh \
+     isaaclab_arena_examples/agentic_environment_generation/benchmark/run_time_to_resolved_layout_benchmarks.py \
+     --num_runs 100 \
+     --num_envs 1 --num_envs 16 --num_envs 64 --num_envs 256 \
+     --output_dir outputs/time_to_resolved_layout
+
+* Each environment requests five layouts. ``allow_best_loss_fallbacks`` is turned off, so every stored
+  layout must pass strict validation.
+* Repeat ``--case <name>`` to run selected cases, or pass ``--env_specs_dir`` to benchmark another
+  directory of specs.
+* Every sample is written as soon as it finishes. Add ``--resume`` to the same command to continue an
+  interrupted run. Resuming requires the same specs, placement seed, warmup count, and run count.
+* The full matrix of eight cases took about 50 hours on one RTX 6000 Ada.
+
+**Results.** Each batch runner prints a p50/p95/p99 table and writes ``<output_dir>/all_results.json``.
+The file holds every sample and a summary for each case:
+
+* ``successful_samples`` and ``failed_samples`` count the samples that did and did not return a result.
+  A first-spec sample also fails when the spec does not match the case's expected
+  ``object_references``.
+* ``p50_ms``, ``p95_ms``, and ``p99_ms`` are nearest-rank percentiles of successful samples only, so
+  read them together with the failure count. Use at least 100 samples when reporting p99.
+
+To list the failed samples of a time-to-first-spec run:
+
+.. code-block:: bash
+
+   jq '.results[] | {case, failures: [.samples[] | select(.time_to_first_spec_ms == null)]}' \
+     outputs/time_to_first_spec/internal/all_results.json
+
+Record the Arena commit, GPU, driver, Isaac Sim version, and command arguments with reported results.
 
 
 Tested revisions

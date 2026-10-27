@@ -13,7 +13,7 @@ object references. It stops when ``EnvironmentGenerationAgent.generate_spec`` re
 Usage::
 
     /isaac-sim/python.sh \
-        isaaclab_arena_examples/agentic_environment_generation/benchmark_time_to_first_spec.py \
+        isaaclab_arena_examples/agentic_environment_generation/benchmark/benchmark_time_to_first_spec.py \
         --inference_endpoint internal --num_runs 100 \
         --output_path outputs/time_to_first_spec.json
 """

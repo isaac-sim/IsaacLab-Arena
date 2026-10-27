@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: banana_to_plate_with_fruit_distractors
+env_name: tabletop_banana_plate_distractors_14
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -19,23 +19,44 @@ objects:
 - id: plate
   registry_name: plate_large_vomp_robolab
   params: {}
-- id: apple
+- id: apple_1
   registry_name: apple_01_objaverse_robolab
+  params: {}
+- id: apple_2
+  registry_name: apple_02_objaverse_robolab
   params: {}
 - id: avocado
   registry_name: avocado01_fruits_veggies_robolab
   params: {}
+- id: lemon_1
+  registry_name: lemon_01_fruits_veggies_robolab
+  params: {}
+- id: lemon_2
+  registry_name: lemon_02_fruits_veggies_robolab
+  params: {}
+- id: lime
+  registry_name: lime01_fruits_veggies_robolab
+  params: {}
+- id: lychee
+  registry_name: lychee01_fruits_veggies_robolab
+  params: {}
+- id: orange_1
+  registry_name: orange_01_fruits_veggies_robolab
+  params: {}
+- id: orange_2
+  registry_name: orange_02_fruits_veggies_robolab
+  params: {}
+- id: pomegranate
+  registry_name: pomegranate01_fruits_veggies_robolab
+  params: {}
 - id: broccoli
   registry_name: broccoli
   params: {}
-- id: lemon
-  registry_name: lemon_01_fruits_veggies_robolab
-  params: {}
-- id: orange
-  registry_name: orange_01_fruits_veggies_robolab
-  params: {}
 - id: sweet_potato
   registry_name: sweet_potato
+  params: {}
+- id: red_bell_pepper
+  registry_name: red_bell_pepper_objaverse_robolab
   params: {}
 relations:
 - kind: is_anchor
@@ -50,7 +71,11 @@ relations:
   reference: maple_table
   params: {}
 - kind: 'on'
-  subject: apple
+  subject: apple_1
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: apple_2
   reference: maple_table
   params: {}
 - kind: 'on'
@@ -58,25 +83,49 @@ relations:
   reference: maple_table
   params: {}
 - kind: 'on'
+  subject: lemon_1
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: lemon_2
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: lime
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: lychee
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: orange_1
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: orange_2
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: pomegranate
+  reference: maple_table
+  params: {}
+- kind: 'on'
   subject: broccoli
-  reference: maple_table
-  params: {}
-- kind: 'on'
-  subject: lemon
-  reference: maple_table
-  params: {}
-- kind: 'on'
-  subject: orange
   reference: maple_table
   params: {}
 - kind: 'on'
   subject: sweet_potato
   reference: maple_table
   params: {}
+- kind: 'on'
+  subject: red_bell_pepper
+  reference: maple_table
+  params: {}
 task:
   composition: atomic
   description: Pick up the banana from the maple table and place it on the plate while
-    avoiding six fruit or vegetable distractors.
+    avoiding fruit and vegetable distractors.
   subtasks:
   - kind: PickAndPlaceTask
     params:

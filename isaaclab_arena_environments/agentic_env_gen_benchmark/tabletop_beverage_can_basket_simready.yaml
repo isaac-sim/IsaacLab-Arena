@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_place_beverage_can_in_basket
+env_name: tabletop_beverage_can_basket_simready
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

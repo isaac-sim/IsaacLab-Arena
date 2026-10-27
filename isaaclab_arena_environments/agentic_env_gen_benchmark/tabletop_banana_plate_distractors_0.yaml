@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_place_varied_fruit_on_plate
+env_name: tabletop_banana_plate_distractors_0
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -13,25 +13,18 @@ background:
   registry_name: maple_table_robolab
   params: {}
 objects:
+- id: banana
+  registry_name: banana_ycb_robolab
+  params: {}
 - id: plate
   registry_name: plate_large_vomp_robolab
-  params: {}
-object_sets:
-- id: fruit
-  members:
-  - apple_01_objaverse_robolab
-  - avocado01_fruits_veggies_robolab
-  - lemon_01_fruits_veggies_robolab
-  - orange_01_fruits_veggies_robolab
-  - pomegranate01_fruits_veggies_robolab
-  random_choice: false
   params: {}
 relations:
 - kind: is_anchor
   subject: maple_table
   params: {}
 - kind: 'on'
-  subject: fruit
+  subject: banana
   reference: maple_table
   params: {}
 - kind: 'on'
@@ -40,11 +33,11 @@ relations:
   params: {}
 task:
   composition: atomic
-  description: Pick up the fruit and place it on the plate.
+  description: Pick up the banana from the maple table and place it on the plate.
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: fruit
+      pick_up_object: banana
       destination_location: plate
       background_scene: maple_table
       destination_object: plate

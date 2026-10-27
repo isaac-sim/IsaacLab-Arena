@@ -13,7 +13,7 @@ Isaac Sim startup, environment instantiation, and physics settling.
 Usage::
 
     /isaac-sim/python.sh \
-        isaaclab_arena_examples/agentic_environment_generation/benchmark_time_to_resolved_layout.py \
+        isaaclab_arena_examples/agentic_environment_generation/benchmark/benchmark_time_to_resolved_layout.py \
         --env_spec path/to/environment.yaml --num_envs 1 --num_envs 16 \
         --num_runs 3 --output_path outputs/time_to_resolved_layout.json
 """

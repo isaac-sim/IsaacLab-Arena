@@ -8,7 +8,7 @@
 Usage::
 
     /isaac-sim/python.sh \
-        isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
+        isaaclab_arena_examples/agentic_environment_generation/benchmark/run_time_to_first_spec_benchmarks.py \
         --inference_endpoint internal --num_runs 3
 """
 
@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from isaaclab_arena_examples.agentic_environment_generation.benchmark_time_to_first_spec import (
+from isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_time_to_first_spec import (
     DEFAULT_CASES_PATH,
     load_benchmark_cases,
 )
