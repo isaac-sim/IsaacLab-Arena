@@ -159,7 +159,8 @@ def test_invalid_schema_rejected_before_client_creation(monkeypatch):
     constructor.assert_not_called()
 
 
-def test_example_yaml_policy_selectors_and_round_trip(monkeypatch, tmp_path):
+@pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
+def test_example_yaml_policy_selectors_and_round_trip(monkeypatch, tmp_path, policy_type, cfg_type):
     from isaaclab_arena.assets import registries
     from isaaclab_arena.evaluation import arena_experiment_config_loader as loader
     from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
@@ -171,27 +172,31 @@ def test_example_yaml_policy_selectors_and_round_trip(monkeypatch, tmp_path):
         "_registered_environment_cfg_types",
         lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
     )
-    for policy_type, cfg_type in POLICIES:
-        class_path = f"isaaclab_arena_vlm_agent.vlm_agent_policy.{policy_type.__name__}"
-        for selector in (policy_type.name, class_path):
-            assert loader._resolve_policy_cfg_type_from_name_or_class_path(selector) is cfg_type
+    class_path = f"isaaclab_arena_vlm_agent.vlm_agent_policy.{policy_type.__name__}"
+    for selector in (policy_type.name, class_path):
+        assert loader._resolve_policy_cfg_type_from_name_or_class_path(selector) is cfg_type
     root = Path(__file__).resolve().parents[2]
+    run_name = f"droid_pnp_{policy_type.name}"
+    overrides = []
+    if policy_type is VLMGoalPolicy:
+        overrides = [f"runs.{run_name}.policy.max_steps_per_goal=5"]
+    elif policy_type is VLMChunkPolicy:
+        overrides = [f"runs.{run_name}.policy.chunk_size=2"]
     experiment = loader.load_arena_experiment_from_config_file(
-        root / "isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_experiment.yaml",
+        root / f"isaaclab_arena_environments/experiment_configs/{run_name}_experiment.yaml",
         device="cpu",
-        overrides=[
-            "runs.droid_pnp_vlm_goal.policy.max_steps_per_goal=5",
-            "runs.droid_pnp_vlm_chunk.policy.chunk_size=2",
-        ],
+        overrides=overrides,
     )
-    assert len(experiment.runs) == 3
-    for run, (policy_type, cfg_type) in zip(experiment.runs.values(), POLICIES, strict=True):
-        assert isinstance(run.policy, cfg_type)
-        assert run.policy.model == "openai/openai/gpt-6-astra"
-        assert run.environment_builder.device == "cpu"
-        assert registries.PolicyRegistry().get_policy_type_for_cfg(run.policy) is policy_type
-    assert experiment.runs["droid_pnp_vlm_goal"].policy.max_steps_per_goal == 5
-    assert experiment.runs["droid_pnp_vlm_chunk"].policy.chunk_size == 2
+    assert set(experiment.runs) == {run_name}
+    run = experiment.runs[run_name]
+    assert isinstance(run.policy, cfg_type)
+    assert run.policy.model == "openai/openai/gpt-6-astra"
+    assert run.environment_builder.device == "cpu"
+    assert registries.PolicyRegistry().get_policy_type_for_cfg(run.policy) is policy_type
+    if policy_type is VLMGoalPolicy:
+        assert run.policy.max_steps_per_goal == 5
+    elif policy_type is VLMChunkPolicy:
+        assert run.policy.chunk_size == 2
     round_trip_path = tmp_path / "experiment.yaml"
     round_trip_path.write_text(serialize_arena_experiment_to_yaml(experiment))
     restored = loader.load_arena_experiment_from_config_file(round_trip_path, device="cpu")

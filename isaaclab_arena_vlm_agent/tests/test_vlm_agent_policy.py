@@ -199,7 +199,7 @@ def test_policy_uses_adapter_actions_for_each_environment(backend, action_dim):
         assert all(len(call["messages"]) == 2 for call in calls)
     finally:
         policy.close()
-    client.close.assert_not_called()  # The backend belongs to the caller, not the policy.
+    client.close.assert_called_once()
 
 
 @pytest.mark.parametrize(

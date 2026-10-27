@@ -31,7 +31,7 @@ def _test_vlm_experiment(simulation_app):
     from isaaclab_arena.evaluation.run_execution import build_and_run
     from isaaclab_arena.tests.utils.constants import TestConstants
 
-    config_path = Path(TestConstants.arena_environments_dir) / "experiment_configs/droid_pnp_vlm_experiment.yaml"
+    config_path = Path(TestConstants.arena_environments_dir) / "experiment_configs/droid_pnp_vlm_goal_experiment.yaml"
     run_name = "droid_pnp_vlm_goal"
     experiment = load_arena_experiment_from_config_file(
         config_path,

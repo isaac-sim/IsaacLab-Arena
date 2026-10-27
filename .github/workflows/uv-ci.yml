@@ -170,14 +170,16 @@ jobs:
         run: |
           source .venv/bin/activate
           pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ \
+            isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
         shell: bash
         run: |
           source .venv/bin/activate
           pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ \
+            isaaclab_arena_vlm_agent/tests/
 
       - name: Run subprocess-spawning Newton tests
         shell: bash
@@ -193,13 +195,7 @@ jobs:
           source .venv/bin/activate
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
-
-      - name: Run VLM agent policy tests
-        shell: bash
-        run: |
-          source .venv/bin/activate
-          pytest -sv --durations=0 \
+            isaaclab_arena/tests/ \
             isaaclab_arena_vlm_agent/tests/
 
       - name: Run GR00T remote policy client tests
