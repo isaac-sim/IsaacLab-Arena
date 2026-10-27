@@ -1,23 +1,23 @@
 {
     "jobs": [
         {
-            "name": "gr1_open_microwave_cracker_box",
+            "name": "maple_table_rubiks_cube",
             "arena_env_args": {
-                "environment":"gr1_open_microwave",
-                "object":"cracker_box",
-                "embodiment":"gr1_joint"
+                "environment": "pick_and_place_maple_table",
+                "pick_up_object": "rubiks_cube_hot3d_robolab",
+                "embodiment": "droid_rel_joint_pos"
             },
             "num_steps": 10,
             "policy_type": "zero_action",
             "policy_config_dict": {}
         },
         {
-            "name": "gr1_open_microwave_sugar_box",
+            "name": "maple_table_mustard_bottle",
             "arena_env_args": {
                 "num_envs": 10,
-                "environment":"gr1_open_microwave",
-                "object":"sugar_box",
-                "embodiment":"gr1_pink"
+                "environment": "pick_and_place_maple_table",
+                "pick_up_object": "mustard_bottle_hot3d_robolab",
+                "embodiment": "droid_rel_joint_pos"
             },
             "num_steps": 10,
             "policy_type": "zero_action",

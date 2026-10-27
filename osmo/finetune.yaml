@@ -95,12 +95,6 @@ default-values:
   gpus: 8
   batch_size: 96
   max_steps: 20000
-  # Static manipulation
-  # workflow_name: gr1_open_microwave_kitchen_gn1_6
-  # input_dataset_name: lerobot_gr1
-  # input_demo_name: gr1_open_microwave_50_generated
-  # embodiment_tag: GR1
-  # modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
 
   # Locomanipulation
   # workflow_name: g1_move_box_galileo_gn1_6
