@@ -238,7 +238,7 @@ per environment. The kitchen environments are shown below.
       :class-card: sd-shadow-sm
 
       .. image:: ../../images/agentic_environment_generation/agentic_env_gen_benchmark_kitchen_open_fridge_door.png
-         :alt: DROID on the kitchen floor facing the fridge
+         :alt: DROID on its stand next to the kitchen fridge
 
 Factors expected to affect prompt-to-spec latency include the number of objects and relations, scene complexity,
 SimReady Search API use, inference endpoint, and agentic model. Factors expected to affect layout resolution
