@@ -307,22 +307,22 @@ def test_experiment_runner_two_jobs_zero_action(tmp_path):
     """Test experiment_runner with 2 jobs using zero_action policy on different objects."""
     jobs = [
         {
-            "name": "gr1_open_microwave_cracker_box",
+            "name": "maple_table_rubiks_cube",
             "arena_env_args": {
-                "environment": "gr1_open_microwave",
-                "object": "cracker_box",
-                "embodiment": "gr1_joint",
+                "environment": "pick_and_place_maple_table",
+                "pick_up_object": "rubiks_cube_hot3d_robolab",
+                "embodiment": "droid_rel_joint_pos",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",
             "policy_args": {},
         },
         {
-            "name": "gr1_open_microwave_sugar_box",
+            "name": "maple_table_mustard_bottle",
             "arena_env_args": {
-                "environment": "gr1_open_microwave",
-                "object": "sugar_box",
-                "embodiment": "gr1_joint",
+                "environment": "pick_and_place_maple_table",
+                "pick_up_object": "mustard_bottle_hot3d_robolab",
+                "embodiment": "droid_rel_joint_pos",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",

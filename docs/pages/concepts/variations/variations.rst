@@ -141,7 +141,7 @@ With Isaac Lab's ``record_demos.py`` and Arena's ``environment_registration_call
 append the same variation overrides to the recording command, for example
 ``pick_up_object.mass.enabled=true`` for ``pick_and_place_maple_table``.
 Arena consumes its variation overrides and returns the remaining arguments to the Isaac Lab script.
-See :doc:`Teleoperation Data Collection <../../example_workflows/static_manipulation/step_2_teleoperation>`
+See :doc:`Teleoperation Data Collection <../../example_workflows/sequential_static_manipulation/step_2_teleoperation>`
 for recording setup and the full command using the callback.
 
 
