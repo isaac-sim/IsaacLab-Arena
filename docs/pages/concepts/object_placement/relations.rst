@@ -195,7 +195,11 @@ Most environments can be described with a small set of relations:
 
 ``PositionLimitsBox`` and ``PositionLimitsCylindrical``
    ``PositionLimitsBox`` constrains selected world X, Y, or Z coordinates
-   between optional minimum and maximum values.
+   between optional minimum and maximum values. Use ``x=(-0.5, 0.5)`` in
+   Python or ``x: [-0.5, 0.5]`` in YAML, and similarly for Y and Z. An omitted
+   axis is unconstrained; use ``None`` in Python or ``null`` in YAML for a
+   one-sided bound, such as ``z: [0.8, null]``. The original ``x_min``/``x_max``
+   arguments remain supported, but cannot be combined with ``x`` on the same axis.
    ``PositionLimitsCylindrical`` constrains the XY distance from a chosen
    center using a minimum radius, maximum radius, or both; it does not
    constrain Z. Both relations contribute solver losses; no built-in validator

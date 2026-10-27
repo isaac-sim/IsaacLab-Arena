@@ -54,6 +54,26 @@ def test_position_limits_preserves_original_positional_weight_argument():
     assert relation.relation_loss_weight == 2.0
 
 
+def test_position_limits_axis_ranges_preserve_bounds_and_loss():
+    """Axis pairs, including one-sided bounds, behave like the original arguments."""
+    original = PositionLimitsBox(x_min=-1.0, x_max=1.0, y_min=0.5, z_max=2.0, relation_loss_weight=2.0)
+    compact = PositionLimitsBox(x=[-1.0, 1.0], y=(0.5, None), z=(None, 2.0), relation_loss_weight=2.0)
+    assert vars(compact) == vars(original)
+    strategy = PositionLimitsBoxLossStrategy()
+    for t_W in (torch.tensor([0.0, 1.0, 1.0]), torch.tensor([2.0, 0.0, 3.0])):
+        assert torch.equal(
+            strategy.compute_loss(compact, t_W, _DUMMY_BBOX),
+            strategy.compute_loss(original, t_W, _DUMMY_BBOX),
+        )
+
+
+def test_position_limits_rejects_invalid_axis_ranges():
+    """Reject malformed, reversed, empty, and conflicting axis bounds."""
+    for params in ({"x": [1.0]}, {"y": [2.0, 1.0]}, {"z": [None, None]}, {"x": [0.0, 1.0], "x_min": 0.0}):
+        with pytest.raises(AssertionError):
+            PositionLimitsBox(**params)
+
+
 def test_position_limits_cylindrical_requires_at_least_one_bound():
     """PositionLimitsCylindrical requires at least one radial bound."""
 

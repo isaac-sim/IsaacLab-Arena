@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, TypeVar
 
@@ -480,11 +481,13 @@ class AtPosition(UnaryRelation):
 class PositionLimitsBox(UnaryRelation):
     """Constrains an object's position to an axis-aligned box in world coordinates.
 
-    Each axis bound is independently optional (None = unconstrained).
+    Specify each axis as a (minimum, maximum) pair; None leaves that bound
+    unconstrained. The original x_min/x_max (and Y/Z) arguments remain supported,
+    but cannot be combined with a pair for the same axis.
 
     Usage:
-        mug.add_relation(PositionLimitsBox(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
-        mug.add_relation(PositionLimitsBox(z_min=0.8))  # only constrain Z
+        mug.add_relation(PositionLimitsBox(x=(-0.5, 0.5), y=(-0.5, 0.5)))
+        mug.add_relation(PositionLimitsBox(z=(0.8, None)))  # only constrain Z
     """
 
     name = "position_limits_box"
@@ -498,7 +501,21 @@ class PositionLimitsBox(UnaryRelation):
         z_min: float | None = None,
         z_max: float | None = None,
         relation_loss_weight: float = 1.0,
+        *,
+        x: Sequence[float | None] | None = None,
+        y: Sequence[float | None] | None = None,
+        z: Sequence[float | None] | None = None,
     ):
+        bounds = {"x": (x_min, x_max), "y": (y_min, y_max), "z": (z_min, z_max)}
+        for axis, interval in (("x", x), ("y", y), ("z", z)):
+            if interval is None:
+                continue
+            assert len(interval) == 2, f"{axis} must contain a minimum and maximum"
+            assert bounds[axis] == (None, None), f"Specify either {axis} or {axis}_min/{axis}_max, not both"
+            bounds[axis] = tuple(interval)
+        x_min, x_max = bounds["x"]
+        y_min, y_max = bounds["y"]
+        z_min, z_max = bounds["z"]
         assert any(
             bound is not None for bound in (x_min, x_max, y_min, y_max, z_min, z_max)
         ), "At least one axis bound must be specified for PositionLimitsBox"

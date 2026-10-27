@@ -41,10 +41,8 @@ relations:
   subject: rubiks_cube_hot3d_robolab
   reference: null
   params:
-    x_min: 0.55
-    x_max: 0.7
-    y_min: -0.4
-    y_max: -0.1
+    x: [0.55, 0.7]
+    y: [-0.4, -0.1]
 - kind: 'on'
   subject: bowl_ycb_robolab
   reference: maple_table_robolab_table
@@ -53,10 +51,8 @@ relations:
   subject: bowl_ycb_robolab
   reference: null
   params:
-    x_min: 0.55
-    x_max: 0.7
-    y_min: -0.4
-    y_max: -0.1
+    x: [0.55, 0.7]
+    y: [-0.4, -0.1]
 - kind: at_position
   subject: mug_ycb_robolab
   reference: null

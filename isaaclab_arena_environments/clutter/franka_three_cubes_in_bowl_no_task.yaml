@@ -39,10 +39,8 @@ relations:
 - kind: position_limits_box
   subject: bowl
   params:
-    x_min: -0.2
-    x_max: 0.2
-    y_min: -0.2
-    y_max: 0.2
+    x: [-0.2, 0.2]
+    y: [-0.2, 0.2]
 - kind: clutter_on
   subject: cube_0
   reference: bowl

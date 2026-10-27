@@ -94,9 +94,7 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
         offset = cfg.position_randomization_m
         for asset, (x, y) in ((gear_base, GEAR_BASE_XY), (medium_gear, GEAR_INITIAL_XY)):
             if offset > 0.0:
-                asset.add_relation(
-                    PositionLimitsBox(x_min=x - offset, x_max=x + offset, y_min=y - offset, y_max=y + offset)
-                )
+                asset.add_relation(PositionLimitsBox(x=(x - offset, x + offset), y=(y - offset, y + offset)))
             else:
                 asset.add_relation(AtPosition(x=x, y=y))
         insertion_target = ObjectReference(

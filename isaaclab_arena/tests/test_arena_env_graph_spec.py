@@ -62,11 +62,12 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
     assert cube_limits.reference is None
     assert cube_limits.params == {
-        "x_min": 0.55,
-        "x_max": 0.7,
-        "y_min": -0.4,
-        "y_max": -0.1,
+        "x": [0.55, 0.7],
+        "y": [-0.4, -0.1],
     }
+
+    limits = PositionLimitsBox(**cube_limits.params)
+    assert (limits.x_min, limits.x_max, limits.y_min, limits.y_max) == (0.55, 0.7, -0.4, -0.1)
 
     mug_position = spec.relations[5]
     assert mug_position.kind == "at_position"
