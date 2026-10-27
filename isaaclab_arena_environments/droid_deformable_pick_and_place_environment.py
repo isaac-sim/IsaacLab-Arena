@@ -79,14 +79,11 @@ def _configure_newton_deformable_physics(
 class DroidDeformablePickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the DROID deformable-object pick-and-place environment."""
 
-    pick_object: str = "deformable_cube"
-    """Deformable object name without backend suffix, exposed as ``--pick_object``."""
+    pick_object: str = "deformable_cube_newton"
+    """Deformable object registry name, exposed as ``--pick_object``."""
 
     embodiment: str = "droid_abs_joint_pos"
     """DROID embodiment registry name, exposed as ``--embodiment``."""
-
-    presets: PhysicsBackend = PhysicsBackend.NEWTON
-    """Physics preset supplied by the shared ``--presets`` option."""
 
 
 @register_environment
@@ -98,14 +95,10 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
 
     def build(self, cfg: DroidDeformablePickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        from isaaclab.managers import SceneEntityCfg
-
         from isaaclab_arena.assets.deformable_object import DeformableObject
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_type import ObjectType
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-        from isaaclab_arena.recording.placement_terms import record_placement_conditions
         from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
@@ -123,11 +116,8 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
         destination = self.asset_registry.get_asset_by_name("plate_large_vomp_robolab")(name="plate")
         destination.add_relation(On(table_reference))
 
-        pick_object_asset_name = f"{cfg.pick_object}_{cfg.presets.value}"
-        pick_object = self.asset_registry.get_asset_by_name(pick_object_asset_name)(name="pick_object")
-        assert isinstance(
-            pick_object, DeformableObject
-        ), f"Pick object {pick_object_asset_name!r} is not a deformable asset."
+        pick_object = self.asset_registry.get_asset_by_name(cfg.pick_object)(name="pick_object")
+        assert isinstance(pick_object, DeformableObject), f"Pick object {cfg.pick_object!r} is not a deformable asset."
         pick_object.add_relation(On(table_reference))
         pick_object.add_relation(NextTo(destination, side=Side.POSITIVE_Y))
 
@@ -148,18 +138,8 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             embodiment=embodiment,
             scene=Scene(assets=[table, table_reference, light, directional_light, destination, pick_object]),
             task=task,
-            env_cfg_callback=(_configure_newton_deformable_physics if cfg.presets is PhysicsBackend.NEWTON else None),
-            episode_recorder_terms={
-                "placement_conditions": EpisodeRecorderTermCfg(
-                    func=record_placement_conditions,
-                    params={
-                        "object_cfg": SceneEntityCfg(pick_object.name),
-                        "destination_cfg": SceneEntityCfg(destination.name),
-                        "contact_sensor_cfg": task.contact_sensor_cfg,
-                        "force_threshold": task.force_threshold,
-                        "velocity_threshold": task.velocity_threshold,
-                        "support_cone_half_angle_rad": task.support_cone_half_angle_rad,
-                    },
-                ),
-            },
+            env_cfg_callback=(
+                _configure_newton_deformable_physics if pick_object.physics_preset is PhysicsBackend.NEWTON else None
+            ),
+            default_physics_backend=pick_object.physics_preset,
         )

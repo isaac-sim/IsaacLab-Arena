@@ -474,41 +474,6 @@ def object_on_destination(
         One Boolean result per environment.
     """
 
-    checks = object_on_destination_checks(
-        env,
-        object_cfg,
-        destination_cfg,
-        contact_sensor_cfg,
-        force_threshold,
-        velocity_threshold,
-        support_cone_half_angle_rad,
-    )
-    return checks["center_over_destination"] & checks["destination_provides_support"] & checks["object_moves_slowly"]
-
-
-def object_on_destination_checks(
-    env: IsaacLabArenaManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg,
-    destination_cfg: SceneEntityCfg,
-    contact_sensor_cfg: SceneEntityCfg | None,
-    force_threshold: float,
-    velocity_threshold: float,
-    support_cone_half_angle_rad: float = math.pi / 4,
-) -> dict[str, torch.Tensor]:
-    """Return placement subconditions and measured motion without changing task progress.
-
-    Args:
-        env: Environment supplying current scene geometry and velocities.
-        object_cfg: Object being placed.
-        destination_cfg: Rooted destination object.
-        contact_sensor_cfg: Filtered contact sensor, or None for deformables.
-        force_threshold: Minimum upward support force in newtons.
-        velocity_threshold: Maximum linear speed in meters per second.
-        support_cone_half_angle_rad: Maximum support-force angle from world +Z.
-
-    Returns:
-        Condition and measurement tensors with one row per environment.
-    """
     arena_world = env.arena_world
     assert (
         destination_cfg.name not in env.scene.deformable_objects
@@ -554,14 +519,7 @@ def object_on_destination_checks(
 
     object_mean_linear_velocity_w = arena_world.get_mean_linear_velocity_w(object_cfg.name)
     object_moves_slowly = object_is_moving_slowly(object_mean_linear_velocity_w, velocity_threshold)
-    return {
-        "center_over_destination": object_center_over_destination,
-        "destination_provides_support": destination_provides_upward_support,
-        "object_moves_slowly": object_moves_slowly,
-        "linear_speed_m_s": torch.linalg.vector_norm(object_mean_linear_velocity_w, dim=-1),
-        "mean_linear_velocity_W": object_mean_linear_velocity_w,
-        "object_centroid_W": object_centroid_W,
-    }
+    return object_center_over_destination & destination_provides_upward_support & object_moves_slowly
 
 
 def object_in_target_aabb(

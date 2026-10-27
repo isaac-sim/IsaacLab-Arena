@@ -24,7 +24,7 @@ Task Overview
    * - **Task**
      - Pick up the cube, place it on the plate, and let it settle
    * - **Physics**
-     - Newton by default, or PhysX with ``--presets physx``
+     - Newton by default; select the backend-specific deformable asset for PhysX
 
 Four sampled initial placements are shown below. The placement relations are the same for
 both physics backends.
@@ -58,7 +58,8 @@ Use a zero-action policy to inspect either backend:
            --num_envs 1 \
            --viz kit \
            --presets newton \
-           droid_deformable_pick_and_place
+           droid_deformable_pick_and_place \
+           --pick_object deformable_cube_newton
 
    .. tab-item:: PhysX
 
@@ -70,7 +71,8 @@ Use a zero-action policy to inspect either backend:
            --num_envs 1 \
            --viz kit \
            --presets physx \
-           droid_deformable_pick_and_place
+           droid_deformable_pick_and_place \
+           --pick_object deformable_cube_physx
 
 Teleoperate the Task
 --------------------
@@ -96,6 +98,7 @@ SpaceMouse. Press ``K`` to open or close the gripper and ``R`` to reset an attem
            --dataset_file deformable_pick_and_place_newton.hdf5 \
            --viz kit \
            --presets newton \
+           --pick_object deformable_cube_newton \
            --embodiment droid_differential_ik
 
    .. tab-item:: PhysX
@@ -111,6 +114,7 @@ SpaceMouse. Press ``K`` to open or close the gripper and ``R`` to reset an attem
            --dataset_file deformable_pick_and_place_physx.hdf5 \
            --viz kit \
            --presets physx \
+           --pick_object deformable_cube_physx \
            --embodiment droid_differential_ik
 
 ``--no-reset_sim_buffer_each_episode`` preserves the Newton simulation buffers between
@@ -141,7 +145,12 @@ Then evaluate four parallel environments for 16 completed episodes:
            --viz kit \
            --enable_cameras \
            --presets newton \
-           droid_deformable_pick_and_place
+           droid_deformable_pick_and_place \
+           --pick_object deformable_cube_newton
+
+      .. note::
+         A local 16-episode OpenPI ``pi05`` validation run succeeded in 9 episodes (56.25%).
+         This small stochastic run validates the workflow.
 
    .. tab-item:: PhysX
 
@@ -154,7 +163,12 @@ Then evaluate four parallel environments for 16 completed episodes:
            --viz kit \
            --enable_cameras \
            --presets physx \
-           droid_deformable_pick_and_place
+           droid_deformable_pick_and_place \
+           --pick_object deformable_cube_physx
+
+      .. note::
+         A local 16-episode OpenPI ``pi05`` validation run succeeded in 15 episodes (93.75%).
+         This small stochastic run validates the workflow.
 
 The following rollout shows one successful Newton episode from an external camera and the
 robot wrist camera:
@@ -162,25 +176,3 @@ robot wrist camera:
 .. image:: ../../../images/deformable_pick_and_place_openpi.gif
    :align: center
    :alt: Successful Newton deformable pick-and-place rollout from external and wrist cameras
-
-Local Validation Results
-------------------------
-
-The local OpenPI ``pi05`` validation runs used for this walkthrough produced:
-
-.. list-table::
-   :widths: 25 25 50
-   :header-rows: 1
-
-   * - Backend
-     - Success
-     - Failed episodes
-   * - Newton
-     - 9/16 (56.25%)
-     - Six incomplete placements and one geometric-support rejection
-   * - PhysX
-     - 15/16 (93.75%)
-     - One placement remained above the strict 0.001 m/s settling threshold at timeout
-
-These small local runs validate the workflow; they are not policy benchmarks. OpenPI action
-sampling is stochastic, and success rates vary between runs.

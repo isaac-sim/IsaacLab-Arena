@@ -246,11 +246,6 @@ def _check_object_on_destination(
     deformable_parameters = {**predicate_parameters, "contact_sensor_cfg": None}
     deformable_result = spatial.object_on_destination(env, **deformable_parameters)
     torch.testing.assert_close(deformable_result, torch.tensor([True, False, False, False]))
-    checks = spatial.object_on_destination_checks(env, **deformable_parameters)
-    torch.testing.assert_close(checks["center_over_destination"], torch.tensor([True, False, True, True]))
-    torch.testing.assert_close(checks["destination_provides_support"], torch.tensor([True, False, False, True]))
-    torch.testing.assert_close(checks["object_moves_slowly"], torch.tensor([True, True, True, False]))
-    torch.testing.assert_close(checks["linear_speed_m_s"], torch.tensor([0.0, 0.0, 0.0, 1.0]))
 
     env.scene.deformable_objects = {"destination": object()}
     try:
@@ -263,10 +258,10 @@ def _check_object_on_destination(
     env.scene.deformable_objects = {}
     T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
-    assert arena_world.pose_queries == ["destination"] * 4
-    assert arena_world.local_aabb_queries == ["destination"] * 4
-    assert arena_world.centroid_queries == ["object"] * 4
-    assert arena_world.mean_linear_velocity_queries == ["object"] * 4
+    assert arena_world.pose_queries == ["destination"] * 3
+    assert arena_world.local_aabb_queries == ["destination"] * 3
+    assert arena_world.centroid_queries == ["object"] * 3
+    assert arena_world.mean_linear_velocity_queries == ["object"] * 3
 
 
 def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_type, object_type) -> None:
@@ -293,7 +288,7 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
     assert deformable_task.contact_sensor_cfg is None
     assert deformable_task.get_scene_cfg() is None
     deformable_placement_requirement = deformable_task.get_termination_cfg().success[0].predicate_sequence[-1]
-    assert deformable_task.velocity_threshold == 0.001
+    assert deformable_task.velocity_threshold == 0.003
     assert deformable_placement_requirement.required_steps == 1
     deformable_placement_predicate = deformable_placement_requirement.predicate
     assert deformable_placement_predicate.func is object_on_destination

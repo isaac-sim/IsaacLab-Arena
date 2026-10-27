@@ -25,9 +25,6 @@ from isaaclab_arena.assets.deformable_object import DeformableObject
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
-_NEWTON_CUBE_YOUNGS_MODULUS = 8.0e4
-_NEWTON_CUBE_POISSONS_RATIO = 0.3
-
 
 class LibraryDeformableObject(DeformableObject):
     """Base class for registered deformable objects."""
@@ -88,19 +85,15 @@ class DeformableCubeNewton(LibraryDeformableObject):
     """Newton equivalent of the DROID pick-and-place deformable cube."""
 
     registry_name = "deformable_cube_newton"
-    tags = ["object", "deformable", "newton"]
+    tags = ["object", "deformable", "newton_only"]
     spawner_cfg = sim_utils.MeshCuboidCfg(
         size=(0.15, 0.04, 0.04),
         edge_refinement=8.0,
         deformable_props=NewtonDeformableBodyPropertiesCfg(),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0)),
         physics_material=NewtonDeformableBodyMaterialCfg(
-            k_mu=_NEWTON_CUBE_YOUNGS_MODULUS / (2.0 * (1.0 + _NEWTON_CUBE_POISSONS_RATIO)),
-            k_lambda=(
-                _NEWTON_CUBE_YOUNGS_MODULUS
-                * _NEWTON_CUBE_POISSONS_RATIO
-                / ((1.0 + _NEWTON_CUBE_POISSONS_RATIO) * (1.0 - 2.0 * _NEWTON_CUBE_POISSONS_RATIO))
-            ),
+            k_mu=3.08e4,
+            k_lambda=4.62e4,
             k_damp=1.0e3,
             # Retain the lighter DROID cube mass so its lower-force gripper can carry it.
             density=300.0,
@@ -140,7 +133,7 @@ class DeformableSurfaceNewton(LibraryDeformableObject):
     """Newton surface using Isaac Lab's Franka cloth lift material."""
 
     registry_name = "deformable_surface_newton"
-    tags = ["object", "deformable", "newton"]
+    tags = ["object", "deformable", "newton_only"]
     spawner_cfg = sim_utils.MeshRectangleCfg(
         size=(0.2, 0.2),
         edge_refinement=30,
@@ -177,7 +170,7 @@ class DeformableTeddyBearNewton(LibraryDeformableObject):
     """Newton teddy bear matching Isaac Lab's deformables demo."""
 
     registry_name = "deformable_teddy_bear_newton"
-    tags = ["object", "deformable", "newton"]
+    tags = ["object", "deformable", "newton_only"]
     spawner_cfg = sim_utils.UsdFileCfg(
         usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Objects/Teddy_Bear/teddy_bear.usd",
         scale=(0.01, 0.01, 0.01),

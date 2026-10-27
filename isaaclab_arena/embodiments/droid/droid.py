@@ -185,7 +185,6 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.scene_config.robot.actuators["gripper"] = ImplicitActuatorCfg(
             joint_names_expr=["finger_joint"],
             joint_effort_limit=1.0,
-            joint_velocity_limit=0.5,
             stiffness=40.0,
             damping=4.0,
             armature=0.001,
