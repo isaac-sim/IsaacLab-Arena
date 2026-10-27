@@ -21,6 +21,7 @@ from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
 from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, world_config_from_cuboids
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
+from isaaclab_arena_curobo.utils.warp_compat import add_warp_torch_namespace
 
 
 class CuroboIKSolver:
@@ -84,6 +85,9 @@ class CuroboIKSolver:
         # Start with an empty collision world; update_world() fills it per layout.
         world_cfg = WorldConfig(cuboid=[])
 
+        # TODO(xinjieyao, 2026/10/27): Remove the shim once the cuRobo commit pin is bumped to one that uses
+        # the top-level wp.* API.
+        add_warp_torch_namespace()
         ik_config = IKSolverConfig.load_from_robot_config(
             self.robot_cfg,
             world_cfg,

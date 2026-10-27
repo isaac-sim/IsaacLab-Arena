@@ -28,6 +28,7 @@ ARENA_CUROBO_MODULES = [
     "isaaclab_arena_curobo.utils.frame_utils",
     "isaaclab_arena_curobo.utils.ik_solver_utils",
     "isaaclab_arena_curobo.utils.robot_cfg_utils",
+    "isaaclab_arena_curobo.utils.warp_compat",
     "isaaclab_arena_curobo.ik_solver",
     "isaaclab_arena_curobo.ik_reachability_validator",
 ]
