@@ -98,10 +98,14 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
 
     def build(self, cfg: DroidDeformablePickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
+        from isaaclab.managers import SceneEntityCfg
+
         from isaaclab_arena.assets.deformable_object import DeformableObject
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_type import ObjectType
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+        from isaaclab_arena.recording.placement_terms import record_placement_conditions
         from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
@@ -136,7 +140,6 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             destination_location=destination,
             background_scene=table,
             episode_length_s=30.0,
-            velocity_threshold=0.01,
             placement_consecutive_steps=3,
             task_description=f"Pick up the {cfg.pick_object.replace('_', ' ')} and place it on the plate.",
         )
@@ -146,4 +149,17 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             scene=Scene(assets=[table, table_reference, light, directional_light, destination, pick_object]),
             task=task,
             env_cfg_callback=(_configure_newton_deformable_physics if cfg.presets is PhysicsBackend.NEWTON else None),
+            episode_recorder_terms={
+                "placement_conditions": EpisodeRecorderTermCfg(
+                    func=record_placement_conditions,
+                    params={
+                        "object_cfg": SceneEntityCfg(pick_object.name),
+                        "destination_cfg": SceneEntityCfg(destination.name),
+                        "contact_sensor_cfg": task.contact_sensor_cfg,
+                        "force_threshold": task.force_threshold,
+                        "velocity_threshold": task.velocity_threshold,
+                        "support_cone_half_angle_rad": task.support_cone_half_angle_rad,
+                    },
+                ),
+            },
         )
