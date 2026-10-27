@@ -103,7 +103,3 @@ task:
       destination_location: left_bowl
       destination_object: left_bowl
       background_scene: kitchen
-
-placer_params:
-  # Fail placement if no layout passes validation instead of using a rejected layout.
-  allow_best_loss_fallbacks: false

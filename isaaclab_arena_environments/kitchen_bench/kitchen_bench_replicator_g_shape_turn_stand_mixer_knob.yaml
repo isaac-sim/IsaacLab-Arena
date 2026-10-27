@@ -76,7 +76,3 @@ task:
     params:
       turnable_object: stand_mixer
       target_level: 0
-
-placer_params:
-  # Fail placement if no layout passes validation instead of using a rejected layout.
-  allow_best_loss_fallbacks: false
