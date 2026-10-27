@@ -57,7 +57,6 @@ Use a zero-action policy to inspect either backend:
            --num_steps 1000 \
            --num_envs 1 \
            --viz kit \
-           --presets newton \
            droid_deformable_pick_and_place \
            --pick_object deformable_cube_newton
 
@@ -70,7 +69,6 @@ Use a zero-action policy to inspect either backend:
            --num_steps 1000 \
            --num_envs 1 \
            --viz kit \
-           --presets physx \
            droid_deformable_pick_and_place \
            --pick_object deformable_cube_physx
 
@@ -97,7 +95,6 @@ SpaceMouse. Press ``K`` to open or close the gripper and ``R`` to reset an attem
            --no-reset_sim_buffer_each_episode \
            --dataset_file deformable_pick_and_place_newton.hdf5 \
            --viz kit \
-           --presets newton \
            --pick_object deformable_cube_newton \
            --embodiment droid_differential_ik
 
@@ -113,7 +110,6 @@ SpaceMouse. Press ``K`` to open or close the gripper and ``R`` to reset an attem
            --num_success_steps 1 \
            --dataset_file deformable_pick_and_place_physx.hdf5 \
            --viz kit \
-           --presets physx \
            --pick_object deformable_cube_physx \
            --embodiment droid_differential_ik
 
@@ -144,7 +140,6 @@ Then evaluate four parallel environments for 16 completed episodes:
            --num_envs 4 \
            --viz kit \
            --enable_cameras \
-           --presets newton \
            droid_deformable_pick_and_place \
            --pick_object deformable_cube_newton
 
@@ -162,7 +157,6 @@ Then evaluate four parallel environments for 16 completed episodes:
            --num_envs 4 \
            --viz kit \
            --enable_cameras \
-           --presets physx \
            droid_deformable_pick_and_place \
            --pick_object deformable_cube_physx
 
