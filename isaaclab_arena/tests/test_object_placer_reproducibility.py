@@ -6,11 +6,14 @@
 """Tests for ObjectPlacer and RelationSolver reproducibility."""
 
 import math
+import torch
 
 import pytest
 
+from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
@@ -113,8 +116,9 @@ def test_object_placer_same_seed_produces_identical_result():
         assert pos1 == pos2, f"Mismatch for {obj1.name}: {pos1} != {pos2}"
 
 
-def test_object_placer_different_seeds_produce_different_results():
-    """Test that ObjectPlacer with different seeds produces different results."""
+@pytest.mark.parametrize("other_seed", [43, 123])
+def test_object_placer_different_seeds_produce_different_results(other_seed):
+    """Test that ObjectPlacer with different seeds, including consecutive ones, produces different results."""
 
     solver_params = RelationSolverParams(max_iters=10)
 
@@ -124,10 +128,10 @@ def test_object_placer_different_seeds_produce_different_results():
     placer1 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
     (result1,) = placer1.place(objects=objects1)
 
-    # Run 2 with seed 123
+    # Run 2 with the other seed
     desk2, box1_run2, box2_run2 = _create_test_objects()
     objects2 = [desk2, box1_run2, box2_run2]
-    placer2 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=123, solver_params=solver_params))
+    placer2 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=other_seed, solver_params=solver_params))
     (result2,) = placer2.place(objects=objects2)
 
     # Check that at least one non-anchor position differs
@@ -140,6 +144,38 @@ def test_object_placer_different_seeds_produce_different_results():
             break
 
     assert any_different, "Different seeds should produce different results"
+
+
+def _initial_candidate_positions(placement_seed: int, num_envs: int, candidates_per_env: int) -> list[list[tuple]]:
+    """Initial (pre-solve) box1 and box2 positions of every candidate, grouped by env."""
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    env_bboxes = build_per_env_bounding_boxes(objects, num_envs).get_bounding_boxes_for_all_envs()
+    generator = PlacementCandidateGenerator(ObjectPlacerParams(placement_seed=placement_seed))
+    batch = generator.generate_candidates(objects, {desk}, env_bboxes, candidates_per_env, torch.Generator(), [])
+    positions_per_env = [[] for _ in range(num_envs)]
+    for candidate in batch.candidates:
+        positions_per_env[candidate.env_id].append((candidate.positions[box1], candidate.positions[box2]))
+    return positions_per_env
+
+
+def test_consecutive_seeds_share_no_initial_candidates():
+    """Seeds s and s + 1 must sample independent candidates, not shifted copies of the same candidates."""
+    (candidates_42,) = _initial_candidate_positions(placement_seed=42, num_envs=1, candidates_per_env=10)
+    (candidates_43,) = _initial_candidate_positions(placement_seed=43, num_envs=1, candidates_per_env=10)
+
+    assert set(candidates_42).isdisjoint(candidates_43)
+
+
+def test_env_initial_candidates_do_not_depend_on_num_envs():
+    """An env's candidates depend on (seed, env, candidate) only, so results stay comparable across num_envs."""
+    one_env = _initial_candidate_positions(placement_seed=42, num_envs=1, candidates_per_env=10)
+    three_envs = _initial_candidate_positions(placement_seed=42, num_envs=3, candidates_per_env=10)
+    more_candidates = _initial_candidate_positions(placement_seed=42, num_envs=3, candidates_per_env=20)
+
+    assert one_env[0] == three_envs[0]
+    for env_id in range(3):
+        assert more_candidates[env_id][:10] == three_envs[env_id]
 
 
 def test_object_placer_multi_env_returns_multi_env_result():

@@ -16,7 +16,7 @@ from isaaclab_arena.relations.initializers.initializer_factory import create_ini
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.relations import ClutterOn, FaceTo, RotateAroundSolution, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.random import get_random_rotation
+from isaaclab_arena.utils.random import derive_seed, get_random_rotation
 from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
@@ -49,8 +49,7 @@ class PlacementCandidateGenerator:
         for env_id, bounds in enumerate(env_bboxes):
             for candidate_id in range(candidates_per_env):
                 if generator is not None:
-                    assert self.params.placement_seed is not None
-                    generator.manual_seed(self.params.placement_seed + env_id * candidates_per_env + candidate_id)
+                    self._seed_candidate(generator, env_id, candidate_id)
                 candidates.append(
                     PlacementCandidate(
                         env_id=env_id,
@@ -66,11 +65,18 @@ class PlacementCandidateGenerator:
         for candidate in batch.candidates:
             if generator is not None:
                 # Reuse each candidate's seed without changing position or yaw sampling.
-                generator.manual_seed(
-                    self.params.placement_seed + candidate.env_id * candidates_per_env + candidate.candidate_id
-                )
+                self._seed_candidate(generator, candidate.env_id, candidate.candidate_id)
             self.initialize_clutter_positions(candidate.positions, candidate.bboxes, collision_bboxes, generator)
         return batch
+
+    def _seed_candidate(self, generator: torch.Generator, env_id: int, candidate_id: int) -> None:
+        """Seed the generator for one candidate, independently of every other placement seed and candidate.
+
+        The seed depends only on (placement_seed, env_id, candidate_id), so env e's candidates do not change with
+        num_envs, and candidate c does not change with the number of candidates per env.
+        """
+        assert self.params.placement_seed is not None
+        generator.manual_seed(derive_seed(self.params.placement_seed, env_id, candidate_id))
 
     def generate_positions(
         self,
