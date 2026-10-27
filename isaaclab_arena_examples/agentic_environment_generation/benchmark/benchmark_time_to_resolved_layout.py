@@ -5,9 +5,10 @@
 
 """Benchmark time from a valid environment spec to a ready placement pool.
 
-SimulationApp starts before the measured region. Each sample includes loading the
-fixed spec, constructing Arena assets, preparing collision geometry, solving
-relations, validating layouts, and filling the placement pool. It excludes
+SimulationApp starts before the measured region. Each sample times loading the fixed
+spec, constructing Arena assets, and ``ArenaEnvBuilder.build_env_cfg``: applying
+build-time variations, preparing collision geometry, solving relations, validating
+layouts, filling the placement pool, and assembling the environment config. It excludes
 Isaac Sim startup, environment instantiation, and physics settling.
 
 Usage::
@@ -72,7 +73,6 @@ def _run_sample(env_spec: Path, num_envs: int, run_index: int, placement_seed: i
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
     gc.collect()
     if torch.cuda.is_available():
@@ -83,8 +83,6 @@ def _run_sample(env_spec: Path, num_envs: int, run_index: int, placement_seed: i
     try:
         graph_spec = ArenaEnvGraphSpec.from_yaml(env_spec)
         arena_env = graph_spec.to_arena_env()
-        if arena_env.placer_params is None:
-            arena_env.placer_params = ObjectPlacerParams()
         arena_env.placer_params.allow_best_loss_fallbacks = False
         builder = ArenaEnvBuilder(
             arena_env,
@@ -94,7 +92,7 @@ def _run_sample(env_spec: Path, num_envs: int, run_index: int, placement_seed: i
             ),
         )
         requested_layouts = num_envs * arena_env.placer_params.min_unique_layouts_per_env
-        builder._prepare_relation_placement(scheduler=None)
+        builder.build_env_cfg()
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         elapsed_ms = (time.perf_counter() - started_at) * 1e3
@@ -195,12 +193,12 @@ def main() -> int:
                 failed_sample_count += sum(sample.error is not None for sample in samples[: args.num_runs])
                 continue
 
-            if not samples:
-                for warmup_index in range(args.warmup_runs):
-                    warmup = _run_sample(args.env_spec, num_envs, -1 - warmup_index, args.placement_seed)
-                    if warmup.error is not None:
-                        print(f"[benchmark] num_envs={num_envs} warmup failed: {warmup.error}", flush=True)
-                        break
+            # Warm up on resume too, so the first measured sample after a restart excludes one-time costs.
+            for warmup_index in range(args.warmup_runs):
+                warmup = _run_sample(args.env_spec, num_envs, -1 - warmup_index, args.placement_seed)
+                if warmup.error is not None:
+                    print(f"[benchmark] num_envs={num_envs} warmup failed: {warmup.error}", flush=True)
+                    break
 
             for run_index in range(len(samples), args.num_runs):
                 samples.append(_run_sample(args.env_spec, num_envs, run_index, args.placement_seed))

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Benchmark time from sending a prompt until the agent returns a parseable environment spec.
+"""Benchmark time from sending a prompt until the agent returns a validated environment spec.
 
 Endpoint initialization and catalogue construction happen before measurements begin. A sample
 includes spec inference, validation and critic retries, and prim-path resolution when the spec has
@@ -161,7 +161,7 @@ def _run_sample(
             error = f"workload expected a spec {expected} object_references, got one {actual} them"
             latency_ms = None
     if spec is None and error is None:
-        error = "; ".join(agent.traces) or "agent returned no parseable ArenaEnvGraphSpec"
+        error = "; ".join(agent.traces) or "agent returned no validated ArenaEnvGraphSpec"
 
     generated_spec_path = None
     if latency_ms is not None and spec_output_dir is not None:
@@ -177,7 +177,7 @@ def _run_sample(
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
-    add_agent_inference_cli_args(parser, include_prompt=False)
+    add_agent_inference_cli_args(parser)
     workload = parser.add_mutually_exclusive_group()
     workload.add_argument(
         "--case",

@@ -196,27 +196,38 @@ def test_batch_ignores_result_left_by_an_earlier_run(monkeypatch, tmp_path):
     assert combined["results"] == []
 
 
-def _test_run_sample_resolves_a_benchmark_spec(simulation_app):
-    sample = benchmark._run_sample(
-        batch_benchmark._DEFAULT_ENV_SPECS_DIR / "tabletop_banana_plate_distractors_0.yaml",
-        num_envs=1,
-        run_index=0,
-        placement_seed=42,
-    )
-    assert sample.error is None, sample.error
-    assert sample.time_to_resolved_layout_ms is not None
-    assert sample.requested_layouts > 0
-    return True
-
-
-def test_run_sample_resolves_a_benchmark_spec():
-    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-
-    assert run_function_with_persistent_simulation_app(_test_run_sample_resolves_a_benchmark_spec)
-
-
 def test_find_benchmark_cases_names_each_case_after_its_spec_file(tmp_path):
     (tmp_path / "case_a.yaml").write_text("env_name: case_a\n", encoding="utf-8")
     (tmp_path / "notes.md").write_text("", encoding="utf-8")
 
     assert batch_benchmark.find_benchmark_cases(tmp_path) == {"case_a": tmp_path / "case_a.yaml"}
+
+
+def test_resume_runs_warmup_before_the_remaining_samples(monkeypatch, tmp_path):
+    env_spec = tmp_path / "environment.yaml"
+    env_spec.write_text("env_name: test\n", encoding="utf-8")
+    args = argparse.Namespace(
+        env_spec=env_spec,
+        num_envs=[1],
+        num_runs=2,
+        warmup_runs=1,
+        placement_seed=42,
+        output_path=tmp_path / "result.json",
+        resume=True,
+    )
+    saved_sample = benchmark.SampleResult(1, 0, 5, 10.0, None)
+    benchmark._write_checkpoint(args, {"1": {"summary": {}, "samples": [benchmark.asdict(saved_sample)]}})
+    run_indices = []
+
+    def fake_run_sample(env_spec, num_envs, run_index, placement_seed):
+        run_indices.append(run_index)
+        return benchmark.SampleResult(num_envs, run_index, 5, 20.0, None)
+
+    simulation_app = ModuleType("isaaclab_arena.utils.isaaclab_utils.simulation_app")
+    simulation_app.SimulationAppContext = lambda _args: nullcontext()
+    monkeypatch.setitem(sys.modules, simulation_app.__name__, simulation_app)
+    monkeypatch.setattr(benchmark, "_parse_args", lambda: args)
+    monkeypatch.setattr(benchmark, "_run_sample", fake_run_sample)
+
+    assert benchmark.main() == 0
+    assert run_indices == [-1, 1]

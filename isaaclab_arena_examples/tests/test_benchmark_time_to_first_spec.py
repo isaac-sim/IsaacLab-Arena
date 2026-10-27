@@ -18,7 +18,6 @@ import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_resolved_layout_benchmarks as resolved_layout_batch
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import minimal_spec_dict
-from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
 
 
 def test_percentile_uses_nearest_rank():
@@ -30,11 +29,23 @@ def test_percentile_uses_nearest_rank():
     assert latency_results.percentile([], 99) is None
 
 
-def test_benchmark_reuses_cli_runner_inference_arguments():
-    parser = benchmark.argparse.ArgumentParser()
-    add_agent_inference_cli_args(parser, include_prompt=False)
+def test_benchmark_accepts_cli_runner_inference_arguments(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "benchmark_time_to_first_spec.py",
+            "--num_runs",
+            "1",
+            "--inference_endpoint",
+            "openai",
+            "--model",
+            "gpt-test",
+            "--temperature",
+            "0.1",
+        ],
+    )
 
-    args = parser.parse_args(["--inference_endpoint", "openai", "--model", "gpt-test", "--temperature", "0.1"])
+    args = benchmark.parse_args()
 
     assert args.inference_endpoint == "openai"
     assert args.model == "gpt-test"
@@ -324,3 +335,12 @@ def test_summary_excludes_failed_samples_from_percentiles():
         "p95_ms": 30.0,
         "p99_ms": 30.0,
     }
+
+
+def test_write_json_replaces_the_file_without_leaving_a_temporary_file(tmp_path):
+    output_path = tmp_path / "results" / "result.json"
+    latency_results.write_json(output_path, {"run": 1})
+    latency_results.write_json(output_path, {"run": 2})
+
+    assert json.loads(output_path.read_text(encoding="utf-8")) == {"run": 2}
+    assert [path.name for path in output_path.parent.iterdir()] == ["result.json"]

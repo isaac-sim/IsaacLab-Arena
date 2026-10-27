@@ -169,8 +169,9 @@ Benchmark definition
 The benchmark reports wall-clock p50, p95, and p99 latency. Each environment and configuration was
 measured 100 times.
 
-**Time to first environment spec** is measured from the request being sent until the first parseable,
-structured environment spec is available:
+**Time to first environment spec** is measured from the request being sent until the agent returns its first
+validated environment spec. This includes the agent's automated validation, critic retries, and prim-path
+resolution:
 
 .. math::
 
@@ -188,7 +189,7 @@ layout-resolution latency.
 
 The benchmark does **not** measure:
 
-* Time to the first valid, repaired, or user-approved spec. The first-spec metric stops at the first parseable spec.
+* Time to a user-approved spec. The first-spec metric stops when the agent returns its first validated spec.
 * Correctness, task fidelity, asset selection, semantic quality, or other model-dependent quality measures.
 * Time spent reviewing or manually editing a generated spec, layout, task, asset choice, or placement.
 * Human-assisted completion rate, review throughput, or time to a human-approved environment.
@@ -251,7 +252,7 @@ Prompt to first environment spec
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The agentic model was ``openai/openai/gpt-5.6-terra`` on an internal endpoint. Requests used NVIDIA campus
-Ethernet. Every environment returned a parseable first spec in all 100 trials.
+Ethernet. Every environment returned a validated first spec in all 100 trials.
 
 .. figure:: ../../images/agentic_environment_generation/agentic_env_gen_first_spec_p50.png
    :width: 100%

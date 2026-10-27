@@ -7,8 +7,8 @@ name: Agentic Env Gen Benchmark
 
 on:
   schedule:
-    # Weekly on Sunday at 06:00 UTC.
-    - cron: '0 6 * * 0'
+    # Weekly on Sunday at 14:00 UTC, clear of the 06:00 UTC nightly CI on the same runners.
+    - cron: '0 14 * * 0'
   workflow_dispatch:
 
 concurrency:
@@ -99,7 +99,7 @@ jobs:
 
       - name: Run benchmark unit tests
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 \
+          isaaclab.sh -p -m pytest -sv --durations=0 -p isaaclab_arena.tests.conftest \
             isaaclab_arena_examples/tests/test_benchmark_time_to_first_spec.py \
             isaaclab_arena_examples/tests/test_benchmark_time_to_resolved_layout.py
 

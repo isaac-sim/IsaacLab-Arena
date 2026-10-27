@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,11 @@ def format_ms(value_ms: float | None) -> str:
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
-    """Write ``payload`` as indented JSON to ``path``, creating parent directories."""
+    """Write ``payload`` as indented JSON to ``path``, creating parent directories.
+
+    The file is replaced in one step, so an interrupted write leaves the previous contents intact.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    temporary_path = path.with_name(f".{path.name}.tmp")
+    temporary_path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    os.replace(temporary_path, path)

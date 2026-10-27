@@ -55,20 +55,12 @@ if TYPE_CHECKING:
 DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
 
 
-def add_agent_inference_cli_args(group: Any, *, include_prompt: bool = True) -> None:
-    """Add the prompt, endpoint, and model sampling arguments shared by agent CLIs.
+def add_agent_inference_cli_args(group: Any) -> None:
+    """Add the endpoint and model sampling arguments shared by agent CLIs.
 
     Args:
         group: Argparse parser or argument group to extend.
-        include_prompt: Add ``--prompt`` when the caller does not provide its own prompt selector.
     """
-    if include_prompt:
-        group.add_argument(
-            "--prompt",
-            type=str,
-            default=DEFAULT_PROMPT,
-            help="Natural-language env description passed to the generation agent.",
-        )
     group.add_argument(
         "--model",
         type=str,
@@ -110,6 +102,12 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
             "'build' (needs --env_spec), or 'full' (resolve and build in one process; default). "
             "'schema', 'catalog', and 'prim_tree' make no agent call."
         ),
+    )
+    group.add_argument(
+        "--prompt",
+        type=str,
+        default=DEFAULT_PROMPT,
+        help="Natural-language env description passed to the generation agent.",
     )
     add_agent_inference_cli_args(group)
     group.add_argument(

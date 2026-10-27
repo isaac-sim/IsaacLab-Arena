@@ -35,7 +35,7 @@ _DEFAULT_OUTPUT_DIR = Path("outputs/time_to_first_spec")
 def parse_args() -> argparse.Namespace:
     """Parse batch benchmark arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
-    add_agent_inference_cli_args(parser, include_prompt=False)
+    add_agent_inference_cli_args(parser)
     parser.add_argument(
         "--cases_file",
         type=Path,
