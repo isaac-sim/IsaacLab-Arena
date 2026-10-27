@@ -99,7 +99,7 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False, movable_suppor
             {
                 "kind": "position_limits_box",
                 "subject": "table",
-                "params": {"x_min": -0.3, "x_max": 0.3, "y_min": -0.3, "y_max": 0.3},
+                "params": {"x_limits": [-0.3, 0.3], "y_limits": [-0.3, 0.3]},
             },
         ])
         tray = tmp_path / "tray.usda"

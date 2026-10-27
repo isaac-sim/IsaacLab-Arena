@@ -33,43 +33,34 @@ def test_position_limits_requires_at_least_one_bound():
 
 
 def test_position_limits_rejects_min_greater_than_max():
-    """PositionLimitsBox with x_min > x_max should raise AssertionError."""
+    """PositionLimitsBox with a reversed X range should raise AssertionError."""
 
     with pytest.raises(AssertionError):
-        PositionLimitsBox(x_min=0.5, x_max=-0.5)
+        PositionLimitsBox(x_limits=(0.5, -0.5))
 
 
 def test_position_limits_allows_single_bound():
-    """PositionLimitsBox with only x_min should construct without error."""
+    """PositionLimitsBox with only an X lower bound should construct without error."""
 
-    relation = PositionLimitsBox(x_min=-0.3)
+    relation = PositionLimitsBox(x_limits=(-0.3, None))
     assert relation.x_min == -0.3
     assert relation.x_max is None
 
 
-def test_position_limits_preserves_original_positional_weight_argument():
-    """The seventh positional argument remains the relation loss weight."""
-
-    relation = PositionLimitsBox(-1.0, 1.0, -2.0, 2.0, -3.0, 3.0, 2.0)
+def test_position_limits_axis_ranges():
+    """Accept list/tuple ranges and preserve one-sided bounds and loss weight."""
+    relation = PositionLimitsBox(
+        x_limits=[-1.0, 1.0], y_limits=(0.5, None), z_limits=(None, 2.0), relation_loss_weight=2.0
+    )
+    assert (relation.x_min, relation.x_max) == (-1.0, 1.0)
+    assert (relation.y_min, relation.y_max) == (0.5, None)
+    assert (relation.z_min, relation.z_max) == (None, 2.0)
     assert relation.relation_loss_weight == 2.0
 
 
-def test_position_limits_axis_ranges_preserve_bounds_and_loss():
-    """Axis pairs, including one-sided bounds, behave like the original arguments."""
-    original = PositionLimitsBox(x_min=-1.0, x_max=1.0, y_min=0.5, z_max=2.0, relation_loss_weight=2.0)
-    compact = PositionLimitsBox(x=[-1.0, 1.0], y=(0.5, None), z=(None, 2.0), relation_loss_weight=2.0)
-    assert vars(compact) == vars(original)
-    strategy = PositionLimitsBoxLossStrategy()
-    for t_W in (torch.tensor([0.0, 1.0, 1.0]), torch.tensor([2.0, 0.0, 3.0])):
-        assert torch.equal(
-            strategy.compute_loss(compact, t_W, _DUMMY_BBOX),
-            strategy.compute_loss(original, t_W, _DUMMY_BBOX),
-        )
-
-
 def test_position_limits_rejects_invalid_axis_ranges():
-    """Reject malformed, reversed, empty, and conflicting axis bounds."""
-    for params in ({"x": [1.0]}, {"y": [2.0, 1.0]}, {"z": [None, None]}, {"x": [0.0, 1.0], "x_min": 0.0}):
+    """Reject malformed, reversed, and empty axis bounds."""
+    for params in ({"x_limits": [1.0]}, {"y_limits": [2.0, 1.0]}, {"z_limits": [None, None]}):
         with pytest.raises(AssertionError):
             PositionLimitsBox(**params)
 
@@ -104,7 +95,7 @@ def test_position_limits_cylindrical_allows_single_bound():
 def test_position_limits_zero_loss_when_inside():
     """Loss is approximately zero when position is inside the box."""
 
-    relation = PositionLimitsBox(x_min=-1.0, x_max=1.0, y_min=-1.0, y_max=1.0, z_min=0.0, z_max=2.0)
+    relation = PositionLimitsBox(x_limits=(-1.0, 1.0), y_limits=(-1.0, 1.0), z_limits=(0.0, 2.0))
     strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 0.0, 1.0])
 
@@ -115,7 +106,7 @@ def test_position_limits_zero_loss_when_inside():
 def test_position_limits_positive_loss_when_outside_x():
     """Loss is positive when position exceeds x_max."""
 
-    relation = PositionLimitsBox(x_min=-1.0, x_max=1.0)
+    relation = PositionLimitsBox(x_limits=(-1.0, 1.0))
     strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([2.0, 0.0, 0.0])
 
@@ -126,7 +117,7 @@ def test_position_limits_positive_loss_when_outside_x():
 def test_position_limits_positive_loss_when_below_min():
     """Loss is positive when position is below y_min."""
 
-    relation = PositionLimitsBox(y_min=0.5, y_max=1.5)
+    relation = PositionLimitsBox(y_limits=(0.5, 1.5))
     strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 0.0, 0.0])
 
@@ -137,7 +128,7 @@ def test_position_limits_positive_loss_when_below_min():
 def test_position_limits_single_bound_min_only():
     """With only x_min set: zero loss above bound, positive loss below."""
 
-    relation = PositionLimitsBox(x_min=0.5)
+    relation = PositionLimitsBox(x_limits=(0.5, None))
     strategy = PositionLimitsBoxLossStrategy(slope=10.0)
 
     pos_above = torch.tensor([1.0, 0.0, 0.0])
@@ -152,7 +143,7 @@ def test_position_limits_single_bound_min_only():
 def test_position_limits_single_bound_max_only():
     """With only x_max set: zero loss below bound, positive loss above."""
 
-    relation = PositionLimitsBox(x_max=0.5)
+    relation = PositionLimitsBox(x_limits=(None, 0.5))
     strategy = PositionLimitsBoxLossStrategy(slope=10.0)
 
     pos_below = torch.tensor([0.0, 0.0, 0.0])
@@ -167,8 +158,8 @@ def test_position_limits_single_bound_max_only():
 def test_position_limits_loss_scales_with_weight():
     """weight=2.0 gives exactly 2x the loss of weight=1.0."""
 
-    relation_1x = PositionLimitsBox(x_min=-1.0, x_max=1.0, relation_loss_weight=1.0)
-    relation_2x = PositionLimitsBox(x_min=-1.0, x_max=1.0, relation_loss_weight=2.0)
+    relation_1x = PositionLimitsBox(x_limits=(-1.0, 1.0), relation_loss_weight=1.0)
+    relation_2x = PositionLimitsBox(x_limits=(-1.0, 1.0), relation_loss_weight=2.0)
     strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([3.0, 0.0, 0.0])
 
@@ -180,7 +171,7 @@ def test_position_limits_loss_scales_with_weight():
 def test_position_limits_z_constraint():
     """Z bounds are enforced like X and Y bounds."""
 
-    relation = PositionLimitsBox(z_min=0.0, z_max=1.0)
+    relation = PositionLimitsBox(z_limits=(0.0, 1.0))
     strategy = PositionLimitsBoxLossStrategy(slope=10.0)
 
     pos_inside = torch.tensor([0.0, 0.0, 0.5])
@@ -195,7 +186,7 @@ def test_position_limits_z_constraint():
 def test_position_limits_unconstrained_axes_ignored():
     """Only X constrained: extreme Y/Z values produce no loss."""
 
-    relation = PositionLimitsBox(x_min=-1.0, x_max=1.0)
+    relation = PositionLimitsBox(x_limits=(-1.0, 1.0))
     strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 1e6, -1e6])
 
@@ -320,7 +311,7 @@ def test_solver_respects_position_limits():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
     )
     box.add_relation(On(table, clearance_m=0.01))
-    box.add_relation(PositionLimitsBox(x_min=0.2, x_max=0.5, y_min=0.2, y_max=0.5))
+    box.add_relation(PositionLimitsBox(x_limits=(0.2, 0.5), y_limits=(0.2, 0.5)))
 
     initial_positions = [{table: (0.0, 0.0, 0.0), box: (1.5, 1.5, 0.11)}]
 

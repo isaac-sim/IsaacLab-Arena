@@ -62,8 +62,8 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
     assert cube_limits.reference is None
     assert cube_limits.params == {
-        "x": [0.55, 0.7],
-        "y": [-0.4, -0.1],
+        "x_limits": [0.55, 0.7],
+        "y_limits": [-0.4, -0.1],
     }
 
     limits = PositionLimitsBox(**cube_limits.params)
@@ -235,7 +235,7 @@ def test_graph_spec_accepts_legacy_position_limits_box_name():
     data["relations"] = [{
         "kind": "position_limits",
         "subject": "cube",
-        "params": {"x_min": 0.1, "x_max": 0.3},
+        "params": {"x_limits": [0.1, 0.3]},
     }]
 
     (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations

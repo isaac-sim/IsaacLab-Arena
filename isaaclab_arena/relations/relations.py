@@ -482,55 +482,32 @@ class PositionLimitsBox(UnaryRelation):
     """Constrains an object's position to an axis-aligned box in world coordinates.
 
     Specify each axis as a (minimum, maximum) pair; None leaves that bound
-    unconstrained. The original x_min/x_max (and Y/Z) arguments remain supported,
-    but cannot be combined with a pair for the same axis.
+    unconstrained. Omitted axes are unconstrained.
 
     Usage:
-        mug.add_relation(PositionLimitsBox(x=(-0.5, 0.5), y=(-0.5, 0.5)))
-        mug.add_relation(PositionLimitsBox(z=(0.8, None)))  # only constrain Z
+        mug.add_relation(PositionLimitsBox(x_limits=(-0.5, 0.5), y_limits=(-0.5, 0.5)))
+        mug.add_relation(PositionLimitsBox(z_limits=(0.8, None)))  # only constrain Z
     """
 
     name = "position_limits_box"
 
     def __init__(
         self,
-        x_min: float | None = None,
-        x_max: float | None = None,
-        y_min: float | None = None,
-        y_max: float | None = None,
-        z_min: float | None = None,
-        z_max: float | None = None,
+        x_limits: Sequence[float | None] = (None, None),
+        y_limits: Sequence[float | None] = (None, None),
+        z_limits: Sequence[float | None] = (None, None),
         relation_loss_weight: float = 1.0,
-        *,
-        x: Sequence[float | None] | None = None,
-        y: Sequence[float | None] | None = None,
-        z: Sequence[float | None] | None = None,
     ):
-        bounds = {"x": (x_min, x_max), "y": (y_min, y_max), "z": (z_min, z_max)}
-        for axis, interval in (("x", x), ("y", y), ("z", z)):
-            if interval is None:
-                continue
-            assert len(interval) == 2, f"{axis} must contain a minimum and maximum"
-            assert bounds[axis] == (None, None), f"Specify either {axis} or {axis}_min/{axis}_max, not both"
-            bounds[axis] = tuple(interval)
-        x_min, x_max = bounds["x"]
-        y_min, y_max = bounds["y"]
-        z_min, z_max = bounds["z"]
+        for axis, limits in (("x", x_limits), ("y", y_limits), ("z", z_limits)):
+            assert len(limits) == 2, f"{axis}_limits must contain a minimum and maximum"
+            lower, upper = limits
+            assert lower is None or upper is None or lower < upper, f"{axis}_limits minimum must be less than maximum"
         assert any(
-            bound is not None for bound in (x_min, x_max, y_min, y_max, z_min, z_max)
+            bound is not None for bound in (*x_limits, *y_limits, *z_limits)
         ), "At least one axis bound must be specified for PositionLimitsBox"
-        if x_min is not None and x_max is not None:
-            assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
-        if y_min is not None and y_max is not None:
-            assert y_min < y_max, f"y_min must be less than y_max, got y_min={y_min}, y_max={y_max}"
-        if z_min is not None and z_max is not None:
-            assert z_min < z_max, f"z_min must be less than z_max, got z_min={z_min}, z_max={z_max}"
-        self.x_min = x_min
-        self.x_max = x_max
-        self.y_min = y_min
-        self.y_max = y_max
-        self.z_min = z_min
-        self.z_max = z_max
+        self.x_min, self.x_max = x_limits
+        self.y_min, self.y_max = y_limits
+        self.z_min, self.z_max = z_limits
         self.relation_loss_weight = relation_loss_weight
 
 

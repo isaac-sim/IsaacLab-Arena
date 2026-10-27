@@ -35,7 +35,7 @@ def _make_scene():
         AxisAlignedBoundingBox((-0.2, -0.35, 0), (0.2, 0.35, 0.05)),
         relations=[
             On(table),
-            PositionLimitsBox(x_min=-0.8, x_max=0.8, y_min=-0.8, y_max=0.8),
+            PositionLimitsBox(x_limits=(-0.8, 0.8), y_limits=(-0.8, 0.8)),
             RotateAroundSolution(yaw_rad=math.pi / 2),
         ],
     )
@@ -167,7 +167,7 @@ def test_clutter_collision_can_move_its_support(monkeypatch):
     tray = DummyObject(
         "tray",
         AxisAlignedBoundingBox((-0.12, -0.12, 0), (0.12, 0.12, 0.05)),
-        relations=[On(table, clearance_m=0), PositionLimitsBox(x_min=-0.5, x_max=0.5)],
+        relations=[On(table, clearance_m=0), PositionLimitsBox(x_limits=(-0.5, 0.5))],
     )
     clutter = DummyObject(
         "clutter",

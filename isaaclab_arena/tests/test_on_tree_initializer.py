@@ -128,7 +128,7 @@ def test_ontree_init_narrows_to_position_limits_box():
     desk = _make_desk()
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.0))
-    box.add_relation(PositionLimitsBox(x_min=0.1, x_max=0.2, y_min=0.6, y_max=0.7))
+    box.add_relation(PositionLimitsBox(x_limits=(0.1, 0.2), y_limits=(0.6, 0.7)))
     generator = torch.Generator().manual_seed(0)
 
     for _ in range(50):
@@ -142,8 +142,8 @@ def test_ontree_init_intersects_several_narrowing_constraints():
     desk = _make_desk()
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.0))
-    box.add_relation(PositionLimitsBox(x_min=0.1, x_max=0.5))
-    box.add_relation(PositionLimitsBox(x_min=0.3, x_max=0.7))
+    box.add_relation(PositionLimitsBox(x_limits=(0.1, 0.5)))
+    box.add_relation(PositionLimitsBox(x_limits=(0.3, 0.7)))
     generator = torch.Generator().manual_seed(0)
 
     for _ in range(50):
@@ -177,7 +177,7 @@ def test_ontree_init_keeps_reachable_axes_when_another_axis_is_unreachable():
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.0))
     # X is satisfiable on the desk; Z cannot be, because On fixes the box's Z at the desk top.
-    box.add_relation(PositionLimitsBox(x_min=0.1, x_max=0.2, z_min=0.5, z_max=1.5))
+    box.add_relation(PositionLimitsBox(x_limits=(0.1, 0.2), z_limits=(0.5, 1.5)))
 
     generator = torch.Generator()
     for seed in range(8):
@@ -192,7 +192,7 @@ def test_ontree_init_ignores_bounds_that_are_unreachable_on_the_parent():
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.0))
     # Valid origins on the desk span [0.0, 0.8]; these limits sit entirely beyond that.
-    box.add_relation(PositionLimitsBox(x_min=2.0, x_max=3.0))
+    box.add_relation(PositionLimitsBox(x_limits=(2.0, 3.0)))
 
     x, _unused_y, _unused_z = _seed(OnTreeInitializer(), [desk, box], {desk})[box]
 

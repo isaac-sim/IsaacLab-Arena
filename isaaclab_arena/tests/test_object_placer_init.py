@@ -306,7 +306,7 @@ def test_anchor_init_is_not_narrowed_by_position_limits():
     desk = _make_desk()
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.0))
-    box.add_relation(PositionLimitsBox(x_min=0.1, x_max=0.2))
+    box.add_relation(PositionLimitsBox(x_limits=(0.1, 0.2)))
     generator = torch.Generator().manual_seed(0)
 
     samples = [_seed(AnchorInitializer(), [desk, box], {desk}, generator=generator)[box] for _ in range(50)]
