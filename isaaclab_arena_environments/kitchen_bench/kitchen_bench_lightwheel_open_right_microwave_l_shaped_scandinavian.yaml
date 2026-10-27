@@ -62,6 +62,3 @@ task:
       openable_object: microwave
       openness_threshold: 0.25
       reset_openness: 0.0
-placer_params:
-  # Fail placement if no layout passes validation instead of using a rejected layout.
-  allow_best_loss_fallbacks: false
