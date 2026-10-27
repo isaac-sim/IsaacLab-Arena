@@ -35,9 +35,11 @@ def _configure_newton_deformable_physics(
         r"/World/envs/env_[^/]+/maple_table_robolab/table(?:/.*)?",
         r"/World/envs/env_[^/]+/plate(?:/.*)?",
     ]
-    soft_solver_cfg = VBDSolverCfg(iterations=15, rigid_body_particle_contact_buffer_size=8192)
-    # TODO: Pass this in the constructor once Isaac Lab exposes Newton's corresponding VBD option.
-    soft_solver_cfg.rigid_body_contact_buffer_size = 1024
+    soft_solver_cfg = VBDSolverCfg(
+        iterations=15,
+        rigid_body_contact_buffer_size=1024,
+        rigid_body_particle_contact_buffer_size=8192,
+    )
     rigid_solver_cfg.iterations = 200
     rigid_solver_cfg.ls_iterations = 50
     env_cfg.sim.physics = NewtonCfg(
@@ -136,7 +138,10 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             background_scene=table,
             episode_length_s=30.0,
             placement_consecutive_steps=3,
-            task_description=f"Pick up the {cfg.pick_object.replace('_', ' ')} and place it on the plate.",
+            task_description=(
+                f"Pick up the {cfg.pick_object.removesuffix(f'_{pick_object.physics_preset.value}').replace('_', ' ')} "
+                "and place it on the plate."
+            ),
         )
         return IsaacLabArenaEnvironment(
             name=self.name,
