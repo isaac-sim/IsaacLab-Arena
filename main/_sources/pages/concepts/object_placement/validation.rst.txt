@@ -20,7 +20,7 @@ that passes ``is_available()`` and survives ``enabled_checks`` (see
 :ref:`validation-toggle`). Each solved batch then runs in two passes:
 
 1. **Inexpensive checks** (``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
-   ``not_next_to``, ``face_to``) over every candidate.
+   ``not_next_to``, ``align_with``, ``face_to``) over every candidate.
 2. **Expensive checks** (``ik_reachable``) only on candidates that already
    passed every *required* inexpensive check.
 
@@ -35,8 +35,9 @@ with ten attempts each produce a batch of forty candidates. Filtering and rankin
 keep each candidate's geometry and results together. Sample IDs are local to a
 solve, not persistent layout identifiers across solves or pool refills.
 
-``PlacementCandidateGenerator`` samples orientations, fits the bounds to those
-rotations and places clutter above its support and nearby objects before solving.
+``PlacementCandidateGenerator`` samples orientations and fits the bounds before
+sampling positions. It then places clutter above its support and nearby objects
+before solving.
 After solving, ``ObjectPlacer`` applies ``FaceTo`` headings and refits the bounds.
 ``PlacementValidationRunner`` then replaces each candidate's check results.
 Here, *expensive* means computational cost, such as solving IK. Neither validation
@@ -95,6 +96,11 @@ Types of Validators
      - Inexpensive
      - Yes
      - Every ``NotNextTo`` keep-out zone is cleared within tolerance.
+   * - ``align_with``
+     - Build-time
+     - Inexpensive
+     - Yes
+     - Bounding-box centres match the world-axis offset within the alignment tolerance.
    * - ``face_to``
      - Build-time
      - Inexpensive
@@ -111,7 +117,7 @@ Geometric and Relation Checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
-``not_next_to``, and ``face_to`` are always registered. The first five mirror the corresponding
+``not_next_to``, ``align_with``, and ``face_to`` are always registered. The first six mirror the corresponding
 relation's loss term, so low-loss solver output and validator verdicts stay
 consistent. ``face_to`` is different: ``FaceTo`` is applied as a post-solve
 heading rather than a continuous loss, and the check only verifies that a

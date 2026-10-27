@@ -608,7 +608,7 @@ that passes <code class="docutils literal notranslate"><span class="pre">is_avai
 <a class="reference internal" href="#validation-toggle"><span class="std std-ref">Enabling and Disabling Checks</span></a>). Each solved batch then runs in two passes:</p>
 <ol class="arabic simple">
 <li><p><strong>Inexpensive checks</strong> (<code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>,
-<code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, <code class="docutils literal notranslate"><span class="pre">face_to</span></code>) over every candidate.</p></li>
+<code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, <code class="docutils literal notranslate"><span class="pre">align_with</span></code>, <code class="docutils literal notranslate"><span class="pre">face_to</span></code>) over every candidate.</p></li>
 <li><p><strong>Expensive checks</strong> (<code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code>) only on candidates that already
 passed every <em>required</em> inexpensive check.</p></li>
 </ol>
@@ -621,8 +621,9 @@ in place and return <code class="docutils literal notranslate"><span class="pre"
 with ten attempts each produce a batch of forty candidates. Filtering and ranking
 keep each candidate’s geometry and results together. Sample IDs are local to a
 solve, not persistent layout identifiers across solves or pool refills.</p>
-<p><code class="docutils literal notranslate"><span class="pre">PlacementCandidateGenerator</span></code> samples orientations, fits the bounds to those
-rotations and places clutter above its support and nearby objects before solving.
+<p><code class="docutils literal notranslate"><span class="pre">PlacementCandidateGenerator</span></code> samples orientations and fits the bounds before
+sampling positions. It then places clutter above its support and nearby objects
+before solving.
 After solving, <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> applies <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> headings and refits the bounds.
 <code class="docutils literal notranslate"><span class="pre">PlacementValidationRunner</span></code> then replaces each candidate’s check results.
 Here, <em>expensive</em> means computational cost, such as solving IK. Neither validation
@@ -691,13 +692,19 @@ intersect. See <a class="reference internal" href="collision_handling.html"><spa
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">NotNextTo</span></code> keep-out zone is cleared within tolerance.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">face_to</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">align_with</span></code></p></td>
+<td><p>Build-time</p></td>
+<td><p>Inexpensive</p></td>
+<td><p>Yes</p></td>
+<td><p>Bounding-box centres match the world-axis offset within the alignment tolerance.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">face_to</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Inexpensive</p></td>
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> subject has a well-defined facing yaw.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Expensive</p></td>
 <td><p>When available</p></td>
@@ -710,7 +717,7 @@ intersect. See <a class="reference internal" href="collision_handling.html"><spa
 <section id="geometric-and-relation-checks">
 <h3>Geometric and Relation Checks<a class="headerlink" href="#geometric-and-relation-checks" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>,
-<code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, and <code class="docutils literal notranslate"><span class="pre">face_to</span></code> are always registered. The first five mirror the corresponding
+<code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, <code class="docutils literal notranslate"><span class="pre">align_with</span></code>, and <code class="docutils literal notranslate"><span class="pre">face_to</span></code> are always registered. The first six mirror the corresponding
 relation’s loss term, so low-loss solver output and validator verdicts stay
 consistent. <code class="docutils literal notranslate"><span class="pre">face_to</span></code> is different: <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> is applied as a post-solve
 heading rather than a continuous loss, and the check only verifies that a

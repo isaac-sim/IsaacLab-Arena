@@ -755,10 +755,45 @@ when needed. Geometric validation rejects candidates that are not on the
 requested side, or whose gap to the parent differs from <code class="docutils literal notranslate"><span class="pre">distance_m</span></code> by
 more than <code class="docutils literal notranslate"><span class="pre">tolerance_m</span></code> (0.01 m by default). Placing the object closer than
 requested also fails.</p>
+<p>By default, the solver applies zero cross-axis loss anywhere the subject’s
+footprint fits within the parent’s perpendicular extent. Set
+<code class="docutils literal notranslate"><span class="pre">cross_position_ratio=0.0</span></code> to opt into centering, or a value from <code class="docutils literal notranslate"><span class="pre">-1.0</span></code>
+to <code class="docutils literal notranslate"><span class="pre">1.0</span></code> to prefer a position between the two ends. This preference remains
+soft and is not checked by geometric validation.</p>
 <p>With no additional arguments, <code class="docutils literal notranslate"><span class="pre">NextTo(parent)</span></code> places the subject on the
 parent’s positive X side at a distance of 0.05 m.</p>
 <p><code class="docutils literal notranslate"><span class="pre">side</span></code> accepts <code class="docutils literal notranslate"><span class="pre">Side.POSITIVE_X</span></code>, <code class="docutils literal notranslate"><span class="pre">Side.NEGATIVE_X</span></code>,
 <code class="docutils literal notranslate"><span class="pre">Side.POSITIVE_Y</span></code>, or <code class="docutils literal notranslate"><span class="pre">Side.NEGATIVE_Y</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">AlignWith(parent,</span> <span class="pre">axis,</span> <span class="pre">offset_m=0.0,</span> <span class="pre">tolerance_m=0.02)</span></code></dt><dd><p>Aligns the centres of two placement bounding boxes along one world axis
+(<code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;z&quot;</span></code>). The subject’s centre is placed within
+<code class="docutils literal notranslate"><span class="pre">tolerance_m</span></code> of the reference centre plus <code class="docutils literal notranslate"><span class="pre">offset_m</span></code> on that axis;
+the other axes and both objects’ orientations remain unconstrained.
+The offset is signed, in metres. Python accepts <code class="docutils literal notranslate"><span class="pre">Axis.X</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Axis.Y</span></code>, or <code class="docutils literal notranslate"><span class="pre">Axis.Z</span></code> from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.axis</span></code>
+as well as strings. The solver applies zero alignment penalty throughout this tolerance band
+and a linear penalty outside it.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">align_with</span>
+<span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid</span>
+<span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">wooden_bowl</span>
+<span class="w">  </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">axis</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">x</span>
+<span class="w">    </span><span class="nt">tolerance_m</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.04</span>
+</pre></div>
+</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">NextTo</span></code> for a side and an edge-to-edge clearance (“stand 20 cm in front
+of the microwave”). Use <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> for a centre coordinate or a relative
+offset (“line up with the microwave centre”). They can be combined: <code class="docutils literal notranslate"><span class="pre">NextTo</span></code>
+sets the front clearance and <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> fixes lateral alignment. Two
+<code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> relations instead define a centre-relative X/Y target region;
+that does not preserve an edge clearance when either object’s size changes.</p>
+<p>Neither relation chooses a facing direction or a support surface; use
+<code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> or <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code> for heading and <code class="docutils literal notranslate"><span class="pre">On</span></code> for support.
+Horizontal <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> combined with <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> requires the turning asset’s
+placement-box centre to lie on its yaw axis, for both subject and reference.
+Otherwise placement raises an error: the post-solve turn would move the centre.
+Use a fixed heading or centred placement bounds for that case. Z alignment is
+unaffected by a yaw-only turn.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">NotNextTo(parent)</span></code></dt><dd><p>Defines a side-specific keep-out region next to the parent. The region
 extends outward from the selected side and spans the parent’s footprint

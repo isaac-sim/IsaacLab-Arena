@@ -174,11 +174,51 @@ Most environments can be described with a small set of relations:
    more than ``tolerance_m`` (0.01 m by default). Placing the object closer than
    requested also fails.
 
+   By default, the solver applies zero cross-axis loss anywhere the subject's
+   footprint fits within the parent's perpendicular extent. Set
+   ``cross_position_ratio=0.0`` to opt into centering, or a value from ``-1.0``
+   to ``1.0`` to prefer a position between the two ends. This preference remains
+   soft and is not checked by geometric validation.
+
    With no additional arguments, ``NextTo(parent)`` places the subject on the
    parent's positive X side at a distance of 0.05 m.
 
    ``side`` accepts ``Side.POSITIVE_X``, ``Side.NEGATIVE_X``,
    ``Side.POSITIVE_Y``, or ``Side.NEGATIVE_Y``.
+
+``AlignWith(parent, axis, offset_m=0.0, tolerance_m=0.02)``
+   Aligns the centres of two placement bounding boxes along one world axis
+   (``"x"``, ``"y"``, or ``"z"``). The subject's centre is placed within
+   ``tolerance_m`` of the reference centre plus ``offset_m`` on that axis;
+   the other axes and both objects' orientations remain unconstrained.
+   The offset is signed, in metres. Python accepts ``Axis.X``,
+   ``Axis.Y``, or ``Axis.Z`` from ``isaaclab_arena.relations.axis``
+   as well as strings. The solver applies zero alignment penalty throughout this tolerance band
+   and a linear penalty outside it.
+
+   .. code-block:: yaml
+
+      - kind: align_with
+        subject: droid
+        reference: wooden_bowl
+        params:
+          axis: x
+          tolerance_m: 0.04
+
+   Use ``NextTo`` for a side and an edge-to-edge clearance ("stand 20 cm in front
+   of the microwave"). Use ``AlignWith`` for a centre coordinate or a relative
+   offset ("line up with the microwave centre"). They can be combined: ``NextTo``
+   sets the front clearance and ``AlignWith`` fixes lateral alignment. Two
+   ``AlignWith`` relations instead define a centre-relative X/Y target region;
+   that does not preserve an edge clearance when either object's size changes.
+
+   Neither relation chooses a facing direction or a support surface; use
+   ``FaceTo`` or ``RotateAroundSolution`` for heading and ``On`` for support.
+   Horizontal ``AlignWith`` combined with ``FaceTo`` requires the turning asset's
+   placement-box centre to lie on its yaw axis, for both subject and reference.
+   Otherwise placement raises an error: the post-solve turn would move the centre.
+   Use a fixed heading or centred placement bounds for that case. Z alignment is
+   unaffected by a yaw-only turn.
 
 ``NotNextTo(parent)``
    Defines a side-specific keep-out region next to the parent. The region
