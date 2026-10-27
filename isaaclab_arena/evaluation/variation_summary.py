@@ -31,25 +31,28 @@ def build_categorical_variation_table(result: ArenaExperimentResultData) -> Pret
         result: Collected Experiment episodes, grouped by Run and rebuild.
 
     Returns:
-        One row per Run, variation, and observed value, aggregating all rebuilds. Success rate
-        excludes unknown outcomes and is N/A when no boolean outcomes are recorded. Each
-        variation is grouped independently; numeric and vector values are omitted.
+        One row per completed Run, variation, and observed value, aggregating all rebuilds. Failed
+        Runs and values no episode recorded have no row. Success rate excludes unknown outcomes and
+        is N/A when no boolean outcomes are recorded. Each variation is grouped independently;
+        numeric and vector values are omitted.
     """
     counts: dict[tuple[str, str, str], _EpisodeCounts] = defaultdict(_EpisodeCounts)
     for run_name, run in result["runs"].items():
-        for rebuild in run["rebuilds"]:
-            for episode in rebuild["episodes"]:
-                for variation, value in episode.get("variations", {}).items():
-                    if isinstance(value, (str, bool)):
-                        # JSON labels distinguish a boolean from a string with the same spelling.
-                        label = json.dumps(value, ensure_ascii=False)
-                        group = counts[(run_name, variation, label)]
-                        group.num_episodes += 1
-                        success = episode.get("success")
-                        if success is True:
-                            group.num_successes += 1
-                        elif success is not False:
-                            group.num_unknown += 1
+        # A failed Run can keep the episodes it finished before failing; leave them out.
+        if run["status"] == "completed":
+            for rebuild in run["rebuilds"]:
+                for episode in rebuild["episodes"]:
+                    for variation, value in episode.get("variations", {}).items():
+                        if isinstance(value, (str, bool)):
+                            # JSON labels distinguish a boolean from a string with the same spelling.
+                            label = json.dumps(value, ensure_ascii=False)
+                            group = counts[(run_name, variation, label)]
+                            group.num_episodes += 1
+                            success = episode.get("success")
+                            if success is True:
+                                group.num_successes += 1
+                            elif success is not False:
+                                group.num_unknown += 1
 
     table = PrettyTable(["Run", "Variation", "Value", "Episodes", "Successes", "Unknown", "Success Rate"])
     for (run_name, variation, label), group in sorted(counts.items()):

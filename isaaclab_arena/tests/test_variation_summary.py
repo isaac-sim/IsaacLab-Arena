@@ -11,14 +11,14 @@ from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentRes
 from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
 
 
-def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_run(tmp_path):
+def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_completed_run(tmp_path):
     metadata = {}
-    for run_name in ("first", "second"):
+    for run_name, status in (("first", "completed"), ("second", "completed"), ("failed", "failed")):
         (tmp_path / run_name).mkdir()
         metadata[run_name] = {
             "environment": {"name": "task", "definition": "task"},
             "policy_variant": "zero_action",
-            "status": "completed",
+            "status": status,
         }
     records_by_file = {
         "first/episode_results_rebuild0_rank0.jsonl": [
@@ -34,6 +34,10 @@ def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_run(tmp_path):
         ],
         "second/episode_results.jsonl": [
             {"success": True, "variations": {"light.hdr_image": "hall"}},
+        ],
+        # Episodes a Run finished before it failed are left out.
+        "failed/episode_results.jsonl": [
+            {"success": True, "variations": {"light.hdr_image": "office"}},
         ],
     }
     for filename, records in records_by_file.items():
@@ -57,7 +61,7 @@ def test_groups_variations_independently_and_keeps_unknown_outcomes():
         {"variations": {"hdr": "hall", "hidden": "true"}},
         {"success": True},
     ]
-    result = {"runs": {"run": {"rebuilds": [{"index": 0, "episodes": episodes}]}}}
+    result = {"runs": {"run": {"status": "completed", "rebuilds": [{"index": 0, "episodes": episodes}]}}}
 
     assert build_categorical_variation_table(result).rows == [
         ["run", "hdr", '"hall"', 1, 0, 1, "N/A"],
@@ -70,7 +74,7 @@ def test_groups_variations_independently_and_keeps_unknown_outcomes():
 
 def test_omits_continuous_variations_and_handles_empty_results():
     episodes = [{"success": True, "variations": {"mass": 1, "color": [0.1, 0.2, 0.3]}}]
-    result = {"runs": {"run": {"rebuilds": [{"index": 0, "episodes": episodes}]}}}
+    result = {"runs": {"run": {"status": "completed", "rebuilds": [{"index": 0, "episodes": episodes}]}}}
 
     assert build_categorical_variation_table(result).rows == []
     assert build_categorical_variation_table({"runs": {}}).rows == []
