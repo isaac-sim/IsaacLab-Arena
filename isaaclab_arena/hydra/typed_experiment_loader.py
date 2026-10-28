@@ -27,6 +27,10 @@ if TYPE_CHECKING:
     from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
     from isaaclab_arena.policy.policy_base import PolicyCfg
 
+RUN_FIELDS_REPLACING_SHARED = frozenset({"rollout_limit"})
+"""Run fields that replace the shared value as a whole when a Run declares them, instead of merging into it.
+A rollout limit is one choice among exclusive fields, so merging two limits of different kinds would combine both."""
+
 
 def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
     """Initialize Hydra only when composition has no caller-owned context.
@@ -155,8 +159,8 @@ def load_experiment_run_definitions_from_yaml(
     """Read an Arena Experiment YAML file and return its Run values by name.
 
     Values below ``shared`` are defaults for every Run. Shared overrides update
-    those defaults before each Run is merged over them. A Run that declares
-    ``rollout_limit`` replaces the shared one instead. Interpolations remain
+    those defaults before each Run is merged over them. A Run field listed in
+    ``RUN_FIELDS_REPLACING_SHARED`` replaces the shared value instead. Interpolations remain
     unresolved for the environment, policy, or Run composition stage that owns
     them.
 
@@ -199,10 +203,8 @@ def load_experiment_run_definitions_from_yaml(
             assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
             _assert_run_name_is_hydra_compatible(run_name)
             assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
-            run_defaults = shared_run_defaults
-            if "rollout_limit" in raw_run_config:
-                # A rollout limit is one choice of step or episode limit; merging two could combine both.
-                run_defaults = {key: value for key, value in shared_run_defaults.items() if key != "rollout_limit"}
+            replaced_fields = RUN_FIELDS_REPLACING_SHARED & set(raw_run_config.keys())
+            run_defaults = {key: value for key, value in shared_run_defaults.items() if key not in replaced_fields}
             merged_run_config = OmegaConf.merge(run_defaults, raw_run_config)
             run_values = OmegaConf.to_container(merged_run_config, resolve=False)
             assert isinstance(run_values, dict)

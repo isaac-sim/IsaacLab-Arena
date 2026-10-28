@@ -34,7 +34,8 @@ class RolloutLimitCfg:
 
     num_episodes_per_rebuild: list[int] | None = None
     """Number of episodes to start and finish in each rebuild, in rebuild order, or ``None`` for another limit.
-    Its length must equal the Run's ``num_rebuilds``. When ``num_episodes`` is also set, it must equal the sum."""
+    Its length must equal the Run's ``num_rebuilds``. It cannot be combined with ``num_steps``, and ``num_episodes``
+    may also be set only if it equals the sum."""
 
     def __post_init__(self) -> None:
         has_episode_limit = self.num_episodes is not None or self.num_episodes_per_rebuild is not None
