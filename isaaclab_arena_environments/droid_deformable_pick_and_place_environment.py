@@ -87,6 +87,9 @@ class DroidDeformablePickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     embodiment: str = "droid_abs_joint_pos"
     """DROID embodiment registry name, exposed as ``--embodiment``."""
 
+    teleop_device: str | None = None
+    """Teleoperation device registry name, exposed as ``--teleop_device``."""
+
 
 @register_environment
 class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeformablePickAndPlaceEnvironmentCfg]):
@@ -131,6 +134,9 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
             enable_cameras=cfg.enable_cameras,
         )
+        teleop_device = (
+            self.device_registry.get_device_by_name(cfg.teleop_device)() if cfg.teleop_device is not None else None
+        )
 
         task = PickAndPlaceTask(
             pick_up_object=pick_object,
@@ -144,6 +150,7 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             embodiment=embodiment,
             scene=Scene(assets=[table, table_reference, light, directional_light, destination, pick_object]),
             task=task,
+            teleop_device=teleop_device,
             env_cfg_callback=(
                 _configure_newton_deformable_physics if pick_object.physics_preset is PhysicsBackend.NEWTON else None
             ),
