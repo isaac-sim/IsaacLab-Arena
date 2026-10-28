@@ -26,6 +26,7 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     build_gr00t_action_tensor,
     build_gr00t_policy_observations,
     compute_action_dim,
+    extract_normalized_gripper_position_numpy_from_torch,
     extract_obs_numpy_from_torch,
     load_gr00t_joint_configs,
 )
@@ -197,9 +198,13 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         assert self.task_description is not None, "Task description is not set"
         assert self._client is not None, "GR00T remote policy has been closed"
         rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(nested_obs=observation, camera_names=camera_names)
+        normalized_gripper_position_np = None
+        if self.task_mode is TaskMode.DROID_MANIPULATION:
+            normalized_gripper_position_np = extract_normalized_gripper_position_numpy_from_torch(observation)
         policy_observations = build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
             joint_pos_sim_np=joint_pos_sim_np,
+            normalized_gripper_position_np=normalized_gripper_position_np,
             task_description=self.task_description,
             policy_config=self.policy_config,
             robot_state_joints_config=self.robot_state_joints_config,
