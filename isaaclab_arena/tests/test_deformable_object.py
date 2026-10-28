@@ -321,7 +321,6 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
     from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
 
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
     from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
     parser = get_isaaclab_arena_environments_cli_parser(get_isaaclab_arena_cli_parser())
@@ -354,20 +353,26 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
     try:
         env.reset()
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-        for step in range(100):
-            _, _, terminated, truncated, _ = env.step(actions)
-            assert not terminated.any() and not truncated.any(), f"Environment reset after zero-action step {step + 1}."
-            _, settled = get_object_initial_rest_state(env.unwrapped, "pick_object")
-            if settled.all():
-                break
-        assert settled.all(), "Deformable objects did not settle under zero actions."
-
         deformable = env.unwrapped.scene.deformable_objects["pick_object"]
         assert isinstance(deformable.cfg.spawn.deformable_props, expected_deformable_props_type)
+        rest_state = deformable.data.nodal_state_w.torch.clone()
+        rest_state[..., 3:] = 0.0
+        deformable.write_nodal_state_to_sim_index(rest_state)
+        rest_targets = torch.zeros((*rest_state.shape[:-1], 4), device=env.unwrapped.device)
+        rest_targets[..., :3] = rest_state[..., :3]
+        rest_targets[..., 3] = 1.0
+        deformable.write_nodal_kinematic_target_to_sim_index(rest_targets)
+        _, _, terminated, truncated, _ = env.step(actions)
+        assert not terminated.any() and not truncated.any(), "Recording the initial rest pose should not end the task."
+
         lifted_state = deformable.data.nodal_state_w.torch.clone()
         lifted_state[..., 2] += 0.1
         lifted_state[..., 3:] = 0.0
         deformable.write_nodal_state_to_sim_index(lifted_state)
+        lifted_targets = torch.zeros((*lifted_state.shape[:-1], 4), device=env.unwrapped.device)
+        lifted_targets[..., :3] = lifted_state[..., :3]
+        lifted_targets[..., 3] = 1.0
+        deformable.write_nodal_kinematic_target_to_sim_index(lifted_targets)
         _, _, terminated, truncated, _ = env.step(actions)
         assert not terminated.any() and not truncated.any(), "Lifting should advance progress without ending the task."
 
@@ -381,9 +386,13 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         placed_state[..., :3] += translation[:, None, :]
         placed_state[..., 3:] = 0.0
         deformable.write_nodal_state_to_sim_index(placed_state)
+        kinematic_targets = torch.zeros((*placed_state.shape[:-1], 4), device=env.unwrapped.device)
+        kinematic_targets[..., :3] = placed_state[..., :3]
+        kinematic_targets[..., 3] = 1.0
+        deformable.write_nodal_kinematic_target_to_sim_index(kinematic_targets)
 
         completed = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
-        for _ in range(200):
+        for _ in range(builder.arena_env.task.placement_consecutive_steps + 2):
             _, _, terminated, truncated, extras = env.step(actions)
             assert not truncated.any(), "The task timed out before the placement could register."
             progress_states = extras["progress_tracking"]["states"]

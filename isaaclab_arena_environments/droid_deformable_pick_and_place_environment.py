@@ -27,7 +27,10 @@ def _configure_newton_deformable_physics(
     from isaaclab_newton.physics import NewtonCfg, NewtonSoftContactCfg, VBDSolverCfg
 
     physics_cfg = env_cfg.sim.physics
-    assert isinstance(physics_cfg, NewtonCfg), "Newton deformable objects require '--presets newton'."
+    assert isinstance(physics_cfg, NewtonCfg), (
+        "Newton deformable pick objects need the Newton backend. Omit --presets, or use a PhysX asset such as "
+        "--pick_object deformable_cube_physx."
+    )
     rigid_solver_cfg = physics_cfg.solver_cfg
     all_environment_bodies = [r"/World/envs/env_[^/]+/.*"]
     deformable_contact_bodies = [
@@ -144,6 +147,10 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             background_scene=table,
             episode_length_s=30.0,
             placement_consecutive_steps=3,
+            task_description=(
+                f"Pick up the {cfg.pick_object.removesuffix(f'_{pick_object.physics_preset.value}').replace('_', ' ')} "
+                "and place it on the plate."
+            ),
         )
         return IsaacLabArenaEnvironment(
             name=self.name,
