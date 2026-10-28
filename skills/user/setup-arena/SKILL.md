@@ -118,9 +118,8 @@ coexist for one checkout.
 Verify the editable source mount as the host user:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su $(id -un) -c \
-  "cd /workspaces/isaaclab_arena && \
-   isaaclab.sh -p -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'"
+docker exec --user "$(id -un)" --workdir /workspaces/isaaclab_arena "$ARENA_CONTAINER" \
+  isaaclab.sh -p -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'
 ```
 
 Require a path under `/workspaces/isaaclab_arena/`. Then run the short zero-action validation from

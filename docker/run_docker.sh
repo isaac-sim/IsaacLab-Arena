@@ -145,7 +145,7 @@ fi
 if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG$CONTAINER_SUFFIX 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
   docker exec -it $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX bash -c \
-    'exec sudo --preserve-env -u "$DOCKER_RUN_USER_NAME" -- env HOME="/home/$DOCKER_RUN_USER_NAME" PATH="$PATH" bash'
+    'exec sudo --preserve-env -u "$1" -- env HOME="/home/$1" PATH="$PATH" bash' _ "$(id -un)"
 else
     DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX"
                     "--privileged"

@@ -92,12 +92,11 @@ repository root. Resolve the host username separately with `id -un`, then substi
 values below rather than hardcoding a container name:
 
 ```bash
-docker exec <container> su <host-user> -c \
-  "cd /workspaces/isaaclab_arena && \
-   isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
-   --experiment_config <experiment.yaml> \
-   --viz none \
-   <override>..."
+docker exec --user <host-user> --workdir /workspaces/isaaclab_arena <container> \
+  isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config <experiment.yaml> \
+  --viz none \
+  <override>...
 ```
 
 Use the local override namespace:
