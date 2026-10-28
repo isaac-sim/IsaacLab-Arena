@@ -288,29 +288,6 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         raise rejection
 
 
-class VLMStepPolicy(VLMPolicy):
-    """Predict one action per environment from fresh observations on every step."""
-
-    def __init__(
-        self,
-        config: VLMPolicyCfg,
-        *,
-        inference_backend: InferenceBackend,
-        observation_adapter: VLMObservationAdapter,
-        action_adapter: AgentActionAdapter,
-    ):
-        assert not isinstance(action_adapter, (ChunkActionAdapter, GoalActionAdapter)), "Expected a single-step adapter"
-        super().__init__(
-            config,
-            inference_backend=inference_backend,
-            observation_adapter=observation_adapter,
-            action_adapter=action_adapter,
-        )
-
-    def _get_command(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> np.ndarray:
-        return self._infer(self._request_content(env, observation, env_id), env.unwrapped.arena_world, env_id)
-
-
 @register_policy
 class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
     """Execute a validated command chunk before requesting another from current observations."""

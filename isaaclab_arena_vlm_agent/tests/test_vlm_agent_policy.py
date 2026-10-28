@@ -31,9 +31,16 @@ from isaaclab_arena_vlm_agent.vlm_agent_policy import (
     VLMChunkPolicy,
     VLMGoalPolicy,
     VLMGoalPolicyCfg,
+    VLMPolicy,
     VLMPolicyCfg,
-    VLMStepPolicy,
 )
+
+
+class SingleCommandPolicy(VLMPolicy):
+    """Request one command per step to exercise shared VLM policy behavior."""
+
+    def _get_command(self, env, observation, env_id):
+        return self._infer(self._request_content(env, observation, env_id), env.unwrapped.arena_world, env_id)
 
 
 class ObservationAdapter(VLMObservationAdapter):
@@ -105,7 +112,7 @@ def make_policy(backend, **kwargs):
         image_max_width_or_height=8,
         **kwargs,
     )
-    policy = VLMStepPolicy(
+    policy = SingleCommandPolicy(
         config,
         inference_backend=backend,
         observation_adapter=ObservationAdapter(),
@@ -170,7 +177,7 @@ def test_policy_uses_adapter_actions_for_each_environment(backend, action_dim):
         system_prompt="Use this robot's joint units.",
         image_max_width_or_height=8,
     )
-    policy = VLMStepPolicy(
+    policy = SingleCommandPolicy(
         config,
         inference_backend=backend,
         observation_adapter=ObservationAdapter(),
@@ -539,16 +546,16 @@ def test_invalid_model_actions_are_rejected_with_python_optimization():
         from types import SimpleNamespace
         from unittest.mock import Mock
         from isaaclab_arena_vlm_agent.tests.test_vlm_agent_policy import (
-            ActionAdapter, ObservationAdapter,
+            ActionAdapter, ObservationAdapter, SingleCommandPolicy,
         )
         from isaaclab_arena_vlm_agent.response_errors import InvalidAgentResponseError
-        from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMStepPolicy, VLMPolicyCfg
+        from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMPolicyCfg
 
         for command in (np.ones((1, 2)), np.empty(0), np.array([1, np.nan])):
             backend = SimpleNamespace(infer=Mock(return_value={"target": [1, 2]}))
             adapter = ActionAdapter()
             adapter.decode_command = Mock(return_value=command)
-            policy = VLMStepPolicy(
+            policy = SingleCommandPolicy(
                 VLMPolicyCfg(system_prompt="Control joints", max_attempts=2),
                 inference_backend=backend, observation_adapter=ObservationAdapter(), action_adapter=adapter,
             )
