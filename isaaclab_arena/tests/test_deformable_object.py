@@ -41,9 +41,11 @@ def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
 
 
 def _test_backend_specific_deformable_config(simulation_app) -> bool:
+    from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
     from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
     from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
 
+    from isaaclab_arena.assets.deformable_object import DeformableObject
     from isaaclab_arena.utils.pose import Pose, PoseRange
 
     pose = Pose(position_xyz=(0.1, -0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
@@ -54,6 +56,12 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     assert isinstance(physx_cfg.spawn.physics_material, PhysxDeformableBodyMaterialCfg)
     assert physx_cfg.init_state.pos == pose.position_xyz
     assert physx_cfg.init_state.rot == pose.rotation_xyzw
+
+    with pytest.raises(AssertionError, match="backend-specific deformable_props"):
+        DeformableObject(
+            name="authored_soft_body",
+            spawner_cfg=UsdFileCfg(usd_path="/tmp/authored_soft_body.usd"),
+        )
 
     updated_pose = Pose(position_xyz=(0.4, 0.0, 0.5))
     soft_cube.set_initial_pose(updated_pose)
@@ -319,7 +327,7 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
     parser = get_isaaclab_arena_environments_cli_parser(get_isaaclab_arena_cli_parser())
     args = parser.parse_args([
         "--num_envs",
-        "1",
+        "4",
         "--presets",
         physics_backend,
         "droid_deformable_pick_and_place",
@@ -327,10 +335,14 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         f"deformable_cube_{physics_backend}",
         "--embodiment",
         "droid_differential_ik",
+        "--teleop_device",
+        "keyboard",
     ])
     builder = get_arena_builder_from_cli(args)
     assert builder.arena_env.task.get_task_description() == "Pick up the deformable cube and place it on the plate."
     env_cfg, env_kwargs = builder.build_env_cfg()
+    assert env_cfg.teleop_devices is not None
+    assert "keyboard" in env_cfg.teleop_devices.devices
     if physics_backend == "newton":
         assert isinstance(env_cfg.sim.physics, NewtonCfg)
         expected_deformable_props_type = NewtonDeformableBodyPropertiesCfg
@@ -368,20 +380,22 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         translation[:, 2] = destination_bounds.max_point[:, 2] - node_positions.amin(dim=1)[:, 2]
         placed_state[..., :3] += translation[:, None, :]
         placed_state[..., 3:] = 0.0
-        kinematic_targets = torch.zeros((*placed_state.shape[:-1], 4), device=env.unwrapped.device)
-        kinematic_targets[..., :3] = placed_state[..., :3]
-        kinematic_targets[..., 3] = 1.0
         deformable.write_nodal_state_to_sim_index(placed_state)
-        # Pin the teleported nodes so this checks task behavior independently of solver settling parameters.
-        deformable.write_nodal_kinematic_target_to_sim_index(kinematic_targets)
 
+        completed = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
         for _ in range(200):
             _, _, terminated, truncated, extras = env.step(actions)
             assert not truncated.any(), "The task timed out before the placement could register."
-            if terminated.any():
+            progress_states = extras["progress_tracking"]["states"]
+            for env_id in terminated.nonzero(as_tuple=False).flatten().tolist():
+                assert progress_states[env_id].all_complete
+            completed |= terminated
+            if completed.all():
                 break
-        assert terminated.item(), "Teleporting the lifted deformable object onto the plate did not terminate the task."
-        assert extras["progress_tracking"]["states"][0].all_complete
+        assert completed.all(), (
+            "Teleporting the lifted deformable objects onto the plate did not terminate every environment: "
+            f"{completed.tolist()}"
+        )
     finally:
         env.close()
     return True
