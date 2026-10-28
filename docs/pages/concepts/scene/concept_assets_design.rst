@@ -170,6 +170,14 @@ configuration selects the physics implementation: ``PhysxDeformableBodyPropertie
 PhysX or ``NewtonDeformableBodyPropertiesCfg`` for Newton. The selected implementation must
 match the environment's physics backend.
 
+Newton deformables additionally require a Vertex Block Descent (VBD) solver that owns their
+particles. ``DeformableObject.validate_simulation_cfg()`` accepts either a direct
+``VBDSolverCfg`` or a coupled solver with a particle-owning VBD entry. It rejects Newton
+configurations that provide only ``MJWarpSolverCfg`` or that include a VBD entry without
+assigning particles. This validation runs after the environment's ``env_cfg_callback``, so
+an environment can install its coupled rigid-body and deformable solvers before Arena checks
+the final simulation configuration.
+
 Arena uses two complementary geometry representations for a deformable:
 
 * Before simulation, ``get_bounding_box()`` returns the undeformed, local-frame bounds from

@@ -65,24 +65,35 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
 
 def _test_deformable_validates_simulation_cfg(simulation_app) -> bool:
     from isaaclab.sim import SimulationCfg
-    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+    from isaaclab_contrib.coupling import CouplerEntryCfg, CouplerProxyCfg
+    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, VBDSolverCfg
     from isaaclab_physx.physics import PhysxCfg
 
     from isaaclab_arena.scene.scene import Scene
 
-    sim_cfgs = {
-        PhysicsBackend.PHYSX: SimulationCfg(physics=PhysxCfg()),
-        PhysicsBackend.NEWTON: SimulationCfg(physics=NewtonCfg(solver_cfg=MJWarpSolverCfg())),
-    }
-    for asset_backend in PhysicsBackend:
-        scene = Scene(assets=[_make_soft_cube(asset_backend)])
-        for selected_backend, sim_cfg in sim_cfgs.items():
-            if asset_backend is selected_backend:
-                scene.validate_simulation_cfg(sim_cfg)
-            else:
-                match = rf"configured for '{asset_backend}'.*selected backend '{selected_backend}'"
-                with pytest.raises(AssertionError, match=match):
-                    scene.validate_simulation_cfg(sim_cfg)
+    physx_scene = Scene(assets=[_make_soft_cube(PhysicsBackend.PHYSX)])
+    physx_scene.validate_simulation_cfg(SimulationCfg(physics=PhysxCfg()))
+
+    newton_scene = Scene(assets=[_make_soft_cube(PhysicsBackend.NEWTON)])
+    newton_scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=VBDSolverCfg())))
+    coupled_solver_cfg = CouplerProxyCfg(
+        entries=[CouplerEntryCfg(name="soft", solver_cfg=VBDSolverCfg(), all_particles=True)]
+    )
+    newton_scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=coupled_solver_cfg)))
+
+    with pytest.raises(AssertionError, match="requires a Newton VBD solver.*MJWarpSolverCfg"):
+        newton_scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=MJWarpSolverCfg())))
+
+    with pytest.raises(AssertionError, match="requires a Newton VBD solver.*CouplerProxyCfg"):
+        unassigned_vbd_cfg = CouplerProxyCfg(entries=[CouplerEntryCfg(name="soft", solver_cfg=VBDSolverCfg())])
+        newton_scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=unassigned_vbd_cfg)))
+
+    for scene, wrong_backend_cfg in (
+        (physx_scene, SimulationCfg(physics=NewtonCfg(solver_cfg=VBDSolverCfg()))),
+        (newton_scene, SimulationCfg(physics=PhysxCfg())),
+    ):
+        with pytest.raises(AssertionError, match="configured for.*not the selected backend"):
+            scene.validate_simulation_cfg(wrong_backend_cfg)
     return True
 
 
