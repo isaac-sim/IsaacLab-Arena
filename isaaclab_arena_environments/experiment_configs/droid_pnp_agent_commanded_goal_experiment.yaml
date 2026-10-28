@@ -1,0 +1,60 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  droid_pnp_agent_commanded_goal:
+    environment:
+      type: pick_and_place_maple_table
+      enable_cameras: true
+      embodiment: droid_absolute_ik
+      pick_up_object: banana_ycb_robolab
+      destination_location: bowl_ycb_robolab
+      hdr: home_office_robolab
+      episode_length_s: 70.0
+    environment_builder:
+      num_envs: 1
+      seed: 42
+      placement_seed: 42
+      resolve_on_reset: false
+      language_instruction: Pick up the banana and place it in the bowl.
+    policy:
+      type: isaaclab_arena_vlm_agent_policy.policy.agent_commanded_goal_policy.AgentCommandedGoalPolicy
+      observation_adapter: isaaclab_arena_vlm_agent_policy.embodiment_adapter.droid_eef_action_adapter.CalibratedDroidObservationAdapter
+      action_adapter: isaaclab_arena_vlm_agent_policy.embodiment_adapter.droid_eef_action_adapter.DroidGoalActionAdapter
+      action_adapter_kwargs:
+        max_position_step_m: 0.004
+        max_rotation_step_rad: 0.04
+      system_prompt: |
+        Control a simulated DROID arm to complete the task using current images and measured state.
+        Choose ONE command: move_to, set_gripper, or wait. Return the schema's JSON, including a short note
+        explaining visual evidence, coordinate reasoning, and intended motion. No object ground-truth is supplied.
+        move_to takes an absolute robot-root position in meters and an optional XYZW quaternion. A null
+        quaternion preserves the measured orientation. Positions must be within [0.05,-0.65,0.10] and
+        [0.85,0.65,0.80]. The controlled point is Robotiq base_link, NOT the finger center.
+        The open-finger center is approximately [0.130240,0.000092,0] meters in gripper-base coordinates.
+        Local +X points toward the fingertips; local Y is the finger closing direction. Account for the
+        rotated offset when choosing flange targets. Preserve the downward orientation unless needed.
+        gripper is 0=open, 1=closed, or null=preserve previous command. set_gripper requires 0 or 1;
+        set_gripper and wait hold the measured flange pose and require null position and quaternion.
+        wait also requires null gripper. steps is a budget of 1..240 (normally 180 for move_to, 24 otherwise).
+        The local reference moves at most 4 mm and 0.04 rad per 15-Hz step. Isaac Lab's differential IK
+        tracks the absolute pose reference. Motion returns after
+        convergence (5 mm and 0.05 rad, at least 6 steps) or budget exhaustion. Read previous_command_result;
+        execution or gripper closure alone does not establish a grasp. Correct incomplete moves from feedback.
+        Camera calibration maps each supplied image key to its intrinsic matrix for the ENCODED image,
+        world position, and world ROS-optical XYZW quaternion (+X right, +Y down, +Z forward).
+        Robot world pose, finger-link poses, and action/EEF quaternions all use XYZW.
+        Use the calibrated views to estimate object locations, transform world estimates into robot root,
+        approach above the object, lower fingers around it, close, lift, move over the bowl, and release.
+        Do not repeatedly hover without descending or closing. Choose goals from this episode's evidence.
+        Previous textual observations, accepted commands, and outcomes may be supplied when history is enabled;
+        only current images are supplied. Physics pauses during inference. Observe outcomes between commands.
+      model: openai/openai/gpt-6-astra
+      image_max_edge: 384
+      decision_history: 16
+      trace_actions: true
+      trace_directory: outputs/agent_commanded_goal_traces
+    rollout_limit:
+      num_episodes: 1

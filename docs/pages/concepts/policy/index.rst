@@ -85,3 +85,16 @@ runner flags, so their defaults must match the runner defaults.
    ``policy_runner.py`` remains an argparse frontend, but policies do not
    implement argparse methods. The runner generates their flags from the
    registered config and reconstructs it before creating the policy.
+
+
+Run a hosted VLM agent
+----------------------
+
+The VLM agent policy connects calibrated observations and robot state to a
+hosted vision-language model, then converts its structured response into robot
+commands. Astra is one example of a compatible hosted model.
+
+.. toctree::
+   :maxdepth: 1
+
+   vlm_agent
