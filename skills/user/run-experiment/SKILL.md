@@ -92,7 +92,8 @@ repository root. Resolve the host username separately with `id -un`, then substi
 values below rather than hardcoding a container name:
 
 ```bash
-docker exec --user <host-user> --workdir /workspaces/isaaclab_arena <container> \
+docker exec --user <host-user> --env USER=<host-user> --env LOGNAME=<host-user> \
+  --workdir /workspaces/isaaclab_arena <container> \
   isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config <experiment.yaml> \
   --viz none \

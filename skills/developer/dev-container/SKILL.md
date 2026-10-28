@@ -65,8 +65,8 @@ cause. Preserve the launcher's automatic per-checkout suffix unless the user req
 Run commands as the host user, not root:
 
 ```bash
-docker exec --user "$(id -un)" --workdir /workspaces/isaaclab_arena "$ARENA_CONTAINER" \
-  bash -c "<command>"
+docker exec --user "$(id -un)" --env USER="$(id -un)" --env LOGNAME="$(id -un)" \
+  --workdir /workspaces/isaaclab_arena "$ARENA_CONTAINER" bash -c "<command>"
 ```
 
 Use `isaaclab.sh -p` for non-interactive Python commands; do not rely on the
