@@ -73,8 +73,6 @@ def _test_enabled_camera_intrinsics_variation_in_events_cfg(simulation_app):
 
 
 def _test_disabled_camera_intrinsics_variation_keeps_tiled_camera(simulation_app):
-    from isaaclab.sensors import TiledCameraCfg
-
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
@@ -82,28 +80,20 @@ def _test_disabled_camera_intrinsics_variation_keeps_tiled_camera(simulation_app
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).build_env_cfg()
 
-    from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import UnTiledIsaacRtxRenderer
-
-    for name in arena_env.embodiment.camera_config.camera_names():
-        assert getattr(env_cfg.scene, name).renderer_cfg.class_type is not UnTiledIsaacRtxRenderer
-    camera_cfg = getattr(env_cfg.scene, CAMERA_NAME)
-    assert isinstance(camera_cfg, TiledCameraCfg), (
-        "With the intrinsics variation disabled, the camera should keep the embodiment's "
-        f"tiled default; got {type(camera_cfg).__name__}."
-    )
+    rig = arena_env.embodiment.camera_config
+    for name in rig.camera_names():
+        assert getattr(env_cfg.scene, name).renderer_cfg.class_type == getattr(rig, name).renderer_cfg.class_type
     return True
 
 
 def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_app):
-    from isaaclab.sensors import CameraCfg, TiledCameraCfg
-
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     arena_env = get_test_environment(camera_intrinsics_variation_enabled=True)
     rig = arena_env.embodiment.camera_config
     original_renderer = rig.wrist_camera.renderer_cfg.class_type
-    # Use a nondefault value to verify renderer settings survive camera-config conversion.
+    # Use a nondefault value to verify renderer settings survive renderer selection.
     rig.wrist_camera.renderer_cfg.global_settings.samples_per_pixel = 4
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).build_env_cfg()
@@ -114,21 +104,20 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
         camera_cfg = getattr(env_cfg.scene, name)
         assert camera_cfg.renderer_cfg.class_type is UnTiledIsaacRtxRenderer
     camera_cfg = getattr(env_cfg.scene, CAMERA_NAME)
-    assert isinstance(camera_cfg, CameraCfg) and not isinstance(camera_cfg, TiledCameraCfg), (
-        "Enabling the intrinsics variation must force the camera untiled so per-env "
-        f"perturbations take effect; got {type(camera_cfg).__name__}."
-    )
     assert rig.wrist_camera.renderer_cfg.class_type == original_renderer
     assert camera_cfg.renderer_cfg.global_settings.samples_per_pixel == 4
     # Mutating the generated config must not change the source rig: it is a deep copy.
     camera_cfg.renderer_cfg.global_settings.samples_per_pixel = 8
     assert rig.wrist_camera.renderer_cfg.global_settings.samples_per_pixel == 4
+    untiled = rig.get_cfg()
     with pytest.raises(AssertionError, match="source camera rig"):
-        rig.get_cfg().get_cfg()
+        untiled.get_cfg()
+    untiled.set_use_tiled_camera(True)
+    with pytest.raises(AssertionError, match="source camera rig"):
+        untiled.get_cfg()
     rig.set_use_tiled_camera(True)
     tiled = rig.get_cfg()
-    assert isinstance(tiled.wrist_camera, TiledCameraCfg)
-    assert tiled.wrist_camera.renderer_cfg.class_type is not UnTiledIsaacRtxRenderer
+    assert tiled.wrist_camera.renderer_cfg.class_type == original_renderer
     rig.set_use_tiled_camera(False)
     assert rig.get_cfg().wrist_camera.renderer_cfg.class_type is UnTiledIsaacRtxRenderer
     return True

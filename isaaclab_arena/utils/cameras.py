@@ -15,7 +15,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import CameraCfg, TiledCameraCfg
+from isaaclab.sensors import CameraCfg
 from isaaclab.utils.images import is_depth_like, is_normals_like, is_rgb_like
 
 from isaaclab_arena.assets.asset import Asset
@@ -63,7 +63,7 @@ class ArenaCameraCfg:
         )
 
         # Select the renderer for every camera in a copy, leaving the source rig reusable.
-        # CameraCfg alone still uses tiled RTX products, so untiled mode also changes the renderer.
+        # The renderer configuration determines tiling; the camera config type stays unchanged.
         rig = self.copy()
         for name in rig.camera_names():
             camera_cfg = getattr(rig, name)
@@ -71,22 +71,9 @@ class ArenaCameraCfg:
                 "get_cfg() expects a source camera rig; change use_tiled_camera on the source rig, "
                 "not on the returned configuration"
             )
-            if self._use_tiled_camera:
-                if isinstance(camera_cfg, TiledCameraCfg):
-                    continue
-                cfg_type = TiledCameraCfg
-            else:
+            if not self._use_tiled_camera:
                 assert_camera_cfg_compatible_with_independent_rendering(camera_cfg)
                 camera_cfg.renderer_cfg.class_type = UnTiledIsaacRtxRenderer
-                if not isinstance(camera_cfg, TiledCameraCfg):
-                    continue
-                cfg_type = CameraCfg
-            # Rebuild the camera config with its settings intact; the target type supplies class_type.
-            init_fields = {}
-            for field in fields(camera_cfg):
-                if field.init and field.name != "class_type":
-                    init_fields[field.name] = getattr(camera_cfg, field.name)
-            setattr(rig, name, cfg_type(**init_fields))
         return rig
 
 
