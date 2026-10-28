@@ -58,6 +58,9 @@ objects:
 - id: red_bell_pepper
   registry_name: red_bell_pepper_objaverse_robolab
   params: {}
+- id: red_onion
+  registry_name: red_onion_fruits_veggies_robolab
+  params: {}
 relations:
 - kind: is_anchor
   subject: maple_table
@@ -120,6 +123,10 @@ relations:
   params: {}
 - kind: 'on'
   subject: red_bell_pepper
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: red_onion
   reference: maple_table
   params: {}
 task:
