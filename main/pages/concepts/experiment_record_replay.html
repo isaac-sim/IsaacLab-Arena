@@ -753,9 +753,10 @@ rebuild runs at least one episode. The Run-level
 default is one complete pass over the JSONL in every rebuild. An explicit
 total episode limit is instead split across rebuilds.</p>
 </div>
-<p>All recorded replay requires <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_steps</span></code> to be unset and a
-policy without a fixed action-sequence length. When set,
-<code class="docutils literal notranslate"><span class="pre">rollout_limit.num_episodes</span></code> must be at least <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code>.</p>
+<p>All recorded replay requires <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_steps</span></code> and
+<code class="docutils literal notranslate"><span class="pre">rollout_limit.num_episodes_per_rebuild</span></code> to be unset and a policy without a
+fixed action-sequence length. When set, <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_episodes</span></code> must be
+at least <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code>.</p>
 </section>
 </section>
 

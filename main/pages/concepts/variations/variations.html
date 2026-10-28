@@ -637,7 +637,10 @@ reset without rebuilding the scene. Both kinds draw their values from the variat
 generator, seeded from <code class="docutils literal notranslate"><span class="pre">--seed</span></code> (see <a class="reference internal" href="../environment/env_builder.html"><span class="doc">Environment Builder</span></a>).</p>
 <p id="asset-selection-variation">In-order asset selection (<code class="docutils literal notranslate"><span class="pre">RigidAssetSelectionVariation</span></code> in <a class="reference internal" href="#available-variations"><span class="std std-ref">Available variations</span></a>) is the
 exception: rebuild k spawns the k-th name of its <code class="docutils literal notranslate"><span class="pre">registry_names</span></code>, so set <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code> to the
-length of the list to spawn each name once.</p>
+length of the list to spawn each name once. To give each name its own episode count, list the
+counts in the same order in <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_episodes_per_rebuild</span></code>; for example,
+<code class="docutils literal notranslate"><span class="pre">registry_names:</span> <span class="pre">[cracker_box,</span> <span class="pre">sugar_box]</span></code> with <code class="docutils literal notranslate"><span class="pre">num_rebuilds:</span> <span class="pre">2</span></code> and
+<code class="docutils literal notranslate"><span class="pre">num_episodes_per_rebuild:</span> <span class="pre">[20,</span> <span class="pre">5]</span></code> runs 20 episodes with the cracker box and 5 with the sugar box.</p>
 <p>A <a class="reference internal" href="../scene/concept_rigid_object_set.html"><span class="doc">RigidObjectSet</span></a> fits neither row: it assigns one member
 to each parallel environment when the environment is built and keeps it for every episode of that
 build. It is part of the environment definition rather than a variation, so it has no

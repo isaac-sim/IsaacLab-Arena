@@ -663,8 +663,51 @@ values are reused by every Run. Each key below <code class="docutils literal not
 <p><code class="docutils literal notranslate"><span class="pre">baseline</span></code> inherits all shared values. <code class="docutils literal notranslate"><span class="pre">billiard_hall</span></code> inherits them too, then replaces only
 the background. The Run name comes from its key below <code class="docutils literal notranslate"><span class="pre">runs</span></code>; there is no separate <code class="docutils literal notranslate"><span class="pre">name</span></code>
 field. Arena uses this name in command-line overrides, output directories, and reports.</p>
-<p>Use <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_episodes</span></code> instead of <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_steps</span></code> to start and finish
-exactly that many episodes per Run, across all rebuilds.</p>
+<p><code class="docutils literal notranslate"><span class="pre">rollout_limit</span></code> sets when a Run stops. <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code> is a Run field next to it that sets how
+many times the Run builds a fresh environment. These settings give:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 55.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Settings</p></th>
+<th class="head"><p>Result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">num_steps:</span> <span class="pre">50</span></code></p></td>
+<td><p>Each rebuild runs 50 environment steps.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">num_episodes:</span> <span class="pre">30</span></code>, <code class="docutils literal notranslate"><span class="pre">num_rebuilds:</span> <span class="pre">3</span></code></p></td>
+<td><p>10 / 10 / 10 episodes. With 31, the first rebuild gets the extra one: 11 / 10 / 10.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">num_episodes_per_rebuild:</span> <span class="pre">[20,</span> <span class="pre">5,</span> <span class="pre">5]</span></code>, <code class="docutils literal notranslate"><span class="pre">num_rebuilds:</span> <span class="pre">3</span></code></p></td>
+<td><p>20 / 5 / 5 episodes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">num_episodes:</span> <span class="pre">30</span></code>, <code class="docutils literal notranslate"><span class="pre">num_episodes_per_rebuild:</span> <span class="pre">[20,</span> <span class="pre">5,</span> <span class="pre">5]</span></code>, <code class="docutils literal notranslate"><span class="pre">num_rebuilds:</span> <span class="pre">3</span></code></p></td>
+<td><p>20 / 5 / 5 episodes. <code class="docutils literal notranslate"><span class="pre">num_episodes</span></code> matches the sum of the list.</p></td>
+</tr>
+<tr class="row-even"><td><p>No limit</p></td>
+<td><p>The policy’s own length. Only a policy with a fixed action-sequence length supports this.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>These combinations are rejected:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">num_steps</span></code> with <code class="docutils literal notranslate"><span class="pre">num_episodes</span></code> or <code class="docutils literal notranslate"><span class="pre">num_episodes_per_rebuild</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_episodes</span></code> smaller than <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_episodes_per_rebuild</span></code> with a length other than <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_episodes</span></code> that differs from the sum of <code class="docutils literal notranslate"><span class="pre">num_episodes_per_rebuild</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_episodes_per_rebuild</span></code> with replay from recorded variation samples.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code> sits at the Run level, beside <code class="docutils literal notranslate"><span class="pre">rollout_limit</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">num_rebuilds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">num_episodes_per_rebuild</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">20</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># rebuild 0: 20, rebuild 1: 5, rebuild 2: 5</span>
+</pre></div>
+</div>
 <p>See <a class="reference internal" href="experiment_record_replay.html"><span class="doc">Record and Replay Experiments</span></a> for variation recording,
 partial and complete replay, and episode scheduling across one or more rebuilds.</p>
 <p>Runs keep their YAML order and execute locally in that order.</p>
@@ -744,6 +787,9 @@ For OSMO setup and submission options, see <a class="reference internal" href=".
 <h2>Reuse values with <code class="docutils literal notranslate"><span class="pre">shared</span></code><a class="headerlink" href="#reuse-values-with-shared" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">shared</span></code> removes repetition. Arena applies these values to every Run, then places each Run’s
 own values on top. A Run only needs to declare what is different.</p>
+<p>A Run that declares <code class="docutils literal notranslate"><span class="pre">rollout_limit</span></code> replaces the shared one as a whole, so a Run can switch from a shared <code class="docutils literal notranslate"><span class="pre">num_steps</span></code> to <code class="docutils literal notranslate"><span class="pre">num_episodes</span></code> or
+<code class="docutils literal notranslate"><span class="pre">num_episodes_per_rebuild</span></code> without clearing the shared field. A <code class="docutils literal notranslate"><span class="pre">runs.&lt;name&gt;.rollout_limit.*</span></code>
+CLI override is applied after this step, so it is still merged with the Run’s limit.</p>
 <p>Values are applied in this order, from lowest to highest priority:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>typed configuration defaults
               ↓
