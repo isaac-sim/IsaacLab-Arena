@@ -1,15 +1,10 @@
 #!/bin/bash
-# Install the CUDA toolkit and build the cuRobo Python wheel.
+# Build the cuRobo Python wheel.
 set -euo pipefail
 
-# Install the compiler toolkit in this builder stage and make its tools and libraries available.
-bash /tmp/install_cuda.sh
-export CUDA_HOME=/usr/local/cuda-13.0
-export PATH="${CUDA_HOME}/bin:${PATH}"
-export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
-
-# These packages provide version detection, wheel packaging, and the build runner.
-uv pip install setuptools_scm wheel ninja
+# cuRobo v2 compiles its CUDA kernels at runtime through cuda.core (NVRTC), so the wheel is pure Python and
+# the build needs no CUDA toolkit. These packages provide version detection and wheel packaging.
+uv pip install setuptools_scm wheel
 
 # Build the pinned cuRobo revision into /wheels for the runtime stage.
 # Skip dependency wheels and build in this environment instead of an isolated Python environment.
@@ -38,13 +33,20 @@ with zipfile.ZipFile(wheel) as archive:
     # Wheel metadata uses email-style headers; the standard-library parser reads its dependency fields.
     metadata = email.message_from_bytes(archive.read(metadata_path))
     requirements = metadata.get_all('Requires-Dist', [])
-Path('/wheels/runtime-requirements.txt').write_text('\n'.join(requirements) + '\n')
-# Human-readable provenance for diagnosing installed-wheel revision/ABI mismatches.
+# Keep the base dependencies plus the runtime-kernel extra matching torch's CUDA major (e.g. cu13), with its marker
+# stripped; requirements gated on any other extra are dropped.
+cuda_extra_marker = f'extra == "cu{torch.version.cuda.split(".")[0]}"'
+runtime_requirements = [
+    requirement.split(';')[0].strip() if cuda_extra_marker in requirement else requirement
+    for requirement in requirements
+    if 'extra ==' not in requirement or cuda_extra_marker in requirement
+]
+Path('/wheels/runtime-requirements.txt').write_text('\n'.join(runtime_requirements) + '\n')
+# Human-readable provenance for diagnosing installed-wheel revision mismatches.
 Path('/wheels/build.json').write_text(json.dumps({
     'commit': os.environ['CUROBO_COMMIT'],
     'torch': torch.__version__,
     'cuda': torch.version.cuda,
-    'architectures': os.environ['TORCH_CUDA_ARCH_LIST'],
     'wheel': wheel.name,
     'sha256': hashlib.sha256(wheel.read_bytes()).hexdigest(),
 }, indent=2) + '\n')

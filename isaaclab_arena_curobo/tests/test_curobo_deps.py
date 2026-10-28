@@ -19,8 +19,9 @@ pytestmark = pytest.mark.curobo_deps
 # cuRobo core modules the sim-free IK oracle relies on.
 CUROBO_DEPENDENCY_MODULES = [
     "curobo",
-    "curobo.types.math",
-    "curobo.wrap.reacher.ik_solver",
+    "curobo.types",
+    "curobo.inverse_kinematics",
+    "curobo.scene",
 ]
 
 # The cuRobo-gated package modules, which must import without a running SimulationApp.
@@ -28,7 +29,6 @@ ARENA_CUROBO_MODULES = [
     "isaaclab_arena_curobo.utils.frame_utils",
     "isaaclab_arena_curobo.utils.ik_solver_utils",
     "isaaclab_arena_curobo.utils.robot_cfg_utils",
-    "isaaclab_arena_curobo.utils.warp_compat",
     "isaaclab_arena_curobo.ik_solver",
     "isaaclab_arena_curobo.ik_reachability_validator",
 ]

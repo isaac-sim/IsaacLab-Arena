@@ -10,18 +10,17 @@ from __future__ import annotations
 import logging
 import torch
 
-from curobo.geom.types import WorldConfig
-from curobo.types.base import TensorDeviceType
-from curobo.types.math import Pose as CuroboPose
-from curobo.util.logger import setup_curobo_logger
-from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
+from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
+from curobo.logging import setup_logger
+from curobo.scene import Scene
+from curobo.types import DeviceCfg, GoalToolPose
+from curobo.types import Pose as CuroboPose
 
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
-from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, world_config_from_cuboids
+from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, scene_from_cuboids
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
-from isaaclab_arena_curobo.utils.warp_compat import add_warp_torch_namespace
 
 
 class CuroboIKSolver:
@@ -41,65 +40,68 @@ class CuroboIKSolver:
     # Args:
     #     logger: The logger for the solver.
     #     device: The cuda device for the solver.
-    #     tensor_args: The tensor arguments for the solver.
+    #     device_cfg: The cuRobo device and dtype for the solver's tensors.
     #     robot_cfg: The curobo robot configuration for the solver.
     #     ik_solver: The IK solver for the solver.
     #     hand_link_names: The robot's hand links, muted during a collision-free solve.
-    __slots__ = ("logger", "device", "tensor_args", "robot_cfg", "ik_solver", "hand_link_names")
+    __slots__ = ("logger", "device", "device_cfg", "robot_cfg", "ik_solver", "hand_link_names")
 
     def __init__(
         self,
         curobo_cfg: CuroboEmbodimentCfg,
         device: str | torch.device | None = None,
-        collision_activation_distance: float = 0.01,
+        collision_activation_distance: float = 0.0,
         num_seeds: int = 12,
         position_threshold: float = 0.005,
-        rotation_threshold: float = 0.05,
+        rotation_threshold: float = 0.1,
         collision_cache_size: dict[str, int] | None = None,
+        max_batch_size: int = 1,
+        use_cuda_graph: bool = True,
         debug: bool = False,
     ) -> None:
-        """Build and warm up the solver from a cuRobo embodiment config, sim-free.
+        """Build the solver from a cuRobo embodiment config, sim-free.
 
         Args:
             curobo_cfg: The embodiment's registered ``CuroboEmbodimentCfg`` (robot yaml + URDF paths).
             device: Explicit CUDA device (e.g. ``"cuda:0"``); defaults to the current device.
-            collision_activation_distance: Distance (m) at which cuRobo starts penalizing collisions.
+            collision_activation_distance: Distance (m) at which cuRobo starts penalizing collisions. A positive margin
+                holds the arm that far off every obstacle, so grasps near a support surface stall about that far from
+                the goal and read as unreachable even though a collision-free solution exists.
             num_seeds: IK seeds optimized in parallel per pose.
             position_threshold: cuRobo internal IK position convergence threshold (m).
-            rotation_threshold: cuRobo internal IK rotation convergence threshold.
-            collision_cache_size: Collision cache sizes; defaults to ``{"obb": 150, "mesh": 150}``.
+            rotation_threshold: cuRobo internal IK rotation convergence threshold (rad, geodesic angle).
+            collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": 150}``. A world with more
+                obstacles than its slots fails to load.
+            max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
+            use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
             debug: Enable cuRobo/planner debug logging.
         """
         self.logger = logging.getLogger("CuroboIKSolver")
         if not self.logger.handlers:
             self.logger.addHandler(logging.StreamHandler())
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
-        setup_curobo_logger("info" if debug else "warn")
+        setup_logger("info" if debug else "warning")
 
         self.device = resolve_cuda_device(device)
-        self.tensor_args = TensorDeviceType(device=self.device, dtype=torch.float32)
-        collision_cache = collision_cache_size or {"obb": 150, "mesh": 150}
+        self.device_cfg = DeviceCfg(device=self.device, dtype=torch.float32)
 
         self.robot_cfg = load_patched_robot_yaml(curobo_cfg)["robot_cfg"]
         self.hand_link_names = list(curobo_cfg.hand_link_names)
-        # Start with an empty collision world; update_world() fills it per layout.
-        world_cfg = WorldConfig(cuboid=[])
 
-        # TODO(xinjieyao, 2026/10/27): Remove the shim once the cuRobo commit pin is bumped to one that uses
-        # the top-level wp.* API.
-        add_warp_torch_namespace()
-        ik_config = IKSolverConfig.load_from_robot_config(
-            self.robot_cfg,
-            world_cfg,
-            tensor_args=self.tensor_args,
+        ik_config = InverseKinematicsCfg.create(
+            robot=self.robot_cfg,
+            # cuRobo only builds a collision checker when given a scene; update_world() fills it per layout.
+            scene_model=Scene(cuboid=[]),
+            collision_cache=collision_cache_size or {"cuboid": 150},
+            device_cfg=self.device_cfg,
             num_seeds=num_seeds,
-            position_threshold=position_threshold,
-            rotation_threshold=rotation_threshold,
-            collision_cache=collision_cache,
-            collision_activation_distance=collision_activation_distance,
-            use_cuda_graph=False,
+            position_tolerance=position_threshold,
+            orientation_tolerance=rotation_threshold,
+            optimizer_collision_activation_distance=collision_activation_distance,
+            max_batch_size=max_batch_size,
+            use_cuda_graph=use_cuda_graph,
         )
-        self.ik_solver = IKSolver(ik_config)
+        self.ik_solver = InverseKinematics(ik_config)
 
     def __deepcopy__(self, memory_map: dict[int, object]) -> CuroboIKSolver:
         """Return the live solver for ``copy.deepcopy`` instead of duplicating it.
@@ -126,7 +128,7 @@ class CuroboIKSolver:
 
     def _to_curobo_device(self, tensor: torch.Tensor) -> torch.Tensor:
         """Move a tensor onto the cuRobo CUDA device / dtype (device isolation)."""
-        return tensor.to(device=self.tensor_args.device, dtype=self.tensor_args.dtype)
+        return tensor.to(device=self.device_cfg.device, dtype=self.device_cfg.dtype)
 
     def _make_pose(
         self,
@@ -136,10 +138,14 @@ class CuroboIKSolver:
         quat_is_xyzw: bool = True,
     ) -> CuroboPose:
         """Create a cuRobo ``Pose`` on the cuRobo device, converting xyzw->wxyz for cuRobo."""
-        position = self._to_curobo_device(position)
+        position = self._to_curobo_device(position).contiguous()
         quaternion = self._to_curobo_device(quaternion)
         quaternion_wxyz = torch.roll(quaternion, shifts=1, dims=-1) if quat_is_xyzw else quaternion
-        return CuroboPose(position=position, quaternion=quaternion_wxyz)
+        return CuroboPose(position=position, quaternion=quaternion_wxyz.contiguous())
+
+    def _make_goal_tool_pose(self, pose: CuroboPose) -> GoalToolPose:
+        """Wrap a batch of end-effector goal poses as cuRobo's per-tool-frame IK goal."""
+        return GoalToolPose.from_poses({self.ik_solver.tool_frames[0]: pose})
 
     def update_world(
         self,
@@ -149,11 +155,11 @@ class CuroboIKSolver:
     ) -> None:
         """Replace the collision world with cuboids derived from a layout's bounding boxes.
 
-        ``load_collision_model`` (via cuRobo's ``update_world``) reloads the model rather than only
-        moving obstacle poses, so this handles both moved objects and a changed object set per layout,
-        as long as the obstacle count stays within the collision cache.
+        cuRobo reloads the collision model rather than only moving obstacle poses, so this handles both
+        moved objects and a changed object set per layout, as long as the obstacle count stays within the
+        collision cache.
         """
-        world_cfg = world_config_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw, self.device)
-        self.ik_solver.update_world(world_cfg)
+        scene = scene_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw, self.device)
+        self.ik_solver.update_world(scene)
         if torch.cuda.is_available():
             torch.cuda.synchronize()

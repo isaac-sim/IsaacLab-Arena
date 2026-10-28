@@ -30,7 +30,7 @@ DISABLED_RADIUS = -100.0
 
 
 class _FakeKinematicsConfig:
-    """Stand-in for cuRobo's ``KinematicsTensorConfig``, one unit-radius sphere per link."""
+    """Stand-in for cuRobo's ``KinematicsParams``, one unit-radius sphere per link."""
 
     def __init__(self, link_names: list[str]) -> None:
         self.link_name_to_idx_map = {name: index for index, name in enumerate(link_names)}
@@ -82,17 +82,19 @@ class _MultiSeedIKResult:
 
 
 class _FakeKinematics:
-    """Stand-in for cuRobo's ``CudaRobotModel``: the sphere config plus forward kinematics onto it."""
+    """Stand-in for cuRobo's ``Kinematics``: the sphere config plus forward kinematics onto it."""
 
     def __init__(self, kinematics_config: _FakeKinematicsConfig) -> None:
         self.kinematics_config = kinematics_config
+        self.joint_names = [f"joint_{index}" for index in range(DOF)]
 
-    def get_state(self, joint_positions: torch.Tensor):
-        """Return one set of link spheres per given joint configuration."""
+    def compute_kinematics(self, joint_state):
+        """Return one set of link spheres per given joint configuration, with cuRobo's horizon of one."""
         spheres = torch.stack(
             [self.kinematics_config.get_link_spheres(name)[0] for name in self.kinematics_config.link_name_to_idx_map]
         )
-        return type("_State", (), {"link_spheres_tensor": spheres.expand(joint_positions.shape[0], -1, -1)})()
+        num_poses = joint_state.position.shape[0]
+        return type("_State", (), {"robot_spheres": spheres.expand(num_poses, 1, -1, -1)})()
 
 
 class _FakeIKSolver:
@@ -104,7 +106,7 @@ class _FakeIKSolver:
         self._raises = raises
         self.radii_during_solve: dict[str, float] = {}
 
-    def solve_batch(self, goal_pose, seed_config=None) -> _FakeIKResult:
+    def solve_pose(self, goal_pose, seed_config=None) -> _FakeIKResult:
         config = self.kinematics.kinematics_config
         self.radii_during_solve = {name: config.radius(name) for name in config.link_name_to_idx_map}
         if self._raises:
@@ -128,6 +130,9 @@ class _FakeHost:
     def _make_pose(self, position, quaternion, quat_is_xyzw: bool = True):
         return type("_Pose", (), {"position": position, "quaternion": quaternion})()
 
+    def _make_goal_tool_pose(self, pose):
+        return pose
+
 
 def _make_host(success: bool = True, raises: bool = False) -> tuple[_FakeHost, _FakeKinematicsConfig]:
     """Build a fake host whose solve reports ``success`` (cuRobo's converged-and-collision-free flag)."""
@@ -140,7 +145,7 @@ def _make_multi_seed_host(position_error: list, rotation_error: list, success: l
     """Build a fake host whose one solve reports these per-seed errors and collision flags."""
     kinematics_config = _FakeKinematicsConfig([*HAND_LINKS, ARM_LINK])
     solver = _FakeIKSolver(kinematics_config, success=True)
-    solver.solve_batch = lambda goal_pose, seed_config=None: _MultiSeedIKResult(position_error, rotation_error, success)
+    solver.solve_pose = lambda goal_pose, seed_config=None: _MultiSeedIKResult(position_error, rotation_error, success)
     return _FakeHost(solver, HAND_LINKS)
 
 

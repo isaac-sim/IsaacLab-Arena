@@ -14,7 +14,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-from curobo.geom.types import Cuboid, WorldConfig
+from curobo.scene import Cuboid, Scene
+from curobo.types import JointState
 
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
@@ -22,7 +23,7 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 
 if TYPE_CHECKING:
-    from curobo.wrap.reacher.ik_solver import IKSolver
+    from curobo.inverse_kinematics import InverseKinematics
 
     from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 
@@ -63,13 +64,13 @@ def get_aabb_collision_cuboid_for_object(
     )
 
 
-def world_config_from_cuboids(
+def scene_from_cuboids(
     cuboids: list[AABBCollisionCuboid],
     robot_base_pos_w: tuple[float, float, float],
     robot_base_quat_w_xyzw: tuple[float, float, float, float],
     device: str | torch.device | None = None,
-):
-    """Build a cuRobo ``WorldConfig`` of cuboids expressed in the robot base frame.
+) -> Scene:
+    """Build a cuRobo ``Scene`` of cuboids expressed in the robot base frame.
 
     Each obstacle's world pose is transformed into the robot base frame. Include anchor objects (e.g. a table) here as static cuboids.
     """
@@ -87,7 +88,7 @@ def world_config_from_cuboids(
         # cuRobo Cuboid pose is [x, y, z, qw, qx, qy, qz].
         pose = t_R_O.tolist() + q_R_O_wxyz.tolist()
         curobo_cuboids.append(Cuboid(name=c.name, pose=pose, dims=list(c.dims_xyz)))
-    return WorldConfig(cuboid=curobo_cuboids)
+    return Scene(cuboid=curobo_cuboids)
 
 
 @dataclass
@@ -112,17 +113,17 @@ def solve_ik_feasibility(
     target_poses: torch.Tensor,
     seed_config: torch.Tensor | None = None,
     position_threshold: float = 0.01,
-    rotation_threshold: float = 0.1,
+    rotation_threshold: float = 0.2,
     require_collision_free: bool = False,
 ) -> IKFeasibility:
-    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver, as a single ``solve_batch`` for one layout.
+    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver, as a single solve for one layout.
 
     Args:
         solver: The ``CuroboIKSolver`` providing tensor device conversion and cuRobo pose construction.
         target_poses: ``(b, 4, 4)`` end-effector goal transforms in the robot base frame.
         seed_config: Optional joint seed tensor.
         position_threshold: Max position error (m) to count as feasible.
-        rotation_threshold: Max rotation error (rad) to count as feasible.
+        rotation_threshold: Max rotation error (rad, geodesic angle) to count as feasible.
         require_collision_free: Also require a collision-free joint solution, not just pose convergence.
 
     Returns:
@@ -131,10 +132,12 @@ def solve_ik_feasibility(
     ik_solver = solver.ik_solver
     target_poses = solver._to_curobo_device(target_poses)
     positions, rotations = math_utils.unmake_pose(target_poses)
-    goal_pose = solver._make_pose(
-        position=positions,
-        quaternion=math_utils.quat_from_matrix(rotations),  # xyzw
-        quat_is_xyzw=True,
+    goal_pose = solver._make_goal_tool_pose(
+        solver._make_pose(
+            position=positions,
+            quaternion=math_utils.quat_from_matrix(rotations),  # xyzw
+            quat_is_xyzw=True,
+        )
     )
 
     ik_seed = None
@@ -146,7 +149,7 @@ def solve_ik_feasibility(
     # The gripper is meant to touch what it grasps, so its own links are disabled to detect collisions with the grasped object.
     muted_links = list(solver.hand_link_names) if require_collision_free else []
     with _disabled_link_spheres(ik_solver, muted_links):
-        ik_result = ik_solver.solve_batch(goal_pose, seed_config=ik_seed)
+        ik_result = ik_solver.solve_pose(goal_pose, seed_config=ik_seed)
 
     num_poses = positions.shape[0]
     pos_err = ik_result.position_error.view(num_poses, -1)
@@ -198,12 +201,16 @@ def robot_collision_spheres(solver: CuroboIKSolver, joint_positions: torch.Tenso
         shape of (b, num_spheres, 4), b:number of poses, 4:x, y, z, radius; cuRobo leaves unused
         spheres in with a negative radius.
     """
-    joint_positions = solver._to_curobo_device(joint_positions)
-    return solver.ik_solver.kinematics.get_state(joint_positions).link_spheres_tensor
+    kinematics = solver.ik_solver.kinematics
+    joint_state = JointState.from_position(
+        solver._to_curobo_device(joint_positions), joint_names=kinematics.joint_names
+    )
+    # cuRobo returns spheres per (batch, horizon); a single configuration per pose has a horizon of one.
+    return kinematics.compute_kinematics(joint_state).robot_spheres[:, 0]
 
 
 @contextmanager
-def _disabled_link_spheres(ik_solver: IKSolver, link_names: Sequence[str]) -> Iterator[None]:
+def _disabled_link_spheres(ik_solver: InverseKinematics, link_names: Sequence[str]) -> Iterator[None]:
     """Mute the collision spheres of given links for the duration of the block, then restore them.
 
     Args:
