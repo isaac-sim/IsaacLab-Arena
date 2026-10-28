@@ -28,11 +28,9 @@ Examples:
 USAGE
 }
 
-while getopts ':t:cvpRh' OPTION; do
+while getopts ':t:vpRh' OPTION; do
     case "$OPTION" in
         t) TAG_NAME=$OPTARG ;;
-        # cuRobo used to need its own image; keep accepting -c so existing commands still work.
-        c) echo "Warning: -c is no longer needed; the default image includes cuRobo." >&2 ;;
         v) set -x ;;
         p) PUSH_TO_NGC=true ;;
         R) BUILD_OPTIONS+=(-R) ;;

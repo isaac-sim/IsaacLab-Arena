@@ -26,7 +26,7 @@ FORCE_REBUILD=false
 CONTAINER_SUFFIX=""
 CONTAINER_SUFFIX_EXPLICIT=false
 
-while getopts ":d:m:e:hn:rRvn:s:ct:" OPTION; do
+while getopts ":d:m:e:hn:rRvn:s:t:" OPTION; do
     case $OPTION in
 
         d)
@@ -51,10 +51,6 @@ while getopts ":d:m:e:hn:rRvn:s:ct:" OPTION; do
             ;;
         v)
             set -x
-            ;;
-        c)
-            # cuRobo used to need its own image; keep accepting -c so existing commands still work.
-            echo "Warning: -c is no longer needed; the default image includes cuRobo." >&2
             ;;
         t)
             DOCKER_TARGET=$OPTARG
