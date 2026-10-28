@@ -6,6 +6,7 @@
 """Verify distributed OSMO workflows for Arena Experiments."""
 
 import json
+import subprocess
 import yaml
 from pathlib import Path
 from types import SimpleNamespace
@@ -28,6 +29,7 @@ from osmo.submit_arena_experiment import (
     main,
     submission_cfg_to_str,
     submit_arena_experiment,
+    submit_arena_experiment_from_file,
 )
 from osmo.tasks.collect_experiment_outputs_task import (
     _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
@@ -55,6 +57,14 @@ OPENPI_EXPERIMENT_CFG_PATH = (
     REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml"
 )
 OPENPI_RUN_NAME = "droid_pnp_srl_openpi_billiard_hall"
+GETTING_STARTED_EXPERIMENT_CFG_PATH = (
+    REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml"
+)
+# Shape of the ``osmo workflow submit`` stdout that the submission result is parsed from.
+FAKE_OSMO_SUBMIT_STDOUT = """Workflow submit successful.
+    Workflow ID        - arena-kpi-run-7
+    Workflow Overview  - https://osmo.example.com/workflows/arena-kpi-run-7
+"""
 GR00T_CONFIG_YAML_PATH = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
 
 
@@ -152,7 +162,7 @@ def _compose_and_submit(
     overrides: list[str],
     experiment_cfg_path: Path = OPENPI_EXPERIMENT_CFG_PATH,
 ) -> int:
-    return submit_arena_experiment(_compose_submission(overrides, experiment_cfg_path))
+    return submit_arena_experiment(_compose_submission(overrides, experiment_cfg_path)).returncode
 
 
 def test_explicit_experiment_composes_typed_defaults():
@@ -893,3 +903,102 @@ def test_pi0_server_quotes_configurable_shell_values():
 
     assert "'--policy.config=config with spaces'" in command
     assert "'--policy.dir=gs://bucket/checkpoint; false'" in command
+
+
+# If this test breaks, make sure that any KPI reporting utilities (e.g. the benchmark launcher) are updated accordingly.
+def test_submission_result_carries_workflow_id_and_overview_url(monkeypatch):
+    """Parse the workflow ID and overview URL from ``osmo workflow submit`` and forward ``timeout_s``."""
+    submit_kwargs = {}
+
+    def fake_submit(command, **kwargs):
+        assert command[:3] == ["osmo", "workflow", "submit"]
+        submit_kwargs.update(kwargs)
+        return SimpleNamespace(returncode=0, stdout=FAKE_OSMO_SUBMIT_STDOUT)
+
+    monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", fake_submit)
+
+    submission_cfg = ArenaExperimentSubmissionCfg(experiment_cfg=_zero_action_experiment_cfg())
+    result = submit_arena_experiment(submission_cfg, timeout_s=12.5)
+
+    assert result.returncode == 0
+    assert result.workflow_id == "arena-kpi-run-7"
+    assert result.overview_url == "https://osmo.example.com/workflows/arena-kpi-run-7"
+    assert submit_kwargs["timeout"] == 12.5
+
+
+def test_submission_without_timeout_waits_indefinitely(monkeypatch):
+    """Default ``timeout_s`` passes no timeout to ``osmo workflow submit``; unparsable output yields None fields."""
+    submit_kwargs = {}
+
+    def fake_submit(command, **kwargs):
+        submit_kwargs.update(kwargs)
+        return SimpleNamespace(returncode=1, stdout="error: not logged in\n")
+
+    monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", fake_submit)
+
+    result = submit_arena_experiment(ArenaExperimentSubmissionCfg(experiment_cfg=_zero_action_experiment_cfg()))
+
+    assert submit_kwargs["timeout"] is None
+    assert result.returncode == 1
+    assert result.workflow_id is None
+    assert result.overview_url is None
+
+
+# If this test breaks, make sure that any KPI reporting utilities (e.g. the benchmark launcher) are updated accordingly.
+def test_submission_timeout_propagates(monkeypatch):
+    """A submit that exceeds ``timeout_s`` raises ``subprocess.TimeoutExpired`` and removes the temporary workflow."""
+    captured_workflow_path = None
+
+    def fake_submit(command, **kwargs):
+        nonlocal captured_workflow_path
+        captured_workflow_path = Path(command[3])
+        raise subprocess.TimeoutExpired(cmd=command, timeout=kwargs["timeout"])
+
+    monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", fake_submit)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        submit_arena_experiment(
+            ArenaExperimentSubmissionCfg(experiment_cfg=_zero_action_experiment_cfg()),
+            timeout_s=0.1,
+        )
+    assert captured_workflow_path is not None
+    assert not captured_workflow_path.exists()
+
+
+# If this test breaks, make sure that any KPI reporting utilities (e.g. the benchmark launcher) are updated accordingly.
+def test_submit_from_file_applies_launcher_overrides_on_dry_run(monkeypatch, capsys):
+    """Submit an Experiment file with the launcher's override keys, twice in one process, as a dry-run."""
+
+    def fail_on_submit(command, **kwargs):
+        raise AssertionError("A dry-run must not call osmo workflow submit")
+
+    monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", fail_on_submit)
+    output_url = "swift://pdx.s8k.io/AUTH_team-isaac/arena_kpis/{{workflow_id}}"
+
+    # Hydra's ConfigStore is process-global, so a second build and submission must also succeed.
+    for attempt in range(2):
+        workflow_name = f"kpi-launcher-{attempt}"
+        overrides = [
+            "osmo.dry_run=true",
+            f"osmo.workflow_name={workflow_name}",
+            # Hydra's override grammar rejects unquoted braces, so a {{workflow_id}} URL must be quoted.
+            f"osmo.output_url='{output_url}'",
+            "experiment_runner.image=registry.example.com/arena:kpi",
+        ]
+
+        submission_cfg = build_arena_experiment_submission_cfg(GETTING_STARTED_EXPERIMENT_CFG_PATH, overrides)
+        assert submission_cfg.osmo.workflow_name == workflow_name
+        assert submission_cfg.osmo.output_url == output_url
+        assert submission_cfg.experiment_runner.image == "registry.example.com/arena:kpi"
+
+        result = submit_arena_experiment_from_file(GETTING_STARTED_EXPERIMENT_CFG_PATH, overrides, timeout_s=30.0)
+
+        assert result.returncode == 0
+        assert result.workflow_id is None
+        assert result.overview_url is None
+        workflow = _rendered_workflow(capsys.readouterr().out)
+        assert workflow["workflow"]["name"] == workflow_name
+        groups = _workflow_groups(workflow)
+        assert len(groups) == 5
+        assert all(task["image"] == "registry.example.com/arena:kpi" for task in _workflow_tasks(workflow))
+        assert groups[-1]["tasks"][0]["outputs"] == [{"url": output_url}]

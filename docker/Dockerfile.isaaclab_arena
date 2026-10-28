@@ -87,6 +87,7 @@ COPY --parents \
     isaaclab_arena_vlm_agent \
     isaaclab_arena_environments \
     isaaclab_arena_examples \
+    osmo \
     ${WORKDIR}/
 RUN --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
     uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}" && \

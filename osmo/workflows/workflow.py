@@ -106,6 +106,9 @@ class WorkflowSubmissionResult:
     workflow_id: str | None = None
     """OSMO workflow ID parsed from the submit output; None on a dry-run or parse failure."""
 
+    overview_url: str | None = None
+    """OSMO workflow overview URL parsed from the submit output; None on a dry-run or parse failure."""
+
 
 class SubmittableWorkflow(ABC):
     """A configurable unit of work that can be submitted to OSMO.
@@ -127,8 +130,17 @@ class SubmittableWorkflow(ABC):
         self.task_cfg = task_cfg
 
     @abstractmethod
-    def submit_workflow(self) -> WorkflowSubmissionResult:
-        """Submit to OSMO (or print the rendered spec on a dry-run) and return the outcome."""
+    def submit_workflow(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        """Submit to OSMO (or print the rendered spec on a dry-run) and return the outcome.
+
+        Args:
+            timeout_s: Wall-clock limit in seconds for each ``osmo workflow submit`` call; None waits
+                indefinitely. When exceeded, the ``subprocess.TimeoutExpired`` from the call propagates.
+                Unrelated to the workflow's own OSMO exec and queue timeouts.
+
+        Returns:
+            The submission outcome.
+        """
 
 
 class Workflow(SubmittableWorkflow):
@@ -214,15 +226,23 @@ class Workflow(SubmittableWorkflow):
             default_style="",
         )
 
-    def submit_workflow(self) -> WorkflowSubmissionResult:
-        """Render the workflow and either print it (dry-run) or submit it to OSMO."""
+    def submit_workflow(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        """Render the workflow and either print it (dry-run) or submit it to OSMO.
+
+        Args:
+            timeout_s: Wall-clock limit in seconds for ``osmo workflow submit``; None waits indefinitely.
+                When exceeded, the ``subprocess.TimeoutExpired`` from the call propagates.
+
+        Returns:
+            The submission outcome.
+        """
         rendered = self.render_yaml()
         if self.workflow_cfg.dry_run:
             print("[dry-run] Rendered workflow YAML:\n")
             print(rendered)
             return WorkflowSubmissionResult(returncode=0)
 
-        return self._submit_rendered_workflow(rendered=rendered)
+        return self._submit_rendered_workflow(rendered=rendered, timeout_s=timeout_s)
 
     def _get_tasks(self) -> list[BaseTask]:
         """Instantiate task objects for this workflow."""
@@ -233,7 +253,7 @@ class Workflow(SubmittableWorkflow):
             tasks.append(task_cls(task_name=task_name, task_cfg=self.task_cfg, lead=lead))
         return tasks
 
-    def _submit_rendered_workflow(self, rendered: str) -> WorkflowSubmissionResult:
+    def _submit_rendered_workflow(self, rendered: str, timeout_s: float | None = None) -> WorkflowSubmissionResult:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", prefix="arena_", delete=False) as f:
             f.write(rendered)
             rendered_path = f.name
@@ -248,13 +268,14 @@ class Workflow(SubmittableWorkflow):
         print(f"  {' '.join(cmd)}\n")
 
         try:
-            # Capture stdout only, to parse the workflow ID; stderr stays inherited so
+            # Capture stdout only, to parse the workflow ID and overview URL; stderr stays inherited so
             # interactive output (login prompts, progress) remains visible live.
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, timeout=timeout_s)
             print(result.stdout, end="")
             return WorkflowSubmissionResult(
                 returncode=result.returncode,
                 workflow_id=self._parse_submitted_workflow_id(result.stdout),
+                overview_url=self._parse_submitted_overview_url(result.stdout),
             )
         finally:
             Path(rendered_path).unlink(missing_ok=True)
@@ -263,6 +284,12 @@ class Workflow(SubmittableWorkflow):
     def _parse_submitted_workflow_id(submit_stdout: str) -> str | None:
         """Extract the workflow ID from ``osmo workflow submit`` output, or None."""
         match = re.search(r"Workflow ID\s*[-:]\s*(\S+)", submit_stdout)
+        return match.group(1) if match else None
+
+    @staticmethod
+    def _parse_submitted_overview_url(submit_stdout: str) -> str | None:
+        """Extract the workflow overview URL from ``osmo workflow submit`` output, or None."""
+        match = re.search(r"Workflow Overview\s*[-:]\s*(\S+)", submit_stdout)
         return match.group(1) if match else None
 
     def _create_resource_dict(self) -> dict[str, Any]:
@@ -288,9 +315,17 @@ class CompositeWorkflow(SubmittableWorkflow):
     the step sequencing, so the base intentionally does not short-circuit it.
     """
 
-    def submit_workflow(self) -> WorkflowSubmissionResult:
-        return self._submit_steps()
+    def submit_workflow(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        return self._submit_steps(timeout_s=timeout_s)
 
     @abstractmethod
-    def _submit_steps(self) -> WorkflowSubmissionResult:
-        """Submit the sub-workflows in order; return the result representing the composite."""
+    def _submit_steps(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        """Submit the sub-workflows in order; return the result representing the composite.
+
+        Args:
+            timeout_s: Wall-clock limit in seconds for each sub-workflow's ``osmo workflow submit``;
+                None waits indefinitely.
+
+        Returns:
+            The result representing the composite.
+        """
