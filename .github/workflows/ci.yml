@@ -31,8 +31,7 @@ env:
   OMNI_PASS: ${{ secrets.OMNI_PASS }}
   OMNI_USER: ${{ secrets.OMNI_USER }}
   ARENA_IMAGE: nvcr.io/nvstaging/isaac-amr/isaaclab_arena
-  # Prebuilt image the test jobs run in, tagged with the commit it was built from and pinned by digest.
-  # To refresh: ./docker/push_to_ngc.sh -t curobov2-$(git rev-parse --short=10 HEAD) -p, then update this ref.
+  # TODO(xinjieyao): Switch to latest post merge.
   ARENA_PINNED_IMAGE: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobov2-523f4c83c5@sha256:a56501029b5f45eaf598f7b32d5df4189849c500835accaa7a5a0e1a04d48446
   # Disable omniclient hub mode to avoid ~10s startup time for sim startup.
   OMNICLIENT_HUB_MODE: disabled
