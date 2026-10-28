@@ -28,16 +28,20 @@ and stop when it is ready."
 
 Expected behavior:
 
-- Keeps the native `uv` route (both routes install cuRobo), initializes source submodules, runs the
-  locked `uv sync`, and confirms `import curobo` in the synced environment.
-- Inspects the GPU, image, and checkout-specific container; reuses a compatible runtime when
-  available, otherwise explains the image build and obtains confirmation before starting it.
-- Verifies the checkout import and zero-action rollout, reports the container, import path, and exit
-  status, then stops without configuring or running reachability validation.
+- Uses the default route (native `uv` when available). Both routes install cuRobo, so the request
+  alone does not decide the route. Initializes source submodules and confirms `import curobo` in the
+  chosen runtime.
+- Inspects the GPU and any existing runtime (a synced `.venv` or the checkout-specific container);
+  reuses a compatible one, otherwise explains the sync or image build and obtains confirmation before
+  starting it.
+- Verifies the checkout import and zero-action rollout, reports the runtime, import path, and exit
+  status, and notes that `ik_reachable` is turned on per spec with `reachability_config.enabled: true`,
+  then stops without configuring or running reachability validation.
 
 Known failure modes:
 
-- Switches to Docker only because cuRobo was requested.
+- Launches Docker with the removed `-c` flag or looks for a separate cuRobo image.
+- Reports the runtime ready without confirming that `curobo` imports.
 - Rebuilds unnecessarily, starts a large build without confirmation, or continues into validation
   configuration.
 
