@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.placement_diagnostics import CheckCounts, ValidatedBatch
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
 
 if TYPE_CHECKING:
@@ -40,8 +41,12 @@ class PlacementValidationRunner:
         self,
         batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
-    ) -> None:
-        """Update each candidate's validation in place using the configured required-check policy."""
+    ) -> ValidatedBatch:
+        """Update each candidate's validation in place using the configured required-check policy.
+
+        Returns:
+            The batch's valid count and, for each check, how many candidates it ran on and passed.
+        """
         # required_checks=None means "every enabled check is required"; an empty set means no checks are required.
         required = self.params.required_checks
         num_candidates = len(batch)
@@ -75,12 +80,6 @@ class PlacementValidationRunner:
                 evaluated_layout_indices_by_check,
                 self.params.required_checks,
             )
-        if layout_pass_verdicts_by_check:
-            summary = ", ".join(
-                f"{check}={sum(verdicts)}/{len(evaluated_layout_indices_by_check[check])}"
-                for check, verdicts in layout_pass_verdicts_by_check.items()
-            )
-            print(f"[placement] Validated {num_candidates} candidate layout(s); passed per check: {summary}")
         for candidate_idx, candidate in enumerate(batch.candidates):
             candidate.validation = PlacementValidationResults(
                 validation_results={
@@ -88,6 +87,27 @@ class PlacementValidationRunner:
                 },
                 required_checks=set(required) if required is not None else None,
             )
+        checks = {}
+        for check, verdicts in layout_pass_verdicts_by_check.items():
+            # A check marks the candidates it skipped as failed, so its passes all come from candidates it ran on.
+            checks[check] = CheckCounts(
+                num_evaluated=len(evaluated_layout_indices_by_check[check]),
+                num_passed=sum(verdicts),
+                required=required is None or check in required,
+            )
+        validated_batch = ValidatedBatch(
+            num_candidates=num_candidates,
+            num_valid=sum(
+                candidate.validation.do_all_required_validation_checks_pass() for candidate in batch.candidates
+            ),
+            checks=checks,
+        )
+        if checks:
+            print(
+                f"[placement] Validated {num_candidates} candidate layout(s); passed per check:"
+                f" {validated_batch.format_check_counts()}"
+            )
+        return validated_batch
 
     def _run_inexpensive_checks(
         self,

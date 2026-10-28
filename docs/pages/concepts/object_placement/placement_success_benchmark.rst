@@ -9,35 +9,41 @@ the two runs to check for regressions.
 What It Measures
 ----------------
 
-For each environment spec, the benchmark builds the environment's placement
-inputs the same way ``ArenaEnvBuilder`` does, applying any enabled build-time
-variations and the task's reachability constraints. It then places
-``--num_layouts`` layouts for every seed in ``--placement_seeds``, without
-stepping physics. It reports two rates:
+For each environment spec and each seed in ``--placement_seeds``, the benchmark
+builds the environment the normal way, with ``ArenaEnvBuilder.build_env_cfg()``
+for ``--num_envs`` environments, without stepping physics. The build applies
+any enabled build-time variations and the task's reachability constraints, then
+fills its :doc:`placement pool <./pooled_placement>`: the pool solves batches
+of candidate layouts until every environment has enough valid ones, and on its
+last attempt gives an environment without any its best-loss layouts. The
+benchmark reads the placement diagnostics the build records and reports:
 
-* **Valid candidates:** the share of all solved candidates that pass every
-  required :doc:`pre-physics check <./validation>`. This rate is closest to an
-  environment build: the build's :doc:`placement pool <./pooled_placement>`
-  keeps only valid candidates and solves more batches until it has enough, so
-  this rate decides how much solving a build needs and whether it falls back to
-  best-loss layouts.
-* **Layout success:** the share of layouts whose best candidate passes every
-  required check. Each layout keeps the best of ``max_placement_attempts``
-  candidates, as ``ObjectPlacer.place()`` does. Best-of-candidates selection
-  saturates, so this rate moves only once valid candidates become rare.
+* **Valid candidates:** the share of candidates in the pool's first batch that
+  pass every required :doc:`pre-physics check <./validation>`. The first batch
+  always holds ``num_envs * min_unique_layouts_per_env *
+  max_placement_attempts`` candidates; later batches only refill the
+  environments that lacked valid layouts, so they are left out to keep the
+  sample the same for every scene. This rate decides how much solving a build
+  needs.
+* **Valid environments:** the share of environments whose pool holds only
+  valid layouts, without a best-loss fallback. This is what an environment
+  build gets wrong when placement struggles.
+* **Batches per build:** how many pool batches a build solved, shown in the
+  results table.
 
-Each environment is reported as scored, skipped or failed. Specs that place
-nothing other than anchors are skipped. Specs that fail to build or place are
-listed with their error instead of being dropped.
+Each environment is reported as scored, skipped or failed. Specs whose builds
+solve no relations are skipped. Specs that fail to build or place are listed
+with their error instead of being dropped; that includes a pool that cannot
+find valid layouts and is not allowed to fall back.
 
 When a spec places the robot by relations, as the KitchenBench specs do, the
 robot is part of every layout and its relations are checked too. Specs that
 place only the robot, such as ``kitchen_bench_lightwheel_open_fridge``, are
 scored on the robot's placement.
 
-An environment is one task spec. Each environment and seed solves its own
-candidates, so tasks that share a scene, as several RoboLab tasks do, sample it
-independently, and a suite's mean counts such a scene once per task. Rerunning
+An environment is one task spec. Each spec and seed builds from its own block
+of candidate seeds, so tasks that share a scene, as several RoboLab tasks do,
+sample it independently, and a suite's mean counts such a scene once per task. Rerunning
 the same specs starts from the same candidates, but an asset that loads a
 random variant in each process, such as the Lightwheel broccoli, can still
 change results between runs.
@@ -46,20 +52,20 @@ Run the Benchmark
 -----------------
 
 Run from the repository root inside the Arena container; see
-:doc:`../../quickstart/installation`. Start with a quick check that places one
-spec with few layouts. It takes under a minute, and the table it prints should
-show one scored RoboLab environment and none failed:
+:doc:`../../quickstart/installation`. Start with a quick check that builds one
+spec once with two environments. It takes under a minute, and the table it
+prints should show one scored RoboLab environment and none failed:
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/placement_success_benchmark.py \
      --env banana_on_plate \
-     --num_layouts 5 \
+     --num_envs 2 \
      --placement_seeds 0 \
      --output outputs/placement_success/quick_check.json
 
 Then run every spec at the defaults. On one RTX 6000 Ada GPU this takes about
-25 minutes. The run prints each spec as it starts, then a table with one row
+50 minutes. The run prints each spec as it starts, then a table with one row
 per suite. Its exit status is 0 when no spec failed and 1 otherwise:
 
 .. code-block:: bash
@@ -83,14 +89,15 @@ Useful options:
   default, ``--suite all``, runs both.
 * ``--env 'kitchen_bench_replicator_*'`` keeps specs whose file stem matches the
   glob. Repeat it to select several patterns.
-* ``--num_layouts`` and ``--placement_seeds`` set the sample size. The defaults
-  are 50 layouts and seeds 0, 1 and 2. Seeds must be distinct, and
-  ``(seed + 1) * num_layouts * max_placement_attempts`` must not exceed
-  ``2**20``, the candidate seeds reserved for each environment.
-  ``max_placement_attempts`` comes from the spec's placer parameters and is 10
-  by default. The solver optimizes a seed's layouts as one batch, so
-  ``--num_layouts`` changes individual candidates; compare only runs with the
-  same value.
+* ``--num_envs`` and ``--placement_seeds`` set the sample size: one build of
+  ``--num_envs`` environments per seed. The defaults are 10 environments and
+  seeds 0, 1 and 2, which gives 1500 first-batch candidates per spec with the
+  default placer parameters. Seeds must be distinct, and a pool can solve up to
+  ``max_placement_attempts`` batches, so ``(seed + 1) * num_envs *
+  min_unique_layouts_per_env * max_placement_attempts ** 2`` must not exceed
+  ``2**20``, the candidate seeds reserved for each spec. The solver optimizes a
+  batch together, so ``--num_envs`` changes individual candidates; compare only
+  runs with the same value.
 * ``--random_yaw_init`` samples a random initial yaw for placed objects,
   including a robot placed by relations. Objects with ``FaceTo`` or a tilted
   ``RotateAroundSolution`` keep their own orientation rules. Without it, spec
@@ -129,19 +136,21 @@ compared and the ones that were not, such as environments that failed in either
 run, and reports the suite's rates in both runs with a 95% interval for the
 change, after minus before, in percentage points. A negative change is a
 regression, and an interval that contains zero is inconclusive. At the
-defaults, a suite's interval is about ±1 point for layout success and ±0.5
-points for valid candidates.
+defaults, a suite's interval is about ±0.5 points for valid candidates and
+±1.5 points for valid environments.
 
 The interval treats the set of specs as fixed and covers only the noise of
 sampling their candidates. Both runs start from the same candidates, so for a
 change that leaves the solver alone, such as a new validator, the two runs are
 correlated and the interval is wider than it needs to be. Candidates in a
-seed's batch are solved together, which can make it somewhat too narrow.
+batch are solved together, which can make it somewhat too narrow.
 
 The comparison then lists the environments whose change is significant, and
-the environments that were not scored in both runs. With the 69 specs at the
+the environments that were not scored in both runs. With the 80 specs at the
 defaults, a single environment is flagged once its valid-candidate rate changes
-by about 6 points or its layout success by about 15. Testing every environment
+by about 6 points. Valid environments rest on 30 environments per spec, so a
+single one is flagged only after a drop of about 40 points, and that rate is
+mainly a suite-level guard against large regressions. Testing every environment
 and rate at 5% would flag a few by chance, so the Holm adjustment lowers each
 threshold until the chance of flagging any unchanged environment is at most
 5%. Each environment's interval uses the Agresti-Caffo adjustment, which adds
@@ -166,11 +175,12 @@ checkout had uncommitted changes, the settings and one record per environment.
 Changes count when they are to tracked files or are new files in
 ``isaaclab_arena`` or ``isaaclab_arena_environments``, such as a new spec;
 other untracked files, such as local tool settings, do not. Each record holds
-the environment's status, its layout and candidate counts, its wall time, the
-checks that ran, with whether each is required, and how many candidates each
-check rejected. A check that
-runs only on candidates that pass the cheaper required checks, such as IK
-reachability, counts as rejecting the candidates it skipped.
+the environment's status, its build, candidate, environment, fallback and batch
+counts, its wall time, the checks that ran, with whether each is required, and
+how many first-batch candidates each check ran on and rejected. A check that
+runs only after the cheaper required checks pass, such as IK reachability, sees
+only the candidates that passed them, so its rejections count out of those
+candidates and are not charged with the ones it skipped.
 
 A suite has no rates when any of its environments failed, and the script exits
 with an error after writing the file.
@@ -190,7 +200,7 @@ compares results files without the simulator, so other tools can use them:
 
    results = PlacementBenchmarkResults.load("outputs/placement_success/before.json")
    for summary in summarize_suites(results):
-       print(summary.suite, summary.layout_success_rate, summary.valid_candidate_rate)
+       print(summary.suite, summary.valid_candidate_rate, summary.valid_env_rate)
 
 Add a Suite
 -----------

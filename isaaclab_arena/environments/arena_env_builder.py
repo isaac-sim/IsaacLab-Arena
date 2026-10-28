@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
@@ -51,6 +50,7 @@ from isaaclab_arena.recording.common_terms import (
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.runtime.placement_sampler import (
@@ -75,10 +75,7 @@ from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.policy.policy_base import PolicyCfg
-    from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
 # TODO: peterd, 2026-09-16: Remove this once Arena migrates off ViewCfg and into KitVisualizerCfg.
@@ -100,21 +97,6 @@ def _configure_arena_visualizer_defaults(env_cfg: IsaacLabArenaManagerBasedRLEnv
     env_cfg.sim.default_visualizer_cfg = visualizer_cfg
     # Avoid a second deprecated conversion when ManagerBasedRLEnv initializes.
     env_cfg.viewer = ViewerCfg()
-
-
-@dataclass
-class LivePlacementInputs:
-    """Inputs to live relation placement for one environment build."""
-
-    assets: list[PlaceableAsset]
-    """Scene objects with relations, followed by the embodiment when it has relations."""
-
-    placer_params: ObjectPlacerParams
-    """The environment's placer parameters, or defaults when it has none, updated in place with the builder's seed
-    and reset overrides and the reachability embodiment."""
-
-    scene_assets: list[Asset | RigidObjectSet]
-    """All scene assets, scanned for passive collision objects."""
 
 
 class ArenaEnvBuilder:
@@ -146,6 +128,9 @@ class ArenaEnvBuilder:
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
+        self.placement_diagnostics: PlacementDiagnostics | None = None
+        """How live relation placement filled its pool in the last build_env_cfg(), or None when that build solved
+        no relations."""
 
     def _apply_camera_resolution_mode(self) -> None:
         """Resize the embodiment camera rig as selected by ``cfg.camera_resolution_mode``."""
@@ -207,30 +192,6 @@ class ArenaEnvBuilder:
 
         if not self.cfg.solve_relations:
             return None
-        inputs = self._apply_reachability_and_collect_placement_inputs()
-        return prepare_live_relation_placement(
-            inputs.assets,
-            num_envs=self.cfg.num_envs,
-            placer_params=inputs.placer_params,
-            scene_assets=inputs.scene_assets,
-        )
-
-    def prepare_live_placement_inputs(self) -> LivePlacementInputs:
-        """Apply build-time variations and reachability constraints, then return the live placement inputs.
-
-        This modifies the Arena environment in place, as build_env_cfg() does before placement. Unlike
-        build_env_cfg(), it supports neither Hydra overrides nor recorded replay, ignores solve_relations and records no
-        variations. Calling build_env_cfg() afterwards applies the build-time variations again.
-        """
-        assert not self.hydra_overrides, "prepare_live_placement_inputs() does not apply Hydra overrides"
-        assert (
-            self.cfg.recorded_variation_samples_path is None
-        ), "prepare_live_placement_inputs() does not replay recorded variations"
-        self._apply_build_time_variations()
-        return self._apply_reachability_and_collect_placement_inputs()
-
-    def _apply_reachability_and_collect_placement_inputs(self) -> LivePlacementInputs:
-        """Apply the task's reachability constraints and collect the live placement inputs."""
         # Reachability constraints are defined in the task, so apply them before placement.
         if self.arena_env.task is not None:
             self.arena_env.task.apply_reachability_constraints()
@@ -252,7 +213,12 @@ class ArenaEnvBuilder:
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
-        return LivePlacementInputs(placement_assets, placer_params, list(self.arena_env.scene.assets.values()))
+        return prepare_live_relation_placement(
+            placement_assets,
+            num_envs=self.cfg.num_envs,
+            placer_params=placer_params,
+            scene_assets=self.arena_env.scene.assets.values(),
+        )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
         """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
@@ -400,6 +366,9 @@ class ArenaEnvBuilder:
 
         # Placement needs its source selected before scene config captures construction poses.
         placement_sampler = self._prepare_relation_placement(variation_replay_scheduler)
+        self.placement_diagnostics = None
+        if isinstance(placement_sampler, PlacementSampler):
+            self.placement_diagnostics = placement_sampler.placement_pool.diagnostics
         # A RigidObjectSet's selected member identity is absent from pose-only samples, so skip unreplayable records.
         if placement_sampler is not None and supports_recorded_placement(self.arena_env.get_placement_assets()):
             variation_recorder.attach_placement_sampler(

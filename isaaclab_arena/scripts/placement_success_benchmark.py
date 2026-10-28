@@ -5,10 +5,10 @@
 
 """Measure relation-placement success across the RoboLab and KitchenBench environment specs.
 
-Each spec's placement inputs are built as ArenaEnvBuilder builds them, without stepping physics, then placed for every
-placement seed. Two rates are reported: the share of valid candidates, which pass every required pre-physics check
-and are what an environment build's placement pool keeps, and the share of layouts whose best of
-max_placement_attempts candidates is valid, as in ObjectPlacer.place().
+Each spec is built once per placement seed with the normal ArenaEnvBuilder.build_env_cfg(), without stepping physics,
+and the build's placement diagnostics are recorded. Two rates are reported: the share of valid candidates in the
+placement pool's first batch, which pass every required pre-physics check, and the share of environments whose pool
+holds only valid layouts, without a best-loss fallback.
 
 Run inside the container and write a results file:
 
@@ -49,8 +49,8 @@ from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_builder import LivePlacementInputs
-    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 SUITE_SPEC_GLOBS = {
@@ -86,14 +86,14 @@ def get_benchmark_parser() -> argparse.ArgumentParser:
         help="Glob on spec file stems to select environments; repeat to select several.",
     )
     group.add_argument(
-        "--num_layouts", type=int, default=defaults.num_layouts, help="Layouts placed per environment and seed."
+        "--num_envs", type=int, default=defaults.num_envs, help="Environments in each build, one build per seed."
     )
     group.add_argument(
         "--placement_seeds",
         type=int,
         nargs="+",
         default=defaults.placement_seeds,
-        help="Distinct nonnegative placement seeds; each seed solves its own disjoint set of candidates.",
+        help="Distinct nonnegative seeds; each seed builds every spec once, solving its own candidates.",
     )
     group.add_argument(
         "--random_yaw_init",
@@ -138,7 +138,7 @@ def main() -> None:
         return
 
     settings = PlacementBenchmarkSettings(
-        num_layouts=args_cli.num_layouts,
+        num_envs=args_cli.num_envs,
         placement_seeds=args_cli.placement_seeds,
         random_yaw_init=args_cli.random_yaw_init,
         collision_mode=None if args_cli.collision_mode is None else CollisionMode(args_cli.collision_mode),
@@ -229,7 +229,10 @@ def get_seed_block_index(suite: str, spec_path: Path) -> int:
 def measure_environment(
     suite: str, spec_path: Path, settings: PlacementBenchmarkSettings, seed_block_index: int
 ) -> EnvironmentRecord:
-    """Return one environment spec's record after placing every seed, recording failures instead of raising.
+    """Return one environment spec's record after building it once per seed, recording failures instead of raising.
+
+    Each build is the normal ArenaEnvBuilder.build_env_cfg() for settings.num_envs environments, without stepping
+    physics; the record accumulates the placement diagnostics of every build.
 
     Args:
         suite: Suite the spec belongs to.
@@ -244,15 +247,22 @@ def measure_environment(
     start = time.perf_counter()
     record = EnvironmentRecord(suite=suite, environment=spec_path.stem, status=EnvironmentStatus.SCORED)
     try:
-        arena_env = ArenaEnvGraphSpec.from_yaml(spec_path).to_arena_env()
-        inputs = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg()).prepare_live_placement_inputs()
-        if all(asset.is_anchor for asset in inputs.assets):
-            record.status = EnvironmentStatus.SKIPPED
-            record.reason = "places nothing other than anchors"
-        else:
-            placer = CandidatePlacer(inputs, settings, seed_block_index)
-            for seed in settings.placement_seeds:
-                add_seed_results(record, placer.place(seed))
+        for seed in settings.placement_seeds:
+            # A build applies build-time variations to its environment, so every build starts from the spec.
+            arena_env = ArenaEnvGraphSpec.from_yaml(spec_path).to_arena_env()
+            # Graph specs always carry placer parameters, built from the defaults and the spec's overrides.
+            assert arena_env.placer_params is not None, f"{spec_path} has no placer parameters"
+            if settings.random_yaw_init or settings.collision_mode is not None:
+                arena_env.placer_params = get_overridden_placer_params(arena_env.placer_params, settings)
+            placement_seed = get_placement_seed(arena_env.placer_params, settings.num_envs, seed_block_index, seed)
+            builder_cfg = ArenaEnvBuilderCfg(num_envs=settings.num_envs, placement_seed=placement_seed)
+            builder = ArenaEnvBuilder(arena_env, builder_cfg)
+            builder.build_env_cfg()
+            if builder.placement_diagnostics is None:
+                record.status = EnvironmentStatus.SKIPPED
+                record.reason = "solves no relations"
+                break
+            add_build_results(record, builder.placement_diagnostics, settings.num_envs)
     except Exception as exc:
         traceback.print_exc()
         record.status = EnvironmentStatus.FAILED
@@ -261,100 +271,69 @@ def measure_environment(
     return record
 
 
-class CandidatePlacer:
-    """Places one environment's assets for each benchmark seed, returning every candidate."""
+def get_overridden_placer_params(
+    placer_params: ObjectPlacerParams, settings: PlacementBenchmarkSettings
+) -> ObjectPlacerParams:
+    """Return a copy of an environment's placer parameters with the benchmark's yaw and collision-mode overrides.
 
-    def __init__(self, inputs: LivePlacementInputs, settings: PlacementBenchmarkSettings, seed_block_index: int):
-        """Copy the placer parameters, apply the benchmark settings, build the placer and find the fixed obstacles.
-
-        Object sets among the assets get their members for every layout here, from the start of the seed block.
-
-        Args:
-            inputs: The environment's placement inputs; its placer parameters are copied, not modified.
-            settings: Benchmark settings.
-            seed_block_index: Index of the environment's own block of candidate seeds.
-        """
-        from isaaclab_arena.relations.geometry.bounding_box_helpers import assign_variants_for_envs
-        from isaaclab_arena.relations.geometry.passive_collision_objects import get_placement_collision_objects
-        from isaaclab_arena.relations.object_placer import ObjectPlacer
-
-        params = copy.copy(inputs.placer_params)
-        params.solver_params = copy.copy(params.solver_params)
-        params.reachability_config = copy.copy(params.reachability_config)
-        if settings.random_yaw_init:
-            params.random_yaw_init = True
-        if settings.collision_mode is not None:
-            params.solver_params.collision_mode = settings.collision_mode
-        # A layout normally keeps the best of max_placement_attempts candidates. Solve one candidate per attempt and
-        # request all of them, so the same candidates come back ranked and the valid ones can be counted.
-        self._attempts = params.max_placement_attempts
-        params.max_placement_attempts = 1
-        # Validators are built once here; place() only changes the placer's seed.
-        self._placer = ObjectPlacer(params)
-        self._assets = inputs.assets
-        self._collision_objects = get_placement_collision_objects(
-            inputs.assets, inputs.scene_assets, params.solver_params.collision_mode
-        )
-        self._num_layouts = settings.num_layouts
-        self._first_seed = seed_block_index * _SEEDS_PER_ENVIRONMENT
-        # An object set keeps its first member assignment, so draw it once from this environment's seed block; otherwise
-        # every seed would keep the members of whichever seed ran first.
-        assign_variants_for_envs(self._assets, self._num_layouts, placement_seed=self._first_seed)
-
-    def place(self, seed: int) -> list[list[PlacementResult]]:
-        """Place num_layouts layouts for one seed and return every candidate, ranked per layout.
-
-        The layouts match ObjectPlacer.place() with placement seed
-        seed_block_index * 2**20 + seed * num_layouts * max_placement_attempts, except that an object set keeps the
-        members drawn from the start of the seed block for every seed. Candidates are seeded consecutively from the
-        placement seed, so different seeds and different seed blocks solve disjoint candidates.
-
-        Args:
-            seed: Nonnegative benchmark seed.
-
-        Returns:
-            For each layout, its max_placement_attempts candidates, valid and lower-loss ones first.
-        """
-        candidates_per_seed = self._num_layouts * self._attempts
-        assert (seed + 1) * candidates_per_seed <= _SEEDS_PER_ENVIRONMENT, (
-            f"Seed {seed} needs {(seed + 1) * candidates_per_seed} candidate seeds, more than the"
-            f" {_SEEDS_PER_ENVIRONMENT} reserved per environment; use smaller seeds or fewer layouts"
-        )
-        self._placer.params.placement_seed = self._first_seed + seed * candidates_per_seed
-        return self._placer.place_ranked_per_env(
-            self._assets,
-            num_envs=self._num_layouts,
-            results_per_env=self._attempts,
-            collision_objects=self._collision_objects,
-        )
+    Args:
+        placer_params: The environment's placer parameters.
+        settings: Benchmark settings.
+    """
+    params = copy.copy(placer_params)
+    params.solver_params = copy.copy(params.solver_params)
+    if settings.random_yaw_init:
+        params.random_yaw_init = True
+    if settings.collision_mode is not None:
+        params.solver_params.collision_mode = settings.collision_mode
+    return params
 
 
-def add_seed_results(record: EnvironmentRecord, ranked_per_layout: list[list[PlacementResult]]) -> None:
-    """Accumulate one seed's layouts and candidates into the environment record.
+def get_placement_seed(placer_params: ObjectPlacerParams, num_envs: int, seed_block_index: int, seed: int) -> int:
+    """Return one build's placement seed, so that every build of every spec solves its own candidates.
+
+    A placement pool solves at most max_placement_attempts batches, each of at most
+    num_envs * min_unique_layouts_per_env * max_placement_attempts candidates, seeded consecutively from the
+    placement seed.
+
+    Args:
+        placer_params: The placer parameters the build uses.
+        num_envs: Environments per build.
+        seed_block_index: Index of the environment's own block of candidate seeds.
+        seed: Nonnegative benchmark seed.
+    """
+    attempts = placer_params.max_placement_attempts
+    seeds_per_build = attempts * num_envs * placer_params.min_unique_layouts_per_env * attempts
+    assert (seed + 1) * seeds_per_build <= _SEEDS_PER_ENVIRONMENT, (
+        f"Seed {seed} needs {(seed + 1) * seeds_per_build} candidate seeds, more than the {_SEEDS_PER_ENVIRONMENT}"
+        " reserved per environment; use smaller seeds or fewer environments"
+    )
+    return seed_block_index * _SEEDS_PER_ENVIRONMENT + seed * seeds_per_build
+
+
+def add_build_results(record: EnvironmentRecord, diagnostics: PlacementDiagnostics, num_envs: int) -> None:
+    """Accumulate one build's placement diagnostics into the environment record.
+
+    Candidate counts come from the pool's first batch, which has the same size in every build; later batches only
+    refill environments that lacked valid layouts, so including them would favor scenes that need more batches.
 
     Args:
         record: Record to update in place.
-        ranked_per_layout: For each layout, its candidates with the best one first.
+        diagnostics: Placement diagnostics of the build.
+        num_envs: Environments in the build.
     """
-    for ranked in ranked_per_layout:
-        best = ranked[0]
-        record.num_layouts += 1
-        record.num_candidates += len(ranked)
-        record.num_valid_candidates += sum(result.success for result in ranked)
-        for result in ranked:
-            for check in result.validation_results.get_failed_validation_check_names:
-                record.candidate_failures_per_check[check] = record.candidate_failures_per_check.get(check, 0) + 1
-        validation = best.validation_results
-        if best.success:
-            record.num_successful_layouts += 1
-        layout_checks = {}
-        for check in validation.validation_results:
-            # As in PlacementValidationResults, no declared required checks means every check is required.
-            layout_checks[str(check)] = validation.required_checks is None or check in validation.required_checks
-        assert (
-            not record.checks or record.checks == layout_checks
-        ), f"Checks differ between layouts of {record.environment}"
-        record.checks = layout_checks
+    first_batch = diagnostics.batches[0]
+    record.num_builds += 1
+    record.num_envs += num_envs
+    record.num_batches += len(diagnostics.batches)
+    record.num_fallback_envs += len(set(diagnostics.fallback_envs))
+    record.num_candidates += first_batch.num_candidates
+    record.num_valid_candidates += first_batch.num_valid
+    for check, counts in first_batch.checks.items():
+        record.rejections_per_check[check] = record.rejections_per_check.get(check, 0) + counts.num_rejected
+    build_checks = {check: counts.required for check, counts in first_batch.checks.items()}
+    assert not record.checks or record.checks == build_checks, f"Checks differ between builds of {record.environment}"
+    record.checks = build_checks
 
 
 def _run_git(*args: str) -> str | None:
