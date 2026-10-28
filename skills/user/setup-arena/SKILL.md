@@ -118,8 +118,7 @@ coexist for one checkout.
 Verify the editable source mount as the host user:
 
 ```bash
-docker exec --user "$(id -un)" --env USER="$(id -un)" --env LOGNAME="$(id -un)" \
-  --workdir /workspaces/isaaclab_arena "$ARENA_CONTAINER" \
+docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
   isaaclab.sh -p -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'
 ```
 
