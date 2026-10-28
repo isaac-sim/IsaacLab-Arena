@@ -31,8 +31,6 @@ env:
   OMNI_PASS: ${{ secrets.OMNI_PASS }}
   OMNI_USER: ${{ secrets.OMNI_USER }}
   ARENA_IMAGE: nvcr.io/nvstaging/isaac-amr/isaaclab_arena
-  # TODO(xinjieyao): Switch to latest post merge.
-  ARENA_PINNED_IMAGE: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobov2-523f4c83c5@sha256:a56501029b5f45eaf598f7b32d5df4189849c500835accaa7a5a0e1a04d48446
   # Disable omniclient hub mode to avoid ~10s startup time for sim startup.
   OMNICLIENT_HUB_MODE: disabled
 
@@ -225,38 +223,18 @@ jobs:
           echo "Built ${ARENA_TARGET}: ${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
 
 
-  arena_image:
-    name: Check the pinned Arena image
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 15
-    needs: [pre_commit]
-    container:
-      image: ubuntu:24.04
-    outputs:
-      image: ${{ steps.image.outputs.ref }}
-
-    steps:
-      - *install_docker_step
-      - *docker_login_ngc_step
-      - name: Check the pinned image
-        id: image
-        run: |
-          docker buildx imagetools inspect "$ARENA_PINNED_IMAGE"
-          echo "ref=${ARENA_PINNED_IMAGE}" >> "$GITHUB_OUTPUT"
-          echo "Using pinned image: ${ARENA_PINNED_IMAGE}" >> "$GITHUB_STEP_SUMMARY"
-
-
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 80
-    needs: [arena_image]
+    needs: [build_and_push_image]
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_PUBLIC_NVIDIA_API_KEY }}
 
     container:
-      image: ${{ needs.arena_image.outputs.image }}
+      # TODO(xinjieyao): Switch to latest post merge.
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobov2-523f4c83c5@sha256:a56501029b5f45eaf598f7b32d5df4189849c500835accaa7a5a0e1a04d48446
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -341,10 +319,11 @@ jobs:
     name: Run tests with subprocess
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
-    needs: [arena_image]
+    needs: [build_and_push_image]
 
     container:
-      image: ${{ needs.arena_image.outputs.image }}
+      # TODO(xinjieyao): Switch to latest post merge.
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobov2-523f4c83c5@sha256:a56501029b5f45eaf598f7b32d5df4189849c500835accaa7a5a0e1a04d48446
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -382,7 +361,7 @@ jobs:
     name: GR00T closed-loop E2E
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 60
-    needs: [arena_image]
+    needs: [build_and_push_image]
     env:
       GR00T_REMOTE_HOST: gr00t
       GR00T_REMOTE_PORT: "5555"
@@ -390,7 +369,8 @@ jobs:
       GR00T_CI_SERVER_WORKSPACE: ${{ github.workspace }}/.gr00t-ci-${{ github.run_id }}-${{ github.run_attempt }}.workspace
 
     container:
-      image: ${{ needs.arena_image.outputs.image }}
+      # TODO(xinjieyao): Switch to latest post merge.
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobov2-523f4c83c5@sha256:a56501029b5f45eaf598f7b32d5df4189849c500835accaa7a5a0e1a04d48446
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
