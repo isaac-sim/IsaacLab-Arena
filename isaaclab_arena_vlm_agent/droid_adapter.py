@@ -54,10 +54,24 @@ class DroidVLMAdapter:
 
     def get_system_prompt(self, action_adapter: AgentActionAdapter) -> str:
         """Describe the DROID pose contract and the selected response schema."""
+        guidance = ""
         if isinstance(action_adapter, AbsoluteChunkActionAdapter):
             response = (
                 f"Return a JSON object with a commands list of exactly {action_adapter.chunk_size} commands, "
                 "executed one per simulation step. Each command has a values list of eight numbers: "
+            )
+            # Each request is decided from the current state alone, so describe grasp height and holding.
+            guidance = (
+                f"The grasp point between the open finger pads is {GRASP_POINT_OFFSET_M} m along base_link's "
+                "local +X axis, toward the fingertips. With the fingers pointing down, place base_link "
+                f"{GRASP_POINT_OFFSET_M} m above the height where the object should sit between the pads; lower "
+                "targets push the fingers into the table or object and cannot be reached, so close the gripper "
+                "once base_link stops descending near that height. Closing takes several steps. "
+                "policy.gripper_pos is the measured finger closure: 0 is open, it rises toward 1 as the fingers "
+                "close, and it stops short of 1 when the fingers hold an object. The last value of "
+                "policy.actions is the previous gripper command. Once you command 1 to grasp, keep commanding 1 "
+                "while the fingers close, lift, and carry; command 0 only when the object is above the "
+                "destination. "
             )
         else:
             assert isinstance(
@@ -89,7 +103,8 @@ class DroidVLMAdapter:
             "policy.eef_quat is the gripper's world orientation in XYZW. Read the current "
             "commanded-body pose from command_body_poses.arm_action when state is provided. This body is not "
             "the finger midpoint. Predict nearby waypoints using small pose changes. "
-            "Follow the response schema exactly, with no explanatory text."
+            + guidance
+            + "Follow the response schema exactly, with no explanatory text."
         )
 
 
