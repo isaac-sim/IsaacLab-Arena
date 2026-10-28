@@ -4,22 +4,8 @@ Kitchen Benchmark Catalog
 The kitchen benchmark contains 42 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
-
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
-environment on October 28, 2026, using seed 42. These results cover all 42
-environments at
-`commit d361ffa746 <https://github.com/isaac-sim/IsaacLab-Arena/tree/d361ffa746efe20ef061bf2f8a63f68b20573f2d>`_
-(4,200 episodes total).
-
-The `main evaluation report <https://pdx.s8k.io/v1/AUTH_team-isaac/isaaclab_arena/workflows/kitchenbench-all-pi05-100ep-1/index.html>`_ contains 39 completed environments.
-The three ``kitchen_bench_replicator_l_island_*`` environments were rerun after
-simulator startup stalled; their results and videos are in the
-`recovery report <https://pdx.s8k.io/v1/AUTH_team-isaac/isaaclab_arena/workflows/kitchenbench-l-island-pi05-5env-100ep-1/index.html>`_. The main evaluation used 25 parallel
-instances per environment, and the recovery used 5. Per-environment rates use one
-complete attempt; interrupted attempts are excluded.
-
-Category success rates are the arithmetic mean of the per-environment success
-rates in that category.
+environment on October 28, 2026.
 
 .. list-table:: Task categories
    :header-rows: 1
