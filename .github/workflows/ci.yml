@@ -109,17 +109,24 @@ jobs:
         run: python3 -m unittest discover -s docker -p 'test_report_build_cache.py' -v
 
 
-  arena_image:
-    name: Check the pinned Arena image
+  build_and_push_image:
+    name: Build and push Arena image
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 15
+    timeout-minutes: 120
     needs: [pre_commit]
     container:
       image: ubuntu:24.04
+    env:
+      ARENA_TARGET: dev
     outputs:
       image: ${{ steps.image.outputs.ref }}
 
-    steps:
+    steps: &build_and_push_image_steps
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
       - &install_docker_step
         name: Install docker
         run: |
@@ -142,6 +149,95 @@ jobs:
         # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
         run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
 
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver: docker-container
+
+      - name: Describe cache inputs
+        run: |
+          echo "Cache: ${ARENA_IMAGE}:buildcache-main-${ARENA_TARGET}"
+          docker buildx version
+          git rev-parse HEAD
+          git submodule status
+
+      - name: Build and push candidate image
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: docker/Dockerfile.isaaclab_arena
+          target: ${{ env.ARENA_TARGET }}
+          platforms: linux/amd64
+          build-args: WORKDIR=/workspaces/isaaclab_arena
+          pull: true
+          push: true
+          # Keep candidate images as single-platform manifests for NGC.
+          provenance: false
+          tags: ${{ env.ARENA_IMAGE }}:ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.ARENA_TARGET }}
+          cache-from: type=registry,ref=${{ env.ARENA_IMAGE }}:buildcache-main-${{ env.ARENA_TARGET }}
+          # PRs read the shared cache; only a push to main may replace it.
+          cache-to: >-
+            ${{ github.event_name == 'push' && github.ref == 'refs/heads/main'
+                && format('type=registry,ref={0}:buildcache-main-{1},mode=max,oci-mediatypes=true,image-manifest=true',
+                          env.ARENA_IMAGE, env.ARENA_TARGET) || '' }}
+
+      # Show cache hits and step timings in the job log and GitHub Actions run summary
+      # to help explain unexpected rebuilds or slow cache downloads.
+      - name: Report Docker cache usage
+        shell: bash
+        if: ${{ !cancelled() && (steps.build.outcome == 'success' || steps.build.outcome == 'failure') }}
+        # Diagnostics must not hide the original build result.
+        continue-on-error: true
+        env:
+          BUILD_REF: ${{ fromJSON(steps.build.outputs.metadata || '{}')['buildx.build.ref'] }}
+        run: |
+          # History logs expects the record ID, not the full builder/node/record reference.
+          BUILD_REF=${BUILD_REF##*/}
+          # On failure, metadata may be absent; this dedicated builder has only one build.
+          # Buildx writes raw JSON events to stderr; retain text errors in the same artifact.
+          if ! docker buildx history logs --progress=rawjson ${BUILD_REF:+"$BUILD_REF"} > build-cache.jsonl 2>&1; then
+            echo "::warning::BuildKit history lookup failed; cache diagnostics may be incomplete."
+          fi
+          python3 docker/report_build_cache.py < build-cache.jsonl | tee build-cache-summary.md
+          cat build-cache-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Save the summary and raw BuildKit events under the run's Artifacts section.
+      # Each build-cache-<target>-<attempt> download supports detailed investigation.
+      - name: Upload cache diagnostics
+        continue-on-error: true
+        if: ${{ !cancelled() && (steps.build.outcome == 'success' || steps.build.outcome == 'failure') }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-cache-${{ env.ARENA_TARGET }}-${{ github.run_attempt }}
+          path: |
+            build-cache.jsonl
+            build-cache-summary.md
+          if-no-files-found: warn
+
+      - name: Record candidate image digest
+        id: image
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          test -n "$IMAGE_DIGEST"
+          echo "ref=${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Built ${ARENA_TARGET}: ${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+
+
+  arena_image:
+    name: Check the pinned Arena image
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 15
+    needs: [pre_commit]
+    container:
+      image: ubuntu:24.04
+    outputs:
+      image: ${{ steps.image.outputs.ref }}
+
+    steps:
+      - *install_docker_step
+      - *docker_login_ngc_step
       - name: Check the pinned image
         id: image
         run: |
@@ -415,12 +511,12 @@ jobs:
     name: Publish tested NGC image (post-merge)
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 15
-    needs: [arena_image, test]
+    needs: [build_and_push_image, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     container:
       image: ubuntu:24.04
     env:
-      CANDIDATE_IMAGE: ${{ needs.arena_image.outputs.image }}
+      CANDIDATE_IMAGE: ${{ needs.build_and_push_image.outputs.image }}
 
     steps:
       - *install_docker_step
