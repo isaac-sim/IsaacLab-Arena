@@ -194,12 +194,17 @@ def test_preset_supplies_prompt_and_strategy(monkeypatch, policy_type, cfg_type)
     cfg.system_prompt = None
     policy = policy_type(cfg)
     assert "base_link" in policy._system_prompt
-    assert f"{droid_adapter.GRASP_POINT_OFFSET_M} m" in policy._system_prompt
     if policy_type is VLMChunkPolicy:
         assert "exactly 2 commands" in policy._system_prompt
-        assert "keep commanding 1" in policy._system_prompt
+        assert "keep commanding 1" not in policy._system_prompt
         assert policy.action_adapter.chunk_size == 2
+        single_step_prompt = droid_adapter.DroidVLMAdapter().get_system_prompt(
+            droid_adapter._DroidChunkActionAdapter(1)
+        )
+        assert f"{droid_adapter.GRASP_POINT_OFFSET_M} m" in single_step_prompt
+        assert "keep commanding 1" in single_step_prompt
     else:
+        assert f"{droid_adapter.GRASP_POINT_OFFSET_M} m" in policy._system_prompt
         assert "Return one goal" in policy._system_prompt
         assert "previous_goal" in policy._system_prompt
         assert "gripper_action" in policy.action_adapter.motion_generator.grippers
