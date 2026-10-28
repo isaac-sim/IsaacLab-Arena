@@ -33,8 +33,8 @@ Each clone gets its own container (shared image, per-clone name), so clones run 
 Run as the host user, not root.
 
 ```bash
-docker exec --user "$(id -un)" --workdir /workspaces/isaaclab_arena "$ARENA_CONTAINER" \
- bash -c "<command>"
+docker exec --user "$(id -un)" --env USER="$(id -un)" --env LOGNAME="$(id -un)" \
+ --workdir /workspaces/isaaclab_arena "$ARENA_CONTAINER" bash -c "<command>"
 ```
 
 Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, isort, pyupgrade, codespell) runs **on the host**.

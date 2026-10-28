@@ -144,8 +144,13 @@ fi
 # If container is running, attach to it, otherwise start
 if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG$CONTAINER_SUFFIX 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
-  docker exec -it $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX bash -c \
-    'exec sudo --preserve-env -u "$1" -- env HOME="/home/$1" PATH="$PATH" bash' _ "$(id -un)"
+  docker exec -it \
+    --user "$(id -un)" \
+    --env USER="$(id -un)" \
+    --env LOGNAME="$(id -un)" \
+    --workdir "$WORKDIR" \
+    "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX" \
+    bash
 else
     DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX"
                     "--privileged"
