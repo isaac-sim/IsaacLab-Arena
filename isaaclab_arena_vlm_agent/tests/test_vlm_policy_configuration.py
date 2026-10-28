@@ -194,11 +194,14 @@ def test_preset_supplies_prompt_and_strategy(monkeypatch, policy_type, cfg_type)
     cfg.system_prompt = None
     policy = policy_type(cfg)
     assert "base_link" in policy._system_prompt
+    # Chunk prompts omit the grasp-point offset; including it lowered chunk success in DROID rollouts.
+    assert ("grasp point" in policy._system_prompt) == (policy_type is VLMGoalPolicy)
     if policy_type is VLMChunkPolicy:
         assert "exactly 2 commands" in policy._system_prompt
         assert policy.action_adapter.chunk_size == 2
     else:
-        assert "Return one command" in policy._system_prompt
+        assert "Return one goal" in policy._system_prompt
+        assert "previous_goal" in policy._system_prompt
         assert "gripper_action" in policy.action_adapter.motion_generator.grippers
     policy.close()
 

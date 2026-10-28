@@ -333,7 +333,10 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
 
 @register_policy
 class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
-    """Use a motion generator to execute decoded goals until completion or a step limit."""
+    """Use a motion generator to execute decoded goals until completion, a stall, or a step limit.
+
+    Each request after the first reports how the previous goal ended.
+    """
 
     name = "vlm_goal"
 
@@ -357,14 +360,18 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
             action_adapter=action_adapter,
         )
         self._goals: dict[int, tuple[np.ndarray, int]] = {}
+        self._previous_goals: dict[int, dict[str, Any]] = {}
 
     def _get_command(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> np.ndarray:
         pending = self._goals.get(env_id)
-        if (
-            pending is None
-            or pending[1] >= self.config.max_steps_per_goal
-            or self.action_adapter.motion_generator.goal_reached(pending[0], env, env_id)
-        ):
+        outcome = None if pending is None else self._get_goal_outcome(env, env_id, *pending)
+        if pending is None or outcome is not None:
+            if outcome is not None:
+                self._previous_goals[env_id] = {
+                    "values": [round(value, 4) for value in pending[0].tolist()],
+                    "outcome": outcome,
+                    "executed_steps": pending[1],
+                }
             goal = self._infer(self._request_content(env, observation, env_id), env.unwrapped.arena_world, env_id)
             executed = 0
         else:
@@ -380,13 +387,37 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
         self._goals[env_id] = (goal, executed + 1)
         return command
 
+    def _get_goal_outcome(self, env: gym.Env, env_id: int, goal: np.ndarray, executed: int) -> str | None:
+        """Return how the pending goal ended, or None while it is still executing."""
+        motion_generator = self.action_adapter.motion_generator
+        if motion_generator.goal_reached(goal, env, env_id):
+            return "reached"
+        if motion_generator.goal_blocked(goal, env, env_id):
+            return "blocked"
+        if executed >= self.config.max_steps_per_goal:
+            return "timeout"
+        return None
+
+    def _request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
+        """Report the previous goal and its outcome alongside the task description."""
+        content = super()._request_content(env, observation, env_id)
+        previous_goal = self._previous_goals.get(env_id)
+        if previous_goal is not None:
+            content[0] = {
+                "type": "text",
+                "text": json.dumps({"task": self.task_description, "previous_goal": previous_goal}),
+            }
+        return content
+
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        """Discard pending goals for selected environments, or all environments."""
+        """Discard pending and previous goals for selected environments, or all environments."""
         if env_ids is None:
             self._goals.clear()
+            self._previous_goals.clear()
         else:
             for env_id in env_ids.reshape(-1).tolist():
                 self._goals.pop(env_id, None)
+                self._previous_goals.pop(env_id, None)
 
 
 def _get_vlm_embodiment_adapter(name: str | None):

@@ -27,6 +27,21 @@ class MotionGenerator(ABC):
             Whether the goal has been reached.
         """
 
+    def goal_blocked(self, goal: np.ndarray, env, env_id: int) -> bool:
+        """Check whether the measured state stopped changing before reaching the goal.
+
+        Call once per simulation step while the goal is pending and unreached.
+
+        Args:
+            goal: Validated goal for one environment.
+            env: Arena environment, optionally gym-wrapped.
+            env_id: Environment index within the batched world state.
+
+        Returns:
+            Whether execution stalled short of the goal. Generators without stall detection return False.
+        """
+        return False
+
     @abstractmethod
     def compute_command(self, goal: np.ndarray, env, env_id: int) -> np.ndarray:
         """Compute one command toward the goal using current measured state.

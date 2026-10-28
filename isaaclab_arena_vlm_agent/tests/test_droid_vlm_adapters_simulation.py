@@ -91,6 +91,16 @@ def _test_droid_absolute_pose_adapters(simulation_app):
             goal[0] += 0.1
             assert not generator.goal_reached(goal, env, env_id)
 
+        # The prompt's grasp offset must locate the embodiment's open finger-pad midpoint G.
+        from isaaclab_arena_vlm_agent.droid_adapter import GRASP_POINT_OFFSET_M
+
+        T_W_E = base.arena_world.get_body_pose_w("robot", "base_link")
+        t_E_G = T_W_E.new_tensor([GRASP_POINT_OFFSET_M, 0.0, 0.0]).expand(base.num_envs, 3)
+        t_W_G, _ = combine_frame_transforms(T_W_E[:, :3], T_W_E[:, 3:], t_E_G)
+        torch.testing.assert_close(
+            base.arena_world.get_frame_position_w("ee_frame", "end_effector"), t_W_G, atol=1e-4, rtol=0.0
+        )
+
     finally:
         env.close()
     return True

@@ -458,6 +458,42 @@ def test_goals_use_measured_feedback_step_limit_and_partial_reset(backend, actio
     assert len(calls) == 7
 
 
+def test_goal_outcomes_are_reported_in_the_next_request(backend):
+    calls = []
+
+    def create(**kwargs):
+        calls.append(copy.deepcopy(kwargs))
+        return response('{"target": [1, 2]}')
+
+    def previous_goals():
+        return [json.loads(call["messages"][1]["content"][0]["text"]).get("previous_goal") for call in calls[-2:]]
+
+    backend.client.chat.completions.create.side_effect = create
+    generator = JointMotionGenerator()
+    generator.goal_blocked = Mock(return_value=False)
+    policy = make_multi_step_policy(backend, JointGoalAdapter(motion_generator=generator))
+    env, observation = inputs()
+    policy.get_action(env, observation)
+    assert previous_goals() == [None, None]
+    policy.get_action(env, observation)
+    assert len(calls) == 2
+    policy.get_action(env, observation)
+    timeout = {"values": [1.0, 2.0], "outcome": "timeout", "executed_steps": 2}
+    assert previous_goals() == [timeout, timeout]
+    # Env 0 reaches its goal while env 1 stalls short of it.
+    observation["position"][0] = torch.tensor([1.0, 2.0])
+    generator.goal_blocked.return_value = True
+    policy.get_action(env, observation)
+    assert previous_goals() == [
+        {"values": [1.0, 2.0], "outcome": "reached", "executed_steps": 1},
+        {"values": [1.0, 2.0], "outcome": "blocked", "executed_steps": 1},
+    ]
+    policy.reset(torch.tensor([0]))
+    observation["position"][0] = torch.tensor([0.0, 1.0])
+    policy.get_action(env, observation)
+    assert previous_goals() == [None, {"values": [1.0, 2.0], "outcome": "blocked", "executed_steps": 1}]
+
+
 @pytest.mark.parametrize("mode", ["step", "goal"])
 def test_actions_use_live_world_without_joint_positions_in_prompt(backend, mode):
     backend.client.chat.completions.create.return_value = response('{"target": [1, 2]}')

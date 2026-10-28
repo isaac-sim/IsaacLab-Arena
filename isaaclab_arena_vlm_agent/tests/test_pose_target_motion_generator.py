@@ -97,6 +97,33 @@ def test_open_goal_needs_target_and_cannot_use_a_stall(setup):
     assert not generator.goal_reached(goal, env, 0)  # The old open command cannot complete a new close goal.
 
 
+def test_unreached_goal_is_blocked_only_after_stationary_steps(setup):
+    generator, env, goal, pose, _, gap = setup
+    pose[0, 2] = 0.05  # Contact holds the body short of the goal.
+    assert not generator.goal_blocked(goal, env, 0)
+    for _ in range(3):
+        env.unwrapped.episode_length_buf[0] += 1
+        pose[0, 2] -= 0.002
+        assert not generator.goal_blocked(goal, env, 0)  # Still approaching.
+    for _ in range(3):
+        assert not generator.goal_blocked(goal, env, 0)  # Repeated queries do not count as steps.
+    for index in range(generator.pose_stall_steps):
+        env.unwrapped.episode_length_buf[0] += 1
+        assert generator.goal_blocked(goal, env, 0) == (index == generator.pose_stall_steps - 1)
+    assert not generator.goal_blocked(goal, env, 1)  # Other environments have independent state.
+    moved = goal.copy()
+    moved[0] = 0.1
+    assert not generator.goal_blocked(moved, env, 0)  # A new goal restarts the count.
+    for _ in range(generator.pose_stall_steps):
+        env.unwrapped.episode_length_buf[0] += 1
+        gap[0] += 0.001  # A moving gripper is not stalled.
+        assert not generator.goal_blocked(moved, env, 0)
+    pose[0, 2] = 0
+    for _ in range(generator.pose_stall_steps + 1):
+        env.unwrapped.episode_length_buf[0] += 1
+        assert not generator.goal_blocked(goal, env, 0)  # A reached goal is never blocked.
+
+
 @pytest.mark.parametrize("value", [float("nan"), float("inf")])
 def test_nonfinite_gripper_measurements_do_not_complete(setup, value):
     generator, env, goal, _, error, _ = setup

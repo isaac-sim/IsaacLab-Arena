@@ -10,6 +10,9 @@ from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter
 from isaaclab_arena_vlm_agent.command_indices import AbsoluteCommandIndices, GripperCommandIndex, PoseCommandIndices
 from isaaclab_arena_vlm_agent.pose_target_motion_generator import PoseTargetMotionGenerator
 
+GRASP_POINT_OFFSET_M = 0.131
+"""Distance along Robotiq base_link +X to the open finger-pad midpoint, matching DroidSceneCfg.ee_frame."""
+
 
 class _DroidPoseActionAdapter:
     """Require the native pose and gripper layout described by the DROID prompt."""
@@ -60,7 +63,19 @@ class DroidVLMAdapter:
             assert isinstance(
                 action_adapter, AbsoluteGoalActionAdapter
             ), "Provide system_prompt when injecting a custom action adapter"
-            response = "Return one command as a JSON object with a values list of eight numbers: "
+            response = (
+                "Return one goal as a JSON object with a values list of eight numbers. The goal is held until it "
+                "is reached, blocked, or its step budget runs out. After the first goal, previous_goal reports "
+                "the last goal's values, executed_steps, and outcome: reached (within tolerance), blocked (the "
+                "arm and gripper stopped moving short of the goal, for example because the fingers touch the "
+                "table or an object), or timeout (the budget ran out while still moving). Do not resend a "
+                "blocked goal unchanged; correct it from the images and current pose, or close the gripper if "
+                "the object is already between the fingers. The grasp point between the open finger pads is "
+                f"{GRASP_POINT_OFFSET_M} m along base_link's local +X axis, toward the fingertips, and the fingers "
+                f"close along local Y. With the fingers pointing down, place base_link {GRASP_POINT_OFFSET_M} m "
+                "above the height where the object should sit between the pads; lower goals push the fingers "
+                "into the table or object and are blocked. The values are "
+            )
         return (
             "Control DROID to complete the supplied task using the current camera images and robot state. "
             + response
