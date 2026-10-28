@@ -212,7 +212,7 @@ uses five cached layouts.
    "Kitchen open door", "DROID opens the fridge door in the kitchen. DROID is next to the fridge, on the floor.", "Referenced articulated fridge"
 
 The environment specs are in ``isaaclab_arena_environments/agentic_env_gen_benchmark/``, one YAML file
-per environment. The kitchen environments are shown below.
+per environment. The kitchen environments and the 14-distractor tabletop environment are shown below.
 
 .. grid:: 1 1 2 2
    :gutter: 3
@@ -240,6 +240,12 @@ per environment. The kitchen environments are shown below.
 
       .. image:: ../../images/agentic_environment_generation/agentic_env_gen_benchmark_kitchen_open_fridge_door.png
          :alt: DROID on its stand next to the kitchen fridge
+
+   .. grid-item-card:: ``tabletop_banana_plate_distractors_14``
+      :class-card: sd-shadow-sm
+
+      .. image:: ../../images/agentic_environment_generation/agentic_env_gen_benchmark_tabletop_banana_plate_distractors_14.png
+         :alt: DROID at the maple table with a banana, a plate, and fourteen distractors
 
 Factors expected to affect prompt-to-spec latency include the number of objects and relations, scene complexity,
 SimReady Search API use, inference endpoint, and agentic model. Factors expected to affect layout resolution
