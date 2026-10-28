@@ -232,7 +232,7 @@ def test_every_benchmark_case_has_one_environment_spec_fixture():
     cases, default_case_name = benchmark.load_benchmark_cases(benchmark.DEFAULT_CASES_PATH)
 
     assert default_case_name in cases
-    assert set(cases) == set(resolved_layout_batch.find_benchmark_cases(resolved_layout_batch._DEFAULT_ENV_SPECS_DIR))
+    assert set(cases) == set(resolved_layout_batch.find_benchmark_cases(resolved_layout_batch.DEFAULT_ENV_SPECS_DIR))
 
 
 def test_load_benchmark_cases_from_manually_defined_file(tmp_path):

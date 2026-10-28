@@ -27,7 +27,7 @@ from isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_
 from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results import format_ms, write_json
 
 _BENCHMARK_SCRIPT = Path(__file__).with_name("benchmark_time_to_resolved_layout.py")
-_DEFAULT_ENV_SPECS_DIR = (
+DEFAULT_ENV_SPECS_DIR = (
     Path(importlib.util.find_spec("isaaclab_arena_environments").submodule_search_locations[0])
     / "agentic_env_gen_benchmark"
 )
@@ -55,8 +55,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--env_specs_dir",
         type=Path,
-        default=_DEFAULT_ENV_SPECS_DIR,
-        help=f"Directory with one spec YAML per case (default: {_DEFAULT_ENV_SPECS_DIR}).",
+        default=DEFAULT_ENV_SPECS_DIR,
+        help=f"Directory with one spec YAML per case (default: {DEFAULT_ENV_SPECS_DIR}).",
     )
     parser.add_argument(
         "--case",
@@ -104,7 +104,8 @@ def _command(
     return command
 
 
-def _print_summary(results: list[dict[str, Any]]) -> None:
+def print_summary(results: list[dict[str, Any]]) -> None:
+    """Print a p50/p95/p99 table with one row per case and environment count."""
     case_width = max([len("case"), *(len(result["case"]) for result in results)])
     print("\nValid spec to resolved layout pool", flush=True)
     print(
@@ -205,7 +206,7 @@ def main() -> int:
         "results": results,
     }
     write_json(combined_path, combined)
-    _print_summary(results)
+    print_summary(results)
     print(f"\n[batch] combined results: {combined_path}", flush=True)
     if failed_configurations:
         print(f"[batch] failed configurations: {', '.join(failed_configurations)}", flush=True)

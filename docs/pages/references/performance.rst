@@ -342,8 +342,7 @@ Run the benchmark
 ^^^^^^^^^^^^^^^^^
 
 Complete the :ref:`agentic environment generation prerequisites <agentic-env-gen-prerequisites>`
-first. Run the commands below from the repository root inside the Arena container. A reduced version
-of both benchmarks also runs weekly in CI and uploads its results as a workflow artifact.
+first. Run the commands below from the repository root inside the Arena container.
 
 **Prompt to first environment spec.** The batch runner runs every case in
 ``isaaclab_arena_examples/agentic_environment_generation/benchmark/time_to_first_spec_cases.yaml``,
@@ -387,6 +386,25 @@ To measure one case, run ``benchmark_time_to_first_spec.py`` with ``--case <name
   interrupted run. Resuming requires the same specs, placement seed, warmup count, and run count.
 * The full matrix took about 50 hours on one RTX 6000 Ada, measured before the SimReady case was
   added. Expect longer with all nine cases.
+
+To spread the matrix across GPUs, submit it as an OSMO workflow instead. Each case and environment
+count runs in its own GPU group, and a final group publishes every per-configuration result with a
+combined ``all_results.json`` to the workflow's output URL.
+
+.. code-block:: bash
+
+   python -m osmo.submit_time_to_resolved_layout_benchmark \
+     --image nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+
+* ``--cases`` and ``--num_envs`` take space-separated lists that select part of the matrix.
+  ``--num_runs``, ``--warmup_runs``, and ``--placement_seed`` match the batch runner's flags.
+* The image must contain the benchmark specs and scripts. To benchmark unmerged changes, build and
+  push an image from the branch and pass it with ``--image``.
+* The slowest configuration bounds the workflow's duration. A configuration that exceeds the group's
+  ``--exec_timeout`` keeps its finished samples and is listed in ``failed_configurations``.
+* The workflow reports success even when configurations fail, so check ``failed_configurations`` in
+  ``all_results.json``.
+* Add ``--dry_run`` to print the workflow YAML without submitting it.
 
 **Results.** Each batch runner prints a p50/p95/p99 table and writes one JSON file per case, or per
 case and environment count, plus ``<output_dir>/all_results.json``, which combines them. Each file
