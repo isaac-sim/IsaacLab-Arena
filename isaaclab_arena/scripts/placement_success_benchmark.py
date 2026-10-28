@@ -26,6 +26,7 @@ import argparse
 import copy
 import datetime
 import fnmatch
+import os
 import subprocess
 import time
 import traceback
@@ -64,6 +65,12 @@ Append new suites, so that the specs of earlier suites keep their seed blocks.
 
 _BENCHMARKED_PACKAGES = ("isaaclab_arena", "isaaclab_arena_environments")
 """Packages whose code and specs the benchmark measures, relative to the repository root."""
+
+_STAMPED_COMMIT_ENV_VAR = "ARENA_GIT_SHA"
+"""Environment variable an Arena image can set to its commit, with a "-dirty" suffix for uncommitted changes."""
+
+_STAMPED_BRANCH_ENV_VAR = "ARENA_GIT_BRANCH"
+"""Environment variable an Arena image can set to its branch."""
 
 _SEEDS_PER_ENVIRONMENT = 2**20
 """Size of each environment's block of candidate seeds, so environments never share candidates, even when they share
@@ -197,12 +204,20 @@ def discover_specs(suite: str, env_filters: list[str] | None) -> list[tuple[str,
 
 
 def get_git_provenance() -> tuple[str | None, str | None, bool | None]:
-    """Return the checkout's commit, branch and whether it has uncommitted changes, or None where git cannot tell.
+    """Return the checkout's commit, branch and whether it has uncommitted changes, or None where they are unknown.
 
     Changes count when they are to tracked files or are new files in the packages the benchmark reads, such as a new
-    spec. Other untracked files, such as local tool settings that only a user's own git config ignores, do not.
+    spec. Other untracked files, such as local tool settings that only a user's own git config ignores, do not. When
+    git cannot read the checkout, as in an image without .git, the values come from the ARENA_GIT_SHA and
+    ARENA_GIT_BRANCH environment variables if they are set.
     """
     commit = _run_git("rev-parse", "HEAD")
+    if commit is None:
+        stamped_commit = os.environ.get(_STAMPED_COMMIT_ENV_VAR) or None
+        if stamped_commit is None:
+            return None, None, None
+        stamped_branch = os.environ.get(_STAMPED_BRANCH_ENV_VAR) or None
+        return stamped_commit.removesuffix("-dirty"), stamped_branch, stamped_commit.endswith("-dirty")
     branch = _run_git("rev-parse", "--abbrev-ref", "HEAD")
     tracked_changes = _run_git("status", "--porcelain", "--untracked-files=no")
     package_changes = _run_git("status", "--porcelain", "--", *_BENCHMARKED_PACKAGES)

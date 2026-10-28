@@ -7,6 +7,7 @@
 
 import json
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -21,7 +22,14 @@ from isaaclab_arena.offline_placement.placement_success import (
     summarize_suites,
 )
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+PLACEMENT_SUCCESS_BASELINE = Path(TestConstants.test_data_dir) / "placement_success_baseline.json"
+"""Results of a short benchmark run on a few representative specs, written by the benchmark script."""
+
+REGRESSION_TOLERANCE = 0.1
+"""Largest drop in a spec's valid-candidate rate below the baseline that still passes, as a fraction."""
 
 
 # Defined first so the SimulationApp starts before placement code in later tests imports pxr through Isaac Lab.
@@ -49,6 +57,34 @@ def _test_real_specs_are_scored_or_failed(simulation_app) -> bool:
 def test_real_specs_are_scored_or_failed():
     """An object spec and a spec that places only the robot are scored, and a spec that cannot be built fails."""
     assert run_function_with_persistent_simulation_app(_test_real_specs_are_scored_or_failed)
+
+
+def _test_placement_success_matches_the_baseline(simulation_app) -> bool:
+    from isaaclab_arena.scripts.placement_success_benchmark import (
+        discover_specs,
+        get_seed_block_index,
+        measure_environment,
+    )
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+
+    ensure_environments_registered()
+    baseline = PlacementBenchmarkResults.load(PLACEMENT_SUCCESS_BASELINE)
+    for expected in baseline.environments:
+        [(suite, spec_path)] = discover_specs(expected.suite, [expected.environment])
+        measured = measure_environment(suite, spec_path, baseline.settings, get_seed_block_index(suite, spec_path))
+        assert measured.status == EnvironmentStatus.SCORED, f"{expected.environment}: {measured.reason}"
+        # The same seeds solve the same candidates; the tolerance absorbs GPU differences and random asset variants.
+        assert measured.valid_candidate_rate >= expected.valid_candidate_rate - REGRESSION_TOLERANCE, (
+            f"{expected.environment}: valid candidates fell from {expected.valid_candidate_rate:.1%} to"
+            f" {measured.valid_candidate_rate:.1%}"
+        )
+        assert measured.num_fallback_envs <= expected.num_fallback_envs, f"{expected.environment}: new fallbacks"
+    return True
+
+
+def test_placement_success_matches_the_baseline():
+    """A few representative specs place no worse than the stored baseline, so a placement regression fails CI."""
+    assert run_function_with_persistent_simulation_app(_test_placement_success_matches_the_baseline)
 
 
 def test_results_file_round_trips_and_reports_suite_rates(tmp_path):
@@ -305,6 +341,19 @@ def test_a_build_that_solves_every_pool_batch_fills_exactly_its_reserved_seeds()
     reserved = get_placement_seed(params, num_envs, 0, 1) - get_placement_seed(params, num_envs, 0, 0)
     assert len(pool.diagnostics.batches) == params.max_placement_attempts
     assert solved == reserved
+
+
+def test_git_provenance_falls_back_to_the_stamped_commit(tmp_path, monkeypatch):
+    """Without a readable checkout, the commit and branch come from the variables an Arena image can set."""
+    from isaaclab_arena.scripts import placement_success_benchmark
+
+    monkeypatch.setattr(placement_success_benchmark, "_REPO_ROOT", tmp_path)
+    monkeypatch.delenv("ARENA_GIT_SHA", raising=False)
+    assert placement_success_benchmark.get_git_provenance() == (None, None, None)
+
+    monkeypatch.setenv("ARENA_GIT_SHA", "1a2b3c4-dirty")
+    monkeypatch.setenv("ARENA_GIT_BRANCH", "main")
+    assert placement_success_benchmark.get_git_provenance() == ("1a2b3c4", "main", True)
 
 
 def test_overridden_placer_params_change_a_copy():

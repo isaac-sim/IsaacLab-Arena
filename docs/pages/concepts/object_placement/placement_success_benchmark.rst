@@ -167,6 +167,32 @@ here.
 
 ``--compare`` only reports; its exit status does not signal a regression.
 
+Regression Test
+---------------
+
+``isaaclab_arena/tests/test_placement_success_benchmark.py`` runs a short
+version of the benchmark with the other tests in CI. It builds three
+representative specs once with four environments: an easy RoboLab task, a
+crowded bin and a spec that places only the robot. It compares them with
+``isaaclab_arena/tests/test_data/placement_success_baseline.json``, and fails
+when a spec fails, gains a best-loss fallback or its valid-candidate rate falls
+more than 10 points below the baseline. The same seeds solve the same
+candidates, so the tolerance only absorbs GPU differences and random asset
+variants; smaller changes still need a full comparison.
+
+After a change that is meant to move these rates, regenerate the baseline with
+the benchmark and commit it with the change:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/placement_success_benchmark.py \
+     --env banana_on_plate \
+     --env mustard_in_left_bin \
+     --env kitchen_bench_lightwheel_open_fridge \
+     --num_envs 4 \
+     --placement_seeds 0 \
+     --output isaaclab_arena/tests/test_data/placement_success_baseline.json
+
 The Results File
 ----------------
 
@@ -186,7 +212,9 @@ A suite has no rates when any of its environments failed, and the script exits
 with an error after writing the file.
 
 When git cannot read the checkout, for example in an image without ``.git``,
-the run prints a warning and records no commit.
+the run reads the commit and branch from the ``ARENA_GIT_SHA`` and
+``ARENA_GIT_BRANCH`` environment variables, if they are set; otherwise it prints
+a warning and records no commit.
 
 ``isaaclab_arena/offline_placement/placement_success.py`` reads, summarizes and
 compares results files without the simulator, so other tools can use them:
