@@ -2,8 +2,8 @@ Use the Generated Environment
 -----------------------------
 
 Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.
-The base container runs the environment as it was generated. The cuRobo-installed container additionally
-gates object placement on whether the robot can reach the target objects.
+Every Arena install includes cuRobo, so you can also keep only the object layouts in which the robot
+can reach the target objects (see below).
 
 For example, you can use the policy runner to evaluate a PI policy on the
 environment. For other policy types, see
@@ -19,66 +19,41 @@ In the other terminal, run the following command to launch the policy runner. Th
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
 ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
-.. tab-set::
+Complete the shared :ref:`agentic-env-gen-prerequisites` before running this command.
 
-   .. tab-item:: Policy evaluation (without reachability validation)
-      :selected:
+.. code-block:: bash
 
-      Complete the shared :ref:`agentic-env-gen-prerequisites` before running this command.
+   python isaaclab_arena/evaluation/policy_runner.py \
+      --viz kit \
+      --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
+      --enable_cameras \
+      --num_envs 1 \
+      --num_episodes 3 \
+      --env_spec isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
 
-      .. code-block:: bash
+To keep only layouts in which the robot can reach the target objects, turn on the cuRobo
+``ik_reachable`` check, which is off by default, in the spec's ``placer_params``:
 
-         python isaaclab_arena/evaluation/policy_runner.py \
-            --viz kit \
-            --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-            --enable_cameras \
-            --num_envs 1 \
-            --num_episodes 3 \
-            --env_spec isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
+.. code-block:: yaml
 
+   placer_params:
+     reachability_config:
+       enabled: true
 
-   .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
+While the environment builds, every batch of candidate layouts reports how many of them passed each
+check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:
 
-      .. note::
-         Reachability validation runs only in the cuRobo-installed Docker container
-         (``./docker/run_docker.sh -c``). It is not available with a native ``uv``
-         install — see :doc:`../../../quickstart/installation` and
-         :ref:`ik-reachable-check`.
+.. code-block:: text
 
-      If you want to ensure the robot can reach the target objects (i.e. beverage can, bean can and mini plastic
-      basket), you can use this environment in the cuRobo-installed docker container to activate the
-      reachability validation.
+   [placement] Validated 50 candidate layout(s); passed per check: on_relation=44/50, clutter_on_relation=50/50, align_with=50/50, next_to=40/50, not_next_to=50/50, face_to=50/50, no_overlap=41/50, ik_reachable=15/34
 
-      **Docker Container**: Curobo-installed Base (see :doc:`../../../quickstart/installation` for more details)
+A low ``ik_reachable`` ratio means most sampled layouts put the beverage can, bean can, or basket outside the
+arm's workspace, and the placer keeps resampling. A composite task rejects more layouts than an atomic
+one, because every pick target and the place target must be reachable in the same layout.
+When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
 
-      :docker_run_curobo:
-
-      Now only the layouts the robot can reach are used:
-
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-            --viz kit \
-            --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-            --enable_cameras \
-            --num_envs 1 \
-            --num_episodes 3 \
-            --env_spec isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
-
-      While the environment builds, every batch of candidate layouts reports how many of them passed each
-      check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:
-
-      .. code-block:: text
-
-         [placement] Validated 50 candidate layout(s); passed per check: on_relation=47/50, next_to=39/50, not_next_to=50/50, face_to=50/50, no_overlap=39/50, ik_reachable=6/36
-
-      A low ``ik_reachable`` ratio means most sampled layouts put the beverage can, bean can, or basket outside the
-      arm's workspace, and the placer keeps resampling. A composite task rejects more layouts than an atomic
-      one, because every pick target and the place target must be reachable in the same layout.
-      When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
-
-      See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
-      or disable it.
+See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
+or disable it.
 
 .. figure:: ../../../../images/agentic_environment_generation/agentic_env_droid_pi_cans_basket_pnp_run1.gif
    :width: 100%

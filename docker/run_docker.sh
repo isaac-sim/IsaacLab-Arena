@@ -53,7 +53,8 @@ while getopts ":d:m:e:hn:rRvn:s:ct:" OPTION; do
             set -x
             ;;
         c)
-            DOCKER_TARGET="dev-curobo"
+            # cuRobo used to need its own image; keep accepting -c so existing commands still work.
+            echo "Warning: -c is no longer needed; the default image includes cuRobo." >&2
             ;;
         t)
             DOCKER_TARGET=$OPTARG
@@ -77,8 +78,7 @@ while getopts ":d:m:e:hn:rRvn:s:ct:" OPTION; do
             echo "  -n <docker name> (Name of the docker image that will be built or used. Default is \"$DOCKER_IMAGE_NAME\".)"
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
-            echo "  -c (Select the dev-curobo target.)"
-            echo "  -t <target> (Select dev or dev-curobo; default: dev.)"
+            echo "  -t <target> (Select the Docker target; default: dev. The image includes cuRobo.)"
             echo "  -s <suffix> (Suffix appended to the container name, allowing multiple containers to run simultaneously."
             echo "      Defaults to the repo directory name after 'IsaacLab-Arena', so each clone gets its own container.)"
             exit 0

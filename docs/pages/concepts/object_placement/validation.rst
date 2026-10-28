@@ -153,10 +153,17 @@ IK Reachability (``ik_reachable``)
    (green). Distractors outside the reachable volume may appear red for
    illustration, but they never reject the layout.
 
-``ReachabilityValidator`` lives in the optional ``isaaclab_arena_curobo``
-extension. It registers when that package imports successfully and the
-embodiment has a cuRobo config (e.g. Droid). ``ArenaEnvBuilder`` wires
-the env's embodiment into ``reachability_config`` automatically.
+``ReachabilityValidator`` lives in the ``isaaclab_arena_curobo`` extension, and
+cuRobo is installed with Arena. The check is off by default; it runs when
+``reachability_config.enabled`` is ``True`` and the embodiment has a cuRobo
+config (e.g. Droid). ``ArenaEnvBuilder`` wires the env's embodiment into
+``reachability_config`` automatically. In YAML:
+
+.. code-block:: yaml
+
+   placer_params:
+     reachability_config:
+       enabled: true
 
 It gates only objects marked ``RequiresReachability`` — a relation that tasks
 such as ``PickAndPlaceTask`` stamp automatically. With no such relation, the
@@ -180,8 +187,9 @@ Enabling and Disabling Checks
 Two concepts control the build-time checks: which checks **run**
 (``enabled_checks``) and, of those, which must **pass** for a layout to be
 valid (``required_checks``). By default every registered check runs and is
-required — so when cuRobo is available, ``ik_reachable`` gates placement
-automatically. Making a check optional (enabled but not required) keeps it
+required; ``ik_reachable`` additionally needs ``reachability_config.enabled``,
+and naming it in ``enabled_checks`` or ``required_checks`` while that is off is
+an error. Making a check optional (enabled but not required) keeps it
 running and reported without rejecting layouts, which is the usual way to
 keep placement geometry-only.
 

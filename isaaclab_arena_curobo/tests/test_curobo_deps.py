@@ -3,11 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Smoke test that the cuRobo-enabled image carries the deps the IK-reachability code needs.
+"""Smoke test that an Arena install carries the deps the IK-reachability code needs.
 
-Runs only in the cuRobo image (build with ``./docker/run_docker.sh -c``); the base image has no
-cuRobo. These are pure import checks — they need no SimulationApp — and guard against the gated
-cuRobo deps (and the ``isaaclab_arena_curobo`` package itself) silently going missing from that image.
+cuRobo is a locked Arena dependency, so these hold in both native uv and Docker. These are pure import checks —
+they need no SimulationApp — and guard against the cuRobo deps (and the ``isaaclab_arena_curobo`` package itself)
+silently going missing from an install.
 """
 
 import importlib
@@ -36,7 +36,7 @@ ARENA_CUROBO_MODULES = [
 
 @pytest.mark.parametrize("module_name", CUROBO_DEPENDENCY_MODULES + ARENA_CUROBO_MODULES)
 def test_module_importable(module_name):
-    """Each cuRobo dependency and gated arena module imports cleanly in the cuRobo image."""
+    """Each cuRobo dependency and gated arena module imports cleanly."""
     importlib.import_module(module_name)
 
 

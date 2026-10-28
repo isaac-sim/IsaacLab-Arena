@@ -2,8 +2,8 @@ Use the Generated Environment
 -----------------------------
 
 Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.
-The base container runs the environment as it was generated. The cuRobo-installed container additionally
-gates object placement on whether the robot can reach the target objects.
+Every Arena install includes cuRobo, so you can also keep only the object layouts in which the robot
+can reach the target objects (see below).
 
 For example, you can use the policy runner to evaluate a PI policy on the
 environment. For other policy types, see
@@ -19,62 +19,38 @@ In the other terminal, run the following command to launch the policy runner. Th
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
 ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
-.. tab-set::
+.. code-block:: bash
 
-   .. tab-item:: Policy evaluation (without reachability validation)
-      :selected:
+   python isaaclab_arena/evaluation/policy_runner.py \
+      --viz kit \
+      --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
+      --enable_cameras \
+      --num_envs 1 \
+      --num_episodes 2 \
+      --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
 
-      .. code-block:: bash
+To keep only layouts in which the robot can reach the target objects, turn on the cuRobo
+``ik_reachable`` check, which is off by default, in the spec's ``placer_params``:
 
-         python isaaclab_arena/evaluation/policy_runner.py \
-            --viz kit \
-            --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-            --enable_cameras \
-            --num_envs 1 \
-            --num_episodes 2 \
-            --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
+.. code-block:: yaml
 
+   placer_params:
+     reachability_config:
+       enabled: true
 
-   .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
+While the environment builds, every batch of candidate layouts reports how many of them passed each
+check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the pass rate to watch:
 
-      .. note::
-         Reachability validation runs only in the cuRobo-installed Docker container
-         (``./docker/run_docker.sh -c``). It is not available with a native ``uv``
-         install — see :doc:`../../../quickstart/installation` and
-         :ref:`ik-reachable-check`.
+.. code-block:: text
 
-      If you want to ensure the robot can reach the target objects (i.e. mustard bottle and bowl), you can
-      use this environment in the cuRobo-installed docker container to activate the reachability validation.
+   [placement] Validated 50 candidate layout(s); passed per check: on_relation=49/50, clutter_on_relation=50/50, align_with=50/50, next_to=36/50, not_next_to=50/50, face_to=50/50, no_overlap=50/50, ik_reachable=24/36
 
-      **Docker Container**: Curobo-installed Base (see :doc:`../../../quickstart/installation` for more details)
+A low ``ik_reachable`` ratio means most sampled layouts put the mustard bottle or the bowl outside the
+arm's workspace, and the placer keeps resampling.
+When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
 
-      :docker_run_curobo:
-
-      Now only the layouts the robot can reach are used:
-
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-            --viz kit \
-            --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-            --enable_cameras \
-            --num_envs 1 \
-            --num_episodes 2 \
-            --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
-
-      While the environment builds, every batch of candidate layouts reports how many of them passed each
-      check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the pass rate to watch:
-
-      .. code-block:: text
-
-         [placement] Validated 50 candidate layout(s); passed per check: on_relation=49/50, next_to=45/50, not_next_to=50/50, face_to=50/50, no_overlap=50/50, ik_reachable=15/44
-
-      A low ``ik_reachable`` ratio means most sampled layouts put the mustard bottle or the bowl outside the
-      arm's workspace, and the placer keeps resampling.
-      When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
-
-      See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
-      or disable it.
+See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
+or disable it.
 
 .. figure:: ../../../../images/agentic_environment_generation/droid_kitchen_pnp_pi.gif
    :width: 100%

@@ -196,6 +196,7 @@ def test_graph_spec_converts_serialized_placer_param_types():
             {"enabled_checks": ["no_overlap"], "required_checks": ["on_relation"]},
             "required_checks must be a subset",
         ),
+        ({"enabled_checks": ["no_overlap", "ik_reachable"]}, "reachability validation is off"),
         ({"_target_": "builtins.dict"}, "Unsupported Hydra control key"),
     ],
 )

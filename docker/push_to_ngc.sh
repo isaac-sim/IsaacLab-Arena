@@ -12,13 +12,12 @@ source "$SCRIPT_DIR/setup/target_tag.sh"
 
 usage() {
     cat <<USAGE
-Usage: $(basename "$0") [-c] [-t tag] [-R] [-p] [-v]
+Usage: $(basename "$0") [-t tag] [-R] [-p] [-v]
 
 Build an Arena developer image, optionally tagging and pushing it to NGC.
 
 Options:
-  -c       Select dev-curobo instead of dev.
-  -t tag   Output tag (default: latest, or curobo with -c).
+  -t tag   Output tag (default: latest).
   -R       Build without cache.
   -p       Push the built image to NGC.
   -v       Verbose output.
@@ -26,14 +25,14 @@ Options:
 
 Examples:
   $(basename "$0") -R -p -t candidate
-  $(basename "$0") -c -R -p -t candidate-curobo
 USAGE
 }
 
 while getopts ':t:cvpRh' OPTION; do
     case "$OPTION" in
         t) TAG_NAME=$OPTARG ;;
-        c) DOCKER_TARGET=dev-curobo ;;
+        # cuRobo used to need its own image; keep accepting -c so existing commands still work.
+        c) echo "Warning: -c is no longer needed; the default image includes cuRobo." >&2 ;;
         v) set -x ;;
         p) PUSH_TO_NGC=true ;;
         R) BUILD_OPTIONS+=(-R) ;;

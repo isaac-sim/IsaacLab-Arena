@@ -24,7 +24,7 @@ or from source inside a Docker container.
      - ✓
      - ✓
      - ✓
-     - ✗
+     - ✓
 
 Supported Systems
 -----------------
@@ -61,12 +61,8 @@ installs the Streamlit and SimReady search dependencies used by the
 :doc:`agentic environment generation workflow
 </pages/concepts/agentic_environment_generation/index>`.
 
-.. note::
-   Native ``uv`` installs do not include the optional ``isaaclab_arena_curobo``
-   package, so :doc:`cuRobo-based reachability validation
-   </pages/concepts/object_placement/validation>` (the ``ik_reachable`` check)
-   is not available. Use the Docker workflow with ``./docker/run_docker.sh -c``
-   instead.
+The lockfile also pins cuRobo, which :doc:`cuRobo-based reachability validation
+</pages/concepts/object_placement/validation>` (the ``ik_reachable`` check) runs on.
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -119,13 +115,8 @@ installation options.
 
 :docker_run_default:
 
-The container will build (if needed) and drop you into an interactive shell.
-
-For :doc:`cuRobo-based reachability validation
-</pages/concepts/object_placement/validation>`, launch with the ``-c`` flag
-instead (native ``uv`` installs do not support this check):
-
-:docker_run_curobo:
+The container will build (if needed) and drop you into an interactive shell. The image includes
+cuRobo for :doc:`cuRobo-based reachability validation </pages/concepts/object_placement/validation>`.
 
 .. note::
    The run docker script mounts the following directories from the host machine if they exist:

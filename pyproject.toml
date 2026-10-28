@@ -38,6 +38,9 @@ dependencies = [
     # HDF5 -> LeRobot conversion (isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot), imported at module level.
     # Pinned to 2.2.3 to match the version used in GR00T.
     "pandas==2.2.3",
+    # cuRobo IK for the build-time ik_reachable placement check (isaaclab_arena_curobo). The cu13 extra brings the
+    # cuda.core runtime that compiles cuRobo's kernels on first use, matching torch's CUDA 13.0 build.
+    "nvidia-curobo[cu13]",
 ]
 
 [project.optional-dependencies]
@@ -185,6 +188,8 @@ explicit = true
 # same-named package from the NVIDIA index.
 mujoco-usd-converter = { index = "pypi" }
 isaacteleop = { index = "pypi" }
+# cuRobo v2 is not published as a wheel; build it from the pinned main commit.
+nvidia-curobo = { git = "https://github.com/NVlabs/curobo.git", rev = "78fd485fa82d9b9a063fb4985e371814587e666a" }
 torch = { index = "pytorch-cu130" }
 torchvision = { index = "pytorch-cu130" }
 gr00t = { path = "submodules/Isaac-GR00T", editable = true, group = "gr00t-client" }

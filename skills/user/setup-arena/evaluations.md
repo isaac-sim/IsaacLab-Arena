@@ -28,8 +28,8 @@ and stop when it is ready."
 
 Expected behavior:
 
-- Selects Docker because native `uv` does not include cuRobo, initializes source submodules, and
-  launches with `./docker/run_docker.sh -c`.
+- Keeps the native `uv` route (both routes install cuRobo), initializes source submodules, runs the
+  locked `uv sync`, and confirms `import curobo` in the synced environment.
 - Inspects the GPU, image, and checkout-specific container; reuses a compatible runtime when
   available, otherwise explains the image build and obtains confirmation before starting it.
 - Verifies the checkout import and zero-action rollout, reports the container, import path, and exit
@@ -37,7 +37,7 @@ Expected behavior:
 
 Known failure modes:
 
-- Uses a native installation or omits `-c`.
+- Switches to Docker only because cuRobo was requested.
 - Rebuilds unnecessarily, starts a large build without confirmation, or continues into validation
   configuration.
 
@@ -52,8 +52,8 @@ Expected behavior:
   or creating one; verifies that path after the user provides it.
 - Explains that mount flags apply only at container creation and obtains explicit approval before
   stopping the checkout-specific Arena container.
-- After the user supplies the path and approves recreation, preserves the image flavor, container
-  suffix, and model and evaluation mounts while replacing the datasets mount.
+- After the user supplies the path and approves recreation, preserves the container suffix and
+  model and evaluation mounts while replacing the datasets mount.
 - Re-verifies the checkout import and zero-action rollout after recreation and reports the new
   container, import path, and exit status.
 
@@ -61,4 +61,4 @@ Known failure modes:
 
 - Claims the mount can be changed on the running container or merely reruns the launcher.
 - Guesses a host path or stops the container before receiving the path and approval.
-- Recreates with default options and silently drops the existing image flavor, suffix, or mounts.
+- Recreates with default options and silently drops the existing suffix or mounts.

@@ -223,20 +223,6 @@ jobs:
           echo "Built ${ARENA_TARGET}: ${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
 
 
-  build_curobo_image:
-    name: Build Arena cuRobo image
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 120
-    needs: [pre_commit]
-    container:
-      image: ubuntu:24.04
-    env:
-      ARENA_TARGET: dev-curobo
-    outputs:
-      image: ${{ steps.image.outputs.ref }}
-    steps: *build_and_push_image_steps
-
-
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
@@ -321,6 +307,11 @@ jobs:
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_policy \
             isaaclab_arena_gr00t/tests/
+
+      - name: Run cuRobo IK reachability tests
+        run: |
+          MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
+            isaaclab_arena_curobo/tests/
 
 
   tests_with_subprocess:
@@ -468,34 +459,6 @@ jobs:
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
-  test_curobo_deps:
-    name: cuRobo deps check
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 30
-    needs: [build_curobo_image]
-
-    container:
-      image: ${{ needs.build_curobo_image.outputs.image }}
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-
-    steps:
-      - *nvidia_smi
-      - *lscpu
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_project_step
-
-      - name: Run cuRobo dependency check
-        run: |
-          MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
-            isaaclab_arena_curobo/tests/
-
-
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]
@@ -539,24 +502,3 @@ jobs:
         run: |
           docker buildx imagetools create --prefer-index=false \
             --tag "${ARENA_IMAGE}:latest" "$CANDIDATE_IMAGE"
-
-
-  build_and_push_curobo_image_post_merge:
-    name: Publish tested cuRobo NGC image (post-merge)
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 15
-    # A cuRobo failure must not block the base image's publication.
-    needs: [build_curobo_image, test, test_curobo_deps]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    container:
-      image: ubuntu:24.04
-    env:
-      CANDIDATE_IMAGE: ${{ needs.build_curobo_image.outputs.image }}
-
-    steps:
-      - *install_docker_step
-      - *docker_login_ngc_step
-      - name: Publish the tested cuRobo image without rebuilding
-        run: |
-          docker buildx imagetools create --prefer-index=false \
-            --tag "${ARENA_IMAGE}:curobo" "$CANDIDATE_IMAGE"

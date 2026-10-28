@@ -83,14 +83,7 @@ def docker_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
 
            ./docker/run_docker.sh"""
 
-    # Docker run with Curobo dependencies
-    def curobo_replacer(_: Any) -> str:
-        return """.. code-block:: bash
-
-           ./docker/run_docker.sh -c"""
-
     source[0] = re.sub(r":docker_run_default:", default_replacer, source[0])
-    source[0] = re.sub(r":docker_run_curobo:", curobo_replacer, source[0])
 
 
 def setup(app: Sphinx) -> None:

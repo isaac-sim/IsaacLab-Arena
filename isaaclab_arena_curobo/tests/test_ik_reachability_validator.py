@@ -217,6 +217,21 @@ def _make_reachability_validator(embodiment, visualizer=None, require_collision_
 
 
 @pytest.mark.curobo_deps
+def test_validator_runs_only_when_enabled(monkeypatch):
+    """Reachability validation is opt-in: an embodiment with a cuRobo config is not enough to run it."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena_curobo.ik_reachability_validator import ReachabilityValidator
+
+    _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    params = ObjectPlacerParams()
+    params.reachability_config.embodiment = _fake_embodiment()
+    assert not ReachabilityValidator.is_available(params)
+
+    params.reachability_config.enabled = True
+    assert ReachabilityValidator.is_available(params)
+
+
+@pytest.mark.curobo_deps
 def test_validator_skips_visualization_by_default(monkeypatch):
     """The debug view is opt-in: placement without one means the check adds no layer."""
     _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)

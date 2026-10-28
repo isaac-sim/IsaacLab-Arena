@@ -8,7 +8,7 @@
 Exercises what ``solve_ik_feasibility`` does around cuRobo when collision checking is on -- mute the
 hand links for the solve, restore them afterwards, and fold cuRobo's ``success`` into the verdict --
 plus the sphere helpers the debug view draws with, against a fake kinematics config that mimics
-cuRobo's in-place sphere edits. Needs no GPU, but does need the cuRobo image, since the module under
+cuRobo's in-place sphere edits. Needs no GPU, but does need cuRobo installed, since the module under
 test imports cuRobo at import time.
 """
 
