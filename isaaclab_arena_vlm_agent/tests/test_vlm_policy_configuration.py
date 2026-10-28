@@ -13,19 +13,12 @@ from unittest.mock import Mock
 import pytest
 
 from isaaclab_arena_vlm_agent import droid_adapter, vlm_agent_policy
-from isaaclab_arena_vlm_agent.absolute_action_adapter import AbsoluteChunkActionAdapter, AbsoluteStepActionAdapter
+from isaaclab_arena_vlm_agent.absolute_action_adapter import AbsoluteChunkActionAdapter
 from isaaclab_arena_vlm_agent.command_indices import AbsoluteCommandIndices, GripperCommandIndex, PoseCommandIndices
-from isaaclab_arena_vlm_agent.vlm_agent_policy import (
-    VLMChunkPolicy,
-    VLMChunkPolicyCfg,
-    VLMGoalPolicy,
-    VLMGoalPolicyCfg,
-    VLMStepPolicy,
-    VLMStepPolicyCfg,
-)
+from isaaclab_arena_vlm_agent.tests.fake_scene import FakeScene, make_mounted_camera
+from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMChunkPolicy, VLMChunkPolicyCfg, VLMGoalPolicy, VLMGoalPolicyCfg
 
 POLICIES = [
-    (VLMStepPolicy, VLMStepPolicyCfg),
     (VLMChunkPolicy, VLMChunkPolicyCfg),
     (VLMGoalPolicy, VLMGoalPolicyCfg),
 ]
@@ -81,19 +74,10 @@ def test_configured_execution_and_partial_reset(monkeypatch, policy_type, cfg_ty
         unwrapped=SimpleNamespace(
             num_envs=2,
             device="cpu",
-            scene={
-                "sensor": SimpleNamespace(
-                    cfg=SimpleNamespace(update_latest_camera_pose=True),
-                    data=SimpleNamespace(
-                        pos_w=SimpleNamespace(torch=torch.zeros(2, 3)),
-                        quat_w_ros=SimpleNamespace(torch=torch.tensor([[0.0, 0.0, 0.0, 1.0]] * 2)),
-                        intrinsic_matrices=SimpleNamespace(torch=torch.eye(3).repeat(2, 1, 1)),
-                        info={},
-                    ),
-                )
-            },
+            scene=FakeScene(sensor=make_mounted_camera(torch.eye(3).repeat(2, 1, 1))),
             arena_world=SimpleNamespace(
-                get_body_pose_in_root=lambda *args: torch.tensor([[0, 0, 0, 0, 0, 0, 1.0]] * 2)
+                get_body_pose_in_root=lambda *args: torch.tensor([[0, 0, 0, 0, 0, 0, 1.0]] * 2),
+                get_body_pose_w=lambda *args: torch.tensor([[0, 0, 0, 0, 0, 0, 1.0]] * 2),
             ),
             cfg=SimpleNamespace(observations=observation_cfg),
             observation_manager=SimpleNamespace(
@@ -116,16 +100,16 @@ def test_configured_execution_and_partial_reset(monkeypatch, policy_type, cfg_ty
     assert any('"joint_pos"' in item.get("text", "") for item in content) == (modality != "image")
     assert backend.infer.call_args.args[0].messages[0]["content"] == "Return absolute targets."
     policy.reset(torch.tensor([0]))
-    expected_second = {VLMStepPolicy: 7.0, VLMChunkPolicy: 4.0, VLMGoalPolicy: 3.0}[policy_type]
+    expected_second = {VLMChunkPolicy: 4.0, VLMGoalPolicy: 3.0}[policy_type]
     torch.testing.assert_close(policy.get_action(env, observations)[:, 0], torch.tensor([5.0, expected_second]))
-    assert backend.infer.call_count == (4 if policy_type is VLMStepPolicy else 3)
+    assert backend.infer.call_count == 3
     if policy_type is VLMGoalPolicy:
         # Only env 1 has exhausted the two-step goal budget after the partial reset.
         torch.testing.assert_close(policy.get_action(env, observations)[:, 0], torch.tensor([5.0, 7.0]))
         assert backend.infer.call_count == 4
     assert constructor.call_args.kwargs["model"] == "test-model"
     policy.close()
-    backend.close.assert_called_once()
+    backend.client.close.assert_called_once()
 
 
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
@@ -136,7 +120,7 @@ def test_policy_closes_injected_backend(monkeypatch, policy_type, cfg_type):
     policy = policy_type(_config(cfg_type), inference_backend=backend)
     policy.close()
     constructor.assert_not_called()
-    backend.close.assert_called_once()
+    backend.client.close.assert_called_once()
 
 
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
@@ -144,7 +128,7 @@ def test_invalid_adapter_rejected_before_client_creation(monkeypatch, policy_typ
     constructor = Mock()
     monkeypatch.setattr(vlm_agent_policy, "InferenceBackend", constructor)
     cfg = _config(cfg_type)
-    adapter = AbsoluteChunkActionAdapter(1) if policy_type is not VLMChunkPolicy else AbsoluteStepActionAdapter()
+    adapter = AbsoluteChunkActionAdapter(1) if policy_type is not VLMChunkPolicy else Mock()
     with pytest.raises(AssertionError):
         policy_type(cfg, action_adapter=adapter)
     constructor.assert_not_called()
@@ -155,7 +139,7 @@ def test_invalid_schema_rejected_before_client_creation(monkeypatch):
     monkeypatch.setattr(vlm_agent_policy, "InferenceBackend", constructor)
     monkeypatch.setattr(vlm_agent_policy, "build_strict_schema", Mock(side_effect=RuntimeError("invalid schema")))
     with pytest.raises(RuntimeError, match="invalid schema"):
-        VLMStepPolicy(_config(VLMStepPolicyCfg))
+        VLMChunkPolicy(_config(VLMChunkPolicyCfg))
     constructor.assert_not_called()
 
 
@@ -190,7 +174,7 @@ def test_example_yaml_policy_selectors_and_round_trip(monkeypatch, tmp_path, pol
     assert set(experiment.runs) == {run_name}
     run = experiment.runs[run_name]
     assert isinstance(run.policy, cfg_type)
-    assert run.policy.model == "openai/openai/gpt-6-astra"
+    assert run.policy.endpoint == "internal" and run.policy.model is None
     assert run.environment_builder.device == "cpu"
     assert registries.PolicyRegistry().get_policy_type_for_cfg(run.policy) is policy_type
     if policy_type is VLMGoalPolicy:
@@ -215,7 +199,6 @@ def test_preset_supplies_prompt_and_strategy(monkeypatch, policy_type, cfg_type)
         assert policy.action_adapter.chunk_size == 2
     else:
         assert "Return one command" in policy._system_prompt
-    if policy_type is VLMGoalPolicy:
         assert "gripper_action" in policy.action_adapter.motion_generator.grippers
     policy.close()
 
@@ -228,7 +211,7 @@ def test_invalid_flat_settings(options):
         VLMChunkPolicyCfg(**{"chunk_size": 2, **options})
 
 
-@pytest.mark.parametrize("class_name", ["VLMStepPolicy", "VLMChunkPolicy", "VLMGoalPolicy"])
+@pytest.mark.parametrize("class_name", ["VLMChunkPolicy", "VLMGoalPolicy"])
 def test_policy_class_path_loads_in_fresh_process(class_name):
     import subprocess
     import sys

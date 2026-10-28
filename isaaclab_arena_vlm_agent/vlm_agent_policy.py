@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from isaaclab_arena.assets.register import register_policy
-from isaaclab_arena.inference.backend import MAX_RETRIES_LIMIT, InferenceBackend, InferenceRequest, build_strict_schema
+from isaaclab_arena.inference.backend import InferenceBackend, InferenceRequest, build_strict_schema
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
@@ -86,15 +86,6 @@ class VLMPolicyCfg(PolicyCfg):
     base_url: str | None = None
     """Optional URL override; credentials come from the endpoint's environment variable."""
 
-    temperature: float = 0.2
-    """Sampling temperature when supported by the endpoint."""
-
-    max_tokens: int = 4096
-    """Maximum output tokens per inference request."""
-
-    max_retries: int = 3
-    """Additional transport attempts, separate from response-validation max_attempts."""
-
     def __post_init__(self):
         if self.system_prompt is None:
             assert self.vlm_embodiment_adapter is not None, "Set policy.system_prompt or policy.vlm_embodiment_adapter"
@@ -104,19 +95,6 @@ class VLMPolicyCfg(PolicyCfg):
         self.observation_modality = ObservationModality(self.observation_modality)
         assert self.image_max_width_or_height > 0
         assert isinstance(self.max_attempts, int) and self.max_attempts >= 1
-        assert type(self.max_tokens) is int and self.max_tokens > 0
-        assert type(self.max_retries) is int and 0 <= self.max_retries < MAX_RETRIES_LIMIT
-
-
-@dataclass
-class VLMStepPolicyCfg(VLMPolicyCfg):
-    """Configure one command per prediction."""
-
-    system_prompt: str | None = None
-    """Optional override for the selected embodiment's single-command prompt."""
-
-    vlm_embodiment_adapter: str | None = "droid"
-    """Named action and prompt preset."""
 
 
 @dataclass
@@ -208,15 +186,12 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 endpoint=config.endpoint,
                 model=config.model,
                 base_url=config.base_url,
-                temperature=config.temperature,
-                max_tokens=config.max_tokens,
-                max_retries=config.max_retries,
             )
         )
 
     def close(self) -> None:
-        """Close the inference backend owned by this policy."""
-        self._inference_backend.close()
+        """Close the inference client owned by this policy."""
+        self._inference_backend.client.close()
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return a batch of native actions using the policy execution strategy.
@@ -313,22 +288,17 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         raise rejection
 
 
-@register_policy
-class VLMStepPolicy(VLMPolicy, PolicyBase[VLMStepPolicyCfg]):
+class VLMStepPolicy(VLMPolicy):
     """Predict one action per environment from fresh observations on every step."""
-
-    name = "vlm_step"
 
     def __init__(
         self,
         config: VLMPolicyCfg,
         *,
-        inference_backend: InferenceBackend | None = None,
-        observation_adapter: VLMObservationAdapter | None = None,
-        action_adapter: AgentActionAdapter | None = None,
+        inference_backend: InferenceBackend,
+        observation_adapter: VLMObservationAdapter,
+        action_adapter: AgentActionAdapter,
     ):
-        if action_adapter is None:
-            action_adapter = _get_vlm_embodiment_adapter(config.vlm_embodiment_adapter).make_step_action_adapter()
         assert not isinstance(action_adapter, (ChunkActionAdapter, GoalActionAdapter)), "Expected a single-step adapter"
         super().__init__(
             config,

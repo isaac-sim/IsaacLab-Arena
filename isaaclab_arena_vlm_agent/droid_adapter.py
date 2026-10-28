@@ -5,11 +5,7 @@
 
 """DROID absolute-pose action, motion-generation, and prompt defaults."""
 
-from isaaclab_arena_vlm_agent.absolute_action_adapter import (
-    AbsoluteChunkActionAdapter,
-    AbsoluteGoalActionAdapter,
-    AbsoluteStepActionAdapter,
-)
+from isaaclab_arena_vlm_agent.absolute_action_adapter import AbsoluteChunkActionAdapter, AbsoluteGoalActionAdapter
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter
 from isaaclab_arena_vlm_agent.command_indices import AbsoluteCommandIndices, GripperCommandIndex, PoseCommandIndices
 from isaaclab_arena_vlm_agent.pose_target_motion_generator import PoseTargetMotionGenerator
@@ -27,10 +23,6 @@ class _DroidPoseActionAdapter:
         )
 
 
-class _DroidStepActionAdapter(_DroidPoseActionAdapter, AbsoluteStepActionAdapter):
-    """Decode a DROID pose command."""
-
-
 class _DroidChunkActionAdapter(_DroidPoseActionAdapter, AbsoluteChunkActionAdapter):
     """Decode a chunk of DROID pose commands."""
 
@@ -41,10 +33,6 @@ class _DroidGoalActionAdapter(_DroidPoseActionAdapter, AbsoluteGoalActionAdapter
 
 class DroidVLMAdapter:
     """Provide VLM defaults for the droid_abs_ik embodiment."""
-
-    def make_step_action_adapter(self) -> AbsoluteStepActionAdapter:
-        """Create a decoder for one absolute pose command."""
-        return _DroidStepActionAdapter()
 
     def make_chunk_action_adapter(self, chunk_size: int) -> AbsoluteChunkActionAdapter:
         """Create a decoder for the requested number of absolute pose commands."""
@@ -70,7 +58,7 @@ class DroidVLMAdapter:
             )
         else:
             assert isinstance(
-                action_adapter, (AbsoluteStepActionAdapter, AbsoluteGoalActionAdapter)
+                action_adapter, AbsoluteGoalActionAdapter
             ), "Provide system_prompt when injecting a custom action adapter"
             response = "Return one command as a JSON object with a values list of eight numbers: "
         return (

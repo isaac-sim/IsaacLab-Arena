@@ -17,6 +17,7 @@ from isaaclab_arena_vlm_agent.absolute_action_adapter import AbsoluteChunkAction
 from isaaclab_arena_vlm_agent.command_indices import AbsoluteCommandIndices, GripperCommandIndex, PoseCommandIndices
 from isaaclab_arena_vlm_agent.observation_adapter import ImageStateObservationAdapter
 from isaaclab_arena_vlm_agent.pose_target_motion_generator import PoseTargetMotionGenerator
+from isaaclab_arena_vlm_agent.tests.fake_scene import FakeScene, make_mounted_camera
 from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMChunkPolicy, VLMGoalPolicy, VLMGoalPolicyCfg, VLMPolicyCfg
 
 
@@ -40,22 +41,13 @@ def inputs(monkeypatch):
     )
     world = SimpleNamespace(get_body_pose_in_root=Mock(return_value=torch.tensor([[0.4, 0, 0.3, 0, 0, 0, 1]] * 2)))
     world.get_pose_w = Mock(return_value=torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]] * 2))
+    world.get_body_pose_w = Mock(return_value=torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]] * 2))
     env = SimpleNamespace(
         unwrapped=SimpleNamespace(
             num_envs=2,
             device="cpu",
             cfg=SimpleNamespace(observations=embodiment.get_observation_cfg()),
-            scene={
-                "sensor": SimpleNamespace(
-                    cfg=SimpleNamespace(update_latest_camera_pose=True),
-                    data=SimpleNamespace(
-                        pos_w=SimpleNamespace(torch=torch.zeros(2, 3)),
-                        quat_w_ros=SimpleNamespace(torch=torch.tensor([[0.0, 0.0, 0.0, 1.0]] * 2)),
-                        intrinsic_matrices=SimpleNamespace(torch=torch.eye(3).repeat(2, 1, 1)),
-                        info={},
-                    ),
-                )
-            },
+            scene=FakeScene(sensor=make_mounted_camera(torch.eye(3).repeat(2, 1, 1))),
             arena_world=world,
             observation_manager=SimpleNamespace(
                 active_terms={"policy": ["gripper_pos"]}, group_obs_concatenate={"policy": False}

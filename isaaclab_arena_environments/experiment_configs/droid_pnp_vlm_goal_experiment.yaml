@@ -27,7 +27,6 @@ runs:
     policy:
       type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
       endpoint: internal
-      model: openai/openai/gpt-6-astra
       vlm_embodiment_adapter: droid
       observation_modality: image_state
       max_steps_per_goal: 30

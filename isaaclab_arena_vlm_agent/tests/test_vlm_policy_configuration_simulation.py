@@ -3,13 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify goal-policy execution and moving-camera calibration in an isolated simulator."""
-
-import sys
+"""Verify goal-policy execution and mounted-camera calibration in simulation."""
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
 def _test_vlm_experiment(simulation_app):
@@ -30,6 +28,7 @@ def _test_vlm_experiment(simulation_app):
     from isaaclab_arena.evaluation.arena_run import RunStatus
     from isaaclab_arena.evaluation.run_execution import build_and_run
     from isaaclab_arena.tests.utils.constants import TestConstants
+    from isaaclab_arena_vlm_agent import observation_adapter
 
     config_path = Path(TestConstants.arena_environments_dir) / "experiment_configs/droid_pnp_vlm_goal_experiment.yaml"
     run_name = "droid_pnp_vlm_goal"
@@ -48,6 +47,12 @@ def _test_vlm_experiment(simulation_app):
     backend = Mock()
     wrist_positions = []
     wrist_offset = DroidCameraCfg().wrist_camera.offset
+    envs = []
+    extract_camera_geometry = observation_adapter._extract_camera_geometry
+
+    def record_env(env, images, env_id):
+        envs.append(env)
+        return extract_camera_geometry(env, images, env_id)
 
     def move_nearby(request):
         content = request.messages[1]["content"]
@@ -74,6 +79,17 @@ def _test_vlm_experiment(simulation_app):
                 Rotation.from_quat(geometry["quaternion_world_xyzw"]).as_matrix(),
                 atol=1e-5,
             )
+        # The external cameras are static, so the sensor's reset-time pose is their live pose.
+        base = envs[-1].unwrapped
+        for name in ("external_camera_rgb", "external_camera_2_rgb"):
+            geometry = state["camera_geometry"][name]
+            sensor_name = getattr(base.cfg.observations.camera_obs, name).params["sensor_cfg"].name
+            data = base.scene[sensor_name].data
+            np.testing.assert_allclose(geometry["position_world_m"], data.pos_w.torch[0].cpu().numpy(), atol=1e-4)
+            rotation_error = Rotation.from_quat(data.quat_w_ros.torch[0].cpu().numpy()).inv() * Rotation.from_quat(
+                geometry["quaternion_world_xyzw"]
+            )
+            assert rotation_error.magnitude() < 5e-4
         pose = state["command_body_poses"]["arm_action"]
         np.testing.assert_allclose(state["policy"]["eef_quat"], pose["quaternion_root_xyzw"], atol=1e-5)
         # Reset can return an image captured before the joint reset. After a rendered step,
@@ -94,26 +110,18 @@ def _test_vlm_experiment(simulation_app):
 
     backend.infer.side_effect = move_nearby
     with tempfile.TemporaryDirectory() as output_dir:
-        with patch("isaaclab_arena_vlm_agent.vlm_agent_policy.InferenceBackend", return_value=backend):
+        with (
+            patch("isaaclab_arena_vlm_agent.vlm_agent_policy.InferenceBackend", return_value=backend),
+            patch.object(observation_adapter, "_extract_camera_geometry", record_env),
+        ):
             result = build_and_run(run, output_dir)
         assert result.status is RunStatus.COMPLETED
         assert backend.infer.call_count == 3
         assert np.linalg.norm(np.array(wrist_positions[-1]) - wrist_positions[0]) > 1e-4
-        backend.close.assert_called_once()
+        backend.client.close.assert_called_once()
     return True
 
 
 @pytest.mark.with_cameras
-@pytest.mark.with_subprocess
 def test_vlm_experiment():
-    # Other VLM tests initialize the parent SimulationApp without camera support.
-    run_subprocess([
-        sys.executable,
-        "-c",
-        (
-            "from isaaclab_arena.tests.utils.persistent_simulation_app import"
-            " run_function_with_persistent_simulation_app; from"
-            " isaaclab_arena_vlm_agent.tests.test_vlm_policy_configuration_simulation import _test_vlm_experiment;"
-            " assert run_function_with_persistent_simulation_app(_test_vlm_experiment, enable_cameras=True)"
-        ),
-    ])
+    assert run_function_with_persistent_simulation_app(_test_vlm_experiment, enable_cameras=True)

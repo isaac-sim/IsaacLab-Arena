@@ -123,7 +123,6 @@ def _test_droid_joint_position_adapters(simulation_app):
 
         preset = DroidVLMAdapter()
         for pose_adapter in (
-            preset.make_step_action_adapter(),
             preset.make_chunk_action_adapter(2),
             preset.make_goal_action_adapter(0.01, 0.1),
         ):
@@ -214,22 +213,3 @@ def _test_absolute_controller_compatibility(simulation_app):
 
 def test_absolute_controller_compatibility():
     assert run_function_with_persistent_simulation_app(_test_absolute_controller_compatibility)
-
-
-def _test_absolute_ik_config_is_consistent(simulation_app):
-    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteDifferentialIKEmbodiment
-    from isaaclab_arena.utils.physics_backend import PhysicsBackend
-
-    for backend in PhysicsBackend:
-        embodiment = DroidAbsoluteDifferentialIKEmbodiment()
-        for configure in (False, True):
-            if configure:
-                embodiment.configure_physics_backend(backend)
-            assert embodiment.get_action_cfg() is embodiment.action_config
-            assert not embodiment.action_config.arm_action.controller.use_relative_mode
-            assert embodiment.action_config.arm_action.scale == 1.0
-    return True
-
-
-def test_absolute_ik_config_is_consistent():
-    assert run_function_with_persistent_simulation_app(_test_absolute_ik_config_is_consistent)

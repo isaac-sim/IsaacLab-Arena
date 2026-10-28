@@ -249,6 +249,12 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
 
     registry_name = "droid_differential_ik"
 
+    use_relative_ik_mode: bool = True
+    """Whether the arm action takes pose deltas instead of absolute pose targets."""
+
+    arm_action_scale: float = 0.5
+    """Scale applied to arm actions."""
+
     def __init__(
         self,
         enable_cameras: bool = False,
@@ -273,6 +279,8 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             collision_mode=collision_mode,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
+        self.action_config.arm_action.controller.use_relative_mode = self.use_relative_ik_mode
+        self.action_config.arm_action.scale = self.arm_action_scale
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply shared Newton spawn setup, then diff-IK-specific Newton tuning."""
@@ -284,7 +292,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         """Apply Newton-specific differential-IK configuration."""
         self.action_config.arm_action.controller = DifferentialIKControllerCfg(
             command_type="pose",
-            use_relative_mode=True,
+            use_relative_mode=self.use_relative_ik_mode,
             ik_method="adaptive_dls",
             joint_limit_avoidance_gain=0.10,
             joint_limit_avoidance_margin=0.35,
@@ -296,20 +304,8 @@ class DroidAbsoluteDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
     """DROID differential IK accepting unscaled root-relative XYZ/XYZW pose targets."""
 
     registry_name = "droid_abs_ik"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._set_absolute_pose_actions()
-
-    def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
-        """Apply backend IK settings, then accept unscaled absolute pose targets."""
-        super()._configure_physics_backend(backend)
-        self._set_absolute_pose_actions()
-
-    def _set_absolute_pose_actions(self) -> None:
-        """Keep the stored action config in absolute pose mode."""
-        self.action_config.arm_action.controller.use_relative_mode = False
-        self.action_config.arm_action.scale = 1.0
+    use_relative_ik_mode = False
+    arm_action_scale = 1.0
 
 
 @register_asset
@@ -590,7 +586,6 @@ class DroidCameraCfg(ArenaCameraCfg):
     """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
     external_camera: CameraCfg = CameraCfg(
-        update_latest_camera_pose=True,
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera",
         height=720,
         width=1280,
@@ -604,7 +599,6 @@ class DroidCameraCfg(ArenaCameraCfg):
         offset=CameraCfg.OffsetCfg(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
     )
     external_camera_2: CameraCfg = CameraCfg(
-        update_latest_camera_pose=True,
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera_2",
         height=720,
         width=1280,
@@ -618,7 +612,6 @@ class DroidCameraCfg(ArenaCameraCfg):
         offset=CameraCfg.OffsetCfg(pos=(0.05, -0.57, 0.66), rot=(0.399, -0.195, -0.393, 0.805), convention="opengl"),
     )
     wrist_camera: CameraCfg = CameraCfg(
-        update_latest_camera_pose=True,
         prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
         height=720,
         width=1280,

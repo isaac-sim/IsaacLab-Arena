@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import numpy as np
+import torch
 from abc import ABC, abstractmethod
 from scipy.spatial.transform import Rotation
 from typing import Any
@@ -143,26 +144,8 @@ def _extract_camera_geometry(env, images: dict[str, np.ndarray], env_id: int) ->
     for key, image in images.items():
         term = getattr(camera_cfg, key)
         sensor = base.scene[term.params["sensor_cfg"].name]
-        assert sensor.cfg.update_latest_camera_pose, "VLM calibration requires update_latest_camera_pose=True"
-        data = sensor.data
-        capture = ((data.info or {}).get("rgb") or {}).get("capture")
-        if capture:
-            from isaaclab.utils.math import convert_camera_frame_orientation_convention
-
-            t_W_C = capture["pos_w"].torch[env_id].detach().cpu().numpy()
-            q_W_C = (
-                convert_camera_frame_orientation_convention(
-                    capture["quat_w_world"].torch[env_id : env_id + 1], origin="world", target="ros"
-                )[0]
-                .detach()
-                .cpu()
-                .numpy()
-            )
-            intrinsics = capture["intrinsic_matrices"].torch[env_id]
-        else:
-            t_W_C = data.pos_w.torch[env_id].detach().cpu().numpy()
-            q_W_C = data.quat_w_ros.torch[env_id].detach().cpu().numpy()
-            intrinsics = data.intrinsic_matrices.torch[env_id]
+        t_W_C, q_W_C = _read_mounted_camera_pose_w(base, sensor.cfg, env_id)
+        intrinsics = sensor.data.intrinsic_matrices.torch[env_id]
         # C is the optical frame (+X right, +Y down, +Z forward); R is an asset root.
         poses = {}
         for asset_name, T_W_R in roots.items():
@@ -180,3 +163,38 @@ def _extract_camera_geometry(env, images: dict[str, np.ndarray], env_id: int) ->
             "poses_in_robot_roots": poses,
         }
     return geometry
+
+
+def _read_mounted_camera_pose_w(base, camera_cfg, env_id: int) -> tuple[np.ndarray, np.ndarray]:
+    """Compose a camera's parent-link pose with its mount offset.
+
+    Camera extrinsics variations perturb the rendered view but not this nominal calibration.
+
+    Args:
+        base: Unwrapped Arena environment.
+        camera_cfg: Camera configuration whose prim is a direct child of an articulation link.
+        env_id: Environment index whose camera pose is requested.
+
+    Returns:
+        World position in meters and XYZW optical-frame (+X right, +Y down, +Z forward) quaternion.
+    """
+    from isaaclab.utils.math import convert_camera_frame_orientation_convention
+
+    # B is the parent link and C is the optical frame.
+    parent_path, _ = camera_cfg.prim_path.rsplit("/", 1)
+    asset_names = [
+        name
+        for name, articulation in base.scene.articulations.items()
+        if parent_path.startswith(f"{articulation.cfg.prim_path}/")
+    ]
+    assert len(asset_names) == 1, f"Expected one articulation mounting camera '{camera_cfg.prim_path}'"
+    body_name = parent_path.rsplit("/", 1)[1]
+    T_W_B = base.arena_world.get_body_pose_w(asset_names[0], body_name)[env_id].detach().cpu().numpy()
+    offset = camera_cfg.offset
+    q_B_C = convert_camera_frame_orientation_convention(
+        torch.tensor(offset.rot, dtype=torch.float64), origin=offset.convention, target="ros"
+    )
+    rotation_W_B = Rotation.from_quat(T_W_B[3:])
+    t_W_C = rotation_W_B.apply(offset.pos) + T_W_B[:3]
+    q_W_C = (rotation_W_B * Rotation.from_quat(q_B_C.numpy())).as_quat()
+    return t_W_C, q_W_C

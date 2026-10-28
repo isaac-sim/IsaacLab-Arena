@@ -361,8 +361,7 @@ jobs:
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
-            isaaclab_arena/tests/ \
-            isaaclab_arena_vlm_agent/tests/
+            isaaclab_arena/tests/
 
 
   test_gr00t_closedloop_e2e:

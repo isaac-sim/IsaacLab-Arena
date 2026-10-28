@@ -18,6 +18,7 @@ from isaaclab_arena_vlm_agent.observation_adapter import (
     StateObservationAdapter,
     VLMObservationAdapter,
 )
+from isaaclab_arena_vlm_agent.tests.fake_scene import FakeScene, make_mounted_camera
 
 
 def _inputs():
@@ -53,22 +54,17 @@ def _inputs():
     world = SimpleNamespace(
         get_body_pose_in_root=Mock(side_effect=get_pose),
         get_pose_w=Mock(return_value=torch.tensor([[0, 0, 0, 0, 0, 0, 1.0], [10, 0, 0, 0, 0, 2**-0.5, 2**-0.5]])),
+        # Camera mount link poses; the identity ROS offset places the optical frame at the link.
+        get_body_pose_w=Mock(return_value=torch.tensor([[1.0, 2.0, 3.0, 0, 0, 0, 1], [10.0, 2.0, 3.0, 0, 0, 1, 0]])),
     )
-    camera_data = SimpleNamespace(
-        pos_w=SimpleNamespace(torch=torch.tensor([[1.0, 2.0, 3.0], [10.0, 2.0, 3.0]])),
-        quat_w_ros=SimpleNamespace(torch=torch.tensor([[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 0.0]])),
-        intrinsic_matrices=SimpleNamespace(
-            torch=torch.tensor([[[4.0, 0.0, 4.0], [0.0, 4.0, 2.0], [0.0, 0.0, 1.0]]] * 2)
-        ),
-        info={},
+    scene = FakeScene(
+        camera_sensor=make_mounted_camera(torch.tensor([[[4.0, 0.0, 4.0], [0.0, 4.0, 2.0], [0.0, 0.0, 1.0]]] * 2))
     )
     env = SimpleNamespace(
         unwrapped=SimpleNamespace(
             num_envs=2,
             cfg=SimpleNamespace(observations=embodiment.get_observation_cfg()),
-            scene={
-                "camera_sensor": SimpleNamespace(cfg=SimpleNamespace(update_latest_camera_pose=True), data=camera_data)
-            },
+            scene=scene,
             arena_world=world,
             observation_manager=SimpleNamespace(
                 active_terms={"policy": ["left_joints", "right_joints"]}, group_obs_concatenate={"policy": False}
@@ -186,7 +182,7 @@ def test_camera_optical_pose_uses_selected_environment_and_refreshes():
     pose = camera["poses_in_robot_roots"]["left_robot"]
     np.testing.assert_allclose(pose["position_root_m"], [2, 0, 3], atol=1e-6)
     np.testing.assert_allclose(pose["quaternion_root_xyzw"], [0, 0, 2**-0.5, 2**-0.5], atol=1e-6)
-    env.unwrapped.scene["camera_sensor"].data.pos_w.torch[1, 1] += 1
+    env.unwrapped.arena_world.get_body_pose_w.return_value[1, 1] += 1
     _, values = adapter.extract_vlm_input_from_observation(env, observation, 1)
     np.testing.assert_allclose(
         values["camera_geometry"]["head_color"]["poses_in_robot_roots"]["left_robot"]["position_root_m"],
@@ -197,35 +193,25 @@ def test_camera_optical_pose_uses_selected_environment_and_refreshes():
     assert values["camera_geometry"]["head_color"]["position_world_m"] == [1.0, 2.0, 3.0]
 
 
-def test_delayed_camera_uses_capture_calibration():
-    _, env, observation = _inputs()
-    data = env.unwrapped.scene["camera_sensor"].data
-    data.info = {
-        "rgb": {
-            "capture": {
-                "pos_w": SimpleNamespace(torch=torch.tensor([[4.0, 5.0, 6.0]] * 2)),
-                "quat_w_world": SimpleNamespace(torch=torch.tensor([[0.0, 0.0, 0.0, 1.0]] * 2)),
-                "intrinsic_matrices": SimpleNamespace(torch=torch.eye(3).repeat(2, 1, 1)),
-            }
-        }
-    }
-    _, values = ImageObservationAdapter().extract_vlm_input_from_observation(env, observation, 0)
-    camera = values["camera_geometry"]["head_color"]
-    assert camera["position_world_m"] == [4.0, 5.0, 6.0]
-    np.testing.assert_allclose(camera["intrinsic_matrix"], np.eye(3))
+def test_camera_pose_composes_mount_link_and_offset():
     from scipy.spatial.transform import Rotation
 
-    # An identity world-convention camera looks along world +X, with image right along world -Y.
-    rotation_W_C = Rotation.from_quat(camera["quaternion_world_xyzw"])
-    np.testing.assert_allclose(rotation_W_C.apply([0, 0, 1]), [1, 0, 0], atol=1e-6)
-    np.testing.assert_allclose(rotation_W_C.apply([1, 0, 0]), [0, -1, 0], atol=1e-6)
-
-
-def test_camera_geometry_rejects_stale_pose_configuration():
     _, env, observation = _inputs()
-    env.unwrapped.scene["camera_sensor"].cfg.update_latest_camera_pose = False
-    with pytest.raises(AssertionError, match="update_latest_camera_pose=True"):
-        ImageObservationAdapter().extract_vlm_input_from_observation(env, observation, 0)
+    # The mount link sits at (1, 0, 0) and is yawed 90 degrees about world +Z.
+    env.unwrapped.arena_world.get_body_pose_w.return_value = torch.tensor(
+        [[1.0, 0.0, 0.0, 0.0, 0.0, 2**-0.5, 2**-0.5]] * 2
+    )
+    env.unwrapped.scene["camera_sensor"].cfg.offset = SimpleNamespace(
+        pos=(0.1, 0.0, 0.2), rot=(0.0, 0.0, 0.0, 1.0), convention="opengl"
+    )
+    _, values = ImageObservationAdapter().extract_vlm_input_from_observation(env, observation, 0)
+    camera = values["camera_geometry"]["head_color"]
+    env.unwrapped.arena_world.get_body_pose_w.assert_called_with("robot", "mount_link")
+    np.testing.assert_allclose(camera["position_world_m"], [1.0, 0.1, 0.2], atol=1e-6)
+    # An identity OpenGL camera looks along the link's -Z with image down along the link's -Y.
+    rotation_W_C = Rotation.from_quat(camera["quaternion_world_xyzw"])
+    np.testing.assert_allclose(rotation_W_C.apply([0, 0, 1]), [0, 0, -1], atol=1e-6)
+    np.testing.assert_allclose(rotation_W_C.apply([0, 1, 0]), [1, 0, 0], atol=1e-6)
 
 
 def test_camera_selection_follows_live_configuration_changes():
