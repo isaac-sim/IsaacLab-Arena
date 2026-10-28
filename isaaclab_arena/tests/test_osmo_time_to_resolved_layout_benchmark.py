@@ -39,6 +39,11 @@ def test_runs_each_case_and_environment_count_in_its_own_group_before_collecting
         "layout-benchmark-1",
         "layout-benchmark-results",
     ]
+    # OSMO rejects a workflow whose groups and tasks share a name.
+    names = [group["name"] for group in groups]
+    for group in groups:
+        names += [task["name"] for task in group["tasks"]]
+    assert len(set(names)) == len(names)
     run_script = groups[1]["tasks"][0]["files"][0]["contents"]
     assert f"--env_spec isaaclab_arena_environments/agentic_env_gen_benchmark/{_CASE}.yaml" in run_script
     assert "--num_envs 16 --num_runs 3 --warmup_runs 1 --placement_seed 42" in run_script
@@ -47,13 +52,13 @@ def test_runs_each_case_and_environment_count_in_its_own_group_before_collecting
     assert groups[1]["tasks"][0]["outputs"] == []
 
     collect_task = groups[2]["tasks"][0]
-    assert collect_task["inputs"] == [{"task": "layout-benchmark-0"}, {"task": "layout-benchmark-1"}]
+    assert collect_task["inputs"] == [{"task": "layout-benchmark-runner-0"}, {"task": "layout-benchmark-runner-1"}]
     benchmark = json.loads(collect_task["files"][2]["contents"])
     assert benchmark["configurations"][1] == {
         "name": f"{_CASE}_envs_16",
         "case": _CASE,
         "num_envs": 16,
-        "task_output_directory": "{{input:layout-benchmark-1}}",
+        "task_output_directory": "{{input:layout-benchmark-runner-1}}",
     }
 
 

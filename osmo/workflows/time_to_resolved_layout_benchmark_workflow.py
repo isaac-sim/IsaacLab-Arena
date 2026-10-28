@@ -65,7 +65,7 @@ class TimeToResolvedLayoutBenchmarkWorkflow(Workflow):
             for num_envs in self.task_cfg.num_envs:
                 configuration_index = len(configurations)
                 configuration_name = benchmark_configuration_name(case, num_envs)
-                task_name = f"layout-benchmark-{configuration_index}"
+                task_name = f"layout-benchmark-runner-{configuration_index}"
                 benchmark_task = TimeToResolvedLayoutBenchmarkTask(
                     task_cfg=self.task_cfg,
                     case=case,
