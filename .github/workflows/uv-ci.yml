@@ -204,6 +204,13 @@ jobs:
           pytest -sv --durations=0 \
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy.py
 
+      - name: Run cuRobo IK reachability tests
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          MPLCONFIGDIR=/tmp/mpl pytest -sv --durations=0 -m curobo_deps \
+            isaaclab_arena_curobo/tests/
+
 
   test_live_environment_generation:
     name: Live environment generation (nightly, native uv)
