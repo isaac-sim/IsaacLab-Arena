@@ -26,7 +26,7 @@
 /* Wrap the long spec names, so the catalog's ``:widths:`` hold and the GIFs get
    their share. The anchor needs the rule too: the theme's ``a`` sets
    ``break-word``, which beats inheritance and does not shrink min-content. */
-.kitchen-bench-catalog td:first-child,
-.kitchen-bench-catalog td:first-child a {
+.kitchen-bench-catalog td:nth-child(2),
+.kitchen-bench-catalog td:nth-child(2) a {
     overflow-wrap: anywhere;
 }
