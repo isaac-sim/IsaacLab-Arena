@@ -107,7 +107,7 @@ def test_candidate_alignment_seeds_use_rotated_centres(subject_yaw, reference_ya
     )
     reference = DummyObject("reference", AxisAlignedBoundingBox((0.3, -0.1, 0), (0.5, 0.1, 0.2)))
     reference.add_relation(On(table))
-    reference.add_relation(PositionLimitsBox(x_min=-0.2, x_max=0.2, y_min=-0.2, y_max=0.2))
+    reference.add_relation(PositionLimitsBox(x_limits=(-0.2, 0.2), y_limits=(-0.2, 0.2)))
     reference.add_relation(RotateAroundSolution(yaw_rad=reference_yaw))
     subject = DummyObject("subject", AxisAlignedBoundingBox((0.2, -0.1, 0), (0.4, 0.1, 0.2)))
     subject.add_relation(On(table))

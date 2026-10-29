@@ -63,10 +63,8 @@ relations:
 - kind: position_limits_box
   subject: wooden_bowl
   params:
-    x_min: -1.89
-    x_max: -1.55
-    y_min: 2.07
-    y_max: 2.21
+    x_limits: [-1.89, -1.55]
+    y_limits: [2.07, 2.21]
 - kind: align_with
   subject: banana
   reference: wooden_bowl
