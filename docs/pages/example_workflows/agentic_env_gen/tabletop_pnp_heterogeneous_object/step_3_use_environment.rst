@@ -11,7 +11,7 @@ Open one terminal and run the following command outside the Arena docker contain
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 In the other terminal, run the following command to launch the policy runner.
 Keep ``--num_envs`` above one so the policy is evaluated against a different fruit per environment.

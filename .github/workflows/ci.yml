@@ -295,18 +295,18 @@ jobs:
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
-            isaaclab_arena_vlm_agent/tests/
+            isaaclab_arena_policies/isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
-            isaaclab_arena_vlm_agent/tests/
+            isaaclab_arena_policies/isaaclab_arena_vlm_agent/tests/
 
       - name: Run GR00T policy client & data tests (lightweight gr00t deps only)
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_policy \
-            isaaclab_arena_gr00t/tests/
+            isaaclab_arena_policies/isaaclab_arena_gr00t/tests/
 
       - name: Run cuRobo IK reachability tests
         run: |
@@ -384,7 +384,7 @@ jobs:
         ports:
           - 5555:5555
         # Mount the runner's workspace into the GR00T container. The baked
-        # entrypoint polls for isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
+        # entrypoint polls for isaaclab_arena_policies/isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
         volumes:
           - ${{ github.workspace }}:/arena_workspace
         options: >-
@@ -456,7 +456,7 @@ jobs:
         if: steps.gr00t_cuda.outputs.enabled == 'true'
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_remote_e2e \
-            isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
+            isaaclab_arena_policies/isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
   build_docs_pre_merge:

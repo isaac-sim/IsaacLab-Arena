@@ -1,7 +1,7 @@
 ---
 name: serve-openpi-policy
 description: Starts, reuses, verifies, and explicitly stops the local Dockerized OpenPI inference server used by Isaac Lab-Arena Pi0RemotePolicy experiments. Use when serving pi05 or pi0 locally, selecting an OpenPI port or variant, checking whether the OpenPI server is ready, handling an OpenPI server conflict, or when run-experiment discovers a local OpenPI policy dependency. Do not use for running Experiment Definitions, OSMO submission, other policy providers, training, or general Arena container setup.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(test -x isaaclab_arena_openpi/docker/run_openpi_server.sh) Bash(docker images -q isaaclab_arena:openpi_server) Bash(docker logs *) Bash(docker ps *) Bash(ss -ltn *) Bash(./isaaclab_arena_openpi/docker/run_openpi_server.sh *)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(test -x isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh) Bash(docker images -q isaaclab_arena:openpi_server) Bash(docker logs *) Bash(docker ps *) Bash(ss -ltn *) Bash(./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh *)
 ---
 
 # Serve OpenPI Policy
@@ -16,7 +16,7 @@ Before acting, read:
 
 - `docs/pages/quickstart/running_a_real_policy/openpi.rst` for the maintained two-terminal workflow,
   first-run costs, and readiness message.
-- `isaaclab_arena_openpi/docker/run_openpi_server.sh` for the supported flags and current variant
+- `isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh` for the supported flags and current variant
   mapping.
 
 Treat the current checkout as the source of truth. Use the wrapper rather than reconstructing its
@@ -85,7 +85,7 @@ or task handle, and pass the resolved values explicitly so the effective server 
 Experiment:
 
 ```bash
-./isaaclab_arena_openpi/docker/run_openpi_server.sh -v <pi05-or-pi0> -p <port>
+./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh -v <pi05-or-pi0> -p <port>
 ```
 
 Retain the terminal session handle and poll its output without waiting for the command to finish;
@@ -129,4 +129,4 @@ original session cannot be identified safely, report that limitation instead of 
 
 - [Evaluation scenarios](evaluations.md)
 - [OpenPI workflow](../../../docs/pages/quickstart/running_a_real_policy/openpi.rst)
-- [OpenPI server wrapper](../../../isaaclab_arena_openpi/docker/run_openpi_server.sh)
+- [OpenPI server wrapper](../../../isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh)

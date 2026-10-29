@@ -1,0 +1,64 @@
+FROM nvcr.io/nvidia/pytorch:25.04-py3
+
+ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
+
+ARG HF_TOKEN
+ARG MODELS_DIR=/workspace/pretrained_ckpts
+
+ENV MODELS_DIR=${MODELS_DIR}
+
+RUN apt-get update && \
+    apt install -y tzdata && \
+    ln -fs /usr/share/zoneinfo/America/Los_Angeles /etc/localtime && \
+    apt install -y dnsutils && \
+    apt-get update && \
+    apt-get install -y \
+    build-essential yasm cmake libtool git pkg-config \
+    libass-dev libfreetype6-dev libvorbis-dev \
+    autoconf automake texinfo tmux ffmpeg \
+    curl vim sudo zip unzip wget htop man ca-certificates
+
+RUN pip install --upgrade pip setuptools
+RUN pip install uv
+RUN sed -i s/dill==0.3.9/dill==0.3.8/g /etc/pip/constraint.txt
+RUN sed -i s/scipy==1.15.2/scipy==1.15.3/g /etc/pip/constraint.txt
+RUN pip install imageio h5py boto3 transformers[torch] deepspeed timm peft diffusers wandb tianshou dm_tree openai albumentations==1.4.18 decord==0.6.0 torchcodec==0.4.0
+RUN mkdir -p /opt
+RUN cd /opt && git clone https://github.com/facebookresearch/pytorch3d.git
+RUN cd /opt/pytorch3d && pip install .
+
+WORKDIR /workspace
+COPY submodules/Isaac-GR00T/pyproject.toml /workspace/pyproject.toml
+COPY submodules/Isaac-GR00T/gr00t /workspace/gr00t
+
+COPY isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py /workspace/gr1_manip/gr1_arms_only_data_config.py
+COPY isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py /workspace/g1_locomanip/g1_sim_wbc_data_config.py
+
+RUN cd /workspace/ && uv sync && uv pip install -e .
+
+RUN mkdir -p "${MODELS_DIR}"
+RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+RUN sudo apt-get install git-lfs
+RUN git-lfs install
+
+# huggingface-hub[cli] requires typer>=0.16 (for the `suggest_commands` kwarg),
+# but the pytorch base image hard-pins typer==0.15.2 in /etc/pip/constraint.txt
+# which blocks any upgrade. Drop that line first (same pattern used above for
+# dill / scipy), then install the CLI.
+RUN sed -i '/^typer==/d' /etc/pip/constraint.txt
+RUN pip install --upgrade "typer>=0.16" "huggingface-hub[cli]"
+
+# Download only the base GR00T model. The CI server post-trains a tiny
+# checkpoint from this base model before serving it.
+RUN /usr/local/bin/hf download \
+    nvidia/GR00T-N1.6-3B \
+    --local-dir "${MODELS_DIR}/GR00T-N1.6-3B" \
+    --token "${HF_TOKEN}"
+RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
+
+
+# GR00T server bootstrap. The baked copy waits for the mounted checkout and
+# then executes the repo copy.
+COPY isaaclab_arena_policies/isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh /workspace/ci_gr00t_train_and_serve.sh
+RUN chmod +x /workspace/ci_gr00t_train_and_serve.sh
+ENV CI_GR00T_ENTRYPOINT_MODE=bootstrap

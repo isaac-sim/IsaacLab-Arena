@@ -226,7 +226,7 @@ requires-dist = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".", "isaaclab_arena_policies"]
 include = [
     "isaaclab_arena*",
     "isaaclab_arena_cosmos*",
@@ -311,6 +311,8 @@ known_third_party = [
 ]
 # Imports from this repository
 known_first_party = "isaaclab_arena"
+# Package roots searched for first-party modules; the policy packages live under isaaclab_arena_policies/.
+src_paths = [".", "isaaclab_arena_policies"]
 
 [tool.pyright]
 

@@ -11,7 +11,7 @@ Open one terminal and run the following command outside the Arena docker contain
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 In the other terminal, run the following command to launch the policy runner. The commands below use the
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point

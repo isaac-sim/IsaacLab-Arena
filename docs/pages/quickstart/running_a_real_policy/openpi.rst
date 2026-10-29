@@ -20,7 +20,7 @@ upstream openpi at a pinned commit on first run) and starts the inference server
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 The first invocation builds ``isaaclab_arena:openpi_server`` (~3 min,
 ~19 GB) and then downloads the ~11 GB checkpoint into the container on startup;
@@ -33,7 +33,7 @@ address is already in use, stop the existing process or choose another port:
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh -p 8001
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh -p 8001
 
 When you see:
 
@@ -233,5 +233,5 @@ supports two OpenPI checkpoint variants on DROID:
      - 10
 
 To add a new embodiment, subclass ``Pi0EmbodimentAdapter`` in
-``isaaclab_arena_openpi/policy/pi0_remote_policy.py`` and register the adapter in
+``isaaclab_arena_policies/isaaclab_arena_openpi/policy/pi0_remote_policy.py`` and register the adapter in
 ``_resolve_openpi_embodiment_adapter``.

@@ -21,7 +21,7 @@ In another terminal on the host, start the OpenPI server from the repository roo
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 Leave the server running while you complete the evaluation workflow. You can stop it before
 starting Sensitivity Analysis, which reads the saved episode results directly. For installation,

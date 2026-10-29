@@ -60,7 +60,7 @@ leave it running:
 
    cd submodules/Isaac-GR00T
    uv run python gr00t/eval/run_gr00t_server.py \
-     --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
+     --modality-config-path ../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
      --model-path $HOME/models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000 \
      --embodiment-tag GR1 \
      --device cuda --host 127.0.0.1 --port 5555
@@ -71,7 +71,7 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_policies/isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``gr1_manip_gr00t_closedloop_config.yaml``):
    :animate: fade-in
@@ -82,11 +82,11 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
       action_horizon: 16
       embodiment_tag: GR1
       video_backend: decord
-      modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
+      modality_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
 
-      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml
+      policy_joints_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml
+      action_joints_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml
+      state_joints_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml
       action_chunk_length: 16
       task_mode_name: gr1_tabletop_manipulation
 
@@ -103,7 +103,7 @@ Test the policy in a single environment with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
      --remote_host 127.0.0.1 \
      --remote_port 5555 \
      --num_steps 2000 \
@@ -149,7 +149,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
          python isaaclab_arena/evaluation/policy_runner.py \
            --viz kit \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+           --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
            --remote_host 127.0.0.1 \
            --remote_port 5555 \
            --num_steps 2000 \
@@ -166,7 +166,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
 
          python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+           --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
            --remote_host 127.0.0.1 \
            --remote_port 5555 \
            --num_steps 2000 \

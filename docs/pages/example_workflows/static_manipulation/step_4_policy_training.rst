@@ -72,11 +72,11 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
 
-   python isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py \
-     --yaml_file isaaclab_arena_gr00t/lerobot/config/gr1_manip_config.yaml
+   python isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py \
+     --yaml_file isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/config/gr1_manip_config.yaml
 
 This creates a folder ``$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot`` containing parquet files with states/actions, MP4 camera recordings, and dataset metadata. The converter is controlled by a config file at
-``isaaclab_arena_gr00t/lerobot/config/gr1_manip_config.yaml``.
+``isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/config/gr1_manip_config.yaml``.
 
 .. dropdown:: Configuration file (``gr1_manip_config.yaml``)
    :animate: fade-in
@@ -159,7 +159,7 @@ We provide two post-training options:
            gr00t/experiment/launch_finetune.py \
            --dataset-path ~/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot \
            --output-dir ~/models/isaaclab_arena/static_manipulation_tutorial \
-           --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
+           --modality-config-path ../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
            --global-batch-size 24 \
            --max-steps 20000 \
            --num-gpus 8 \
@@ -199,7 +199,7 @@ We provide two post-training options:
          CUDA_VISIBLE_DEVICES=0 uv run python gr00t/experiment/launch_finetune.py \
            --dataset-path ~/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot \
            --output-dir ~/models/isaaclab_arena/static_manipulation_tutorial \
-           --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
+           --modality-config-path ../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
            --global-batch-size 16 \
            --max-steps 30000 \
            --num-gpus 1 \
