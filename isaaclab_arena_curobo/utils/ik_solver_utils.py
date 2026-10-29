@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
+import numpy as np
 import torch
+import trimesh
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -18,9 +20,7 @@ from curobo.scene import Cuboid, Scene
 from curobo.types import JointState
 
 from isaaclab_arena.assets.object_base import ObjectBase
-from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 
 if TYPE_CHECKING:
     from curobo.inverse_kinematics import InverseKinematics
@@ -64,31 +64,79 @@ def get_aabb_collision_cuboid_for_object(
     )
 
 
+def cuboids_from_mesh(mesh: trimesh.Trimesh, name_prefix: str, voxel_size_m: float = 0.05) -> list[AABBCollisionCuboid]:
+    """Cover a world-frame mesh's surface with world-axis-aligned cuboids built on a voxel grid.
+
+    Points sampled on the surface mark the voxels it passes through, and runs of marked voxels are merged greedily
+    (along x, then y, then z) into boxes, so a flat panel becomes a few cuboids however it is triangulated. The
+    cuboids inflate the surface by up to one voxel, and closed volumes stay hollow.
+
+    Args:
+        mesh: Mesh in world coordinates.
+        name_prefix: Prefix of the cuboid names, which are numbered per box.
+        voxel_size_m: Voxel edge length; the coarser, the fewer cuboids and the more the surface is inflated.
+
+    Returns:
+        The merged cuboids.
+    """
+    # About four samples per voxel of surface area, so every voxel the surface crosses gets at least one.
+    num_samples = int(np.ceil(4.0 * mesh.area / voxel_size_m**2))
+    samples, _ = trimesh.sample.sample_surface(mesh, num_samples, seed=0)
+    points = np.vstack([samples, mesh.vertices])
+    origin = points.min(axis=0)
+    voxel_indices = np.floor((points - origin) / voxel_size_m).astype(np.int64)
+    occupied = np.zeros(voxel_indices.max(axis=0) + 1, dtype=bool)
+    occupied[tuple(voxel_indices.T)] = True
+
+    unmerged = occupied.copy()
+    cuboids = []
+    for i, j, k in np.argwhere(occupied):
+        if unmerged[i, j, k]:
+            i_end = i + 1
+            while i_end < unmerged.shape[0] and unmerged[i_end, j, k]:
+                i_end += 1
+            j_end = j + 1
+            while j_end < unmerged.shape[1] and unmerged[i:i_end, j_end, k].all():
+                j_end += 1
+            k_end = k + 1
+            while k_end < unmerged.shape[2] and unmerged[i:i_end, j:j_end, k_end].all():
+                k_end += 1
+            unmerged[i:i_end, j:j_end, k:k_end] = False
+            lower = origin + voxel_size_m * np.array([i, j, k])
+            upper = origin + voxel_size_m * np.array([i_end, j_end, k_end])
+            cuboids.append(
+                AABBCollisionCuboid(
+                    name=f"{name_prefix}_{len(cuboids)}",
+                    dims_xyz=tuple(float(v) for v in upper - lower),
+                    pose_W_O=Pose(position_xyz=tuple(float(v) for v in (lower + upper) / 2.0)),
+                )
+            )
+    return cuboids
+
+
 def scene_from_cuboids(
     cuboids: list[AABBCollisionCuboid],
     robot_base_pos_w: tuple[float, float, float],
     robot_base_quat_w_xyzw: tuple[float, float, float, float],
-    device: str | torch.device | None = None,
 ) -> Scene:
     """Build a cuRobo ``Scene`` of cuboids expressed in the robot base frame.
 
-    Each obstacle's world pose is transformed into the robot base frame. Include anchor objects (e.g. a table) here as static cuboids.
+    Each obstacle's world pose is transformed into the robot base frame, all obstacles at once on the CPU. Include
+    anchor objects (e.g. a table) here as static cuboids.
     """
-
-    dev = resolve_cuda_device(device)
-    robot_pos = torch.tensor(robot_base_pos_w, dtype=torch.float32, device=dev)
-    robot_quat = torch.tensor(robot_base_quat_w_xyzw, dtype=torch.float32, device=dev)
-
-    curobo_cuboids = []
-    for c in cuboids:
-        pos_w = torch.tensor(c.pose_W_O.position_xyz, dtype=torch.float32, device=dev)
-        quat_w_xyzw = torch.tensor(c.pose_W_O.rotation_xyzw, dtype=torch.float32, device=dev)
-        t_R_O, q_R_O_xyzw = world_pose_to_robot_frame(pos_w, quat_w_xyzw, robot_pos, robot_quat)
-        q_R_O_wxyz = math_utils.convert_quat(q_R_O_xyzw, to="wxyz")
-        # cuRobo Cuboid pose is [x, y, z, qw, qx, qy, qz].
-        pose = t_R_O.tolist() + q_R_O_wxyz.tolist()
-        curobo_cuboids.append(Cuboid(name=c.name, pose=pose, dims=list(c.dims_xyz)))
-    return Scene(cuboid=curobo_cuboids)
+    if not cuboids:
+        return Scene(cuboid=[])
+    # Frames: W = world, R = robot base, O = obstacle.
+    t_W_O = torch.tensor([c.pose_W_O.position_xyz for c in cuboids], dtype=torch.float64)
+    q_W_O_xyzw = torch.tensor([c.pose_W_O.rotation_xyzw for c in cuboids], dtype=torch.float64)
+    t_W_R = torch.tensor(robot_base_pos_w, dtype=torch.float64)
+    q_W_R_xyzw = torch.tensor(robot_base_quat_w_xyzw, dtype=torch.float64)
+    R_R_W = math_utils.matrix_from_quat(q_W_R_xyzw).T
+    t_R_O = (t_W_O - t_W_R) @ R_R_W.T
+    q_R_O_xyzw = math_utils.quat_mul(math_utils.quat_inv(q_W_R_xyzw).expand_as(q_W_O_xyzw), q_W_O_xyzw)
+    # cuRobo Cuboid pose is [x, y, z, qw, qx, qy, qz].
+    poses = torch.cat([t_R_O, math_utils.convert_quat(q_R_O_xyzw, to="wxyz")], dim=1).tolist()
+    return Scene(cuboid=[Cuboid(name=c.name, pose=pose, dims=list(c.dims_xyz)) for c, pose in zip(cuboids, poses)])
 
 
 @dataclass

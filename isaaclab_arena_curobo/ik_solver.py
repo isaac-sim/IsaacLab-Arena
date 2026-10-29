@@ -155,11 +155,21 @@ class CuroboIKSolver:
     ) -> None:
         """Replace the collision world with cuboids derived from a layout's bounding boxes.
 
-        cuRobo reloads the collision model rather than only moving obstacle poses, so this handles both
-        moved objects and a changed object set per layout, as long as the obstacle count stays within the
-        collision cache.
+        The whole collision world is reloaded, so this handles both moved objects and a changed object set per
+        layout, as long as the obstacle count stays within the collision cache. Every obstacle starts enabled.
         """
-        scene = scene_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw, self.device)
-        self.ik_solver.update_world(scene)
+        scene = scene_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw)
+        # cuRobo's update_world adds obstacles one at a time (~0.5 ms each); its cuboid store loads the whole
+        # batch in one tensor copy, in place, so captured CUDA graphs stay valid.
+        self.ik_solver.scene_collision_checker.data.cuboids.load_batch(scene.cuboid, env_idx=0)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
+
+    def set_obstacle_enabled(self, name: str, enabled: bool) -> None:
+        """Turn collision checking against one loaded obstacle off or back on, without reloading the world.
+
+        Args:
+            name: The obstacle's cuboid name, as passed to ``update_world``.
+            enabled: Whether solves check collisions against it.
+        """
+        self.ik_solver.scene_collision_checker.enable_obstacle(name, enabled)

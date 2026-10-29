@@ -69,8 +69,8 @@ def _patch_curobo(monkeypatch, feasible_fn):
     """Replace the cuRobo solver build and the batched IK solve; return the captured fake solver.
 
     ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility. The fake solver records the
-    cuboids passed to ``update_world``, and each solve records the world it ran against, so a test can
-    assert which objects were obstacles to which grasp.
+    cuboids passed to ``update_world`` and which of them are switched off, and each solve records the enabled
+    world it ran against, so a test can assert which objects were obstacles to which grasp.
     """
     import isaaclab_arena_curobo.ik_reachability_validator as mod
 
@@ -78,10 +78,18 @@ def _patch_curobo(monkeypatch, feasible_fn):
         def __init__(self, *args, **kwargs):
             self.device = torch.device("cpu")
             self.world_cuboids = None
+            self.disabled_names = set()
 
         def update_world(self, cuboids, base_pos, base_quat):
             self.world_cuboids = cuboids
+            self.disabled_names = set()
             captured.setdefault("base_poses_per_world_update", []).append((tuple(base_pos), tuple(base_quat)))
+
+        def set_obstacle_enabled(self, name, enabled):
+            if enabled:
+                self.disabled_names.discard(name)
+            else:
+                self.disabled_names.add(name)
 
     captured = {}
 
@@ -98,7 +106,8 @@ def _patch_curobo(monkeypatch, feasible_fn):
         captured["total_grasps"] = captured.get("total_grasps", 0) + num
         captured["ik_kwargs"] = kwargs
         # The world in force at solve time, one entry per solve: what this grasp was checked against.
-        captured.setdefault("worlds_per_solve", []).append([cuboid.name for cuboid in solver.world_cuboids])
+        enabled_names = [cuboid.name for cuboid in solver.world_cuboids if cuboid.name not in solver.disabled_names]
+        captured.setdefault("worlds_per_solve", []).append(enabled_names)
         return IKFeasibility(feasible, torch.zeros(num), torch.zeros(num), torch.zeros(num, DOF))
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
@@ -290,7 +299,7 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), []) == [True]
     # One collision cuboid per non-target object (the desk); one grasp per target (the box).
-    assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
+    assert captured["worlds_per_solve"] == [["desk"]]
     assert captured["total_grasps"] == 1
 
 
@@ -378,7 +387,7 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
     layout = _make_two_box_pool().layouts_per_env()[0][0]
     validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), [])
 
-    assert sorted(cuboid.name for cuboid in captured["solver"].world_cuboids) == ["box_b", "desk"]
+    assert [sorted(names) for names in captured["worlds_per_solve"]] == [["box_b", "desk"]]
 
 
 @pytest.mark.curobo_deps

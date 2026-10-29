@@ -88,3 +88,21 @@ def test_obstacle_blocks_a_collision_free_solve_until_cleared(droid_solver):
         droid_solver.update_world([], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
     result = solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True)
     assert result.feasible.tolist() == [True]
+
+
+def test_disabled_obstacle_stops_blocking_until_enabled_again(droid_solver):
+    """Switching a loaded obstacle off frees the blocked solve, and switching it back on blocks it again."""
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, solve_ik_feasibility
+
+    T_B_E = _default_ee_pose(droid_solver)
+    t_B_E = tuple(T_B_E[0, :3, 3].tolist())
+    block = AABBCollisionCuboid(name="block", dims_xyz=(0.4, 0.4, 0.4), pose_W_O=Pose(position_xyz=t_B_E))
+    droid_solver.update_world([block], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+    try:
+        droid_solver.set_obstacle_enabled("block", False)
+        assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]
+        droid_solver.set_obstacle_enabled("block", True)
+        assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [False]
+    finally:
+        droid_solver.update_world([], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
