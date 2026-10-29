@@ -20,7 +20,7 @@ DATASETS_SWIFT_URL = f"{SWIFT_URL_PREFIX}/{DATASETS_PATH}"
 DATASET_HTTPS_URL = f"{HTTPS_URL_PREFIX}/{DATASETS_PATH}/{{{{workflow_id}}}}"
 DATASET_SWIFT_URL = f"{SWIFT_URL_PREFIX}/{DATASETS_PATH}/{{{{workflow_id}}}}"
 
-# Labels every Arena workflow carries by default, as ``key=value`` entries. A value may hold several comma-separated items.
+# Labels every Arena workflow carries by default, as ``key=value`` entries.
 DEFAULT_WORKFLOW_LABELS = ["workstreams=isaac_lab_arena"]
 
 # Port a policy server binds to and its remote policy-runner client connects to.

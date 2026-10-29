@@ -271,8 +271,8 @@ common ones are:
      - Hardware platform requested for each Run.
    * - ``osmo.labels``
      - ``[workstreams=isaac_lab_arena]``
-     - OSMO labels attached to the workflow, as ``key=value`` entries; a value may hold several comma-separated items.
-       Replace them with ``'osmo.labels=["team=robotics","projects=alpha,beta"]'`` or clear them with ``'osmo.labels=[]'``.
+     - OSMO labels attached to the workflow, as ``key=value`` entries.
+       Replace them with ``'osmo.labels=["team=robotics","project=alpha"]'`` or clear them with ``'osmo.labels=[]'``.
    * - ``osmo.gpus``
      - ``1``
      - GPUs requested per Run.

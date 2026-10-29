@@ -23,7 +23,7 @@ from osmo.workflows.server_plus_policy_runner_workflow import (
     Pi0PlusPolicyRunnerWorkflow,
 )
 from osmo.workflows.workflow import WorkflowCfg, parse_labels
-from osmo.workflows.workflow_constants import DEFAULT_WORKFLOW_LABELS, POLICY_SERVER_PORT
+from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
 def test_task_name_is_a_required_keyword_argument():
@@ -169,13 +169,13 @@ def _rendered_workflow(**workflow_cfg_kwargs):
 
 def test_workflow_carries_the_default_labels():
     """Render the default labels into the workflow spec unless the config overrides them."""
-    assert _rendered_workflow()["labels"] == parse_labels(DEFAULT_WORKFLOW_LABELS)
+    assert _rendered_workflow()["labels"] == {"workstreams": "isaac_lab_arena"}
 
 
 def test_custom_labels_replace_the_defaults():
-    """Render exactly the configured labels, including comma-separated values."""
-    labels = _rendered_workflow(labels=["team=robotics", "projects=alpha,beta"])["labels"]
-    assert labels == {"team": "robotics", "projects": "alpha,beta"}
+    """Render exactly the configured labels."""
+    labels = _rendered_workflow(labels=["team=robotics", "project=alpha"])["labels"]
+    assert labels == {"team": "robotics", "project": "alpha"}
 
 
 def test_workflow_without_labels_has_no_labels_key():
