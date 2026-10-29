@@ -61,18 +61,14 @@ simulation runs.
 The pick-and-place task
 -----------------------
 
-Both example configurations run one episode of the same task:
+Both example configurations run one episode of ``pick_and_place_maple_table``, the environment
+from :doc:`../arena_env`: pick up the Rubik's cube and place it in the bowl, in the
+``home_office_robolab`` scene. Two settings differ from that page:
 
-* **Scene:** ``pick_and_place_maple_table`` with the ``home_office_robolab`` HDR.
-* **Objects:** a Rubik's cube (``rubiks_cube_hot3d_robolab``) to pick up, and a bowl
-  (``bowl_ycb_robolab``) as the destination.
-* **Success:** the episode succeeds when the cube rests in the bowl. It ends after 1050 steps
-  (70 s at 15 Hz) otherwise.
-* **Robot:** the ``droid_abs_ik`` embodiment, a Franka arm with a Robotiq 2F-85 gripper. Each
-  action is an absolute pose for the gripper's ``base_link`` in the robot root frame, given as
-  XYZ in meters followed by an XYZW quaternion, then a binary gripper command (0 opens,
-  1 closes). Differential IK tracks the pose.
-* **Cameras:** two external cameras and a wrist camera.
+* **Embodiment:** ``droid_abs_ik`` instead of ``droid_rel_joint_pos``. Each action is an absolute
+  pose for the gripper's ``base_link`` in the robot root frame, given as XYZ in meters followed
+  by an XYZW quaternion, then a binary gripper command (0 opens, 1 closes). Differential IK
+  tracks the pose.
 * **Task text:** the ``language_instruction`` text is sent to the model as the task.
 
 Run the example
