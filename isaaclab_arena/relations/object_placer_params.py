@@ -52,7 +52,14 @@ class ObjectPlacerParams:
     min_unique_layouts_per_env: int = 5
     """Number of unique pre-solved layouts per environment in the placement pool.
     The pool stores ``min_unique_layouts_per_env * num_envs`` valid layouts so each
-    environment has many distinct configurations to draw from."""
+    environment has many distinct configurations to draw from. Applies when layouts are drawn per env,
+    i.e. with a RigidObjectSet; otherwise each episode draws its own layout."""
+
+    layouts_per_solve: int = 64
+    """Number of layouts solved together when the pool draws one layout per episode.
+
+    Layout j belongs to the fixed group j // layouts_per_solve. The solver stops on the mean loss of its batch,
+    so keeping the groups independent of num_envs gives each episode the same layout on any number of envs."""
 
     allow_best_loss_fallbacks: bool = True
     """Whether pooled placement may use best-loss layouts when no valid layout is found."""
@@ -85,6 +92,8 @@ class ObjectPlacerParams:
             self.min_unique_layouts_per_env, bool
         )
         assert self.min_unique_layouts_per_env > 0, "min_unique_layouts_per_env must be positive"
+        assert isinstance(self.layouts_per_solve, int) and not isinstance(self.layouts_per_solve, bool)
+        assert self.layouts_per_solve > 0, "layouts_per_solve must be positive"
         assert (
             math.isfinite(self.on_relation_z_tolerance_m) and self.on_relation_z_tolerance_m >= 0
         ), "on_relation_z_tolerance_m must be finite and non-negative"

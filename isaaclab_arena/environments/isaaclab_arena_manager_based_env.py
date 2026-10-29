@@ -61,6 +61,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
         self._episode_indices: dict[int, int] = {}
+        self._run_episode_indices: dict[int, int] = {}
         self._episode_limit: int | None = None
         self._started_episode_count = 0
         self._completed_episode_count = 0
@@ -163,6 +164,13 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         """Return the current episode index, retaining the last index when an environment becomes inactive."""
         return self._episode_indices.get(env_id, 0)
 
+    def get_run_episode_index(self, env_id: int) -> int:
+        """Return the run-wide index of the env's current episode: how many episodes, in any env, started before it.
+
+        Envs starting in the same step are numbered in env id order.
+        """
+        return self._run_episode_indices.get(env_id, 0)
+
     def configure_episode_limit(self, num_episodes: int) -> None:
         """Set the total number of episodes to start and finish, before the initial reset.
 
@@ -222,8 +230,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             return
 
         # Reset-mode variation draws must refer to the episode being started.
-        for env_id in episode_start_env_ids.tolist():
+        for offset, env_id in enumerate(episode_start_env_ids.tolist()):
             self._episode_indices[env_id] = self._episode_indices.get(env_id, -1) + 1
+            self._run_episode_indices[env_id] = self._started_episode_count + offset
         if self._variation_replay_scheduler is not None:
             self._variation_replay_scheduler.assign_new_episodes(episode_start_env_ids.tolist())
         self._started_episode_count += len(episode_start_env_ids)

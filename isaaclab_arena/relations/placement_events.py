@@ -125,9 +125,10 @@ def solve_and_place_objects(
 ) -> None:
     """Coordinated reset event that draws placement samples and writes poses.
 
-    Registered as a single EventTermCfg(mode="reset"). Samples are env-indexed:
-    one sample is drawn for each requested absolute env id, so partial resets
-    only advance the corresponding live pools or recorded replay assignments.
+    Registered as a single EventTermCfg(mode="reset"). One sample is drawn for
+    each requested absolute env id, so partial resets only advance the
+    corresponding live pools or recorded replay assignments. A live pool that
+    draws by episode gives each env the layout of the run-wide episode it starts.
 
     Args:
         env: The Isaac Lab environment.
@@ -144,7 +145,14 @@ def solve_and_place_objects(
         assert (
             pool.num_envs == num_scene_envs
         ), f"Placement pool has {pool.num_envs} envs, but scene has {num_scene_envs} env origins."
-    samples = sampler.sample(len(env_ids), env_ids)
+        # Arena envs number episode starts across all envs; other envs fall back to the sampler's own count.
+        get_run_episode_index = getattr(env, "get_run_episode_index", None)
+        episode_indices = None
+        if pool.draws_by_episode and get_run_episode_index is not None:
+            episode_indices = [get_run_episode_index(env_id) for env_id in env_ids.tolist()]
+        samples = sampler.sample(len(env_ids), env_ids, episode_indices)
+    else:
+        samples = sampler.sample(len(env_ids), env_ids)
     write_placement_samples_to_sim(env, env_ids, samples, sampler.write_assets)
 
 

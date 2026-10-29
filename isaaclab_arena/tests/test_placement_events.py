@@ -218,6 +218,7 @@ def test_solve_and_place_objects_uses_runtime_pool():
     class Pool:
         num_envs = 1
         objects = [desk, robot]
+        draws_by_episode = False
 
         def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
             assert env_ids == [0]
@@ -450,6 +451,7 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
     class InvalidPool:
         num_envs = 1
         objects = [desk, box1, box2]
+        draws_by_episode = False
 
         def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
             assert env_ids == [0]
@@ -481,6 +483,7 @@ def test_solve_and_place_objects_partial_reset_applies_absolute_env_origin():
     class EnvIndexedPool:
         num_envs = 4
         objects = [desk, box1, box2]
+        draws_by_episode = False
         requested_env_ids = None
 
         def sample_without_replacement(self, count: int) -> list[PlacementResult]:

@@ -82,6 +82,7 @@ def test_fixed_live_sampler_reuses_per_environment_samples() -> None:
         for env_id in range(2)
     ]
     pool = Mock()
+    pool.draws_by_episode = False
     pool.sample_with_replacement.return_value = layouts
     sampler = PlacementSampler(assets=[asset], placement_pool=pool, write_assets=[asset])
     sampler.prepare_live(num_envs=2, resolve_on_reset=False)
@@ -92,6 +93,38 @@ def test_fixed_live_sampler_reuses_per_environment_samples() -> None:
     pool.sample_for_envs.assert_not_called()
     assert first == second
     assert first[0].poses["cube"].position_xyz == (1.0, 0.0, 0.2)
+
+
+def test_live_sampler_draws_layouts_by_run_wide_episode_index() -> None:
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.validation.types import PlacementValidationResults
+
+    asset = Mock()
+    asset.get_relations.return_value = []
+    asset.get_scene_root_keys.return_value = ("cube",)
+    asset.layout_pose_to_scene_writes.side_effect = lambda pose: [("cube", pose)]
+
+    def layout(index: int) -> PlacementResult:
+        return PlacementResult(
+            validation_results=PlacementValidationResults(),
+            positions={asset: (float(index), 0.0, 0.2)},
+            final_loss=0.0,
+            attempts=1,
+        )
+
+    pool = Mock()
+    pool.draws_by_episode = True
+    pool.sample_for_episodes.side_effect = lambda indices: [layout(index) for index in indices]
+    sampler = PlacementSampler(assets=[asset], placement_pool=pool, write_assets=[asset])
+
+    sampler.sample(2, torch.tensor([3, 1]), episode_indices=[5, 6])
+    assert sampler.last_results[3].positions[asset][0] == 5.0
+    assert sampler.last_results[1].positions[asset][0] == 6.0
+
+    # Without episode indices, the sampler continues numbering after the highest index it has seen.
+    sampler.sample(1, torch.tensor([0]))
+    pool.sample_for_episodes.assert_called_with([7])
+    pool.sample_for_envs.assert_not_called()
 
 
 def test_deserialize_placement_samples_rejects_inconsistent_roots() -> None:

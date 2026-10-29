@@ -46,6 +46,10 @@ class _FakePlacementPool:
     def had_fallbacks(self):
         return False
 
+    @property
+    def draws_by_episode(self):
+        return False
+
     def sample_with_replacement(self, count: int):
         return self._layouts[:count]
 
