@@ -26,7 +26,7 @@ FORCE_REBUILD=false
 CONTAINER_SUFFIX=""
 CONTAINER_SUFFIX_EXPLICIT=false
 
-while getopts ":d:m:e:hn:rRvn:s:t:" OPTION; do
+while getopts ":d:m:e:hn:rRvn:s:" OPTION; do
     case $OPTION in
 
         d)
@@ -52,9 +52,6 @@ while getopts ":d:m:e:hn:rRvn:s:t:" OPTION; do
         v)
             set -x
             ;;
-        t)
-            DOCKER_TARGET=$OPTARG
-            ;;
         s)
             CONTAINER_SUFFIX="-${OPTARG}"
             CONTAINER_SUFFIX_EXPLICIT=true
@@ -74,7 +71,6 @@ while getopts ":d:m:e:hn:rRvn:s:t:" OPTION; do
             echo "  -n <docker name> (Name of the docker image that will be built or used. Default is \"$DOCKER_IMAGE_NAME\".)"
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
-            echo "  -t <target> (Select the Docker target; default: dev.)"
             echo "  -s <suffix> (Suffix appended to the container name, allowing multiple containers to run simultaneously."
             echo "      Defaults to the repo directory name after 'IsaacLab-Arena', so each clone gets its own container.)"
             exit 0
