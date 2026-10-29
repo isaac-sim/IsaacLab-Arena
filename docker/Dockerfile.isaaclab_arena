@@ -78,6 +78,7 @@ COPY *.* ${WORKDIR}/
 # Preserve package directory names when copying multiple sources into one layer.
 COPY --parents \
     isaaclab_arena \
+    isaaclab_arena_benchmarking \
     isaaclab_arena_cosmos \
     isaaclab_arena_curobo \
     isaaclab_arena_dreamzero \

@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Benchmarks used for KPI tracking.
+benchmarks:
+  # getting_started_experiment.yaml has four Runs; keep baseline and swap_objects only. Video recording is
+  # disabled because the default recording fails on cameraless environments on OSMO.
+  # TODO(dtingdahl) re-visit this list and add more relevant benchmarks
+  - name: smoke-two-runs
+    experiment_cfg: isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
+    overrides:
+      - experiment_cfg.shared.rollout_limit.num_episodes=2
+      - "~experiment_cfg.runs.change_background_hdr"
+      - "~experiment_cfg.runs.parallel_envs"
+      - experiment_runner.record_camera_video=false

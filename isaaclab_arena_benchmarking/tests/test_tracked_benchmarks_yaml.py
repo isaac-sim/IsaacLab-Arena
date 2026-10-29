@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests that the tracked benchmark list ``osmo/benchmarks/main_benchmarks.yaml`` is well formed."""
+"""Tests that the tracked benchmark list ``isaaclab_arena_benchmarking/benchmark_lists/tracked_benchmarks.yaml`` is well formed."""
 
 import re
 import subprocess
@@ -15,7 +15,7 @@ import pytest
 from isaaclab_arena.tests.utils.constants import TestConstants
 
 REPO_ROOT = Path(TestConstants.repo_root).resolve()
-MAIN_BENCHMARKS_PATH = REPO_ROOT / "osmo" / "benchmarks" / "main_benchmarks.yaml"
+TRACKED_BENCHMARKS_PATH = REPO_ROOT / "isaaclab_arena_benchmarking" / "benchmark_lists" / "tracked_benchmarks.yaml"
 
 BENCHMARK_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 """Benchmark names are used in OSMO workflow names and folder paths."""
@@ -27,7 +27,7 @@ RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url")
 
 
 def _load_benchmark_entries() -> list[dict]:
-    content = yaml.safe_load(MAIN_BENCHMARKS_PATH.read_text(encoding="utf-8"))
+    content = yaml.safe_load(TRACKED_BENCHMARKS_PATH.read_text(encoding="utf-8"))
     assert isinstance(content, dict) and set(content) == {"benchmarks"}, "expected exactly one 'benchmarks' key"
     entries = content["benchmarks"]
     assert isinstance(entries, list) and entries, "'benchmarks' must be a non-empty list"
