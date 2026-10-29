@@ -34,6 +34,7 @@ from isaaclab_tasks.contrib.stack.mdp import franka_stack_events
 from isaaclab_tasks.contrib.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.embodiments.arm_reach import FRANKA_PANDA_ARM_REACH
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
@@ -84,6 +85,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
     """
 
     default_arm_mode = ArmMode.SINGLE_ARM
+    arm_reaches = (FRANKA_PANDA_ARM_REACH,)
 
     def __init__(
         self,

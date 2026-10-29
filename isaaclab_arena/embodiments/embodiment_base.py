@@ -14,6 +14,7 @@ from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers import EventTermCfg
 
+from isaaclab_arena.embodiments.arm_reach import ArmReach
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.gripper import Gripper
 from isaaclab_arena.relations.collision_mode import CollisionMode
@@ -53,6 +54,8 @@ class EmbodimentBase(PlaceableAsset):
 
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
+    arm_reaches: tuple[ArmReach, ...] = ()
+    """Reach spheres of the robot's arms in its root frame, used by WithinReach; empty when undeclared."""
     gripper: Gripper | None
     """Gripper attached to the robot body, when the embodiment defines one."""
     spawn_cfg_addon: dict[str, dict[str, Any]] = {}

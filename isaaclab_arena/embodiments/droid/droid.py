@@ -34,6 +34,7 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.embodiments.arm_reach import FRANKA_PANDA_ARM_REACH
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
 from isaaclab_arena.embodiments.droid.observations import (
@@ -114,6 +115,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     registry_name = "droid"
     default_arm_mode = ArmMode.SINGLE_ARM
+    arm_reaches = (FRANKA_PANDA_ARM_REACH,)
 
     def __init__(
         self,

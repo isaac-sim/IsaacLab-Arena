@@ -13,10 +13,12 @@ from isaaclab_arena.relations.optimization.losses.relation_loss_strategies impor
     NextToLossStrategy,
     NotNextToLossStrategy,
     OnLossStrategy,
+    ParentPoseRelationLossStrategy,
     PositionLimitsBoxLossStrategy,
     PositionLimitsCylindricalLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
+    WithinReachLossStrategy,
 )
 from isaaclab_arena.relations.relations import (
     AlignWith,
@@ -28,10 +30,13 @@ from isaaclab_arena.relations.relations import (
     PositionLimitsBox,
     PositionLimitsCylindrical,
     RelationBase,
+    WithinReach,
 )
 
 
-def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy]:
+def _default_strategies() -> (
+    dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy | ParentPoseRelationLossStrategy]
+):
     """Factory for default loss strategies."""
     return {
         AlignWith: AlignWithLossStrategy(slope=100.0),
@@ -42,6 +47,7 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
         AtPosition: AtPositionLossStrategy(slope=100.0),
         PositionLimitsBox: PositionLimitsBoxLossStrategy(slope=100.0),
         PositionLimitsCylindrical: PositionLimitsCylindricalLossStrategy(slope=100.0),
+        WithinReach: WithinReachLossStrategy(slope=100.0),
     }
 
 
@@ -79,7 +85,9 @@ class RelationSolverParams:
     reject actual overlaps (no safety margin)."""
 
     # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
-    strategies: dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy] = field(
+    strategies: dict[
+        type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy | ParentPoseRelationLossStrategy
+    ] = field(
         default_factory=_default_strategies,
         metadata={"allow_config_override": False},
     )

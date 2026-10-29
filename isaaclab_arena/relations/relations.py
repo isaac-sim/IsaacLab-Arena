@@ -15,6 +15,7 @@ from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
 if TYPE_CHECKING:
+    from isaaclab_arena.embodiments.arm_reach import ArmReach
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 RelationT = TypeVar("RelationT", bound="RelationBase")
@@ -150,6 +151,70 @@ class AlignWith(Relation):
         assert self.parent is not subject, "AlignWith requires a different reference asset"
         assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have an AlignWith relation"
         assert self.parent in objects, f"AlignWith reference '{self.parent.name}' must participate in placement"
+
+
+@register_object_relation
+class WithinReach(Relation):
+    """Keep the subject's bounding-box centre inside the reach sphere of one of the robot's arms.
+
+    The robot declares its reach spheres through ``arm_reaches``, each a centre in the robot root
+    frame plus a radius. The loss grows linearly with distance outside the nearest sphere.
+
+    Usage:
+        robot.add_relation(IsAnchor())
+        mug.add_relation(On(table))
+        mug.add_relation(WithinReach(robot, reach_scale=0.9))
+    """
+
+    name = "within_reach"
+
+    def __init__(
+        self,
+        parent: PlaceableAsset,
+        arm: str | None = None,
+        reach_scale: float = 1.0,
+        tolerance_m: float = 0.01,
+        relation_loss_weight: float = 1.0,
+    ):
+        """
+        Args:
+            parent: Robot whose ``arm_reaches`` define the reachable region.
+            arm: Name of the arm that must reach the subject, or None to accept any arm.
+            reach_scale: Factor applied to every reach radius, below 1 to keep a margin from full extension.
+            tolerance_m: Distance beyond the scaled radius still accepted by placement validation.
+            relation_loss_weight: Weight of the reach objective during solving.
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert math.isfinite(reach_scale) and reach_scale > 0.0, "reach_scale must be finite and positive"
+        assert math.isfinite(tolerance_m) and tolerance_m >= 0.0, "tolerance_m must be finite and non-negative"
+        assert math.isfinite(relation_loss_weight) and relation_loss_weight > 0.0, "Reach weight must be positive"
+        self.arm = arm
+        self.reach_scale = reach_scale
+        self.tolerance_m = tolerance_m
+
+    def get_arm_reaches(self) -> list[ArmReach]:
+        """Return the parent's reach spheres this relation accepts, before applying reach_scale."""
+        arm_reaches = list(getattr(self.parent, "arm_reaches", ()))
+        if self.arm is not None:
+            arm_reaches = [arm_reach for arm_reach in arm_reaches if arm_reach.name == self.arm]
+        return arm_reaches
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Require a movable subject and a participating robot with a fixed heading and a matching reach."""
+        assert self.parent is not subject, f"Object '{subject.name}' cannot be within reach of itself"
+        assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have a WithinReach relation"
+        assert self.parent in objects, (
+            f"WithinReach robot '{self.parent.name}' must participate in placement; "
+            "mark it with IsAnchor() or give it its own placement relations"
+        )
+        assert (
+            get_relation(self.parent, FaceTo) is None
+        ), f"WithinReach robot '{self.parent.name}' cannot use FaceTo, which sets its heading after solving"
+        available_arms = [arm_reach.name for arm_reach in getattr(self.parent, "arm_reaches", ())]
+        assert available_arms, f"WithinReach robot '{self.parent.name}' declares no arm_reaches"
+        assert (
+            self.arm is None or self.arm in available_arms
+        ), f"WithinReach arm '{self.arm}' is not one of robot '{self.parent.name}' arms {available_arms}"
 
 
 @agent_ready

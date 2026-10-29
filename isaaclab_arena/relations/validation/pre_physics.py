@@ -18,6 +18,7 @@ from isaaclab_arena.relations.optimization.losses.relation_loss_strategies impor
     NotNextToLossStrategy,
     next_to_violations,
     not_next_to_violations,
+    within_reach_excess_m,
 )
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relations import (
@@ -28,6 +29,7 @@ from isaaclab_arena.relations.relations import (
     NotNextTo,
     On,
     RelationBase,
+    WithinReach,
     get_relation,
 )
 from isaaclab_arena.relations.validation import base
@@ -372,6 +374,54 @@ class FaceToValidator(PrePhysicsPlacementValidator):
                     print(f"  FaceTo: '{obj.name}' has no computed facing yaw")
                 return False
         return True
+
+
+@register_validator
+class WithinReachValidator(PrePhysicsPlacementValidator):
+    """Reject layouts that leave a WithinReach subject outside its robot's scaled reach spheres."""
+
+    check = PlacementCheck.WITHIN_REACH
+
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        return [
+            self._validate(candidate.positions, candidate.orientations, candidate.bboxes)
+            for candidate in batch.candidates
+        ]
+
+    def _validate(
+        self,
+        positions: dict[PlaceableAsset, tuple[float, float, float]],
+        orientations: dict[PlaceableAsset, float],
+        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> bool:
+        """Check every reach relation against the same geometry as the solver objective."""
+        for obj, t_W_C in positions.items():
+            for relation in obj.get_relations():
+                if not isinstance(relation, WithinReach):
+                    continue
+                robot = relation.parent
+                child_bbox = env_bboxes[obj]
+                p_W_child_center = child_bbox.min_point.new_tensor(t_W_C) + child_bbox.center
+                t_W_R = child_bbox.min_point.new_tensor([positions[robot]])
+                yaw_W_R = child_bbox.min_point.new_tensor([self._get_robot_yaw(robot, orientations)])
+                excess = within_reach_excess_m(relation, p_W_child_center, t_W_R, yaw_W_R)
+                if not torch.isfinite(excess).all() or excess.item() > relation.tolerance_m:
+                    if self._params.verbose:
+                        print(
+                            f"WithinReach: '{obj.name}' within_reach({robot.name}) violated "
+                            f"(distance outside reach={excess.item():.4f} m; tolerance_m={relation.tolerance_m})"
+                        )
+                    return False
+        return True
+
+    @staticmethod
+    def _get_robot_yaw(robot: PlaceableAsset, orientations: dict[PlaceableAsset, float]) -> float:
+        """Return the robot's world Z heading, from its fixed pose when anchored."""
+        if robot.is_anchor:
+            initial_pose = robot.get_initial_pose()
+            assert isinstance(initial_pose, Pose), f"Anchor '{robot.name}' must have a fixed Pose."
+            return yaw_from_quat_xyzw(initial_pose.rotation_xyzw)
+        return orientations.get(robot, 0.0)
 
 
 @register_validator

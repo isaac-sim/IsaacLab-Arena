@@ -220,6 +220,35 @@ Most environments can be described with a small set of relations:
    Use a fixed heading or centred placement bounds for that case. Z alignment is
    unaffected by a yaw-only turn.
 
+``WithinReach(robot, arm=None, reach_scale=1.0, tolerance_m=0.01)``
+   Keeps the subject's bounding-box centre inside a reach sphere of the robot.
+   Each embodiment declares its spheres in ``arm_reaches`` as ``ArmReach``
+   entries: a centre in the robot root frame, typically the shoulder, and a
+   radius, typically the manufacturer's published maximum reach. The Franka and
+   DROID embodiments use the shoulder 0.333 m above ``panda_link0`` and Franka's
+   published 0.855 m reach. The sphere centre follows the robot's position and
+   heading, so the robot may be an anchor or be placed by its own relations.
+
+   The solver loss grows linearly with the distance outside the nearest
+   accepted sphere and is zero inside it. ``arm`` restricts the relation to one
+   named arm. ``reach_scale`` multiplies every radius; values below 1 keep items
+   away from full extension, where grasps are rarely feasible. The
+   ``within_reach`` check accepts candidates within ``tolerance_m`` of the scaled
+   sphere.
+
+   .. code-block:: python
+
+      robot.add_relation(IsAnchor())
+      mug.add_relation(On(table))
+      mug.add_relation(WithinReach(robot, reach_scale=0.9))
+
+   ``WithinReach`` is a cheap geometric bound. It does not check joint limits,
+   grasp orientation, or collisions; use ``RequiresReachability`` with the cuRobo
+   ``ik_reachable`` check for that. The robot must participate in placement and
+   cannot use ``FaceTo``, whose heading is applied after solving. The
+   ``droid_table_unconstrained_reach`` and ``droid_table_within_reach``
+   environments place the same items on a table with and without this relation.
+
 ``NotNextTo(parent)``
    Defines a side-specific keep-out region next to the parent. The region
    extends outward from the selected side and spans the parent's footprint

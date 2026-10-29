@@ -17,6 +17,8 @@ from isaaclab_arena.utils.pose import Pose, PosePerEnv
 if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
+    from isaaclab_arena.embodiments.arm_reach import ArmReach
+
 
 class DummyEmbodiment(PlaceableAsset):
     """Embodiment geometry without simulator dependencies.
@@ -32,8 +34,10 @@ class DummyEmbodiment(PlaceableAsset):
         initial_pose: Pose | None = None,
         collision_mesh: trimesh.Trimesh | None = None,
         scene_name: str | None = None,
+        arm_reaches: tuple[ArmReach, ...] = (),
     ) -> None:
         super().__init__(name=name, tags=["embodiment"])
+        self.arm_reaches = arm_reaches
         self.initial_pose = initial_pose
         self.bounding_box = bounding_box
         self.collision_mesh = collision_mesh
