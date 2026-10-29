@@ -20,55 +20,42 @@ or execution strategy.
    model is sampled, so repeated runs of one layout can differ; see
    :ref:`vlm-agent-strategies`.
 
-Set the inference backend
--------------------------
+Prerequisites
+-------------
 
-The policy reads its endpoint from ``policy.endpoint``. If that field is not set, it reads the
-``ARENA_INFERENCE_ENDPOINT`` environment variable. Each endpoint reads its API key from its own
-environment variable:
+Inference API key setup
+~~~~~~~~~~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
+The policy calls a remote VLM endpoint. The setup is the same as for
+:ref:`agentic environment generation <agentic-env-gen-prerequisites>`, so existing keys work for
+both.
 
-   * - Endpoint
-     - API key variable
-     - Default model
-     - Access
-   * - ``internal``
-     - ``NV_API_KEY``
-     - ``openai/openai/gpt-6-astra``
-     - NVIDIA network only
-   * - ``public``
-     - ``NVIDIA_API_KEY``
-     - ``deepseek-ai/deepseek-v4.1-flash``
-     - `build.nvidia.com <https://build.nvidia.com/settings/api-keys>`_
-   * - ``openai``
-     - ``OPENAI_API_KEY``
-     - ``gpt-5.6-terra``
-     - OpenAI API
+.. include:: ../../_includes/inference_api_keys.rst.inc
 
-Export the key on the host **before** you start a native ``uv`` runner or the Docker container.
-Docker forwards the configured keys when it creates the container. The example configurations
-use the ``internal`` endpoint:
+Select the endpoint and model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A Run's ``policy.endpoint`` takes precedence over ``ARENA_INFERENCE_ENDPOINT``. The example
+configurations set ``policy.endpoint: internal``. To run them on another endpoint, override the
+field for the Run, or delete it from the YAML so that the Run uses ``ARENA_INFERENCE_ENDPOINT``:
 
 .. code-block:: bash
 
-   export NV_API_KEY="YOUR_INTERNAL_API_KEY"
+   runs.droid_pnp_vlm_goal.policy.endpoint=public  # internal, public, or openai
 
-The same keys serve agentic environment generation; see
-:ref:`agentic-env-gen-prerequisites` for how to create them.
+Each endpoint has a default model; see
+:doc:`../../concepts/agentic_environment_generation/model_selection` for the list. Two more
+policy fields override the connection:
 
-To use another endpoint or model, override the policy fields:
-
-* ``policy.endpoint``: ``internal``, ``public``, or ``openai``
-* ``policy.model``: a model on that endpoint
-* ``policy.base_url``: any OpenAI-compatible URL; the API key still comes from the endpoint's
-  variable
+* ``policy.model``: another model on the same endpoint.
+* ``policy.base_url``: any OpenAI-compatible URL. The API key still comes from the endpoint's
+  variable.
 
 The model must support strict JSON-schema structured outputs
 (``response_format={"type": "json_schema", ...}``). With image observations, it must also accept
-images. When the policy starts, it sends one short ping request, so a wrong key, URL, or model
-fails before the simulation runs.
+images. The results on this page use the ``internal`` endpoint's default model. When the policy
+starts, it sends one short ping request, so a wrong key, URL, or model fails before the
+simulation runs.
 
 The pick-and-place task
 -----------------------
