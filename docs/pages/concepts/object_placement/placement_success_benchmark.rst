@@ -43,10 +43,10 @@ scored on the robot's placement.
 
 An environment is one task spec. Each spec and seed builds from its own block
 of candidate seeds, so tasks that share a scene, as several RoboLab tasks do,
-sample it independently, and a suite's mean counts such a scene once per task. Rerunning
-the same specs starts from the same candidates, but an asset that loads a
-random variant in each process, such as the Lightwheel broccoli, can still
-change results between runs.
+sample it independently, and a suite's mean counts such a scene once per task.
+Rerunning the same specs starts from the same candidates, but an asset that
+loads a random variant in each process, such as the Lightwheel broccoli, can
+still change results between runs.
 
 Run the Benchmark
 -----------------
@@ -145,18 +145,19 @@ change that leaves the solver alone, such as a new validator, the two runs are
 correlated and the interval is wider than it needs to be. Candidates in a
 batch are solved together, which can make it somewhat too narrow.
 
-The comparison then lists the environments whose change is significant, and
-the environments that were not scored in both runs. With the 80 specs at the
+The comparison then lists the environments whose change is significant, and the
+environments that were not scored in both runs. With the 80 specs at the
 defaults, a single environment is flagged once its valid-candidate rate changes
 by about 6 points. Valid environments rest on 30 environments per spec, so a
 single one is flagged only after a drop of about 40 points, and that rate is
 mainly a suite-level guard against large regressions. Testing every environment
 and rate at 5% would flag a few by chance, so the Holm adjustment lowers each
-threshold until the chance of flagging any unchanged environment is at most
-5%. Each environment's interval uses the Agresti-Caffo adjustment, which adds
-one success and one failure to each run so that rates of 0% and 100% still get
-a sensible interval. That interval is therefore not always centered on the
-observed change, while a suite's interval is.
+threshold so that, under the sampling assumptions above, the chance of flagging
+any unchanged environment is at most a nominal 5%. Each environment's interval
+uses the Agresti-Caffo adjustment, which adds one success and one failure to
+each run so that rates of 0% and 100% still get a sensible interval. That
+interval is therefore not always centered on the observed change, while a
+suite's interval is.
 
 The comparison also warns when the two runs used different settings, and
 names the environments whose required checks differ, since their success
@@ -177,8 +178,10 @@ crowded bin and a spec that places only the robot. It compares them with
 ``isaaclab_arena/tests/test_data/placement_success_baseline.json``, and fails
 when a spec fails, gains a best-loss fallback or its valid-candidate rate falls
 more than 10 points below the baseline. The same seeds solve the same
-candidates, so the tolerance only absorbs GPU differences and random asset
-variants; smaller changes still need a full comparison.
+candidates, and the 10-point tolerance is a deliberately coarse threshold for
+large regressions; smaller changes still need a full comparison. The baseline
+stays valid only while these specs, their order among all specs and the
+settings stay the same.
 
 After a change that is meant to move these rates, regenerate the baseline with
 the benchmark and commit it with the change:
@@ -203,10 +206,9 @@ Changes count when they are to tracked files or are new files in
 other untracked files, such as local tool settings, do not. Each record holds
 the environment's status, its build, candidate, environment, fallback and batch
 counts, its wall time, the checks that ran, with whether each is required, and
-how many first-batch candidates each check ran on and rejected. A check that
-runs only after the cheaper required checks pass, such as IK reachability, sees
-only the candidates that passed them, so its rejections count out of those
-candidates and are not charged with the ones it skipped.
+how many first-batch candidates each check rejected. A check that runs only
+after the cheaper required checks pass, such as IK reachability, sees only the
+candidates that passed them, so it is not charged with the ones it skipped.
 
 A suite has no rates when any of its environments failed, and the script exits
 with an error after writing the file.

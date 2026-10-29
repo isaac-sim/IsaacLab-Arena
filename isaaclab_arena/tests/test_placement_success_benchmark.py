@@ -79,12 +79,44 @@ def _test_placement_success_matches_the_baseline(simulation_app) -> bool:
             f" {measured.valid_candidate_rate:.1%}"
         )
         assert measured.num_fallback_envs <= expected.num_fallback_envs, f"{expected.environment}: new fallbacks"
+        # Dropping a required check would raise the rates without better placement. An image with cuRobo may add one.
+        assert _required_checks(expected) <= _required_checks(measured), f"{expected.environment}: required checks lost"
     return True
 
 
 def test_placement_success_matches_the_baseline():
     """A few representative specs place no worse than the stored baseline, so a placement regression fails CI."""
     assert run_function_with_persistent_simulation_app(_test_placement_success_matches_the_baseline)
+
+
+def _test_a_failed_rebuild_clears_the_placement_diagnostics(simulation_app) -> bool:
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.scripts.placement_success_benchmark import discover_specs
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+
+    ensure_environments_registered()
+    [(_, spec_path)] = discover_specs("robolab", ["banana_on_plate"])
+    arena_env = ArenaEnvGraphSpec.from_yaml(spec_path).to_arena_env()
+    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, placement_seed=0))
+    builder.build_env_cfg()
+    assert builder.placement_diagnostics is not None
+
+    def fail_placement(variation_replay_scheduler):
+        raise RuntimeError("placement failed")
+
+    builder._prepare_relation_placement = fail_placement
+    with pytest.raises(RuntimeError, match="placement failed"):
+        builder.build_env_cfg()
+    # The earlier build's diagnostics must not be reported for the failed one.
+    assert builder.placement_diagnostics is None
+    return True
+
+
+def test_a_failed_rebuild_clears_the_placement_diagnostics():
+    """A build that fails leaves no diagnostics behind, rather than the previous successful build's."""
+    assert run_function_with_persistent_simulation_app(_test_a_failed_rebuild_clears_the_placement_diagnostics)
 
 
 def test_results_file_round_trips_and_reports_suite_rates(tmp_path):
@@ -410,6 +442,10 @@ def _scored(suite: str, environment: str, envs: tuple[int, int], candidates: tup
         num_fallback_envs=envs[1] - envs[0],
         num_batches=3,
     )
+
+
+def _required_checks(record: EnvironmentRecord) -> set[str]:
+    return {check for check, required in record.checks.items() if required}
 
 
 def _results(records: list[EnvironmentRecord]) -> PlacementBenchmarkResults:

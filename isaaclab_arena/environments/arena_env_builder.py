@@ -343,6 +343,8 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple, with constructor arguments to forward to gym.make.
         """
+        # A build that fails must not leave the previous build's placement diagnostics behind.
+        self.placement_diagnostics = None
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         variations = self.get_all_variations()
         if self.hydra_overrides:
@@ -366,7 +368,6 @@ class ArenaEnvBuilder:
 
         # Placement needs its source selected before scene config captures construction poses.
         placement_sampler = self._prepare_relation_placement(variation_replay_scheduler)
-        self.placement_diagnostics = None
         if isinstance(placement_sampler, PlacementSampler):
             self.placement_diagnostics = placement_sampler.placement_pool.diagnostics
         # A RigidObjectSet's selected member identity is absent from pose-only samples, so skip unreplayable records.
