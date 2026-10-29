@@ -201,7 +201,7 @@ def test_candidate_stages_update_the_same_layout():
     torch.testing.assert_close(candidate.bboxes[pair.subject].max_point, expected_half_extents)
     torch.testing.assert_close(bounds[pair.subject].max_point, torch.tensor([[0.4, 0.1, 0.1]]))
 
-    assert placer._validation.validate_candidates(batch, []) is None
+    placer._validation.validate_candidates(batch, [])
     assert batch.candidates[0] is candidate
     assert "stale" not in candidate.validation.validation_results
     assert candidate.validation.do_all_required_validation_checks_pass()

@@ -568,7 +568,7 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
     for env_pool in pool._env_pools:
         env_pool.layouts = []
         env_pool.cursor = 0
-    pool._had_fallbacks = False
+    pool._fallback_envs.clear()
 
     fallback_results = [
         [
@@ -599,7 +599,7 @@ def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
     for env_pool in pool._env_pools:
         env_pool.layouts = []
         env_pool.cursor = 0
-    pool._had_fallbacks = False
+    pool._fallback_envs.clear()
 
     fallback_results = [
         [
@@ -628,7 +628,7 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     for env_pool in pool._env_pools:
         env_pool.layouts = []
         env_pool.cursor = 0
-    pool._had_fallbacks = False
+    pool._fallback_envs.clear()
 
     existing_layout = PlacementResult(
         validation_results=_checklist(True),

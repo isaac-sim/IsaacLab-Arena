@@ -1,0 +1,110 @@
+{
+  "start_time": "2026-10-28T18:07:18+00:00",
+  "commit": "f7a76f743e9ba821361ed77f1daed8d61631e27f",
+  "branch": "zxiao/feature/placement-success-benchmark",
+  "dirty": true,
+  "settings": {
+    "num_envs": 4,
+    "placement_seeds": [
+      0
+    ],
+    "random_yaw_init": false,
+    "collision_mode": null,
+    "solver_device": "NVIDIA RTX 6000 Ada Generation"
+  },
+  "environments": [
+    {
+      "suite": "robolab",
+      "environment": "banana_on_plate",
+      "status": "scored",
+      "reason": "",
+      "num_builds": 1,
+      "num_candidates": 200,
+      "num_valid_candidates": 168,
+      "num_envs": 4,
+      "num_fallback_envs": 0,
+      "num_batches": 1,
+      "checks": {
+        "on_relation": true,
+        "clutter_on_relation": true,
+        "align_with": true,
+        "next_to": true,
+        "not_next_to": true,
+        "face_to": true,
+        "no_overlap": true
+      },
+      "rejections_per_check": {
+        "on_relation": 23,
+        "clutter_on_relation": 0,
+        "align_with": 0,
+        "next_to": 0,
+        "not_next_to": 0,
+        "face_to": 0,
+        "no_overlap": 20
+      },
+      "wall_time_s": 4.35476517805364
+    },
+    {
+      "suite": "robolab",
+      "environment": "mustard_in_left_bin",
+      "status": "scored",
+      "reason": "",
+      "num_builds": 1,
+      "num_candidates": 200,
+      "num_valid_candidates": 59,
+      "num_envs": 4,
+      "num_fallback_envs": 0,
+      "num_batches": 1,
+      "checks": {
+        "on_relation": true,
+        "clutter_on_relation": true,
+        "align_with": true,
+        "next_to": true,
+        "not_next_to": true,
+        "face_to": true,
+        "no_overlap": true
+      },
+      "rejections_per_check": {
+        "on_relation": 12,
+        "clutter_on_relation": 0,
+        "align_with": 0,
+        "next_to": 137,
+        "not_next_to": 0,
+        "face_to": 0,
+        "no_overlap": 13
+      },
+      "wall_time_s": 3.250411150045693
+    },
+    {
+      "suite": "kitchen_bench",
+      "environment": "kitchen_bench_lightwheel_open_fridge",
+      "status": "scored",
+      "reason": "",
+      "num_builds": 1,
+      "num_candidates": 200,
+      "num_valid_candidates": 175,
+      "num_envs": 4,
+      "num_fallback_envs": 0,
+      "num_batches": 1,
+      "checks": {
+        "on_relation": true,
+        "clutter_on_relation": true,
+        "align_with": true,
+        "next_to": true,
+        "not_next_to": true,
+        "face_to": true,
+        "no_overlap": true
+      },
+      "rejections_per_check": {
+        "on_relation": 9,
+        "clutter_on_relation": 0,
+        "align_with": 0,
+        "next_to": 25,
+        "not_next_to": 0,
+        "face_to": 0,
+        "no_overlap": 0
+      },
+      "wall_time_s": 3.1508660790277645
+    }
+  ]
+}

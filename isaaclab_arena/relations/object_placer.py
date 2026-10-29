@@ -30,6 +30,7 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw
 if TYPE_CHECKING:
     from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.relations.placement_diagnostics import ValidatedBatch
     from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -60,6 +61,8 @@ class ObjectPlacer:
         self._visualizer = get_or_create_placement_visualizer(self.params)
         self._validators: list[PrePhysicsPlacementValidator] = build_validators(self.params, self._visualizer)
         self._validation = PlacementValidationRunner(self.params, self._validators, self._visualizer)
+        self.validated_batches: list[ValidatedBatch] = []
+        """Validation outcome of every candidate batch this placer has solved, oldest first."""
 
     def place(
         self,
@@ -224,7 +227,7 @@ class ObjectPlacer:
         self._solver.solve_candidates(objects, batch, collision_objects)
         self._finish_candidate_geometry(batch, env_bboxes)
         self._assert_finite_solver_output(batch)
-        self._validation.validate_candidates(batch, collision_objects)
+        self.validated_batches.append(self._validation.validate_candidates(batch, collision_objects))
         ranked_batches = self._rank_candidates(batch, num_envs)
 
         results = []
