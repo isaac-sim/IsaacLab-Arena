@@ -15,8 +15,8 @@ or execution strategy.
    :alt: 3x3 grid of successful VLM agent rollouts: goal, chunk, and step policies on three cube and bowl layouts
    :align: center
 
-   One successful episode for each execution strategy (rows) and layout (columns, placement seeds
-   3, 2, and 19). Each layout is named by the cube and bowl distance from the robot base. The
+   One successful episode with ``openai/openai/gpt-6-astra`` for each execution strategy (rows)
+   and layout (columns, placement seeds 3, 2, and 19). Each layout is named by the cube and bowl distance from the robot base. The
    model is sampled, so repeated runs of one layout can differ; see
    :ref:`vlm-agent-strategies`.
 
@@ -36,7 +36,8 @@ Select the endpoint and model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If a Run sets ``policy.endpoint``, it uses that endpoint instead of ``ARENA_INFERENCE_ENDPOINT``.
-The example configurations set ``policy.endpoint: internal``. To use another endpoint, override
+The example configurations set ``policy.endpoint: internal``, whose default model is
+``openai/openai/gpt-6-astra``. To use another endpoint, override
 the field, or delete it from the YAML so that the Run uses ``ARENA_INFERENCE_ENDPOINT``:
 
 .. code-block:: bash
@@ -53,7 +54,7 @@ policy fields override the connection:
 
 The model must support strict JSON-schema structured outputs
 (``response_format={"type": "json_schema", ...}``). With image observations, it must also accept
-images. The results on this page use the ``internal`` endpoint's default model. When the policy
+images. All results on this page were run with ``openai/openai/gpt-6-astra``. When the policy
 starts, it sends one short ping request, so a wrong key, URL, or model fails before the
 simulation runs.
 
