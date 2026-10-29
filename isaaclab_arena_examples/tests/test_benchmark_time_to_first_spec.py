@@ -7,15 +7,16 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_time_to_first_spec as benchmark
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results as latency_results
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_first_spec_benchmarks as batch_benchmark
-import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_resolved_layout_benchmarks as resolved_layout_batch
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import minimal_spec_dict
 
@@ -232,7 +233,11 @@ def test_every_benchmark_case_has_one_environment_spec_fixture():
     cases, default_case_name = benchmark.load_benchmark_cases(benchmark.DEFAULT_CASES_PATH)
 
     assert default_case_name in cases
-    assert set(cases) == set(resolved_layout_batch.find_benchmark_cases(resolved_layout_batch.DEFAULT_ENV_SPECS_DIR))
+    env_specs_dir = (
+        Path(importlib.util.find_spec("isaaclab_arena_environments").submodule_search_locations[0])
+        / "agentic_env_gen_benchmark"
+    )
+    assert set(cases) == {env_spec.stem for env_spec in env_specs_dir.glob("*.yaml")}
 
 
 def test_load_benchmark_cases_from_manually_defined_file(tmp_path):
