@@ -620,9 +620,10 @@ install — see <a class="reference internal" href="../../../quickstart/installa
 <p>If you want to ensure the robot can reach the target objects (i.e. banana and plate), you can use this
 environment in the cuRobo-installed docker container to activate the reachability validation.</p>
 <p><strong>Docker Container</strong>: Curobo-installed Base (see <a class="reference internal" href="../../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-c
-</pre></div>
-</div>
+<dl class="field-list simple">
+<dt class="field-odd">docker_run_curobo<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p></dd>
+</dl>
 <p>Now only the layouts the robot can reach are used:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>

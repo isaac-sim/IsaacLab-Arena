@@ -748,10 +748,10 @@ geometric checks.</span><a class="headerlink" href="#id2" title="Link to this im
 illustration, but they never reject the layout.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<p><code class="docutils literal notranslate"><span class="pre">ReachabilityValidator</span></code> lives in the optional <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_curobo</span></code>
-extension. It registers when that package imports successfully and the
-embodiment has a cuRobo config (e.g. Droid). <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> wires
-the env’s embodiment into <code class="docutils literal notranslate"><span class="pre">reachability_config</span></code> automatically.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ReachabilityValidator</span></code> lives in the <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_curobo</span></code> extension. It
+registers whenever the embodiment has a cuRobo config (e.g. Droid);
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> wires the env’s embodiment into <code class="docutils literal notranslate"><span class="pre">reachability_config</span></code>
+automatically. See <a class="reference internal" href="#validation-toggle"><span class="std std-ref">Enabling and Disabling Checks</span></a> to turn it off.</p>
 <p>It gates only objects marked <code class="docutils literal notranslate"><span class="pre">RequiresReachability</span></code> — a relation that tasks
 such as <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> stamp automatically. With no such relation, the
 check passes trivially. Grasp offset and IK tolerances are configurable; see
@@ -764,6 +764,17 @@ check passes trivially. Grasp offset and IK tolerances are configurable; see
 collision-free grasp; red marks a failure that rejects the candidate.</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
+<p>While the environment builds, every batch of candidate layouts reports how many
+of them passed each check. <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> counts only candidates that passed
+the required inexpensive checks:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[placement] Validated 50 candidate layout(s); passed per check: on_relation=46/50, clutter_on_relation=50/50, align_with=50/50, next_to=50/50, not_next_to=50/50, face_to=50/50, no_overlap=45/50, ik_reachable=39/44
+</pre></div>
+</div>
+<p>A low <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> ratio means most sampled layouts put a target object
+outside the arm’s workspace, and the placer keeps resampling. A composite task
+rejects more layouts than an atomic one, because every pick and place target
+must be reachable in the same layout. When an environment finds no reachable
+layout at all, it falls back to its lowest-loss layout.</p>
 </section>
 </section>
 <section id="enabling-and-disabling-checks">
@@ -771,10 +782,14 @@ collision-free grasp; red marks a failure that rejects the candidate.</span><a c
 <p>Two concepts control the build-time checks: which checks <strong>run</strong>
 (<code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code>) and, of those, which must <strong>pass</strong> for a layout to be
 valid (<code class="docutils literal notranslate"><span class="pre">required_checks</span></code>). By default every registered check runs and is
-required — so when cuRobo is available, <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> gates placement
-automatically. Making a check optional (enabled but not required) keeps it
-running and reported without rejecting layouts, which is the usual way to
-keep placement geometry-only.</p>
+required — so for an embodiment with a cuRobo config, <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> gates
+placement automatically. Making a check optional (enabled but not required)
+keeps it running and reported without rejecting layouts. To skip
+<code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> entirely, list the checks to run without it:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">placer_params</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled_checks</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">no_overlap</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">on_relation</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">clutter_on_relation</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">next_to</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">not_next_to</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">align_with</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">face_to</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
 <p>Both are set on <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> in Python or the <code class="docutils literal notranslate"><span class="pre">placer_params</span></code> block
 in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
 </section>

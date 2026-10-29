@@ -592,9 +592,7 @@
                   
   <section id="use-the-generated-environment">
 <h1>Use the Generated Environment<a class="headerlink" href="#use-the-generated-environment" title="Link to this heading">#</a></h1>
-<p>Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.
-The base container runs the environment as it was generated. The cuRobo-installed container additionally
-gates object placement on whether the robot can reach the target objects.</p>
+<p>Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.</p>
 <p>For example, you can use the policy runner to evaluate a PI policy on the
 environment. For other policy types, see
 <a class="reference internal" href="../../../quickstart/running_a_real_policy/index.html"><span class="doc">Running a Real Policy</span></a>.</p>
@@ -606,10 +604,6 @@ environment. For other policy types, see
 Keep <code class="docutils literal notranslate"><span class="pre">--num_envs</span></code> above one so the policy is evaluated against a different fruit per environment.
 The commands below use the ready-made spec that ships with Arena; to evaluate a spec you generated
 yourself, point <code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/agent_generated/&lt;env_name&gt;.yaml</span></code>.</p>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-0">
-Policy evaluation (without reachability validation)</label><div class="sd-tab-content docutils">
 <p>Complete the shared <a class="reference internal" href="../index.html#agentic-env-gen-prerequisites"><span class="std std-ref">Prerequisites</span></a> before running this command.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
@@ -619,45 +613,6 @@ Policy evaluation (without reachability validation)</label><div class="sd-tab-co
 <span class="w">   </span>--num_episodes<span class="w"> </span><span class="m">12</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
 </pre></div>
-</div>
-</div>
-<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
-Policy evaluation (with cuRobo-based reachability validation)</label><div class="sd-tab-content docutils">
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Reachability validation runs only in the cuRobo-installed Docker container
-(<code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span> <span class="pre">-c</span></code>). It is not available with a native <code class="docutils literal notranslate"><span class="pre">uv</span></code>
-install — see <a class="reference internal" href="../../../quickstart/installation.html"><span class="doc">Installation</span></a> and
-<a class="reference internal" href="../../../concepts/object_placement/validation.html#ik-reachable-check"><span class="std std-ref">IK Reachability (ik_reachable)</span></a>.</p>
-</div>
-<p>If you want to ensure the robot can reach the target objects (i.e. fruit and bowl), you can use this
-environment in the cuRobo-installed docker container to activate the reachability validation.</p>
-<p><strong>Docker Container</strong>: Curobo-installed Base (see <a class="reference internal" href="../../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-c
-</pre></div>
-</div>
-<p>Now only the layouts the robot can reach are used:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--policy_type<span class="w"> </span>isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--num_envs<span class="w"> </span><span class="m">12</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--num_episodes<span class="w"> </span><span class="m">12</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
-</pre></div>
-</div>
-<p>While the environment builds, every batch of candidate layouts reports how many of them passed each
-check. <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> is the cuRobo verdict, so its ratio is the rejection rate to watch:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[placement] Validated 600 candidate layout(s); passed per check: on_relation=600/600, next_to=600/600, not_next_to=600/600, face_to=600/600, no_overlap=597/600, ik_reachable=478/597
-</pre></div>
-</div>
-<p>A low <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> ratio means most sampled layouts put the fruit or the bowl outside the arm’s
-workspace, and the placer keeps resampling. Expect the rate to vary with the sampled set member.
-When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.</p>
-<p>See <a class="reference internal" href="../../../concepts/object_placement/validation.html#ik-reachable-check"><span class="std std-ref">IK Reachability (ik_reachable)</span></a> for how this check is registered, what it requires, and how to tune
-or disable it.</p>
-</div>
 </div>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../../_images/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif"><img alt="Policy evaluation of the generated environment using the OpenPI policy." src="../../../../_images/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif" style="width: 100%;" />

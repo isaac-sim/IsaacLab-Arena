@@ -666,6 +666,33 @@ reset.</p>
 during environment creation. The equivalent command-line option is
 <code class="docutils literal notranslate"><span class="pre">--no-resolve_on_reset</span></code>. Keep the default to change layouts across episodes.</p>
 </section>
+<section id="diagnosing-placement">
+<h2>Diagnosing Placement<a class="headerlink" href="#diagnosing-placement" title="Link to this heading">#</a></h2>
+<p>Each fill of the pool, at creation or during a reset that finds a partition
+empty, records how its candidates did. For each solved batch, it records how
+many candidates passed every required check and, for each check, how many
+candidates the check ran on and how many passed. It also records which
+environments fell back to best-loss layouts.</p>
+<ul>
+<li><p>After <code class="docutils literal notranslate"><span class="pre">build_env_cfg()</span></code> or <code class="docutils literal notranslate"><span class="pre">make_registered()</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder.placement_diagnostics</span></code> holds the record of the fill made
+during that build. It is <code class="docutils literal notranslate"><span class="pre">None</span></code> when the build solved no relations or
+failed.</p></li>
+<li><p>From a running environment, <code class="docutils literal notranslate"><span class="pre">get_placement_pool(env).last_fill_diagnostics</span></code>
+holds the pool’s most recent fill, including one made during a reset.
+<code class="docutils literal notranslate"><span class="pre">get_placement_pool</span></code> is in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.runtime.placement_events</span></code>.</p></li>
+<li><p>When a fill fails, its error message lists the same counts, one line per
+batch. For a box wider than the table it is placed on, for example:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>batch 0: 0/4 valid; passed per check: on_relation=0/4, clutter_on_relation=4/4, ..., no_overlap=4/4
+</pre></div>
+</div>
+</li>
+</ul>
+<p>The required check that rejects the most candidates, here <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>,
+points to the relation or collision geometry to adjust. A check that runs only
+on candidates that passed the cheaper required checks, such as
+<code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code>, counts only those candidates.</p>
+</section>
 <section id="reproducibility">
 <h2>Reproducibility<a class="headerlink" href="#reproducibility" title="Link to this heading">#</a></h2>
 <p>Set <code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> when placement must be reproducible. Given the same
@@ -774,6 +801,7 @@ objects across parallel environments.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#layout-behavior-across-resets">Layout Behavior Across Resets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#diagnosing-placement">Diagnosing Placement</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reproducibility">Reproducibility</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-workflow-and-configuration">Recommended Workflow and Configuration</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standard-configuration">Standard Configuration</a></li>
