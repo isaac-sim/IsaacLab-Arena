@@ -12,18 +12,21 @@ For each environment spec and each seed in ``--placement_seeds``, the benchmark
 builds the environment the normal way, with ``ArenaEnvBuilder.build_env_cfg()``
 for ``--num_envs`` environments, without stepping physics. The build applies
 any enabled build-time variations and the task's reachability constraints, then
-fills its :doc:`placement pool <./pooled_placement>`: the pool solves batches
-of candidate layouts until every environment has enough valid ones, and on its
-last attempt gives an environment without any its best-loss layouts. The
-benchmark reads the placement diagnostics the build records and reports:
+fills its :doc:`placement pool <./pooled_placement>`. The pool solves batches
+of candidate layouts for every environment and stores valid ones in the
+environments' empty slots, until every environment has enough. If the last
+allowed batch gives an environment that still has empty slots no valid
+candidate, and best-loss fallback is allowed, as it is by default, those slots
+get the batch's best-loss layouts. The benchmark reads the placement
+diagnostics the build records and reports:
 
 * **Valid candidates:** the share of candidates in the pool's first batch that
   pass every required :doc:`pre-physics check <./validation>`. The first batch
   always holds ``num_envs * min_unique_layouts_per_env *
-  max_placement_attempts`` candidates; later batches only refill the
-  environments that lacked valid layouts, so they are left out to keep the
-  sample the same for every scene. This rate decides how much solving a build
-  needs.
+  max_placement_attempts`` candidates. A later batch runs only while some
+  environment still has empty slots, and its size depends on how many are
+  missing, so later batches are left out to keep the sample the same for every
+  scene. This rate decides how much solving a build needs.
 * **Valid environments:** the share of environments whose pool holds only
   valid layouts, without a best-loss fallback. This is what an environment
   build gets wrong when placement struggles.
@@ -100,8 +103,8 @@ Useful options:
   runs with the same value.
 * ``--random_yaw_init`` samples a random initial yaw for placed objects,
   including a robot placed by relations. Objects with ``FaceTo`` or a tilted
-  ``RotateAroundSolution`` keep their own orientation rules. Without it, spec
-  objects keep their fixed orientations.
+  ``RotateAroundSolution`` keep their own orientation rules. Without it, each
+  spec's own ``random_yaw_init`` setting applies.
 * ``--collision_mode bbox`` or ``--collision_mode mesh`` overrides the specs'
   default collision mode. This can change results sharply: in a quick check
   with ``mesh``, every ``banana_on_plate`` candidate failed the no-overlap

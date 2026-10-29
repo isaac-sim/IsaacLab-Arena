@@ -85,7 +85,7 @@ class EnvironmentRecord:
     """Environments placed over all builds."""
 
     num_fallback_envs: int = 0
-    """Environments whose pool fell back to best-loss layouts because none of their candidates was valid."""
+    """Environments whose empty slots got best-loss layouts because the last batch gave them no valid candidate."""
 
     num_batches: int = 0
     """Pool batches solved over all builds; a build needs more than one when an environment lacks valid layouts."""
