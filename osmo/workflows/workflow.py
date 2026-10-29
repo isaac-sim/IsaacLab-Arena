@@ -19,14 +19,14 @@ import subprocess
 import tempfile
 import yaml
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
-from osmo.workflows.workflow_constants import DATASET_SWIFT_URL
+from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, DEFAULT_WORKFLOW_LABELS
 
 # Seconds per unit of an OSMO duration string such as ``30m`` or ``1d``.
 _OSMO_DURATION_UNIT_SECONDS = {"s": 1, "m": 60, "h": 60 * 60, "d": 24 * 60 * 60}
@@ -44,6 +44,24 @@ def osmo_duration_to_seconds(duration: str) -> int:
     match = re.fullmatch(r"(\d+)([smhd])", duration)
     assert match, f"OSMO duration must have the form <integer><s|m|h|d>; got '{duration}'"
     return int(match.group(1)) * _OSMO_DURATION_UNIT_SECONDS[match.group(2)]
+
+
+def parse_labels(entries: list[str]) -> dict[str, str]:
+    """Convert ``key=value`` label entries to a mapping, asserting that each key appears once.
+
+    Args:
+        entries: Label entries such as ``team=robotics``; the value may contain commas.
+
+    Returns:
+        The label mapping in the order of ``entries``.
+    """
+    labels: dict[str, str] = {}
+    for entry in entries:
+        key, separator, value = entry.partition("=")
+        assert separator and key, f"A label must have the form key=value; got '{entry}'"
+        assert key not in labels, f"Label '{key}' is given more than once"
+        labels[key] = value
+    return labels
 
 
 class WorkflowPriority(str, Enum):
@@ -87,6 +105,9 @@ class WorkflowCfg:
 
     queue_timeout: str = "2d"
     """Maximum time the workflow may wait in the queue."""
+
+    labels: list[str] = field(default_factory=lambda: list(DEFAULT_WORKFLOW_LABELS))
+    """OSMO labels attached to the workflow, as ``key=value`` entries. A value may hold several comma-separated items."""
 
     dry_run: bool = False
     """Render the workflow YAML and print it instead of submitting to OSMO."""
@@ -181,18 +202,18 @@ class Workflow(SubmittableWorkflow):
 
     def create_workflow_dict(self) -> dict[str, Any]:
         """Build the full OSMO workflow dict."""
-        return {
-            "version": 2,
-            "workflow": {
-                "name": self.workflow_cfg.workflow_name,
-                "groups": self._get_group_dicts(),
-                "resources": self._create_resources_dict(),
-                "timeout": {
-                    "exec_timeout": self.workflow_cfg.exec_timeout,
-                    "queue_timeout": self.workflow_cfg.queue_timeout,
-                },
+        workflow = {
+            "name": self.workflow_cfg.workflow_name,
+            "groups": self._get_group_dicts(),
+            "resources": self._create_resources_dict(),
+            "timeout": {
+                "exec_timeout": self.workflow_cfg.exec_timeout,
+                "queue_timeout": self.workflow_cfg.queue_timeout,
             },
         }
+        if self.workflow_cfg.labels:
+            workflow["labels"] = parse_labels(self.workflow_cfg.labels)
+        return {"version": 2, "workflow": workflow}
 
     def _get_group_dicts(self) -> list[dict[str, Any]]:
         """Create the OSMO groups in this workflow."""
