@@ -146,43 +146,54 @@ Add ``--output_base_dir ./output --record_camera_video`` to save one video per c
 Goal, chunk, and step policies
 ------------------------------
 
-The two registered policies differ in what one response controls:
+The two registered policies differ in what one response controls. The last three columns come
+from the trials in the figure: three per layout, nine per policy.
 
 .. list-table::
    :header-rows: 1
-   :widths: 18 34 48
+   :widths: 14 16 30 10 14 16
 
    * - Policy
      - One response contains
      - Executed as
+     - Successes
+     - Requests per successful episode
+     - Tokens per successful episode
    * - ``VLMGoalPolicy``
      - One goal pose and gripper state
      - A motion generator moves the arm toward the goal each step. The policy requests a new
        goal when the current one is **reached**, **blocked** (the arm and gripper stopped short
        of it), or **timed out** after ``max_steps_per_goal`` steps. The next request reports
        that outcome.
-   * - ``VLMChunkPolicy``
-     - ``chunk_size`` commands
+     - 9 of 9
+     - 8–12 (mean 9)
+     - 19k–30k (mean 23k)
+   * - ``VLMChunkPolicy`` with ``chunk_size: 15``
+     - 15 commands
      - One command per step. The policy requests the next chunk when the current one is used
        up.
+     - 6 of 9
+     - 5–14 (mean 9.5)
+     - 17k–47k (mean 32k)
    * - Step (``VLMChunkPolicy`` with ``chunk_size: 1``)
      - One command
      - One request per simulation step.
+     - 7 of 9
+     - 44–96 (mean 69)
+     - 108k–227k (mean 167k)
 
-On the layouts in the figure, the policies needed:
+Every request sends about 2,000–2,200 prompt tokens, including three 384-pixel images. What the
+model returns differs by policy: about 300 tokens for a goal, 100 for a step command, and 1,400
+for a chunk of 15 commands. Most of these are model reasoning. A step episode costs the most
+because it makes the most requests.
 
-* **Goal:** 8–9 requests per episode.
-* **Chunk with** ``chunk_size: 15``: 4–6 requests.
-* **Step:** 65–70 requests, one per step.
+A failed episode costs far more than a successful one, because the policy keeps requesting until
+the episode ends at 1,050 steps. A failed chunk episode used about 240k tokens, and a failed step
+episode about 2.4M.
 
-A request costs about 2,100 prompt tokens, including three 384-pixel images. Its output is
-roughly 500–1,300 tokens, most of it model reasoning. Step mode therefore costs several times
-more per episode.
-
-It is also the most sensitive to a single bad response. A command executes on the very next step,
-so one stray "open" while the robot carries the cube drops it. On the 0.66 m layout, step mode
-succeeded in one of three attempts. Goal and long-chunk modes request far less often and give
-the model time to observe the result of each response.
+Step mode is also the most sensitive to a single bad response. A command executes on the very
+next step, so one stray "open" while the robot carries the cube drops it. Goal and long-chunk
+modes request far less often and give the model time to observe the result of each response.
 
 Next steps
 ----------
