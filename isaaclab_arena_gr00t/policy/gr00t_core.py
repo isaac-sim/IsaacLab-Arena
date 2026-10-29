@@ -193,6 +193,29 @@ def extract_obs_numpy_from_torch(
     return rgb_list_np, joint_pos_sim_np
 
 
+def extract_normalized_gripper_position_numpy_from_torch(
+    nested_obs: dict[str, Any],
+    group_key: str = "policy",
+    observation_name: str = "gripper_pos",
+) -> np.ndarray:
+    """Extract the normalized gripper position from a torch environment observation.
+
+    Args:
+        nested_obs: Environment observation containing the normalized gripper position.
+        group_key: Top-level key under which the observation lives.
+        observation_name: Key for the normalized gripper position.
+
+    Returns:
+        Normalized gripper positions with shape (N, 1).
+    """
+    return _extract_joints_from_nested_obs(
+        nested_obs=nested_obs,
+        group_key=group_key,
+        joint_pos_name=observation_name,
+        convert_to_numpy=True,
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Core SSOT: policy inputs (numpy-only, modality-config driven)
 # --------------------------------------------------------------------------- #
@@ -232,6 +255,7 @@ def build_gr00t_policy_observations(
     robot_state_joints_config: dict[str, Any],
     policy_joints_config: dict[str, Any],
     modality_configs: dict[str, Any],
+    normalized_gripper_position_np: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Build GR00T policy observation dict from numpy env observations.
 
@@ -247,6 +271,8 @@ def build_gr00t_policy_observations(
         robot_state_joints_config: State joint name->index for sim order.
         policy_joints_config: Policy group name->list of joint names.
         modality_configs: Dict with "language", "video", "state" modality configs.
+        normalized_gripper_position_np: DROID gripper position normalized from open
+            (0) to closed (1), or None for other embodiments.
 
     Returns:
         Nested dict "language" / "video" / "state" with keys from modality
@@ -259,6 +285,13 @@ def build_gr00t_policy_observations(
         joint_pos_sim_np, robot_state_joints_config, policy_joints_config
     )
     num_envs = rgb_list_np[0].shape[0]
+    if TaskMode(policy_config.task_mode_name) is TaskMode.DROID_MANIPULATION:
+        assert normalized_gripper_position_np is not None, "DROID requires the normalized gripper_pos observation"
+        assert normalized_gripper_position_np.shape == (
+            num_envs,
+            1,
+        ), f"normalized gripper position has shape {normalized_gripper_position_np.shape}, expected ({num_envs}, 1)"
+        joint_pos_state_policy["gripper_position"] = normalized_gripper_position_np
 
     language_keys = modality_configs["language"].modality_keys
     video_keys = modality_configs["video"].modality_keys

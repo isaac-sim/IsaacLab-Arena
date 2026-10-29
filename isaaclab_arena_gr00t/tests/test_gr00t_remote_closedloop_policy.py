@@ -86,12 +86,21 @@ def _make_action_response(num_envs: int, horizon: int) -> dict[str, np.ndarray]:
     return response
 
 
+def _make_droid_action_response(num_envs: int, horizon: int) -> dict[str, np.ndarray]:
+    """Synthetic DROID response in the format ``build_gr00t_action_np`` expects."""
+    return {
+        "joint_position": np.random.randn(num_envs, horizon, 7).astype(np.float32),
+        "gripper_position": np.random.randn(num_envs, horizon, 1).astype(np.float32),
+    }
+
+
 class _FakePolicyClient:
     """Minimal stand-in for ``gr00t.policy.server_client.PolicyClient``."""
 
-    def __init__(self, *args, ping_ok: bool = True, **kwargs):
+    def __init__(self, *args, ping_ok: bool = True, action_response_factory=_make_action_response, **kwargs):
         self.init_kwargs = kwargs
         self._ping_ok = ping_ok
+        self._action_response_factory = action_response_factory
         self.last_observation: dict[str, Any] | None = None
         self.get_action_calls = 0
         self.reset_called = False
@@ -103,7 +112,7 @@ class _FakePolicyClient:
         self.last_observation = observation
         self.get_action_calls += 1
         # Match the real PolicyClient return signature: (action_dict, latency_or_meta).
-        return _make_action_response(NUM_ENVS, ACTION_HORIZON), None
+        return self._action_response_factory(NUM_ENVS, ACTION_HORIZON), None
 
     def reset(self):
         self.reset_called = True
@@ -114,9 +123,14 @@ def fake_client_factory(monkeypatch):
     """Install a fake native PolicyClient and expose each constructed client."""
     created: list[_FakePolicyClient] = []
 
-    def factory(ping_ok: bool = True):
+    def factory(ping_ok: bool = True, action_response_factory=_make_action_response):
         def _ctor(*args, **kwargs):
-            client = _FakePolicyClient(*args, ping_ok=ping_ok, **kwargs)
+            client = _FakePolicyClient(
+                *args,
+                ping_ok=ping_ok,
+                action_response_factory=action_response_factory,
+                **kwargs,
+            )
             created.append(client)
             return client
 
@@ -139,6 +153,10 @@ def _build_policy(policy_config_yaml: str, scheduler: str = "chunk"):
         scheduler=scheduler,
     )
     return gr00t_policy.Gr00tRemoteClosedloopPolicy(cfg)
+
+
+def _droid_policy_config_yaml() -> str:
+    return "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
 
 
 # ------------------------------- tests ------------------------------- #
@@ -187,6 +205,50 @@ def test_observation_sent_to_server_has_expected_structure(
         assert arr.shape[0] == NUM_ENVS
         assert arr.shape[1] == 1
         assert arr.shape[2] == POLICY_GROUP_SIZES[key]
+
+
+@pytest.mark.parametrize(
+    ("finger_joint_position", "normalized_gripper_position"),
+    [(0.0, 0.0), (torch.pi / 8, 0.5), (torch.pi / 4, 1.0)],
+)
+def test_droid_observation_sends_normalized_gripper_position(
+    fake_client_factory, finger_joint_position, normalized_gripper_position
+):
+    """DROID sends its explicit normalized gripper observation, not the raw finger angle."""
+    clients = fake_client_factory(ping_ok=True, action_response_factory=_make_droid_action_response)
+    policy = _build_policy(_droid_policy_config_yaml())
+    policy.set_task_description("pick up the object")
+
+    arm_joint_positions = torch.arange(7, dtype=torch.float32).repeat(NUM_ENVS, 1)
+    robot_joint_positions = torch.zeros((NUM_ENVS, 13), dtype=torch.float32)
+    robot_joint_positions[:, :7] = arm_joint_positions
+    robot_joint_positions[:, 7] = finger_joint_position
+    observation = {
+        "camera_obs": {
+            "external_camera_rgb": torch.zeros(
+                (NUM_ENVS, 720, 1280, NUM_CHANNELS),
+                dtype=torch.uint8,
+            ),
+            "wrist_camera_rgb": torch.zeros(
+                (NUM_ENVS, 720, 1280, NUM_CHANNELS),
+                dtype=torch.uint8,
+            ),
+        },
+        "policy": {
+            "robot_joint_pos": robot_joint_positions,
+            "gripper_pos": torch.full((NUM_ENVS, 1), normalized_gripper_position),
+        },
+    }
+
+    policy._get_action_chunk(observation, policy.policy_config.pov_cam_name_sim)
+
+    sent = clients[0].last_observation
+    assert sent is not None
+    np.testing.assert_array_equal(sent["state"]["joint_position"][:, 0, :], arm_joint_positions.numpy())
+    np.testing.assert_array_equal(
+        sent["state"]["gripper_position"][:, 0, :],
+        np.full((NUM_ENVS, 1), normalized_gripper_position),
+    )
 
 
 def test_action_response_is_translated_to_correct_tensor_shape(
