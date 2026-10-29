@@ -35,9 +35,9 @@ both.
 Select the endpoint and model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A Run's ``policy.endpoint`` takes precedence over ``ARENA_INFERENCE_ENDPOINT``. The example
-configurations set ``policy.endpoint: internal``. To run them on another endpoint, override the
-field for the Run, or delete it from the YAML so that the Run uses ``ARENA_INFERENCE_ENDPOINT``:
+If a Run sets ``policy.endpoint``, it uses that endpoint instead of ``ARENA_INFERENCE_ENDPOINT``.
+The example configurations set ``policy.endpoint: internal``. To use another endpoint, override
+the field, or delete it from the YAML so that the Run uses ``ARENA_INFERENCE_ENDPOINT``:
 
 .. code-block:: bash
 
