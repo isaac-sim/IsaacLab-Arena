@@ -28,6 +28,12 @@ def _test_a_failed_rebuild_clears_the_placement_diagnostics(simulation_app) -> b
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
     arena_env = ArenaEnvGraphSpec.from_yaml(_GRAPH).to_arena_env()
+    # The assertions only need one filled pool, not a converged layout.
+    arena_env.placer_params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=20, verbose=False),
+        max_placement_attempts=1,
+        min_unique_layouts_per_env=1,
+    )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, placement_seed=0))
     builder.build_env_cfg()
     diagnostics = builder.placement_diagnostics
@@ -51,7 +57,7 @@ def test_a_failed_rebuild_clears_the_placement_diagnostics():
 
 
 def test_pool_diagnostics_record_a_fixed_size_first_batch_and_its_checks():
-    """The first batch holds num_envs * min_unique_layouts_per_env * max_placement_attempts candidates."""
+    """The first batch holds pool_size * max_placement_attempts candidates."""
     pool = PooledObjectPlacer(_desk_and_box(box_width_m=0.2), _placer_params(), pool_size=2 * 3, num_envs=2)
 
     [first_batch, *_] = pool.last_fill_diagnostics.batches
@@ -108,7 +114,6 @@ def _placer_params(allow_best_loss_fallbacks: bool = True) -> ObjectPlacerParams
     return ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=20, verbose=False),
         max_placement_attempts=2,
-        min_unique_layouts_per_env=3,
         placement_seed=0,
         allow_best_loss_fallbacks=allow_best_loss_fallbacks,
     )

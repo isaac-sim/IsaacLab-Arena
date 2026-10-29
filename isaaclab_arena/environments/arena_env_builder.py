@@ -128,9 +128,9 @@ class ArenaEnvBuilder:
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
+        # How live relation placement filled its pool in the last build_env_cfg(), or None when that build solved no
+        # relations or failed.
         self.placement_diagnostics: PlacementDiagnostics | None = None
-        """How live relation placement filled its pool in the last build_env_cfg(), or None when that build solved
-        no relations or failed."""
 
     def _apply_camera_resolution_mode(self) -> None:
         """Resize the embodiment camera rig as selected by ``cfg.camera_resolution_mode``."""
@@ -596,6 +596,8 @@ class ArenaEnvBuilder:
             "variation_recorder": variation_recorder,
             "variation_replay_scheduler": variation_replay_scheduler,
         }
+        # Only live placement solves a pool. The sampler is a RecordedPlacementSampler when the build replays recorded
+        # layouts, and None when it solves no relations; neither has diagnostics.
         if isinstance(placement_sampler, PlacementSampler):
             self.placement_diagnostics = placement_sampler.placement_pool.last_fill_diagnostics
         return env_cfg, env_kwargs

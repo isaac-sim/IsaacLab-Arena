@@ -91,6 +91,9 @@ environments fell back to best-loss layouts.
   ``ArenaEnvBuilder.placement_diagnostics`` holds the record of the fill made
   during that build. It is ``None`` when the build solved no relations or
   failed.
+- From a running environment, ``get_placement_pool(env).last_fill_diagnostics``
+  holds the pool's most recent fill, including one made during a reset.
+  ``get_placement_pool`` is in ``isaaclab_arena.relations.runtime.placement_events``.
 - When a fill fails, its error message lists the same counts, one line per
   batch. For a box wider than the table it is placed on, for example:
 

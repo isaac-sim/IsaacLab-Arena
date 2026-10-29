@@ -45,7 +45,7 @@ class PlacementValidationRunner:
         """Update each candidate's validation in place using the configured required-check policy.
 
         Returns:
-            The batch's valid count and, for each check, how many candidates it ran on and passed.
+            The batch's validation diagnostics.
         """
         # required_checks=None means "every enabled check is required"; an empty set means no checks are required.
         required = self.params.required_checks
@@ -87,22 +87,10 @@ class PlacementValidationRunner:
                 },
                 required_checks=set(required) if required is not None else None,
             )
-        checks = {}
-        for check, verdicts in layout_pass_verdicts_by_check.items():
-            # A check marks the candidates it skipped as failed, so its passes all come from candidates it ran on.
-            checks[check] = ValidationCheckDiagnostics(
-                num_evaluated=len(evaluated_layout_indices_by_check[check]),
-                num_passed=sum(verdicts),
-                required=required is None or check in required,
-            )
-        batch_diagnostics = BatchValidationDiagnostics(
-            num_candidates=num_candidates,
-            num_valid=sum(
-                candidate.validation.do_all_required_validation_checks_pass() for candidate in batch.candidates
-            ),
-            checks=checks,
+        batch_diagnostics = self._build_batch_validation_diagnostics(
+            batch, required, layout_pass_verdicts_by_check, evaluated_layout_indices_by_check
         )
-        if checks:
+        if batch_diagnostics.checks:
             print(
                 f"[placement] Validated {num_candidates} candidate layout(s); passed per check:"
                 f" {batch_diagnostics.format_passed_per_check()}"
@@ -154,6 +142,33 @@ class PlacementValidationRunner:
                     verdicts[layout_index_within_batch] = verdict
                 layout_pass_verdicts_by_check[validator.check] = verdicts
                 evaluated_layout_indices_by_check[validator.check] = passed_layout_indices
+
+    @staticmethod
+    def _build_batch_validation_diagnostics(
+        batch: PlacementCandidateBatch,
+        required: set[str] | None,
+        layout_pass_verdicts_by_check: dict[str, list[bool]],
+        evaluated_layout_indices_by_check: dict[str, list[int]],
+    ) -> BatchValidationDiagnostics:
+        """Return the batch's validation diagnostics from each check's verdicts and evaluated layouts.
+
+        Call it after every candidate's validation results are set, since the valid count reads them.
+        """
+        checks = {}
+        for check, verdicts in layout_pass_verdicts_by_check.items():
+            # A check marks the candidates it skipped as failed, so its passes all come from candidates it ran on.
+            checks[check] = ValidationCheckDiagnostics(
+                num_evaluated=len(evaluated_layout_indices_by_check[check]),
+                num_passed=sum(verdicts),
+                required=required is None or check in required,
+            )
+        return BatchValidationDiagnostics(
+            num_candidates=len(batch),
+            num_valid=sum(
+                candidate.validation.do_all_required_validation_checks_pass() for candidate in batch.candidates
+            ),
+            checks=checks,
+        )
 
     @staticmethod
     def _passes_required_checks(
