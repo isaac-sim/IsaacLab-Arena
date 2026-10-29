@@ -14,9 +14,11 @@ candidate -- the robot base, the grasps, their IK errors; see ``isaaclab_arena_c
 
 from __future__ import annotations
 
+import numpy as np
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.relations.runtime.placement_events import get_base_rotation_per_asset
@@ -31,6 +33,7 @@ from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_wor
 from isaaclab_arena_curobo.utils.ik_solver_utils import (
     AABBCollisionCuboid,
     IKFeasibility,
+    cuboids_from_mesh,
     get_aabb_collision_cuboid_for_object,
     hand_sphere_mask,
     robot_collision_spheres,
@@ -43,6 +46,10 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
+
+
+# Obstacle slots when the background is loaded: the layout's objects plus the background pieces near the robot.
+_COLLISION_CACHE_WITH_BACKGROUND = 500
 
 
 def get_object_world_pose_from_layout(
@@ -79,10 +86,18 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         self._ik_pos_threshold = config.ik_position_threshold_m
         self._ik_rot_threshold = config.ik_rotation_threshold_rad
         self._require_collision_free = config.require_collision_free
+        self._include_background = config.include_background_obstacles
+        self._background_radius = config.background_obstacle_radius_m
+        self._background_voxel_size = config.background_voxel_size_m
+        # Built from the placer's fixed background mesh on the first batch; it does not change between layouts.
+        self._background_cuboids: list[AABBCollisionCuboid] | None = None
+        self._background_bounds: tuple[np.ndarray, np.ndarray] | None = None
+        self._warned_background_overflow = False
         self._solver = CuroboIKSolver(
             get_embodiment_curobo_cfg(config.embodiment),
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
+            collision_cache_size={"cuboid": _COLLISION_CACHE_WITH_BACKGROUND} if self._include_background else None,
         )
         self._embodiment = config.embodiment
         # Used only when the robot is not itself relation-placed, in which case it never appears in a layout.
@@ -113,6 +128,8 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         return True
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        if self._include_background and self._background_cuboids is None:
+            self._set_background_cuboids(collision_objects)
         return [
             self._validate(candidate.positions, candidate.orientations, layout_index_within_batch=i)
             for i, candidate in enumerate(batch.candidates)
@@ -214,10 +231,14 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         Returns:
             One ``IKFeasibility`` whose per-target entries are ordered like ``targets``.
         """
+        background = self._get_background_cuboids_near(robot_base_pose_w, num_object_cuboids=len(cuboid_per_object))
+        # Load the layout's world once; each target is only switched off for its own grasp.
+        obstacles = list(cuboid_per_object.values()) + background
+        self._solver.update_world(obstacles, robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
         per_target = []
         for target_index, target in enumerate(targets):
-            obstacles = [cuboid for obj, cuboid in cuboid_per_object.items() if obj is not target]
-            self._solver.update_world(obstacles, robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
+            target_cuboid_name = cuboid_per_object[target].name
+            self._solver.set_obstacle_enabled(target_cuboid_name, False)
             per_target.append(
                 solve_ik_feasibility(
                     self._solver,
@@ -227,12 +248,61 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                     require_collision_free=self._require_collision_free,
                 )
             )
+            self._solver.set_obstacle_enabled(target_cuboid_name, True)
         return IKFeasibility(
             feasible=torch.cat([ik.feasible for ik in per_target]),
             position_error=torch.cat([ik.position_error for ik in per_target]),
             rotation_error=torch.cat([ik.rotation_error for ik in per_target]),
             joint_positions=torch.cat([ik.joint_positions for ik in per_target]),
         )
+
+    def _set_background_cuboids(self, collision_objects: list[CollisionObject]) -> None:
+        """Cover the placer's fixed background meshes with voxel-grid cuboids.
+
+        Args:
+            collision_objects: The placer's fixed obstacles; only whole-scene meshes (``FixedCollisionObject``) are used.
+        """
+        cuboids = []
+        for index, obstacle in enumerate(collision_objects):
+            if isinstance(obstacle, FixedCollisionObject):
+                cuboids.extend(
+                    cuboids_from_mesh(
+                        obstacle.get_collision_mesh(),
+                        name_prefix=f"background{index}",
+                        voxel_size_m=self._background_voxel_size,
+                    )
+                )
+        self._background_cuboids = cuboids
+        centers = np.array([cuboid.pose_W_O.position_xyz for cuboid in cuboids]).reshape(-1, 3)
+        half_dims = np.array([cuboid.dims_xyz for cuboid in cuboids]).reshape(-1, 3) / 2.0
+        self._background_bounds = (centers - half_dims, centers + half_dims)
+        print(f"[ReachabilityValidator] Background split into {len(cuboids)} cuboid obstacle(s).")
+
+    def _get_background_cuboids_near(
+        self, robot_base_pose_w: Pose, num_object_cuboids: int
+    ) -> list[AABBCollisionCuboid]:
+        """Background cuboids within the configured radius of the robot base, nearest first when they overflow the cache.
+
+        Args:
+            robot_base_pose_w: World pose of the robot base.
+            num_object_cuboids: Obstacle slots the layout's own objects take.
+        """
+        if not self._background_cuboids:
+            return []
+        lower, upper = self._background_bounds
+        t_W_B = np.array(robot_base_pose_w.position_xyz)
+        distances = np.linalg.norm(np.maximum(np.maximum(lower - t_W_B, t_W_B - upper), 0.0), axis=1)
+        near_indices = np.flatnonzero(distances < self._background_radius)
+        num_slots = _COLLISION_CACHE_WITH_BACKGROUND - num_object_cuboids
+        if len(near_indices) > num_slots:
+            if not self._warned_background_overflow:
+                print(
+                    f"[ReachabilityValidator] WARNING: {len(near_indices)} background cuboids near the robot exceed the"
+                    f" {num_slots} free obstacle slots; keeping the nearest."
+                )
+                self._warned_background_overflow = True
+            near_indices = near_indices[np.argsort(distances[near_indices])[:num_slots]]
+        return [self._background_cuboids[i] for i in near_indices]
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""
