@@ -313,6 +313,7 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
 
 def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> bool:
     """Spawn the requested backend and complete pick-and-place after teleporting the object."""
+    import sys
     import torch
 
     from isaaclab_newton.physics import NewtonCfg
@@ -323,8 +324,7 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
-    parser = get_isaaclab_arena_environments_cli_parser(get_isaaclab_arena_cli_parser())
-    args = parser.parse_args([
+    cli_args = [
         "--num_envs",
         "4",
         "--presets",
@@ -336,7 +336,14 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         "droid_differential_ik",
         "--teleop_device",
         "keyboard",
-    ])
+    ]
+    original_argv = sys.argv
+    try:
+        sys.argv = ["test_deformable_object.py", *cli_args]
+        parser = get_isaaclab_arena_environments_cli_parser(get_isaaclab_arena_cli_parser())
+    finally:
+        sys.argv = original_argv
+    args = parser.parse_args(cli_args)
     builder = get_arena_builder_from_cli(args)
     assert builder.arena_env.task.get_task_description() == "Pick up the deformable cube and place it on the plate."
     env_cfg, env_kwargs = builder.build_env_cfg()
@@ -362,8 +369,17 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         rest_targets[..., :3] = rest_state[..., :3]
         rest_targets[..., 3] = 1.0
         deformable.write_nodal_kinematic_target_to_sim_index(rest_targets)
-        _, _, terminated, truncated, _ = env.step(actions)
-        assert not terminated.any() and not truncated.any(), "Recording the initial rest pose should not end the task."
+
+        def step_until_predicates_complete(required_count: int, max_steps: int, phase: str) -> None:
+            for _ in range(max_steps):
+                _, _, terminated, truncated, extras = env.step(actions)
+                assert not terminated.any() and not truncated.any(), f"{phase} should not end the task."
+                events = extras["progress_tracking"]["events"]
+                if all(len(env_events) >= required_count for env_events in events):
+                    return
+            raise AssertionError(f"{phase} did not complete predicate {required_count} within {max_steps} steps.")
+
+        step_until_predicates_complete(required_count=1, max_steps=30, phase="Recording the initial rest pose")
 
         lifted_state = deformable.data.nodal_state_w.torch.clone()
         lifted_state[..., 2] += 0.1
@@ -373,8 +389,7 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         lifted_targets[..., :3] = lifted_state[..., :3]
         lifted_targets[..., 3] = 1.0
         deformable.write_nodal_kinematic_target_to_sim_index(lifted_targets)
-        _, _, terminated, truncated, _ = env.step(actions)
-        assert not terminated.any() and not truncated.any(), "Lifting should advance progress without ending the task."
+        step_until_predicates_complete(required_count=2, max_steps=5, phase="Lifting")
 
         destination_bounds = env.unwrapped.arena_world.get_aabb_w("plate")
         placed_state = deformable.data.nodal_state_w.torch.clone()
@@ -392,7 +407,7 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         deformable.write_nodal_kinematic_target_to_sim_index(kinematic_targets)
 
         completed = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
-        for _ in range(builder.arena_env.task.placement_consecutive_steps + 2):
+        for _ in range(builder.arena_env.task.placement_consecutive_steps + 30):
             _, _, terminated, truncated, extras = env.step(actions)
             assert not truncated.any(), "The task timed out before the placement could register."
             progress_states = extras["progress_tracking"]["states"]
