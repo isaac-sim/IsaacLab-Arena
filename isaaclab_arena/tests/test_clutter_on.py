@@ -15,6 +15,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import ClutterOnLossStrategy
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.optimization.placement_candidate_generator import PlacementCandidateGenerator
+from isaaclab_arena.relations.placement_diagnostics import ValidationCheckDiagnostics
 from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On, RotateAroundSolution
 from isaaclab_arena.relations.validation.placement_validation_runner import PlacementValidationRunner
 from isaaclab_arena.relations.validation.pre_physics import (
@@ -89,7 +90,12 @@ def test_candidate_filtering_preserves_identity_and_separates_support_checks():
 
     validators = [OnRelationValidator(params), ClutterOnRelationValidator(params), ExpensiveCheck(params)]
     original_candidates = tuple(batch.candidates)
-    assert PlacementValidationRunner(params, validators).validate_candidates(batch, []) is None
+    batch_diagnostics = PlacementValidationRunner(params, validators).validate_candidates(batch, [])
+    # The expensive check runs only on the two candidates that pass the cheaper checks, so it rejects just one.
+    assert batch_diagnostics.checks["expensive_for_test"] == ValidationCheckDiagnostics(
+        num_evaluated=2, num_passed=1, required=True
+    )
+    assert (batch_diagnostics.num_candidates, batch_diagnostics.num_valid) == (3, 1)
     assert all(current is original for current, original in zip(batch.candidates, original_candidates, strict=True))
     assert batch.candidates[1].validation.validation_results == {
         "on_relation": False,
