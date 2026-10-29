@@ -36,8 +36,8 @@ class PlacementCheck(StrEnum):
     """Build-time check: every ``FaceTo`` subject has a defined target direction and facing yaw."""
 
     WITHIN_REACH = "within_reach"
-    """Build-time check: every ``WithinReach`` subject's bounding-box centre lies inside a scaled reach
-    sphere of its robot, within the relation's ``tolerance_m``."""
+    """Build-time check: every ``WithinReach`` subject's origin lies inside a scaled reach sphere of its
+    robot, within the relation's ``tolerance_m``."""
 
     PHYSICS_SETTLED = "physics_settled"
     """Run-time check: final measured root speeds fall below the configured thresholds."""

@@ -721,6 +721,62 @@ def _compute_local_bounding_box_from_usd_at_joint_pos(
     )
 
 
+def compute_joint_origin_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_name: str,
+    joint_pos: Mapping[str, float],
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> tuple[float, float, float]:
+    """Return a movable joint's origin in the articulation's default-prim frame, posed at joint_pos.
+
+    Args:
+        usd_path: Path to the articulation's .usd/.usda/.usdc file.
+        joint_name: Name of a revolute or prismatic joint prim under the default prim.
+        joint_pos: Joint positions keyed by exact joint name or Isaac Lab regex, revolute in radians.
+        scale: Spawn-time scale passed to ``UsdFileCfg``.
+
+    Returns:
+        Joint origin (x, y, z) in metres in the default-prim frame.
+    """
+    return _compute_joint_origin_from_usd_at_joint_pos(
+        usd_path, joint_name, tuple(sorted(joint_pos.items())), tuple(scale)
+    )
+
+
+@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
+def _compute_joint_origin_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_name: str,
+    joint_pos_items: tuple[tuple[str, float], ...],
+    scale: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    """Cacheable body of ``compute_joint_origin_from_usd_at_joint_pos``, keyed by hashable args."""
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    root_path = default_prim.GetPath().pathString
+    joint_prims = articulation_joint_prims(default_prim)
+    assert joint_name in joint_prims, f"Joint '{joint_name}' not found in {usd_path}. Available: {sorted(joint_prims)}"
+    joint = UsdPhysics.Joint(joint_prims[joint_name])
+    body0_targets = joint.GetBody0Rel().GetTargets()
+    assert body0_targets, f"Joint '{joint_name}' in {usd_path} has no body0"
+    body0_path = body0_targets[0].pathString
+    resolved = resolve_joint_pos_patterns(joint_prims, dict(joint_pos_items))
+    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
+
+    # Row-vector convention: the joint origin sits at localPos0 in body0, which is posed by its delta.
+    time_code = Usd.TimeCode.Default()
+    T_W_body0 = np.array(UsdGeom.Xformable(stage.GetPrimAtPath(body0_path)).ComputeLocalToWorldTransform(time_code))
+    delta = resolve_prim_world_delta(body0_path, deltas)
+    if delta is not None:
+        T_W_body0 = T_W_body0 @ delta
+    T_W_root = np.array(UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(time_code))
+    local_pos0 = joint.GetLocalPos0Attr().Get() or Gf.Vec3f(0.0, 0.0, 0.0)
+    t_body0_J = np.array([*local_pos0, 1.0], dtype=np.float64)
+    t_root_J = (t_body0_J @ T_W_body0 @ np.linalg.inv(T_W_root))[:3] * np.asarray(scale, dtype=np.float64)
+    return (float(t_root_J[0]), float(t_root_J[1]), float(t_root_J[2]))
+
+
 def move_collision_schemas_to_meshes(root_prim) -> None:
     """Move collision schemas from grouping prims onto their child meshes.
 

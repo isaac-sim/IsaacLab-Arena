@@ -34,7 +34,6 @@ from isaaclab_tasks.contrib.stack.mdp import franka_stack_events
 from isaaclab_tasks.contrib.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.embodiments.arm_reach import FRANKA_PANDA_ARM_REACH
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
@@ -42,11 +41,15 @@ from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.embodiments.gripper import PandaGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLMimicEnv
+from isaaclab_arena.relations.arm_reach import ArmReach
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     import trimesh
+
+FRANKA_PANDA_ARM_REACH = ArmReach(center_joint_name="panda_joint2", reach_m=0.855)
+"""Franka Panda / Research 3 reach: the 0.855 m datasheet maximum, measured from the shoulder joint."""
 
 _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw=(0.0, 0.0, 0.70711, 0.70711))
 

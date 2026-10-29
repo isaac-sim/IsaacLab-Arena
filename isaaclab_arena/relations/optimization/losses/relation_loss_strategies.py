@@ -192,6 +192,8 @@ class RelationLossStrategy(ABC):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        t_W_P: torch.Tensor | None = None,
+        q_W_P: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute the loss for a relation constraint.
 
@@ -201,6 +203,8 @@ class RelationLossStrategy(ABC):
                 backward compat or (N, 3) for batched.
             child_bbox: Child object local bounding box (N=1).
             parent_world_bbox: Parent bounding box in world coordinates.
+            t_W_P: Parent origin in world, (N, 3); None when the relation needs only the parent's bounds.
+            q_W_P: Parent xyzw rotation into world, (N, 4); None when the relation needs only the parent's bounds.
 
         Returns:
             Scalar loss tensor when child_pos is (3,), or (N,) tensor when (N, 3).
@@ -221,6 +225,8 @@ class AlignWithLossStrategy(RelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        t_W_P: torch.Tensor | None = None,
+        q_W_P: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Return alignment loss with the same scalar or batch shape as other relations."""
         axis_index = relation.axis.index
@@ -234,73 +240,37 @@ class AlignWithLossStrategy(RelationLossStrategy):
         return loss.squeeze(0) if child_pos.ndim == 1 else loss
 
 
-class ParentPoseRelationLossStrategy(ABC):
-    """Abstract base for binary relations whose loss depends on the parent's origin and heading."""
-
-    @abstractmethod
-    def compute_loss(
-        self,
-        relation: Relation,
-        child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
-        t_W_P: torch.Tensor,
-        yaw_W_P: torch.Tensor,
-    ) -> torch.Tensor:
-        """Compute the loss for a relation constraint.
-
-        Args:
-            relation: The relation object containing relationship metadata.
-            child_pos: Child object position, (3,) or (N, 3).
-            child_bbox: Child object local bounding box.
-            t_W_P: Parent origin in world, matching child_pos's shape.
-            yaw_W_P: Parent heading about world Z in radians, () or (N,).
-
-        Returns:
-            Scalar loss tensor when child_pos is (3,), or (N,) tensor when (N, 3).
-        """
-        pass
-
-
 def within_reach_excess_m(
     relation: WithinReach,
-    p_W_child_center: torch.Tensor,
+    t_W_O: torch.Tensor,
     t_W_R: torch.Tensor,
-    yaw_W_R: torch.Tensor,
+    q_W_R: torch.Tensor,
 ) -> torch.Tensor:
-    """Return each child centre's distance outside the nearest accepted reach sphere, negative inside.
+    """Return each object's distance outside the nearest accepted reach sphere, negative inside.
 
     Args:
         relation: WithinReach relation selecting the robot's arms and reach scale.
-        p_W_child_center: Child bounding-box centres in world, (N, 3).
+        t_W_O: Object origins in world, (N, 3).
         t_W_R: Robot root origins in world, (N, 3).
-        yaw_W_R: Robot headings about world Z in radians, (N,).
+        q_W_R: Robot root xyzw rotations into world, (N, 4).
 
     Returns:
         Signed distance in metres, (N,).
     """
-    arm_reaches = relation.get_arm_reaches()
-    assert arm_reaches, f"WithinReach robot '{relation.parent.name}' has no matching arm_reaches"
-    cos_yaw = torch.cos(yaw_W_R)
-    sin_yaw = torch.sin(yaw_W_R)
+    from isaaclab.utils.math import quat_apply
+
+    reach_spheres = relation.get_reach_spheres()
+    assert reach_spheres, f"WithinReach robot '{relation.parent.name}' has no matching reach spheres"
     excess_per_arm = []
-    for arm_reach in arm_reaches:
-        center_x_R, center_y_R, center_z_R = arm_reach.center_xyz_R
-        # Rotate the root-frame centre offset into world by the robot heading.
-        t_R_S_in_W = torch.stack(
-            (
-                cos_yaw * center_x_R - sin_yaw * center_y_R,
-                sin_yaw * center_x_R + cos_yaw * center_y_R,
-                torch.full_like(cos_yaw, center_z_R),
-            ),
-            dim=-1,
-        )
-        t_W_S = t_W_R + t_R_S_in_W
-        distance = torch.linalg.vector_norm(p_W_child_center - t_W_S, dim=-1)
-        excess_per_arm.append(distance - relation.reach_scale * arm_reach.radius_m)
+    for reach_sphere in reach_spheres:
+        t_R_S = t_W_R.new_tensor(reach_sphere.center_xyz_R).expand_as(t_W_R)
+        t_W_S = quat_apply(q_W_R, t_R_S) + t_W_R
+        distance = torch.linalg.vector_norm(t_W_O - t_W_S, dim=-1)
+        excess_per_arm.append(distance - relation.reach_scale * reach_sphere.reach_m)
     return torch.stack(excess_per_arm, dim=-1).amin(dim=-1)
 
 
-class WithinReachLossStrategy(ParentPoseRelationLossStrategy):
+class WithinReachLossStrategy(RelationLossStrategy):
     """Penalize distance outside the nearest reach sphere linearly, with zero loss inside it."""
 
     def __init__(self, slope: float = 100.0):
@@ -315,18 +285,17 @@ class WithinReachLossStrategy(ParentPoseRelationLossStrategy):
         relation: WithinReach,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
-        t_W_P: torch.Tensor,
-        yaw_W_P: torch.Tensor,
+        parent_world_bbox: AxisAlignedBoundingBox,
+        t_W_P: torch.Tensor | None = None,
+        q_W_P: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Return the weighted reach violation with the same scalar or batch shape as other relations."""
+        assert t_W_P is not None and q_W_P is not None, "WithinReach needs the robot's pose"
         single_input = child_pos.dim() == 1
-        if single_input:
-            child_pos = child_pos.unsqueeze(0)
-        t_W_P = t_W_P.reshape(-1, 3).expand_as(child_pos)
-        yaw_W_P = yaw_W_P.reshape(-1).expand(child_pos.shape[0])
-
-        p_W_child_center = child_pos + child_bbox.center
-        excess = within_reach_excess_m(relation, p_W_child_center, t_W_P, yaw_W_P)
+        t_W_O = child_pos.reshape(-1, 3)
+        t_W_R = t_W_P.reshape(-1, 3).expand_as(t_W_O)
+        q_W_R = q_W_P.reshape(-1, 4).expand(t_W_O.shape[0], 4)
+        excess = within_reach_excess_m(relation, t_W_O, t_W_R, q_W_R)
         loss = relation.relation_loss_weight * single_boundary_linear_loss(
             excess, 0.0, slope=self.slope, penalty_side="greater"
         )
@@ -358,6 +327,8 @@ class NextToLossStrategy(RelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        t_W_P: torch.Tensor | None = None,
+        q_W_P: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute loss for NextTo relation.
 
@@ -448,6 +419,8 @@ class OnLossStrategy(RelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        t_W_P: torch.Tensor | None = None,
+        q_W_P: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute loss for On relation.
 
@@ -533,6 +506,8 @@ class ClutterOnLossStrategy(OnLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        t_W_P: torch.Tensor | None = None,
+        q_W_P: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Return footprint and below-surface penalties, shape (N,) or scalar for one position."""
         support = relation.get_release_region_bbox(parent_world_bbox)
@@ -582,6 +557,8 @@ class NotNextToLossStrategy(RelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        t_W_P: torch.Tensor | None = None,
+        q_W_P: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute loss for ``NotNextTo``."""
         single_input = child_pos.dim() == 1

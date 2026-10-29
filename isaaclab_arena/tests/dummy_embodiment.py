@@ -17,7 +17,7 @@ from isaaclab_arena.utils.pose import Pose, PosePerEnv
 if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
-    from isaaclab_arena.embodiments.arm_reach import ArmReach
+    from isaaclab_arena.relations.arm_reach import ReachSphere
 
 
 class DummyEmbodiment(PlaceableAsset):
@@ -34,10 +34,10 @@ class DummyEmbodiment(PlaceableAsset):
         initial_pose: Pose | None = None,
         collision_mesh: trimesh.Trimesh | None = None,
         scene_name: str | None = None,
-        arm_reaches: tuple[ArmReach, ...] = (),
+        reach_spheres: tuple[ReachSphere, ...] = (),
     ) -> None:
         super().__init__(name=name, tags=["embodiment"])
-        self.arm_reaches = arm_reaches
+        self.reach_spheres = reach_spheres
         self.initial_pose = initial_pose
         self.bounding_box = bounding_box
         self.collision_mesh = collision_mesh
@@ -65,6 +65,10 @@ class DummyEmbodiment(PlaceableAsset):
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative bounds."""
         return self.bounding_box
+
+    def get_reach_spheres(self) -> list[ReachSphere]:
+        """Return the configured reach spheres."""
+        return list(self.reach_spheres)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the configured collision mesh."""

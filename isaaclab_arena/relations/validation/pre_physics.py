@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
 from isaaclab_arena.relations.geometry.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
+from isaaclab_arena.relations.optimization.initializers.sampling import get_placement_rotation_xyzw
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     SIDE_CONFIGS,
     NotNextToLossStrategy,
@@ -395,16 +396,18 @@ class WithinReachValidator(PrePhysicsPlacementValidator):
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     ) -> bool:
         """Check every reach relation against the same geometry as the solver objective."""
-        for obj, t_W_C in positions.items():
+        for obj, t_W_O in positions.items():
             for relation in obj.get_relations():
                 if not isinstance(relation, WithinReach):
                     continue
                 robot = relation.parent
-                child_bbox = env_bboxes[obj]
-                p_W_child_center = child_bbox.min_point.new_tensor(t_W_C) + child_bbox.center
-                t_W_R = child_bbox.min_point.new_tensor([positions[robot]])
-                yaw_W_R = child_bbox.min_point.new_tensor([self._get_robot_yaw(robot, orientations)])
-                excess = within_reach_excess_m(relation, p_W_child_center, t_W_R, yaw_W_R)
+                device = env_bboxes[obj].min_point.device
+                excess = within_reach_excess_m(
+                    relation,
+                    torch.tensor([t_W_O], dtype=torch.float32, device=device),
+                    torch.tensor([positions[robot]], dtype=torch.float32, device=device),
+                    get_placement_rotation_xyzw(robot, orientations).to(device).unsqueeze(0),
+                )
                 if not torch.isfinite(excess).all() or excess.item() > relation.tolerance_m:
                     if self._params.verbose:
                         print(
@@ -413,15 +416,6 @@ class WithinReachValidator(PrePhysicsPlacementValidator):
                         )
                     return False
         return True
-
-    @staticmethod
-    def _get_robot_yaw(robot: PlaceableAsset, orientations: dict[PlaceableAsset, float]) -> float:
-        """Return the robot's world Z heading, from its fixed pose when anchored."""
-        if robot.is_anchor:
-            initial_pose = robot.get_initial_pose()
-            assert isinstance(initial_pose, Pose), f"Anchor '{robot.name}' must have a fixed Pose."
-            return yaw_from_quat_xyzw(initial_pose.rotation_xyzw)
-        return orientations.get(robot, 0.0)
 
 
 @register_validator

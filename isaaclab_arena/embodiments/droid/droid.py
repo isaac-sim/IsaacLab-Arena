@@ -34,7 +34,6 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.embodiments.arm_reach import FRANKA_PANDA_ARM_REACH
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
 from isaaclab_arena.embodiments.droid.observations import (
@@ -46,7 +45,7 @@ from isaaclab_arena.embodiments.droid.observations import (
     newton_gripper_pos,
 )
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.embodiments.franka.franka import franka_stack_events
+from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ARM_REACH, franka_stack_events
 from isaaclab_arena.embodiments.gripper import RobotiqGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.relations.collision_mode import CollisionMode

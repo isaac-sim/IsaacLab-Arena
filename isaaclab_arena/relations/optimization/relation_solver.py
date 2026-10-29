@@ -22,7 +22,6 @@ from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import (
 )
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     NoCollisionLossStrategy,
-    ParentPoseRelationLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
 )
@@ -73,9 +72,7 @@ class RelationSolver:
         self._no_overlap_pair_cache: NoOverlapPairCache | None = None
         self._collision_cache_state: RelationSolverState | None = None
 
-    def _get_strategy(
-        self, relation: RelationBase
-    ) -> RelationLossStrategy | UnaryRelationLossStrategy | ParentPoseRelationLossStrategy:
+    def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.
 
         Args:
@@ -123,18 +120,6 @@ class RelationSolver:
                     )
                     if debug:
                         _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
-                # Binary relation measured from the parent's origin and heading (WithinReach)
-                elif isinstance(strategy, ParentPoseRelationLossStrategy):
-                    parent = cast(Relation, relation).parent
-                    loss = strategy.compute_loss(
-                        relation=relation,
-                        child_pos=child_pos,
-                        child_bbox=child_bbox,
-                        t_W_P=state.get_position(parent),
-                        yaw_W_P=state.get_yaw(parent),
-                    )
-                    if debug:
-                        _print_relation_debug(obj, relation, child_pos[0], state.get_position(parent)[0], loss.mean())
                 # Binary relation (On, NextTo, etc.)
                 elif isinstance(relation, Relation):
                     relation_strategy = cast(RelationLossStrategy, strategy)
@@ -150,6 +135,8 @@ class RelationSolver:
                         child_pos=child_pos,
                         child_bbox=child_bbox,
                         parent_world_bbox=parent_world_bbox,
+                        t_W_P=state.get_position(parent),
+                        q_W_P=state.get_rotation_xyzw(parent),
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
@@ -286,7 +273,7 @@ class RelationSolver:
                 yawed footprint and serve as its collision bounds unchanged; otherwise they are rotated
                 by orientations. Direct callers should leave this False unless they expanded the supplied bboxes.
             orientations: Optional per-env yaw angles (radians about Z) per object.
-                Used to orient collision boxes, MESH sphere centers, and parent-heading relations such as WithinReach.
+                Used to orient collision boxes, MESH sphere centers, and the parent rotations passed to relation losses.
             collision_objects: Optional fixed background obstacles included in the
                 no-overlap collision term only. They are not optimized and carry no
                 relation constraints.

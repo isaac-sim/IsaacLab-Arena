@@ -13,7 +13,6 @@ from isaaclab_arena.relations.optimization.losses.relation_loss_strategies impor
     NextToLossStrategy,
     NotNextToLossStrategy,
     OnLossStrategy,
-    ParentPoseRelationLossStrategy,
     PositionLimitsBoxLossStrategy,
     PositionLimitsCylindricalLossStrategy,
     RelationLossStrategy,
@@ -34,9 +33,7 @@ from isaaclab_arena.relations.relations import (
 )
 
 
-def _default_strategies() -> (
-    dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy | ParentPoseRelationLossStrategy]
-):
+def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy]:
     """Factory for default loss strategies."""
     return {
         AlignWith: AlignWithLossStrategy(slope=100.0),
@@ -85,9 +82,7 @@ class RelationSolverParams:
     reject actual overlaps (no safety margin)."""
 
     # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
-    strategies: dict[
-        type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy | ParentPoseRelationLossStrategy
-    ] = field(
+    strategies: dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy] = field(
         default_factory=_default_strategies,
         metadata={"allow_config_override": False},
     )
