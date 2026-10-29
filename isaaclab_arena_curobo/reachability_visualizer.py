@@ -5,15 +5,23 @@
 
 """The reachability check's layer of the placement Rerun debug view, sim-free (no SimApp).
 Adds to existing visualizer what only the IK check knows -- where the
-robot stands, the top-down grasps it solved, whether each one was reachable, and the collision
-spheres the robot holds at each solved grasp.
+robot stands, the top-down grasps it solved, whether each one was reachable, the collision
+spheres the robot holds at each solved grasp, and the background cuboids it solved against.
 """
 
 from __future__ import annotations
 
 import torch
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.validation.placement_visualizer import ROBOT_ENTITY, PlacementRerunVisualizer
+
+if TYPE_CHECKING:
+    import trimesh
+
+    import rerun as rr
+
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
 
 REACHABLE_COLOR = (40, 200, 80)
 """Color of a grasp the robot can reach."""
@@ -39,6 +47,21 @@ BASE_ENTITY = f"{ROBOT_ENTITY}/base"
 SPHERES_ENTITY = f"{BASE_ENTITY}/collision_spheres"
 """Entity path of the robot's collision spheres, one child per grasp the check solved."""
 
+BACKGROUND_ENTITY = "world/background"
+"""Entity path of the fixed background, drawn once for every layout."""
+
+LOADED_BACKGROUND_ENTITY = f"{ROBOT_ENTITY}/background_obstacles"
+"""Entity path of the background cuboids loaded for one layout; under the robot so a skipped layout clears them."""
+
+BACKGROUND_MESH_COLOR = (170, 170, 170, 90)
+"""Color of the background mesh the cuboids cover."""
+
+BACKGROUND_CUBOID_COLOR = (120, 120, 130)
+"""Color of the full cuboid cover of the background, drawn as wireframe."""
+
+LOADED_BACKGROUND_COLOR = (230, 140, 40, 80)
+"""Color of the background cuboids loaded as obstacles for the layout's solves."""
+
 
 class ReachabilityRerunLayer:
     """Draws the reachability check's verdict for a layout into the shared placement view."""
@@ -63,6 +86,7 @@ class ReachabilityRerunLayer:
         rotation_error: torch.Tensor,
         robot_spheres: torch.Tensor | None = None,
         muted_sphere_mask: torch.Tensor | None = None,
+        background_cuboids: list[AABBCollisionCuboid] | None = None,
     ) -> None:
         """Log the robot's side of one evaluated layout.
 
@@ -79,10 +103,17 @@ class ReachabilityRerunLayer:
                 one set per grasp; omitted when the check did not compute them.
             muted_sphere_mask: ``(n,)`` mask of the spheres excluded from collision checking, drawn
                 apart from the rest. None means none were.
+            background_cuboids: Background cuboids loaded as obstacles for this layout's solves, in the world
+                frame; omitted when the background is not loaded.
         """
         import rerun as rr
 
         self._visualizer.set_time(layout_index_across_batch)
+        if background_cuboids:
+            rr.log(
+                LOADED_BACKGROUND_ENTITY,
+                self._cuboids_to_boxes(background_cuboids, LOADED_BACKGROUND_COLOR, rr.components.FillMode.Solid),
+            )
         # Grasps are solved in the robot base frame, so they are logged as children of the base
         # transform and Rerun composes them back into the world frame.
         rr.log(
@@ -146,4 +177,53 @@ class ReachabilityRerunLayer:
                     for is_muted in muted[kept].tolist()
                 ],
             ),
+        )
+
+    @staticmethod
+    def log_background(meshes: list[trimesh.Trimesh], cuboids: list[AABBCollisionCuboid]) -> None:
+        """Draw the fixed background and the cuboids covering it, once for every layout.
+
+        Args:
+            meshes: The background meshes in the world frame.
+            cuboids: The world-axis-aligned cuboids the meshes are covered with.
+        """
+        import rerun as rr
+
+        for index, mesh in enumerate(meshes):
+            rr.log(
+                f"{BACKGROUND_ENTITY}/mesh_{index}",
+                rr.Mesh3D(
+                    vertex_positions=mesh.vertices,
+                    triangle_indices=mesh.faces,
+                    albedo_factor=BACKGROUND_MESH_COLOR,
+                ),
+                static=True,
+            )
+        if cuboids:
+            rr.log(
+                f"{BACKGROUND_ENTITY}/cuboids",
+                ReachabilityRerunLayer._cuboids_to_boxes(
+                    cuboids, BACKGROUND_CUBOID_COLOR, rr.components.FillMode.MajorWireframe
+                ),
+                static=True,
+            )
+
+    @staticmethod
+    def _cuboids_to_boxes(
+        cuboids: list[AABBCollisionCuboid], color: tuple[int, ...], fill_mode: rr.components.FillMode
+    ) -> rr.Boxes3D:
+        """Return world-axis-aligned cuboids as one Rerun ``Boxes3D``.
+
+        Args:
+            cuboids: Cuboids whose pose holds their world-frame center.
+            color: Color of every box.
+            fill_mode: Rerun fill mode of the boxes.
+        """
+        import rerun as rr
+
+        return rr.Boxes3D(
+            centers=[cuboid.pose_W_O.position_xyz for cuboid in cuboids],
+            half_sizes=[[0.5 * dim for dim in cuboid.dims_xyz] for cuboid in cuboids],
+            colors=color,
+            fill_mode=fill_mode,
         )
