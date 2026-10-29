@@ -50,7 +50,7 @@ def parse_labels(entries: list[str]) -> dict[str, str]:
     """Convert ``key=value`` label entries to a mapping, asserting that each key appears once.
 
     Args:
-        entries: Label entries such as ``team=robotics``; the value may contain commas.
+        entries: Label entries such as ``team=robotics``.
 
     Returns:
         The label mapping in the order of ``entries``.
@@ -107,7 +107,7 @@ class WorkflowCfg:
     """Maximum time the workflow may wait in the queue."""
 
     labels: list[str] = field(default_factory=lambda: list(DEFAULT_WORKFLOW_LABELS))
-    """OSMO labels attached to the workflow, as ``key=value`` entries. A value may hold several comma-separated items."""
+    """OSMO labels attached to the workflow, as ``key=value`` entries."""
 
     dry_run: bool = False
     """Render the workflow YAML and print it instead of submitting to OSMO."""
