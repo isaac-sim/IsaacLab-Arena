@@ -202,9 +202,9 @@ def get_placement_seed(placer_params: ObjectPlacerParams, num_envs: int, seed_bl
 def add_build_results(record: EnvironmentRecord, diagnostics: PlacementDiagnostics, num_envs: int) -> None:
     """Add one build's placement diagnostics to the environment record.
 
-    Candidate and check counts come from the pool's first batch, which has the same size in every build; later
-    batches only refill environments that lacked valid layouts, so including them would favor scenes that need more
-    batches.
+    Candidate and check counts come from the pool's first batch, which has the same size in every build. A later
+    batch runs only while some environment still has empty slots, and its size depends on how many are missing, so
+    counting it would give scenes that need more batches a larger sample.
 
     Args:
         record: Record to update in place.
