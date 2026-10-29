@@ -73,10 +73,8 @@ relations:
 - kind: position_limits_box
   subject: wooden_block
   params:
-    x_min: -2.12
-    x_max: -1.78
-    y_min: 2.1
-    y_max: 2.23
+    x_limits: [-2.12, -1.78]
+    y_limits: [2.1, 2.23]
 - kind: align_with
   subject: droid
   reference: wooden_block

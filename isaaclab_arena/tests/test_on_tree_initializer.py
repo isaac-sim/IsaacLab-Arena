@@ -209,7 +209,7 @@ def test_ontree_samples_across_alignment_band_of_moving_reference():
     desk = _make_desk()
     reference = _make_box("reference", size=0.2)
     reference.add_relation(On(desk))
-    reference.add_relation(PositionLimitsBox(x_min=0.3, x_max=0.4, y_min=0.3, y_max=0.4))
+    reference.add_relation(PositionLimitsBox(x_limits=(0.3, 0.4), y_limits=(0.3, 0.4)))
     subject = DummyObject("subject", AxisAlignedBoundingBox((-0.05, 0.02, 0.0), (0.15, 0.12, 0.1)))
     subject.add_relation(On(desk))
     subject.add_relation(AlignWith(reference, axis, offset_m=offset_m, tolerance_m=0.04))
@@ -243,12 +243,12 @@ def test_ontree_intersects_alignment_bands_with_position_box():
     subject = _make_box("subject", size=0.1)
     for reference, x in ((left, 0.4), (right, 0.5)):
         reference.add_relation(On(desk))
-        reference.add_relation(PositionLimitsBox(x_min=x, x_max=x + 0.02, y_min=0.6, y_max=0.62))
+        reference.add_relation(PositionLimitsBox(x_limits=(x, x + 0.02), y_limits=(0.6, 0.62)))
     subject.add_relation(On(desk))
     subject.add_relation(AlignWith(left, "x", tolerance_m=0.1))
     subject.add_relation(AlignWith(right, "x", tolerance_m=0.1))
     subject.add_relation(AlignWith(left, "y", tolerance_m=0.05))
-    subject.add_relation(PositionLimitsBox(x_min=0.42))
+    subject.add_relation(PositionLimitsBox(x_limits=(0.42, None)))
 
     generator = torch.Generator().manual_seed(42)
     for _ in range(30):
@@ -265,12 +265,12 @@ def test_ontree_unreachable_alignment_axis_keeps_other_narrowing():
     desk = _make_desk()
     reference = _make_box("reference")
     reference.add_relation(On(desk))
-    reference.add_relation(PositionLimitsBox(x_min=0.4, x_max=0.41))
+    reference.add_relation(PositionLimitsBox(x_limits=(0.4, 0.41)))
     subject = _make_box("subject")
     subject.add_relation(On(desk))
     subject.add_relation(AlignWith(reference, "x", tolerance_m=0.03))
     subject.add_relation(AlignWith(reference, "z", offset_m=1.0, tolerance_m=0.03))
-    subject.add_relation(PositionLimitsBox(y_min=0.2, y_max=0.3))
+    subject.add_relation(PositionLimitsBox(y_limits=(0.2, 0.3)))
 
     positions = _seed(OnTreeInitializer(), [subject, desk, reference], {desk})
 

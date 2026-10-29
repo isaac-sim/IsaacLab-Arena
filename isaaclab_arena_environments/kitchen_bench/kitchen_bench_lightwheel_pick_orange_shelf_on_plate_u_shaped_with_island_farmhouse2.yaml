@@ -64,10 +64,8 @@ relations:
 - kind: position_limits_box
   subject: plate
   params:
-    x_min: 4.45
-    x_max: 4.95
-    y_min: -0.5
-    y_max: -0.35
+    x_limits: [4.45, 4.95]
+    y_limits: [-0.5, -0.35]
 - kind: 'on'
   subject: orange
   reference: shelf

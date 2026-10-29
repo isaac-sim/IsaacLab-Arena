@@ -67,10 +67,8 @@ relations:
 - kind: position_limits_box
   subject: near_bowl
   params:
-    x_min: -0.55
-    x_max: 0.45
-    y_min: -0.22
-    y_max: -0.09
+    x_limits: [-0.55, 0.45]
+    y_limits: [-0.22, -0.09]
 - kind: align_with
   subject: far_bowl
   reference: near_bowl

@@ -57,10 +57,8 @@ relations:
 - kind: position_limits_box
   subject: stand_mixer
   params:
-    x_min: -2.06
-    x_max: -1.74
-    y_min: 2.07
-    y_max: 2.19
+    x_limits: [-2.06, -1.74]
+    y_limits: [2.07, 2.19]
 - kind: align_with
   subject: droid
   reference: stand_mixer

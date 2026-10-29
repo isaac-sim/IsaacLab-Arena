@@ -61,10 +61,8 @@ relations:
 - kind: position_limits_box
   subject: cracker_box
   params:
-    x_min: 2.0
-    x_max: 2.4
-    y_min: -0.55
-    y_max: -0.43
+    x_limits: [2.0, 2.4]
+    y_limits: [-0.55, -0.43]
 - kind: align_with
   subject: soup
   reference: cracker_box
