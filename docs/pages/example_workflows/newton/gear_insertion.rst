@@ -31,27 +31,51 @@ Task Overview
 Prerequisites
 -------------
 
-Complete the :doc:`Arena installation <../../quickstart/installation>` and start your
-Arena runtime. Run the commands below from the repository root in the activated native
-environment or inside the Base Docker container (``/workspaces/isaaclab_arena``).
-The commands open the Kit GUI and use the GPU at ``cuda:0``.
+Complete the :doc:`Arena installation <../../quickstart/installation>`.
+Then open a **host terminal at the Arena repository root**.
 
-Create a directory for your demonstrations:
+.. _spacemouse_setup:
+
+SpaceMouse Setup (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Skip this section if using keyboard input. **Shut down all running Docker containers**,
+then copy and paste the entire block below into a terminal on the Linux host:
+
+.. code-block:: bash
+
+   sudo groupadd -f plugdev
+   sudo usermod -aG plugdev "$USER"
+   sudo tee /etc/udev/rules.d/70-arena-spacemouse.rules <<'EOF'
+   SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="256f", GROUP="plugdev", MODE="0660", TAG+="uaccess"
+   SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="046d", ATTR{idProduct}=="c626|c628", GROUP="plugdev", MODE="0660", TAG+="uaccess"
+   EOF
+   sudo udevadm control --reload-rules
+
+Unplug and reconnect the SpaceMouse, then log out and back in.
+
+Open the Arena Runtime
+^^^^^^^^^^^^^^^^^^^^^^
+
+If using Docker, start the container from the repository root on the host:
+
+.. code-block:: bash
+
+   mkdir -p "$HOME/datasets"
+   ./docker/run_docker.sh
+
+Run the remaining commands from the repository root in the activated native
+environment or inside the Docker container (``/workspaces/isaaclab_arena``).
+
+Create a directory for your demonstrations. For native installations, replace
+``/datasets/gear_insertion`` with ``$HOME/datasets/gear_insertion``:
 
 .. code-block:: bash
 
    export DATASET_DIR=/datasets/gear_insertion
    mkdir -p "${DATASET_DIR}"
 
-In Docker, use the ``/datasets`` host mount described in the installation guide so your data
-persists outside the container. For a native installation, set ``DATASET_DIR`` to a writable
-directory such as ``$HOME/datasets/gear_insertion``. Keep using the same terminal for the
-commands below, or set ``DATASET_DIR`` again in each new terminal.
-
-For SpaceMouse input, connect the device and ensure the runtime can access it. See the
-`Isaac Lab SpaceMouse setup instructions
-<https://isaac-sim.github.io/IsaacLab/main/source/features/imitation-learning/teleop_imitation.html#teleoperation>`_
-for USB permissions and container access.
+Keep using this terminal so ``DATASET_DIR`` remains set.
 
 
 Step 1: Launch the Environment

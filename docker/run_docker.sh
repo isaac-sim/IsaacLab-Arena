@@ -190,6 +190,15 @@ else
                     "--env" "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
                     )
 
+    # Share the USB directory so newly connected devices appear in the container.
+    if [ -d /dev/bus/usb ]; then
+        DOCKER_RUN_ARGS+=("--mount" "type=bind,source=/dev/bus/usb,target=/dev/bus/usb")
+        if HOST_PLUGDEV_GROUP=$(getent group plugdev); then
+            HOST_PLUGDEV_GID=$(printf '%s\n' "$HOST_PLUGDEV_GROUP" | cut -d: -f3)
+            DOCKER_RUN_ARGS+=("--env" "DOCKER_RUN_PLUGDEV_GROUP_ID=$HOST_PLUGDEV_GID")
+        fi
+    fi
+
     # map omniverse auth or config so we have connection to the dev nucleus
     if [ -n "$OMNI_PASS" ]; then
         DOCKER_RUN_ARGS+=("--env" "OMNI_USER=\$omni-api-token")
