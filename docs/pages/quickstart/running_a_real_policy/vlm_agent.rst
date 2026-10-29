@@ -12,12 +12,13 @@ or execution strategy.
 
 .. figure:: ../../../images/vlm_agent_droid_3x3_grid.gif
    :width: 100%
-   :alt: 3x3 grid of successful VLM agent rollouts: goal, chunk, and step policies on three cube and bowl layouts
+   :alt: 3x3 grid of VLM agent rollouts: goal, chunk, and step policies on three cube and bowl layouts, with success counts and average VLM calls
    :align: center
 
-   One successful episode with ``openai/openai/gpt-6-astra`` for each execution strategy (rows)
-   and layout (columns, placement seeds 3, 2, and 19). Each layout is named by the cube and bowl distance from the robot base. The
-   model is sampled, so repeated runs of one layout can differ; see
+   Three trials with ``openai/openai/gpt-6-astra`` for each execution strategy (rows) and layout
+   (columns, placement seeds 3, 2, and 19). Each layout is named by the cube and bowl distance from
+   the robot base. Captions give the successes and the average VLM calls per episode; each video
+   is one successful trial. The model is sampled, so trials of one layout can differ; see
    :ref:`vlm-agent-strategies`.
 
 Prerequisites
