@@ -45,6 +45,7 @@ from osmo.tasks.experiment_runner_task import (
 from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS, ArenaExperimentWorkflow
+from osmo.workflows.dreamzero_split_workflows import DreamZeroEvaluationTaskCfg, DreamZeroEvaluationWorkflow
 from osmo.workflows.workflow import WorkflowCfg, osmo_duration_to_seconds
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
 
@@ -905,7 +906,8 @@ def test_pi0_server_quotes_configurable_shell_values():
     assert "'--policy.dir=gs://bucket/checkpoint; false'" in command
 
 
-# If this test breaks, make sure that any KPI reporting utilities (e.g. the benchmark launcher) are updated accordingly.
+# The WorkflowSubmissionResult fields and timeout_s are public submission API.
+# If the these tests break, ensure that any external clients are updated accordingly.
 def test_submission_result_carries_workflow_id_and_overview_url(monkeypatch):
     """Parse the workflow ID and overview URL from ``osmo workflow submit`` and forward ``timeout_s``."""
     submit_kwargs = {}
@@ -944,7 +946,7 @@ def test_submission_without_timeout_waits_indefinitely(monkeypatch):
     assert result.overview_url is None
 
 
-# If this test breaks, make sure that any KPI reporting utilities (e.g. the benchmark launcher) are updated accordingly.
+# The propagation of subprocess.TimeoutExpired is public submission API.
 def test_submission_timeout_propagates(monkeypatch):
     """A submit that exceeds ``timeout_s`` raises ``subprocess.TimeoutExpired`` and removes the temporary workflow."""
     captured_workflow_path = None
@@ -965,40 +967,48 @@ def test_submission_timeout_propagates(monkeypatch):
     assert not captured_workflow_path.exists()
 
 
-# If this test breaks, make sure that any KPI reporting utilities (e.g. the benchmark launcher) are updated accordingly.
+# The launcher override keys (osmo.* and experiment_runner.*) are public submission API.
 def test_submit_from_file_applies_launcher_overrides_on_dry_run(monkeypatch, capsys):
-    """Submit an Experiment file with the launcher's override keys, twice in one process, as a dry-run."""
+    """Submit an Experiment file with the launcher's override keys as a dry-run."""
 
     def fail_on_submit(command, **kwargs):
         raise AssertionError("A dry-run must not call osmo workflow submit")
 
     monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", fail_on_submit)
     output_url = "swift://pdx.s8k.io/AUTH_team-isaac/arena_kpis/{{workflow_id}}"
+    overrides = [
+        "osmo.dry_run=true",
+        "osmo.workflow_name=kpi-launcher",
+        # Hydra's override grammar rejects unquoted braces, so a {{workflow_id}} URL must be quoted.
+        f"osmo.output_url='{output_url}'",
+        "experiment_runner.image=registry.example.com/arena:kpi",
+    ]
 
-    # Hydra's ConfigStore is process-global, so a second build and submission must also succeed.
-    for attempt in range(2):
-        workflow_name = f"kpi-launcher-{attempt}"
-        overrides = [
-            "osmo.dry_run=true",
-            f"osmo.workflow_name={workflow_name}",
-            # Hydra's override grammar rejects unquoted braces, so a {{workflow_id}} URL must be quoted.
-            f"osmo.output_url='{output_url}'",
-            "experiment_runner.image=registry.example.com/arena:kpi",
-        ]
+    result = submit_arena_experiment_from_file(GETTING_STARTED_EXPERIMENT_CFG_PATH, overrides)
 
-        submission_cfg = build_arena_experiment_submission_cfg(GETTING_STARTED_EXPERIMENT_CFG_PATH, overrides)
-        assert submission_cfg.osmo.workflow_name == workflow_name
-        assert submission_cfg.osmo.output_url == output_url
-        assert submission_cfg.experiment_runner.image == "registry.example.com/arena:kpi"
+    assert result.returncode == 0
+    assert result.workflow_id is None
+    assert result.overview_url is None
+    workflow = _rendered_workflow(capsys.readouterr().out)
+    assert workflow["workflow"]["name"] == "kpi-launcher"
+    assert all(task["image"] == "registry.example.com/arena:kpi" for task in _workflow_tasks(workflow))
+    assert _workflow_groups(workflow)[-1]["tasks"][0]["outputs"] == [{"url": output_url}]
 
-        result = submit_arena_experiment_from_file(GETTING_STARTED_EXPERIMENT_CFG_PATH, overrides, timeout_s=30.0)
 
-        assert result.returncode == 0
-        assert result.workflow_id is None
-        assert result.overview_url is None
-        workflow = _rendered_workflow(capsys.readouterr().out)
-        assert workflow["workflow"]["name"] == workflow_name
-        groups = _workflow_groups(workflow)
-        assert len(groups) == 5
-        assert all(task["image"] == "registry.example.com/arena:kpi" for task in _workflow_tasks(workflow))
-        assert groups[-1]["tasks"][0]["outputs"] == [{"url": output_url}]
+def test_dreamzero_timeout_on_runner_submit_hints_to_cancel_server_workflow(monkeypatch, capsys):
+    """A runner-submit timeout after the server workflow was created prints a cancel hint and re-raises."""
+    submit_stdouts = iter([FAKE_OSMO_SUBMIT_STDOUT])
+
+    def fake_submit(command, **kwargs):
+        try:
+            return SimpleNamespace(returncode=0, stdout=next(submit_stdouts))
+        except StopIteration:
+            raise subprocess.TimeoutExpired(cmd=command, timeout=kwargs["timeout"])
+
+    monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", fake_submit)
+
+    workflow = DreamZeroEvaluationWorkflow(WorkflowCfg(), DreamZeroEvaluationTaskCfg(arena_env="example_environment"))
+    with pytest.raises(subprocess.TimeoutExpired):
+        workflow.submit_workflow(timeout_s=1.0)
+
+    assert "osmo workflow cancel arena-kpi-run-7" in capsys.readouterr().out

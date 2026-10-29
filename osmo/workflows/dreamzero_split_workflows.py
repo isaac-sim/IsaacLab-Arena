@@ -18,6 +18,7 @@ finishes together.
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass, fields
 
 from osmo.tasks.base_task import BaseTask
@@ -177,7 +178,15 @@ class DreamZeroEvaluationWorkflow(CompositeWorkflow):
             server_workflow_id=server_workflow_id,
             server_task_name=server_workflow.task_names[0],
         )
-        runner_result = runner_workflow.submit_workflow(timeout_s=timeout_s)
+        try:
+            runner_result = runner_workflow.submit_workflow(timeout_s=timeout_s)
+        except subprocess.TimeoutExpired:
+            if not self.workflow_cfg.dry_run:
+                print(
+                    f"Policy-runner submission timed out; the DreamZero server workflow {server_workflow_id}"
+                    f" may still be running — cancel it with `osmo workflow cancel {server_workflow_id}`."
+                )
+            raise
         if runner_result.returncode != 0 and not self.workflow_cfg.dry_run:
             print(
                 f"Policy-runner submission failed; the DreamZero server workflow {server_workflow_id}"

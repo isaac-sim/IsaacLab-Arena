@@ -231,7 +231,9 @@ class Workflow(SubmittableWorkflow):
 
         Args:
             timeout_s: Wall-clock limit in seconds for ``osmo workflow submit``; None waits indefinitely.
-                When exceeded, the ``subprocess.TimeoutExpired`` from the call propagates.
+                When exceeded, the ``osmo`` process is killed and ``subprocess.TimeoutExpired`` propagates.
+                The workflow may already have been created on the OSMO server by then; the exception's
+                ``stdout`` holds whatever the CLI printed before the timeout and may contain the workflow ID.
 
         Returns:
             The submission outcome.
@@ -254,6 +256,11 @@ class Workflow(SubmittableWorkflow):
         return tasks
 
     def _submit_rendered_workflow(self, rendered: str, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        """Run ``osmo workflow submit`` on the rendered YAML and return the parsed outcome.
+
+        On ``subprocess.TimeoutExpired`` the ``osmo`` process is killed but the workflow may already exist
+        on the OSMO server; the propagated exception's ``stdout`` may hold the workflow ID.
+        """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", prefix="arena_", delete=False) as f:
             f.write(rendered)
             rendered_path = f.name
@@ -274,22 +281,16 @@ class Workflow(SubmittableWorkflow):
             print(result.stdout, end="")
             return WorkflowSubmissionResult(
                 returncode=result.returncode,
-                workflow_id=self._parse_submitted_workflow_id(result.stdout),
-                overview_url=self._parse_submitted_overview_url(result.stdout),
+                workflow_id=self._parse_submit_field(result.stdout, "Workflow ID"),
+                overview_url=self._parse_submit_field(result.stdout, "Workflow Overview"),
             )
         finally:
             Path(rendered_path).unlink(missing_ok=True)
 
     @staticmethod
-    def _parse_submitted_workflow_id(submit_stdout: str) -> str | None:
-        """Extract the workflow ID from ``osmo workflow submit`` output, or None."""
-        match = re.search(r"Workflow ID\s*[-:]\s*(\S+)", submit_stdout)
-        return match.group(1) if match else None
-
-    @staticmethod
-    def _parse_submitted_overview_url(submit_stdout: str) -> str | None:
-        """Extract the workflow overview URL from ``osmo workflow submit`` output, or None."""
-        match = re.search(r"Workflow Overview\s*[-:]\s*(\S+)", submit_stdout)
+    def _parse_submit_field(submit_stdout: str, label: str) -> str | None:
+        """Extract the value printed after ``label`` (e.g. "Workflow ID") in ``osmo workflow submit`` output, or None."""
+        match = re.search(rf"{re.escape(label)}\s*[-:]\s*(\S+)", submit_stdout)
         return match.group(1) if match else None
 
     def _create_resource_dict(self) -> dict[str, Any]:
