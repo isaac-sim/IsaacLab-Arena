@@ -195,7 +195,8 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             )
             for obj in targets
         ])
-        ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
+        background = self._get_background_cuboids_near(robot_base_pose_w, num_object_cuboids=len(cuboid_per_object))
+        ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object, background, robot_base_pose_w)
         if self._rerun_layer is not None:
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
             self._rerun_layer.log_layout(
@@ -210,6 +211,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                 # The pose the arm ended up in is what explains a rejection, so it is drawn alongside it.
                 robot_spheres=robot_collision_spheres(self._solver, ik.joint_positions),
                 muted_sphere_mask=hand_sphere_mask(self._solver) if self._require_collision_free else None,
+                background_cuboids=background,
             )
         return bool(ik.feasible.all().item())
 
@@ -218,6 +220,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         targets: list[ObjectBase],
         grasp_poses: torch.Tensor,
         cuboid_per_object: dict[ObjectBase, AABBCollisionCuboid],
+        background: list[AABBCollisionCuboid],
         robot_base_pose_w: Pose,
     ) -> IKFeasibility:
         """IK-solve each target's grasp against a world holding every object but that target, and stack the results.
@@ -226,12 +229,12 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             targets: The objects whose grasps are checked, in the order they appear in ``grasp_poses``.
             grasp_poses: ``(len(targets), 4, 4)`` top-down grasp transforms in the robot base frame.
             cuboid_per_object: Collision cuboid at the layout pose, for every object in the layout.
+            background: Background cuboids loaded alongside the objects.
             robot_base_pose_w: World pose of the robot base the obstacles are re-expressed relative to.
 
         Returns:
             One ``IKFeasibility`` whose per-target entries are ordered like ``targets``.
         """
-        background = self._get_background_cuboids_near(robot_base_pose_w, num_object_cuboids=len(cuboid_per_object))
         # Load the layout's world once; each target is only switched off for its own grasp.
         obstacles = list(cuboid_per_object.values()) + background
         self._solver.update_world(obstacles, robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
@@ -262,12 +265,13 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         Args:
             collision_objects: The placer's fixed obstacles; only whole-scene meshes (``FixedCollisionObject``) are used.
         """
-        cuboids = []
+        meshes, cuboids = [], []
         for index, obstacle in enumerate(collision_objects):
             if isinstance(obstacle, FixedCollisionObject):
+                meshes.append(obstacle.get_collision_mesh())
                 cuboids.extend(
                     cuboids_from_mesh(
-                        obstacle.get_collision_mesh(),
+                        meshes[-1],
                         name_prefix=f"background{index}",
                         voxel_size_m=self._background_voxel_size,
                     )
@@ -277,6 +281,8 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         half_dims = np.array([cuboid.dims_xyz for cuboid in cuboids]).reshape(-1, 3) / 2.0
         self._background_bounds = (centers - half_dims, centers + half_dims)
         print(f"[ReachabilityValidator] Background split into {len(cuboids)} cuboid obstacle(s).")
+        if self._rerun_layer is not None:
+            self._rerun_layer.log_background(meshes, cuboids)
 
     def _get_background_cuboids_near(
         self, robot_base_pose_w: Pose, num_object_cuboids: int
