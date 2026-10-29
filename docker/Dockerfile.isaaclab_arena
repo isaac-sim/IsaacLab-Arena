@@ -7,7 +7,7 @@
 # sim-base:       Isaac Sim, common system packages, and runtime permissions.
 # isaaclab:       Isaac Lab checkout and its dependencies, on top of sim-base.
 # arena-deps:     Arena dependencies (including cuRobo), policy clients, and developer tools, on isaaclab.
-# dev:            Arena source, editable install, shell setup, entrypoint, and the Arena git commit and branch.
+# dev:            Arena source, editable install, shell setup, and entrypoint.
 
 ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.2.0
 
@@ -97,11 +97,10 @@ RUN --mount=type=bind,source=docker/setup/configure_shell.sh,target=/tmp/configu
 COPY docs ${WORKDIR}/docs
 COPY docker/setup/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
-# Record the git commit and branch the image is built from. The LABEL uses the OCI standard
-# annotation for the source revision, org.opencontainers.image.revision.
+# Arena git commit and branch, typically set by CI when it builds the image. Local builds should leave them
+# "unknown" since values would turn stale if the mounted checkout changes.
 ARG GIT_SHA=unknown
 ARG GIT_BRANCH=unknown
 ENV ARENA_GIT_SHA=${GIT_SHA} ARENA_GIT_BRANCH=${GIT_BRANCH}
-LABEL org.opencontainers.image.revision=${GIT_SHA}
 
 FROM dev AS default
