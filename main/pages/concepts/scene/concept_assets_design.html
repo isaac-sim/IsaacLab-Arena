@@ -407,6 +407,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/newton/index.html">Newton Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../example_workflows/newton/gear_insertion.html">Gear Insertion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/newton/deformable_pick_and_place.html">Deformable Pick and Place</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -739,10 +740,45 @@ Settings apply after USD loading and before cloning and physics import.</p>
 <ul class="simple">
 <li><p><strong>RIGID</strong> — a single rigid body (boxes, bottles, tools, furniture).</p></li>
 <li><p><strong>ARTICULATION</strong> — a multi-body scene object with joints (doors, drawers, appliances).</p></li>
+<li><p><strong>DEFORMABLE</strong> — a body represented by deformable simulation nodes (soft cubes, cloth,
+or other compliant objects).</p></li>
 <li><p><strong>BASE</strong> — no physics; used for static backgrounds and markers.</p></li>
 </ul>
 <p>Deformable and backend-specific spawn configs must match the environment’s resolved physics
 backend (PhysX or Newton). See <a class="reference internal" href="../environment/physics_backend_selection.html"><span class="doc">Physics backend selection</span></a>.</p>
+</section>
+<section id="deformable-objects">
+<h2>Deformable objects<a class="headerlink" href="#deformable-objects" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">DeformableObject</span></code> represents a body whose geometry changes during simulation. Its spawn
+configuration selects the physics implementation: <code class="docutils literal notranslate"><span class="pre">PhysxDeformableBodyPropertiesCfg</span></code> for
+PhysX or <code class="docutils literal notranslate"><span class="pre">NewtonDeformableBodyPropertiesCfg</span></code> for Newton. The selected implementation must
+match the environment’s physics backend.</p>
+<p>Newton deformables additionally require a Vertex Block Descent (VBD) solver that owns their
+particles. <code class="docutils literal notranslate"><span class="pre">DeformableObject.validate_simulation_cfg()</span></code> accepts either a direct
+<code class="docutils literal notranslate"><span class="pre">VBDSolverCfg</span></code> or a coupled solver with a particle-owning VBD entry. It rejects Newton
+configurations that provide only <code class="docutils literal notranslate"><span class="pre">MJWarpSolverCfg</span></code> or that include a VBD entry without
+assigning particles. This validation runs after the environment’s <code class="docutils literal notranslate"><span class="pre">env_cfg_callback</span></code>, so
+an environment can install its coupled rigid-body and deformable solvers before Arena checks
+the final simulation configuration.</p>
+<p>Arena uses two complementary geometry representations for a deformable:</p>
+<ul class="simple">
+<li><p>Before simulation, <code class="docutils literal notranslate"><span class="pre">get_bounding_box()</span></code> returns the undeformed, local-frame bounds from
+the spawn configuration or USD. Relation placement uses these rest bounds to sample an
+initial pose without requiring a running physics view.</p></li>
+<li><p>During simulation, <code class="docutils literal notranslate"><span class="pre">ArenaWorld</span></code> reads the live deformable state. It exposes the current
+nodal vertices, centroid, world bounds, and mean nodal velocity through the same geometry
+query interface used by task predicates.</p></li>
+</ul>
+<p>Predicates therefore evaluate the deformed object rather than its rest bounds. For example,
+pick-and-place checks use the live centroid and velocity, while deformable support checks use
+the lowest live nodes near the destination geometry. Deformables do not currently provide an
+Isaac Lab contact sensor, so predicates that support them use these geometry queries.</p>
+<p>The following image shows four initial placements sampled from the same <code class="docutils literal notranslate"><span class="pre">On</span></code> and <code class="docutils literal notranslate"><span class="pre">NextTo</span></code>
+relations. The undeformed cube bounds keep every sample on the table and beside the plate;
+the live nodal geometry takes over after simulation starts.</p>
+<img alt="Four relation-sampled placements of a deformable cube beside a plate" class="align-center" src="../../../_images/deformable_pick_and_place_sampled_placements.png" />
+<p>For a complete task and backend-specific commands, see
+<a class="reference internal" href="../../example_workflows/newton/deformable_pick_and_place.html"><span class="doc">Deformable Pick and Place</span></a>.</p>
 </section>
 <section id="backgrounds">
 <h2>Backgrounds<a class="headerlink" href="#backgrounds" title="Link to this heading">#</a></h2>
@@ -860,6 +896,7 @@ environments, wrap the candidates in a <code class="docutils literal notranslate
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-types">Object types</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deformable-objects">Deformable objects</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#backgrounds">Backgrounds</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-references">Object references</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rigid-object-sets">Rigid object sets</a></li>

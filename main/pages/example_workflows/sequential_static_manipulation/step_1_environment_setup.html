@@ -407,6 +407,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../newton/index.html">Newton Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../newton/gear_insertion.html">Gear Insertion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../newton/deformable_pick_and_place.html">Deformable Pick and Place</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../imitation_learning/index.html">Imitation Learning</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
@@ -768,10 +769,14 @@ and validate that we can load it in Isaac Lab.</p>
         <span class="n">pickup_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">kitchen_counter_top</span><span class="p">))</span>
         <span class="n">pickup_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span>
             <span class="n">PositionLimitsBox</span><span class="p">(</span>
-                <span class="n">x_min</span><span class="o">=</span><span class="n">PICKUP_OBJECT_X_M</span> <span class="o">-</span> <span class="n">RANDOMIZATION_HALF_RANGE_X_M</span><span class="p">,</span>
-                <span class="n">x_max</span><span class="o">=</span><span class="n">PICKUP_OBJECT_X_M</span> <span class="o">+</span> <span class="n">RANDOMIZATION_HALF_RANGE_X_M</span><span class="p">,</span>
-                <span class="n">y_min</span><span class="o">=</span><span class="n">PICKUP_OBJECT_Y_M</span> <span class="o">-</span> <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span><span class="p">,</span>
-                <span class="n">y_max</span><span class="o">=</span><span class="n">PICKUP_OBJECT_Y_M</span> <span class="o">+</span> <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span><span class="p">,</span>
+                <span class="n">x_limits</span><span class="o">=</span><span class="p">(</span>
+                    <span class="n">PICKUP_OBJECT_X_M</span> <span class="o">-</span> <span class="n">RANDOMIZATION_HALF_RANGE_X_M</span><span class="p">,</span>
+                    <span class="n">PICKUP_OBJECT_X_M</span> <span class="o">+</span> <span class="n">RANDOMIZATION_HALF_RANGE_X_M</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">y_limits</span><span class="o">=</span><span class="p">(</span>
+                    <span class="n">PICKUP_OBJECT_Y_M</span> <span class="o">-</span> <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span><span class="p">,</span>
+                    <span class="n">PICKUP_OBJECT_Y_M</span> <span class="o">+</span> <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span><span class="p">,</span>
+                <span class="p">),</span>
             <span class="p">)</span>
         <span class="p">)</span>
         <span class="c1"># Consider changing to other values for different objects, below is for ranch dressing bottle.</span>
@@ -886,10 +891,14 @@ See <a class="reference internal" href="../../concepts/scene/concept_assets_desi
 <span class="n">pickup_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">kitchen_counter_top</span><span class="p">))</span>
 <span class="n">pickup_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span>
     <span class="n">PositionLimitsBox</span><span class="p">(</span>
-        <span class="n">x_min</span><span class="o">=</span><span class="n">PICKUP_OBJECT_X_M</span> <span class="o">-</span> <span class="n">RANDOMIZATION_HALF_RANGE_X_M</span><span class="p">,</span>
-        <span class="n">x_max</span><span class="o">=</span><span class="n">PICKUP_OBJECT_X_M</span> <span class="o">+</span> <span class="n">RANDOMIZATION_HALF_RANGE_X_M</span><span class="p">,</span>
-        <span class="n">y_min</span><span class="o">=</span><span class="n">PICKUP_OBJECT_Y_M</span> <span class="o">-</span> <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span><span class="p">,</span>
-        <span class="n">y_max</span><span class="o">=</span><span class="n">PICKUP_OBJECT_Y_M</span> <span class="o">+</span> <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span><span class="p">,</span>
+        <span class="n">x_limits</span><span class="o">=</span><span class="p">(</span>
+            <span class="n">PICKUP_OBJECT_X_M</span> <span class="o">-</span> <span class="n">RANDOMIZATION_HALF_RANGE_X_M</span><span class="p">,</span>
+            <span class="n">PICKUP_OBJECT_X_M</span> <span class="o">+</span> <span class="n">RANDOMIZATION_HALF_RANGE_X_M</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">y_limits</span><span class="o">=</span><span class="p">(</span>
+            <span class="n">PICKUP_OBJECT_Y_M</span> <span class="o">-</span> <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span><span class="p">,</span>
+            <span class="n">PICKUP_OBJECT_Y_M</span> <span class="o">+</span> <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span><span class="p">,</span>
+        <span class="p">),</span>
     <span class="p">)</span>
 <span class="p">)</span>
 <span class="c1"># Consider changing to other values for different objects, below is for ranch dressing bottle.</span>
