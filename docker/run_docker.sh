@@ -4,7 +4,6 @@ DOCKER_IMAGE_NAME='isaaclab_arena'
 DOCKER_VERSION_TAG='latest'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source "$SCRIPT_DIR/setup/target_tag.sh"
 
 WORKDIR="/workspaces/isaaclab_arena"
 
@@ -14,8 +13,6 @@ DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
 MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 # Default mount directory on the host machine for the evaluation directory
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
-# Named image target
-DOCKER_TARGET="dev"
 BUILD_OPTIONS=()
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
@@ -99,19 +96,15 @@ if [ "$CONTAINER_SUFFIX_EXPLICIT" = false ]; then
     [ -n "$derived" ] && CONTAINER_SUFFIX="-${derived}"
 fi
 
-DOCKER_VERSION_TAG=$(default_tag_for_target "$DOCKER_TARGET")
-
 # Display the values being used
 echo "Using Docker image: $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"
-
-echo "Using Docker target: $DOCKER_TARGET"
 
 if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ] && \
     [ "$FORCE_REBUILD" = false ]; then
     echo "Docker image $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG already exists. Not rebuilding."
     echo "Use -r option to force the rebuild."
 else
-    "$SCRIPT_DIR/build_docker.sh" -t "$DOCKER_TARGET" \
+    "$SCRIPT_DIR/build_docker.sh" \
         -n "${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG}" "${BUILD_OPTIONS[@]}"
 fi
 
