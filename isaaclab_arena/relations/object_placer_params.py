@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from isaaclab_arena.relations.optimization.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.reachability_config import ReachabilityConfig
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.validation.types import PlacementCheck
 
 
 @dataclass
@@ -92,11 +91,6 @@ class ObjectPlacerParams:
         if self.enabled_checks is not None and self.required_checks is not None:
             extra = self.required_checks - self.enabled_checks
             assert not extra, f"required_checks must be a subset of enabled_checks; unexpected: {sorted(extra)}"
-        named_checks = (self.enabled_checks or set()) | (self.required_checks or set())
-        assert PlacementCheck.IK_REACHABLE not in named_checks or self.reachability_config.enabled, (
-            f"'{PlacementCheck.IK_REACHABLE}' is listed in enabled_checks/required_checks, but reachability validation"
-            " is off; set reachability_config.enabled to True."
-        )
         for nested_params in (self.solver_params, self.reachability_config):
             validate = getattr(nested_params, "validate", None)
             if validate is not None:

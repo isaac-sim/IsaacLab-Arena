@@ -69,3 +69,22 @@ def test_solved_configuration_forward_kinematics_to_the_hand_spheres(droid_solve
 
     assert spheres.shape == (1, mask.shape[0], 4)
     assert 0 < int(mask.sum()) < mask.shape[0]
+
+
+def test_obstacle_blocks_a_collision_free_solve_until_cleared(droid_solver):
+    """A cuboid around the default end-effector pose makes a collision-free solve fail until the world is cleared."""
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, solve_ik_feasibility
+
+    T_B_E = _default_ee_pose(droid_solver)
+    t_B_E = tuple(T_B_E[0, :3, 3].tolist())
+    # Large enough to also cover the wrist, which stays collision-checked while the hand links are muted.
+    block = AABBCollisionCuboid(name="block", dims_xyz=(0.4, 0.4, 0.4), pose_W_O=Pose(position_xyz=t_B_E))
+    droid_solver.update_world([block], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+    try:
+        result = solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True)
+        assert result.feasible.tolist() == [False]
+    finally:
+        droid_solver.update_world([], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+    result = solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True)
+    assert result.feasible.tolist() == [True]

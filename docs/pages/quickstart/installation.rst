@@ -4,28 +4,6 @@ Installation
 This page describes how to install Isaac Lab Arena, either natively with ``uv``
 or from source inside a Docker container.
 
-.. list-table:: Supported workflows by installation method
-   :header-rows: 1
-
-   * - Installation method
-     - Evaluation
-     - Imitation learning
-     - Reinforcement learning
-     - Agentic environment generation
-     - cuRobo integration
-   * - Docker
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-   * - uv
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-
 Supported Systems
 -----------------
 
@@ -60,9 +38,6 @@ wheels at the versions pinned by the committed lockfile. The ``dev`` extra
 installs the Streamlit and SimReady search dependencies used by the
 :doc:`agentic environment generation workflow
 </pages/concepts/agentic_environment_generation/index>`.
-
-The lockfile also pins cuRobo, which :doc:`cuRobo-based reachability validation
-</pages/concepts/object_placement/validation>` (the ``ik_reachable`` check) runs on.
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -115,8 +90,7 @@ installation options.
 
 :docker_run_default:
 
-The container will build (if needed) and drop you into an interactive shell. The image includes
-cuRobo for :doc:`cuRobo-based reachability validation </pages/concepts/object_placement/validation>`.
+The container will build (if needed) and drop you into an interactive shell.
 
 .. note::
    The run docker script mounts the following directories from the host machine if they exist:

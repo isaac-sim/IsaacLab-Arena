@@ -485,8 +485,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
                 arena_env.placer_params,
                 enabled_checks={PlacementCheck.IK_REACHABLE},
                 required_checks={PlacementCheck.IK_REACHABLE},
-                # Enabled but without an embodiment, so the check stays unavailable.
-                reachability_config=ReachabilityConfig(enabled=True),
+                reachability_config=ReachabilityConfig(),
             ),
             pool_size=2,
             num_envs=2,

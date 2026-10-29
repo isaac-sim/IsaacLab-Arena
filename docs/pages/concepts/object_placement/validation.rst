@@ -153,17 +153,10 @@ IK Reachability (``ik_reachable``)
    (green). Distractors outside the reachable volume may appear red for
    illustration, but they never reject the layout.
 
-``ReachabilityValidator`` lives in the ``isaaclab_arena_curobo`` extension, and
-cuRobo is installed with Arena. The check is off by default; it runs when
-``reachability_config.enabled`` is ``True`` and the embodiment has a cuRobo
-config (e.g. Droid). ``ArenaEnvBuilder`` wires the env's embodiment into
-``reachability_config`` automatically. In YAML:
-
-.. code-block:: yaml
-
-   placer_params:
-     reachability_config:
-       enabled: true
+``ReachabilityValidator`` lives in the ``isaaclab_arena_curobo`` extension. It
+registers whenever the embodiment has a cuRobo config (e.g. Droid);
+``ArenaEnvBuilder`` wires the env's embodiment into ``reachability_config``
+automatically. See :ref:`validation-toggle` to turn it off.
 
 It gates only objects marked ``RequiresReachability`` — a relation that tasks
 such as ``PickAndPlaceTask`` stamp automatically. With no such relation, the
@@ -179,6 +172,20 @@ check passes trivially. Grasp offset and IK tolerances are configurable; see
    With ``debug_visualize`` on, green spheres mark a reachable,
    collision-free grasp; red marks a failure that rejects the candidate.
 
+While the environment builds, every batch of candidate layouts reports how many
+of them passed each check. ``ik_reachable`` counts only candidates that passed
+the required inexpensive checks:
+
+.. code-block:: text
+
+   [placement] Validated 50 candidate layout(s); passed per check: on_relation=46/50, clutter_on_relation=50/50, align_with=50/50, next_to=50/50, not_next_to=50/50, face_to=50/50, no_overlap=45/50, ik_reachable=39/44
+
+A low ``ik_reachable`` ratio means most sampled layouts put a target object
+outside the arm's workspace, and the placer keeps resampling. A composite task
+rejects more layouts than an atomic one, because every pick and place target
+must be reachable in the same layout. When an environment finds no reachable
+layout at all, it falls back to its lowest-loss layout.
+
 .. _validation-toggle:
 
 Enabling and Disabling Checks
@@ -187,11 +194,15 @@ Enabling and Disabling Checks
 Two concepts control the build-time checks: which checks **run**
 (``enabled_checks``) and, of those, which must **pass** for a layout to be
 valid (``required_checks``). By default every registered check runs and is
-required; ``ik_reachable`` additionally needs ``reachability_config.enabled``,
-and naming it in ``enabled_checks`` or ``required_checks`` while that is off is
-an error. Making a check optional (enabled but not required) keeps it
-running and reported without rejecting layouts, which is the usual way to
-keep placement geometry-only.
+required — so for an embodiment with a cuRobo config, ``ik_reachable`` gates
+placement automatically. Making a check optional (enabled but not required)
+keeps it running and reported without rejecting layouts. To skip
+``ik_reachable`` entirely, list the checks to run without it:
+
+.. code-block:: yaml
+
+   placer_params:
+     enabled_checks: [no_overlap, on_relation, clutter_on_relation, next_to, not_next_to, align_with, face_to]
 
 Both are set on ``ObjectPlacerParams`` in Python or the ``placer_params`` block
 in YAML; see :doc:`../environment/environment_definition`.

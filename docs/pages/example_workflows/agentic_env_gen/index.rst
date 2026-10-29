@@ -120,9 +120,6 @@ Use either a native ``uv`` environment or the base Docker container (see
 
       :docker_run_default:
 
-Both routes install cuRobo, which
-:doc:`cuRobo-based reachability validation </pages/concepts/object_placement/validation>` runs on.
-
 Available Generated Environments
 --------------------------------
 

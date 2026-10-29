@@ -35,8 +35,7 @@ Expected behavior:
   reuses a compatible one, otherwise explains the sync or image build and obtains confirmation before
   starting it.
 - Verifies the checkout import and zero-action rollout, reports the runtime, import path, and exit
-  status, and notes that `ik_reachable` is turned on per spec with `reachability_config.enabled: true`,
-  then stops without configuring or running reachability validation.
+  status, then stops without configuring or running reachability validation.
 
 Known failure modes:
 

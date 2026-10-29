@@ -66,8 +66,7 @@ def get_object_world_pose_from_layout(
 @register_validator
 class ReachabilityValidator(PrePhysicsPlacementValidator):
     """Build-time placement gate: the robot can reach a top-down grasp at the target objects (cuRobo IK).
-    Opt-in through ``reachability_config.enabled``, and delisted (see ``is_available``) when the params carry no
-    embodiment with a registered cuRobo config.
+    Can be delisted (see ``is_available``) when the params carry no embodiment with a registered cuRobo config.
     """
 
     check = PlacementCheck.IK_REACHABLE
@@ -102,9 +101,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
-        """True when reachability validation is enabled and an IK solver can be built for its embodiment."""
-        if not params.reachability_config.enabled:
-            return False
+        """True when an IK solver can be built for the reachability embodiment (set, with a cuRobo config)."""
         embodiment = params.reachability_config.embodiment
         if embodiment is None:
             return False

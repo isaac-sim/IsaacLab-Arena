@@ -21,11 +21,10 @@ supported route:
 
 | Route | Use it when |
 |---|---|
-| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, agentic environment generation, and cuRobo `ik_reachable` validation. |
+| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic environment generation. |
 | Docker | Use when requested or when the existing workflow is container-based. |
 
-Do not silently switch routes. Both routes install cuRobo, so `ik_reachable` validation alone is no
-reason to choose Docker.
+Do not silently switch routes.
 
 ## Preflight and confirmation
 

@@ -2,8 +2,6 @@ Use the Generated Environment
 -----------------------------
 
 Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.
-Every Arena install includes cuRobo, so you can also keep only the object layouts in which the robot
-can reach the target objects (see below).
 
 For example, you can use the policy runner to evaluate a PI policy on the
 environment. For other policy types, see
@@ -31,29 +29,6 @@ Complete the shared :ref:`agentic-env-gen-prerequisites` before running this com
       --num_envs 12 \
       --num_episodes 12 \
       --env_spec isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
-
-To keep only layouts in which the robot can reach the target objects, turn on the cuRobo
-``ik_reachable`` check, which is off by default, in the spec's ``placer_params``:
-
-.. code-block:: yaml
-
-   placer_params:
-     reachability_config:
-       enabled: true
-
-While the environment builds, every batch of candidate layouts reports how many of them passed each
-check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:
-
-.. code-block:: text
-
-   [placement] Validated 600 candidate layout(s); passed per check: on_relation=596/600, clutter_on_relation=600/600, align_with=600/600, next_to=600/600, not_next_to=600/600, face_to=600/600, no_overlap=596/600, ik_reachable=477/595
-
-A low ``ik_reachable`` ratio means most sampled layouts put the fruit or the bowl outside the arm's
-workspace, and the placer keeps resampling. Expect the rate to vary with the sampled set member.
-When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
-
-See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
-or disable it.
 
 .. figure:: ../../../../images/agentic_environment_generation/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif
    :width: 100%

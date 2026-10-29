@@ -206,7 +206,7 @@ class ArenaEnvBuilder:
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
-        # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
+        # Delists itself unless the embodiment has a registered cuRobo config.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
         return prepare_live_relation_placement(

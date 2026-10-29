@@ -233,8 +233,7 @@ jobs:
       NVIDIA_API_KEY: ${{ secrets.ARENA_PUBLIC_NVIDIA_API_KEY }}
 
     container:
-      # TODO(xinjieyao): Switch to latest post merge.
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobov2-523f4c83c5@sha256:a56501029b5f45eaf598f7b32d5df4189849c500835accaa7a5a0e1a04d48446
+      image: ${{ needs.build_and_push_image.outputs.image }}
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -322,8 +321,7 @@ jobs:
     needs: [build_and_push_image]
 
     container:
-      # TODO(xinjieyao): Switch to latest post merge.
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobov2-523f4c83c5@sha256:a56501029b5f45eaf598f7b32d5df4189849c500835accaa7a5a0e1a04d48446
+      image: ${{ needs.build_and_push_image.outputs.image }}
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -369,8 +367,7 @@ jobs:
       GR00T_CI_SERVER_WORKSPACE: ${{ github.workspace }}/.gr00t-ci-${{ github.run_id }}-${{ github.run_attempt }}.workspace
 
     container:
-      # TODO(xinjieyao): Switch to latest post merge.
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobov2-523f4c83c5@sha256:a56501029b5f45eaf598f7b32d5df4189849c500835accaa7a5a0e1a04d48446
+      image: ${{ needs.build_and_push_image.outputs.image }}
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}

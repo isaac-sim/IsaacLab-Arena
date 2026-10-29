@@ -21,8 +21,6 @@ objects:
 placer_params:
   enabled_checks: [no_overlap, on_relation, ik_reachable]
   required_checks: [no_overlap, on_relation]
-  reachability_config:
-    enabled: true
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

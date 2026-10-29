@@ -98,5 +98,4 @@ COPY docs ${WORKDIR}/docs
 COPY docker/setup/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
-# Default to dev.
 FROM dev AS default

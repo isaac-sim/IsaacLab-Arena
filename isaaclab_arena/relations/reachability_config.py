@@ -19,10 +19,6 @@ class ReachabilityConfig:
     Pure data forwarded to the extension that builds the check (cuRobo); core placement never reads it.
     """
 
-    enabled: bool = False
-    """Run the cuRobo ``ik_reachable`` check during placement. Off by default because each candidate layout then
-    costs an IK solve per target; while off, the check is skipped even when cuRobo is installed."""
-
     embodiment: EmbodimentBase | None = field(default=None, metadata={"allow_config_override": False})
     """Robot embodiment the grasps must be reachable by; the cuRobo check builds its IK solver from it."""
 
