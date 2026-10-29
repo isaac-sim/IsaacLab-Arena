@@ -187,6 +187,8 @@ def test_run_environment_resets_and_steps_once_before_the_application_stops(monk
 
 
 def test_run_environment_draws_and_closes_placement_overlay(monkeypatch):
+    from isaaclab_arena.scripts import environment_runner
+
     class OneIterationSimulationApp:
         def __init__(self) -> None:
             self.running_checks = 0
@@ -410,7 +412,8 @@ if __name__ == "__main__":
 
     from isaaclab_arena.scripts import environment_runner
 
-    def check_mouse_interaction(simulation_app, env):
+    def check_mouse_interaction(simulation_app, env, *, show_placement_overlay):
+        assert not show_placement_overlay
         assert _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app)
         print("Mouse interaction checks passed", flush=True)
 

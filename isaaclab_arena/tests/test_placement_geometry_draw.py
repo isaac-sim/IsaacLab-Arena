@@ -96,7 +96,7 @@ def test_transform_trimesh_vertices_identity():
 def test_color_for_fixed_collision_object_uses_background_color():
     import trimesh
 
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
 
     mesh = trimesh.creation.box(extents=(0.1, 0.1, 0.1))
     fixed = FixedCollisionObject(mesh, name="fixed_collision_mesh")

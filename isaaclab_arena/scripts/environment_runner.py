@@ -24,7 +24,7 @@ Overlay placement AABBs / MESH collision wireframes:
 
     python isaaclab_arena/scripts/environment_runner.py \
         --show_placement_overlay \
-        --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+        --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
 """
 
 from __future__ import annotations

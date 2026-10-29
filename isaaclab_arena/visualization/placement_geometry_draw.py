@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import warp as wp
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
-from isaaclab_arena.relations.placement_events import get_placement_pool
+from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.visualization.isaac_sim_debug_draw import (
     IsaacSimDebugDraw,
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     import gymnasium as gym
     import trimesh
 
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
 IDENTITY_XYZW = (0.0, 0.0, 0.0, 1.0)
@@ -220,7 +220,7 @@ def _color_for_asset(asset: CollisionObject) -> tuple[float, float, float, float
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
 
     if isinstance(asset, (FixedCollisionObject, Background)):
         return (1.0, 0.55, 0.0, 1.0)  # orange
@@ -235,7 +235,7 @@ def _color_for_asset(asset: CollisionObject) -> tuple[float, float, float, float
 
 def _live_pose_for_asset(env, asset: CollisionObject) -> Pose | None:
     """Return the world pose used to place mesh overlay geometry for ``asset``."""
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
     if isinstance(asset, FixedCollisionObject):
