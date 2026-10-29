@@ -43,9 +43,12 @@ class BatchValidationDiagnostics:
     checks: dict[str, ValidationCheckDiagnostics]
     """Counts for each check that ran on the batch."""
 
-    def format_check_counts(self) -> str:
+    def format_passed_per_check(self) -> str:
         """Return each check's passed and evaluated counts on one line, such as "on_relation=49/50, no_overlap=43/50"."""
-        return ", ".join(f"{check}={counts.num_passed}/{counts.num_evaluated}" for check, counts in self.checks.items())
+        return ", ".join(
+            f"{check}={check_diagnostics.num_passed}/{check_diagnostics.num_evaluated}"
+            for check, check_diagnostics in self.checks.items()
+        )
 
 
 @dataclass
@@ -66,7 +69,7 @@ class PlacementDiagnostics:
         for index, batch in enumerate(self.batches):
             lines.append(
                 f"batch {index}: {batch.num_valid}/{batch.num_candidates} valid; passed per check:"
-                f" {batch.format_check_counts()}"
+                f" {batch.format_passed_per_check()}"
             )
         if self.fallback_envs:
             lines.append(f"best-loss fallback for envs: {self.fallback_envs}")

@@ -105,7 +105,7 @@ class PlacementValidationRunner:
         if checks:
             print(
                 f"[placement] Validated {num_candidates} candidate layout(s); passed per check:"
-                f" {batch_diagnostics.format_check_counts()}"
+                f" {batch_diagnostics.format_passed_per_check()}"
             )
         return batch_diagnostics
 

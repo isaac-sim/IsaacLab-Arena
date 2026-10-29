@@ -98,10 +98,10 @@ environments fell back to best-loss layouts.
 
      batch 0: 0/4 valid; passed per check: on_relation=0/4, clutter_on_relation=4/4, ..., no_overlap=4/4
 
-The check that rejects the most candidates, here ``on_relation``, points to the
-relation or collision geometry to adjust. A check that runs only on candidates
-that passed the cheaper required checks, such as ``ik_reachable``, counts only
-those candidates.
+The required check that rejects the most candidates, here ``on_relation``,
+points to the relation or collision geometry to adjust. A check that runs only
+on candidates that passed the cheaper required checks, such as
+``ik_reachable``, counts only those candidates.
 
 Reproducibility
 ---------------

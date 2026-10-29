@@ -33,19 +33,20 @@ def _test_a_failed_rebuild_clears_the_placement_diagnostics(simulation_app) -> b
     diagnostics = builder.placement_diagnostics
     assert diagnostics is not None and diagnostics.batches and diagnostics.batches[0].checks
 
-    def fail_placement(variation_replay_scheduler):
-        raise RuntimeError("placement failed")
+    def reject_env_cfg(env_cfg):
+        raise RuntimeError("env_cfg rejected")
 
-    builder._prepare_relation_placement = fail_placement
-    with pytest.raises(RuntimeError, match="placement failed"):
+    # Fail after placement has filled the pool, so the failed build has diagnostics of its own.
+    arena_env.env_cfg_callback = reject_env_cfg
+    with pytest.raises(RuntimeError, match="env_cfg rejected"):
         builder.build_env_cfg()
-    # The earlier build's diagnostics must not be reported for the failed one.
+    # Neither the earlier build's diagnostics nor the failed build's own may be reported.
     assert builder.placement_diagnostics is None
     return True
 
 
 def test_a_failed_rebuild_clears_the_placement_diagnostics():
-    """A build records its placement diagnostics, and a later build that fails leaves none behind."""
+    """A build records its placement diagnostics, and a later build that fails after placement leaves none behind."""
     assert run_function_with_persistent_simulation_app(_test_a_failed_rebuild_clears_the_placement_diagnostics)
 
 

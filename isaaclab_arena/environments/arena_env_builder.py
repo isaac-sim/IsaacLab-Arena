@@ -343,7 +343,7 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple, with constructor arguments to forward to gym.make.
         """
-        # A build that fails must not leave the previous build's placement diagnostics behind.
+        # A failed build reports no placement diagnostics, so they are set only once the build succeeds.
         self.placement_diagnostics = None
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         variations = self.get_all_variations()
@@ -368,8 +368,6 @@ class ArenaEnvBuilder:
 
         # Placement needs its source selected before scene config captures construction poses.
         placement_sampler = self._prepare_relation_placement(variation_replay_scheduler)
-        if isinstance(placement_sampler, PlacementSampler):
-            self.placement_diagnostics = placement_sampler.placement_pool.last_fill_diagnostics
         # A RigidObjectSet's selected member identity is absent from pose-only samples, so skip unreplayable records.
         if placement_sampler is not None and supports_recorded_placement(self.arena_env.get_placement_assets()):
             variation_recorder.attach_placement_sampler(
@@ -598,6 +596,8 @@ class ArenaEnvBuilder:
             "variation_recorder": variation_recorder,
             "variation_replay_scheduler": variation_replay_scheduler,
         }
+        if isinstance(placement_sampler, PlacementSampler):
+            self.placement_diagnostics = placement_sampler.placement_pool.last_fill_diagnostics
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
