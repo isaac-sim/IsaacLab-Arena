@@ -5,7 +5,7 @@
 
 shared:
   environment:
-    type: isaaclab_arena_environments/experiment_configs/perflab/mixed_object_environment.yaml
+    type: isaaclab_arena_environments/performance/mixed_object_environment.yaml
     enable_cameras: false
   environment_builder:
     num_envs: 1
