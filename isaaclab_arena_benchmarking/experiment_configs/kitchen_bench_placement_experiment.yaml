@@ -1,0 +1,230 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Placement success benchmark: one Run per KitchenBench spec in isaaclab_arena_environments/kitchen_bench/.
+# Each Run builds its spec for 30 environments, which fills the placement pool, then takes one zero-action step.
+# The Run writes the build's placement diagnostics to placement_diagnostics_rebuild0.json in its output directory.
+shared:
+  environment_builder:
+    num_envs: 30
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 1
+
+# Each Run has its own placement seed, 100000 apart, so Runs that share a scene solve different candidates.
+# A build uses at most num_envs * min_unique_layouts_per_env * max_placement_attempts**2 seeds: 15000 here.
+# All rebuilds of a Run get its seed, so a second rebuild would solve the same candidates.
+runs:
+  kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 0
+  kitchen_bench_lightwheel_open_freezer_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_freezer_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 100000
+  kitchen_bench_lightwheel_open_fridge:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml
+    environment_builder:
+      placement_seed: 200000
+  kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 300000
+  kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 400000
+  kitchen_bench_lightwheel_open_microwave:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_microwave.yaml
+    environment_builder:
+      placement_seed: 500000
+  kitchen_bench_lightwheel_open_microwave_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_microwave_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 600000
+  kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 700000
+  kitchen_bench_lightwheel_open_right_microwave_l_shaped_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_right_microwave_l_shaped_scandinavian.yaml
+    environment_builder:
+      placement_seed: 800000
+  kitchen_bench_lightwheel_pick_and_place:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
+    environment_builder:
+      placement_seed: 900000
+  kitchen_bench_lightwheel_pick_apple_shelf_in_bowl_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_apple_shelf_in_bowl_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 1000000
+  kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 1100000
+  kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 1200000
+  kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 1300000
+  kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 1400000
+  kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian.yaml
+    environment_builder:
+      placement_seed: 1500000
+  kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 1600000
+  kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian.yaml
+    environment_builder:
+      placement_seed: 1700000
+  kitchen_bench_lightwheel_press_left_toaster_cancel_button_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_press_left_toaster_cancel_button_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 1800000
+  kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 1900000
+  kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal.yaml
+    environment_builder:
+      placement_seed: 2000000
+  kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 2100000
+  kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian.yaml
+    environment_builder:
+      placement_seed: 2200000
+  kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml
+    environment_builder:
+      placement_seed: 2300000
+  kitchen_bench_replicator_g_shape_banana_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_bowl.yaml
+    environment_builder:
+      placement_seed: 2400000
+  kitchen_bench_replicator_g_shape_banana_in_left_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_in_left_bowl.yaml
+    environment_builder:
+      placement_seed: 2500000
+  kitchen_bench_replicator_g_shape_bowl_sink:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_bowl_sink.yaml
+    environment_builder:
+      placement_seed: 2600000
+  kitchen_bench_replicator_g_shape_mustard_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_bowl.yaml
+    environment_builder:
+      placement_seed: 2700000
+  kitchen_bench_replicator_g_shape_mustard_on_wooden_block:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml
+    environment_builder:
+      placement_seed: 2800000
+  kitchen_bench_replicator_g_shape_turn_stand_mixer_knob:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_turn_stand_mixer_knob.yaml
+    environment_builder:
+      placement_seed: 2900000
+  kitchen_bench_replicator_l_island_banana_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_banana_bowl.yaml
+    environment_builder:
+      placement_seed: 3000000
+  kitchen_bench_replicator_l_island_bowl_sink:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_bowl_sink.yaml
+    environment_builder:
+      placement_seed: 3100000
+  kitchen_bench_replicator_l_island_mustard_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_mustard_bowl.yaml
+    environment_builder:
+      placement_seed: 3200000
+  kitchen_bench_replicator_l_shape_banana_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_banana_bowl.yaml
+    environment_builder:
+      placement_seed: 3300000
+  kitchen_bench_replicator_l_shape_bowl_sink:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_bowl_sink.yaml
+    environment_builder:
+      placement_seed: 3400000
+  kitchen_bench_replicator_l_shape_mustard_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_mustard_bowl.yaml
+    environment_builder:
+      placement_seed: 3500000
+  kitchen_bench_replicator_peninsula_bowl_sink:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_bowl_sink.yaml
+    environment_builder:
+      placement_seed: 3600000
+  kitchen_bench_replicator_peninsula_mustard_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_mustard_bowl.yaml
+    environment_builder:
+      placement_seed: 3700000
+  kitchen_bench_replicator_peninsula_soup_in_far_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_soup_in_far_bowl.yaml
+    environment_builder:
+      placement_seed: 3800000
+  kitchen_bench_replicator_u_shape_banana_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_banana_bowl.yaml
+    environment_builder:
+      placement_seed: 3900000
+  kitchen_bench_replicator_u_shape_bowl_sink:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_bowl_sink.yaml
+    environment_builder:
+      placement_seed: 4000000
+  kitchen_bench_replicator_u_shape_mustard_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_mustard_bowl.yaml
+    environment_builder:
+      placement_seed: 4100000

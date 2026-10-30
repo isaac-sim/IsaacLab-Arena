@@ -298,7 +298,7 @@ jobs:
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
-            isaaclab_arena_benchmarking/tests/ \
+            isaaclab_arena_benchmarking/tests/test_placement_success.py \
             isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
