@@ -176,6 +176,9 @@ def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
 
     try:
         num_envs, num_steps, env_spacing = parse_sim_preview_params(req)
+        show_placement_overlay = req.get("show_placement_overlay", False)
+        if not isinstance(show_placement_overlay, bool):
+            raise TypeError("show_placement_overlay must be a boolean")
     except (TypeError, ValueError, AssertionError) as exc:
         return {"ok": False, "error": f"invalid sim preview params: {exc}"}
 
@@ -186,6 +189,7 @@ def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
             num_envs=num_envs,
             num_steps=num_steps,
             env_spacing=env_spacing,
+            show_placement_overlay=show_placement_overlay,
         )
     except Exception as exc:
         return {"ok": False, "error": f"sim preview failed: {exc}", "traceback": traceback.format_exc()}
