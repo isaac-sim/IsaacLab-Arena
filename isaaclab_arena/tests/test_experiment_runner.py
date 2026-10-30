@@ -402,11 +402,65 @@ def test_experiment_runner_different_embodiments(tmp_path):
 
 
 @pytest.mark.with_subprocess
-def test_experiment_runner_from_existing_config():
-    """Test experiment_runner using the zero_action_jobs_config.json and verify no jobs failed."""
-    config_path = f"{TestConstants.arena_environments_dir}/eval_jobs_configs/zero_action_jobs_config.json"
-    assert os.path.exists(config_path), f"Config file not found: {config_path}"
-    run_experiment_runner(config_path)
+def test_experiment_runner_runs_default_experiment(tmp_path, monkeypatch):
+    """Run experiment_runner.py without --experiment_config, as the installation check does."""
+    # The default Experiment path is relative to the repository root, where the documented command runs.
+    monkeypatch.chdir(TestConstants.repo_root)
+    experiment_output_directory = tmp_path / "output"
+
+    run_subprocess([
+        TestConstants.python_path,
+        f"{TestConstants.evaluation_dir}/experiment_runner.py",
+        "--experiment_output_directory",
+        str(experiment_output_directory),
+    ])
+
+    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
+    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
+    run_statuses = {run_name: run_result["status"] for run_name, run_result in experiment_result["runs"].items()}
+    assert run_statuses == {"smoke_test": "completed"}
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_runs_with_different_env_counts(tmp_path):
+    """Run two Runs with different num_envs in one Experiment Runner process."""
+    experiment_config_path = tmp_path / "experiment.yaml"
+    experiment_config_path.write_text(
+        f"""
+runs:
+  single_env_joint:
+    environment:
+      type: gr1_open_microwave
+      embodiment: gr1_joint
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: {NUM_STEPS}
+  multi_env_pink:
+    environment:
+      type: gr1_open_microwave
+      embodiment: gr1_pink
+    environment_builder:
+      num_envs: 2
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: {NUM_STEPS}
+""",
+        encoding="utf-8",
+    )
+    experiment_output_directory = tmp_path / "output"
+
+    run_experiment_runner(
+        str(experiment_config_path),
+        config_option="--experiment_config",
+        extra_args=["--experiment_output_directory", str(experiment_output_directory)],
+    )
+
+    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
+    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
+    run_statuses = {run_name: run_result["status"] for run_name, run_result in experiment_result["runs"].items()}
+    assert run_statuses == {"single_env_joint": "completed", "multi_env_pink": "completed"}
 
 
 @pytest.mark.with_subprocess

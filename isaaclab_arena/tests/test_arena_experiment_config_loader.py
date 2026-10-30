@@ -5,6 +5,7 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+import json
 import yaml
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
+from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import legacy_json_experiment_requires_cameras
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
@@ -25,9 +27,6 @@ from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
-GETTING_STARTED_JSON_PATH = (
-    Path(TestConstants.arena_environments_dir) / "eval_jobs_configs" / "getting_started_jobs_config.json"
-)
 GETTING_STARTED_YAML_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
@@ -36,6 +35,14 @@ CAMERA_SENSITIVITY_YAML_PATH = (
     / "experiment_configs"
     / "droid_pnp_camera_sensitivity_openpi_experiment.yaml"
 )
+
+
+@pytest.fixture
+def legacy_json_experiment_path(tmp_path) -> Path:
+    """A legacy JSON Experiment with two entries, so --chunk_size 1 dispatches more than one chunk."""
+    config_path = tmp_path / "legacy_experiment.json"
+    config_path.write_text(json.dumps({"jobs": [{"name": "first_run"}, {"name": "second_run"}]}), encoding="utf-8")
+    return config_path
 
 
 def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
@@ -186,6 +193,23 @@ def test_policy_config_type_resolves_from_dotted_class_path():
     assert policy_cfg_type is ZeroActionPolicyCfg
 
 
+def test_default_experiment_is_a_short_zero_action_smoke_test(monkeypatch):
+    """Running experiment_runner.py without --experiment_config runs one short zero-action Run."""
+    from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironmentCfg
+
+    # The default path is relative to the repository root, where the documented command runs.
+    monkeypatch.chdir(TestConstants.repo_root)
+    args_cli, _ = parse_experiment_runner_args([])
+
+    experiment_cfg = load_arena_experiment_from_config_file(args_cli.experiment_config, device="cuda:0")
+
+    assert list(experiment_cfg.runs) == ["smoke_test"]
+    smoke_test_run = experiment_cfg.runs["smoke_test"]
+    assert isinstance(smoke_test_run.environment, CubeGoalPoseEnvironmentCfg)
+    assert smoke_test_run.policy == ZeroActionPolicyCfg()
+    assert smoke_test_run.rollout_limit.num_steps == 20
+
+
 def test_load_legacy_json_experiment_returns_canonical_cfg(tmp_path, monkeypatch):
     config_path = tmp_path / "experiment.json"
     config_path.write_text('{"jobs": []}', encoding="utf-8")
@@ -320,13 +344,15 @@ def test_experiment_runner_rejects_yaml_chunking_before_starting_simulation(monk
         experiment_runner.main()
 
 
-def test_experiment_runner_rejects_exact_output_for_multiple_legacy_chunks(monkeypatch, tmp_path):
+def test_experiment_runner_rejects_exact_output_for_multiple_legacy_chunks(
+    monkeypatch, tmp_path, legacy_json_experiment_path
+):
     monkeypatch.setattr(
         "sys.argv",
         [
             "experiment_runner.py",
             "--experiment_config",
-            str(GETTING_STARTED_JSON_PATH),
+            str(legacy_json_experiment_path),
             "--chunk_size",
             "1",
             "--experiment_output_directory",
@@ -357,22 +383,22 @@ def test_experiment_runner_rejects_nonempty_exact_output_before_starting_simulat
         experiment_runner.main()
 
 
-def test_legacy_json_experiment_rejects_hydra_overrides():
+def test_legacy_json_experiment_rejects_hydra_overrides(legacy_json_experiment_path):
     with pytest.raises(AssertionError, match="only for typed YAML"):
         load_arena_experiment_from_config_file(
-            GETTING_STARTED_JSON_PATH,
+            legacy_json_experiment_path,
             device="cuda:0",
             overrides=["runs.baseline.rollout_limit.num_steps=2"],
         )
 
 
-def test_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch):
+def test_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch, legacy_json_experiment_path):
     monkeypatch.setattr(
         "sys.argv",
         [
             "experiment_runner.py",
             "--experiment_config",
-            str(GETTING_STARTED_JSON_PATH),
+            str(legacy_json_experiment_path),
             "runs.baseline.rollout_limit.num_steps=2",
         ],
     )
