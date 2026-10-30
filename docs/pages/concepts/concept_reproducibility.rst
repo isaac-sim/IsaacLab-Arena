@@ -55,8 +55,9 @@ the Experiment.
 New variation values
 ~~~~~~~~~~~~~~~~~~~~
 
-Change ``seed``. Every enabled variation draws new values, and runs with the new seed
-match each other again.
+Change ``seed``. Every enabled variation that draws at random gets new values, and runs
+with the new seed match each other again. Asset selection takes objects in list order by
+default and ignores ``seed``; see :ref:`asset selection <asset-selection-variation>`.
 
 .. code-block:: yaml
 
