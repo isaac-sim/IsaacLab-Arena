@@ -18,15 +18,14 @@ At a glance
      - Same in every run?
      - Set with
    * - :doc:`Variation <variations/variations>` values, such as lighting, the background
-       image, camera position, object mass, and randomly chosen assets
+       image, camera position, object mass, and randomly chosen objects
      - Yes, by default
      - ``seed`` (default ``42``)
    * - Small random offsets that some robots, such as DROID and Franka, add to their
        starting joint positions on every reset
      - Yes, by default
      - ``seed``
-   * - Object layouts: where objects are placed, and which object a random
-       :doc:`object set <scene/concept_rigid_object_set>` gives each environment
+   * - Object layouts: where objects are placed
      - Only when you set it
      - ``placement_seed`` (not set by default)
    * - Physics: how objects fall, slide, and collide
