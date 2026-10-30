@@ -112,10 +112,12 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
     monkeypatch.setattr(run_execution, "rollout_policy", record_rollout)
 
+    before_run_ns = time.time_ns()
     result = run_execution.build_and_run(
         run,
         output_dir=tmp_path,
     )
+    after_run_ns = time.time_ns()
 
     base_seed = run.environment_builder.seed
     run_seed_0 = deepcopy(run)  # Rebuild 0 keeps the configured seed.
@@ -124,6 +126,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
     assert result.run_name == "test_run"
     assert result.status is RunStatus.COMPLETED
+    assert before_run_ns <= result.end_timestamp_ns <= after_run_ns
     assert rollout_limits == [(None, 3), (None, 2)]
     # Runs are the same except for their seeds.
     assert received_run_cfgs == [run_seed_0, run_seed_1]
@@ -341,7 +344,7 @@ def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
 
     def build_and_run(run_cfg, output_dir, video_cfg):
         received.append((run_cfg.name, output_dir, video_cfg.video_base_dir))
-        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED, end_timestamp_ns=time.time_ns())
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
@@ -364,7 +367,7 @@ def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path)
         attempted.append(run_cfg.name)
         if run_cfg.name == "failing":
             raise RuntimeError("rollout failed")
-        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED, end_timestamp_ns=time.time_ns())
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
@@ -448,7 +451,7 @@ def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_pat
     def build_and_run(run_cfg, output_dir, video_cfg):
         with Timer(run_cfg.name):
             pass
-        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED, end_timestamp_ns=time.time_ns())
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
@@ -471,7 +474,7 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
             raise RuntimeError("rollout failed")
         with Timer("step"):
             pass
-        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED, end_timestamp_ns=time.time_ns())
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
