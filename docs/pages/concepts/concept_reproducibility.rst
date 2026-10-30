@@ -137,8 +137,12 @@ The differences are largest when objects touch or are stacked, where a small cha
 add up to a visibly different arrangement. Objects that stand apart usually end up in
 nearly the same place.
 
-If your episodes need identical starting poses for objects, record settled layouts once
-and replay them. See :doc:`offline_placement/recording`.
+.. note::
+
+   ``placement_seed`` repeats where objects are placed, but objects can still settle a
+   little differently in the first moments of an episode. To start every episode with the
+   objects already at rest in the same place, record settled layouts once and replay them.
+   See :doc:`offline_placement/recording`.
 
 This section describes PhysX, Arena's default physics engine. For background on
 simulation determinism, including rendering and the Newton physics engine, see Isaac
