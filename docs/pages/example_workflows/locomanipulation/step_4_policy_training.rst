@@ -69,14 +69,14 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
 
-   python isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py \
-     --yaml_file isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml
+   python isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py \
+     --yaml_file isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml
 
 
 This creates a folder ``$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot`` containing parquet files with states/actions,
 MP4 camera recordings, and dataset metadata.
 
-The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml``.
+The converter is controlled by a config file at ``isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml``.
 
 .. dropdown:: Configuration file (``g1_locomanip_config.yaml``)
    :animate: fade-in
@@ -150,7 +150,7 @@ mount directories.
      gr00t/experiment/launch_finetune.py \
      --dataset-path ~/datasets/isaaclab_arena/locomanipulation_tutorial/arena_g1_loco_manipulation_dataset_generated/lerobot \
      --output-dir ~/models/isaaclab_arena/locomanipulation_tutorial \
-     --modality-config-path ../../isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py \
+     --modality-config-path ../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py \
      --global-batch-size 96 \
      --max-steps 20000 \
      --num-gpus 8 \

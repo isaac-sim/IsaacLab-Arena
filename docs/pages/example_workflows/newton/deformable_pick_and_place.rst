@@ -124,7 +124,7 @@ Start the local OpenPI server in a separate terminal:
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 Then evaluate four parallel environments for 16 completed episodes:
 

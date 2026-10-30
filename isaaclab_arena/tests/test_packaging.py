@@ -56,7 +56,9 @@ def test_native_openpi_client_matches_server_commit():
     pyproject_config = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     openpi_client_source = pyproject_config["tool"]["uv"]["sources"]["openpi-client"]
     openpi_server_commit = (
-        (REPOSITORY_ROOT / "isaaclab_arena_openpi" / "docker" / "OPENPI_COMMIT").read_text(encoding="utf-8").strip()
+        (REPOSITORY_ROOT / "isaaclab_arena_policies" / "isaaclab_arena_openpi" / "docker" / "OPENPI_COMMIT")
+        .read_text(encoding="utf-8")
+        .strip()
     )
 
     assert pyproject_config["dependency-groups"]["openpi"] == ["openpi-client"]

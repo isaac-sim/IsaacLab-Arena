@@ -26,7 +26,7 @@ Arena provides a prebuilt server image with the DreamZero code and public
 
 .. code-block:: bash
 
-   osmo workflow submit isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml \
+   osmo workflow submit isaaclab_arena_policies/isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml \
        --pool isaac-dev-h100-01 \
        --set port=5000
 
