@@ -64,7 +64,8 @@ match each other again.
      environment_builder:
        seed: 7
 
-To try another ``seed`` without editing the file, override it on the command line:
+Once ``seed`` is declared under ``shared.environment_builder`` as above, you can try
+other values on the command line without editing the file again:
 
 .. code-block:: bash
 
