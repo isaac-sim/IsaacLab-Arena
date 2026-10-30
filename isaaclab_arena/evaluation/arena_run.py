@@ -144,6 +144,9 @@ class ArenaRunResult:
     status: RunStatus
     """Final execution status."""
 
+    end_timestamp_ns: int
+    """Unix epoch nanoseconds (UTC) at which the run finished or failed."""
+
     metrics: MetricsDataCollection | None = None
     """Metrics aggregated over all successful rebuilds, when provided by the task."""
 

@@ -6,7 +6,9 @@
 """Verify distributed OSMO workflows for Arena Experiments."""
 
 import json
+import os
 import subprocess
+import time
 import yaml
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,13 +18,15 @@ from hydra.errors import ConfigCompositionException
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RunStatus
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
+from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
+from osmo.scripts.build_experiment_output import load_experiment_runner_result
 from osmo.submit_arena_experiment import (
     ArenaExperimentSubmissionCfg,
     build_arena_experiment_submission_cfg,
@@ -260,7 +264,8 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "experiment_runner_process_exit_code=$?" in experiment_runner_command
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
     assert "experiment_runner_execution_status=failed" in experiment_runner_command
-    assert '"runs":%s' in experiment_runner_command
+    # The end time is taken once the Experiment Runner process has exited, before the result is written.
+    assert "fi\nexperiment_runner_end_timestamp_ns=$(date +%s%N)\n" in experiment_runner_command
     assert '"policy_variant": "pi05"' in experiment_runner_command
     assert '"name": "pick_and_place_maple_table"' in experiment_runner_command
     assert f"'{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}'" in experiment_runner_command
@@ -311,6 +316,46 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "--experiment-output-directory" in experiment_output_command
     assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
+
+
+@pytest.mark.parametrize(
+    ("git_environment", "expected_git_sha", "expected_git_branch"),
+    [
+        ({"ARENA_GIT_SHA": "0123abc", "ARENA_GIT_BRANCH": "feature/x"}, "0123abc", "feature/x"),
+        ({}, "unknown", "unknown"),
+    ],
+)
+def test_experiment_runner_script_writes_a_result_the_collector_loads(
+    tmp_path, git_environment, expected_git_sha, expected_git_branch
+):
+    """The rendered shell script writes a failed runner's result in the format the collector parses."""
+    task = ExperimentRunnerTask(
+        task_cfg=ExperimentRunnerTaskCfg(),
+        experiment_cfg=_zero_action_experiment_cfg(),
+        lead=True,
+        task_name="experiment-runner",
+    )
+    stub_bin_directory = tmp_path / "bin"
+    stub_bin_directory.mkdir()
+    isaaclab_stub = stub_bin_directory / "isaaclab.sh"
+    isaaclab_stub.write_text("#!/bin/bash\nexit 3\n")
+    isaaclab_stub.chmod(0o755)
+    run_script = task._get_run_script().replace(OSMO_TASK_OUTPUT_DIR, str(tmp_path))
+    subprocess_environment = {
+        name: value for name, value in os.environ.items() if name not in ("ARENA_GIT_SHA", "ARENA_GIT_BRANCH")
+    }
+    subprocess_environment.update(git_environment)
+    subprocess_environment["PATH"] = f"{stub_bin_directory}:{os.environ['PATH']}"
+
+    before_ns = time.time_ns()
+    subprocess.run(["bash", "-c", run_script], env=subprocess_environment, check=True)
+    after_ns = time.time_ns()
+
+    run_execution_report, run_metadata, git_stamp = load_experiment_runner_result(tmp_path, "baseline")
+    assert run_execution_report.status is RunStatus.FAILED
+    assert run_execution_report.process_exit_code == 3
+    assert before_ns <= run_metadata["end_timestamp_ns"] <= after_ns
+    assert git_stamp == GitStamp(git_sha=expected_git_sha, git_branch=expected_git_branch)
 
 
 def test_default_output_url_publishes_experiment_to_default_bucket():

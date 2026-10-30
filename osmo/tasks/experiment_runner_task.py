@@ -17,6 +17,7 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import build_arena_run_result_metadata
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
+from isaaclab_arena.utils.git_stamp import ARENA_GIT_BRANCH_ENV_VAR, ARENA_GIT_SHA_ENV_VAR, UNKNOWN_GIT_STAMP_VALUE
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
@@ -132,8 +133,12 @@ class ExperimentRunnerTask(BaseTask):
             })
         )
         write_experiment_runner_result_command = (
-            'printf \'{"execution_status":"%s","process_exit_code":%d,"runs":%s}\\n\' '
+            'printf \'{"execution_status":"%s","process_exit_code":%d,"end_timestamp_ns":%d,'
+            '"git_sha":"%s","git_branch":"%s","runs":%s}\\n\' '
             '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
+            '"$experiment_runner_end_timestamp_ns" '
+            f'"${{{ARENA_GIT_SHA_ENV_VAR}:-{UNKNOWN_GIT_STAMP_VALUE}}}" '
+            f'"${{{ARENA_GIT_BRANCH_ENV_VAR}:-{UNKNOWN_GIT_STAMP_VALUE}}}" '
             f"{run_metadata_json} > {experiment_runner_result_path}"
         )
         return "\n".join([
@@ -145,6 +150,7 @@ class ExperimentRunnerTask(BaseTask):
             "  experiment_runner_process_exit_code=$?",
             f"  experiment_runner_execution_status={RunStatus.FAILED.value}",
             "fi",
+            "experiment_runner_end_timestamp_ns=$(date +%s%N)",
             "",
             "# Publish the result for the collector, then always report success to OSMO.",
             write_experiment_runner_result_command,

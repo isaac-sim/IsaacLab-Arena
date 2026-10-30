@@ -19,6 +19,7 @@ def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_completed_run(tmp_pat
             "environment": {"name": "task", "definition": "task"},
             "policy_variant": "zero_action",
             "status": status,
+            "end_timestamp_ns": 1792800000000000000,
         }
     records_by_file = {
         "first/episode_results_rebuild0_rank0.jsonl": [

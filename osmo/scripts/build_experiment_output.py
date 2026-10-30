@@ -23,6 +23,7 @@ from pathlib import Path
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
+from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
@@ -31,7 +32,7 @@ EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 def load_experiment_runner_result(
     experiment_runner_output_directory: Path,
     run_name: str,
-) -> tuple[RunExecutionReport, dict[str, object]]:
+) -> tuple[RunExecutionReport, dict[str, object], GitStamp]:
     """Load and validate an Experiment Runner result.
 
     Args:
@@ -39,7 +40,8 @@ def load_experiment_runner_result(
         run_name: Run associated with the task output, used in validation messages.
 
     Returns:
-        Validated Run execution result and its environment and policy metadata.
+        Validated Run execution result, its environment, policy, and end time metadata, and the Arena git stamp
+        that executed it.
     """
     experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
     experiment_runner_result = json.loads(experiment_runner_result_path.read_text(encoding="utf-8"))
@@ -54,13 +56,18 @@ def load_experiment_runner_result(
     }, f"Experiment Runner result for Run '{run_name}' must contain metadata for exactly that Run"
     run_metadata = run_metadata_by_name[run_name]
     assert isinstance(run_metadata, dict), f"Experiment Runner metadata for Run '{run_name}' must be a JSON object"
+    git_stamp = GitStamp(
+        git_sha=experiment_runner_result["git_sha"],
+        git_branch=experiment_runner_result["git_branch"],
+    )
     return (
         RunExecutionReport(
             run_name=run_name,
             status=execution_status,
             process_exit_code=process_exit_code,
         ),
-        run_metadata,
+        {**run_metadata, "end_timestamp_ns": experiment_runner_result["end_timestamp_ns"]},
+        git_stamp,
     )
 
 
@@ -97,7 +104,7 @@ def load_experiment_runner_output_directories_by_run_name(
 def collect_run_outputs_into_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
-) -> tuple[list[RunExecutionReport], dict[str, dict[str, object]]]:
+) -> tuple[list[RunExecutionReport], dict[str, dict[str, object]], GitStamp]:
     """Collect completed Run outputs and preserve failed execution results.
 
     Args:
@@ -106,17 +113,23 @@ def collect_run_outputs_into_experiment_output(
         experiment_output_directory: Destination Experiment directory containing one subdirectory per Run.
 
     Returns:
-        Validated execution results and Run metadata for the aggregated Experiment result.
+        Validated execution results, Run metadata, and the Arena git stamp shared by every Run.
     """
     assert experiment_runner_output_directories_by_run_name, "At least one Experiment Runner output is required"
     run_execution_reports: list[RunExecutionReport] = []
     run_metadata_by_name: dict[str, dict[str, object]] = {}
+    git_stamp: GitStamp | None = None
     for run_name, experiment_runner_output_directory in experiment_runner_output_directories_by_run_name.items():
         ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
-        run_execution_report, run_metadata = load_experiment_runner_result(
+        run_execution_report, run_metadata, run_git_stamp = load_experiment_runner_result(
             experiment_runner_output_directory,
             run_name,
         )
+        assert git_stamp is None or git_stamp == run_git_stamp, (
+            f"Run '{run_name}' was executed at {run_git_stamp}, but earlier Runs were executed at {git_stamp}; "
+            "all Runs of one Experiment must be executed at the same Arena commit"
+        )
+        git_stamp = run_git_stamp
         run_execution_reports.append(run_execution_report)
         run_metadata_by_name[run_name] = {
             **run_metadata,
@@ -152,9 +165,11 @@ def collect_run_outputs_into_experiment_output(
             experiment_runner_result_path,
             destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
         )
+    assert git_stamp is not None
     return (
         sorted(run_execution_reports, key=lambda run_execution_report: run_execution_report.run_name),
         run_metadata_by_name,
+        git_stamp,
     )
 
 
@@ -173,11 +188,11 @@ def build_experiment_output(
     Returns:
         Path to the generated Experiment report.
     """
-    run_execution_reports, run_metadata_by_name = collect_run_outputs_into_experiment_output(
+    run_execution_reports, run_metadata_by_name, git_stamp = collect_run_outputs_into_experiment_output(
         experiment_runner_output_directories_by_run_name,
         experiment_output_directory,
     )
-    ArenaExperimentResult(experiment_output_directory, run_metadata_by_name).write()
+    ArenaExperimentResult(experiment_output_directory, run_metadata_by_name, git_stamp).write()
     experiment_timings_path = aggregate_experiment_timings(
         experiment_output_directory,
         [report.run_name for report in run_execution_reports if report.status is RunStatus.COMPLETED],
