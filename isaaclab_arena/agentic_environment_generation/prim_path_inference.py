@@ -94,6 +94,7 @@ GUIDANCE:
   BACKGROUND PRIM TREE matches it exactly. Do not change object_type.
 - When the input object_type is base, the prim tree object_type may be base, rigid, or articulation;
   pick the prim that semantically represents the referenced static fixture or surface.
+- Never use a line tagged with joint(...) as prim_path; it describes a joint rather than an object or surface.
 - When the input object_type is articulation, pick the articulation root prim (the line that
   lists joint names), not a rigid child mesh or collision prim under it.
 - When the input object_type is base, pick an anchor-surface prim (counter top, shelf, etc.).
@@ -109,35 +110,13 @@ def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
     """Format the background USD prim tree for the user message.
 
     Each line shows a parent-relative path suffix, indented under its nearest
-    retained ancestor, followed by ``object_type`` and optional joint names.
+    retained ancestor, followed by ``object_type`` and available physics metadata.
     Join ancestor suffixes with ``/`` to recover the full ``relative_path`` for
-    ``prim_path``. Example output::
-
-        BACKGROUND PRIM TREE:
-        counter_right_main_group/top_geometry (base)
-        fridge_main_group (articulation fridge_door_joint)
-        cab_1_main_group (articulation right_door_joint)
-          corpus (rigid)
-            top (base)
-            shelf_1 (base)
-          right_door (rigid)
+    ``prim_path``.
     """
-    records = sorted(prim_tree, key=lambda record: record.relative_path)
-    lines = ["BACKGROUND PRIM TREE:"]
-    stack: list[str] = []
-    for record in records:
-        path = record.relative_path
-        while stack and not path.startswith(stack[-1] + "/"):
-            stack.pop()
-        parent = stack[-1] if stack else ""
-        suffix = path[len(parent) + 1 :] if parent else path
-        indent = "  " * len(stack)
-        tag = record.object_type.value
-        if record.joint_names:
-            tag += " " + ",".join(record.joint_names)
-        lines.append(f"{indent}{suffix} ({tag})")
-        stack.append(path)
-    return "\n".join(lines)
+    from isaaclab_arena.utils.usd.prim_tree import format_usd_prim_tree
+
+    return format_usd_prim_tree(prim_tree, heading="BACKGROUND PRIM TREE:")
 
 
 def _object_reference_context(spec: ArenaEnvGraphSpec) -> str:
@@ -218,6 +197,9 @@ def _validate_against_prim_tree(
         assert (
             record is not None
         ), f"Object reference '{ref.id}' prim_path {prim_path!r} is not in the background prim tree"
+        assert (
+            record.joint is None
+        ), f"Object reference '{ref.id}' prim_path {prim_path!r} identifies a joint, not an object or surface"
         if ref.object_type != ObjectType.BASE:
             assert ref.object_type == record.object_type, (
                 f"Object reference '{ref.id}' object_type {ref.object_type!r} does not match prim tree "

@@ -253,7 +253,7 @@ def print_background_prim_tree(env_graph_spec_path: Path) -> None:
         env_graph_spec_path: Path to the environment graph spec YAML whose background is inspected.
     """
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena.utils.usd.prim_tree import load_usd_prim_tree
+    from isaaclab_arena.utils.usd.prim_tree import format_usd_prim_record_metadata, load_usd_prim_tree
 
     spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_path)
     usd_path = spec.background.resolve_usd_path()
@@ -261,8 +261,9 @@ def print_background_prim_tree(env_graph_spec_path: Path) -> None:
 
     print(f"\n=== background prim tree (background={spec.background.registry_name!r}) ===")
     for record in load_usd_prim_tree(usd_path):
-        joints_str = f"  joints={','.join(record.joint_names)}" if record.joint_names else ""
-        print(f"  {record.relative_path}  object_type={record.object_type.value}{joints_str}")
+        metadata = format_usd_prim_record_metadata(record)
+        metadata_suffix = f"  {metadata}" if metadata else ""
+        print(f"  {record.relative_path}  object_type={record.object_type.value}{metadata_suffix}")
 
 
 def _iter_printable_assets(spec: ArenaEnvGraphSpec):

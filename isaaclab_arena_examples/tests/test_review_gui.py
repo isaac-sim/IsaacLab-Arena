@@ -180,7 +180,7 @@ class TestPrimTreeView:
     def test_build_prim_nodes_nests_by_relative_path(self):
         roots = build_prim_nodes(self._TREE)
         assert len(roots) == 1
-        assert roots[0].text == "cab_1_main_group (articulation right_door_joint)"
+        assert roots[0].text == "cab_1_main_group (articulation joints=[right_door_joint])"
         assert roots[0].children[0].text == "corpus (rigid)"
         assert roots[0].children[0].children[0].text == "back (base)"
 
