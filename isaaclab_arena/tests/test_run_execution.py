@@ -461,7 +461,8 @@ def test_build_environment_closes_the_environment_when_its_diagnostics_cannot_be
 
     with pytest.raises(OSError, match="disk full"):
         run_execution._build_environment_from_cfg(_run(), render_mode=None, output_dir=tmp_path)
-    assert len(closed_envs) == 1 and closed_envs[0] is not None
+    assert len(closed_envs) == 1
+    assert closed_envs[0] is not None
 
 
 def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_path):

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_experiment_result import PLACEMENT_DIAGNOSTICS_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
@@ -155,7 +155,7 @@ def _build_environment_from_cfg(
     output_dir: str | Path,
     rebuild_index: int = 0,
 ) -> gym.Env:
-    """Compile and instantiate a run's environment, writing its placement diagnostics to output_dir.
+    """Compile and instantiate a run's environment, and write its placement diagnostics, if any, to output_dir.
 
     Args:
         cfg: The run whose environment is being built.
@@ -172,10 +172,11 @@ def _build_environment_from_cfg(
     env = arena_builder.make_registered(render_mode=render_mode)
     # A build that solves no relations, or replays recorded layouts, has no placement diagnostics.
     if arena_builder.placement_diagnostics is not None:
+        output_path = Path(output_dir)
         try:
-            Path(output_dir).mkdir(parents=True, exist_ok=True)
-            diagnostics_path = Path(output_dir) / PLACEMENT_DIAGNOSTICS_FILENAME.format(rebuild_index=rebuild_index)
-            arena_builder.placement_diagnostics.save(diagnostics_path)
+            output_path.mkdir(parents=True, exist_ok=True)
+            filename = PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
+            arena_builder.placement_diagnostics.save(output_path / filename)
         except BaseException:
             # The caller never receives the environment, so it cannot close it.
             close_run_resources(None, env)

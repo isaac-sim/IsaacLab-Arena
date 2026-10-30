@@ -13,16 +13,16 @@ import pytest
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
-    PLACEMENT_DIAGNOSTICS_FILENAME,
+    PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE,
 )
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_diagnostics import BatchValidationDiagnostics, PlacementDiagnostics
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena_benchmarking.object_placement.placement_success import (
-    RunPlacementRecord,
+    RunPlacementCounts,
     format_placement_success,
-    read_run_placement_records,
+    read_run_placement_counts,
     summarize_placement_success,
 )
 
@@ -48,9 +48,10 @@ def _test_placement_experiment_run_writes_its_placement_diagnostics(simulation_a
     _write_arena_experiment_result(experiment_cfg, run_results, output_dir)
 
     assert (output_dir / "banana_on_plate" / "placement_diagnostics_rebuild0.json").is_file()
-    [record] = read_run_placement_records(output_dir)
-    assert (record.run_name, record.failed, record.num_builds, record.num_envs) == ("banana_on_plate", False, 1, 2)
-    assert 0 < record.num_valid_candidates <= record.num_candidates
+    [run_counts] = read_run_placement_counts(output_dir)
+    assert (run_counts.run_name, run_counts.failed, run_counts.num_builds) == ("banana_on_plate", False, 1)
+    assert run_counts.num_envs == 2
+    assert 0 < run_counts.num_first_batch_valid_candidates <= run_counts.num_first_batch_candidates
     return True
 
 
@@ -83,8 +84,9 @@ def test_placement_experiment_runs_solve_separate_candidate_seeds(experiment_con
     """No two Runs of a placement experiment share candidate seeds, so Runs that share a scene solve different
     candidates."""
     experiment = yaml.safe_load((EXPERIMENT_CONFIGS_DIR / experiment_config).read_text())
-    # No spec sets its own placer parameters. A build solves at most max_placement_attempts batches, each of at most
-    # num_envs * min_unique_layouts_per_env * max_placement_attempts candidates, seeded consecutively.
+    # No spec overrides min_unique_layouts_per_env or max_placement_attempts. A build solves at most
+    # max_placement_attempts batches, each of at most num_envs * min_unique_layouts_per_env * max_placement_attempts
+    # candidates, seeded consecutively.
     params = ObjectPlacerParams()
     num_envs = experiment["shared"]["environment_builder"]["num_envs"]
     seeds_per_build = num_envs * params.min_unique_layouts_per_env * params.max_placement_attempts**2
@@ -92,22 +94,23 @@ def test_placement_experiment_runs_solve_separate_candidate_seeds(experiment_con
     assert all(next_seed - seed >= seeds_per_build for seed, next_seed in zip(seeds, seeds[1:]))
 
 
-def test_record_counts_the_first_pool_batch_of_each_build():
+def test_run_counts_sum_the_first_pool_batch_of_each_build():
     """Candidates come from each build's first pool batch; later batches add only to the batch count."""
     first_batch = BatchValidationDiagnostics(num_candidates=100, num_valid=60, checks={})
     later_batch = BatchValidationDiagnostics(num_candidates=20, num_valid=15, checks={})
-    record = RunPlacementRecord("open_fridge")
+    run_counts = RunPlacementCounts("open_fridge")
 
-    record.add_build(PlacementDiagnostics(10, [first_batch, later_batch], fallback_envs=[3]))
-    record.add_build(PlacementDiagnostics(10, [first_batch]))
+    run_counts.add_build(PlacementDiagnostics(10, [first_batch, later_batch], fallback_envs=[3]))
+    run_counts.add_build(PlacementDiagnostics(10, [first_batch]))
 
-    assert (record.num_valid_candidates, record.num_candidates) == (120, 200)
-    assert (record.num_fallback_envs, record.num_envs, record.num_batches, record.num_builds) == (1, 20, 3, 2)
+    assert (run_counts.num_first_batch_valid_candidates, run_counts.num_first_batch_candidates) == (120, 200)
+    assert (run_counts.num_fallback_envs, run_counts.num_envs) == (1, 20)
+    assert (run_counts.num_batches, run_counts.num_builds) == (3, 2)
 
 
-def test_experiment_placement_success_weighs_runs_equally_and_needs_every_run_to_succeed(tmp_path):
-    """Scored Runs weigh the same whatever their sample size, Runs without diagnostics are listed but not scored, and
-    a failed Run leaves the Experiment without rates."""
+def test_experiment_placement_success_weights_runs_equally_and_needs_every_run_to_succeed(tmp_path):
+    """Scored Runs are weighted equally whatever their sample size, Runs without diagnostics are listed but not
+    scored, and a failed Run leaves the Experiment without rates."""
     runs = {"pick_apple": "completed", "pick_banana": "completed", "no_relations": "completed"}
     diagnostics_per_run = {
         # 45 of 50 environments valid over two rebuilds, at 300 of 500 valid candidates.
@@ -116,29 +119,34 @@ def test_experiment_placement_success_weighs_runs_equally_and_needs_every_run_to
         "pick_banana": {1: _diagnostics(25, 250, 250, 0, 1)},
     }
     _write_experiment(tmp_path / "completed", runs, diagnostics_per_run)
-    _write_experiment(tmp_path / "with_failure", {**runs, "place_lime": "failed"}, diagnostics_per_run)
+    # The failed Run wrote diagnostics before it failed, so only its status keeps it out of the means.
+    _write_experiment(
+        tmp_path / "with_failure",
+        {**runs, "place_lime": "failed"},
+        {**diagnostics_per_run, "place_lime": {0: _diagnostics(25, 250, 250, 0, 1)}},
+    )
 
-    records = read_run_placement_records(tmp_path / "completed")
+    counts_per_run = read_run_placement_counts(tmp_path / "completed")
 
-    assert [(record.run_name, record.num_builds) for record in records] == [
+    assert [(run_counts.run_name, run_counts.num_builds) for run_counts in counts_per_run] == [
         ("pick_apple", 2),
         ("pick_banana", 1),
         ("no_relations", 0),
     ]
-    summary = summarize_placement_success(records)
+    summary = summarize_placement_success(counts_per_run)
     assert (summary.num_scored, summary.num_failed) == (2, 0)
     assert summary.valid_candidate_rate_first_batch == pytest.approx((0.6 + 1.0) / 2)
     assert summary.valid_env_rate_after_retries == pytest.approx((0.9 + 1.0) / 2)
     assert summary.batches_per_build == pytest.approx((1.5 + 1.0) / 2)
-    table = format_placement_success(records)
+    table = format_placement_success(counts_per_run)
     assert "| pick_apple | 60.0% | 90.0% | 1.50 |" in table
     assert "| no_relations | no diagnostics | no diagnostics | no diagnostics |" in table
 
     # A failed Run could have lowered the rates, so they are left out.
-    records = read_run_placement_records(tmp_path / "with_failure")
-    summary = summarize_placement_success(records)
+    counts_per_run = read_run_placement_counts(tmp_path / "with_failure")
+    summary = summarize_placement_success(counts_per_run)
     assert (summary.num_scored, summary.num_failed, summary.valid_candidate_rate_first_batch) == (2, 1, None)
-    table = format_placement_success(records)
+    table = format_placement_success(counts_per_run)
     assert "| place_lime | failed | failed | failed |" in table
     assert table.endswith("| mean of 2 scored, 1 failed | n/a | n/a | n/a |")
 
@@ -156,7 +164,7 @@ def _write_experiment(
     for run_name, diagnostics_per_rebuild in diagnostics_per_run.items():
         (experiment_output_directory / run_name).mkdir()
         for rebuild_index, diagnostics in diagnostics_per_rebuild.items():
-            filename = PLACEMENT_DIAGNOSTICS_FILENAME.format(rebuild_index=rebuild_index)
+            filename = PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
             diagnostics.save(experiment_output_directory / run_name / filename)
 
 

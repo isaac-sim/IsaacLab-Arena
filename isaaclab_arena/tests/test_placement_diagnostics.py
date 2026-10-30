@@ -110,7 +110,8 @@ def test_pool_diagnostics_file_round_trips(tmp_path):
     pool.last_fill_diagnostics.save(path)
 
     assert PlacementDiagnostics.load(path) == pool.last_fill_diagnostics
-    assert pool.last_fill_diagnostics.num_envs == 2 and pool.last_fill_diagnostics.fallback_envs
+    assert pool.last_fill_diagnostics.num_envs == 2
+    assert pool.last_fill_diagnostics.fallback_envs
 
 
 def _desk_and_box(box_width_m: float) -> list[DummyObject]:
