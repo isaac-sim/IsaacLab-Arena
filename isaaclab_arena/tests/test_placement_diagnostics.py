@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
@@ -99,6 +100,17 @@ def test_pool_diagnostics_record_fallbacks_and_explain_fill_failures():
             pool_size=2,
             num_envs=2,
         )
+
+
+def test_pool_diagnostics_file_round_trips(tmp_path):
+    """A fill's diagnostics, with its batches, checks and fallback environments, load back from their file unchanged."""
+    pool = PooledObjectPlacer(_desk_and_box(box_width_m=1.5), _placer_params(), pool_size=2, num_envs=2)
+    path = tmp_path / "placement_diagnostics.json"
+
+    pool.last_fill_diagnostics.save(path)
+
+    assert PlacementDiagnostics.load(path) == pool.last_fill_diagnostics
+    assert pool.last_fill_diagnostics.num_envs == 2 and pool.last_fill_diagnostics.fallback_envs
 
 
 def _desk_and_box(box_width_m: float) -> list[DummyObject]:

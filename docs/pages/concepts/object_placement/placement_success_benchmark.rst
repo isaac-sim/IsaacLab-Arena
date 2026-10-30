@@ -1,157 +1,112 @@
 Placement Success Benchmark
 ===========================
 
-The ``isaaclab_arena_benchmarking.object_placement`` package measures how often
-relation placement succeeds across the RoboLab and KitchenBench environment
-specs, for each spec and as a mean over each suite.
+The placement success benchmark measures how often relation placement finds
+valid object layouts for the RoboLab and KitchenBench environment specs. Each
+suite is an :doc:`Arena Experiment <../concept_arena_experiments>` with one Run
+per spec. A Run builds its spec, which places the objects, and writes how
+placement went to its output directory. For each Run, and as a mean over the
+Experiment, the benchmark reports how many candidate layouts were valid and how
+many environments got only valid layouts.
 
 What It Measures
 ----------------
 
-For each environment spec and each index in ``--seed_indices``, the benchmark
-builds the spec the normal way, with ``ArenaEnvBuilder.build_env_cfg()`` for
-``--num_envs`` environments, without stepping physics. The build applies
-any enabled build-time variations and the task's reachability constraints, then
-fills its :doc:`placement pool <./pooled_placement>`. The pool solves batches
-of candidate layouts for every environment and stores valid ones in the
-environments' empty slots, until every environment has enough. If the last
-allowed batch gives an environment that still has empty slots no valid
-candidate, and best-loss fallback is allowed, as it is by default, those slots
-get the batch's best-loss layouts. The benchmark reads the placement
-diagnostics the build records and reports:
+An environment build places the objects that have relations before physics
+starts. Each of the ``num_envs`` parallel environments stores several valid
+layouts, so that its resets can start from different ones; call each stored
+layout a slot. The build fills the slots in batches. A batch solves a set of
+candidate layouts, runs the :doc:`pre-physics checks <./validation>` on each,
+and stores the valid ones in environments that have empty slots. Another batch
+runs only while some environment still has empty slots, up to
+``max_placement_attempts`` batches; see :doc:`./pooled_placement`.
 
-* **Valid candidates:** the share of candidates in the pool's first batch that
-  pass every required :doc:`pre-physics check <./validation>`. The first batch
+When the last batch gives an environment no valid candidate, its empty slots get
+that batch's lowest-loss candidates, which fail at least one check. This
+best-loss fallback is on by default. When the last batch gives an environment
+some valid candidates but too few, or none while fallback is off, the build
+fails.
+
+The experiment runner writes the batch counts of each build that places objects
+to ``placement_diagnostics_rebuild<i>.json`` in the Run directory, whatever the
+Run's policy. A build that fails, or that replays recorded layouts, writes none.
+From these files the benchmark reports for each Run:
+
+* **Valid candidates** (``valid_candidate_rate_first_batch``): the share of
+  candidates in the first batch that pass every required check. The first batch
   always holds ``num_envs * min_unique_layouts_per_env *
-  max_placement_attempts`` candidates. A later batch runs only while some
-  environment still has empty slots, and its size depends on how many are
-  missing, so later batches are left out to keep the sample the same for every
-  scene. This rate decides how much solving a build needs.
-* **Valid environments:** the share of environments whose pool holds only
-  valid layouts, without a best-loss fallback. This is what an environment
-  build gets wrong when placement struggles.
-* **Batches per build:** how many pool batches a build solved, shown in the
-  results table.
+  max_placement_attempts`` candidates. A later batch's size depends on how many
+  slots are still empty, so later batches are left out to keep the sample the
+  same for every scene. This rate moves when the solver gets better or worse.
+* **Valid environments** (``valid_env_rate_after_retries``): the share of
+  environments that needed no best-loss fallback once the last batch ran. It
+  stays near 100% until scenes start to get invalid layouts.
+* **Batches per build:** how many batches the build solved.
 
-Each spec is scored or failed. A failed spec is listed with its error instead
-of being dropped. A spec fails when it cannot be built, when its build solves
-no relations, or when an environment still has empty slots after the last
-allowed batch. That last case happens when the batch gives the environment
-some valid candidates but too few to fill its slots, or none while best-loss
-fallback is not allowed.
+The Experiment's rates are the means over its Runs, each Run weighing the same.
+Several RoboLab tasks share a scene, and the mean counts such a scene once per
+task. A Run that failed, for example because its build failed, leaves the
+Experiment without rates, since it could have lowered them.
 
 When a spec places the robot by relations, as the KitchenBench specs do, the
 robot is part of every layout and its relations are checked too. Specs that
 place only the robot, such as ``kitchen_bench_lightwheel_open_fridge``, are
 scored on the robot's placement.
 
-Each build of each spec solves its own range of candidate seeds. At the
-default settings no two specs' ranges overlap, so tasks that share a scene, as
-several RoboLab tasks do, sample it independently, and a suite's mean counts
-such a scene once per task. Rerunning the same specs starts from the same
-candidates, but an asset that loads a random variant in each process, such as
-the Lightwheel broccoli, can still change results between runs.
+Each Run builds its spec once, for 30 environments, which gives 1500
+first-batch candidates. It builds only once because the rebuilds of a Run get
+the same placement seed and would repeat the same candidates. Each Run has its
+own placement seed, 100000 apart from the others, so no two Runs share candidate
+seeds and tasks that share a scene solve different candidates. Rerunning a
+commit solves the same candidates, although an asset that loads a random variant
+in each process, such as the Lightwheel broccoli, can still change results.
+
+The inverse kinematics (IK) reachability check runs only for embodiments with a
+registered cuRobo config, so it counts toward the rates of those specs only.
 
 Run the Benchmark
 -----------------
 
 Run from the repository root inside the Arena container; see
-:doc:`../../quickstart/installation`. Start with a quick check that builds one
-spec once with two environments. It takes under a minute, and the table it
-prints should show one scored RoboLab spec and none failed:
+:doc:`../../quickstart/installation`. Each command runs one suite:
 
 .. code-block:: bash
 
-   python -m isaaclab_arena_benchmarking.object_placement.run_placement_success_benchmark \
-     --spec banana_on_plate \
-     --num_envs 2 \
-     --seed_indices 0 \
-     --output outputs/placement_success/quick_check.json
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_benchmarking/experiment_configs/robolab_placement_experiment.yaml \
+     --experiment_output_directory outputs/placement_success/robolab \
+     --continue_on_error
 
-Then run every spec at the defaults. On one RTX 6000 Ada GPU this takes about
-50 minutes. The run prints each spec as it starts, then a table with one row
-per suite. Its exit status is 0 when no spec failed and 1 otherwise:
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_benchmarking/experiment_configs/kitchen_bench_placement_experiment.yaml \
+     --experiment_output_directory outputs/placement_success/kitchen_bench \
+     --continue_on_error
+
+The output directory must be new or empty. ``--continue_on_error`` keeps a
+failed Run from stopping the later ones, so the runner can exit with status 0
+even when some Runs failed. To change the sample size, add
+``shared.environment_builder.num_envs=<n>`` to the command; the seed spacing
+allows up to 200 environments. The solver optimizes a batch together, so compare
+only results with the same ``num_envs``.
+
+Then print each Run's placement success and the Experiment's means. This reads
+the output directory and does not start the simulator. Check the scored and
+failed counts in the last row: every spec should be scored. A Run that completed
+without diagnostics solves no relations or replays recorded layouts; the table
+lists it, and the means leave it out:
 
 .. code-block:: bash
 
-   python -m isaaclab_arena_benchmarking.object_placement.run_placement_success_benchmark \
-     --output outputs/placement_success/main.json
+   python -m isaaclab_arena_benchmarking.object_placement.placement_success \
+     outputs/placement_success/robolab
 
-With ``--output``, the run writes a results file and rewrites it after every
-spec, so a run stopped with Ctrl+C keeps the specs it finished. The script
-creates the file's folder, and Git ignores ``outputs/``, so the file stays in
-place when you switch branches. The table shows suite rates; each spec's counts
-are in the results file.
+Add Specs
+---------
 
-The simulator sometimes does not exit after printing ``Closing simulation
-app``. The results file is complete by then, so the process can be stopped.
-For unattended runs, set ``ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE=1`` to skip
-the simulator's shutdown; the exit status is unchanged.
-
-Useful options:
-
-* ``--suite robolab`` or ``--suite kitchen_bench`` selects one suite; the
-  default, ``--suite all``, runs both.
-* ``--spec 'kitchen_bench_replicator_*'`` keeps specs whose file stem matches
-  the glob. Repeat it to select several patterns.
-* ``--num_envs`` and ``--seed_indices`` set the sample size: one build of
-  ``--num_envs`` environments per seed index. The defaults are 10 environments
-  and seed indices 0, 1 and 2, which gives 1500 first-batch candidates per spec
-  with the default placer parameters. Seed indices must be distinct and
-  nonnegative. The solver optimizes a batch together, so ``--num_envs`` changes
-  individual candidates; compare only runs with the same value.
-* ``--random_yaw_init`` samples a random initial yaw for placed objects,
-  including a robot placed by relations. Objects with ``FaceTo`` or a tilted
-  ``RotateAroundSolution`` keep their own orientation rules. Without it, each
-  spec's own ``random_yaw_init`` setting applies.
-* ``--collision_mode bbox`` or ``--collision_mode mesh`` sets the solver's
-  default collision mode. Objects whose spec sets their own mode keep it, as
-  the kitchen does in most KitchenBench specs.
-
-The Results File
-----------------
-
-The results file holds the start time, the commit and branch, whether the
-checkout had uncommitted changes, the GPU, the settings, the selected specs and
-one record per measured spec. Changes count when they are to tracked files or
-are new files in ``isaaclab_arena``, ``isaaclab_arena_benchmarking`` or
-``isaaclab_arena_environments``, such as a new spec; other untracked files,
-such as local tool settings, do not. Each record holds the spec's build,
-candidate, environment, fallback and batch counts, its wall time, and its error
-if it failed. For each check that ran, it holds whether the check is required
-and how many first-batch candidates the check ran on and passed. A check that runs
-only after the cheaper required checks pass, such as inverse kinematics (IK)
-reachability, runs only on the candidates that passed them, so its counts
-cover only those.
-
-A suite has no rates when any of its specs failed, and the script exits with
-an error after writing the file. A run stopped before its last selected spec
-has records for only some of them, so comparing its records with the selected
-specs shows which it did not reach. When git cannot read the checkout, the run
-prints a warning and records no commit; a detached checkout records no branch.
-
-``isaaclab_arena_benchmarking/object_placement/results.py`` reads and
-summarizes results files without the simulator, so other tools can use them:
-
-.. code-block:: python
-
-   from isaaclab_arena_benchmarking.object_placement.results import (
-       PlacementBenchmarkResults,
-       summarize_suites,
-   )
-
-   results = PlacementBenchmarkResults.load("outputs/placement_success/main.json")
-   for summary in summarize_suites(results):
-       print(summary.suite, summary.valid_candidate_rate, summary.valid_env_rate)
-
-Add a Suite
------------
-
-A suite is a glob over environment graph-spec YAML files, listed in
-``SUITE_SPEC_GLOBS`` in ``isaaclab_arena_benchmarking/object_placement/measurement.py``;
-environments defined only in Python are not supported. To benchmark new scenes,
-add their specs and a suite entry. Each spec's candidate seeds start from a
-hash of its suite and file stem, so adding or removing specs leaves the other
-specs' candidates unchanged, and a run filtered with ``--spec`` solves the same
-candidates for its specs as a full run. Renaming a spec changes its
-candidates.
+A placement experiment lists one Run per spec, named after the spec's file stem.
+To benchmark a new spec, add a Run for it to its suite's experiment, with a
+placement seed 100000 above the largest one there. For a new folder of specs,
+add an experiment and matching cases to
+``isaaclab_arena_benchmarking/tests/test_placement_success.py``, which checks
+that each experiment lists every spec in its folder and that no two Runs share
+candidate seeds.

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 ARENA_SINGLE_RUN_TIMINGS_FILENAME = "arena_run_timings.json"
 ARENA_AGGREGATED_TIMINGS_FILENAME = "arena_experiment_timings.json"
+PLACEMENT_DIAGNOSTICS_FILENAME = "placement_diagnostics_rebuild{rebuild_index}.json"
 
 
 class ArenaEpisodeResultData(TypedDict):

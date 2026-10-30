@@ -17,6 +17,7 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 from isaaclab_arena.utils.timer import Timer
 
 
@@ -64,6 +65,7 @@ class _ArenaEnvBuilder:
     def __init__(self, recorders):
         self.env_cfg = SimpleNamespace(recorders=recorders)
         self.made_with = None
+        self.placement_diagnostics = None
 
     def make_registered(self, env_cfg=None, env_kwargs=None, render_mode=None):
         self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
@@ -435,6 +437,31 @@ def test_build_environment_tolerates_an_environment_without_recorders(monkeypatc
 
     assert env is not None
     assert builder.made_with.render_mode is None
+
+
+def test_build_environment_writes_placement_diagnostics_to_the_run_directory(monkeypatch, tmp_path):
+    builder = _builder(monkeypatch, None)
+    builder.placement_diagnostics = PlacementDiagnostics(num_envs=2, fallback_envs=[1])
+
+    run_execution._build_environment_from_cfg(_run(), render_mode=None, output_dir=tmp_path, rebuild_index=1)
+
+    assert PlacementDiagnostics.load(tmp_path / "placement_diagnostics_rebuild1.json") == builder.placement_diagnostics
+
+
+def test_build_environment_closes_the_environment_when_its_diagnostics_cannot_be_written(monkeypatch, tmp_path):
+    builder = _builder(monkeypatch, None)
+    builder.placement_diagnostics = PlacementDiagnostics(num_envs=2)
+    closed_envs = []
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: closed_envs.append(env))
+
+    def fail_to_save(path):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(builder.placement_diagnostics, "save", fail_to_save)
+
+    with pytest.raises(OSError, match="disk full"):
+        run_execution._build_environment_from_cfg(_run(), render_mode=None, output_dir=tmp_path)
+    assert len(closed_envs) == 1 and closed_envs[0] is not None
 
 
 def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_path):
