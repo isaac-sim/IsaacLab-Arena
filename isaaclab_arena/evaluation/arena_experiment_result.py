@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
-from isaaclab_arena.evaluation.git_stamp import GitStamp
+from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
     parse_episode_results_filename,

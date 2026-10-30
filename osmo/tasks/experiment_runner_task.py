@@ -16,8 +16,8 @@ from typing import Any
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import build_arena_run_result_metadata
 from isaaclab_arena.evaluation.arena_run import RunStatus
-from isaaclab_arena.evaluation.git_stamp import ARENA_GIT_BRANCH_ENV_VAR, ARENA_GIT_SHA_ENV_VAR, UNKNOWN_GIT_STAMP_VALUE
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
+from isaaclab_arena.utils.git_stamp import ARENA_GIT_BRANCH_ENV_VAR, ARENA_GIT_SHA_ENV_VAR, UNKNOWN_GIT_STAMP_VALUE
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
