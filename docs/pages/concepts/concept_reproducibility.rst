@@ -1,10 +1,11 @@
 Reproducibility
 ===============
 
-Arena uses two seeds so that you can run the same Experiment again and get the same
-setup in every episode: the same variation values and, if you ask for it, the same
-object layouts. This page shows what stays the same from one run to the next, how to
-control it, and when the physics simulation can still play out differently.
+Arena uses two seeds, ``seed`` and ``placement_seed``, so that you can run the same
+Experiment again and get the same setup in every episode. ``seed`` keeps the variation
+values the same, and ``placement_seed`` keeps the object layouts the same. This page shows
+what stays the same from one run to the next, how to control it, and when the physics
+simulation can still play out differently.
 
 At a glance
 -----------
@@ -32,7 +33,7 @@ At a glance
      - Only when the whole run repeats
      - See :ref:`reproducibility-physics`
 
-Both seeds belong to ``environment_builder`` in an
+``seed`` and ``placement_seed`` both belong to ``environment_builder`` in an
 :doc:`Experiment Definition <concept_arena_experiments>`. Set them under ``shared`` for
 every Run, or in a single Run. Scripts that build one environment directly, such as
 ``environment_runner.py``, take them as ``--seed`` and ``--placement_seed``.
@@ -64,7 +65,7 @@ match each other again.
      environment_builder:
        seed: 7
 
-To try a seed without editing the file, override it on the command line:
+To try another ``seed`` without editing the file, override it on the command line:
 
 .. code-block:: bash
 
@@ -75,9 +76,10 @@ To try a seed without editing the file, override it on the command line:
 Several rebuilds
 ~~~~~~~~~~~~~~~~
 
-Each rebuild of a Run uses the next seed. With the default seed and ``num_rebuilds: 3``,
-the rebuilds use seeds 42, 43, and 44, so each rebuild draws its own background image.
-Running the Experiment again gives the same three backgrounds in the same order.
+Each rebuild of a Run adds one to ``seed``. With the default ``seed`` of 42 and
+``num_rebuilds: 3``, the rebuilds use 42, 43, and 44, so each rebuild draws its own
+background image. ``placement_seed`` stays the same for every rebuild. Running the
+Experiment again gives the same three backgrounds in the same order.
 
 For example, in a Run of the ``pick_and_place_maple_table`` environment:
 
@@ -100,9 +102,9 @@ run with a different ``num_envs``, record them and replay them, as described in
 Physics
 -------
 
-The seeds decide how each episode is set up. From there, the physics simulation decides
-how objects fall, slide, and collide. The physics is reproducible too, but only when the
-whole run repeats from the start.
+``seed`` and ``placement_seed`` decide how each episode is set up. From there, the
+physics simulation decides how objects fall, slide, and collide. The physics is
+reproducible too, but only when the whole run repeats from the start.
 
 **Physics repeats when you run the same Experiment again** with the same settings,
 including ``num_envs``, on the same machine. Every episode in every environment then
