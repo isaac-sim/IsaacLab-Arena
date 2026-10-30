@@ -105,9 +105,10 @@ Physics
 physics simulation decides how objects fall, slide, and collide. The physics is
 reproducible too, but only when the whole run repeats from the start.
 
-**Physics repeats when you run the same Experiment again** with the same settings,
-including ``num_envs``, on the same machine. Every episode in every environment then
-plays out exactly as before, as long as the policy sends the same actions.
+**Physics repeats when you run the same Experiment again** with ``placement_seed`` set
+and the same settings, including ``num_envs``, on the same machine. Every episode in
+every environment then plays out exactly as before, as long as the policy sends the same
+actions.
 
 Three things can still make a rerun differ:
 
