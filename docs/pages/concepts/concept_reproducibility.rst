@@ -94,9 +94,10 @@ Different number of parallel environments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Keep ``num_envs`` the same between runs that you want to compare, because object
-layouts and physics can change with it. To repeat the exact conditions of an earlier
-run with a different ``num_envs``, record them and replay them, as described in
-:doc:`experiment_record_replay`.
+layouts and physics can change with it. To reuse recorded variation values and object
+layouts with a different ``num_envs``, record them and replay them, as described in
+:doc:`experiment_record_replay`. Other random reset events, such as the robots' joint
+offsets, are not recorded, so the robot's start and the physics can still differ.
 
 .. _reproducibility-physics:
 
