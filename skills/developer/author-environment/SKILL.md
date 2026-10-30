@@ -44,6 +44,45 @@ approximation, and authored rigid-body properties such as mass and density. Use 
 confirm a candidate rather than inferring physics from prim names alone. Mass and inertia are
 authored USD values; they do not include values computed later by PhysX or Newton.
 
+### Render and preview through the persistent backend
+
+For viewport snapshots or a bounded scene preview, start one persistent backend in a dedicated
+terminal and leave it running:
+
+```bash
+uv run --no-sync python \
+  isaaclab_arena_examples/agentic_environment_generation/scene_inspector_backend.py
+```
+
+The rendering commands connect to that live backend; they do not boot or stop SimulationApp per
+request. Check readiness, render, and stop it explicitly:
+
+```bash
+INSPECTOR=isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py
+
+uv run --no-sync python $INSPECTOR status
+uv run --no-sync python $INSPECTOR snapshot \
+  --env-spec <scene.yaml> --output /tmp/scene_snapshots
+uv run --no-sync python $INSPECTOR snapshot \
+  --env-spec <scene.yaml> --output /tmp/scene_panorama --background-panorama
+uv run --no-sync python $INSPECTOR preview \
+  --env-spec <scene.yaml> --output /tmp/scene_preview.mp4 \
+  --num-envs 1 --num-steps 10
+uv run --no-sync python $INSPECTOR preview \
+  --env-spec <scene.yaml> --output /tmp/scene_placement_overlay.mp4 \
+  --num-envs 1 --num-steps 10 --show-placement-overlay
+uv run --no-sync python $INSPECTOR shutdown
+```
+
+Each `snapshot` request bypasses the review GUI's thumbnail cache and overwrites its output PNGs
+with fresh renders. Snapshots include one image per resolvable asset. Each `object_reference` image
+selects its USD subtree and enables collider visualization, which is useful for checking support
+and interaction geometry. The review GUI continues to reuse cached thumbnails by default.
+`preview` runs the graph's relation solver, builds the scene, takes bounded zero-action steps, and
+records the configured viewport. Add `--show-placement-overlay` to draw the placement solver's
+object AABBs and mesh collision geometry in the video. Use `prim-tree` without the backend for static USD inspection;
+`snapshot`, `preview`, `status`, and `shutdown` require the live backend.
+
 ## Assemble from maintained sources
 
 Read only the references relevant to the requested behavior:

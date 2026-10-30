@@ -32,6 +32,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ax
     local_xyz_axis_segments,
     overlay_rgb_segments_on_png,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.camera_framing import fit_camera_to_bounds
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     PRE_CAPTURE_UPDATES,
     capture_viewport_png,
@@ -39,6 +40,9 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
     set_viewport_camera_eye_lookat,
     thumbnail_cache_dir,
     wait_for_stage_load,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.object_reference_paths import (
+    object_reference_relative_prim_path,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
     object_set_member_key,
@@ -72,8 +76,12 @@ def render_thumbnails_with_app(
     spec: ArenaEnvGraphSpec,
     *,
     background_panorama: bool = False,
+    ignore_cache: bool = False,
 ) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
-    """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
+    """Render node thumbnails and return PNG paths plus AABB sizes in meters.
+
+    Cached PNGs are reused unless ``ignore_cache`` is true.
+    """
     assets_by_node_id = instantiate_assets_from_spec(spec, AssetRegistry())
     # Exclude embodiment from thumbnail rendering.
     assets_by_node_id.pop(spec.embodiment.id)
@@ -95,7 +103,7 @@ def render_thumbnails_with_app(
         use_panorama = background_panorama and node_id == spec.background.id
         if use_panorama:
             cache_path = cache_dir / f"{usd_cache_key(usd_path)}_panorama.png"
-            if cache_path.exists() and cache_path.stat().st_size > 0:
+            if not ignore_cache and cache_path.exists() and cache_path.stat().st_size > 0:
                 thumbnail_paths[node_id] = cache_path
             else:
                 job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
@@ -104,7 +112,7 @@ def render_thumbnails_with_app(
             continue
 
         cache_path = cache_dir / f"{usd_cache_key(usd_path)}.png"
-        if cache_path.exists() and cache_path.stat().st_size > 0:
+        if not ignore_cache and cache_path.exists() and cache_path.stat().st_size > 0:
             thumbnail_paths[node_id] = cache_path
         else:
             job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
@@ -119,9 +127,9 @@ def render_thumbnails_with_app(
         usd_path = asset_paths.get(ref.parent_id)
         if not usd_path:
             continue
-        relative_prim_path = ref.prim_path.lstrip("/")
+        relative_prim_path = object_reference_relative_prim_path(ref, assets_by_node_id)
         cache_path = cache_dir / f"{object_reference_cache_key(usd_path, relative_prim_path)}.png"
-        if cache_path.exists() and cache_path.stat().st_size > 0:
+        if not ignore_cache and cache_path.exists() and cache_path.stat().st_size > 0:
             thumbnail_paths[ref.id] = cache_path
         else:
             job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
@@ -218,25 +226,16 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
                 out[node_id] = png_bytes
 
     if job.ref_captures:
-        # Seed the camera with the background viewer_cfg orientation before framing.
-        # frame_viewport_prims preserves the incoming view direction.
-        if job.viewer_cfg is not None:
-            _apply_viewer_cfg(app, job.viewer_cfg)
         _set_collision_mesh_visualization(enabled=True)
         try:
             for node_id, relative_prim_path, cache_path in job.ref_captures:
                 root_path = absolute_prim_path(stage, relative_prim_path)
+                root_prim = stage.GetPrimAtPath(root_path)
                 # Selecting the subtree root is enough; Kit shows colliders for all prims below it.
                 omni.usd.get_context().get_selection().set_selected_prim_paths([root_path], True)
                 pump_app(app, count=PRE_CAPTURE_UPDATES)
-                viewport = get_active_viewport()
-                framed = frame_viewport_prims(viewport, prims=[root_path])
-                if not framed:
-                    print(
-                        f"[thumbnail_capture]   warning: frame_viewport_prims failed for {root_path}",
-                        file=sys.stderr,
-                    )
-                png_bytes = _capture_with_origin_axes(app, stage.GetPrimAtPath(root_path), cache_path)
+                _frame_object_reference(app, root_prim, job.viewer_cfg)
+                png_bytes = _capture_with_origin_axes(app, root_prim, cache_path)
                 if png_bytes:
                     out[node_id] = png_bytes
                 else:
@@ -281,6 +280,32 @@ def _capture_stage_snapshot(
             )
 
     return _capture_with_origin_axes(app, axis_prim, cache_path)
+
+
+def _frame_object_reference(app, prim, viewer_cfg) -> None:
+    """Tightly frame an object-reference prim while preserving the configured view direction."""
+    bbox = _world_aligned_box(prim)
+    if bbox is None or bbox.IsEmpty():
+        framed = frame_viewport_prims(get_active_viewport(), prims=[str(prim.GetPath())])
+        if not framed:
+            print(
+                f"[thumbnail_capture]   warning: frame_viewport_prims failed for {prim.GetPath()}",
+                file=sys.stderr,
+            )
+        return
+
+    if viewer_cfg is not None:
+        view_direction = tuple(float(eye - target) for eye, target in zip(viewer_cfg.eye, viewer_cfg.lookat))
+    else:
+        view_direction = (1.0, -1.0, 0.75)
+    minimum, maximum = bbox.GetMin(), bbox.GetMax()
+    eye, target = fit_camera_to_bounds(
+        tuple(float(value) for value in minimum),
+        tuple(float(value) for value in maximum),
+        view_direction,
+    )
+    set_viewport_camera_eye_lookat(get_active_viewport(), eye, target)
+    pump_app(app, count=PRE_CAPTURE_UPDATES)
 
 
 def _capture_with_origin_axes(app, prim, cache_path: Path) -> bytes | None:
