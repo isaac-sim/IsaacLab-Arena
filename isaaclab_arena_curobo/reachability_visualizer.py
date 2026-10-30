@@ -17,8 +17,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.validation.placement_visualizer import ROBOT_ENTITY, PlacementRerunVisualizer
 
 if TYPE_CHECKING:
-    import trimesh
-
     import rerun as rr
 
     from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
@@ -53,13 +51,10 @@ BACKGROUND_ENTITY = "world/background"
 LOADED_BACKGROUND_ENTITY = f"{ROBOT_ENTITY}/background_obstacles"
 """Entity path of the background cuboids loaded for one layout; under the robot so a skipped layout clears them."""
 
-BACKGROUND_MESH_COLOR = (170, 170, 170, 90)
-"""Color of the background mesh the cuboids cover."""
-
 BACKGROUND_CUBOID_COLOR = (120, 120, 130)
 """Color of the full cuboid cover of the background, drawn as wireframe."""
 
-LOADED_BACKGROUND_COLOR = (230, 140, 40, 80)
+LOADED_BACKGROUND_COLOR = (230, 140, 40)
 """Color of the background cuboids loaded as obstacles for the layout's solves."""
 
 
@@ -112,7 +107,9 @@ class ReachabilityRerunLayer:
         if background_cuboids:
             rr.log(
                 LOADED_BACKGROUND_ENTITY,
-                self._cuboids_to_boxes(background_cuboids, LOADED_BACKGROUND_COLOR, rr.components.FillMode.Solid),
+                self._cuboids_to_boxes(
+                    background_cuboids, LOADED_BACKGROUND_COLOR, rr.components.FillMode.MajorWireframe
+                ),
             )
         # Grasps are solved in the robot base frame, so they are logged as children of the base
         # transform and Rerun composes them back into the world frame.
@@ -180,25 +177,14 @@ class ReachabilityRerunLayer:
         )
 
     @staticmethod
-    def log_background(meshes: list[trimesh.Trimesh], cuboids: list[AABBCollisionCuboid]) -> None:
-        """Draw the fixed background and the cuboids covering it, once for every layout.
+    def log_background(cuboids: list[AABBCollisionCuboid]) -> None:
+        """Draw the cuboids covering the fixed background, once for every layout.
 
         Args:
-            meshes: The background meshes in the world frame.
-            cuboids: The world-axis-aligned cuboids the meshes are covered with.
+            cuboids: The world-axis-aligned cuboids the background meshes are covered with.
         """
         import rerun as rr
 
-        for index, mesh in enumerate(meshes):
-            rr.log(
-                f"{BACKGROUND_ENTITY}/mesh_{index}",
-                rr.Mesh3D(
-                    vertex_positions=mesh.vertices,
-                    triangle_indices=mesh.faces,
-                    albedo_factor=BACKGROUND_MESH_COLOR,
-                ),
-                static=True,
-            )
         if cuboids:
             rr.log(
                 f"{BACKGROUND_ENTITY}/cuboids",

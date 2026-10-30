@@ -35,10 +35,10 @@ class ReachabilityConfig:
     require_collision_free: bool = True
     """If True, it's also collision-free with the robot itself."""
 
-    include_background_obstacles: bool = False
+    include_background_obstacles: bool = True
     """If True, the IK collision world also holds the fixed background mesh (e.g. kitchen cabinets and walls),
     covered by world-axis-aligned cuboids on a voxel grid. Each layout loads only the cuboids within
-    ``background_obstacle_radius_m`` of its robot base."""
+    ``background_obstacle_radius_m`` of its robot base. Scenes without a background mesh load none."""
 
     background_voxel_size_m: float = 0.05
     """Voxel edge length (m) the background mesh is covered at; coarser means fewer cuboids and more inflation."""
