@@ -163,6 +163,7 @@ def _preview_scene(args: argparse.Namespace) -> int:
             num_envs=args.num_envs,
             num_steps=args.num_steps,
             env_spacing=args.env_spacing,
+            show_placement_overlay=args.show_placement_overlay,
         )
 
     source_path = Path(response["video_path"])
@@ -182,6 +183,7 @@ def _preview_scene(args: argparse.Namespace) -> int:
         "num_envs": response.get("num_envs", args.num_envs),
         "num_steps": response.get("num_steps", args.num_steps),
         "env_spacing": response.get("env_spacing", args.env_spacing),
+        "show_placement_overlay": response.get("show_placement_overlay", args.show_placement_overlay),
         "timings_s": {"total": time.monotonic() - started_at},
     })
     return 0
@@ -226,6 +228,11 @@ def _parser() -> argparse.ArgumentParser:
     preview.add_argument("--num-envs", type=int, default=1)
     preview.add_argument("--num-steps", type=int, default=10)
     preview.add_argument("--env-spacing", type=float, default=30.0)
+    preview.add_argument(
+        "--show-placement-overlay",
+        action="store_true",
+        help="Overlay relation-solver placement AABBs and mesh collision geometry.",
+    )
     preview.set_defaults(handler=_preview_scene)
     return parser
 

@@ -17,6 +17,7 @@ from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
+    from isaaclab_arena.relations.collision_mode import CollisionMode
     from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
@@ -329,6 +330,16 @@ class PooledObjectPlacer:
     def objects(self) -> list[PlaceableAsset]:
         """All objects (including anchors) participating in relation solving."""
         return self._objects
+
+    @property
+    def collision_objects(self) -> list[CollisionObject]:
+        """Fixed background obstacles used during placement."""
+        return list(self._collision_objects)
+
+    @property
+    def default_collision_mode(self) -> CollisionMode:
+        """Solver default used when an asset does not specify a collision mode."""
+        return self._placer.params.solver_params.collision_mode
 
     def layouts_per_env(self) -> list[list[PlacementResult]]:
         """Flattened list of every stored layout, grouped by env pool index."""

@@ -125,13 +125,15 @@ def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsy
     source_path.write_bytes(b"video")
 
     class _Client:
-        def run_sim_preview(self, yaml_text, *, num_envs, num_steps, env_spacing):
+        def run_sim_preview(self, yaml_text, *, num_envs, num_steps, env_spacing, show_placement_overlay):
             assert yaml_text == "expanded"
+            assert show_placement_overlay
             return {
                 "video_path": str(source_path),
                 "num_envs": num_envs,
                 "num_steps": num_steps,
                 "env_spacing": env_spacing,
+                "show_placement_overlay": show_placement_overlay,
             }
 
     @contextlib.contextmanager
@@ -148,6 +150,7 @@ def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsy
         num_envs=2,
         num_steps=3,
         env_spacing=4.0,
+        show_placement_overlay=True,
     )
 
     assert scene_inspector._preview_scene(args) == 0
@@ -157,6 +160,7 @@ def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsy
     response = json.loads(capsys.readouterr().out)
     assert response["status"] == "completed"
     assert response["num_envs"] == 2
+    assert response["show_placement_overlay"] is True
 
 
 @pytest.mark.parametrize("requested_ignore_cache", [False, True])

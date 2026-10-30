@@ -89,6 +89,7 @@ def run_sim_preview(
     num_envs: int,
     num_steps: int,
     env_spacing: float,
+    show_placement_overlay: bool = False,
 ) -> dict[str, Any]:
     """Run relation-solver preview and record the task-configured viewport."""
     import gymnasium as gym
@@ -125,6 +126,7 @@ def run_sim_preview(
 
     pool_layouts = builder_cfg.num_envs * _PREVIEW_LAYOUTS_PER_ENV
     env = None
+    placement_overlay = None
     completed = False
     try:
         _preview_log(
@@ -149,10 +151,24 @@ def run_sim_preview(
         _preview_log(started_at, f"sim scene ready ({time.monotonic() - t_spawn:.1f}s)")
 
         obs, _ = env.reset()
+        if show_placement_overlay:
+            from isaaclab_arena.visualization.placement_geometry_draw import PlacementGeometryDraw
+
+            placement_overlay = PlacementGeometryDraw.from_env(env)
+            if placement_overlay is None:
+                _preview_log(started_at, "placement overlay requested, but the environment has no placement pool")
+            else:
+                placement_overlay.print_legend()
+                placement_overlay.redraw(env)
         for _ in range(num_steps):
+            if placement_overlay is not None:
+                placement_overlay.redraw(env)
             action = policy.get_action(env, obs)
             obs, _, _, _, _ = env.step(action)
 
+        if placement_overlay is not None:
+            placement_overlay.close()
+            placement_overlay = None
         env.close()
         env = None
         video_paths = sorted(video_dir.rglob("*.mp4"))
@@ -173,8 +189,12 @@ def run_sim_preview(
             "num_envs": num_envs,
             "env_spacing": env_spacing,
             "num_steps": num_steps,
+            "show_placement_overlay": show_placement_overlay,
         }
     finally:
+        if placement_overlay is not None:
+            with suppress(Exception):
+                placement_overlay.close()
         _close_env_and_reset_sim(env, app=app, suppress_exceptions=True)
         if not completed:
             shutil.rmtree(video_dir, ignore_errors=True)

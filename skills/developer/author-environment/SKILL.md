@@ -68,6 +68,9 @@ uv run --no-sync python $INSPECTOR snapshot \
 uv run --no-sync python $INSPECTOR preview \
   --env-spec <scene.yaml> --output /tmp/scene_preview.mp4 \
   --num-envs 1 --num-steps 10
+uv run --no-sync python $INSPECTOR preview \
+  --env-spec <scene.yaml> --output /tmp/scene_placement_overlay.mp4 \
+  --num-envs 1 --num-steps 10 --show-placement-overlay
 uv run --no-sync python $INSPECTOR shutdown
 ```
 
@@ -76,7 +79,8 @@ with fresh renders. Snapshots include one image per resolvable asset. Each `obje
 selects its USD subtree and enables collider visualization, which is useful for checking support
 and interaction geometry. The review GUI continues to reuse cached thumbnails by default.
 `preview` runs the graph's relation solver, builds the scene, takes bounded zero-action steps, and
-records the configured viewport. Use `prim-tree` without the backend for static USD inspection;
+records the configured viewport. Add `--show-placement-overlay` to draw the placement solver's
+object AABBs and mesh collision geometry in the video. Use `prim-tree` without the backend for static USD inspection;
 `snapshot`, `preview`, `status`, and `shutdown` require the live backend.
 
 ## Assemble from maintained sources
