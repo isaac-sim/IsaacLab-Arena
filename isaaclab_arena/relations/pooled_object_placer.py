@@ -91,7 +91,7 @@ class PooledObjectPlacer:
         self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
         self._pool_size = pool_size
         self._had_fallbacks = False
-        self._last_fill_diagnostics = PlacementDiagnostics()
+        self._last_fill_diagnostics = PlacementDiagnostics(self._num_envs)
         self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks
         self._base_placement_seed = placer_params.placement_seed
         self._next_seed_offset = 0
@@ -138,7 +138,7 @@ class PooledObjectPlacer:
         Bounded by max_placement_attempts; raises if the target cannot be met.
         """
         self._discard_consumed_layouts()
-        self._last_fill_diagnostics = PlacementDiagnostics()
+        self._last_fill_diagnostics = PlacementDiagnostics(self._num_envs)
         target_num_layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         max_solve_batches = max(1, self._placer.params.max_placement_attempts)
 

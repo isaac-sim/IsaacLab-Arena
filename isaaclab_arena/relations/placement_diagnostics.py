@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -56,6 +58,9 @@ class PlacementDiagnostics:
     """How one fill of a placement pool went: every batch it validated, in order, and the environments it filled
     with best-loss layouts because none of their candidates was valid."""
 
+    num_envs: int
+    """Number of environments the pool fills."""
+
     batches: list[BatchValidationDiagnostics] = field(default_factory=list)
     """Validated batches, in solve order. A batch after the first runs only while some environment lacks
     layouts."""
@@ -74,3 +79,17 @@ class PlacementDiagnostics:
         if self.fallback_envs:
             lines.append(f"best-loss fallback for envs: {self.fallback_envs}")
         return "\n".join(lines)
+
+    def save(self, path: str | Path) -> None:
+        """Write the diagnostics to a JSON file, replacing any existing file."""
+        Path(path).write_text(json.dumps(asdict(self), indent=2) + "\n", encoding="utf-8")
+
+    @classmethod
+    def load(cls, path: str | Path) -> PlacementDiagnostics:
+        """Return the diagnostics that save() wrote to path."""
+        content = json.loads(Path(path).read_text(encoding="utf-8"))
+        batches = []
+        for batch in content["batches"]:
+            checks = {check: ValidationCheckDiagnostics(**counts) for check, counts in batch["checks"].items()}
+            batches.append(BatchValidationDiagnostics(batch["num_candidates"], batch["num_valid"], checks))
+        return cls(content["num_envs"], batches, content["fallback_envs"])

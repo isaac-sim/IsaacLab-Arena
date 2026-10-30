@@ -1,0 +1,211 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Placement success benchmark: one Run per RoboLab task spec in isaaclab_arena_environments/robolab/tasks/.
+# Each Run builds its spec for 30 environments, which fills the placement pool, then takes one zero-action step.
+# The Run writes the build's placement diagnostics to placement_diagnostics_rebuild0.json in its output directory.
+shared:
+  environment_builder:
+    num_envs: 30
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 1
+
+# Each Run has its own placement seed, 100000 apart, so Runs that share a scene solve different candidates.
+# With the default placer parameters, a build uses at most
+# num_envs * min_unique_layouts_per_env * max_placement_attempts**2 = 15000 consecutive seeds.
+# All rebuilds of a Run get its seed, so a second rebuild would solve the same candidates.
+runs:
+  apple_and_yogurt_in_bowl:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/apple_and_yogurt_in_bowl.yaml
+    environment_builder:
+      placement_seed: 0
+  bagels_on_plate:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bagels_on_plate.yaml
+    environment_builder:
+      placement_seed: 100000
+  banana_in_bowl:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
+    environment_builder:
+      placement_seed: 200000
+  banana_on_plate:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
+    environment_builder:
+      placement_seed: 300000
+  banana_then_rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_then_rubiks_cube.yaml
+    environment_builder:
+      placement_seed: 400000
+  bbq_sauce_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bbq_sauce_in_bin.yaml
+    environment_builder:
+      placement_seed: 500000
+  big_pumpkin_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/big_pumpkin_in_bin.yaml
+    environment_builder:
+      placement_seed: 600000
+  black_items_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/black_items_in_bin.yaml
+    environment_builder:
+      placement_seed: 700000
+  bowl_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bowl_in_bin.yaml
+    environment_builder:
+      placement_seed: 800000
+  butter_above_raisin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/butter_above_raisin.yaml
+    environment_builder:
+      placement_seed: 900000
+  canned_food_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/canned_food_in_bin.yaml
+    environment_builder:
+      placement_seed: 1000000
+  clamp_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+    environment_builder:
+      placement_seed: 1100000
+  clear_organic_objects:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clear_organic_objects.yaml
+    environment_builder:
+      placement_seed: 1200000
+  clutter_plastic:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clutter_plastic.yaml
+    environment_builder:
+      placement_seed: 1300000
+  clutter_pumpkin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clutter_pumpkin.yaml
+    environment_builder:
+      placement_seed: 1400000
+  coffee_pot_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/coffee_pot_in_bin.yaml
+    environment_builder:
+      placement_seed: 1500000
+  condiments_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/condiments_in_bin.yaml
+    environment_builder:
+      placement_seed: 1600000
+  electronics_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/electronics_in_bin.yaml
+    environment_builder:
+      placement_seed: 1700000
+  food_packing_1_boxes:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/food_packing_1_boxes.yaml
+    environment_builder:
+      placement_seed: 1800000
+  food_packing_1_cans:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/food_packing_1_cans.yaml
+    environment_builder:
+      placement_seed: 1900000
+  hammers_in_left_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/hammers_in_left_bin.yaml
+    environment_builder:
+      placement_seed: 2000000
+  larger_object_raisin_box_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
+    environment_builder:
+      placement_seed: 2100000
+  marker_in_mug:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/marker_in_mug.yaml
+    environment_builder:
+      placement_seed: 2200000
+  mouse_on_keyboard:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mouse_on_keyboard.yaml
+    environment_builder:
+      placement_seed: 2300000
+  mustard_above_raisin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
+    environment_builder:
+      placement_seed: 2400000
+  mustard_in_left_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mustard_in_left_bin.yaml
+    environment_builder:
+      placement_seed: 2500000
+  mustard_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mustard_in_right_bin.yaml
+    environment_builder:
+      placement_seed: 2600000
+  non_hammer_tools_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/non_hammer_tools_in_right_bin.yaml
+    environment_builder:
+      placement_seed: 2700000
+  rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/rubiks_cube.yaml
+    environment_builder:
+      placement_seed: 2800000
+  rubiks_cube_and_banana:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/rubiks_cube_and_banana.yaml
+    environment_builder:
+      placement_seed: 2900000
+  rubiks_cube_then_banana:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/rubiks_cube_then_banana.yaml
+    environment_builder:
+      placement_seed: 3000000
+  sauce_bottles_crate:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/sauce_bottles_crate.yaml
+    environment_builder:
+      placement_seed: 3100000
+  small_pumpkin_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/small_pumpkin_in_bin.yaml
+    environment_builder:
+      placement_seed: 3200000
+  smaller_object_butter_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/smaller_object_butter_in_bin.yaml
+    environment_builder:
+      placement_seed: 3300000
+  smartphone_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml
+    environment_builder:
+      placement_seed: 3400000
+  throw_away_apple:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/throw_away_apple.yaml
+    environment_builder:
+      placement_seed: 3500000
+  throw_away_snacks:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/throw_away_snacks.yaml
+    environment_builder:
+      placement_seed: 3600000
+  toy_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/toy_in_bin.yaml
+    environment_builder:
+      placement_seed: 3700000
