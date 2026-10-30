@@ -18,6 +18,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
+from isaaclab_arena.evaluation.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport
 from osmo.scripts.build_experiment_output import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
@@ -28,6 +29,8 @@ from osmo.scripts.build_experiment_output import (
 )
 
 END_TIMESTAMP_NS = 1792800000000000000
+GIT_SHA = "0123456789abcdef0123456789abcdef01234567"
+GIT_BRANCH = "feature/provenance"
 
 
 def _run_metadata(environment_name: str, policy_variant: str) -> dict[str, object]:
@@ -88,6 +91,8 @@ def _write_experiment_runner_result(
     process_exit_code: int,
     run_metadata_by_name: dict[str, dict[str, object]],
     end_timestamp_ns: int = END_TIMESTAMP_NS,
+    git_sha: str = GIT_SHA,
+    git_branch: str = GIT_BRANCH,
 ) -> None:
     experiment_runner_output_directory.mkdir(parents=True, exist_ok=True)
     (experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME).write_text(
@@ -95,6 +100,8 @@ def _write_experiment_runner_result(
             "execution_status": execution_status.value,
             "process_exit_code": process_exit_code,
             "end_timestamp_ns": end_timestamp_ns,
+            "git_sha": git_sha,
+            "git_branch": git_branch,
             "runs": run_metadata_by_name,
         })
         + "\n",
@@ -127,7 +134,7 @@ def test_loads_experiment_runner_result(tmp_path):
         {"first": expected_run_metadata},
     )
 
-    experiment_runner_result, run_metadata = load_experiment_runner_result(
+    experiment_runner_result, run_metadata, git_stamp = load_experiment_runner_result(
         experiment_runner_output_directory,
         "first",
     )
@@ -138,6 +145,7 @@ def test_loads_experiment_runner_result(tmp_path):
         process_exit_code=0,
     )
     assert run_metadata == {**expected_run_metadata, "end_timestamp_ns": END_TIMESTAMP_NS}
+    assert git_stamp == GitStamp(git_sha=GIT_SHA, git_branch=GIT_BRANCH)
 
 
 def test_rejects_inconsistent_experiment_runner_result(tmp_path):
@@ -196,7 +204,7 @@ def test_collects_run_outputs_without_building_report(tmp_path):
     )
     experiment_output_directory = tmp_path / "experiment-output"
 
-    run_execution_reports, run_metadata_by_name = collect_run_outputs_into_experiment_output(
+    run_execution_reports, run_metadata_by_name, git_stamp = collect_run_outputs_into_experiment_output(
         {"first": experiment_runner_output_directory},
         experiment_output_directory,
     )
@@ -211,6 +219,7 @@ def test_collects_run_outputs_without_building_report(tmp_path):
             "status": RunStatus.COMPLETED.value,
         }
     }
+    assert git_stamp == GitStamp(git_sha=GIT_SHA, git_branch=GIT_BRANCH)
     assert (experiment_output_directory / "first/episode_results_rebuild0.jsonl").is_file()
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
     collected_run_timings = json.loads(
@@ -245,6 +254,30 @@ def test_rejects_completed_experiment_runner_output_without_timings(tmp_path):
     assert str(run_timings_path) in str(error.value)
 
 
+def test_rejects_runs_executed_at_different_commits(tmp_path):
+    first_runner_output_directory = tmp_path / "first-runner-output"
+    second_runner_output_directory = tmp_path / "second-runner-output"
+    _write_experiment_runner_result(
+        first_runner_output_directory,
+        RunStatus.FAILED,
+        1,
+        {"first": _run_metadata("first-environment", "pi05")},
+    )
+    _write_experiment_runner_result(
+        second_runner_output_directory,
+        RunStatus.FAILED,
+        1,
+        {"second": _run_metadata("second-environment", "cosmos")},
+        git_sha="f" * 40,
+    )
+
+    with pytest.raises(AssertionError, match="must be executed at the same Arena commit"):
+        build_experiment_output(
+            {"first": first_runner_output_directory, "second": second_runner_output_directory},
+            tmp_path / "experiment-output",
+        )
+
+
 def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_path):
     first_experiment_runner_output_directory = tmp_path / "experiment-runner-0-output"
     second_experiment_runner_output_directory = tmp_path / "experiment-runner-1-output"
@@ -273,6 +306,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
         RunStatus.COMPLETED,
         0,
         {"second": _run_metadata("second-environment", "cosmos")},
+        end_timestamp_ns=END_TIMESTAMP_NS + 1,
     )
     experiment_output_directory = tmp_path / "experiment-output"
 
@@ -310,6 +344,8 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert first_run_result["end_timestamp_ns"] == END_TIMESTAMP_NS
     assert set(first_run_result) == {"environment", "policy_variant", "status", "end_timestamp_ns", "rebuilds"}
     assert experiment_result["runs"]["second"]["policy_variant"] == "cosmos"
+    assert experiment_result["runs"]["second"]["end_timestamp_ns"] == END_TIMESTAMP_NS + 1
+    assert experiment_result["git_stamp"] == {"git_sha": GIT_SHA, "git_branch": GIT_BRANCH}
     for run_output_directory in (first_run_output_directory, second_run_output_directory):
         collected_run_timings = json.loads(
             (experiment_output_directory / run_output_directory.name / ARENA_SINGLE_RUN_TIMINGS_FILENAME).read_text(
@@ -384,6 +420,8 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
         "execution_status": RunStatus.FAILED.value,
         "process_exit_code": 17,
         "end_timestamp_ns": END_TIMESTAMP_NS,
+        "git_sha": GIT_SHA,
+        "git_branch": GIT_BRANCH,
         "runs": {"failed-run": failed_run_metadata},
     }
     experiment_result = json.loads(

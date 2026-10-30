@@ -15,10 +15,10 @@ UNKNOWN_GIT_STAMP_VALUE = "unknown"
 """Value recorded when the git commit or branch is not known."""
 
 ARENA_GIT_SHA_ENV_VAR = "ARENA_GIT_SHA"
-"""Environment variable holding the Arena git commit SHA; the Arena Docker image sets it."""
+"""Environment variable holding the Arena git commit SHA."""
 
 ARENA_GIT_BRANCH_ENV_VAR = "ARENA_GIT_BRANCH"
-"""Environment variable holding the Arena git branch name; the Arena Docker image sets it."""
+"""Environment variable holding the Arena git branch name."""
 
 
 @dataclass(frozen=True)
@@ -26,21 +26,14 @@ class GitStamp:
     """Arena git commit and branch that produced an Experiment's results."""
 
     git_sha: str
-    """Git commit SHA, suffixed with ``-dirty`` for uncommitted changes, or ``"unknown"``."""
+    """Git commit SHA, or ``"unknown"``."""
 
     git_branch: str
     """Git branch name, or ``"unknown"``."""
 
-    def __post_init__(self) -> None:
-        for git_stamp_field in fields(self):
-            value = getattr(self, git_stamp_field.name)
-            assert (
-                isinstance(value, str) and value and "\n" not in value and "\r" not in value
-            ), f"git stamp {git_stamp_field.name} must be a non-empty single-line string, got {value!r}"
-
     @classmethod
     def from_environment(cls) -> GitStamp:
-        """Return the git stamp from ``ARENA_GIT_SHA`` and ``ARENA_GIT_BRANCH``, ``"unknown"`` when unset or empty."""
+        """Return the git stamp read from the environment."""
         return cls(
             git_sha=os.environ.get(ARENA_GIT_SHA_ENV_VAR) or UNKNOWN_GIT_STAMP_VALUE,
             git_branch=os.environ.get(ARENA_GIT_BRANCH_ENV_VAR) or UNKNOWN_GIT_STAMP_VALUE,

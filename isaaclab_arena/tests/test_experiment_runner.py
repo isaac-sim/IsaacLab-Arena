@@ -171,9 +171,9 @@ def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monke
     ]
     (tmp_path / "passing").mkdir()
 
-    result_path = _write_arena_experiment_result(experiment_cfg, run_results, tmp_path)
+    experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, tmp_path)
 
-    runs = json.loads(result_path.read_text(encoding="utf-8"))["runs"]
+    runs = experiment_result.to_dict()["runs"]
     assert runs["passing"]["end_timestamp_ns"] == 1792800000000000000
     assert runs["failing"]["end_timestamp_ns"] == 1760313700000000000
 

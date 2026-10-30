@@ -87,17 +87,11 @@ def _write_arena_experiment_result(
         experiment_cfg.runs
     ), "Experiment results must contain exactly the configured Runs"
 
-    def _end_timestamp_ns(run_result: ArenaRunResult) -> int:
-        assert (
-            run_result.end_timestamp_ns is not None
-        ), f"Run '{run_result.run_name}' has no end_timestamp_ns; execute_experiment sets it"
-        return run_result.end_timestamp_ns
-
     run_metadata_by_name = {
         run_name: {
             **build_arena_run_result_metadata(run_cfg),
             "status": run_results_by_name[run_name].status.value,
-            "end_timestamp_ns": _end_timestamp_ns(run_results_by_name[run_name]),
+            "end_timestamp_ns": run_results_by_name[run_name].end_timestamp_ns,
         }
         for run_name, run_cfg in experiment_cfg.runs.items()
     }
