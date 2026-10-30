@@ -146,7 +146,13 @@ def _handle_render_spec(
 
     try:
         background_panorama = bool(req.get("background_panorama", False))
-        paths, aabb_dimensions_m = render_fn(app, spec, background_panorama=background_panorama)
+        ignore_cache = bool(req.get("ignore_cache", False))
+        paths, aabb_dimensions_m = render_fn(
+            app,
+            spec,
+            background_panorama=background_panorama,
+            ignore_cache=ignore_cache,
+        )
     except Exception as exc:
         return {"ok": False, "error": f"render failed: {exc}", "traceback": traceback.format_exc()}
 

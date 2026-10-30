@@ -94,9 +94,10 @@ def run_sim_preview(
     import gymnasium as gym
     import yaml
 
+    from isaaclab.envs import VideoRecorderCfg
+
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
-    from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
     started_at = time.monotonic()
     _preview_log(started_at, "run_sim_preview started")
@@ -121,10 +122,6 @@ def run_sim_preview(
     cache_dir = sim_preview_cache_dir()
     stamp = int(time.time() * 1000)
     video_dir = cache_dir / f"{preview_name}_{stamp}"
-    video_cfg = VideoRecordingCfg(
-        record_viewport_video=True,
-        video_base_dir=str(video_dir),
-    )
 
     pool_layouts = builder_cfg.num_envs * _PREVIEW_LAYOUTS_PER_ENV
     env = None
@@ -136,14 +133,21 @@ def run_sim_preview(
         )
         t_relations = time.monotonic()
         env_cfg, env_kwargs = builder.build_env_cfg()
+        env_cfg.video_recorders = [
+            VideoRecorderCfg(
+                source="visualizer:kit",
+                output_dir=str(video_dir),
+                video_length=num_steps,
+                output_filename_prefix="viewport",
+            )
+        ]
         _preview_log(started_at, f"relation solver finished ({time.monotonic() - t_relations:.1f}s)")
 
         _preview_log(started_at, "spawning sim scene (gym.make)…")
         t_spawn = time.monotonic()
-        env = builder.make_registered(env_cfg, env_kwargs, render_mode=video_cfg.render_mode)
+        env = builder.make_registered(env_cfg, env_kwargs)
         _preview_log(started_at, f"sim scene ready ({time.monotonic() - t_spawn:.1f}s)")
 
-        env = wrap_env_for_video(env, video_cfg, num_steps=num_steps, num_episodes=None)
         obs, _ = env.reset()
         for _ in range(num_steps):
             action = policy.get_action(env, obs)

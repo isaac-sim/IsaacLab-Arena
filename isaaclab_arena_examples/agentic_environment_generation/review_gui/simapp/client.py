@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import yaml
@@ -26,6 +28,13 @@ SIMAPP_SOCKET_ENV = "ARENA_REVIEW_SIMAPP_SOCKET"
 
 class SimAppError(RuntimeError):
     """Raised when the SimApp server process can't fulfil a request."""
+
+
+def default_simapp_socket_path() -> Path:
+    """Return the checkout-specific socket path used by persistent inspector clients."""
+    repo_root = Path(__file__).resolve().parents[4]
+    checkout_id = hashlib.sha256(str(repo_root).encode()).hexdigest()[:12]
+    return Path(tempfile.gettempdir()) / f"arena_scene_inspector_{os.getuid()}_{checkout_id}.sock"
 
 
 class SimAppClient:
@@ -75,6 +84,7 @@ class SimAppClient:
         spec: ArenaEnvGraphSpec,
         *,
         background_panorama: bool = False,
+        ignore_cache: bool = False,
     ) -> tuple[dict[str, bytes], dict[str, tuple[float, float, float]]]:
         """Ask the SimApp server to render thumbnails for ``spec``."""
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
@@ -83,6 +93,7 @@ class SimAppClient:
                 "cmd": "render_spec",
                 "yaml_text": yaml_text,
                 "background_panorama": background_panorama,
+                "ignore_cache": ignore_cache,
             })
 
         if not response.get("ok"):
