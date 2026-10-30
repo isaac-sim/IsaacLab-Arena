@@ -283,7 +283,7 @@ A sequential batch of Runs, i.e. different tasks, objects, embodiments or polici
 It minimizes the overhead of reloading system modules and environment classes for each Run while keeping the simulation application alive.
 The batch is defined in an Experiment YAML file. The example below evaluates the policy on an unseen jug and on the ranch dressing bottle.
 
-.. dropdown:: Experiment file (``gr1_sequential_static_manip_gr00t_experiment.yaml``):
+.. dropdown:: Configuration file (``gr1_sequential_static_manip_gr00t_experiment.yaml``):
    :animate: fade-in
 
    .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
@@ -298,36 +298,36 @@ Run the batch evaluation:
      --experiment_config isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
-You should see the following output on the console indicating the jobs and metrics.
+You should see the following output on the console indicating the Runs and metrics.
 
 .. code-block:: text
 
-   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
-   | Job Name                                                | Status     | Policy Type                                                                | Num Envs | Num Steps | Num Episodes |
-   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
-   || gr1_put_jug_in_fridge_and_close_door                   || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |
-   || gr1_put_ranch_dressing_bottle_in_fridge_and_close_door || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |
-   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   |                        Run Name                        |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   |          gr1_put_jug_in_fridge_and_close_door          | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
 
    ======================================================================
    METRICS SUMMARY
    ======================================================================
 
    gr1_put_jug_in_fridge_and_close_door:
-   num_episodes                           10
-   object_moved_rate_subtask_0        1.0000
-   revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [0.2, 0.2]
-   success_rate                       0.1000
+     num_episodes                           10
+     object_moved_rate_subtask_0        1.0000
+     revolute_joint_moved_rate_subtask_1     1.0000
+     subtask_success_rate           [0.2, 0.2]
+     success_rate                       0.1000
 
    gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
-   num_episodes                           10
-   object_moved_rate_subtask_0        1.0000
-   revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [0.9, 0.9]
-   success_rate                       0.9000
+     num_episodes                           10
+     object_moved_rate_subtask_0        1.0000
+     revolute_joint_moved_rate_subtask_1     1.0000
+     subtask_success_rate           [0.9, 0.9]
+     success_rate                       0.9000
    ======================================================================
 
 With the policy trained on using ranch dressing bottle as object of interest,
-the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
-This is expected as the policy is not trained on the jug, comparing to the success rate of 0.8 for the trained object, ranch dressing bottle.
+the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.1.
+This is expected as the policy is not trained on the jug, comparing to the success rate of 0.9 for the trained object, ranch dressing bottle.
