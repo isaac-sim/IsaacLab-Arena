@@ -33,7 +33,7 @@ At a glance
      - Only when you set it
      - ``placement_seed``
    * - Physics: how objects fall, slide, and collide
-     - Only when the whole launch repeats
+     - Only under some conditions
      - See :ref:`reproducibility-physics`
 
 ``seed`` and ``placement_seed`` both belong to ``environment_builder`` in an
@@ -108,37 +108,35 @@ Physics
 -------
 
 ``seed`` and ``placement_seed`` decide how each episode is set up. From there, the
-physics simulation decides how objects fall, slide, and collide. The physics is
-reproducible too, but only when the whole launch repeats from the start.
+physics simulation decides how objects fall, slide, and collide.
 
-**Physics repeats when you launch the same Experiment again** with ``placement_seed`` set
-and the same settings, including ``num_envs``, on the same machine. Every episode in
-every environment then plays out exactly as before, as long as the policy sends the same
-actions.
+**Physics repeats when you launch the same Experiment again**: every episode in every
+environment plays out exactly as in the previous launch. This holds when all of the
+following are true:
 
-Three things can still make a new launch differ:
+* ``placement_seed`` is set, and every other setting, including ``num_envs``, is the
+  same.
+* The launch runs on the same machine, with the same device and GPU. Other hardware
+  computes slightly differently, and small differences grow as the episode goes on.
+* The scene has only rigid objects and robots. PhysX does not promise repeatable results
+  for cloth or soft bodies.
+* No variation changes physics properties while the simulation runs, such as the object
+  mass variation. On the GPU, these changes can reorder the simulation's work and
+  slightly change the results.
+* The policy sends the same actions. Camera images can differ slightly between launches,
+  so a policy that uses cameras may not. Add ``--deterministic`` to the runner command to
+  request repeatable rendering.
 
-* **Deformable objects.** PhysX only promises repeatable results for rigid objects and
-  robots, not for cloth or soft bodies.
-* **Physics properties that change during a launch**, such as the object mass variation.
-  On the GPU, these changes can reorder the simulation's work and slightly change the
-  results.
-* **Camera images.** Rendering can differ slightly between launches, so a policy that uses
-  cameras may not send the same actions. Add ``--deterministic`` to the runner command
-  to request repeatable rendering.
+**Within one launch, physics does not repeat**, even from an identical setup:
 
-**Physics can differ, even from an identical setup,** in these cases:
-
-* **A different number of environments, device, or GPU.** The simulation computes
-  slightly differently, and small differences grow as the episode goes on.
-* **Two environments in the same launch.** Each environment sits at its own place in the
-  simulated world. Environment 0 and environment 1 can end slightly differently, even
-  when they start from the same layout.
-* **An earlier and a later episode in the same launch.** Even if episode 1 and episode 5
-  start from the same layout and the robot makes the same moves, episode 5 can end
-  differently. A reset puts objects back in their starting poses, but the physics engine
-  keeps some internal state from earlier episodes. Launching the Experiment again still
-  repeats episode 5 exactly.
+* **Two environments.** Each environment sits at its own place in the simulated world.
+  Environment 0 and environment 1 can end slightly differently, even when they start
+  from the same layout.
+* **An earlier and a later episode.** Even if episode 1 and episode 5 start from the
+  same layout and the robot makes the same moves, episode 5 can end differently. A reset
+  puts objects back in their starting poses, but the physics engine keeps some internal
+  state from earlier episodes. Launching the Experiment again still repeats episode 5
+  exactly.
 
 The differences are largest when objects touch or are stacked, where a small change can
 add up to a visibly different arrangement. Objects that stand apart usually end up in
