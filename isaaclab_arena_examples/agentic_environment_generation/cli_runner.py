@@ -36,7 +36,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.agentic_environment_generation.spec_io import (
     DEFAULT_AGENTIC_OUTPUT_DIR,
@@ -53,6 +53,36 @@ if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
+
+
+def add_agent_inference_cli_args(group: Any) -> None:
+    """Add the endpoint and model sampling arguments shared by agent CLIs.
+
+    Args:
+        group: Argparse parser or argument group to extend.
+    """
+    group.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Override the LLM model id (default: agent's built-in default).",
+    )
+    group.add_argument(
+        "--inference_endpoint",
+        type=str,
+        choices=tuple(INFERENCE_ENDPOINTS),
+        default=None,
+        help=(
+            "Inference endpoint to call (default: the ARENA_INFERENCE_ENDPOINT environment variable, "
+            f"else '{DEFAULT_ENDPOINT_NAME}')."
+        ),
+    )
+    group.add_argument(
+        "--temperature",
+        type=float,
+        default=0.2,
+        help="LLM sampling temperature (default: 0.2).",
+    )
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
@@ -79,28 +109,7 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         default=DEFAULT_PROMPT,
         help="Natural-language env description passed to the generation agent.",
     )
-    group.add_argument(
-        "--model",
-        type=str,
-        default=None,
-        help="Override the LLM model id (default: agent's built-in default).",
-    )
-    group.add_argument(
-        "--inference_endpoint",
-        type=str,
-        choices=tuple(INFERENCE_ENDPOINTS),
-        default=None,
-        help=(
-            "Inference endpoint to call (default: the ARENA_INFERENCE_ENDPOINT environment variable, "
-            f"else '{DEFAULT_ENDPOINT_NAME}')."
-        ),
-    )
-    group.add_argument(
-        "--temperature",
-        type=float,
-        default=0.2,
-        help="LLM sampling temperature (default: 0.2).",
-    )
+    add_agent_inference_cli_args(group)
     group.add_argument(
         "--num_steps",
         type=int,
