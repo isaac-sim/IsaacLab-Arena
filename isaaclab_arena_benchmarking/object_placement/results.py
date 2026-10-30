@@ -3,77 +3,69 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Placement success benchmark results: settings, environment records, results files and suite summaries.
+"""Placement success benchmark results: settings, spec records, results files and suite summaries.
 
-A results file holds the start time, the commit and branch, the settings and one record per environment.
+A results file holds the start time, the commit and branch, whether the checkout had uncommitted changes, the GPU, the
+settings, the selected specs and one record per measured spec.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field, fields
-from enum import Enum, StrEnum
+from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_diagnostics import ValidationCheckDiagnostics
 
-
-class EnvironmentStatus(StrEnum):
-    """Outcome of benchmarking one environment spec."""
-
-    SCORED = "scored"
-    SKIPPED = "skipped"
-    FAILED = "failed"
+if TYPE_CHECKING:
+    from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 
 @dataclass
 class PlacementBenchmarkSettings:
-    """Measurement settings shared by every environment of a run."""
+    """Measurement settings shared by every spec of a run."""
 
     num_envs: int = 10
     """Environments in each build. A build's first pool batch solves num_envs * min_unique_layouts_per_env *
     max_placement_attempts candidates."""
 
-    placement_seeds: list[int] = field(default_factory=lambda: [0, 1, 2])
-    """Distinct nonnegative seeds; each seed builds every spec once, solving its own candidates."""
+    seed_indices: list[int] = field(default_factory=lambda: [0, 1, 2])
+    """Distinct nonnegative indices; each one builds every spec once, from its own range of candidate seeds."""
 
-    random_yaw_init: bool = False
-    """Whether placed objects, including a relation-placed robot, start from a random yaw instead of each spec's
-    setting. Objects with FaceTo or a tilted RotateAroundSolution keep their own orientation."""
+    random_yaw_init: bool | None = None
+    """Whether placed objects, including a relation-placed robot, start from a random yaw, or None to keep each spec's
+    own setting. Objects with FaceTo or a tilted RotateAroundSolution keep their own orientation."""
 
     collision_mode: CollisionMode | None = None
-    """Default collision mode for every spec, or None to keep each spec's own."""
-
-    solver_device: str | None = None
-    """Device the solver ran on, recorded by the run rather than chosen; None before the simulator starts."""
+    """Solver's default collision mode for every spec, or None to keep each spec's own. Objects that set their own
+    collision mode keep it."""
 
     def __post_init__(self):
         assert self.num_envs > 0, "num_envs must be positive"
-        assert self.placement_seeds, "placement_seeds must not be empty"
-        assert all(seed >= 0 for seed in self.placement_seeds), "placement_seeds must be nonnegative"
-        # A repeated seed would count the same candidates twice.
-        assert len(set(self.placement_seeds)) == len(self.placement_seeds), "placement_seeds must be distinct"
+        assert self.seed_indices, "seed_indices must not be empty"
+        assert all(seed_index >= 0 for seed_index in self.seed_indices), "seed_indices must be nonnegative"
+        # A repeated index would count the same candidates twice.
+        assert len(set(self.seed_indices)) == len(self.seed_indices), "seed_indices must be distinct"
 
 
 @dataclass
-class EnvironmentRecord:
-    """Placement outcome for one environment spec, accumulated over one build per seed."""
+class SpecRecord:
+    """Placement outcome for one environment spec, accumulated over one build per seed index."""
 
     suite: str
     """Suite the spec belongs to, such as robolab or kitchen_bench."""
 
-    environment: str
+    spec: str
     """Spec file stem."""
 
-    status: EnvironmentStatus
-    """Whether the environment was scored, skipped or failed to run."""
-
-    reason: str = ""
-    """Why the environment was skipped or failed; empty when it was scored."""
+    error: str | None = None
+    """Error that stopped the spec's builds, or None when every build placed its environments."""
 
     num_builds: int = 0
-    """Builds of the spec, one per seed."""
+    """Builds of the spec, one per seed index."""
 
     num_candidates: int = 0
     """Candidates in the first pool batch of every build."""
@@ -95,7 +87,7 @@ class EnvironmentRecord:
     passed the cheaper required checks, such as ik_reachable, counts only those candidates."""
 
     wall_time_s: float = 0.0
-    """Time to build every seed."""
+    """Time to build every seed index."""
 
     @property
     def valid_candidate_rate(self) -> float:
@@ -112,10 +104,38 @@ class EnvironmentRecord:
         """Mean number of pool batches a build solved."""
         return self.num_batches / self.num_builds
 
+    def add_build(self, diagnostics: PlacementDiagnostics, num_envs: int) -> None:
+        """Add one build's placement diagnostics to the record.
+
+        Candidate and check counts come from the pool's first batch, which has the same size in every build. A later
+        batch runs only while some environment still has empty slots, and its size depends on how many are missing,
+        so counting it would give scenes that need more batches a larger sample.
+
+        Args:
+            diagnostics: Placement diagnostics of the build.
+            num_envs: Environments in the build.
+        """
+        first_batch = diagnostics.batches[0]
+        required_per_check = _required_per_check(first_batch.checks)
+        assert (
+            self.num_builds == 0 or _required_per_check(self.checks) == required_per_check
+        ), f"Checks differ between builds of {self.spec}"
+        self.num_builds += 1
+        self.num_envs += num_envs
+        self.num_batches += len(diagnostics.batches)
+        self.num_fallback_envs += len(diagnostics.fallback_envs)
+        self.num_candidates += first_batch.num_candidates
+        self.num_valid_candidates += first_batch.num_valid
+        for check, check_diagnostics in first_batch.checks.items():
+            # Sum into the record's own counts, leaving the build's diagnostics unchanged.
+            check_totals = self.checks.setdefault(check, ValidationCheckDiagnostics(0, 0, check_diagnostics.required))
+            check_totals.num_evaluated += check_diagnostics.num_evaluated
+            check_totals.num_passed += check_diagnostics.num_passed
+
 
 @dataclass
 class PlacementBenchmarkResults:
-    """Results of one benchmark run: its provenance, settings and one record per environment."""
+    """Results of one benchmark run: its provenance, settings, selected specs and one record per measured spec."""
 
     start_time: str
     """UTC start time in ISO 8601 format."""
@@ -124,17 +144,23 @@ class PlacementBenchmarkResults:
     """Git commit of the measured code, or None when unknown."""
 
     branch: str | None
-    """Git branch of the measured code, or None when unknown."""
+    """Git branch of the measured code, or None when unknown or detached."""
 
     dirty: bool | None
     """Whether the checkout had changes to tracked files or new files in the benchmarked packages, or None when
     unknown."""
 
-    settings: PlacementBenchmarkSettings
-    """Settings shared by every environment."""
+    gpu_name: str | None
+    """GPU the relation solver ran on, or None when it ran on the CPU."""
 
-    environments: list[EnvironmentRecord]
-    """Records in discovery order."""
+    settings: PlacementBenchmarkSettings
+    """Settings shared by every spec."""
+
+    selected_specs: list[str]
+    """File stems of the specs the run selected, in run order."""
+
+    records: list[SpecRecord]
+    """Records of the specs measured so far, in run order; a stopped run has records for only some selected specs."""
 
     def save(self, path: str | Path) -> None:
         """Write the results as JSON.
@@ -162,44 +188,40 @@ class PlacementBenchmarkResults:
         if settings["collision_mode"] is not None:
             settings["collision_mode"] = CollisionMode(settings["collision_mode"])
         content["settings"] = PlacementBenchmarkSettings(**settings)
-        environments = []
-        for record in content["environments"]:
-            _assert_known_fields(EnvironmentRecord, record, path)
-            record["status"] = EnvironmentStatus(record["status"])
+        records = []
+        for record in content["records"]:
+            _assert_known_fields(SpecRecord, record, path)
             checks = {}
             for check, check_values in record["checks"].items():
                 _assert_known_fields(ValidationCheckDiagnostics, check_values, path)
                 checks[check] = ValidationCheckDiagnostics(**check_values)
             record["checks"] = checks
-            environments.append(EnvironmentRecord(**record))
-        content["environments"] = environments
+            records.append(SpecRecord(**record))
+        content["records"] = records
         return cls(**content)
 
 
 @dataclass
 class SuiteSummary:
-    """Suite-level counts and rates, with every scored environment weighted equally."""
+    """Suite-level counts and rates, with every scored spec weighted equally."""
 
     suite: str
     """Suite name."""
 
     num_scored: int
-    """Environments scored."""
-
-    num_skipped: int
-    """Environments skipped because their builds solve no relations."""
+    """Specs whose builds all placed their environments."""
 
     num_failed: int
-    """Environments that failed to build or place."""
+    """Specs that failed to build or place."""
 
     valid_candidate_rate: float | None
-    """Mean valid-candidate rate over scored environments, or None when none were scored or any failed."""
+    """Mean valid-candidate rate over scored specs, or None when none were scored or any failed."""
 
     valid_env_rate: float | None
-    """Mean valid-environment rate over scored environments, or None when none were scored or any failed."""
+    """Mean valid-environment rate over scored specs, or None when none were scored or any failed."""
 
     batches_per_build: float | None
-    """Mean pool batches per build over scored environments, or None when none were scored or any failed."""
+    """Mean pool batches per build over scored specs, or None when none were scored or any failed."""
 
     wall_time_s: float
     """Total time spent on the suite."""
@@ -208,23 +230,22 @@ class SuiteSummary:
 def summarize_suites(results: PlacementBenchmarkResults) -> list[SuiteSummary]:
     """Return one summary per suite, in order of first appearance.
 
-    A suite's rates are None when any of its environments failed, since the failed environment could have lowered them.
+    A suite's rates are None when any of its specs failed, since the failed spec could have lowered them.
 
     Args:
         results: Results to summarize.
     """
-    records_per_suite: dict[str, list[EnvironmentRecord]] = {}
-    for record in results.environments:
+    records_per_suite: dict[str, list[SpecRecord]] = {}
+    for record in results.records:
         records_per_suite.setdefault(record.suite, []).append(record)
     summaries = []
     for suite, records in records_per_suite.items():
-        scored = [record for record in records if record.status == EnvironmentStatus.SCORED]
-        num_failed = sum(record.status == EnvironmentStatus.FAILED for record in records)
+        scored = [record for record in records if record.error is None]
+        num_failed = len(records) - len(scored)
         summaries.append(
             SuiteSummary(
                 suite=suite,
                 num_scored=len(scored),
-                num_skipped=sum(record.status == EnvironmentStatus.SKIPPED for record in records),
                 num_failed=num_failed,
                 valid_candidate_rate=None if num_failed else _mean([record.valid_candidate_rate for record in scored]),
                 valid_env_rate=None if num_failed else _mean([record.valid_env_rate for record in scored]),
@@ -236,32 +257,32 @@ def summarize_suites(results: PlacementBenchmarkResults) -> list[SuiteSummary]:
 
 
 def format_results(results: PlacementBenchmarkResults) -> str:
-    """Return a Markdown table of suite results, followed by the environments that were not scored.
+    """Return a Markdown table of suite results, followed by the specs that failed.
 
     Args:
         results: Results to format.
     """
     lines = [
-        f"Placement success at {format_provenance(results)}",
+        f"Placement success at {_format_provenance(results)}",
         "",
-        "| suite | scored | skipped | failed | valid candidates | valid environments | batches per build | time |",
-        "|---|---|---|---|---|---|---|---|",
+        "| suite | scored | failed | valid candidates | valid environments | batches per build | time |",
+        "|---|---|---|---|---|---|---|",
     ]
     for summary in summarize_suites(results):
         lines.append(
-            f"| {summary.suite} | {summary.num_scored} | {summary.num_skipped} | {summary.num_failed} |"
+            f"| {summary.suite} | {summary.num_scored} | {summary.num_failed} |"
             f" {_format_percent(summary.valid_candidate_rate)} | {_format_percent(summary.valid_env_rate)} |"
             f" {_format_number(summary.batches_per_build)} | {summary.wall_time_s:.0f} s |"
         )
-    not_scored = [record for record in results.environments if record.status != EnvironmentStatus.SCORED]
-    if not_scored:
-        lines += ["", "Not scored:"]
-        for record in not_scored:
-            lines.append(f"- {record.suite}/{record.environment} ({record.status}): {record.reason}")
+    failed = [record for record in results.records if record.error is not None]
+    if failed:
+        lines += ["", "Failed:"]
+        for record in failed:
+            lines.append(f"- {record.suite}/{record.spec}: {record.error}")
     return "\n".join(lines)
 
 
-def format_provenance(results: PlacementBenchmarkResults) -> str:
+def _format_provenance(results: PlacementBenchmarkResults) -> str:
     """Return the measured commit, branch, dirty flag and start time on one line.
 
     Args:
@@ -270,6 +291,10 @@ def format_provenance(results: PlacementBenchmarkResults) -> str:
     dirty = {True: ", uncommitted changes", False: "", None: ", unknown changes"}[results.dirty]
     commit = results.commit or "unknown commit"
     return f"{commit} ({results.branch or 'unknown branch'}{dirty}), started {results.start_time}"
+
+
+def _required_per_check(checks: dict[str, ValidationCheckDiagnostics]) -> dict[str, bool]:
+    return {check: check_diagnostics.required for check, check_diagnostics in checks.items()}
 
 
 def _assert_known_fields(cls: type, values: dict[str, object], path: str | Path) -> None:

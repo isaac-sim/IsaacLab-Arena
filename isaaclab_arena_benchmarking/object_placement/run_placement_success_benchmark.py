@@ -31,11 +31,9 @@ from isaaclab_arena_benchmarking.object_placement.measurement import (
     SUITE_SPEC_GLOBS,
     discover_specs,
     get_git_provenance,
-    get_seed_block_index,
-    measure_environment,
+    measure_spec,
 )
 from isaaclab_arena_benchmarking.object_placement.results import (
-    EnvironmentStatus,
     PlacementBenchmarkResults,
     PlacementBenchmarkSettings,
     format_results,
@@ -48,41 +46,43 @@ def get_benchmark_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Measure relation-placement success across environment specs.")
     AppLauncher.add_app_launcher_args(parser)
     group = parser.add_argument_group("Placement Success Benchmark Arguments")
+    group.add_argument("--suite", choices=[*SUITE_SPEC_GLOBS, "all"], default="all", help="Spec suite to benchmark.")
     group.add_argument(
-        "--suite", choices=[*SUITE_SPEC_GLOBS, "all"], default="all", help="Environment suite to benchmark."
-    )
-    group.add_argument(
-        "--env",
+        "--spec",
         action="append",
         default=None,
-        help="Glob on spec file stems to select environments; repeat to select several.",
+        help="Glob on spec file stems to select specs; repeat to select several.",
     )
     group.add_argument(
-        "--num_envs", type=int, default=defaults.num_envs, help="Environments in each build, one build per seed."
+        "--num_envs", type=int, default=defaults.num_envs, help="Environments in each build, one build per seed index."
     )
     group.add_argument(
-        "--placement_seeds",
+        "--seed_indices",
         type=int,
         nargs="+",
-        default=defaults.placement_seeds,
-        help="Distinct nonnegative seeds; each seed builds every spec once, solving its own candidates.",
+        default=defaults.seed_indices,
+        help="Distinct nonnegative indices; each one builds every spec once, from its own range of candidate seeds.",
     )
     group.add_argument(
         "--random_yaw_init",
         action="store_true",
-        help="Sample a random initial yaw for placed objects, including a relation-placed robot.",
+        default=defaults.random_yaw_init,
+        help=(
+            "Sample a random initial yaw for placed objects, including a relation-placed robot; without it, each"
+            " spec's own setting applies."
+        ),
     )
     group.add_argument(
         "--collision_mode",
         choices=[mode.value for mode in CollisionMode],
         default=None,
-        help="Default collision mode for placement, overriding the spec's placer parameters.",
+        help="Solver's default collision mode, replacing the spec's; objects that set their own mode keep it.",
     )
     group.add_argument(
         "--output",
         type=Path,
         default=None,
-        help="Results file to write, creating its folder; it is rewritten after each environment.",
+        help="Results file to write, creating its folder; it is rewritten after each spec.",
     )
     return parser
 
@@ -92,12 +92,12 @@ def main() -> None:
     args_cli = get_benchmark_parser().parse_args()
     settings = PlacementBenchmarkSettings(
         num_envs=args_cli.num_envs,
-        placement_seeds=args_cli.placement_seeds,
+        seed_indices=args_cli.seed_indices,
         random_yaw_init=args_cli.random_yaw_init,
         collision_mode=None if args_cli.collision_mode is None else CollisionMode(args_cli.collision_mode),
     )
-    specs = discover_specs(args_cli.suite, args_cli.env)
-    assert specs, f"No environment specs match suite '{args_cli.suite}' and filters {args_cli.env}"
+    specs = discover_specs(args_cli.suite, args_cli.spec)
+    assert specs, f"No specs match suite '{args_cli.suite}' and filters {args_cli.spec}"
     # The specs and the recorded commit come from this checkout, so the measured code must too.
     package_root = Path(isaaclab_arena.__file__).resolve().parents[1]
     assert package_root == REPO_ROOT, f"isaaclab_arena is imported from {package_root}, not {REPO_ROOT}; set PYTHONPATH"
@@ -107,7 +107,6 @@ def main() -> None:
     if args_cli.output is not None:
         args_cli.output.parent.mkdir(parents=True, exist_ok=True)
     start_time = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
-    results = PlacementBenchmarkResults(start_time, commit, branch, dirty, settings, [])
 
     with SimulationAppContext(args_cli):
         import torch
@@ -115,20 +114,30 @@ def main() -> None:
         from isaaclab_arena_environments.cli import ensure_environments_registered
 
         # The relation solver places on CUDA whenever it is available.
-        results.settings.solver_device = torch.cuda.get_device_name() if torch.cuda.is_available() else "cpu"
+        gpu_name = torch.cuda.get_device_name() if torch.cuda.is_available() else None
+        selected_specs = [spec_path.stem for _, spec_path in specs]
+        results = PlacementBenchmarkResults(
+            start_time=start_time,
+            commit=commit,
+            branch=branch,
+            dirty=dirty,
+            gpu_name=gpu_name,
+            settings=settings,
+            selected_specs=selected_specs,
+            records=[],
+        )
         ensure_environments_registered()
         for index, (suite, spec_path) in enumerate(specs, start=1):
             print(f"[placement benchmark] {index}/{len(specs)} {suite}/{spec_path.stem}")
-            seed_block_index = get_seed_block_index(suite, spec_path)
-            results.environments.append(measure_environment(suite, spec_path, settings, seed_block_index))
-            # Rewrite the results file after each environment so that a stopped run keeps its results.
+            results.records.append(measure_spec(suite, spec_path, settings))
+            # Rewrite the results file after each spec so that a stopped run keeps its results.
             if args_cli.output is not None:
                 results.save(args_cli.output)
         print(format_results(results))
-        # Raising inside SimulationAppContext exits non-zero, so a run with failed environments reports failure.
-        failed = [record.environment for record in results.environments if record.status == EnvironmentStatus.FAILED]
+        # Raising inside SimulationAppContext exits non-zero, so a run with failed specs reports failure.
+        failed = [record.spec for record in results.records if record.error is not None]
         if failed:
-            raise SystemExit(f"{len(failed)} environment(s) failed: {', '.join(failed)}")
+            raise SystemExit(f"{len(failed)} spec(s) failed: {', '.join(failed)}")
 
 
 if __name__ == "__main__":
