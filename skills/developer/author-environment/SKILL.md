@@ -26,6 +26,24 @@ inheritance chains before adding capabilities. If reuse cannot express a require
 missing capability and add the smallest extension. Do not duplicate solvers, predicates, temporal
 counters, reset loops, progress tracking, or variation systems that Arena already provides.
 
+### Inspect USD scene physics
+
+Before selecting an `object_reference.prim_path`, support surface, openable articulation, or
+collision geometry from a USD scene, dump its composed physics prim tree without starting
+SimulationApp:
+
+```bash
+uv run --no-sync python \
+  isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+  prim-tree --usd <scene.usd> --output /tmp/scene_prim_tree.txt
+```
+
+Read the generated text file to inspect the hierarchy and object types. Physics records include
+root-frame bounding-box center and size, joint type/axis/limits/connected bodies, collider type and
+approximation, and authored rigid-body properties such as mass and density. Use these fields to
+confirm a candidate rather than inferring physics from prim names alone. Mass and inertia are
+authored USD values; they do not include values computed later by PhysX or Newton.
+
 ## Assemble from maintained sources
 
 Read only the references relevant to the requested behavior:
