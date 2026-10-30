@@ -280,8 +280,6 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         half_dims = np.array([cuboid.dims_xyz for cuboid in cuboids]).reshape(-1, 3) / 2.0
         self._background_bounds = (centers - half_dims, centers + half_dims)
         print(f"[ReachabilityValidator] Background split into {len(cuboids)} cuboid obstacle(s).")
-        if self._rerun_layer is not None:
-            self._rerun_layer.log_background(cuboids)
 
     def _get_background_cuboids_near(
         self, robot_base_pose_w: Pose, num_object_cuboids: int
