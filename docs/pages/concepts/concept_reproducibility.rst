@@ -34,8 +34,7 @@ At a glance
 
 ``seed`` and ``placement_seed`` both belong to ``environment_builder`` in an
 :doc:`Experiment Definition <concept_arena_experiments>`. Set them under ``shared`` for
-every Run, or in a single Run. Scripts that build one environment directly, such as
-``environment_runner.py``, take them as ``--seed`` and ``--placement_seed``.
+every Run, or in a single Run.
 
 Examples
 --------
