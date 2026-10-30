@@ -169,19 +169,14 @@ def _build_environment_from_cfg(
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg, rebuild_index=rebuild_index)
-    env = arena_builder.make_registered(render_mode=render_mode)
+    env_cfg, env_kwargs = arena_builder.build_env_cfg()
     # A build that solves no relations, or replays recorded layouts, has no placement diagnostics.
     if arena_builder.placement_diagnostics is not None:
         output_path = Path(output_dir)
-        try:
-            output_path.mkdir(parents=True, exist_ok=True)
-            filename = PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
-            arena_builder.placement_diagnostics.save(output_path / filename)
-        except BaseException:
-            # The caller never receives the environment, so it cannot close it.
-            close_run_resources(None, env)
-            raise
-    return env
+        output_path.mkdir(parents=True, exist_ok=True)
+        filename = PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
+        arena_builder.placement_diagnostics.save(output_path / filename)
+    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -> ArenaEnvBuilder:

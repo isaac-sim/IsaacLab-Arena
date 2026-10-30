@@ -67,6 +67,9 @@ class _ArenaEnvBuilder:
         self.made_with = None
         self.placement_diagnostics = None
 
+    def build_env_cfg(self):
+        return self.env_cfg, {}
+
     def make_registered(self, env_cfg=None, env_kwargs=None, render_mode=None):
         self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
         return _environment()
@@ -446,23 +449,6 @@ def test_build_environment_writes_placement_diagnostics_to_the_run_directory(mon
     run_execution._build_environment_from_cfg(_run(), render_mode=None, output_dir=tmp_path, rebuild_index=1)
 
     assert PlacementDiagnostics.load(tmp_path / "placement_diagnostics_rebuild1.json") == builder.placement_diagnostics
-
-
-def test_build_environment_closes_the_environment_when_its_diagnostics_cannot_be_written(monkeypatch, tmp_path):
-    builder = _builder(monkeypatch, None)
-    builder.placement_diagnostics = PlacementDiagnostics(num_envs=2)
-    closed_envs = []
-    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: closed_envs.append(env))
-
-    def fail_to_save(path):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(builder.placement_diagnostics, "save", fail_to_save)
-
-    with pytest.raises(OSError, match="disk full"):
-        run_execution._build_environment_from_cfg(_run(), render_mode=None, output_dir=tmp_path)
-    assert len(closed_envs) == 1
-    assert closed_envs[0] is not None
 
 
 def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_path):
