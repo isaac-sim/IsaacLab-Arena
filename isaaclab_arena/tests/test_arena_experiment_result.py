@@ -20,7 +20,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ArenaExperimentResult,
     build_arena_run_result_metadata,
 )
-from isaaclab_arena.evaluation.git_stamp import GitStamp
+from isaaclab_arena.utils.git_stamp import GitStamp
 
 END_TIMESTAMP_NS = 1792800000000000000
 

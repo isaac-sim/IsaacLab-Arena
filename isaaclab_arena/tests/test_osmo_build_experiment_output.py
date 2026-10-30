@@ -18,7 +18,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
-from isaaclab_arena.evaluation.git_stamp import GitStamp
+from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport
 from osmo.scripts.build_experiment_output import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
