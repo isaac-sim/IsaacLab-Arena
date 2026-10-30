@@ -279,55 +279,15 @@ just over-fitting to a single object mesh.
 Step 4: Sequential Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``experiment_runner.py`` script.
-It minimizes the overhead of reloading system modules and environment classes for each job while keeping the simulation application alive.
-The evaluation batch can be specified in a config file, with examples shown below.
+A sequential batch of Runs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``experiment_runner.py`` script.
+It minimizes the overhead of reloading system modules and environment classes for each Run while keeping the simulation application alive.
+The batch is defined in an Experiment YAML file. The example below evaluates the policy on an unseen jug and on the ranch dressing bottle.
 
-.. dropdown:: Configuration file (``gr1_sequential_static_manip_eval_jobs_config.json``):
+.. dropdown:: Experiment file (``gr1_sequential_static_manip_gr00t_experiment.yaml``):
    :animate: fade-in
 
-   .. code-block:: json
-
-      {
-      "jobs": [
-         {
-            "name": "gr1_put_ranch_dressing_bottle_in_fridge_and_close_door",
-            "arena_env_args": {
-               "num_envs": 10,
-               "enable_cameras": true,
-               "environment": "put_item_in_fridge_and_close_door",
-               "object": "ranch_dressing_hope_robolab",
-               "embodiment": "gr1_joint"
-            },
-            "num_steps": 500,
-            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
-            "policy_config_dict": {
-            "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
-            "policy_device": "cuda:0",
-            "remote_host": "127.0.0.1",
-            "remote_port": 5555
-            }
-         },
-         {
-            "name": "gr1_put_jug_in_fridge_and_close_door",
-            "arena_env_args": {
-               "num_envs": 10,
-               "enable_cameras": true,
-               "environment": "put_item_in_fridge_and_close_door",
-               "object": "jug",
-               "embodiment": "gr1_joint"
-            },
-            "num_steps": 500,
-            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
-            "policy_config_dict": {
-            "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
-            "policy_device": "cuda:0",
-            "remote_host": "127.0.0.1",
-            "remote_port": 5555
-            }
-         }
-      ]
-      }
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
+      :language: yaml
 
 Run the batch evaluation:
 
@@ -335,7 +295,7 @@ Run the batch evaluation:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
+     --experiment_config isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
 You should see the following output on the console indicating the jobs and metrics.
