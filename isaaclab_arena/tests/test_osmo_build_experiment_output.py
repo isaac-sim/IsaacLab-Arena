@@ -11,6 +11,9 @@ from unittest.mock import patch
 
 import pytest
 
+from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
+    ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME,
+)
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
@@ -18,6 +21,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
+from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport
 from osmo.scripts.build_experiment_output import (
@@ -373,6 +377,27 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert "second" in report_contents
     assert "2 run(s) &middot; 2 completed &middot; 0 failed &middot; 2 episode(s)" in report_contents
     assert "Failed runs" not in report_contents
+    experiment_kpis = json.loads(
+        (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
+    )
+    assert_influxdb_kpi_records_are_valid(experiment_kpis)
+    assert experiment_kpis[0] == {
+        "type": "per_experiment",
+        "timestamp_ns": END_TIMESTAMP_NS + 1,
+        **GitStamp(git_sha=GIT_SHA, git_branch=GIT_BRANCH).to_dict(),
+        "success_rate": 0.5,
+        "num_episodes": 2,
+        "num_runs": 2,
+        "num_runs_completed": 2,
+        "num_runs_failed": 0,
+    }
+    assert [record["run_name"] for record in experiment_kpis if record["type"] == "timing"] == [
+        "all",
+        "all",
+        "first",
+        "first",
+        "second",
+    ]
 
 
 def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
@@ -440,6 +465,15 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     assert "Failed runs (1)" in report_contents
     assert "<code>17</code>" in report_contents
     assert "These runs did not complete and are excluded from episode results." in report_contents
+    experiment_kpis = json.loads(
+        (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
+    )
+    assert_influxdb_kpi_records_are_valid(experiment_kpis)
+    per_run_records = {record["run_name"]: record for record in experiment_kpis if record["type"] == "per_run"}
+    assert per_run_records["completed-run"]["completed"] == 1
+    assert per_run_records["failed-run"]["completed"] == 0
+    assert "success_rate" not in per_run_records["failed-run"]
+    assert experiment_kpis[0]["num_runs_failed"] == 1
 
 
 def test_builds_failure_report_when_every_runner_failed(tmp_path):
@@ -487,3 +521,30 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
     assert "<code>1</code>" in report_contents
     assert "<code>2</code>" in report_contents
     assert "No results recorded yet." not in report_contents
+    experiment_kpis = json.loads(
+        (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).read_text(encoding="utf-8")
+    )
+    assert_influxdb_kpi_records_are_valid(experiment_kpis)
+    assert {record["timestamp_ns"] for record in experiment_kpis} == {END_TIMESTAMP_NS}
+    assert "success_rate" not in experiment_kpis[0]
+    assert experiment_kpis[0]["num_runs_failed"] == 2
+
+
+def test_failing_kpi_build_fails_after_the_report_is_written(tmp_path):
+    # A Run named "all" clashes with the timing totals, so building the KPI file fails.
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(experiment_runner_output_directory / "all", "all", True)
+    _write_run_timings(experiment_runner_output_directory, "all", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        experiment_runner_output_directory,
+        RunStatus.COMPLETED,
+        0,
+        {"all": _run_metadata("all-environment", "pi05")},
+    )
+    experiment_output_directory = tmp_path / "experiment-output"
+
+    with pytest.raises(AssertionError, match="reserved for timing totals"):
+        build_experiment_output({"all": experiment_runner_output_directory}, experiment_output_directory)
+
+    assert (experiment_output_directory / "index.html").is_file()
+    assert not (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).exists()
