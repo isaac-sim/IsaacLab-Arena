@@ -28,7 +28,7 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import (
     kitchen_prim_tree,
     kitchen_resolve_response,
 )
-from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdJointInfo, UsdPrimRecord
 
 
 def test_prim_tree_catalog_nested_format():
@@ -39,7 +39,8 @@ def test_prim_tree_catalog_nested_format():
     ]
     assert (
         _prim_tree_catalog(tree)
-        == "BACKGROUND PRIM TREE:\ncab_1_main_group (articulation right_door_joint)\n  corpus (rigid)\n    back (base)"
+        == "BACKGROUND PRIM TREE:\ncab_1_main_group (articulation joints=[right_door_joint])\n"
+        "  corpus (rigid)\n    back (base)"
     )
 
 
@@ -72,6 +73,26 @@ def test_validate_against_prim_tree_rejects_non_base_type_mismatch(reference_typ
     )
     with pytest.raises(AssertionError, match="does not match prim tree"):
         _validate_against_prim_tree([reference], [UsdPrimRecord("target", prim_type)])
+
+
+def test_validate_against_prim_tree_rejects_joint_prim():
+    reference = ObjectReferenceSpec(
+        id="target",
+        parent_id="background",
+        prim_path="hinge",
+        object_type=ObjectType.BASE,
+    )
+    joint = UsdJointInfo(
+        type_name="PhysicsRevoluteJoint",
+        enabled=True,
+        body_0_path="cabinet",
+        body_1_path="door",
+    )
+    with pytest.raises(AssertionError, match="identifies a joint"):
+        _validate_against_prim_tree(
+            [reference],
+            [UsdPrimRecord("hinge", ObjectType.BASE, joint=joint)],
+        )
 
 
 def test_enforce_object_reference_types_uses_task_roles(capsys):
