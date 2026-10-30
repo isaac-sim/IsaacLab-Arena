@@ -22,7 +22,7 @@ from osmo.workflows.server_plus_policy_runner_workflow import (
     Gr00tPolicyRunnerWorkflow,
     Pi0PlusPolicyRunnerWorkflow,
 )
-from osmo.workflows.workflow import WorkflowCfg
+from osmo.workflows.workflow import WorkflowCfg, parse_labels
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
@@ -157,3 +157,35 @@ def test_zero_action_workflow_does_not_require_gr00t():
         check=True,
         timeout=60,
     )
+
+
+def _rendered_workflow(**workflow_cfg_kwargs):
+    workflow = Pi0PlusPolicyRunnerWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="labelled", **workflow_cfg_kwargs),
+        task_cfg=PolicyRunnerTaskCfg(arena_env="example_environment"),
+    )
+    return workflow.generate_workflow()["workflow"]
+
+
+def test_workflow_carries_the_default_labels():
+    """Render the default labels into the workflow spec unless the config overrides them."""
+    assert _rendered_workflow()["labels"] == {"workstreams": "isaac_lab_arena"}
+
+
+def test_custom_labels_replace_the_defaults():
+    """Render exactly the configured labels."""
+    labels = _rendered_workflow(labels=["team=robotics", "project=alpha"])["labels"]
+    assert labels == {"team": "robotics", "project": "alpha"}
+
+
+def test_workflow_without_labels_has_no_labels_key():
+    """Omit the labels key when there are no label entries."""
+    assert "labels" not in _rendered_workflow(labels=[])
+
+
+def test_malformed_and_duplicate_labels_are_rejected():
+    """Reject an entry without a key or a separator, and a key given twice."""
+    with pytest.raises(AssertionError, match="key=value"):
+        parse_labels(["no_separator"])
+    with pytest.raises(AssertionError, match="more than once"):
+        parse_labels(["team=a", "team=b"])
