@@ -391,6 +391,32 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
 
 
 @pytest.mark.curobo_deps
+def test_background_near_the_robot_obstructs_grasps_by_default(monkeypatch):
+    """A fixed background mesh joins the collision world, but only the part within reach of the robot base."""
+    import trimesh
+
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
+
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    # Two wall slabs around the base at the origin: one 0.6 m away, one 3 m away.
+    near_wall = trimesh.creation.box(extents=(0.1, 0.5, 0.5))
+    near_wall.apply_translation((0.6, 0.0, 0.25))
+    far_wall = trimesh.creation.box(extents=(0.1, 0.5, 0.5))
+    far_wall.apply_translation((3.0, 0.0, 0.25))
+    background = FixedCollisionObject(trimesh.util.concatenate([near_wall, far_wall]))
+
+    layout = _make_desk_box_pool().layouts_per_env()[0][0]
+    validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), [background])
+
+    (world,) = captured["worlds_per_solve"]
+    background_cuboids = [captured["solver"].world_cuboids[world.index(name)] for name in world if name != "desk"]
+    assert "desk" in world and background_cuboids
+    assert all(cuboid.pose_W_O.position_xyz[0] < 1.0 for cuboid in background_cuboids)
+
+
+@pytest.mark.curobo_deps
 def test_sibling_targets_obstruct_each_others_grasps(monkeypatch):
     """A target only stops being an obstacle to its own grasp: its siblings' grasps still collide with it."""
     captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)

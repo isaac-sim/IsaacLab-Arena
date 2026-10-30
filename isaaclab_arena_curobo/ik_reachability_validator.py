@@ -265,13 +265,12 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         Args:
             collision_objects: The placer's fixed obstacles; only whole-scene meshes (``FixedCollisionObject``) are used.
         """
-        meshes, cuboids = [], []
+        cuboids = []
         for index, obstacle in enumerate(collision_objects):
             if isinstance(obstacle, FixedCollisionObject):
-                meshes.append(obstacle.get_collision_mesh())
                 cuboids.extend(
                     cuboids_from_mesh(
-                        meshes[-1],
+                        obstacle.get_collision_mesh(),
                         name_prefix=f"background{index}",
                         voxel_size_m=self._background_voxel_size,
                     )
@@ -282,7 +281,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         self._background_bounds = (centers - half_dims, centers + half_dims)
         print(f"[ReachabilityValidator] Background split into {len(cuboids)} cuboid obstacle(s).")
         if self._rerun_layer is not None:
-            self._rerun_layer.log_background(meshes, cuboids)
+            self._rerun_layer.log_background(cuboids)
 
     def _get_background_cuboids_near(
         self, robot_base_pose_w: Pose, num_object_cuboids: int
@@ -299,7 +298,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         t_W_B = np.array(robot_base_pose_w.position_xyz)
         distances = np.linalg.norm(np.maximum(np.maximum(lower - t_W_B, t_W_B - upper), 0.0), axis=1)
         near_indices = np.flatnonzero(distances < self._background_radius)
-        num_slots = _COLLISION_CACHE_WITH_BACKGROUND - num_object_cuboids
+        num_slots = max(0, _COLLISION_CACHE_WITH_BACKGROUND - num_object_cuboids)
         if len(near_indices) > num_slots:
             if not self._warned_background_overflow:
                 print(
