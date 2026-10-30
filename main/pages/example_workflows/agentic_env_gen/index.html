@@ -345,6 +345,7 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/openpi.html">OpenPI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html">VLM Agent</a></li>
 </ul>
 </details></li>
 </ul>
@@ -621,7 +622,8 @@ The environment can be used for policy evaluation.</p>
 <p>Every workflow in this section shares the same setup.</p>
 <section id="inference-api-key-setup">
 <h3>Inference API key setup<a class="headerlink" href="#inference-api-key-setup" title="Link to this heading">#</a></h3>
-<p>The generation agent calls a remote LLM endpoint. Export one or more API keys
+<p>The generation agent calls a remote LLM endpoint.</p>
+<p>Export one or more API keys
 in the host environment <strong>before</strong> launching a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> runner or starting the
 Docker container. Docker forwards the configured keys when it creates the
 container. This step is required only once per host environment.</p>

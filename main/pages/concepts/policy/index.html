@@ -345,6 +345,7 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/openpi.html">OpenPI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html">VLM Agent</a></li>
 </ul>
 </details></li>
 </ul>
@@ -664,6 +665,161 @@ implement argparse methods. The runner generates their flags from the
 registered config and reconstructs it before creating the policy.</p>
 </div>
 </section>
+<section id="vlm-agent-policies">
+<span id="id1"></span><h2>VLM agent policies<a class="headerlink" href="#vlm-agent-policies" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">VLMGoalPolicy</span></code> and <code class="docutils literal notranslate"><span class="pre">VLMChunkPolicy</span></code> in the <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_vlm_agent</span></code> package use a hosted
+vision-language model as the policy. At each request, the policy sends the task, the robot state,
+and the camera images to an OpenAI-compatible endpoint, then validates the JSON command it
+returns and executes it. <a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html"><span class="doc">VLM Agent</span></a> shows how to set
+up an endpoint and run them on DROID pick-and-place.</p>
+<section id="inference-and-execution-flow">
+<h3>Inference and execution flow<a class="headerlink" href="#inference-and-execution-flow" title="Link to this heading">#</a></h3>
+<p>Each request runs through these stages:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>observation ─► observation adapter ─► images + JSON state ─┐
+                                                           ├─► inference backend ─► JSON response
+embodiment preset ─► system prompt + response schema ──────┘                             │
+                                                                                         ▼
+robot action ◄─ motion generator (goal only) ◄─ action adapter: validate + decode ◄──────┘
+</pre></div>
+</div>
+<p>The paragraphs below follow the diagram. Each one links to the code that implements the stage
+for DROID.</p>
+<p><strong>System prompt, from the embodiment preset.</strong> <code class="docutils literal notranslate"><span class="pre">DroidVLMAdapter</span></code> in
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/droid_adapter.py">droid_adapter.py</a> writes the system prompt.
+It also creates the action adapter and, for the goal policy, the motion generator. The DROID
+prompt states:</p>
+<ul class="simple">
+<li><p>the pose and gripper command layout and the coordinate frames;</p></li>
+<li><p>how to use the camera calibration;</p></li>
+<li><p>for the goal policy and step mode, that <code class="docutils literal notranslate"><span class="pre">base_link</span></code> sits 0.131 m behind the point between
+the finger pads;</p></li>
+<li><p>for the goal policy, what the previous-goal outcomes mean;</p></li>
+<li><p>for step mode, how to grasp and keep holding.</p></li>
+</ul>
+<p>Set <code class="docutils literal notranslate"><span class="pre">policy.system_prompt</span></code> to replace it.</p>
+<p><strong>Request, from the observation adapter.</strong> The adapters in
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/observation_adapter.py">observation_adapter.py</a> pick the
+images and state to send. <code class="docutils literal notranslate"><span class="pre">VLMPolicy._request_content</span></code> in
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/vlm_agent_policy.py">vlm_agent_policy.py</a> encodes the images
+and builds the user message. It contains:</p>
+<ul class="simple">
+<li><p>the task text, plus the previous goal and its outcome for the goal policy;</p></li>
+<li><p>the policy observations, such as end-effector pose, gripper position, and the last action;</p></li>
+<li><p>the pose of the commanded body in the robot root frame;</p></li>
+<li><p>for each camera, the image size, intrinsics, and optical-frame pose in the world and robot
+root frames;</p></li>
+<li><p>the RGB images as JPEG, resized so their longer side is <code class="docutils literal notranslate"><span class="pre">image_max_width_or_height</span></code> pixels
+(384 by default).</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">observation_modality</span></code> selects the content: <code class="docutils literal notranslate"><span class="pre">image</span></code>, <code class="docutils literal notranslate"><span class="pre">state</span></code>, or <code class="docutils literal notranslate"><span class="pre">image_state</span></code> (the
+default).</p>
+<p><strong>Inference backend.</strong> <code class="docutils literal notranslate"><span class="pre">InferenceBackend</span></code> in
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/inference/backend.py">backend.py</a> sends the system prompt, the user
+message, and the response schema to the endpoint. It retries failed HTTP requests and responses
+that are not valid JSON.</p>
+<p><strong>Response, from the action adapter.</strong> <code class="docutils literal notranslate"><span class="pre">AbsoluteChunkActionAdapter</span></code> and
+<code class="docutils literal notranslate"><span class="pre">AbsoluteGoalActionAdapter</span></code> in
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/absolute_action_adapter.py">absolute_action_adapter.py</a>
+define a strict JSON schema:</p>
+<ul class="simple">
+<li><p>goal: <code class="docutils literal notranslate"><span class="pre">{&quot;values&quot;:</span> <span class="pre">[...]}</span></code></p></li>
+<li><p>chunk: <code class="docutils literal notranslate"><span class="pre">{&quot;commands&quot;:</span> <span class="pre">[{&quot;values&quot;:</span> <span class="pre">[...]},</span> <span class="pre">...]}</span></code></p></li>
+</ul>
+<p>The adapter rejects a response with the wrong number of values, non-finite values, a quaternion
+that is not unit length, or a gripper value other than open or closed. It sends the error back to
+the model and asks for a corrected response, up to <code class="docutils literal notranslate"><span class="pre">max_attempts</span></code> times.</p>
+<p><strong>Execution, by the motion generator (goal policy only).</strong> <code class="docutils literal notranslate"><span class="pre">PoseTargetMotionGenerator</span></code> in
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/pose_target_motion_generator.py">pose_target_motion_generator.py</a>
+holds the goal pose, closes or opens the gripper, and reports the goal as:</p>
+<ul class="simple">
+<li><p><strong>reached:</strong> within <code class="docutils literal notranslate"><span class="pre">position_tolerance_m</span></code> and <code class="docutils literal notranslate"><span class="pre">rotation_tolerance_rad</span></code>, with the gripper
+at its target or stopped while closing on an object;</p></li>
+<li><p><strong>blocked:</strong> the arm and fingers stopped moving short of the goal for several steps.</p></li>
+</ul>
+</section>
+<section id="add-your-own-implementation">
+<h3>Add your own implementation<a class="headerlink" href="#add-your-own-implementation" title="Link to this heading">#</a></h3>
+<p>Every stage except the inference backend is a part you can replace without touching the others.
+The rows follow the order of the stages above.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Pipeline stage</p></th>
+<th class="head"><p>Part</p></th>
+<th class="head"><p>What to implement</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>System prompt</p></td>
+<td><p>Embodiment preset</p></td>
+<td><p>A class with <code class="docutils literal notranslate"><span class="pre">make_chunk_action_adapter(chunk_size)</span></code>,
+<code class="docutils literal notranslate"><span class="pre">make_goal_action_adapter(position_tolerance_m,</span> <span class="pre">rotation_tolerance_rad)</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">get_system_prompt(action_adapter)</span></code>. It ties the other parts to one robot and writes
+the prompt. <code class="docutils literal notranslate"><span class="pre">DroidVLMAdapter</span></code> is the reference.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Request</p></td>
+<td><p>Observation adapter</p></td>
+<td><p>Subclass <code class="docutils literal notranslate"><span class="pre">VLMObservationAdapter</span></code> and implement
+<code class="docutils literal notranslate"><span class="pre">extract_vlm_input_from_observation(env,</span> <span class="pre">observation,</span> <span class="pre">env_id)</span></code>. It returns the images by
+camera name and the JSON-serializable values to send.</p></td>
+</tr>
+<tr class="row-even"><td><p>Response</p></td>
+<td><p>Action adapter</p></td>
+<td><p>Subclass <code class="docutils literal notranslate"><span class="pre">ChunkActionAdapter</span></code> or <code class="docutils literal notranslate"><span class="pre">GoalActionAdapter</span></code>. Set <code class="docutils literal notranslate"><span class="pre">response_model</span></code>, a
+Pydantic model that defines the response schema. Implement
+<code class="docutils literal notranslate"><span class="pre">is_robot_action_space_supported(env)</span></code> to check the robot’s action terms, and
+<code class="docutils literal notranslate"><span class="pre">decode_command(response,</span> <span class="pre">arena_world,</span> <span class="pre">env_id)</span></code> to convert a response into native
+commands. Raise <code class="docutils literal notranslate"><span class="pre">InvalidAgentResponseError</span></code> to ask the model for a correction.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Execution (goal policy only)</p></td>
+<td><p>Motion generator</p></td>
+<td><p>Subclass <code class="docutils literal notranslate"><span class="pre">MotionGenerator</span></code> and implement <code class="docutils literal notranslate"><span class="pre">compute_command(goal,</span> <span class="pre">env,</span> <span class="pre">env_id)</span></code> and
+<code class="docutils literal notranslate"><span class="pre">goal_reached(goal,</span> <span class="pre">env,</span> <span class="pre">env_id)</span></code>. Optionally implement <code class="docutils literal notranslate"><span class="pre">goal_blocked</span></code> to report
+stalls.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Support a new robot.</strong> <code class="docutils literal notranslate"><span class="pre">AbsoluteChunkActionAdapter</span></code> and <code class="docutils literal notranslate"><span class="pre">AbsoluteGoalActionAdapter</span></code> read
+the command layout from the robot’s active action terms and pass the model’s values to them
+unchanged. You can reuse them if every action term is one of these:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DifferentialInverseKinematicsAction</span></code> with <code class="docutils literal notranslate"><span class="pre">command_type=&quot;pose&quot;</span></code>, absolute mode
+(<code class="docutils literal notranslate"><span class="pre">use_relative_mode=False</span></code>), <code class="docutils literal notranslate"><span class="pre">scale</span></code> 1, and no <code class="docutils literal notranslate"><span class="pre">body_offset</span></code>. It takes seven values: XYZ
+and an XYZW quaternion.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">JointPositionAction</span></code> with <code class="docutils literal notranslate"><span class="pre">scale</span></code> 1, <code class="docutils literal notranslate"><span class="pre">offset</span></code> 0, and <code class="docutils literal notranslate"><span class="pre">use_default_offset=False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BinaryJointPositionAction</span></code> or <code class="docutils literal notranslate"><span class="pre">BinaryJointPositionZeroToOneAction</span></code> with one value.</p></li>
+</ul>
+<p>No term may set <code class="docutils literal notranslate"><span class="pre">clip</span></code>. If any term does not match, <code class="docutils literal notranslate"><span class="pre">is_robot_action_space_supported</span></code>
+returns <code class="docutils literal notranslate"><span class="pre">False</span></code> and the policy stops with an assertion error before its first request.
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/command_indices.py">command_indices.py</a>
+implements these checks. For other controllers, write your own action adapter.</p>
+<p>Next, write a preset that describes the layout and the frames in its prompt. In
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_vlm_agent/vlm_agent_policy.py</span></code>, add the preset name where <code class="docutils literal notranslate"><span class="pre">VLMPolicyCfg</span></code>
+validates <code class="docutils literal notranslate"><span class="pre">vlm_embodiment_adapter</span></code> and where <code class="docutils literal notranslate"><span class="pre">_get_vlm_embodiment_adapter</span></code> creates the
+preset. Then select it in the YAML:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy</span>
+<span class="w">  </span><span class="nt">vlm_embodiment_adapter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_robot</span>
+<span class="w">  </span><span class="nt">max_steps_per_goal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+</pre></div>
+</div>
+<p><strong>Add an execution strategy.</strong> Subclass <code class="docutils literal notranslate"><span class="pre">VLMPolicy</span></code> with its own typed configuration and
+register it with <code class="docutils literal notranslate"><span class="pre">&#64;register_policy</span></code>, as in <a class="reference internal" href="#writing-a-custom-policy">Writing a custom policy</a>. Then
+implement two methods:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_get_command(env,</span> <span class="pre">observation,</span> <span class="pre">env_id)</span></code>: decide when to request a new prediction, and call
+<code class="docutils literal notranslate"><span class="pre">self._infer(self._request_content(...),</span> <span class="pre">...)</span></code> to get a validated one.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reset(env_ids)</span></code>: discard pending predictions.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">VLMPolicy</span></code> already handles request assembly, image encoding, response validation, and the
+correction loop.</p>
+</section>
+</section>
 </section>
 
 
@@ -717,6 +873,11 @@ registered config and reconstructs it before creating the policy.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#built-in-policies">Built-in policies</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#writing-a-custom-policy">Writing a custom policy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vlm-agent-policies">VLM agent policies</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#inference-and-execution-flow">Inference and execution flow</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#add-your-own-implementation">Add your own implementation</a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 
