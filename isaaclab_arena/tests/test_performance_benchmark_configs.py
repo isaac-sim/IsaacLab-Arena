@@ -16,7 +16,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_
 from isaaclab_arena.hydra.typed_experiment_loader import load_experiment_run_definitions_from_yaml
 from isaaclab_arena.tests.utils.constants import TestConstants
 
-_PERFLAB_CONFIG_DIRECTORY = Path(TestConstants.arena_environments_dir) / "experiment_configs" / "perflab"
+_PERFLAB_CONFIG_DIRECTORY = Path(TestConstants.arena_environments_dir) / "performance"
 
 _RUN_NAME_BY_CONFIG_NAME = {
     "camera_free_benchmark_experiment.yaml": "camera_free_baseline",

@@ -1,6 +1,6 @@
 # PerfLab first-pass Arena benchmarks
 
-This README tells a PerfLab operator how to set up and run six non-OSMO Arena benchmarks on Arena's
+This plan tells a PerfLab operator how to set up and run six non-OSMO Arena benchmarks on Arena's
 `main` branch:
 
 1. `zero_action` without cameras.
@@ -22,7 +22,7 @@ Rubik's cube in a bowl. The object workloads place fruit in a bowl.
 | Experiment | What runs | What it tells us |
 |---|---|---|
 | Camera-free baseline | `zero_action`; cameras off | Scene construction, physics stepping, throughput, and the maximum environment count without camera or policy cost. |
-| Production-camera baseline | `zero_action`; the maintained three-camera DROID rig is on | The additional cost of producing the normal camera observations. This README does not change or state a camera resolution. |
+| Production-camera baseline | `zero_action`; the maintained three-camera DROID rig is on | The additional cost of producing the normal camera observations. This plan does not change or state a camera resolution. |
 | Pi0.5 | Pi0.5 remote policy; the maintained three-camera DROID rig is on | End-to-end production evaluation cost, including camera rendering and calls to the OpenPI server. |
 | Homogeneous objects | `zero_action`; cameras off; one apple asset | Performance when every parallel environment uses the same object. |
 | Heterogeneous objects | `zero_action`; cameras off; ten fruit assets | Performance when parallel environments use different object assets. |
@@ -117,7 +117,7 @@ The import path must be below `/workspaces/isaaclab_arena`, and the final comman
 status zero. The `-e` mount is applied only when the launcher creates the container; attaching to
 an older container does not change its mounts.
 
-Every Python command in this README runs `./submodules/IsaacLab/isaaclab.sh -p` from
+Every Python command in this plan runs `./submodules/IsaacLab/isaaclab.sh -p` from
 `/workspaces/isaaclab_arena`. This works in the launcher's shell and in shells attached later with
 `docker exec`, where `isaaclab.sh` is not on `PATH`. `isaaclab.sh` prints a deprecation warning on
 every call; it does not affect the run.
@@ -174,7 +174,7 @@ Run this command inside the Arena container:
 env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config \
-    isaaclab_arena_environments/experiment_configs/perflab/camera_free_benchmark_experiment.yaml \
+    isaaclab_arena_environments/performance/camera_free_benchmark_experiment.yaml \
   --experiment_output_directory \
     "${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
@@ -203,7 +203,7 @@ Every environment uses the same apple asset. Cameras and policy inference are of
 env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config \
-    isaaclab_arena_environments/experiment_configs/perflab/same_object_benchmark_experiment.yaml \
+    isaaclab_arena_environments/performance/same_object_benchmark_experiment.yaml \
   --experiment_output_directory \
     "${PERFLAB_OUTPUT_ROOT}/same-object/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
@@ -222,7 +222,7 @@ The environments use ten fruit assets in a repeating order. Cameras and policy i
 env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config \
-    isaaclab_arena_environments/experiment_configs/perflab/mixed_object_benchmark_experiment.yaml \
+    isaaclab_arena_environments/performance/mixed_object_benchmark_experiment.yaml \
   --experiment_output_directory \
     "${PERFLAB_OUTPUT_ROOT}/mixed-object/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
@@ -246,7 +246,7 @@ Run this command inside the Arena container:
 env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config \
-    isaaclab_arena_environments/experiment_configs/perflab/production_camera_benchmark_experiment.yaml \
+    isaaclab_arena_environments/performance/production_camera_benchmark_experiment.yaml \
   --experiment_output_directory \
     "${PERFLAB_OUTPUT_ROOT}/production-camera/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
@@ -308,7 +308,7 @@ Run this command inside the Arena container:
 env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config \
-    isaaclab_arena_environments/experiment_configs/perflab/pi05_benchmark_experiment.yaml \
+    isaaclab_arena_environments/performance/pi05_benchmark_experiment.yaml \
   --experiment_output_directory \
     "${PERFLAB_OUTPUT_ROOT}/pi05/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
@@ -367,7 +367,7 @@ Then run:
 env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config \
-    isaaclab_arena_environments/experiment_configs/perflab/cosmos_benchmark_experiment.yaml \
+    isaaclab_arena_environments/performance/cosmos_benchmark_experiment.yaml \
   --experiment_output_directory \
     "${PERFLAB_OUTPUT_ROOT}/cosmos/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
