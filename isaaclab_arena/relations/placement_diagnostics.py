@@ -59,7 +59,7 @@ class PlacementDiagnostics:
     with best-loss layouts because none of their candidates was valid."""
 
     num_envs: int
-    """Environments the pool fills."""
+    """Number of environments the pool fills."""
 
     batches: list[BatchValidationDiagnostics] = field(default_factory=list)
     """Validated batches, in solve order. A batch after the first runs only while some environment lacks
@@ -86,7 +86,7 @@ class PlacementDiagnostics:
 
     @classmethod
     def load(cls, path: str | Path) -> PlacementDiagnostics:
-        """Read diagnostics written by save()."""
+        """Return the diagnostics that save() wrote to path."""
         content = json.loads(Path(path).read_text(encoding="utf-8"))
         batches = []
         for batch in content["batches"]:

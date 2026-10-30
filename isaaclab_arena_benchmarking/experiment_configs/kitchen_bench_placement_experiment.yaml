@@ -15,7 +15,8 @@ shared:
     num_steps: 1
 
 # Each Run has its own placement seed, 100000 apart, so Runs that share a scene solve different candidates.
-# A build uses at most num_envs * min_unique_layouts_per_env * max_placement_attempts**2 seeds: 15000 here.
+# With the default placer parameters, a build uses at most
+# num_envs * min_unique_layouts_per_env * max_placement_attempts**2 = 15000 consecutive seeds.
 # All rebuilds of a Run get its seed, so a second rebuild would solve the same candidates.
 runs:
   kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2:
