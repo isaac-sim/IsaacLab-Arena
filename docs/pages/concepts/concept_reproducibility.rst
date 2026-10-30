@@ -20,14 +20,14 @@ At a glance
    * - :doc:`Variation <variations/variations>` values, such as lighting, the background
        image, camera position, object mass, and randomly chosen objects
      - Yes, by default
-     - ``seed`` (default ``42``)
+     - ``seed``
    * - Small random offsets that some robots, such as DROID and Franka, add to their
        starting joint positions on every reset
      - Yes, by default
      - ``seed``
    * - Object layouts: where objects are placed
      - Only when you set it
-     - ``placement_seed`` (not set by default)
+     - ``placement_seed``
    * - Physics: how objects fall, slide, and collide
      - Only when the whole run repeats
      - See :ref:`reproducibility-physics`
@@ -76,10 +76,10 @@ other values on the command line without editing the file again:
 Several rebuilds
 ~~~~~~~~~~~~~~~~
 
-Each rebuild of a Run adds one to ``seed``. With the default ``seed`` of 42 and
-``num_rebuilds: 3``, the rebuilds use 42, 43, and 44, so each rebuild draws its own
-background image. ``placement_seed`` stays the same for every rebuild. Running the
-Experiment again gives the same three backgrounds in the same order.
+Each rebuild of a Run adds one to ``seed``. With ``seed: 42`` and ``num_rebuilds: 3``,
+the rebuilds use 42, 43, and 44, so each rebuild draws its own background image.
+``placement_seed`` stays the same for every rebuild. Running the Experiment again gives
+the same three backgrounds in the same order.
 
 For example, in a Run of the ``pick_and_place_maple_table`` environment:
 
