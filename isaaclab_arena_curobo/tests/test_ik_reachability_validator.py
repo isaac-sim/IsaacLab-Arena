@@ -265,9 +265,13 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
 
 
 def test_reachability_layer_records_to_rrd(tmp_path):
-    """The layer's grasps and verdicts reach a recording without a viewer or cuRobo."""
+    """The layer's grasps, verdicts and background reach a recording without a viewer or cuRobo."""
+    import rerun as rr
+
     from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.reachability_visualizer import LOADED_BACKGROUND_ENTITY, ReachabilityRerunLayer
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
 
     rrd_path = tmp_path / "placement.rrd"
     visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(rrd_path))
@@ -284,10 +288,52 @@ def test_reachability_layer_records_to_rrd(tmp_path):
         rotation_error=torch.tensor([0.1]),
         robot_spheres=torch.tensor([[[0.1, 0.0, 0.2, 0.05], [0.2, 0.0, 0.3, 0.04]]]),
         muted_sphere_mask=torch.tensor([False, True]),
+        background_cuboids=[AABBCollisionCuboid("wall", (0.1, 0.1, 0.1), Pose(position_xyz=(0.1, 0.0, 0.2)))],
     )
     visualizer.close()
 
     assert rrd_path.is_file() and rrd_path.stat().st_size > 0
+    entity_paths = {str(chunk.entity_path) for chunk in rr.recording.load_recording(str(rrd_path)).chunks()}
+    assert {f"/{LOADED_BACKGROUND_ENTITY}/surface", f"/{LOADED_BACKGROUND_ENTITY}/hit"} <= entity_paths
+
+
+def test_background_cuboids_are_outlined_by_their_gap_to_the_checked_spheres():
+    """In a turned robot base frame, a penetrated cuboid is a hit, one a few cm off is near, and muted spheres do not count."""
+    import math
+
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.reachability_visualizer import (
+        NEAR_BACKGROUND_MARGIN_M,
+        _checked_spheres_in_world,
+        _cuboid_sphere_gaps,
+    )
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
+
+    # The base sits at x = 1 turned 90 degrees about z, so base-frame +x points along world +y.
+    t_W_B = (1.0, 0.0, 0.0)
+    q_W_B_xyzw = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
+    # Checked sphere at world (1, 0.1, 0.2), radius 0.05; muted sphere at world (1, 0.2, 0.3), radius 0.04.
+    robot_spheres = torch.tensor([[[0.1, 0.0, 0.2, 0.05], [0.2, 0.0, 0.3, 0.04], [0.0, 0.0, 0.0, -1.0]]])
+    spheres_W = _checked_spheres_in_world(robot_spheres, torch.tensor([False, True, False]), t_W_B, q_W_B_xyzw)
+    assert spheres_W.shape == (1, 4)
+
+    def cube(name, center):
+        return AABBCollisionCuboid(name, (0.1, 0.1, 0.1), Pose(position_xyz=center))
+
+    gaps = _cuboid_sphere_gaps(
+        [
+            cube("hit", (1.0, 0.1, 0.2)),
+            # Face at y = 0.17: 0.02 m past the checked sphere's surface.
+            cube("near", (1.0, 0.22, 0.2)),
+            # Penetrated only by the muted sphere.
+            cube("muted_only", (1.0, 0.2, 0.37)),
+            cube("far", (3.0, 3.0, 3.0)),
+        ],
+        spheres_W,
+    )
+    assert gaps[0] < 0.0
+    assert gaps[1] == pytest.approx(0.02)
+    assert gaps[2] >= NEAR_BACKGROUND_MARGIN_M and gaps[3] >= NEAR_BACKGROUND_MARGIN_M
 
 
 @pytest.mark.curobo_deps
