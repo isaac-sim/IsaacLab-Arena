@@ -1,11 +1,15 @@
 Reproducibility
 ===============
 
-Arena uses two seeds, ``seed`` and ``placement_seed``, so that you can run the same
+Arena uses two seeds, ``seed`` and ``placement_seed``, so that you can launch the same
 Experiment again and get the same setup in every episode. ``seed`` keeps the variation
 values the same, and ``placement_seed`` keeps the object layouts the same. This page shows
-what stays the same from one run to the next, how to control it, and when the physics
+what stays the same from one launch to the next, how to control it, and when the physics
 simulation can still play out differently.
+
+A *launch* is one start of the Experiment Runner. A *Run* is one entry in an
+:doc:`Experiment Definition <concept_arena_experiments>`, and one launch executes all
+Runs of the Experiment.
 
 At a glance
 -----------
@@ -15,7 +19,7 @@ At a glance
    :widths: 46 22 32
 
    * - What
-     - Same in every run?
+     - Same in every launch?
      - Set with
    * - :doc:`Variation <variations/variations>` values, such as lighting, the background
        image, camera position, object mass, and randomly chosen objects
@@ -29,7 +33,7 @@ At a glance
      - Only when you set it
      - ``placement_seed``
    * - Physics: how objects fall, slide, and collide
-     - Only when the whole run repeats
+     - Only when the whole launch repeats
      - See :ref:`reproducibility-physics`
 
 ``seed`` and ``placement_seed`` both belong to ``environment_builder`` in an
@@ -39,10 +43,10 @@ every Run, or in a single Run.
 Examples
 --------
 
-Same object layouts in every run
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Same object layouts in every launch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Set ``placement_seed``. Without it, objects are placed differently each time you run
+Set ``placement_seed``. Without it, objects are placed differently each time you launch
 the Experiment.
 
 .. code-block:: yaml
@@ -54,8 +58,8 @@ the Experiment.
 New variation values
 ~~~~~~~~~~~~~~~~~~~~
 
-Change ``seed``. Every enabled variation that draws at random gets new values, and runs
-with the new seed match each other again. Asset selection takes objects in list order by
+Change ``seed``. Every enabled variation that draws at random gets new values, and
+launches with the new seed match each other again. Asset selection takes objects in list order by
 default and ignores ``seed``; see :ref:`asset selection <asset-selection-variation>`.
 
 .. code-block:: yaml
@@ -78,7 +82,7 @@ Several rebuilds
 
 Each rebuild of a Run adds one to ``seed``. With ``seed: 42`` and ``num_rebuilds: 3``,
 the rebuilds use 42, 43, and 44, so each rebuild draws its own background image.
-``placement_seed`` stays the same for every rebuild. Running the Experiment again gives
+``placement_seed`` stays the same for every rebuild. Launching the Experiment again gives
 the same three backgrounds in the same order.
 
 For example, in a Run of the ``pick_and_place_maple_table`` environment:
@@ -92,7 +96,7 @@ For example, in a Run of the ``pick_and_place_maple_table`` environment:
 Different number of parallel environments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Keep ``num_envs`` the same between runs that you want to compare, because object
+Keep ``num_envs`` the same between launches that you want to compare, because object
 layouts and physics can change with it. To reuse recorded variation values and object
 layouts with a different ``num_envs``, record them and replay them, as described in
 :doc:`experiment_record_replay`. Other random reset events, such as the robots' joint
@@ -105,21 +109,21 @@ Physics
 
 ``seed`` and ``placement_seed`` decide how each episode is set up. From there, the
 physics simulation decides how objects fall, slide, and collide. The physics is
-reproducible too, but only when the whole run repeats from the start.
+reproducible too, but only when the whole launch repeats from the start.
 
-**Physics repeats when you run the same Experiment again** with ``placement_seed`` set
+**Physics repeats when you launch the same Experiment again** with ``placement_seed`` set
 and the same settings, including ``num_envs``, on the same machine. Every episode in
 every environment then plays out exactly as before, as long as the policy sends the same
 actions.
 
-Three things can still make a rerun differ:
+Three things can still make a new launch differ:
 
 * **Deformable objects.** PhysX only promises repeatable results for rigid objects and
   robots, not for cloth or soft bodies.
-* **Physics properties that change during a run**, such as the object mass variation.
+* **Physics properties that change during a launch**, such as the object mass variation.
   On the GPU, these changes can reorder the simulation's work and slightly change the
   results.
-* **Camera images.** Rendering can differ slightly between runs, so a policy that uses
+* **Camera images.** Rendering can differ slightly between launches, so a policy that uses
   cameras may not send the same actions. Add ``--deterministic`` to the runner command
   to request repeatable rendering.
 
@@ -127,13 +131,13 @@ Three things can still make a rerun differ:
 
 * **A different number of environments, device, or GPU.** The simulation computes
   slightly differently, and small differences grow as the episode goes on.
-* **Two environments in the same run.** Each environment sits at its own place in the
+* **Two environments in the same launch.** Each environment sits at its own place in the
   simulated world. Environment 0 and environment 1 can end slightly differently, even
   when they start from the same layout.
-* **An earlier and a later episode in the same run.** Even if episode 1 and episode 5
+* **An earlier and a later episode in the same launch.** Even if episode 1 and episode 5
   start from the same layout and the robot makes the same moves, episode 5 can end
   differently. A reset puts objects back in their starting poses, but the physics engine
-  keeps some internal state from earlier episodes. Rerunning the Experiment still
+  keeps some internal state from earlier episodes. Launching the Experiment again still
   repeats episode 5 exactly.
 
 The differences are largest when objects touch or are stacked, where a small change can

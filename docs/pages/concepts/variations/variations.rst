@@ -39,7 +39,8 @@ each enabled build-time variation draws one value for the whole Run. A run-time 
 produce a new value on each
 reset without rebuilding the scene. Both kinds draw their values from the variation's own
 generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`). See
-:doc:`../concept_reproducibility` for what stays the same between runs.
+:doc:`../concept_reproducibility` for what stays the same each time you launch an
+Experiment.
 
 .. _asset-selection-variation:
 
