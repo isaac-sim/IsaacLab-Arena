@@ -17,8 +17,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.validation.placement_visualizer import ROBOT_ENTITY, PlacementRerunVisualizer
 
 if TYPE_CHECKING:
-    import rerun as rr
-
     from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
 
 REACHABLE_COLOR = (40, 200, 80)
@@ -45,14 +43,8 @@ BASE_ENTITY = f"{ROBOT_ENTITY}/base"
 SPHERES_ENTITY = f"{BASE_ENTITY}/collision_spheres"
 """Entity path of the robot's collision spheres, one child per grasp the check solved."""
 
-BACKGROUND_ENTITY = "world/background"
-"""Entity path of the fixed background, drawn once for every layout."""
-
 LOADED_BACKGROUND_ENTITY = f"{ROBOT_ENTITY}/background_obstacles"
 """Entity path of the background cuboids loaded for one layout; under the robot so a skipped layout clears them."""
-
-BACKGROUND_CUBOID_COLOR = (120, 120, 130)
-"""Color of the full cuboid cover of the background, drawn as wireframe."""
 
 LOADED_BACKGROUND_COLOR = (230, 140, 40)
 """Color of the background cuboids loaded as obstacles for the layout's solves."""
@@ -107,8 +99,11 @@ class ReachabilityRerunLayer:
         if background_cuboids:
             rr.log(
                 LOADED_BACKGROUND_ENTITY,
-                self._cuboids_to_boxes(
-                    background_cuboids, LOADED_BACKGROUND_COLOR, rr.components.FillMode.MajorWireframe
+                rr.Boxes3D(
+                    centers=[cuboid.pose_W_O.position_xyz for cuboid in background_cuboids],
+                    half_sizes=[[0.5 * dim for dim in cuboid.dims_xyz] for cuboid in background_cuboids],
+                    colors=LOADED_BACKGROUND_COLOR,
+                    fill_mode=rr.components.FillMode.MajorWireframe,
                 ),
             )
         # Grasps are solved in the robot base frame, so they are logged as children of the base
@@ -174,42 +169,4 @@ class ReachabilityRerunLayer:
                     for is_muted in muted[kept].tolist()
                 ],
             ),
-        )
-
-    @staticmethod
-    def log_background(cuboids: list[AABBCollisionCuboid]) -> None:
-        """Draw the cuboids covering the fixed background, once for every layout.
-
-        Args:
-            cuboids: The world-axis-aligned cuboids the background meshes are covered with.
-        """
-        import rerun as rr
-
-        if cuboids:
-            rr.log(
-                f"{BACKGROUND_ENTITY}/cuboids",
-                ReachabilityRerunLayer._cuboids_to_boxes(
-                    cuboids, BACKGROUND_CUBOID_COLOR, rr.components.FillMode.MajorWireframe
-                ),
-                static=True,
-            )
-
-    @staticmethod
-    def _cuboids_to_boxes(
-        cuboids: list[AABBCollisionCuboid], color: tuple[int, ...], fill_mode: rr.components.FillMode
-    ) -> rr.Boxes3D:
-        """Return world-axis-aligned cuboids as one Rerun ``Boxes3D``.
-
-        Args:
-            cuboids: Cuboids whose pose holds their world-frame center.
-            color: Color of every box.
-            fill_mode: Rerun fill mode of the boxes.
-        """
-        import rerun as rr
-
-        return rr.Boxes3D(
-            centers=[cuboid.pose_W_O.position_xyz for cuboid in cuboids],
-            half_sizes=[[0.5 * dim for dim in cuboid.dims_xyz] for cuboid in cuboids],
-            colors=color,
-            fill_mode=fill_mode,
         )
