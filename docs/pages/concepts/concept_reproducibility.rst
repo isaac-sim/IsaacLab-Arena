@@ -127,24 +127,15 @@ Three things can still make a rerun differ:
 * **Two environments in the same run.** Each environment sits at its own place in the
   simulated world. Environment 0 and environment 1 can end slightly differently, even
   when they start from the same layout.
-* **An earlier and a later episode in the same run.** Say episode 1 and episode 5 of a
-  run start from exactly the same layout, and the robot makes exactly the same moves in
-  both. Episode 5 can still end differently. A reset puts every object back in its
-  starting pose, but the physics engine keeps some internal state from the episodes
-  before it, and that state affects what happens next. Episode 5 is still
-  reproducible: run the Experiment again, and episode 5 plays out exactly as it did the
-  last time.
+* **An earlier and a later episode in the same run.** Even if episode 1 and episode 5
+  start from the same layout and the robot makes the same moves, episode 5 can end
+  differently. A reset puts objects back in their starting poses, but the physics engine
+  keeps some internal state from earlier episodes. Rerunning the Experiment still
+  repeats episode 5 exactly.
 
 The differences are largest when objects touch or are stacked, where a small change can
 add up to a visibly different arrangement. Objects that stand apart usually end up in
 nearly the same place.
-
-In practice, you are most likely to notice this in two situations:
-
-* You evaluate a policy on one fixed layout and expect every episode to end the same
-  way.
-* You replay a recorded demonstration, and it fails even though it succeeded when it
-  was recorded.
 
 If your episodes need identical starting poses for objects, record settled layouts once
 and replay them. See :doc:`offline_placement/recording`.
