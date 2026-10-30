@@ -110,6 +110,17 @@ reproducible too, but only when the whole run repeats from the start.
 including ``num_envs``, on the same machine. Every episode in every environment then
 plays out exactly as before, as long as the policy sends the same actions.
 
+Three things can still make a rerun differ:
+
+* **Deformable objects.** PhysX only promises repeatable results for rigid objects and
+  robots, not for cloth or soft bodies.
+* **Physics properties that change during a run**, such as the object mass variation.
+  On the GPU, these changes can reorder the simulation's work and slightly change the
+  results.
+* **Camera images.** Rendering can differ slightly between runs, so a policy that uses
+  cameras may not send the same actions. Add ``--deterministic`` to the runner command
+  to request repeatable rendering.
+
 **Physics can differ, even from an identical setup,** in these cases:
 
 * **A different number of environments, device, or GPU.** The simulation computes
