@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
     PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE,
@@ -84,9 +85,13 @@ def test_placement_experiment_runs_solve_separate_candidate_seeds(experiment_con
     """No two Runs of a placement experiment share candidate seeds, so Runs that share a scene solve different
     candidates."""
     experiment = yaml.safe_load((EXPERIMENT_CONFIGS_DIR / experiment_config).read_text())
-    # No spec overrides min_unique_layouts_per_env or max_placement_attempts. A build solves at most
-    # max_placement_attempts batches, each of at most num_envs * min_unique_layouts_per_env * max_placement_attempts
-    # candidates, seeded consecutively.
+    # The bound below uses the default placer parameters, so no spec may override them.
+    for run in experiment["runs"].values():
+        spec_placer_params = load_env_graph_spec_dict(REPO_ROOT / run["environment"]["type"]).get("placer_params")
+        overridden = {"min_unique_layouts_per_env", "max_placement_attempts"} & set(spec_placer_params or {})
+        assert not overridden, f"{run['environment']['type']} sets {sorted(overridden)}; widen the seed spacing"
+    # A build solves at most max_placement_attempts batches, each of at most
+    # num_envs * min_unique_layouts_per_env * max_placement_attempts candidates, seeded consecutively.
     params = ObjectPlacerParams()
     num_envs = experiment["shared"]["environment_builder"]["num_envs"]
     seeds_per_build = num_envs * params.min_unique_layouts_per_env * params.max_placement_attempts**2

@@ -23,8 +23,9 @@ environment still has empty slots, up to ``max_placement_attempts`` batches; see
 :doc:`./pooled_placement`.
 
 When the last batch gives an environment no valid candidate, its empty slots get
-that batch's lowest-loss candidates, which fail at least one check. This
-best-loss fallback is on by default. When the last batch gives an environment
+that batch's highest-ranked candidates, which fail at least one check. Candidates
+rank by fewest failed required checks, then fewest failed optional checks, then
+lowest loss. This best-loss fallback is on by default. When the last batch gives an environment
 some valid candidates but too few, or none while fallback is off, the build
 fails.
 
@@ -33,8 +34,8 @@ relation placement to ``placement_diagnostics_rebuild<i>.json`` in the Run
 directory, whatever the Run's policy. The file holds the number of environments,
 the environments that fell back, and for each batch the number of candidates,
 the number of valid ones, and how many candidates each check ran on and passed,
-which shows which check rejects candidates. A build that fails, or that replays
-recorded layouts, writes none. From these files the benchmark reports for each
+which shows which check rejects candidates. A build whose placement fails, or
+that replays recorded layouts, writes none. From these files the benchmark reports for each
 Run:
 
 * **Valid candidates** (``valid_candidate_rate_first_batch``): the share of
@@ -70,8 +71,8 @@ variant in each process, such as the Lightwheel broccoli, can still change
 results.
 
 The inverse kinematics (IK) reachability check runs only for embodiments with a
-registered cuRobo config, and a spec can make it optional, as the RoboLab tasks
-on the ``butter_raisin_box`` scene do. It counts toward a rate only where it is
+registered cuRobo config, and a spec can make it optional, as the RoboLab
+``butter_above_raisin`` task does. It counts toward a rate only where it is
 required.
 
 Run the Benchmark
