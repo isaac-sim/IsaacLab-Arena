@@ -86,6 +86,72 @@ runner flags, so their defaults must match the runner defaults.
    implement argparse methods. The runner generates their flags from the
    registered config and reconstructs it before creating the policy.
 
+.. _inference-latency:
+
+Inference latency
+-----------------
+
+By default the simulation does not advance while a policy computes its action: the policy sees an
+observation that is exactly current and its first action is applied at the same simulation instant.
+On a robot, the time between capturing a frame and applying the first action computed from it is one
+or more control periods, and the scene keeps moving during that gap. Every ``PolicyCfg`` therefore
+has an ``inference_latency_ms`` field that models this gap in simulation time:
+
+.. code-block:: yaml
+
+   shared:
+     policy:
+       type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+       policy_variant: pi05
+       inference_latency_ms: 85
+
+Arena converts the value to control steps with ``ceil(inference_latency_ms / control_step_dt)``, so
+the modeled latency is never shorter than the configured one. At the default 15 Hz control rate,
+85 ms is 2 steps, 150 ms is 3, and 1000 ms is 15. The field lives on the policy config because the
+latency is a property of how the policy is served, and in milliseconds it stays correct when an
+environment changes its simulation step or decimation. A latency sweep is a set of Runs that differ
+only in this value.
+
+With ``d`` latency steps, an action computed from the observation of step ``t`` is applied at step
+``t + d``. While an env has no action to apply, during the first ``d`` steps of every episode and
+whenever a chunk arrives later than the previous one ends, it applies a **hold action** that keeps
+the robot where it is: the current joint positions for absolute joint position action terms, a zero
+delta for relative terms, and the last command for binary grippers and absolute pose targets. Hold
+steps count toward the episode timeout, as they do on the robot. The default of ``0`` keeps the
+previous behavior exactly.
+
+The latency is modeled in simulation time, so the result of a Run does not depend on the hardware the
+simulation or the policy server run on. If a chunk has not arrived when the simulation reaches the
+step it is due, the simulation waits; if it arrives earlier, it is held until that step. Only the
+wall time of the Run changes.
+
+How a policy applies the latency depends on how it produces actions:
+
+* **Chunked remote policies** (``Pi0RemotePolicy``, ``CosmosRemotePolicy``, and
+  ``Gr00tRemoteClosedloopPolicy`` with ``scheduler: latency``) use a ``LatencyActionScheduler``.
+  Each env requests its next chunk ``d`` steps before its current one runs out, and the request is
+  sent from a worker thread while the simulation advances. With ``d`` of at least one and a server
+  that answers within ``d`` control steps of simulation wall time, the policy round trip leaves the
+  critical path of the step. If ``d`` is larger than the executed chunk length, the env stalls for
+  the difference between chunks, which is what such a deployment experiences.
+* **Every other policy** (``ZeroActionPolicy``, ``ReplayActionPolicy``, ``RslRlActionPolicy``, custom
+  per-step policies) is delayed by the rollout loop: each returned action is applied ``d`` control
+  steps after the observation it came from. A policy that models the latency itself sets
+  ``handles_inference_latency`` to ``True`` to opt out of this delay. Replaying a recorded trajectory
+  under latency measures what the delay alone does to a task, independent of any model.
+
+The timing table and ``arena_run_timings.json`` report how the modeled latency played out.
+``step/policy_inference`` keeps its meaning, the time the rollout loop spent in ``get_action``;
+under it, ``dispatch`` is the time spent snapshotting observations and sending requests, and
+``wait`` is the time the simulation blocked on a chunk that was due but had not arrived, which is
+non-zero only when the server is slower than the modeled latency allows. ``policy_server_round_trip``
+is the server round trip measured on the worker thread. Remote policies also print, when they close,
+the number of chunk requests and the number of env-steps spent holding.
+
+Not modeled: the delay between a policy's command and the actuators, which lands between physics
+substeps rather than on control-step boundaries, and jitter around the configured value. Both can be
+added on top of this mechanism.
+
 .. _vlm-agent-policies:
 
 VLM agent policies

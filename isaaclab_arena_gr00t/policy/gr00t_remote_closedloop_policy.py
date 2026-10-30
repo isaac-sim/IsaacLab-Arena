@@ -13,13 +13,21 @@ from __future__ import annotations
 
 import gymnasium as gym
 import torch
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
 from isaaclab_arena.assets.register import register_policy
-from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
+from isaaclab_arena.policy.action_scheduling import (
+    ActionChunkScheduler,
+    ActionScheduler,
+    LatencyActionScheduler,
+    SyncedBatchActionScheduler,
+)
+from isaaclab_arena.policy.inference_latency import inference_latency_steps
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyCfg,
@@ -37,12 +45,15 @@ class ActionSchedulerType(str, Enum):
 
     CHUNK = "chunk"
     SYNCED_BATCH = "synced_batch"
+    LATENCY = "latency"
+    """Request each env's next chunk ``inference_latency_ms`` ahead of time and deliver it after that latency."""
 
     def get_scheduler_cls(self) -> type[ActionScheduler]:
         """Return the action-scheduler class this type selects."""
         return {
             ActionSchedulerType.CHUNK: ActionChunkScheduler,
             ActionSchedulerType.SYNCED_BATCH: SyncedBatchActionScheduler,
+            ActionSchedulerType.LATENCY: LatencyActionScheduler,
         }[self]
 
 
@@ -68,7 +79,10 @@ class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     """Optional policy-server API token."""
 
     scheduler: ActionSchedulerType = ActionSchedulerType.CHUNK
-    """Action scheduler used to consume inference chunks."""
+    """Action scheduler used to consume inference chunks.
+
+    ``latency`` is required when ``inference_latency_ms`` is non-zero; with zero latency it behaves like ``chunk``.
+    """
 
 
 @register_policy
@@ -97,7 +111,11 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
         super().__init__(config)
 
-        action_scheduler_cls = ActionSchedulerType(config.scheduler).get_scheduler_cls()
+        scheduler_type = ActionSchedulerType(config.scheduler)
+        assert config.inference_latency_ms == 0.0 or scheduler_type is ActionSchedulerType.LATENCY, (
+            f"inference_latency_ms={config.inference_latency_ms} requires scheduler='latency';"
+            f" '{scheduler_type.value}' cannot model it"
+        )
 
         # Policy config (for obs/action translation — no model loading)
         # TODO(xinjieyao, 2026-04-27): to be refactored
@@ -124,7 +142,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
         self.action_chunk_length = self.policy_config.action_chunk_length
 
-        self._chunking_state: ActionScheduler | None = action_scheduler_cls(
+        scheduler_kwargs = dict(
             num_envs=self.num_envs,
             action_chunk_length=self.action_chunk_length,
             action_horizon=self.policy_config.action_horizon,
@@ -132,6 +150,12 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             device=self.device,
             dtype=torch.float,
         )
+        self._chunking_state: ActionScheduler | None
+        if scheduler_type is ActionSchedulerType.LATENCY:
+            # The GR00T client serves one request at a time, so requests queue on a single worker.
+            self._chunking_state = LatencyActionScheduler(**scheduler_kwargs, max_workers=1)
+        else:
+            self._chunking_state = scheduler_type.get_scheduler_cls()(**scheduler_kwargs)
 
         # Connect to GR00T's native PolicyClient
         from gr00t.policy.server_client import PolicyClient
@@ -161,16 +185,34 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         self.task_description = task_description
         return self.task_description
 
+    @property
+    def handles_inference_latency(self) -> bool:
+        """The ``latency`` scheduler applies ``config.inference_latency_ms`` itself."""
+        return True
+
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         assert self._chunking_state is not None, "GR00T remote policy has been closed"
+        hold_action = self._extract_hold_action(observation)
+
+        if isinstance(self._chunking_state, LatencyActionScheduler):
+            if self._chunking_state.latency_steps is None:
+                self._chunking_state.set_latency_steps(
+                    inference_latency_steps(self.config.inference_latency_ms, env.unwrapped.step_dt)
+                )
+
+            def prepare_requests(env_ids: list[int]) -> list[Callable[[], torch.Tensor]]:
+                # The observation is converted on the calling thread, for this step, because the
+                # environment overwrites its buffers while the request is in flight.
+                policy_observations = self._build_policy_observations(observation, self.policy_config.pov_cam_name_sim)
+                rows = torch.tensor(env_ids, device=self.device)
+                return [lambda: self._request_action_tensor(policy_observations)[rows]]
+
+            return self._chunking_state.get_action(prepare_requests, hold_action=hold_action)
 
         def fetch_chunk() -> torch.Tensor:
             return self._get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
 
-        return self._chunking_state.get_action(
-            fetch_chunk,
-            hold_action=self._extract_hold_action(observation),
-        )
+        return self._chunking_state.get_action(fetch_chunk, hold_action=hold_action)
 
     def _extract_hold_action(self, observation: dict[str, Any]) -> torch.Tensor:
         """Build the action vector that waiting envs should hold: their current sim joint positions
@@ -190,14 +232,19 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
         Calls GR00T's PolicyClient to get the action chunk.
         """
+        return self._request_action_tensor(self._build_policy_observations(observation, camera_names))
+
+    def _build_policy_observations(
+        self, observation: dict[str, Any], camera_names: list[str] | str = "robot_head_cam_rgb"
+    ) -> dict[str, Any]:
+        """Translate the env observation of every env into the GR00T server's observation format."""
         if isinstance(camera_names, str):
             camera_names = [camera_names]
 
-        # 1. Reuse the same obs translation as local policy
+        # Reuse the same obs translation as local policy
         assert self.task_description is not None, "Task description is not set"
-        assert self._client is not None, "GR00T remote policy has been closed"
         rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(nested_obs=observation, camera_names=camera_names)
-        policy_observations = build_gr00t_policy_observations(
+        return build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
             joint_pos_sim_np=joint_pos_sim_np,
             task_description=self.task_description,
@@ -207,10 +254,13 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             modality_configs=self.modality_configs,
         )
 
-        # 2. Call GR00T's own client
-        robot_action_policy, _ = self._client.get_action(policy_observations)
+    def _request_action_tensor(self, policy_observations: dict[str, Any]) -> torch.Tensor:
+        """Send the policy observations to the server and return the ``(num_envs, horizon, action_dim)`` chunks."""
+        assert self._client is not None, "GR00T remote policy has been closed"
+        with Timer("policy_server_round_trip"):
+            robot_action_policy, _ = self._client.get_action(policy_observations)
 
-        # 3. Action translation from policy output to sim action tensor
+        # Action translation from policy output to sim action tensor
         action_tensor = build_gr00t_action_tensor(
             robot_action_policy=robot_action_policy,
             task_mode=self.task_mode,
@@ -234,6 +284,8 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     def close(self) -> None:
         """Release Arena-side resources for the remote GR00T policy client."""
         client = self._client
+        if isinstance(self._chunking_state, LatencyActionScheduler):
+            self._chunking_state.close()
         try:
             if client is not None:
                 socket = getattr(client, "socket", None)

@@ -18,9 +18,12 @@ from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
 
+CONTROL_STEP_DT = 1.0 / 15.0
+OPEN_LOOP_HORIZON = 15
+
 
 def _fake_env(num_envs: int = 1):
-    return types.SimpleNamespace(unwrapped=types.SimpleNamespace(num_envs=num_envs))
+    return types.SimpleNamespace(unwrapped=types.SimpleNamespace(num_envs=num_envs, step_dt=CONTROL_STEP_DT))
 
 
 def _fake_observation(num_envs: int = 1) -> dict:
@@ -180,10 +183,8 @@ def test_reset_honors_env_ids(monkeypatch):
 
     policy.reset(env_ids=torch.tensor([0, 2]))
 
-    assert policy._cached_action_chunks[0] is None
-    assert policy._cached_action_chunks[1] is not None  # untouched
-    assert policy._cached_action_chunks[2] is None
-    assert policy._next_chunk_steps == [0, 1, 0]
+    # -1 marks an env without a chunk; env 1 keeps replaying from row 1.
+    assert policy._scheduler.current_action_index.tolist() == [-1, 1, -1]
 
 
 def test_call_server_with_retry_reconnects_on_drop(monkeypatch):
@@ -200,15 +201,17 @@ def test_call_server_with_retry_reconnects_on_drop(monkeypatch):
     _patch_websocket_client(monkeypatch, infer_impl=flaky_infer)
     policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
     policy.set_task_description("pick up the block")
-    policy._cached_action_chunks = [np.zeros((15, 8), dtype=np.float32)]
-    policy._next_chunk_steps = [5]
+    env = _fake_env(num_envs=2)
+    obs = _fake_observation(num_envs=2)
+    policy.get_action(env, obs)  # both envs fetch; env 0's first attempt drops the connection
+    assert call_count["n"] == 3
+    assert policy._scheduler.current_action_index.tolist() == [1, 1]
 
-    response = policy._call_server_with_retry({"prompt": "x"})
+    # The reconnect flushes every env's chunk on the next step, so both fetch again with a fresh observation.
+    policy.get_action(env, obs)
 
-    assert response is successful_response
-    assert call_count["n"] == 2
-    assert policy._cached_action_chunks == [None]
-    assert policy._next_chunk_steps == [0]
+    assert call_count["n"] == 5
+    assert policy._scheduler.current_action_index.tolist() == [1, 1]
 
 
 def test_call_server_with_retry_gives_up_after_max_attempts(monkeypatch):
@@ -227,3 +230,70 @@ def test_pi0_remote_policy_declares_the_adapter_image_size():
     """Report the 224x224 box the DROID adapter resizes camera frames into, for camera_resolution_mode policy_default."""
     assert Pi0RemotePolicy.default_image_size(Pi0RemotePolicyCfg(openpi_embodiment_adapter="droid")) == (224, 224)
     assert Pi0DroidAdapter.target_image_size == (224, 224)
+
+
+def _hold_action(num_envs: int) -> torch.Tensor:
+    return torch.full((num_envs, 8), -1.0)
+
+
+def test_latency_holds_then_replays_the_chunk_requested_two_steps_earlier(monkeypatch):
+    """With 85 ms at 15 Hz the chunk requested on step 0 is applied from step 2, and the arm holds until then."""
+    from isaaclab_arena.policy import remote_policy_base
+
+    call_count = {"n": 0}
+
+    def counting_infer(self, request):
+        call_count["n"] += 1
+        return {"actions": _synthetic_chunk()}
+
+    _patch_websocket_client(monkeypatch, infer_impl=counting_infer)
+    monkeypatch.setattr(remote_policy_base, "hold_action_from_action_manager", lambda env: _hold_action(1))
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu", inference_latency_ms=85.0))
+    policy.set_task_description("pick up the block")
+    env = _fake_env()
+    obs = _fake_observation()
+
+    actions = [policy.get_action(env, obs)[0, -1].item() for _ in range(OPEN_LOOP_HORIZON + 3)]
+
+    assert policy._scheduler.latency_steps == 2
+    assert actions[:2] == [-1.0, -1.0]  # holding while the first request is in flight
+    assert actions[2] == pytest.approx(0.2)  # row 0 of the chunk requested on step 0
+    assert actions[3] == pytest.approx(0.7)  # row 1
+    assert actions[OPEN_LOOP_HORIZON + 1] == pytest.approx(0.8)  # row 14, last action of the first chunk
+    # The second request was issued on step 15, so its chunk is usable on step 17 without a hold.
+    assert actions[OPEN_LOOP_HORIZON + 2] == pytest.approx(0.2)
+    assert call_count["n"] == 2
+    assert policy._scheduler.hold_steps.tolist() == [2]
+    assert policy._scheduler.stall_steps.tolist() == [0]
+
+
+def test_latency_reset_discards_the_in_flight_request_and_holds_again(monkeypatch):
+    """A reset env drops its pending chunk, requests a new one on its next step and holds for the latency."""
+    from isaaclab_arena.policy import remote_policy_base
+
+    _patch_websocket_client(monkeypatch)
+    monkeypatch.setattr(remote_policy_base, "hold_action_from_action_manager", lambda env: _hold_action(2))
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu", inference_latency_ms=70.0))
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=2)
+    obs = _fake_observation(num_envs=2)
+
+    for _ in range(3):
+        policy.get_action(env, obs)  # steps 0-2: both envs hold twice, then replay row 0
+    policy.reset(env_ids=torch.tensor([1]))
+    action = policy.get_action(env, obs)  # step 3: env 0 replays row 1, env 1 holds again
+
+    assert action[0, -1].item() == pytest.approx(0.7)
+    assert action[1, -1].item() == -1.0
+    assert policy._scheduler.requests_issued == 3
+
+
+def test_zero_latency_policy_never_needs_a_hold_action(make_policy):
+    """Without latency the chunk is fetched on the step it is needed and no hold action is read from the env."""
+    policy = make_policy()
+    policy.set_task_description("pick up the block")
+
+    action = policy.get_action(_fake_env(), _fake_observation())
+
+    assert action[0, -1].item() == pytest.approx(0.2)
+    assert policy._scheduler.latency_steps == 0
