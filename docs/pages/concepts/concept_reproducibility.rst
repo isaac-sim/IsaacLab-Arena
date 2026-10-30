@@ -1,0 +1,143 @@
+Reproducibility
+===============
+
+Arena uses two seeds so that you can run the same Experiment again and get the same
+setup in every episode: the same variation values and, if you ask for it, the same
+object layouts. This page shows what stays the same from one run to the next, how to
+control it, and when the physics simulation can still play out differently.
+
+At a glance
+-----------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 46 22 32
+
+   * - What
+     - Same in every run?
+     - Set with
+   * - :doc:`Variation <variations/variations>` values, such as lighting, the background
+       image, camera position, object mass, and randomly chosen assets
+     - Yes, by default
+     - ``seed`` (default ``42``)
+   * - Small random offsets that some robots, such as DROID and Franka, add to their
+       starting joint positions on every reset
+     - Yes, by default
+     - ``seed``
+   * - Object layouts: where objects are placed, and which object a random
+       :doc:`object set <scene/concept_rigid_object_set>` gives each environment
+     - Only when you set it
+     - ``placement_seed`` (not set by default)
+   * - Physics: how objects fall, slide, and collide
+     - Only when the whole run repeats
+     - See :ref:`reproducibility-physics`
+
+Both seeds belong to ``environment_builder`` in an
+:doc:`Experiment Definition <concept_arena_experiments>`. Set them under ``shared`` for
+every Run, or in a single Run. Scripts that build one environment directly, such as
+``environment_runner.py``, take them as ``--seed`` and ``--placement_seed``.
+
+Examples
+--------
+
+Same object layouts in every run
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set ``placement_seed``. Without it, objects are placed differently each time you run
+the Experiment.
+
+.. code-block:: yaml
+
+   shared:
+     environment_builder:
+       placement_seed: 7
+
+New variation values
+~~~~~~~~~~~~~~~~~~~~
+
+Change ``seed``. Every enabled variation draws new values, and runs with the new seed
+match each other again.
+
+.. code-block:: yaml
+
+   shared:
+     environment_builder:
+       seed: 7
+
+To try a seed without editing the file, override it on the command line:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config <your_experiment>.yaml \
+     shared.environment_builder.seed=7
+
+Several rebuilds
+~~~~~~~~~~~~~~~~
+
+Each rebuild of a Run uses the next seed. With the default seed and ``num_rebuilds: 3``,
+the rebuilds use seeds 42, 43, and 44, so each rebuild draws its own background image.
+Running the Experiment again gives the same three backgrounds in the same order.
+
+For example, in a Run of the ``pick_and_place_maple_table`` environment:
+
+.. code-block:: yaml
+
+   num_rebuilds: 3
+   variations:
+     light.hdr_image.enabled: true
+
+Different number of parallel environments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Keep ``num_envs`` the same between runs that you want to compare, because object
+layouts and physics can change with it. To repeat the exact conditions of an earlier
+run with a different ``num_envs``, record them and replay them, as described in
+:doc:`experiment_record_replay`.
+
+.. _reproducibility-physics:
+
+Physics
+-------
+
+The seeds decide how each episode is set up. From there, the physics simulation decides
+how objects fall, slide, and collide. The physics is reproducible too, but only when the
+whole run repeats from the start.
+
+**Physics repeats when you run the same Experiment again** with the same settings,
+including ``num_envs``, on the same machine. Every episode in every environment then
+plays out exactly as before, as long as the policy sends the same actions.
+
+**Physics can differ, even from an identical setup,** in these cases:
+
+* **A different number of environments, device, or GPU.** The simulation computes
+  slightly differently, and small differences grow as the episode goes on.
+* **Two environments in the same run.** Each environment sits at its own place in the
+  simulated world. Environment 0 and environment 1 can end slightly differently, even
+  when they start from the same layout.
+* **An earlier and a later episode in the same run.** Say episode 1 and episode 5 of a
+  run start from exactly the same layout, and the robot makes exactly the same moves in
+  both. Episode 5 can still end differently. A reset puts every object back in its
+  starting pose, but the physics engine keeps some internal state from the episodes
+  before it, and that state affects what happens next. Episode 5 is still
+  reproducible: run the Experiment again, and episode 5 plays out exactly as it did the
+  last time.
+
+The differences are largest when objects touch or are stacked, where a small change can
+add up to a visibly different arrangement. Objects that stand apart usually end up in
+nearly the same place.
+
+In practice, you are most likely to notice this in two situations:
+
+* You evaluate a policy on one fixed layout and expect every episode to end the same
+  way.
+* You replay a recorded demonstration, and it fails even though it succeeded when it
+  was recorded.
+
+If your episodes need identical starting poses for objects, record settled layouts once
+and replay them. See :doc:`offline_placement/recording`.
+
+This section describes PhysX, Arena's default physics engine. For background on
+simulation determinism, including rendering and the Newton physics engine, see Isaac
+Lab's `Reproducibility and Determinism
+<https://isaac-sim.github.io/IsaacLab/main/source/how-to/reproducibility.html>`_ guide.

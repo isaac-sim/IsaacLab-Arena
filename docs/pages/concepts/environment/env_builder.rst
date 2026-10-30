@@ -72,6 +72,9 @@ Environment compilation and rollout use more than one random stream, so locking
 a single global seed is not enough when you need layouts, object-set picks, or
 variation values to be reproducible independently.
 
+For a short overview of what stays the same between runs, including physics, see
+:doc:`../concept_reproducibility`.
+
 What it is
 ~~~~~~~~~~
 

@@ -38,7 +38,8 @@ Runner gives each rebuild its own seed. Set ``num_rebuilds`` in the Run; with th
 each enabled build-time variation draws one value for the whole Run. A run-time variation can
 produce a new value on each
 reset without rebuilding the scene. Both kinds draw their values from the variation's own
-generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`).
+generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`). See
+:doc:`../concept_reproducibility` for what stays the same between runs.
 
 .. _asset-selection-variation:
 
