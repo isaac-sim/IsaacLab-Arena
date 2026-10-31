@@ -385,7 +385,6 @@ def ensure_assets_registered():
         import isaaclab_arena.policy  # noqa: F401
         import isaaclab_arena.relations.relations  # noqa: F401
         import isaaclab_arena.tasks.task_library  # noqa: F401
-        import isaaclab_arena_environments.workbench_cleanup.assets  # noqa: F401
 
         _assets_registered = True
     finally:

@@ -25,6 +25,16 @@ def test_simready_usd_object_registered():
     assert "sim-ready" in cls.tags
 
 
+def test_simready_usd_articulation_registered():
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdArticulation
+
+    ensure_assets_registered()
+    cls = AssetRegistry().get_asset_by_name("simready_usd_articulation")
+    assert cls is SimReadyUsdArticulation
+    assert cls.registry_name == "simready_usd_articulation"
+    assert "sim-ready" in cls.tags
+
+
 def test_asset_spec_accepts_simready_usd_path():
     ensure_assets_registered()
     spec = AssetSpec(
@@ -69,6 +79,39 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
     spawn = obj._get_spawn_cfg(activate_contact_sensors=True)
     assert spawn.variants == {"Physics": "physics"}
     assert obj.usd_path == usd_path
+
+
+def test_simready_usd_articulation_can_add_fixed_base_and_initial_joints(tmp_path):
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdArticulation
+
+    source_path = str(tmp_path / "cabinet.usda")
+    stage = Usd.Stage.CreateNew(source_path)
+    root = UsdGeom.Xform.Define(stage, "/Cabinet").GetPrim()
+    stage.SetDefaultPrim(root)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    UsdPhysics.ArticulationRootAPI.Apply(root)
+    base = UsdGeom.Xform.Define(stage, "/Cabinet/Geometry/base").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(base)
+    stage.GetRootLayer().Save()
+
+    obj = SimReadyUsdArticulation(
+        usd_path=source_path,
+        name="cabinet",
+        scale=[0.5, 0.5, 0.5],
+        fixed_base_body_path="Geometry/base",
+        initial_joint_positions={"drawer_joint": 0.2},
+    )
+
+    wrapper = Usd.Stage.Open(obj.usd_path)
+    fixed_joint = UsdPhysics.FixedJoint(wrapper.GetPrimAtPath("/Asset/ArenaFixedBase"))
+    assert fixed_joint
+    assert fixed_joint.GetBody1Rel().GetTargets() == ["/Asset/Geometry/base"]
+    assert obj.scale == (0.5, 0.5, 0.5)
+    assert obj.object_cfg.init_state.joint_pos == {"drawer_joint": 0.2}
+    source_stage = Usd.Stage.Open(source_path)
+    assert not any(prim.IsA(UsdPhysics.FixedJoint) for prim in source_stage.Traverse())
 
 
 def test_simready_search_registry_name_derives_an_identifier_from_the_phrase():

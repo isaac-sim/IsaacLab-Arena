@@ -16,7 +16,10 @@ from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
+from isaaclab_arena.assets.physics_spawner import (
+    make_usd_spawn_cfg_with_addons,
+    make_usd_spawn_cfg_with_articulation_scale,
+)
 from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry, get_geometry_key
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -55,6 +58,11 @@ class Object(RootedObjectBase):
                 " object type"
             )
             object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))
+        scale = tuple(scale)
+        assert len(scale) == 3, f"Object scale must have three components, got {scale}."
+        if object_type == ObjectType.ARTICULATION and usd_path is not None:
+            assert all(component > 0.0 for component in scale), f"Articulation scale must be positive, got {scale}."
+            assert scale[0] == scale[1] == scale[2], f"Articulation scale must be uniform, got {scale}."
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
         self.spawner_cfg = spawner_cfg
@@ -184,7 +192,10 @@ class Object(RootedObjectBase):
             scale=self.scale,
             activate_contact_sensors=activate_contact_sensors,
         )
-        return make_usd_spawn_cfg_with_addons(spawn_cfg, self.spawn_cfg_addon)
+        spawn_cfg = make_usd_spawn_cfg_with_addons(spawn_cfg, self.spawn_cfg_addon)
+        if self.object_type == ObjectType.ARTICULATION and any(component != 1.0 for component in self.scale):
+            return make_usd_spawn_cfg_with_articulation_scale(spawn_cfg)
+        return spawn_cfg
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

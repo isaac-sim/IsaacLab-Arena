@@ -287,7 +287,12 @@ class ObjectReference(RootedObjectBase):
         joint_positions = resolve_joint_pos_patterns(joint_prims, joint_pos_patterns)
         if movable_joint.GetName() not in joint_positions:
             return authored_pose
-        joint_positions = self._joint_positions_in_authored_units(parent_stage, joint_prims, joint_positions)
+        joint_positions = self._joint_positions_in_source_units(
+            parent_stage,
+            joint_prims,
+            joint_positions,
+            self._parent_scale,
+        )
 
         body_deltas = compute_posed_prim_world_deltas(
             parent_stage,
@@ -321,12 +326,19 @@ class ObjectReference(RootedObjectBase):
         )
 
     @staticmethod
-    def _joint_positions_in_authored_units(
+    def _joint_positions_in_source_units(
         stage: Usd.Stage,
         joint_prims: dict[str, Usd.Prim],
         joint_positions: dict[str, float],
+        external_scale: tuple[float, float, float],
     ) -> dict[str, float]:
-        """Undo uniform authored articulation-root scale for prismatic joint motion."""
+        """Convert scaled prismatic positions to source-authored articulation units."""
+        assert all(
+            component > 0.0 for component in external_scale
+        ), f"Articulation scale must be positive, got {external_scale}."
+        assert (
+            external_scale[0] == external_scale[1] == external_scale[2]
+        ), f"Articulation scale must be uniform, got {external_scale}."
         positions = dict(joint_positions)
         default_prim = stage.GetDefaultPrim()
         default_T_world = np.array(
@@ -340,17 +352,20 @@ class ObjectReference(RootedObjectBase):
             articulation_root = joint_prim.GetParent()
             while articulation_root and not articulation_root.HasAPI(UsdPhysics.ArticulationRootAPI):
                 articulation_root = articulation_root.GetParent()
-            if not articulation_root or articulation_root == default_prim:
-                continue
-            root_T_world = np.array(
-                UsdGeom.Xformable(articulation_root).ComputeLocalToWorldTransform(Usd.TimeCode.Default()),
-                dtype=np.float64,
-            )
-            root_T_default = root_T_world @ np.linalg.inv(default_T_world)
-            authored_scales = np.linalg.svd(root_T_default[:3, :3], compute_uv=False)
-            if np.allclose(authored_scales, authored_scales[0]):
+            source_scale = 1.0
+            if articulation_root and articulation_root != default_prim:
+                root_T_world = np.array(
+                    UsdGeom.Xformable(articulation_root).ComputeLocalToWorldTransform(Usd.TimeCode.Default()),
+                    dtype=np.float64,
+                )
+                root_T_default = root_T_world @ np.linalg.inv(default_T_world)
+                authored_scales = np.linalg.svd(root_T_default[:3, :3], compute_uv=False)
+                assert np.allclose(
+                    authored_scales, authored_scales[0]
+                ), f"Articulation root {articulation_root.GetPath()} must have uniform authored scale."
                 assert authored_scales[0] > 0.0, f"Articulation root {articulation_root.GetPath()} has zero scale."
-                positions[name] = position / float(authored_scales[0])
+                source_scale = float(authored_scales[0])
+            positions[name] = position / (external_scale[0] * source_scale)
         return positions
 
     @staticmethod

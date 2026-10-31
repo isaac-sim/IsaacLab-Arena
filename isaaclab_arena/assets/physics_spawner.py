@@ -14,7 +14,7 @@ from typing import Any
 from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.utils import clone
 from isaaclab.utils.string import string_to_callable
-from pxr import Usd
+from pxr import Usd, UsdPhysics
 
 from isaaclab_arena.assets.physics_config import UsdFileCfgPrimPhysicsWrapper, UsdPrimSpawnPhysicsCfg
 from isaaclab_arena.utils.usd.prim_paths import get_prim_relative_to_root
@@ -59,7 +59,10 @@ def _validate_prim_physics_types(overrides: dict[str, UsdPrimSpawnPhysicsCfg]) -
 
 
 def make_usd_spawn_cfg_with_prim_physics(
-    cfg: UsdFileCfg, overrides: dict[str, UsdPrimSpawnPhysicsCfg]
+    cfg: UsdFileCfg,
+    overrides: dict[str, UsdPrimSpawnPhysicsCfg],
+    *,
+    scale_articulation_prismatic_joints: bool | None = None,
 ) -> UsdFileCfgPrimPhysicsWrapper:
     """Return an independent USD spawn config that applies the given per-prim overrides.
 
@@ -67,6 +70,8 @@ def make_usd_spawn_cfg_with_prim_physics(
         cfg: USD config with a standard or custom @clone-decorated USD spawner.
             Its body must load one prim and return it without cloning.
         overrides: Exact asset-relative paths and physics settings; replaces any previous mapping.
+        scale_articulation_prismatic_joints: Whether uniform asset scale also scales prismatic limits
+            and authored linear-drive targets. None preserves the input config's setting.
 
     Returns:
         A UsdFileCfgPrimPhysicsWrapper using spawn_usd_with_physics; assign it to the asset's spawn field.
@@ -89,10 +94,21 @@ def make_usd_spawn_cfg_with_prim_physics(
 
     # 4. Add the per-prim overrides and select the physics-aware spawn function.
     values.update(prim_physics=overrides, func=spawn_usd_with_physics, usd_spawn_func=spawn_func)
+    if scale_articulation_prismatic_joints is not None:
+        values["scale_articulation_prismatic_joints"] = scale_articulation_prismatic_joints
 
     # 5. Return an independent wrapper; construction deep-copies mutable values.
     # Declared fields ensure the overrides survive later configclass.copy()/replace() calls.
     return UsdFileCfgPrimPhysicsWrapper(**values)
+
+
+def make_usd_spawn_cfg_with_articulation_scale(cfg: UsdFileCfg) -> UsdFileCfgPrimPhysicsWrapper:
+    """Return a spawn config that scales prismatic distance properties with uniform asset scale."""
+    return make_usd_spawn_cfg_with_prim_physics(
+        cfg,
+        getattr(cfg, "prim_physics", {}),
+        scale_articulation_prismatic_joints=True,
+    )
 
 
 def _resolve_usd_spawn_func(spawn_func: Callable | str) -> Callable:
@@ -145,6 +161,29 @@ def apply_prim_physics(root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsC
         cfg.apply(prim, root)
 
 
+def scale_articulation_prismatic_joint_properties(root: Usd.Prim, scale: tuple[float, float, float]) -> None:
+    """Scale distance-valued prismatic properties for a uniformly scaled articulation."""
+    assert all(component > 0.0 for component in scale), f"Articulation scale must be positive, got {scale}."
+    assert scale[0] == scale[1] == scale[2], f"Articulation scale must be uniform, got {scale}."
+    scale_factor = scale[0]
+    if scale_factor == 1.0:
+        return
+
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdPhysics.PrismaticJoint):
+            continue
+        assert not prim.IsInstanceProxy(), f"Prismatic joint {prim.GetPath()} must be editable."
+        joint = UsdPhysics.PrismaticJoint(prim)
+        for limit_attr in (joint.GetLowerLimitAttr(), joint.GetUpperLimitAttr()):
+            if limit_attr.HasAuthoredValueOpinion():
+                limit_attr.Set(limit_attr.Get() * scale_factor)
+        drive = UsdPhysics.DriveAPI.Get(prim, "linear")
+        if drive:
+            target_position_attr = drive.GetTargetPositionAttr()
+            if target_position_attr.HasAuthoredValueOpinion():
+                target_position_attr.Set(target_position_attr.Get() * scale_factor)
+
+
 # NOTE: Keep @clone on this outer wrapper to preserve this order:
 # 1. Load the USD in the first matching environment.
 # 2. Apply the per-prim physics edits to that asset.
@@ -174,6 +213,8 @@ def spawn_usd_with_physics(
     # Our outer decorator applies visibility, labels, and contact sensors once, then clones.
     spawn_func = _resolve_usd_spawn_func(cfg.usd_spawn_func)
     prim = spawn_func.__wrapped__(prim_path, cfg, translation=translation, orientation=orientation, **kwargs)
+    if cfg.scale_articulation_prismatic_joints:
+        scale_articulation_prismatic_joint_properties(prim, cfg.scale)
     # 2. Apply physics edits to this asset before any copies are made.
     apply_prim_physics(prim, cfg.prim_physics)
     # 3. Return the configured asset so @clone can copy it to the remaining environments.

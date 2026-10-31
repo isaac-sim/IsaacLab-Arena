@@ -32,6 +32,34 @@ def _write_asset(path: Path) -> None:
     stage.GetRootLayer().Save()
 
 
+def _write_articulation(path: Path) -> None:
+    """Write one prismatic and one revolute joint with authored distance and angle properties."""
+    from isaaclab.sim.utils import create_new_stage
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    create_new_stage()
+    stage = Usd.Stage.CreateNew(str(path))
+    root = UsdGeom.Xform.Define(stage, "/Cabinet").GetPrim()
+    stage.SetDefaultPrim(root)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    UsdPhysics.ArticulationRootAPI.Apply(root)
+    for name in ("base", "drawer", "door"):
+        UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(stage, f"/Cabinet/{name}").GetPrim())
+    drawer_joint = UsdPhysics.PrismaticJoint.Define(stage, "/Cabinet/drawer_joint")
+    drawer_joint.CreateBody0Rel().SetTargets(["/Cabinet/base"])
+    drawer_joint.CreateBody1Rel().SetTargets(["/Cabinet/drawer"])
+    drawer_joint.CreateLowerLimitAttr(-0.1)
+    drawer_joint.CreateUpperLimitAttr(0.4)
+    linear_drive = UsdPhysics.DriveAPI.Apply(drawer_joint.GetPrim(), "linear")
+    linear_drive.CreateTargetPositionAttr(0.2)
+    door_joint = UsdPhysics.RevoluteJoint.Define(stage, "/Cabinet/door_joint")
+    door_joint.CreateBody0Rel().SetTargets(["/Cabinet/base"])
+    door_joint.CreateBody1Rel().SetTargets(["/Cabinet/door"])
+    door_joint.CreateLowerLimitAttr(-30.0)
+    door_joint.CreateUpperLimitAttr(60.0)
+    stage.GetRootLayer().Save()
+
+
 def _make_physics_spawn_cfg(path: Path):
     from isaaclab.sim import UsdFileCfg
 
@@ -119,6 +147,45 @@ def _test_asset_physics_invalid_targets(_simulation_app, asset_path: Path) -> bo
         apply_prim_physics(root, {"finger/collision": MassCfg()})
     apply_prim_physics(finger, {".": MassCfg(mass=0.5)})
     assert UsdPhysics.MassAPI(finger).GetMassAttr().Get() == 0.5
+    return True
+
+
+def _test_scaled_articulation_joint_properties(_simulation_app, asset_path: Path) -> bool:
+    from isaaclab.sim.utils import get_current_stage
+    from pxr import Usd, UsdPhysics
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_type import ObjectType
+
+    _write_articulation(asset_path)
+    obj = Object(
+        name="cabinet",
+        usd_path=str(asset_path),
+        object_type=ObjectType.ARTICULATION,
+        scale=(0.5, 0.5, 0.5),
+    )
+    cfg = obj.object_cfg.spawn
+    assert cfg.scale_articulation_prismatic_joints
+    cfg.func("/World/ScaledCabinet", cfg)
+    stage = get_current_stage()
+    drawer_joint = UsdPhysics.PrismaticJoint(stage.GetPrimAtPath("/World/ScaledCabinet/drawer_joint"))
+    assert drawer_joint.GetLowerLimitAttr().Get() == pytest.approx(-0.05)
+    assert drawer_joint.GetUpperLimitAttr().Get() == pytest.approx(0.2)
+    assert UsdPhysics.DriveAPI.Get(drawer_joint.GetPrim(), "linear").GetTargetPositionAttr().Get() == pytest.approx(0.1)
+    door_joint = UsdPhysics.RevoluteJoint(stage.GetPrimAtPath("/World/ScaledCabinet/door_joint"))
+    assert door_joint.GetLowerLimitAttr().Get() == pytest.approx(-30.0)
+    assert door_joint.GetUpperLimitAttr().Get() == pytest.approx(60.0)
+
+    source = Usd.Stage.Open(str(asset_path))
+    source_drawer_joint = UsdPhysics.PrismaticJoint(source.GetPrimAtPath("/Cabinet/drawer_joint"))
+    assert source_drawer_joint.GetUpperLimitAttr().Get() == pytest.approx(0.4)
+    with pytest.raises(AssertionError, match="uniform"):
+        Object(
+            name="invalid",
+            usd_path=str(asset_path),
+            object_type=ObjectType.ARTICULATION,
+            scale=(0.5, 1.0, 0.5),
+        )
     return True
 
 
@@ -318,6 +385,7 @@ def _test_asset_physics_config(simulation_app, tmp_path: Path) -> bool:
     cases = (
         _test_asset_physics_spawn_lifecycle,
         _test_asset_physics_invalid_targets,
+        _test_scaled_articulation_joint_properties,
         _test_asset_physics_instance_proxies,
         _test_spawn_addon_argument_types,
         _test_physics_config_copy_and_serialization,

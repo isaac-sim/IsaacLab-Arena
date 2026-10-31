@@ -173,6 +173,7 @@ def _scaled_articulation_reference(
     tmp_path: pathlib.Path,
     joint_type: str,
     joint_position: float,
+    external_scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ):
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -184,6 +185,7 @@ def _scaled_articulation_reference(
         name="cabinet",
         usd_path=str(usd_path),
         object_type=ObjectType.ARTICULATION,
+        scale=external_scale,
     )
     cabinet.object_cfg.init_state.joint_pos = {"drawer_.*": joint_position}
     return ObjectReference(
@@ -207,6 +209,21 @@ def test_reference_pose_and_bounds_include_authored_articulation_scale_and_prism
     bounds_W = drawer.get_world_bounding_box()
     torch.testing.assert_close(bounds_W.min_point, torch.tensor([[0.1, -0.2, -0.1]]))
     torch.testing.assert_close(bounds_W.max_point, torch.tensor([[0.9, 0.2, 0.1]]))
+
+
+def test_reference_pose_converts_external_articulation_scale_to_source_joint_units(tmp_path: pathlib.Path):
+    """Placement converts final-meter prismatic positions through authored and external uniform scale."""
+    drawer = _scaled_articulation_reference(
+        tmp_path,
+        "prismatic",
+        0.3,
+        external_scale=(0.5, 0.5, 0.5),
+    )
+
+    assert drawer.get_initial_pose().position_xyz == pytest.approx((0.4, 0.0, 0.0))
+    bounds_W = drawer.get_world_bounding_box()
+    torch.testing.assert_close(bounds_W.min_point, torch.tensor([[0.2, -0.1, -0.05]]))
+    torch.testing.assert_close(bounds_W.max_point, torch.tensor([[0.6, 0.1, 0.05]]))
 
 
 def test_reference_bounds_include_revolute_initial_joint_angle(tmp_path: pathlib.Path):

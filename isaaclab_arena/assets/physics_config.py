@@ -47,5 +47,8 @@ class UsdFileCfgPrimPhysicsWrapper(UsdFileCfg):
     prim_physics: dict[str, UsdPrimSpawnPhysicsCfg] = {}
     """Exact asset-relative prim paths and overrides applied after USD loading, before cloning."""
 
+    scale_articulation_prismatic_joints: bool = False
+    """Whether uniform asset scale also scales prismatic limits and linear-drive targets."""
+
     usd_spawn_func: Callable | str = spawn_from_usd
     """Original Lab's USD spawner; its single-prim body runs before physics edits."""

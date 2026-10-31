@@ -10,6 +10,9 @@ from __future__ import annotations
 SIMREADY_USD_OBJECT_REGISTRY_NAME = "simready_usd_object"
 """Registry name for spawning a SimReady asset from a usd_path given in the spec's params."""
 
+SIMREADY_USD_ARTICULATION_REGISTRY_NAME = "simready_usd_articulation"
+"""Registry name for spawning an articulated SimReady asset from an explicit USD path."""
+
 SIMREADY_SEARCH_REGISTRY_PREFIX = "simready_"
 """Prefix of the catalogue name a searched SimReady asset is registered under."""
 
