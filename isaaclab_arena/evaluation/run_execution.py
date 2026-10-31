@@ -28,7 +28,7 @@ from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
-from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
+from isaaclab_arena.video.video_recording import VideoRecordingCfg, configure_env_for_video, wrap_env_for_video
 
 if TYPE_CHECKING:
     import gymnasium as gym
@@ -106,11 +106,20 @@ def build_and_run(
                 video_cfg,
                 video_base_dir=output_dir,
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
+                viewport_name_prefix=f"viewport-rebuild{rebuild_index}",
             )
             rebuild_cfg = _cfg_for_rebuild(cfg, rebuild_index)
+            policy = _build_policy_from_cfg(rebuild_cfg)
+            num_steps, num_episodes = _resolve_rollout_limit(
+                rebuild_cfg,
+                policy,
+                num_episodes,
+            )
             env = _build_environment_from_cfg(
                 rebuild_cfg,
-                rebuild_video_cfg.render_mode,
+                rebuild_video_cfg,
+                num_steps,
+                num_episodes,
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
             )
@@ -118,12 +127,6 @@ def build_and_run(
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
 
-            policy = _build_policy_from_cfg(rebuild_cfg)
-            num_steps, num_episodes = _resolve_rollout_limit(
-                rebuild_cfg,
-                policy,
-                num_episodes,
-            )
             env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
             metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
             if metrics is not None:
@@ -150,7 +153,9 @@ def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
 
 def _build_environment_from_cfg(
     cfg: ArenaRunCfg,
-    render_mode: str | None,
+    video_cfg: VideoRecordingCfg,
+    num_steps: int | None,
+    num_episodes: int | None,
     output_dir: str | Path,
     rebuild_index: int = 0,
 ) -> gym.Env:
@@ -158,7 +163,9 @@ def _build_environment_from_cfg(
 
     Args:
         cfg: The run whose environment is being built.
-        render_mode: Render mode required by the enabled video recorders.
+        video_cfg: Requested native and observation-camera video recording.
+        num_steps: Step budget for the rollout, or None for an episode-limited run.
+        num_episodes: Episode budget for the rollout, or None for a step-limited run.
         output_dir: Directory the run's recorded dataset is exported to.
         rebuild_index: Index of the rebuild this environment serves.
     """
@@ -168,7 +175,9 @@ def _build_environment_from_cfg(
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg, rebuild_index=rebuild_index)
-    return arena_builder.make_registered(render_mode=render_mode)
+    _, env_cfg, env_kwargs = arena_builder.build_registered()
+    configure_env_for_video(env_cfg, video_cfg, num_steps, num_episodes)
+    return arena_builder.make_registered(env_cfg, env_kwargs)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -> ArenaEnvBuilder:

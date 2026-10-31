@@ -20,6 +20,7 @@ class NoEmbodiment(EmbodimentBase):
 
     registry_name = "no_embodiment"
 
-    def __init__(self):
+    def __init__(self, enable_cameras: bool = False):
+        del enable_cameras
         super().__init__()
         self.action_config = EmptyActionsCfg()

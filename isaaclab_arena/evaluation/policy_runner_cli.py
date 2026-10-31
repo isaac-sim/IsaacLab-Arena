@@ -96,7 +96,7 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--record_viewport_video",
         action="store_true",
         default=False,
-        help="Record an mp4 video of the rollout viewport (uses gymnasium.wrappers.RecordVideo).",
+        help="Record an MP4 video of the rollout viewport with Isaac Lab's native visualizer recorder.",
     )
     parser.add_argument(
         "--output_base_dir",

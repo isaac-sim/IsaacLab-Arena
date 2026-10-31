@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
+import math
 import os
 
 
@@ -15,7 +16,7 @@ class VideoRecordingCfg:
     """Options describing which rollout video recorders to enable and where to write them."""
 
     record_viewport_video: bool = False
-    """Record the kit viewport (third-person scene view) via ``env.render()``."""
+    """Record the Kit viewport through Isaac Lab's native visualizer recorder."""
 
     record_camera_video: bool = False
     """Record RGB embodiment-mounted cameras from ``obs['camera_obs']``."""
@@ -26,15 +27,13 @@ class VideoRecordingCfg:
     camera_name_prefix: str = "robot-cam"
     """Filename prefix for the per-camera mp4s written by ``CameraObsVideoRecorder``."""
 
+    viewport_name_prefix: str = "viewport"
+    """Filename prefix for the native Kit viewport MP4."""
+
     @property
     def enabled(self) -> bool:
         """Whether any recorder is requested."""
         return self.record_viewport_video or self.record_camera_video
-
-    @property
-    def render_mode(self) -> str | None:
-        """The ``render_mode`` the env must be built with to capture the viewport video."""
-        return "rgb_array" if self.record_viewport_video else None
 
 
 def timestamped_run_dir(base_dir: str) -> str:
@@ -47,15 +46,42 @@ def timestamped_run_dir(base_dir: str) -> str:
     return os.path.join(base_dir, timestamp)
 
 
-def _resolve_video_length(env, num_steps: int | None, num_episodes: int | None) -> int:
-    """Number of env steps to record: the step budget, or one episode's worth per episode.
+def _resolve_video_length(env_cfg, num_steps: int | None, num_episodes: int | None) -> int:
+    """Number of env steps to record from the rollout limit and environment config.
 
-    ``max_episode_length`` is in environment steps, which matches the rollout cadence.
+    ``episode_length_s / (sim.dt * decimation)`` is the configured maximum episode
+    length in environment steps.
     """
     if num_steps is not None:
         return num_steps
     assert num_episodes is not None, "Cannot determine video length: both num_steps and num_episodes are None."
-    return num_episodes * env.unwrapped.max_episode_length
+    max_episode_length = math.ceil(env_cfg.episode_length_s / (env_cfg.sim.dt * env_cfg.decimation))
+    return num_episodes * max_episode_length
+
+
+def configure_env_for_video(
+    env_cfg,
+    video_cfg: VideoRecordingCfg,
+    num_steps: int | None,
+    num_episodes: int | None,
+) -> None:
+    """Add requested native video recorders to an Isaac Lab environment config."""
+    if not video_cfg.record_viewport_video:
+        return
+
+    from isaaclab.envs.utils.video_recorder_cfg import VideoRecorderCfg
+
+    os.makedirs(video_cfg.video_base_dir, exist_ok=True)
+    video_length = _resolve_video_length(env_cfg, num_steps, num_episodes)
+    env_cfg.video_recorders.append(
+        VideoRecorderCfg(
+            source="visualizer:kit",
+            output_dir=video_cfg.video_base_dir,
+            output_filename_prefix=video_cfg.viewport_name_prefix,
+            video_length=video_length,
+        )
+    )
+    print(f"Recording {video_length}-step viewport video to: {video_cfg.video_base_dir}")
 
 
 def wrap_env_for_video(
@@ -64,18 +90,18 @@ def wrap_env_for_video(
     num_steps: int | None,
     num_episodes: int | None,
 ):
-    """Wrap ``env`` with the recorders enabled in ``video_cfg`` and return the wrapped env.
+    """Wrap ``env`` with the camera-observation recorder when requested.
 
-    Returns ``env`` unchanged when no recorder is requested. ``num_steps`` and ``num_episodes``
-    are mutually exclusive and size the viewport video.
+    Viewport recording is configured natively before environment construction by
+    :func:`configure_env_for_video`.
 
     Args:
         env: The env to wrap.
         video_cfg: The video recording configuration struct.
-        num_steps: Step budget for the rollout, or ``None`` when episode-driven.
-        num_episodes: Episode budget for the rollout, or ``None`` when step-driven.
+        num_steps: Unused; retained for call-site compatibility.
+        num_episodes: Unused; retained for call-site compatibility.
     """
-    if not video_cfg.enabled:
+    if not video_cfg.record_camera_video:
         return env
 
     os.makedirs(video_cfg.video_base_dir, exist_ok=True)
@@ -85,20 +111,6 @@ def wrap_env_for_video(
     from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
 
     env = EnvStepTimerWrapper(env, timer_name="sim_step")
-
-    # Record the kit viewport (via env.render()).
-    if video_cfg.record_viewport_video:
-        from gymnasium.wrappers import RecordVideo
-
-        video_length = _resolve_video_length(env, num_steps, num_episodes)
-        env = RecordVideo(
-            env,
-            video_folder=video_cfg.video_base_dir,
-            step_trigger=lambda step: step == 0,
-            video_length=video_length,
-            disable_logger=True,
-        )
-        print(f"Recording {video_length}-step viewport video to: {video_cfg.video_base_dir}")
 
     # Record the embodiment-mounted cameras (from obs["camera_obs"]),
     # flushed at each episode reset rather than after a fixed number of steps.
