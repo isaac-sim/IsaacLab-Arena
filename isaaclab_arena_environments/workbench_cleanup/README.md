@@ -14,11 +14,11 @@ sizes of combination wrench. Five `clutter_on` relations release the tools over
 a fixed clutter area on the workbench.
 
 The cabinet, socket set, and oscilloscope use the reusable SimReady
-articulation loaders. Their scale, fixed base, articulation roots, and
-openable or pressable joints are configured in `scene.yaml`; the same file
-defines the workbench placement support. The workbench and socket set keep
-their authored colliders, while hand tools use convex-hull contacts. Downloaded
-models and generated USD wrappers stay in the user cache.
+articulation loaders. Their fixed base, articulation roots, and openable or
+pressable joints are configured in `scene.yaml`; the same file defines the
+workbench placement support. The workbench and socket set keep their authored
+colliders, while hand tools use convex-hull contacts. Downloaded models and
+generated USD wrappers stay in the user cache.
 
 The tasks are:
 

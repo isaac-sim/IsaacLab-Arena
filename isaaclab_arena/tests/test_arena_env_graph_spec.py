@@ -94,6 +94,61 @@ def test_graph_spec_parses_default_physics_backend():
     assert spec.default_physics_backend is PhysicsBackend.NEWTON
 
 
+@pytest.mark.parametrize(
+    "task_number, subtask_count, composition",
+    [(1, 1, "atomic"), (2, 7, "sequential"), (3, 1, "atomic"), (4, 1, "atomic")],
+)
+def test_workbench_tasks_include_shared_scene(task_number, subtask_count, composition):
+    path = Path(__file__).resolve().parents[2] / "isaaclab_arena_environments/workbench_cleanup"
+    spec = ArenaEnvGraphSpec.from_yaml(path / f"task_{task_number}.yaml")
+    assert spec.embodiment.registry_name == "droid_abs_joint_pos"
+    assert spec.background.registry_name == "simready_usd_background"
+    assert spec.background.params["static_collision_only"]
+    assert "ClutterArea" in spec.background.params["reference_colliders"]
+    assert spec.task.composition.value == composition
+    assert len(spec.task.subtasks) == subtask_count
+    assert sum(relation.kind == "clutter_on" for relation in spec.relations) == 5
+
+
+def test_workbench_cleanup_uses_white_cabinet_top_drawer():
+    path = Path(__file__).resolve().parents[2] / "isaaclab_arena_environments/workbench_cleanup"
+    spec = ArenaEnvGraphSpec.from_yaml(path / "task_2.yaml")
+
+    object_ids = {obj.id for obj in spec.objects}
+    reference_ids = {reference.id for reference in spec.object_references}
+    assert "white_cabinet" in object_ids
+    assert "white_cabinet_top_drawer" in reference_ids
+    assert "left_drawers" not in reference_ids
+    assert "top_left_drawer" not in reference_ids
+    assert any(relation.kind == "is_anchor" and relation.subject == "white_cabinet" for relation in spec.relations)
+    cabinet = next(obj for obj in spec.objects if obj.id == "white_cabinet")
+    assert cabinet.registry_name == "simready_usd_openable_articulation"
+    assert cabinet.params["fixed_base_body_path"] == "Geometry/body_01_obj_00"
+    assert cabinet.params["initial_pose"]["position_xyz"] == [
+        0.0,
+        -1.1,
+        0.0,
+    ]
+    drawer = next(reference for reference in spec.object_references if reference.id == "white_cabinet_top_drawer")
+    assert drawer.prim_path == "Geometry/part_01_obj_00"
+    assert spec.task.subtasks[0].params["openable_object"] == "white_cabinet"
+    assert spec.task.subtasks[-1].params["openable_object"] == "white_cabinet"
+    assert all(subtask.params["target"] == "white_cabinet_top_drawer" for subtask in spec.task.subtasks[1:-1])
+
+
+@pytest.mark.parametrize("filename", ["task_2.yaml", "workbench_open_drawer_robolab_tools.yaml"])
+def test_workbench_drawer_references_do_not_configure_pose_binding(filename):
+    """Articulation-link pose bindings are derived from the referenced USD prim."""
+    path = Path(__file__).resolve().parents[2] / "isaaclab_arena_environments/workbench_cleanup" / filename
+    spec = ArenaEnvGraphSpec.from_yaml(path)
+    drawer = next(
+        reference for reference in spec.object_references if reference.id in {"white_cabinet_top_drawer", "top_drawer"}
+    )
+
+    assert "pose_articulation_name" not in drawer.params
+    assert "pose_body_name" not in drawer.params
+
+
 def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
     data = _minimal_env_graph_data()
     data["embodiment"].setdefault("params", {})["initial_pose"] = {

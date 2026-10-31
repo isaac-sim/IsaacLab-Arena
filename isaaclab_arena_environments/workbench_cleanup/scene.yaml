@@ -5,7 +5,7 @@
 
 embodiment:
   id: droid
-  registry_name: droid_abs_joint_pos
+  registry_name: droid_abs_ik
   params:
     initial_pose:
       position_xyz: [0.78, -1.1, 0.6685]
@@ -37,7 +37,6 @@ objects:
 - id: socket_set
   registry_name: simready_usd_openable_articulation
   params:
-    scale: [0.9, 0.9, 0.9]
     articulation_root_prim_path: .
     initial_joint_positions:
       case_lid: 1.65
@@ -167,6 +166,3 @@ env_cfg_override:
   viewer:
     eye: [2.15, -1.8, 1.8]
     lookat: [0, 0, 0.75]
-  sim:
-    dt: 0.008333333333333333
-  decimation: 2
