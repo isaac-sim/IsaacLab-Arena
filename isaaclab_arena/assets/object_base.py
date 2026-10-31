@@ -16,7 +16,13 @@ from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_objec
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
+from isaaclab_arena.terms.events import (
+    randomize_articulation_poses_and_reset_joints,
+    reset_articulation_pose_and_joints,
+    reset_articulation_poses_per_env_and_joints,
+    set_object_pose,
+    set_object_pose_per_env,
+)
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_disappear_variation import ObjectDisappearVariation
@@ -122,7 +128,11 @@ class RootedObjectBase(ObjectBase):
         initial_pose = self.get_initial_pose()
         if isinstance(initial_pose, PosePerEnv):
             return EventTermCfg(
-                func=set_object_pose_per_env,
+                func=(
+                    reset_articulation_poses_per_env_and_joints
+                    if self.object_type == ObjectType.ARTICULATION
+                    else set_object_pose_per_env
+                ),
                 mode="reset",
                 params={
                     "asset_cfg": SceneEntityCfg(self.name),
@@ -131,7 +141,11 @@ class RootedObjectBase(ObjectBase):
             )
         elif isinstance(initial_pose, PoseRange):
             return EventTermCfg(
-                func=randomize_object_pose,
+                func=(
+                    randomize_articulation_poses_and_reset_joints
+                    if self.object_type == ObjectType.ARTICULATION
+                    else randomize_object_pose
+                ),
                 mode="reset",
                 params={
                     "pose_range": initial_pose.to_dict(),
@@ -140,7 +154,11 @@ class RootedObjectBase(ObjectBase):
             )
         else:  # Pose
             return EventTermCfg(
-                func=set_object_pose,
+                func=(
+                    reset_articulation_pose_and_joints
+                    if self.object_type == ObjectType.ARTICULATION
+                    else set_object_pose
+                ),
                 mode="reset",
                 params={
                     "pose": initial_pose,
