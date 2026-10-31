@@ -30,6 +30,7 @@ def _interactive_runner_args(**overrides) -> argparse.Namespace:
         "list_variations": False,
         "device": "cpu",
         "disable_fabric": False,
+        "show_placement_overlay": False,
     }
     argument_values.update(overrides)
     return argparse.Namespace(**argument_values)
@@ -185,6 +186,54 @@ def test_run_environment_resets_and_steps_once_before_the_application_stops(monk
     assert rate_limiter.sleep_count == 1
 
 
+def test_run_environment_draws_and_closes_placement_overlay(monkeypatch):
+    from isaaclab_arena.scripts import environment_runner
+
+    class OneIterationSimulationApp:
+        def __init__(self) -> None:
+            self.running_checks = 0
+
+        def is_running(self) -> bool:
+            self.running_checks += 1
+            return self.running_checks == 1
+
+        def is_exiting(self) -> bool:
+            return False
+
+    class PlacementOverlay:
+        def print_legend(self) -> None:
+            lifecycle_events.append("print_legend")
+
+        def redraw(self, received_env) -> None:
+            assert received_env is env
+            lifecycle_events.append("redraw")
+
+        def close(self) -> None:
+            lifecycle_events.append("close")
+
+    from isaaclab_arena.visualization.placement_geometry_draw import PlacementGeometryDraw
+
+    env = _FakeEnvironment()
+    lifecycle_events = []
+    placement_overlay = PlacementOverlay()
+
+    def from_env(cls, received_env):
+        assert received_env is env
+        lifecycle_events.append("from_env")
+        return placement_overlay
+
+    monkeypatch.setattr(PlacementGeometryDraw, "from_env", classmethod(from_env))
+    monkeypatch.setattr(environment_runner, "RateLimiter", lambda period_seconds: SimpleNamespace(sleep=lambda: None))
+
+    environment_runner.run_environment(
+        OneIterationSimulationApp(),
+        env,
+        show_placement_overlay=True,
+    )
+
+    assert lifecycle_events == ["from_env", "print_legend", "redraw", "redraw", "close"]
+
+
 def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bool:
     import carb
     import omni.kit.app
@@ -266,6 +315,15 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
             for argument_name, default_value in defaults.items():
                 setattr(args_cli, argument_name, default_value)
 
+        def add_argument_group(self, name):
+            assert name == "Environment Runner Arguments"
+            return self
+
+        def add_argument(self, name, **kwargs):
+            assert name == "--show_placement_overlay"
+            assert kwargs["action"] == "store_true"
+            setattr(args_cli, "show_placement_overlay", False)
+
         def parse_known_args(self, args=None):
             return args_cli, []
 
@@ -330,8 +388,9 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
         lambda: lifecycle_events.append("enable_mouse_interaction"),
     )
 
-    def fail_during_environment_run(simulation_app, received_env):
+    def fail_during_environment_run(simulation_app, received_env, *, show_placement_overlay):
         lifecycle_events.append("run_environment")
+        assert not show_placement_overlay
         raise RuntimeError("run failed")
 
     monkeypatch.setattr(environment_runner, "run_environment", fail_during_environment_run)
@@ -342,7 +401,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     assert parser.allow_abbrev is False
     assert args_cli.visualizer == ["kit"]
     assert args_cli.device == "cpu"
-    assert args_cli.disable_fabric
+    assert not args_cli.disable_fabric
     assert args_cli.example_environment == "gr1_open_microwave"
     assert lifecycle_events == ["make_environment", "enable_mouse_interaction", "run_environment"]
     assert env.close_count == 1
@@ -353,7 +412,8 @@ if __name__ == "__main__":
 
     from isaaclab_arena.scripts import environment_runner
 
-    def check_mouse_interaction(simulation_app, env):
+    def check_mouse_interaction(simulation_app, env, *, show_placement_overlay):
+        assert not show_placement_overlay
         assert _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app)
         print("Mouse interaction checks passed", flush=True)
 
