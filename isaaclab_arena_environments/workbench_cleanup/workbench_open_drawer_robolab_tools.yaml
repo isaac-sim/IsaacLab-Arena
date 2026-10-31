@@ -72,9 +72,9 @@ task:
       linear_velocity_threshold: 0.35
       angular_velocity_threshold: 12.0
 placer_params:
-  random_yaw_init: false
-  min_unique_layouts_per_env: 1
-  resolve_on_reset: false
+  random_yaw_init: true
+  min_unique_layouts_per_env: 5
+  resolve_on_reset: true
   max_placement_attempts: 10
   allow_best_loss_fallbacks: false
   solver_params:
