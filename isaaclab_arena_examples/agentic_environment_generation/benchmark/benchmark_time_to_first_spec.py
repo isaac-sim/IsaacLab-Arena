@@ -23,7 +23,7 @@ from __future__ import annotations
 import argparse
 import time
 import yaml
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 from typing import Any
 
@@ -39,9 +39,10 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
 )
 from isaaclab_arena.agentic_environment_generation.spec_io import write_env_graph_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.inference.backend import resolve_inference_endpoint
+from isaaclab_arena.inference.backend import TokenUsage, resolve_inference_endpoint
 from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results import (
     format_ms,
+    percentile,
     summarize_latencies,
     write_json,
 )
@@ -126,6 +127,14 @@ class SampleResult:
     time_to_first_spec_ms: float | None
     error: str | None = None
     generated_spec_path: str | None = None
+    prompt_tokens: int = 0
+    """Prompt tokens of every request in the sample, including retries and critic rounds."""
+    completion_tokens: int = 0
+    """Completion tokens, including any reasoning tokens, of every request in the sample."""
+    responses: int = 0
+    """Completion responses the sample received."""
+    responses_without_usage: int = 0
+    """Responses that reported no token usage, so their tokens are missing from the counts."""
 
 
 def _run_sample(
@@ -141,6 +150,7 @@ def _run_sample(
 ) -> SampleResult:
     error: str | None = None
     spec: ArenaEnvGraphSpec | None = None
+    token_usage_before = replace(agent.token_usage)
     started_at = time.perf_counter()
     try:
         spec, _ = agent.generate_spec(
@@ -152,6 +162,7 @@ def _run_sample(
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
     latency_ms = (time.perf_counter() - started_at) * 1e3 if spec is not None else None
+    sample_token_usage = _token_usage_since(token_usage_before, agent.token_usage)
 
     if spec is not None and object_references_expected is not None:
         has_object_references = bool(spec.object_references)
@@ -171,7 +182,37 @@ def _run_sample(
         time_to_first_spec_ms=latency_ms,
         error=error,
         generated_spec_path=generated_spec_path,
+        **asdict(sample_token_usage),
     )
+
+
+def _token_usage_since(before: TokenUsage, after: TokenUsage) -> TokenUsage:
+    """Return the token usage added between two snapshots of the same running totals."""
+    return TokenUsage(**{name: getattr(after, name) - getattr(before, name) for name in asdict(before)})
+
+
+def summarize_token_usage(results: list[SampleResult]) -> dict[str, int | None]:
+    """Compute p50/p95/p99 prompt, completion, and total tokens over the successful samples.
+
+    Args:
+        results: Samples of one benchmark case.
+
+    Returns:
+        ``<prompt|completion|total>_tokens_<p50|p95|p99>`` and the number of samples with responses that reported
+        no usage.
+    """
+    successful = [result for result in results if result.time_to_first_spec_ms is not None]
+    tokens_by_kind = {
+        "prompt_tokens": [result.prompt_tokens for result in successful],
+        "completion_tokens": [result.completion_tokens for result in successful],
+        "total_tokens": [result.prompt_tokens + result.completion_tokens for result in successful],
+    }
+    summary: dict[str, int | None] = {}
+    for kind, tokens in tokens_by_kind.items():
+        for p in (50, 95, 99):
+            summary[f"{kind}_p{p}"] = percentile(tokens, p)
+    summary["samples_with_unreported_usage"] = sum(1 for result in results if result.responses_without_usage)
+    return summary
 
 
 def parse_args() -> argparse.Namespace:
@@ -273,7 +314,12 @@ def main() -> int:
         if result.time_to_first_spec_ms is None:
             print(f"[benchmark] sample {run_index}: FAILED ({result.error})", flush=True)
         else:
-            print(f"[benchmark] sample {run_index}: {result.time_to_first_spec_ms:.3f} ms", flush=True)
+            print(
+                f"[benchmark] sample {run_index}: {result.time_to_first_spec_ms:.3f} ms,"
+                f" {result.prompt_tokens} prompt + {result.completion_tokens} completion tokens"
+                f" over {result.responses} responses",
+                flush=True,
+            )
 
     summary = summarize_latencies([result.time_to_first_spec_ms for result in results])
     payload = {
@@ -301,6 +347,7 @@ def main() -> int:
         "prompt": prompt,
         "spec_output_dir": str(args.spec_output_dir) if args.spec_output_dir is not None else None,
         "summary": summary,
+        "token_summary": summarize_token_usage(results),
         "samples": [asdict(result) for result in results],
     }
     write_json(args.output_path, payload)
@@ -309,6 +356,8 @@ def main() -> int:
     print(f"  successful: {summary['successful_samples']}/{summary['requested_samples']}", flush=True)
     for name in ("p50_ms", "p95_ms", "p99_ms"):
         print(f"  {name.removesuffix('_ms')}: {format_ms(summary[name])} ms", flush=True)
+    token_summary = payload["token_summary"]
+    print(f"  p50 total tokens: {token_summary['total_tokens_p50']}", flush=True)
     print(f"  results: {args.output_path}", flush=True)
     return 1 if summary["failed_samples"] else 0
 

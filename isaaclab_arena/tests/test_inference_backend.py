@@ -19,6 +19,7 @@ from isaaclab_arena.inference.backend import (
     PUBLIC_ENDPOINT,
     InferenceBackend,
     StructuredOutputRequest,
+    TokenUsage,
     resolve_inference_endpoint,
 )
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, inference_backend
@@ -219,6 +220,20 @@ class TestRunJson:
         result = backend.run_json(_request())
         assert result == {"ok": True}
         assert client.chat.completions.create.call_count == 2
+
+    def test_totals_tokens_of_every_response_including_retried_ones(self, stub_openai):
+        _, client = stub_openai
+        backend = inference_backend(stub_openai)
+        client.chat.completions.create.side_effect = [
+            chat_response(content="not json", usage=(100, 10)),
+            chat_response(content='{"ok": true}'),
+            chat_response(content='{"ok": true}', usage=(120, 12)),
+        ]
+        backend.run_json(_request())
+        backend.run_json(_request())
+        assert backend.token_usage == TokenUsage(
+            prompt_tokens=220, completion_tokens=22, responses=3, responses_without_usage=1
+        )
 
     def test_raises_after_api_errors_exhaust_retries(self, stub_openai):
         _, client = stub_openai

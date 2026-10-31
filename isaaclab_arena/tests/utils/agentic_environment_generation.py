@@ -129,13 +129,20 @@ def chat_response(
     content: str | None = None,
     reasoning_content: str | None = None,
     finish_reason: str = "stop",
+    usage: tuple[int, int] | None = None,
 ):
-    """Build a nested mock matching the OpenAI chat-completion response shape."""
+    """Build a nested mock matching the OpenAI chat-completion response shape.
+
+    ``usage`` is the reported ``(prompt_tokens, completion_tokens)``; None reports no usage.
+    """
     resp = MagicMock()
     resp.choices = [MagicMock()]
     resp.choices[0].finish_reason = finish_reason
     resp.choices[0].message.content = content
     resp.choices[0].message.reasoning_content = reasoning_content
+    resp.usage = None
+    if usage is not None:
+        resp.usage = MagicMock(prompt_tokens=usage[0], completion_tokens=usage[1])
     return resp
 
 

@@ -103,14 +103,18 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
     """Print one compact percentile row per completed case."""
     print("\nCombined time-to-first-spec results", flush=True)
     case_width = max([len("case"), *(len(result["case"]) for result in results)])
-    print(f"{'case':<{case_width}} {'ok':>7} {'fail':>7} {'p50 ms':>12} {'p95 ms':>12} {'p99 ms':>12}", flush=True)
+    print(
+        f"{'case':<{case_width}} {'ok':>7} {'fail':>7} {'p50 ms':>12} {'p95 ms':>12} {'p99 ms':>12} {'p50 tokens':>12}",
+        flush=True,
+    )
     for result in results:
         summary = result["summary"]
         percentiles = [summary[name] for name in ("p50_ms", "p95_ms", "p99_ms")]
         formatted = [format_ms(value) for value in percentiles]
+        p50_tokens = result["token_summary"]["total_tokens_p50"]
         print(
             f"{result['case']:<{case_width}} {summary['successful_samples']:>7} {summary['failed_samples']:>7} "
-            f"{formatted[0]:>12} {formatted[1]:>12} {formatted[2]:>12}",
+            f"{formatted[0]:>12} {formatted[1]:>12} {formatted[2]:>12} {str(p50_tokens):>12}",
             flush=True,
         )
 

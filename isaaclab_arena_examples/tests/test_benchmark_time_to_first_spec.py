@@ -18,6 +18,7 @@ import isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmar
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results as latency_results
 import isaaclab_arena_examples.agentic_environment_generation.benchmark.run_time_to_first_spec_benchmarks as batch_benchmark
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.inference.backend import TokenUsage
 from isaaclab_arena.tests.utils.agentic_environment_generation import minimal_spec_dict
 
 
@@ -120,6 +121,7 @@ def _case_result(case_name, failed_samples):
             "p95_ms": 2.0,
             "p99_ms": 2.0,
         },
+        "token_summary": {"total_tokens_p50": 100},
     }
 
 
@@ -176,6 +178,7 @@ def test_run_sample_stops_after_generate_spec_returns(monkeypatch):
 
     class FakeAgent:
         traces: tuple[str, ...] = ()
+        token_usage = TokenUsage()
 
         @staticmethod
         def generate_spec(prompt, *, asset_catalog, relation_catalog, task_catalog):
@@ -199,11 +202,61 @@ def test_run_sample_stops_after_generate_spec_returns(monkeypatch):
     assert result.error is None
 
 
+def test_run_sample_counts_only_the_tokens_of_its_own_requests(monkeypatch):
+    spec = ArenaEnvGraphSpec.model_validate(minimal_spec_dict())
+
+    class FakeAgent:
+        traces: tuple[str, ...] = ()
+        # Totals left by the catalogue prompt and earlier samples.
+        token_usage = TokenUsage(prompt_tokens=1000, completion_tokens=100, responses=2)
+
+        def generate_spec(self, *args, **kwargs):
+            self.token_usage.prompt_tokens += 300
+            self.token_usage.completion_tokens += 40
+            self.token_usage.responses += 2
+            self.token_usage.responses_without_usage += 1
+            return spec, None
+
+    times = iter((10.0, 10.25))
+    monkeypatch.setattr(benchmark.time, "perf_counter", lambda: next(times))
+
+    result = benchmark._run_sample(
+        FakeAgent(), "prompt", 1, asset_catalog="assets", relation_catalog="relations", task_catalog="tasks"
+    )
+
+    assert (result.prompt_tokens, result.completion_tokens, result.responses, result.responses_without_usage) == (
+        300,
+        40,
+        2,
+        1,
+    )
+
+
+def test_token_summary_excludes_failed_samples():
+    results = [
+        benchmark.SampleResult(1, 10.0, prompt_tokens=100, completion_tokens=10, responses=1),
+        benchmark.SampleResult(2, None, error="failed", prompt_tokens=900, completion_tokens=90, responses=1),
+        benchmark.SampleResult(
+            3, 20.0, prompt_tokens=200, completion_tokens=20, responses=2, responses_without_usage=1
+        ),
+    ]
+
+    summary = benchmark.summarize_token_usage(results)
+
+    assert (summary["prompt_tokens_p50"], summary["completion_tokens_p99"], summary["total_tokens_p50"]) == (
+        100,
+        20,
+        110,
+    )
+    assert summary["samples_with_unreported_usage"] == 1
+
+
 def test_run_sample_writes_accepted_spec_after_measurement(monkeypatch, tmp_path):
     spec = ArenaEnvGraphSpec.model_validate(minimal_spec_dict())
 
     class FakeAgent:
         traces: tuple[str, ...] = ()
+        token_usage = TokenUsage()
 
         @staticmethod
         def generate_spec(*args, **kwargs):
@@ -306,6 +359,7 @@ def test_run_sample_rejects_a_kitchen_result_that_skips_object_references(monkey
 
     class FakeAgent:
         traces: tuple[str, ...] = ()
+        token_usage = TokenUsage()
 
         @staticmethod
         def generate_spec(*args, **kwargs):
