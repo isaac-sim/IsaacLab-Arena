@@ -25,6 +25,44 @@ def test_simready_usd_object_registered():
     assert "sim-ready" in cls.tags
 
 
+def test_simready_usd_articulation_registered():
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdArticulation
+
+    ensure_assets_registered()
+    cls = AssetRegistry().get_asset_by_name("simready_usd_articulation")
+    assert cls is SimReadyUsdArticulation
+    assert cls.registry_name == "simready_usd_articulation"
+    assert "sim-ready" in cls.tags
+
+
+def test_simready_usd_openable_articulation_registered():
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdOpenableArticulation
+
+    ensure_assets_registered()
+    cls = AssetRegistry().get_asset_by_name("simready_usd_openable_articulation")
+    assert cls is SimReadyUsdOpenableArticulation
+    assert cls.registry_name == "simready_usd_openable_articulation"
+
+
+def test_simready_usd_pressable_articulation_registered():
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdPressableArticulation
+
+    ensure_assets_registered()
+    cls = AssetRegistry().get_asset_by_name("simready_usd_pressable_articulation")
+    assert cls is SimReadyUsdPressableArticulation
+    assert cls.registry_name == "simready_usd_pressable_articulation"
+
+
+def test_simready_usd_background_registered():
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdBackground
+
+    ensure_assets_registered()
+    cls = AssetRegistry().get_asset_by_name("simready_usd_background")
+    assert cls is SimReadyUsdBackground
+    assert cls.registry_name == "simready_usd_background"
+    assert "background" in cls.tags
+
+
 def test_asset_spec_accepts_simready_usd_path():
     ensure_assets_registered()
     spec = AssetSpec(
@@ -69,6 +107,167 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
     spawn = obj._get_spawn_cfg(activate_contact_sensors=True)
     assert spawn.variants == {"Physics": "physics"}
     assert obj.usd_path == usd_path
+
+
+def test_simready_usd_object_accepts_yaml_spawn_physics_overrides(tmp_path):
+    from isaaclab.sim import CollisionPropertiesCfg, RigidBodyPropertiesCfg
+
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
+    from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
+
+    stage = new_stage()
+    add_body(stage, "tool")
+    usd_path = str(tmp_path / "tool.usd")
+    assert stage.Export(usd_path)
+
+    obj = SimReadyUsdObject(
+        usd_path=usd_path,
+        name="tool",
+        spawn_cfg_addon={
+            "make_uninstanceable": True,
+            "rigid_props": {"linear_damping": 2.0, "angular_damping": 2.0},
+            "collision_props": {
+                "contact_offset": 0.001,
+                "rest_offset": 0.0,
+                "mesh_collision_property": {"mesh_approximation_name": "convexHull"},
+            },
+        },
+    )
+
+    spawn = obj._get_spawn_cfg()
+    assert spawn.make_uninstanceable
+    assert isinstance(spawn.rigid_props, RigidBodyPropertiesCfg)
+    assert spawn.rigid_props.linear_damping == 2.0
+    assert spawn.rigid_props.angular_damping == 2.0
+    assert isinstance(spawn.collision_props, CollisionPropertiesCfg)
+    assert spawn.collision_props.contact_offset == 0.001
+    assert spawn.collision_props.rest_offset == 0.0
+    assert spawn.collision_props.mesh_collision_property.mesh_approximation_name == "convexHull"
+
+
+def test_simready_usd_background_can_staticize_physics_and_add_reference_collider(tmp_path):
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdBackground
+
+    source_path = str(tmp_path / "workbench.usda")
+    stage = Usd.Stage.CreateNew(source_path)
+    root = UsdGeom.Xform.Define(stage, "/Workbench").GetPrim()
+    stage.SetDefaultPrim(root)
+    base = UsdGeom.Xform.Define(stage, "/Workbench/base").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(base)
+    drawer = UsdGeom.Xform.Define(stage, "/Workbench/drawer").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(drawer)
+    joint = UsdPhysics.PrismaticJoint.Define(stage, "/Workbench/drawer_joint")
+    joint.CreateBody0Rel().SetTargets([base.GetPath()])
+    joint.CreateBody1Rel().SetTargets([drawer.GetPath()])
+    stage.GetRootLayer().Save()
+
+    background = SimReadyUsdBackground(
+        usd_path=source_path,
+        name="workbench",
+        object_min_z=0.05,
+        static_collision_only=True,
+        reference_colliders={
+            "ClutterArea": {
+                "position_xyz": [0.0, -0.07, 0.6685],
+                "size_xyz": [0.44, 0.34, 0.001],
+            }
+        },
+    )
+
+    wrapper = Usd.Stage.Open(background.usd_path)
+    assert not wrapper.GetPrimAtPath("/Asset/base").HasAPI(UsdPhysics.RigidBodyAPI)
+    assert not wrapper.GetPrimAtPath("/Asset/drawer").HasAPI(UsdPhysics.RigidBodyAPI)
+    assert not wrapper.GetPrimAtPath("/Asset/drawer_joint").IsActive()
+    clutter_area = wrapper.GetPrimAtPath("/Asset/ClutterArea")
+    assert clutter_area
+    assert UsdPhysics.CollisionAPI(wrapper.GetPrimAtPath("/Asset/ClutterArea/Surface"))
+    assert not background.reset_nested_physics
+
+
+def test_simready_usd_articulation_can_add_root_fixed_base_and_initial_joints(tmp_path):
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdArticulation
+
+    source_path = str(tmp_path / "cabinet.usda")
+    stage = Usd.Stage.CreateNew(source_path)
+    root = UsdGeom.Xform.Define(stage, "/Cabinet").GetPrim()
+    stage.SetDefaultPrim(root)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    base = UsdGeom.Xform.Define(stage, "/Cabinet/Geometry/base").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(base)
+    UsdPhysics.ArticulationRootAPI.Apply(base)
+    stage.GetRootLayer().Save()
+
+    obj = SimReadyUsdArticulation(
+        usd_path=source_path,
+        name="cabinet",
+        scale=[0.5, 0.5, 0.5],
+        fixed_base_body_path="Geometry/base",
+        articulation_root_prim_path=".",
+        initial_joint_positions={"drawer_joint": 0.2},
+    )
+
+    wrapper = Usd.Stage.Open(obj.usd_path)
+    assert wrapper.GetDefaultPrim().HasAPI(UsdPhysics.ArticulationRootAPI)
+    assert not wrapper.GetPrimAtPath("/Asset/Geometry/base").HasAPI(UsdPhysics.ArticulationRootAPI)
+    fixed_joint = UsdPhysics.FixedJoint(wrapper.GetPrimAtPath("/Asset/ArenaFixedBase"))
+    assert fixed_joint
+    assert fixed_joint.GetBody1Rel().GetTargets() == ["/Asset/Geometry/base"]
+    assert obj.scale == (0.5, 0.5, 0.5)
+    assert obj.object_cfg.init_state.joint_pos == {"drawer_joint": 0.2}
+    source_stage = Usd.Stage.Open(source_path)
+    assert not any(prim.IsA(UsdPhysics.FixedJoint) for prim in source_stage.Traverse())
+    assert source_stage.GetPrimAtPath("/Cabinet/Geometry/base").HasAPI(UsdPhysics.ArticulationRootAPI)
+
+
+def test_simready_usd_openable_articulation_exposes_its_joint(tmp_path):
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.affordances.openable import Openable
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdOpenableArticulation
+
+    source_path = str(tmp_path / "cabinet.usda")
+    stage = Usd.Stage.CreateNew(source_path)
+    root = UsdGeom.Xform.Define(stage, "/Cabinet").GetPrim()
+    stage.SetDefaultPrim(root)
+    UsdPhysics.ArticulationRootAPI.Apply(root)
+    stage.GetRootLayer().Save()
+
+    obj = SimReadyUsdOpenableArticulation(
+        usd_path=source_path,
+        name="cabinet",
+        openable_joint_name="drawer_joint",
+    )
+
+    assert isinstance(obj, Openable)
+    assert obj.openable_joint_name == "drawer_joint"
+
+
+def test_simready_usd_pressable_articulation_exposes_its_joint(tmp_path):
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.affordances.pressable import Pressable
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdPressableArticulation
+
+    source_path = str(tmp_path / "oscilloscope.usda")
+    stage = Usd.Stage.CreateNew(source_path)
+    root = UsdGeom.Xform.Define(stage, "/Oscilloscope").GetPrim()
+    stage.SetDefaultPrim(root)
+    UsdPhysics.PrismaticJoint.Define(stage, "/Oscilloscope/joint_button")
+    stage.GetRootLayer().Save()
+
+    obj = SimReadyUsdPressableArticulation(
+        usd_path=source_path,
+        name="oscilloscope",
+        articulation_root_prim_path=".",
+        pressable_joint_name="joint_button",
+    )
+
+    assert isinstance(obj, Pressable)
+    assert obj.pressable_joint_name == "joint_button"
 
 
 def test_simready_search_registry_name_derives_an_identifier_from_the_phrase():

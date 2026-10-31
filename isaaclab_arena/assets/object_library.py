@@ -316,7 +316,7 @@ class GroundPlane(LibraryObject):
     """
 
     registry_name = "ground_plane"
-    tags = ["ground_plane"]
+    tags = ["background", "ground_plane"]
     # Setting a global prim path for the ground plane. Will not get repeated for each environment.
     default_prim_path = "/World/GroundPlane"
     object_type = ObjectType.BASE

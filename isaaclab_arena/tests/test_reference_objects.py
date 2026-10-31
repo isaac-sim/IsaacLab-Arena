@@ -137,6 +137,104 @@ def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
     assert calls["open_count"] == 1
 
 
+def _write_scaled_reference_articulation(path: pathlib.Path, joint_type: str = "prismatic") -> None:
+    """Write a scaled two-body articulation with a directly referenced movable body."""
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics
+
+    stage = Usd.Stage.CreateNew(str(path))
+    root = UsdGeom.Xform.Define(stage, "/Asset").GetPrim()
+    stage.SetDefaultPrim(root)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    cabinet = UsdGeom.Xform.Define(stage, "/Asset/Cabinet")
+    cabinet.AddScaleOp().Set(Gf.Vec3f(2.0))
+    UsdPhysics.ArticulationRootAPI.Apply(cabinet.GetPrim())
+
+    base = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/Base").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(base)
+    drawer = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/Drawer")
+    drawer.AddTranslateOp().Set(Gf.Vec3d(0.1, 0.0, 0.0))
+    UsdPhysics.RigidBodyAPI.Apply(drawer.GetPrim())
+    collider = UsdGeom.Cube.Define(stage, "/Asset/Cabinet/Drawer/Collider")
+    collider.CreateSizeAttr(0.2)
+    collider.CreateExtentAttr([Gf.Vec3f(-0.2, -0.1, -0.05), Gf.Vec3f(0.2, 0.1, 0.05)])
+    UsdPhysics.CollisionAPI.Apply(collider.GetPrim())
+
+    joint_schema = UsdPhysics.PrismaticJoint if joint_type == "prismatic" else UsdPhysics.RevoluteJoint
+    joint = joint_schema.Define(stage, "/Asset/Cabinet/drawer_joint")
+    joint.CreateBody0Rel().SetTargets(["/Asset/Cabinet/Base"])
+    joint.CreateBody1Rel().SetTargets(["/Asset/Cabinet/Drawer/Collider"])
+    joint.CreateAxisAttr("X" if joint_type == "prismatic" else "Z")
+    joint.CreateLocalPos0Attr(Gf.Vec3f(0.1, 0.0, 0.0))
+    joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
+    stage.GetRootLayer().Save()
+
+
+def _scaled_articulation_reference(
+    tmp_path: pathlib.Path,
+    joint_type: str,
+    joint_position: float,
+    external_scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+):
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
+
+    usd_path = tmp_path / f"{joint_type}.usda"
+    _write_scaled_reference_articulation(usd_path, joint_type)
+    cabinet = Object(
+        name="cabinet",
+        usd_path=str(usd_path),
+        object_type=ObjectType.ARTICULATION,
+        scale=external_scale,
+    )
+    cabinet.object_cfg.init_state.joint_pos = {"drawer_.*": joint_position}
+    return ObjectReference(
+        name="drawer",
+        prim_path="{ENV_REGEX_NS}/cabinet/Cabinet/Drawer",
+        parent_asset=cabinet,
+        object_type=ObjectType.BASE,
+    )
+
+
+def test_reference_pose_and_bounds_include_authored_articulation_scale_and_prismatic_joint(tmp_path: pathlib.Path):
+    """Placement uses a scaled articulation body's configured initial translation."""
+    from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg
+
+    drawer = _scaled_articulation_reference(tmp_path, "prismatic", 0.3)
+
+    assert isinstance(drawer.object_cfg, ArticulationBodyReferenceCfg)
+    assert drawer.object_cfg.pose_articulation_name == "cabinet"
+    assert drawer.object_cfg.pose_body_name == "Drawer"
+    assert drawer.get_initial_pose().position_xyz == pytest.approx((0.5, 0.0, 0.0))
+    bounds_W = drawer.get_world_bounding_box()
+    torch.testing.assert_close(bounds_W.min_point, torch.tensor([[0.1, -0.2, -0.1]]))
+    torch.testing.assert_close(bounds_W.max_point, torch.tensor([[0.9, 0.2, 0.1]]))
+
+
+def test_reference_pose_converts_external_articulation_scale_to_source_joint_units(tmp_path: pathlib.Path):
+    """Placement converts final-meter prismatic positions through authored and external uniform scale."""
+    drawer = _scaled_articulation_reference(
+        tmp_path,
+        "prismatic",
+        0.3,
+        external_scale=(0.5, 0.5, 0.5),
+    )
+
+    assert drawer.get_initial_pose().position_xyz == pytest.approx((0.4, 0.0, 0.0))
+    bounds_W = drawer.get_world_bounding_box()
+    torch.testing.assert_close(bounds_W.min_point, torch.tensor([[0.2, -0.1, -0.05]]))
+    torch.testing.assert_close(bounds_W.max_point, torch.tensor([[0.6, 0.1, 0.05]]))
+
+
+def test_reference_bounds_include_revolute_initial_joint_angle(tmp_path: pathlib.Path):
+    """Placement rotates a scaled articulation body's bounds at its initial joint angle."""
+    drawer = _scaled_articulation_reference(tmp_path, "revolute", np.pi / 2)
+
+    bounds = drawer.get_bounding_box()
+    torch.testing.assert_close(bounds.min_point, torch.tensor([[-0.2, -0.4, -0.1]]), atol=1e-6, rtol=1e-6)
+    torch.testing.assert_close(bounds.max_point, torch.tensor([[0.2, 0.4, 0.1]]), atol=1e-6, rtol=1e-6)
+
+
 def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatch):
     """ObjectReference collision meshes are extracted from the referenced sub-prim."""
     import trimesh

@@ -35,6 +35,13 @@ For example, let the robot place two objects in either order:
        task_description="Place the can and bottle into the bin.",
    )
 
+Rigid objects placed on the same destination may rest on each other. Here, the bottle may lie on the can
+instead of the bin floor. Each rigid object's contact sensor also measures contact with the other rigid
+objects placed in the bin, and that contact counts as support. Deformable objects and objects that are not
+part of the task, such as clutter already in the bin, do not count. ``CompositeTaskBase`` passes each subtask
+the other subtasks through ``configure_for_other_subtasks()``. Override it in a task whose checks depend on
+its sibling subtasks.
+
 Set ``subtasks_are_sequential=True`` when the order is part of the task. Here, placing the object must happen
 before closing the refrigerator:
 

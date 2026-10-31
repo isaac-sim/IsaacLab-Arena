@@ -161,6 +161,32 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     assert object_bounds_O is not destination_bounds_D
     assert geometry_build_calls == ["object", "destination"]
 
+    mesh_build_calls = []
+    points_O = torch.tensor([
+        [[0.0, 0.0, 0.0], [0.2, 0.0, 0.0]],
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+    ])
+    valid_points = torch.tensor([[True, True], [True, False]])
+
+    def compute_mesh_points(_scene, scene_key: str):
+        mesh_build_calls.append(scene_key)
+        return points_O, valid_points
+
+    with patch.object(
+        scene_access_module,
+        "compute_spawned_mesh_points_in_local_frame",
+        side_effect=compute_mesh_points,
+    ):
+        points_W, returned_valid_points = arena_world.get_mesh_points_w("object")
+        cached_points_W, cached_valid_points = arena_world.get_mesh_points_w("object")
+
+    torch.testing.assert_close(points_W[:, 0], T_W_O_moved[:, :3])
+    torch.testing.assert_close(points_W[0, 1], T_W_O_moved[0, :3] + torch.tensor([0.2, 0.0, 0.0]))
+    torch.testing.assert_close(cached_points_W, points_W)
+    assert torch.equal(returned_valid_points, valid_points)
+    assert torch.equal(cached_valid_points, valid_points)
+    assert mesh_build_calls == ["object"]
+
 
 def _check_articulation_root_state_reads(arena_world_module) -> None:
     """Check that articulation root poses and velocities are read live."""
@@ -316,6 +342,64 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
     torch.testing.assert_close(T_W_F_second, pose_reader.T_W_F_values[1])
 
 
+def _check_scene_extra_reads_articulation_body_pose(
+    arena_world_module,
+    scene_access_module,
+    axis_aligned_bounding_box_type,
+) -> None:
+    """Check that a linked extra combines its geometry with its articulation body's live pose."""
+    import torch
+
+    from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg
+
+    T_W_B = torch.tensor([
+        [0.25, -0.5, 0.54, 0.0, 0.0, 0.0, 1.0],
+        [1.25, -0.5, 0.54, 0.0, 0.0, 0.0, 1.0],
+    ])
+    articulation = SimpleNamespace(
+        data=SimpleNamespace(
+            body_names=["base", "drawer"],
+            body_link_pose_w=SimpleNamespace(torch=torch.stack((torch.zeros_like(T_W_B), T_W_B), dim=1)),
+        )
+    )
+    drawer_reference_cfg = ArticulationBodyReferenceCfg(prim_path="{ENV_REGEX_NS}/cabinet/drawer")
+    drawer_reference_cfg.pose_articulation_name = "cabinet"
+    drawer_reference_cfg.pose_body_name = "drawer"
+    scene = SimpleNamespace(
+        num_envs=2,
+        rigid_objects={},
+        articulations={"cabinet": articulation},
+        deformable_objects={},
+        extras={"drawer_reference": object()},
+        cfg=SimpleNamespace(drawer_reference=drawer_reference_cfg),
+    )
+    drawer_bounds_D = axis_aligned_bounding_box_type(
+        min_point=torch.tensor([[-0.1, -0.2, -0.03]]).expand(2, 3),
+        max_point=torch.tensor([[0.1, 0.2, 0.03]]).expand(2, 3),
+    )
+    with (
+        patch.object(scene_access_module, "SceneExtraPoseReader") as make_pose_reader,
+        patch.object(
+            scene_access_module,
+            "compute_spawned_geometry_bounds_in_local_frame",
+            return_value=drawer_bounds_D,
+        ),
+    ):
+        arena_world = arena_world_module.ArenaWorld(scene)
+        torch.testing.assert_close(arena_world.get_pose_w("drawer_reference"), T_W_B)
+        initial_bounds_W = arena_world.get_aabb_w("drawer_reference")
+
+        T_W_B_moved = T_W_B.clone()
+        T_W_B_moved[:, 0] += 0.2
+        articulation.data.body_link_pose_w.torch[:, 1] = T_W_B_moved
+        torch.testing.assert_close(arena_world.get_pose_w("drawer_reference"), T_W_B_moved)
+        moved_bounds_W = arena_world.get_aabb_w("drawer_reference")
+
+    make_pose_reader.assert_not_called()
+    torch.testing.assert_close(moved_bounds_W.min_point - initial_bounds_W.min_point, torch.tensor([[0.2, 0, 0]] * 2))
+    torch.testing.assert_close(moved_bounds_W.max_point - initial_bounds_W.max_point, torch.tensor([[0.2, 0, 0]] * 2))
+
+
 def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) -> None:
     """Check that a pose query reports ArenaWorld's supported scene categories."""
 
@@ -419,6 +503,7 @@ def _test_arena_world_scene_access(_simulation_app) -> bool:
     _check_articulation_root_state_reads(arena_world)
     _check_deformable_object_reads(arena_world)
     _check_arena_world_reuses_scene_extra_pose_reader(arena_world, scene_access)
+    _check_scene_extra_reads_articulation_body_pose(arena_world, scene_access, AxisAlignedBoundingBox)
     _check_arena_world_rejects_unsupported_pose_scene_key(arena_world)
     _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access)
     return True

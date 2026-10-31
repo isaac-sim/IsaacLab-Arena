@@ -1,0 +1,16 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: workbench_cleanup_task_3
+external_yaml: scene.yaml
+task:
+  composition: atomic
+  description: Switch the oscilloscope off.
+  subtasks:
+  - kind: PressButtonTask
+    params:
+      pressable_object: oscilloscope
+      pressedness_threshold: 0.8
+      reset_pressedness: 1.0

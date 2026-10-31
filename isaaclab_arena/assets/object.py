@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import torch
+from collections.abc import Sequence
 from copy import deepcopy
 from typing import Any
 
@@ -16,7 +17,10 @@ from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
+from isaaclab_arena.assets.physics_spawner import (
+    make_usd_spawn_cfg_with_addons,
+    make_usd_spawn_cfg_with_articulation_scale,
+)
 from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry, get_geometry_key
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -55,6 +59,11 @@ class Object(RootedObjectBase):
                 " object type"
             )
             object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))
+        scale = tuple(scale)
+        assert len(scale) == 3, f"Object scale must have three components, got {scale}."
+        if object_type == ObjectType.ARTICULATION and usd_path is not None:
+            assert all(component > 0.0 for component in scale), f"Articulation scale must be positive, got {scale}."
+            assert scale[0] == scale[1] == scale[2], f"Articulation scale must be uniform, got {scale}."
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
         self.spawner_cfg = spawner_cfg
@@ -128,15 +137,35 @@ class Object(RootedObjectBase):
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         return self.prim_path + self._get_spawn_cfg_geometry(self.object_cfg.spawn).get_contact_body_path()
 
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(self, contact_against_objects: Sequence[ObjectBase] = ()) -> ContactSensorCfg:
+        """Return a contact sensor on this object, filtered to report contacts with the given objects.
+
+        Args:
+            contact_against_objects: Rooted objects to filter contacts against. The sensor reports one force
+                per filtered rigid body.
+
+        Returns:
+            Contact sensor configuration.
+        """
         # We override this function from the parent class because some assets do not have their rigid body
         # at the root of the USD file. To be robust to this, we find the shallowest rigid body and add the
         # contact sensor to it.
-        if contact_against_object is not None:
+        for contact_against_object in contact_against_objects:
             assert isinstance(
                 contact_against_object, RootedObjectBase
             ), "Contact sensors against deformable objects and other non-rooted objects are not supported"
         contact_sensor_prim_path = self.get_contact_sensor_prim_path()
+        filter_prim_paths = []
+        for contact_against_object in contact_against_objects:
+            filter_prim_paths.extend(self._get_contact_filter_prim_paths(contact_against_object))
+        return ContactSensorCfg(
+            prim_path=contact_sensor_prim_path,
+            filter_prim_paths_expr=filter_prim_paths,
+        )
+
+    @staticmethod
+    def _get_contact_filter_prim_paths(contact_against_object: RootedObjectBase) -> list[str]:
+        """Return the rigid-body prim paths a contact sensor filters to report contacts with an object."""
         if isinstance(contact_against_object, Object) and contact_against_object.object_type == ObjectType.BASE:
             # PhysX needs a separate filter expression for each nested target body.
             body_paths = read_asset_rigid_body_paths(
@@ -148,21 +177,15 @@ class Object(RootedObjectBase):
             for path in body_paths:
                 relative_path = path.removeprefix("/Asset")
                 filter_prim_paths.append(contact_against_object.get_prim_path() + relative_path)
-        elif isinstance(contact_against_object, Object):
+            return filter_prim_paths
+        if isinstance(contact_against_object, Object):
             # This branch supports rigid targets only. For ObjectInTask in kitchen scenes,
             # supply receptacles such as the microwave as Background objects so the branch
             # above filters contacts against their nested rigid bodies.
-            filter_prim_paths = [contact_against_object.get_contact_sensor_prim_path()]
-        elif isinstance(contact_against_object, ObjectBase):
-            # Handles ObjectReference.
-            # NOTE(alexmillane, 2026.04.10): ObjectReference is assumed to have its rigid body at its scene prim path.
-            filter_prim_paths = [contact_against_object.get_prim_path()]
-        elif contact_against_object is None:
-            filter_prim_paths = []
-        return ContactSensorCfg(
-            prim_path=contact_sensor_prim_path,
-            filter_prim_paths_expr=filter_prim_paths,
-        )
+            return [contact_against_object.get_contact_sensor_prim_path()]
+        # Handles ObjectReference.
+        # NOTE(alexmillane, 2026.04.10): ObjectReference is assumed to have its rigid body at its scene prim path.
+        return [contact_against_object.get_prim_path()]
 
     def _get_spawn_cfg_geometry(self, spawn_cfg: SpawnerCfg) -> SpawnCfgGeometry:
         """Return cached geometry for a spawn configuration, recomputed when its geometric settings change."""
@@ -184,7 +207,10 @@ class Object(RootedObjectBase):
             scale=self.scale,
             activate_contact_sensors=activate_contact_sensors,
         )
-        return make_usd_spawn_cfg_with_addons(spawn_cfg, self.spawn_cfg_addon)
+        spawn_cfg = make_usd_spawn_cfg_with_addons(spawn_cfg, self.spawn_cfg_addon)
+        if self.object_type == ObjectType.ARTICULATION and any(component != 1.0 for component in self.scale):
+            return make_usd_spawn_cfg_with_articulation_scale(spawn_cfg)
+        return spawn_cfg
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

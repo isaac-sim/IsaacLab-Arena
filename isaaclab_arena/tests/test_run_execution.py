@@ -18,6 +18,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_T
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.utils.timer import Timer
+from isaaclab_arena.video.video_recording import VideoRecordingCfg
 
 
 @dataclass
@@ -62,8 +63,11 @@ class _ArenaEnvBuilder:
     """Stands in for the real builder so the dataset naming can be checked without a SimulationApp."""
 
     def __init__(self, recorders):
-        self.env_cfg = SimpleNamespace(recorders=recorders)
+        self.env_cfg = SimpleNamespace(recorders=recorders, video_recorders=[])
         self.made_with = None
+
+    def build_registered(self):
+        return "test-env", self.env_cfg, {}
 
     def make_registered(self, env_cfg=None, env_kwargs=None, render_mode=None):
         self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
@@ -97,7 +101,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     rollout_limits = []
     received_run_cfgs = []
 
-    def make_environment(cfg, render_mode, **kwargs):
+    def make_environment(cfg, video_cfg, num_steps, num_episodes, **kwargs):
         received_run_cfgs.append(cfg)
         return _environment()
 
@@ -136,7 +140,7 @@ def test_build_and_run_gives_each_rebuild_its_listed_episodes(monkeypatch, tmp_p
     rollout_limits = []
     received_run_cfgs = []
 
-    def make_environment(cfg, render_mode, **kwargs):
+    def make_environment(cfg, video_cfg, num_steps, num_episodes, **kwargs):
         received_run_cfgs.append(cfg)
         return _environment()
 
@@ -184,7 +188,7 @@ def test_build_and_run_resolves_variation_replay_budget(
     received_run_cfgs = []
     rollout_limits = []
 
-    def make_environment(cfg, render_mode, **kwargs):
+    def make_environment(cfg, video_cfg, num_steps, num_episodes, **kwargs):
         received_run_cfgs.append(cfg)
         return _environment()
 
@@ -227,7 +231,7 @@ def test_build_and_run_assigns_one_replay_file_per_rebuild(
     received_run_cfgs = []
     rollout_limits = []
 
-    def make_environment(cfg, render_mode, **kwargs):
+    def make_environment(cfg, video_cfg, num_steps, num_episodes, **kwargs):
         received_run_cfgs.append(cfg)
         return _environment()
 
@@ -285,7 +289,7 @@ def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
     monkeypatch.setattr(
         run_execution,
         "_build_environment_from_cfg",
-        lambda cfg, render_mode, **kwargs: environment,
+        lambda cfg, video_cfg, num_steps, num_episodes, **kwargs: environment,
     )
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy)
     monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
@@ -317,7 +321,7 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
     monkeypatch.setattr(
         run_execution,
         "_build_environment_from_cfg",
-        lambda cfg, render_mode, **kwargs: environment,
+        lambda cfg, video_cfg, num_steps, num_episodes, **kwargs: environment,
     )
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy)
     monkeypatch.setattr(
@@ -332,7 +336,7 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
             output_dir=tmp_path,
         )
 
-    assert closed_resources == [(policy, environment)]
+    assert closed_resources == [(policy, None)]
 
 
 def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
@@ -413,7 +417,9 @@ def test_build_environment_exports_recorder_dataset_to_the_run_directory(monkeyp
 
     run_execution._build_environment_from_cfg(
         run,
-        render_mode="rgb_array",
+        video_cfg=VideoRecordingCfg(),
+        num_steps=None,
+        num_episodes=1,
         output_dir=tmp_path,
         rebuild_index=2,
     )
@@ -424,14 +430,20 @@ def test_build_environment_exports_recorder_dataset_to_the_run_directory(monkeyp
     assert captured["rebuild_index"] == 2
     assert run.environment_builder.recorder_dataset_export_dir_path is None
     assert run.environment_builder.recorder_dataset_filename is None
-    assert builder.made_with.render_mode == "rgb_array"
+    assert builder.made_with.render_mode is None
 
 
 def test_build_environment_tolerates_an_environment_without_recorders(monkeypatch, tmp_path):
     builder = _builder(monkeypatch, None)
     run = _run(environment_builder=ArenaEnvBuilderCfg(record_trajectories=True))
 
-    env = run_execution._build_environment_from_cfg(run, render_mode=None, output_dir=tmp_path)
+    env = run_execution._build_environment_from_cfg(
+        run,
+        video_cfg=VideoRecordingCfg(),
+        num_steps=None,
+        num_episodes=1,
+        output_dir=tmp_path,
+    )
 
     assert env is not None
     assert builder.made_with.render_mode is None

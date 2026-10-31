@@ -1,0 +1,10 @@
+{"action":"mark","index":0,"boundary":"start","title":"Close socket set"}
+{"action":"pose","reference":"socket_set_lid","reference_point":"aabb_center","offset":[-0.08,0,0.27],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"root","gripper":1,"interpolation_steps":120,"max_steps":240}
+{"action":"pose","reference":"socket_set_lid","reference_point":"aabb_center","offset":[-0.08,0,0.205],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"root","gripper":1,"interpolation_steps":90,"max_steps":180}
+{"action":"pose","reference":"socket_set","offset":[0.06,0,0.3],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"root","gripper":1,"interpolation_steps":180,"max_steps":180}
+{"action":"wait","steps":30}
+{"action":"check","index":0,"timeout_steps":300}
+{"action":"pose","reference":"socket_set","offset":[0.06,0,0.4],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"root","gripper":0,"interpolation_steps":90,"max_steps":180}
+{"action":"mark","index":0,"boundary":"end","title":"Close socket set"}
+{"action":"wait_final","timeout_steps":300}
+{"action":"finish"}

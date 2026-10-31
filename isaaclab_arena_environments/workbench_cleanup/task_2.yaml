@@ -1,0 +1,62 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: workbench_cleanup_task_2
+external_yaml: scene.yaml
+task:
+  composition: sequential
+  description: Open the top drawer of the white cabinet, put all five cluttered
+    tools inside, then close the drawer.
+  subtasks:
+  - kind: OpenDoorTask
+    params:
+      openable_object: white_cabinet
+      openness_threshold: 0.85
+      reset_openness: 0.0
+  - kind: ObjectInTask
+    params:
+      object: slotted_screwdriver
+      target: white_cabinet_top_drawer
+      minimum_contained_fraction: 0.9
+      consecutive_success_steps: 10
+      linear_velocity_threshold: 0.03
+      angular_velocity_threshold: 0.1
+  - kind: ObjectInTask
+    params:
+      object: torx_screwdriver
+      target: white_cabinet_top_drawer
+      minimum_contained_fraction: 0.9
+      consecutive_success_steps: 10
+      linear_velocity_threshold: 0.03
+      angular_velocity_threshold: 0.1
+  - kind: ObjectInTask
+    params:
+      object: phillips_screwdriver
+      target: white_cabinet_top_drawer
+      minimum_contained_fraction: 0.9
+      consecutive_success_steps: 10
+      linear_velocity_threshold: 0.03
+      angular_velocity_threshold: 0.1
+  - kind: ObjectInTask
+    params:
+      object: combination_wrench
+      target: white_cabinet_top_drawer
+      minimum_contained_fraction: 0.5
+      consecutive_success_steps: 10
+      linear_velocity_threshold: 0.03
+      angular_velocity_threshold: 0.1
+  - kind: ObjectInTask
+    params:
+      object: small_wrench
+      target: white_cabinet_top_drawer
+      minimum_contained_fraction: 0.5
+      consecutive_success_steps: 10
+      linear_velocity_threshold: 0.03
+      angular_velocity_threshold: 0.2
+  - kind: CloseDoorTask
+    params:
+      openable_object: white_cabinet
+      closedness_threshold: 0.05
+      reset_openness: 0.0

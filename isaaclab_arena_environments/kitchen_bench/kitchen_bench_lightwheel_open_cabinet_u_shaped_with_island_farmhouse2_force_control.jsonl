@@ -1,0 +1,7 @@
+{"action":"setup_joint","name":"cabinet","joint_name":"left_door_joint","effort_limit":100.0,"replace_existing":true}
+{"action":"mark","index":0,"boundary":"start","title":"Open cabinet door"}
+{"action":"joint","name":"cabinet","joint_name":"left_door_joint","normalized_goal":0.5,"seconds":3.0,"gain":100.0,"damping":15.0,"limit":50.0}
+{"action":"check","index":0}
+{"action":"mark","index":0,"boundary":"end","title":"Open cabinet door"}
+{"action":"wait_final"}
+{"action":"finish"}

@@ -40,6 +40,9 @@ Read only the references relevant to the requested behavior:
   alongside `isaaclab_arena_environments/robolab/` examples. Choose Python when the graph cannot
   express the required semantics; a field parsing successfully does not prove it is consumed.
 - **Assets and layout:** follow the example's ownership and scene composition. Use the existing
+  [asset configuration guide](../../../docs/pages/concepts/scene/concept_assets_design.rst) to
+  configure registered assets and generic SimReady USD objects, articulations, backgrounds,
+  physics overrides, and reference colliders. Use the existing
   [relations](../../../docs/pages/concepts/object_placement/relations.rst),
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).

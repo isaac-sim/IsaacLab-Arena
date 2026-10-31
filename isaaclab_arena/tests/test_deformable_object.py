@@ -41,11 +41,16 @@ def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
 
 
 def _test_backend_specific_deformable_config(simulation_app) -> bool:
+    import isaaclab.sim as sim_utils
     from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
     from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
     from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
 
     from isaaclab_arena.assets.deformable_object import DeformableObject
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PoseRange
 
     pose = Pose(position_xyz=(0.1, -0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
@@ -68,6 +73,20 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     assert physx_cfg.init_state.pos == updated_pose.position_xyz
     with pytest.raises(AssertionError, match="fixed Pose or PosePerEnv"):
         soft_cube.set_initial_pose(PoseRange())
+
+    soft_cube.add_relation(IsAnchor())
+    scene = Scene(assets=[soft_cube])
+    assert scene.get_objects_with_relations() == [soft_cube]
+
+    rigid = Object(
+        name="rigid",
+        object_type=ObjectType.RIGID,
+        spawner_cfg=sim_utils.MeshCuboidCfg(size=(0.1, 0.1, 0.1)),
+    )
+    with pytest.raises(NotImplementedError, match="does not support contact sensors"):
+        soft_cube.get_contact_sensor_cfg([rigid])
+    with pytest.raises(AssertionError, match="against deformable objects"):
+        rigid.get_contact_sensor_cfg([soft_cube])
     return True
 
 

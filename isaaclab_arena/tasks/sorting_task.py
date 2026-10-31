@@ -55,7 +55,7 @@ class SortMultiObjectTask(TaskBase):
         for contact_sensor_name, pick_up_object, destination in zip(
             self.contact_sensor_name_list, self.pick_up_object_list, self.destination_location_list, strict=True
         ):
-            contact_sensor_cfg = pick_up_object.get_contact_sensor_cfg(contact_against_object=destination)
+            contact_sensor_cfg = pick_up_object.get_contact_sensor_cfg(contact_against_objects=[destination])
             fields.append((contact_sensor_name, type(contact_sensor_cfg), contact_sensor_cfg))
         SceneCfg = make_configclass("SceneCfg", fields)
         scene_cfg = SceneCfg()

@@ -370,6 +370,31 @@ def reset_articulation_pose_and_joints(
     reset_articulation_joints(env, env_ids, asset_cfg)
 
 
+def reset_articulation_poses_per_env_and_joints(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose_list: list[Pose],
+) -> None:
+    """Restore per-environment articulation root poses and default joint states."""
+    set_object_pose_per_env(env, env_ids, asset_cfg, pose_list)
+    reset_articulation_joints(env, env_ids, asset_cfg)
+
+
+def randomize_articulation_poses_and_reset_joints(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfgs: list[SceneEntityCfg],
+    **kwargs,
+) -> None:
+    """Randomize articulation root poses and restore their default joint states."""
+    from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_object_pose
+
+    randomize_object_pose(env, env_ids, asset_cfgs, **kwargs)
+    for asset_cfg in asset_cfgs:
+        reset_articulation_joints(env, env_ids, asset_cfg)
+
+
 def reset_articulation_joints(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,

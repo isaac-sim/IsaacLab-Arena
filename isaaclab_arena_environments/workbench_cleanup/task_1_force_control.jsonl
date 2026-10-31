@@ -1,0 +1,7 @@
+{"action":"setup_joint","name":"socket_set","joint_name":"case_lid","effort_limit":100.0,"replace_existing":true}
+{"action":"mark","index":0,"boundary":"start","title":"Close socket set"}
+{"action":"joint","name":"socket_set","joint_name":"case_lid","goal":0.0,"gain":1.0,"damping":0.06,"limit":0.5}
+{"action":"check","index":0}
+{"action":"mark","index":0,"boundary":"end","title":"Close socket set"}
+{"action":"wait_final"}
+{"action":"finish"}

@@ -12,10 +12,11 @@ from functools import partial
 from isaaclab.managers import SceneEntityCfg
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.tasks.predicates.spatial import object_in_target_aabb, object_settled_in_target_aabb
+from isaaclab_arena.tasks.predicates.spatial import object_in_target, object_settled_in_target
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -24,7 +25,7 @@ from isaaclab_arena.utils.configclass import make_configclass
 
 @register_task
 class ObjectInTask(TaskBase):
-    """Require one object to remain settled inside and in contact with its target."""
+    """Require one object to remain settled inside and supported within its target."""
 
     def __init__(
         self,
@@ -38,18 +39,18 @@ class ObjectInTask(TaskBase):
         contact_force_threshold: float = 0.01,
         minimum_contained_fraction: float = 1.0,
     ):
-        """Configure one object and target with settled AABB containment.
+        """Configure one object and target with settled mesh-point containment.
 
         Args:
             object: Object to deposit.
             target: Container receiving the object.
             linear_velocity_threshold: Maximum settled linear speed in meters per second.
             angular_velocity_threshold: Maximum settled angular speed in radians per second.
-            consecutive_success_steps: Consecutive steps the object must remain contained, touching the target, and settled.
+            consecutive_success_steps: Consecutive steps the object must remain contained, supported, and settled.
             episode_length_s: Episode timeout in seconds; None uses the standard task default.
             task_description: Optional task description.
-            contact_force_threshold: Minimum destination contact force in newtons.
-            minimum_contained_fraction: Required object AABB volume fraction inside the target, in (0, 1].
+            contact_force_threshold: Minimum target or sibling support contact force in newtons.
+            minimum_contained_fraction: Required object mesh-point fraction inside the target, in (0, 1].
         """
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         assert 0 < minimum_contained_fraction <= 1
@@ -61,9 +62,28 @@ class ObjectInTask(TaskBase):
         self.consecutive_success_steps = consecutive_success_steps
         self.linear_velocity_threshold = linear_velocity_threshold
         self.angular_velocity_threshold = angular_velocity_threshold
+        self.other_objects_in_target: list[Asset] = []
+        """Rigid objects that sibling ObjectInTasks place in the same target."""
+
+    def configure_for_other_subtasks(self, other_subtasks: list[TaskBase]) -> None:
+        """Count contact with rigid objects assigned to the same target as support."""
+        self.other_objects_in_target = []
+        for other_subtask in other_subtasks:
+            if not isinstance(other_subtask, ObjectInTask):
+                continue
+            other_object = other_subtask.object
+            shares_target_with_other_rigid_object = (
+                other_subtask.target.name == self.target.name
+                and other_object.name != self.object.name
+                and other_object.object_type == ObjectType.RIGID
+            )
+            if shares_target_with_other_rigid_object:
+                self.other_objects_in_target.append(other_object)
 
     def get_scene_cfg(self):
-        sensor_cfg = self.object.get_contact_sensor_cfg(contact_against_object=self.target)
+        sensor_cfg = self.object.get_contact_sensor_cfg(
+            contact_against_objects=[self.target, *self.other_objects_in_target]
+        )
         scene_cfg_type = make_configclass("SceneCfg", [(self.contact_sensor_cfg.name, type(sensor_cfg), sensor_cfg)])
         return scene_cfg_type()
 
@@ -77,14 +97,14 @@ class ObjectInTask(TaskBase):
                         # Record entering the target as a separate progress milestone.
                         # The settling step rechecks containment throughout its consecutive-step window.
                         partial(
-                            object_in_target_aabb,
+                            object_in_target,
                             object_name=self.object.name,
                             target_name=self.target.name,
                             minimum_contained_fraction=self.minimum_contained_fraction,
                         ),
                         TrueForConsecutiveStepsCfg(
                             predicate=partial(
-                                object_settled_in_target_aabb,
+                                object_settled_in_target,
                                 object_name=self.object.name,
                                 target_name=self.target.name,
                                 contact_sensor_cfg=self.contact_sensor_cfg,

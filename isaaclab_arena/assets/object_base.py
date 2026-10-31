@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
@@ -16,7 +17,13 @@ from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_objec
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
+from isaaclab_arena.terms.events import (
+    randomize_articulation_poses_and_reset_joints,
+    reset_articulation_pose_and_joints,
+    reset_articulation_poses_per_env_and_joints,
+    set_object_pose,
+    set_object_pose_per_env,
+)
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_disappear_variation import ObjectDisappearVariation
@@ -122,7 +129,11 @@ class RootedObjectBase(ObjectBase):
         initial_pose = self.get_initial_pose()
         if isinstance(initial_pose, PosePerEnv):
             return EventTermCfg(
-                func=set_object_pose_per_env,
+                func=(
+                    reset_articulation_poses_per_env_and_joints
+                    if self.object_type == ObjectType.ARTICULATION
+                    else set_object_pose_per_env
+                ),
                 mode="reset",
                 params={
                     "asset_cfg": SceneEntityCfg(self.name),
@@ -131,7 +142,11 @@ class RootedObjectBase(ObjectBase):
             )
         elif isinstance(initial_pose, PoseRange):
             return EventTermCfg(
-                func=randomize_object_pose,
+                func=(
+                    randomize_articulation_poses_and_reset_joints
+                    if self.object_type == ObjectType.ARTICULATION
+                    else randomize_object_pose
+                ),
                 mode="reset",
                 params={
                     "pose_range": initial_pose.to_dict(),
@@ -140,7 +155,11 @@ class RootedObjectBase(ObjectBase):
             )
         else:  # Pose
             return EventTermCfg(
-                func=set_object_pose,
+                func=(
+                    reset_articulation_pose_and_joints
+                    if self.object_type == ObjectType.ARTICULATION
+                    else set_object_pose
+                ),
                 mode="reset",
                 params={
                     "pose": initial_pose,
@@ -182,9 +201,11 @@ class RootedObjectBase(ObjectBase):
             torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
         )
 
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(self, contact_against_objects: Sequence[ObjectBase] = ()) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
+        filter_prim_paths = [
+            contact_against_object.get_prim_path() for contact_against_object in contact_against_objects
+        ]
         return ContactSensorCfg(
             prim_path=self.prim_path,
             filter_prim_paths_expr=filter_prim_paths,
