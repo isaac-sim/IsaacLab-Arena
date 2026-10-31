@@ -1,0 +1,116 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_spatial_lemon_on_near_plate_peninsula
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_peninsula
+  params:
+    collision_mode: mesh
+objects:
+- id: lemon
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_produce_lemon_a11/simready_usd/sm_food_produce_lemon_a11_01.usd
+- id: near_plate
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/plate/simready_usd/plate.usda
+    scale: [0.85, 0.85, 1.0]
+- id: far_plate
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/plate/simready_usd/plate.usda
+    scale: [0.85, 0.85, 1.0]
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: island_top
+  parent_id: kitchen
+  prim_path: CapSurface_02
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: island_top
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: island_top
+  params:
+    axis: y
+    offset_m: 1.16
+    tolerance_m: 0.05
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: -1.57
+- kind: 'on'
+  subject: lemon
+  reference: island_top
+- kind: 'on'
+  subject: near_plate
+  reference: island_top
+- kind: 'on'
+  subject: far_plate
+  reference: island_top
+- kind: position_limits_box
+  subject: near_plate
+  params:
+    x_limits: [-0.55, 0.45]
+    y_limits: [-0.22, -0.09]
+- kind: align_with
+  subject: far_plate
+  reference: near_plate
+  params:
+    axis: y
+    offset_m: -0.31
+    tolerance_m: 0.04
+- kind: align_with
+  subject: lemon
+  reference: near_plate
+  params:
+    axis: x
+    offset_m: 0.25
+    tolerance_m: 0.05
+- kind: align_with
+  subject: lemon
+  reference: near_plate
+  params:
+    axis: y
+    tolerance_m: 0.1
+- kind: align_with
+  subject: far_plate
+  reference: near_plate
+  params:
+    axis: x
+    tolerance_m: 0.06
+- kind: align_with
+  subject: droid
+  reference: near_plate
+  params:
+    axis: x
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the lemon and put it on the plate closest to the robot.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lemon
+      destination_location: near_plate
+      destination_object: near_plate
+      background_scene: kitchen

@@ -1,0 +1,112 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_spatial_apple_in_right_bowl_g_shape
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_g_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: apple
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_produce_apple_m01/simready_usd/sm_food_produce_apple_m01_01.usd
+- id: left_bowl
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/bowl/simready_usd/bowl.usda
+    scale: [1.3, 1.3, 1.0]
+- id: right_bowl
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/bowl/simready_usd/bowl.usda
+    scale: [1.3, 1.3, 1.0]
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: corner_counter
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: corner_counter
+  params:
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.05
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: apple
+  reference: corner_counter
+- kind: 'on'
+  subject: left_bowl
+  reference: corner_counter
+- kind: 'on'
+  subject: right_bowl
+  reference: corner_counter
+- kind: align_with
+  subject: left_bowl
+  reference: right_bowl
+  params:
+    axis: x
+    offset_m: -0.28
+    tolerance_m: 0.05
+- kind: align_with
+  subject: left_bowl
+  reference: right_bowl
+  params:
+    axis: y
+    tolerance_m: 0.1
+- kind: align_with
+  subject: apple
+  reference: left_bowl
+  params:
+    axis: x
+    tolerance_m: 0.1
+- kind: align_with
+  subject: apple
+  reference: left_bowl
+  params:
+    axis: y
+    offset_m: -0.24
+    tolerance_m: 0.05
+- kind: align_with
+  subject: droid
+  reference: left_bowl
+  params:
+    axis: x
+    offset_m: 0.3
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the apple and place it in the bowl on the right.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: apple
+      destination_location: right_bowl
+      destination_object: right_bowl
+      background_scene: kitchen
