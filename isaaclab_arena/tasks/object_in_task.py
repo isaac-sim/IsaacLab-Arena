@@ -63,7 +63,7 @@ class ObjectInTask(TaskBase):
         self.angular_velocity_threshold = angular_velocity_threshold
 
     def get_scene_cfg(self):
-        sensor_cfg = self.object.get_contact_sensor_cfg(contact_against_object=self.target)
+        sensor_cfg = self.object.get_contact_sensor_cfg(contact_against_objects=[self.target])
         scene_cfg_type = make_configclass("SceneCfg", [(self.contact_sensor_cfg.name, type(sensor_cfg), sensor_cfg)])
         return scene_cfg_type()
 

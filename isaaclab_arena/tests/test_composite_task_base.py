@@ -109,6 +109,9 @@ class _ControlledTask:
     def get_metrics(self):
         return []
 
+    def configure_for_other_subtasks(self, other_subtasks):
+        pass
+
 
 class _MultipleCriteriaTask(_ControlledTask):
     """A flat subtask requiring several independently tracked criteria_sets."""

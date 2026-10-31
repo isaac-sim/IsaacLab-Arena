@@ -101,7 +101,7 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
     assert spawn_cfg.random_choice is False
 
     with _patch_contact_body_path():
-        contact_sensor_cfg = obj_set.get_contact_sensor_cfg(contact_against_object=destination_set)
+        contact_sensor_cfg = obj_set.get_contact_sensor_cfg(contact_against_objects=[destination_set])
     assert contact_sensor_cfg.prim_path == f"{obj_set.prim_path}/rigid"
     assert contact_sensor_cfg.filter_prim_paths_expr == [f"{destination_set.prim_path}/rigid"]
 

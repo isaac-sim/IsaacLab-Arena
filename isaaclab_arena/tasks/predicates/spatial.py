@@ -173,6 +173,41 @@ def contact_force_is_upward_support(
     )
 
 
+def contact_forces_provide_upward_support(
+    contact_forces_w: torch.Tensor,
+    force_threshold: float,
+    support_cone_half_angle_rad: float,
+) -> torch.Tensor:
+    """Check whether any single contact force, or the sum of all of them, is upward support.
+
+    The sum accepts an object wedged between several contacts that each push too far sideways.
+    Single forces accept an object supported from below while another contact pushes it sideways.
+
+    Args:
+        contact_forces_w: World-frame contact forces with shape ``(num_envs, num_contacts, 3)`` in newtons.
+        force_threshold: Minimum force magnitude in newtons.
+        support_cone_half_angle_rad: Maximum angle in radians between a supporting force and world ``+Z``.
+
+    Returns:
+        One Boolean result per environment.
+    """
+    assert (
+        contact_forces_w.ndim == 3 and contact_forces_w.shape[2] == 3
+    ), f"contact_forces_w must have shape (num_envs, num_contacts, 3), got {tuple(contact_forces_w.shape)}."
+    num_envs, num_contacts, _ = contact_forces_w.shape
+    single_force_supports = contact_force_is_upward_support(
+        contact_force_w=contact_forces_w.reshape(num_envs * num_contacts, 3),
+        force_threshold=force_threshold,
+        support_cone_half_angle_rad=support_cone_half_angle_rad,
+    ).reshape(num_envs, num_contacts)
+    summed_force_supports = contact_force_is_upward_support(
+        contact_force_w=contact_forces_w.sum(dim=1),
+        force_threshold=force_threshold,
+        support_cone_half_angle_rad=support_cone_half_angle_rad,
+    )
+    return single_force_supports.any(dim=1) | summed_force_supports
+
+
 def object_is_moving_slowly(
     object_linear_velocity_w: torch.Tensor,
     velocity_threshold: float,
@@ -414,7 +449,7 @@ def object_supported_by(
 ) -> torch.Tensor:
     """Check whether a large fraction of object's lowest vertices are close to the destination's top surface.
 
-    This is a geometric-only implementation to replace contact-sensor based contact_force_is_upward_support.
+    This is a geometric-only alternative to the contact-force support check used for rigid objects.
     Use this for deformable objects which don't have contact sensor support yet, see
     https://github.com/isaac-sim/IsaacLab/issues/4410
 
@@ -458,14 +493,16 @@ def object_on_destination(
 
     The object's spawned-bounds center must be over the destination footprint
     and above its bottom, and the object's linear speed must be below the configured threshold.
-    Rigid objects must also have upward support force. Deformable objects must have enough
+    Rigid objects must also have upward contact support from the bodies their contact sensor filters,
+    such as the destination or other objects resting on it. Deformable objects must have enough
     low nodal points near the destination's top surface. Destinations must be rooted objects.
 
     Args:
         env: The live Arena manager-based environment.
         object_cfg: The object being placed.
         destination_cfg: The rooted object or scene entry receiving the object.
-        contact_sensor_cfg: The object's contact sensor filtered to the destination. None for a deformable object.
+        contact_sensor_cfg: The object's contact sensor, filtered to the destination and to any other bodies
+            that may support the object there. None for a deformable object.
         force_threshold: Minimum upward support force in newtons.
         velocity_threshold: Maximum object linear speed in meters per second.
         support_cone_half_angle_rad: Maximum angle in radians from world ``+Z`` for the support force.
@@ -493,7 +530,7 @@ def object_on_destination(
             min_point=destination_vertices_w.amin(dim=1),
             max_point=destination_vertices_w.amax(dim=1),
         )
-        destination_provides_upward_support = object_supported_by(
+        object_is_supported = object_supported_by(
             object_vertices_pos_w=object_vertices_w,
             destination_bound=destination_bound,
         )
@@ -504,21 +541,21 @@ def object_on_destination(
         force_matrix_w = contact_sensor.data.force_matrix_w
         assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
         force_matrix_w = force_matrix_w.torch
-        assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
-            f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
+        assert force_matrix_w.ndim == 4 and force_matrix_w.shape[0] == env.num_envs and force_matrix_w.shape[1] == 1, (
+            f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and at least one filtered body; "
             f"got force shape {tuple(force_matrix_w.shape)}."
         )
-        # The two zeros select the sensor's single sensed body and single filtered destination body.
-        support_force_on_object_w = force_matrix_w[:, 0, 0, :]
-        destination_provides_upward_support = contact_force_is_upward_support(
-            contact_force_w=support_force_on_object_w,
+        # Zero selects the sensor's single sensed body; the next dimension holds one force per filtered body.
+        support_forces_on_object_w = force_matrix_w[:, 0, :, :]
+        object_is_supported = contact_forces_provide_upward_support(
+            contact_forces_w=support_forces_on_object_w,
             force_threshold=force_threshold,
             support_cone_half_angle_rad=support_cone_half_angle_rad,
         )
 
     object_mean_linear_velocity_w = arena_world.get_mean_linear_velocity_w(object_cfg.name)
     object_moves_slowly = object_is_moving_slowly(object_mean_linear_velocity_w, velocity_threshold)
-    return object_center_over_destination & destination_provides_upward_support & object_moves_slowly
+    return object_center_over_destination & object_is_supported & object_moves_slowly
 
 
 def mesh_point_fraction_in_target(
