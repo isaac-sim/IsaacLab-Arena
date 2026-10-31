@@ -168,3 +168,43 @@ environment's ``add_cli_args()`` method.
           --external_environment_class_path isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \
           franka_table_with_task \
           --object tomato_soup_can
+
+.. _registering_from_an_installed_package:
+
+Registering from an Installed Package
+-------------------------------------
+
+The ``@register_*`` decorators register a component when its module is imported.
+Above, ``--external_environment_class_path`` imports the module that defines the environment,
+the task and the embodiment.
+A package can also have Arena import the modules that register its components, by declaring
+an entry point in the ``isaaclab_arena.plugins`` group of its ``pyproject.toml``:
+
+.. code-block:: toml
+
+   [project.entry-points."isaaclab_arena.plugins"]
+   my_robots = "my_package.embodiments"
+
+Such a package is a plugin.
+On the first registry lookup, Arena registers its own components, then loads each entry point
+in this group.
+An entry point that names a module, as above, registers its components by being imported.
+One that names a function, such as ``"my_package:register"``, has the function called.
+Once the package is installed, its components can be used by name wherever Arena looks them
+up, for example as the embodiment's ``registry_name`` in an environment spec.
+Environment lookups do not load plugins, so a plugin must not register an environment with
+``@register_environment``: an environment class still needs
+``--external_environment_class_path``.
+Arena reads entry points from the installed package's metadata, so reinstall the package
+after adding one, even an editable install.
+
+A plugin must import without Isaac Sim running: tools that check an environment spec without
+Isaac Sim, such as a spec editor, look up its registry names and so load the plugins.
+Like Arena's own modules, a plugin must therefore not import ``carb``, ``omni`` or
+``isaacsim`` at module level; import them inside the functions that need them.
+A config that needs a function from such a module, such as an event term, can name it as a
+``"module:function"`` string, which Isaac Lab resolves when it builds the environment.
+A component that cannot be defined without them stays out of the plugin: register it after
+Isaac Sim starts.
+
+Set ``ISAACLAB_ARENA_DISABLE_PLUGIN_AUTOLOAD`` to any non-empty value to skip the entry points.

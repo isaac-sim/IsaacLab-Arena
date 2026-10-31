@@ -145,7 +145,9 @@ friction to ``1.2`` for this environment:
    .. tab-item:: env.yaml
 
       Import ``my_project.robots`` in your runner before loading the environment graph so its
-      registration runs. Add this embodiment block to your environment YAML:
+      registration runs, or declare it as a plugin entry point, which Arena imports on its
+      first registry lookup (see :ref:`registering_from_an_installed_package`). Add this
+      embodiment block to your environment YAML:
 
       .. code-block:: yaml
 

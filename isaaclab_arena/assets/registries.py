@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import inspect
+import os
 import random
+from importlib.metadata import entry_points
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.utils.singleton import SingletonMeta
@@ -366,7 +369,11 @@ _registration_in_progress = False
 
 
 def ensure_assets_registered():
-    """Ensure all assets are registered. Call this before accessing the registry."""
+    """Ensure all assets are registered. Call this before accessing the registry.
+
+    Registers Arena's own components, then those of the installed packages that declare an
+    ``isaaclab_arena.plugins`` entry point, unless ``ISAACLAB_ARENA_DISABLE_PLUGIN_AUTOLOAD`` is set.
+    """
     global _assets_registered, _registration_in_progress
     if _assets_registered or _registration_in_progress:
         return
@@ -384,6 +391,21 @@ def ensure_assets_registered():
         import isaaclab_arena.policy  # noqa: F401
         import isaaclab_arena.relations.relations  # noqa: F401
         import isaaclab_arena.tasks.task_library  # noqa: F401
+
+        if not os.environ.get("ISAACLAB_ARENA_DISABLE_PLUGIN_AUTOLOAD"):
+            for entry_point in entry_points(group="isaaclab_arena.plugins"):
+                try:
+                    # A module registers its components by being imported, a function by being called.
+                    plugin = entry_point.load()
+                    if not inspect.ismodule(plugin):
+                        assert inspect.isfunction(plugin), f"expected a module or a function, got {plugin!r}"
+                        plugin()
+                except Exception as e:
+                    distribution = entry_point.dist.name if entry_point.dist else "an unknown distribution"
+                    raise ImportError(
+                        f"Isaac Lab Arena plugin '{entry_point.name} = {entry_point.value}' from {distribution} failed"
+                        f" to load (set ISAACLAB_ARENA_DISABLE_PLUGIN_AUTOLOAD=1 to skip plugins): {e}"
+                    ) from e
 
         _assets_registered = True
     finally:
