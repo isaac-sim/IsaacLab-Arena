@@ -614,11 +614,11 @@ def object_in_contact_with_target(
     contact_sensor_cfg: SceneEntityCfg,
     force_threshold: float,
 ) -> torch.Tensor:
-    """Check contact with a destination using an object sensor filtered to that destination.
+    """Check contact reported by an object's filtered contact sensor.
 
     Args:
         env: Environment providing the contact sensor.
-        contact_sensor_cfg: Sensor observing only contacts with the destination.
+        contact_sensor_cfg: Sensor observing contacts with the destination and optional support objects.
         force_threshold: Minimum contact force magnitude in newtons.
 
     Returns:
@@ -628,7 +628,7 @@ def object_in_contact_with_target(
         math.isfinite(force_threshold) and force_threshold > 0
     ), "Contact force threshold must be positive and finite."
     force_matrix = env.scene[contact_sensor_cfg.name].data.force_matrix_w
-    assert force_matrix is not None, "Destination contact requires a filtered contact sensor."
+    assert force_matrix is not None, "Object contact requires a filtered contact sensor."
     forces_W = force_matrix.torch
     return (torch.linalg.vector_norm(forces_W, dim=-1) >= force_threshold).flatten(start_dim=1).any(dim=-1)
 
@@ -643,15 +643,15 @@ def object_settled_in_target(
     linear_velocity_threshold: float,
     angular_velocity_threshold: float,
 ) -> torch.Tensor:
-    """Check target-local mesh-point containment, target contact, and low velocity.
+    """Check target-local mesh-point containment, filtered support contact, and low velocity.
 
     Args:
         env: Environment supplying geometry, contact forces, and velocities.
         object_name: Deposited object's scene key.
         target_name: Container object's scene key.
-        contact_sensor_cfg: Object contact sensor filtered to the target.
+        contact_sensor_cfg: Object contact sensor filtered to the target and optional support objects.
         minimum_contained_fraction: Required object mesh-point fraction in (0, 1].
-        contact_force_threshold: Minimum target contact force in newtons.
+        contact_force_threshold: Minimum filtered contact force in newtons.
         linear_velocity_threshold: Maximum linear speed in meters per second.
         angular_velocity_threshold: Maximum angular speed in radians per second.
 
@@ -659,6 +659,6 @@ def object_settled_in_target(
         One Boolean result per environment.
     """
     contained = object_in_target(env, object_name, target_name, minimum_contained_fraction)
-    touching = object_in_contact_with_target(env, contact_sensor_cfg, contact_force_threshold)
+    supported = object_in_contact_with_target(env, contact_sensor_cfg, contact_force_threshold)
     settled = velocity_below_threshold(env, object_name, linear_velocity_threshold, angular_velocity_threshold)
-    return contained & touching & settled
+    return contained & supported & settled

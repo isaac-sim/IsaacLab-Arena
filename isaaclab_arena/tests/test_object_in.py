@@ -5,7 +5,116 @@
 
 """Verify outside-to-inside containment through a simulated apple drop."""
 
+from types import SimpleNamespace
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+
+class _ContactAssetDouble:
+    """Asset double that exposes contact-filter paths by object name."""
+
+    def __init__(self, name, object_type):
+        self.name = name
+        self.object_type = object_type
+
+    def get_contact_sensor_cfg(self, contact_against_objects=()):
+        return SimpleNamespace(
+            prim_path=f"/World/{self.name}",
+            filter_prim_paths_expr=[f"/World/{obj.name}" for obj in contact_against_objects],
+        )
+
+
+def test_parallel_object_in_tasks_count_objects_in_the_same_target_as_support():
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+    from isaaclab_arena.tasks.object_in_task import ObjectInTask
+
+    drawer = _ContactAssetDouble("drawer", ObjectType.BASE)
+    other_drawer = _ContactAssetDouble("other_drawer", ObjectType.BASE)
+    scissors = _ContactAssetDouble("scissors", ObjectType.RIGID)
+    marker = _ContactAssetDouble("marker", ObjectType.RIGID)
+    unrelated_tool = _ContactAssetDouble("unrelated_tool", ObjectType.RIGID)
+    scissors_task = ObjectInTask(scissors, drawer)
+    marker_task = ObjectInTask(marker, drawer)
+    unrelated_task = ObjectInTask(unrelated_tool, other_drawer)
+
+    CompositeTaskBase([scissors_task, marker_task, unrelated_task])
+
+    scene_cfg = scissors_task.get_scene_cfg()
+    sensor_cfg = getattr(scene_cfg, scissors_task.contact_sensor_cfg.name)
+    assert sensor_cfg.filter_prim_paths_expr == ["/World/drawer", "/World/marker"]
+
+
+def _test_stacked_objects_in_shared_target(_simulation_app):
+    import torch
+
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+    from isaaclab_arena.tasks.object_in_task import ObjectInTask
+    from isaaclab_arena.utils.pose import Pose
+
+    registry = AssetRegistry()
+    background = registry.get_asset_by_name("maple_table_robolab")()
+    bowl = registry.get_asset_by_name("bowl_ycb_robolab")(initial_pose=Pose(position_xyz=(0.55, 0.0, 0.03)))
+    lower_cube = registry.get_asset_by_name("dex_cube")(
+        name="lower_cube",
+        initial_pose=Pose(position_xyz=(0.55, 0.0, 0.035)),
+    )
+    upper_cube = registry.get_asset_by_name("dex_cube")(
+        name="upper_cube",
+        initial_pose=Pose(position_xyz=(0.55, 0.0, 0.085)),
+    )
+    tasks = [
+        ObjectInTask(
+            lower_cube,
+            bowl,
+            consecutive_success_steps=1,
+            linear_velocity_threshold=0.35,
+            angular_velocity_threshold=12.0,
+            minimum_contained_fraction=0.5,
+        ),
+        ObjectInTask(
+            upper_cube,
+            bowl,
+            consecutive_success_steps=1,
+            linear_velocity_threshold=0.35,
+            angular_velocity_threshold=12.0,
+            minimum_contained_fraction=0.5,
+        ),
+    ]
+    arena_env = IsaacLabArenaEnvironment(
+        name="stacked_objects_in_shared_target",
+        embodiment=FrankaIKEmbodiment(),
+        scene=Scene(assets=[background, bowl, lower_cube, upper_cube]),
+        task=CompositeTaskBase(tasks),
+    )
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(solve_relations=False)).make_registered()
+    try:
+        env.reset()
+        with torch.inference_mode():
+            succeeded = False
+            for _ in range(50):
+                env.step(torch.zeros(env.action_space.shape, device=env.unwrapped.device))
+                if env.unwrapped.termination_manager.get_term("success").all():
+                    succeeded = True
+                    break
+
+            lower_cube_z = env.unwrapped.arena_world.get_position_w(lower_cube.name)[:, 2]
+            upper_cube_z = env.unwrapped.arena_world.get_position_w(upper_cube.name)[:, 2]
+            assert torch.all(upper_cube_z > lower_cube_z + 0.04), "The cubes no longer form a stack."
+            assert succeeded, "The stacked ObjectInTasks did not report success."
+        return True
+    finally:
+        env.close()
+
+
+def test_stacked_objects_in_shared_target_count_as_success():
+    assert run_function_with_persistent_simulation_app(_test_stacked_objects_in_shared_target)
 
 
 def get_pose_at_midpoint(env, object_name: str, target_name: str):
