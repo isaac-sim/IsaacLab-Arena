@@ -68,7 +68,7 @@ relations:
   reference: appliance
   params:
     axis: x
-    offset_m: 1.03
+    offset_m: 1.13
     tolerance_m: 0.1
 - kind: align_with
   subject: droid
