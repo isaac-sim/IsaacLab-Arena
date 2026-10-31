@@ -3,12 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import numpy as np
 import trimesh
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from pxr import Usd
+from isaaclab.utils.configclass import configclass
+from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdSkel
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.pressable import Pressable
@@ -20,6 +22,11 @@ from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.terms.events import reset_articulation_joints, reset_articulation_pose_and_joints
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.articulation import (
+    articulation_joint_prims,
+    compute_posed_prim_world_deltas,
+    resolve_joint_pos_patterns,
+)
 from isaaclab_arena.utils.usd.helpers import (
     NoCollisionMeshError,
     compute_world_aligned_bounding_box_relative_to_prim_origin,
@@ -29,6 +36,17 @@ from isaaclab_arena.utils.usd.helpers import (
 from isaaclab_arena.utils.usd.pose import get_prim_pose_in_default_prim_frame
 
 
+@configclass
+class ArticulationBodyReferenceCfg(AssetBaseCfg):
+    """Configure a non-owning reference whose pose follows an articulation body."""
+
+    pose_articulation_name: str = ""
+    """Scene key of the articulation supplying the live body pose."""
+
+    pose_body_name: str = ""
+    """Exact articulation body name supplying the live pose."""
+
+
 class ObjectReference(RootedObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
@@ -36,6 +54,9 @@ class ObjectReference(RootedObjectBase):
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
         self._parent_scale = parent_asset.scale
+        self._pose_articulation_name: str | None = None
+        self._pose_body_name: str | None = None
+        self._initial_body_delta: np.ndarray | None = None
         # Resolve the path and pose together to avoid opening the parent USD stage multiple times.
         (
             self._prim_path_in_parent_usd,
@@ -113,6 +134,9 @@ class ObjectReference(RootedObjectBase):
                     self.prim_path, self.parent_asset, parent_stage
                 )
                 raw_bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(parent_stage, prim_path_in_usd)
+                if self._initial_body_delta is not None:
+                    prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
+                    raw_bbox = self._transform_bbox_by_body_delta(raw_bbox, prim, self._initial_body_delta)
                 # Apply parent's scale (no centering - solver is origin-agnostic)
                 self._bounding_box = raw_bbox.scaled(self._parent_scale)
         return self._bounding_box
@@ -186,13 +210,17 @@ class ObjectReference(RootedObjectBase):
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
         initial_pose = self.get_initial_pose()
-        object_cfg = AssetBaseCfg(
+        cfg_type = ArticulationBodyReferenceCfg if self._pose_articulation_name is not None else AssetBaseCfg
+        object_cfg = cfg_type(
             prim_path=self.prim_path,
             init_state=AssetBaseCfg.InitialStateCfg(
                 pos=initial_pose.position_xyz,
                 rot=initial_pose.rotation_xyzw,
             ),
         )
+        if isinstance(object_cfg, ArticulationBodyReferenceCfg):
+            object_cfg.pose_articulation_name = self._pose_articulation_name
+            object_cfg.pose_body_name = self._pose_body_name
         return object_cfg
 
     def _get_referenced_prim_path_and_pose_relative_to_parent(self, parent_asset: Object) -> tuple[str, Pose]:
@@ -206,6 +234,17 @@ class ObjectReference(RootedObjectBase):
             if not prim:
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
             prim_pose = get_prim_pose_in_default_prim_frame(prim, parent_stage)
+            movable_joint = self._get_direct_movable_joint(parent_stage, prim, parent_asset)
+            if movable_joint is not None:
+                self._pose_articulation_name = parent_asset.name
+                self._pose_body_name = prim.GetName()
+                prim_pose = self._get_pose_at_parent_initial_joint_positions(
+                    parent_stage,
+                    prim,
+                    movable_joint,
+                    parent_asset,
+                    prim_pose,
+                )
             # Apply parent's scale to the position
             scaled_pos = (
                 prim_pose.position_xyz[0] * self._parent_scale[0],
@@ -213,6 +252,136 @@ class ObjectReference(RootedObjectBase):
                 prim_pose.position_xyz[2] * self._parent_scale[2],
             )
             return prim_path_in_usd, Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
+
+    def _get_direct_movable_joint(
+        self,
+        parent_stage: Usd.Stage,
+        prim: Usd.Prim,
+        parent_asset: Object,
+    ) -> Usd.Prim | None:
+        """Return the unique movable joint whose child rigid body is prim."""
+        if (
+            getattr(self, "object_type", None) != ObjectType.BASE
+            or getattr(parent_asset, "object_type", None) != ObjectType.ARTICULATION
+            or not getattr(prim, "HasAPI", lambda _: False)(UsdPhysics.RigidBodyAPI)
+        ):
+            return None
+
+        matching_joints = []
+        for joint_prim in articulation_joint_prims(parent_stage.GetDefaultPrim()).values():
+            body_targets = UsdPhysics.Joint(joint_prim).GetBody1Rel().GetTargets()
+            if len(body_targets) != 1:
+                continue
+            body_prim = parent_stage.GetPrimAtPath(body_targets[0])
+            while body_prim and not body_prim.HasAPI(UsdPhysics.RigidBodyAPI):
+                body_prim = body_prim.GetParent()
+            if body_prim == prim:
+                matching_joints.append(joint_prim)
+        return matching_joints[0] if len(matching_joints) == 1 else None
+
+    def _get_pose_at_parent_initial_joint_positions(
+        self,
+        parent_stage: Usd.Stage,
+        prim: Usd.Prim,
+        movable_joint: Usd.Prim,
+        parent_asset: Object,
+        authored_pose: Pose,
+    ) -> Pose:
+        """Return the referenced link pose at the parent articulation's initial joint state."""
+        init_state = getattr(parent_asset.object_cfg, "init_state", None)
+        joint_pos_patterns = getattr(init_state, "joint_pos", None) or {}
+        joint_prims = articulation_joint_prims(parent_stage.GetDefaultPrim())
+        joint_positions = resolve_joint_pos_patterns(joint_prims, joint_pos_patterns)
+        if movable_joint.GetName() not in joint_positions:
+            return authored_pose
+        joint_positions = self._joint_positions_in_authored_units(parent_stage, joint_prims, joint_positions)
+
+        body_deltas = compute_posed_prim_world_deltas(
+            parent_stage,
+            str(parent_stage.GetDefaultPrim().GetPath()),
+            joint_positions,
+        )
+        body_targets = UsdPhysics.Joint(movable_joint).GetBody1Rel().GetTargets()
+        body_delta = body_deltas.get(body_targets[0].pathString)
+        if body_delta is None:
+            return authored_pose
+        self._initial_body_delta = body_delta
+
+        prim_T_world = np.array(
+            UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()),
+            dtype=np.float64,
+        )
+        default_T_world = np.array(
+            UsdGeom.Xformable(parent_stage.GetDefaultPrim()).ComputeLocalToWorldTransform(Usd.TimeCode.Default()),
+            dtype=np.float64,
+        )
+        prim_T_default = prim_T_world @ body_delta @ np.linalg.inv(default_T_world)
+        position, rotation, _ = UsdSkel.DecomposeTransform(Gf.Matrix4d(prim_T_default))
+        return Pose(
+            position_xyz=tuple(position),
+            rotation_xyzw=(
+                rotation.GetImaginary()[0],
+                rotation.GetImaginary()[1],
+                rotation.GetImaginary()[2],
+                rotation.GetReal(),
+            ),
+        )
+
+    @staticmethod
+    def _joint_positions_in_authored_units(
+        stage: Usd.Stage,
+        joint_prims: dict[str, Usd.Prim],
+        joint_positions: dict[str, float],
+    ) -> dict[str, float]:
+        """Undo uniform authored articulation-root scale for prismatic joint motion."""
+        positions = dict(joint_positions)
+        default_prim = stage.GetDefaultPrim()
+        default_T_world = np.array(
+            UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()),
+            dtype=np.float64,
+        )
+        for name, position in joint_positions.items():
+            joint_prim = joint_prims[name]
+            if not joint_prim.IsA(UsdPhysics.PrismaticJoint):
+                continue
+            articulation_root = joint_prim.GetParent()
+            while articulation_root and not articulation_root.HasAPI(UsdPhysics.ArticulationRootAPI):
+                articulation_root = articulation_root.GetParent()
+            if not articulation_root or articulation_root == default_prim:
+                continue
+            root_T_world = np.array(
+                UsdGeom.Xformable(articulation_root).ComputeLocalToWorldTransform(Usd.TimeCode.Default()),
+                dtype=np.float64,
+            )
+            root_T_default = root_T_world @ np.linalg.inv(default_T_world)
+            authored_scales = np.linalg.svd(root_T_default[:3, :3], compute_uv=False)
+            if np.allclose(authored_scales, authored_scales[0]):
+                assert authored_scales[0] > 0.0, f"Articulation root {articulation_root.GetPath()} has zero scale."
+                positions[name] = position / float(authored_scales[0])
+        return positions
+
+    @staticmethod
+    def _transform_bbox_by_body_delta(
+        bbox: AxisAlignedBoundingBox,
+        prim: Usd.Prim,
+        body_delta: np.ndarray,
+    ) -> AxisAlignedBoundingBox:
+        """Apply an articulation body's initial motion to its stage-axis-aligned bounds."""
+        corners = bbox.get_corners_at()[0].cpu().numpy().astype(np.float64)
+        prim_T_world = np.array(
+            UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()),
+            dtype=np.float64,
+        )
+        origin_world = prim_T_world[3, :3]
+        points_world = corners + origin_world
+        homogeneous_points = np.concatenate((points_world, np.ones((len(points_world), 1))), axis=1)
+        posed_points_world = homogeneous_points @ body_delta
+        posed_origin_world = np.append(origin_world, 1.0) @ body_delta
+        posed_corners = posed_points_world[:, :3] - posed_origin_world[:3]
+        return AxisAlignedBoundingBox(
+            min_point=tuple(posed_corners.min(axis=0)),
+            max_point=tuple(posed_corners.max(axis=0)),
+        )
 
     @staticmethod
     def isaaclab_prim_path_to_original_prim_path(

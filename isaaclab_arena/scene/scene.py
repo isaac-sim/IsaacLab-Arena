@@ -70,6 +70,18 @@ class Scene:
         sorted_assets = sorted(assets, key=lambda a: isinstance(a, ObjectReference))
         for asset in sorted_assets:
             self.add_asset(asset)
+        for asset in assets:
+            if not isinstance(asset, ObjectReference):
+                continue
+            pose_articulation_name = getattr(asset.object_cfg, "pose_articulation_name", "")
+            if pose_articulation_name:
+                pose_articulation = self.assets.get(pose_articulation_name)
+                assert isinstance(pose_articulation, Object) and (
+                    pose_articulation.object_type == ObjectType.ARTICULATION
+                ), (
+                    f"ObjectReference '{asset.name}' pose articulation '{pose_articulation_name}' "
+                    "must name an articulation in the same scene."
+                )
 
     def get_scene_cfg(self) -> Any:
         """Returns a configclass containing all the scene elements."""

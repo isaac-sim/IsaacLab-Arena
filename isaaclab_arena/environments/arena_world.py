@@ -37,14 +37,15 @@ class ArenaWorld:
     # -------------------------------------------------------------------------
 
     def get_pose_w(self, scene_key: str) -> torch.Tensor:
-        """Return the world-frame pose of a rigid-object root link, articulation root link, or scene extra.
+        """Return the world-frame pose of a rigid root, articulation root or body, or scene extra.
 
         The tensor has shape (num_envs, 7), with each pose ordered as
         (x, y, z, qx, qy, qz, qw).
         """
         scene = self._scene
-        # Rigid objects and articulations expose their live root-link poses directly. Scene
-        # extras are plain cloned prims, so their live post-clone poses require a FrameView-backed reader.
+        # Rigid objects and articulations expose their live root-link poses directly. A scene extra
+        # may bind its pose to an articulation body while retaining its own geometry frame and contact
+        # path. Other extras are plain cloned prims and require a FrameView-backed reader.
         if scene_key in scene.rigid_objects:
             T_W_F = scene.rigid_objects[scene_key].data.root_pose_w.torch
         elif scene_key in scene.articulations:
@@ -55,8 +56,17 @@ class ArenaWorld:
                 "InteractiveScene.articulations, or InteractiveScene.extras; "
                 f"'{scene_key}' is registered in none of them."
             )
-            pose_reader = self._get_scene_extra_pose_reader(scene, scene_key)
-            T_W_F = pose_reader.get_pose_w()
+            scene_key_cfg = getattr(getattr(scene, "cfg", None), scene_key, None)
+            pose_articulation_name = getattr(scene_key_cfg, "pose_articulation_name", "")
+            pose_body_name = getattr(scene_key_cfg, "pose_body_name", "")
+            if pose_articulation_name or pose_body_name:
+                assert (
+                    pose_articulation_name and pose_body_name
+                ), f"Scene extra '{scene_key}' must configure both pose_articulation_name and pose_body_name."
+                T_W_F = self.get_body_pose_w(pose_articulation_name, pose_body_name)
+            else:
+                pose_reader = self._get_scene_extra_pose_reader(scene, scene_key)
+                T_W_F = pose_reader.get_pose_w()
 
         assert T_W_F.shape == (
             scene.num_envs,
