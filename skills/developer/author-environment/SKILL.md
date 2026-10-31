@@ -72,6 +72,18 @@ environment, then use bounded direct steps for inspection. Use existing focused 
 changed success logic, temporal interruptions, and reset isolation across parallel environments.
 Parsing or passive stepping alone does not establish task solvability.
 
+Use the generic [Force Control Runner](../../../isaaclab_arena/scripts/force_control_runner.py)
+with a checked-in JSONL recipe to validate physical interactions and native task predicates. For
+example, inside the Arena container:
+
+```bash
+isaaclab.sh -p isaaclab_arena/scripts/force_control_runner.py \
+  --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml \
+  --commands isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_force_control.jsonl \
+  --output artifacts/force_control/bananas_in_bowl \
+  --visualizer kit
+```
+
 For variation inspection, use the `--list_variations` path through
 [run-experiment](../../user/run-experiment/SKILL.md). Check the
 [Environment Runner](../../../isaaclab_arena/scripts/environment_runner.py) requirements before
