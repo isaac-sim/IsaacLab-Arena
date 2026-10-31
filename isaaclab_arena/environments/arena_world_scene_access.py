@@ -18,6 +18,8 @@ from pxr import Usd, UsdGeom, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
+_MAX_CONTAINMENT_POINTS = 1024
+
 
 def _get_clone_source_environment_ids(clone_plan: cloner.ClonePlan, prim_path: str) -> dict[str, tuple[int, ...]]:
     """Return representative clone source paths mapped to their environment IDs."""
@@ -202,6 +204,93 @@ def compute_spawned_geometry_bounds_in_local_frame(
         min_point=minimum_points_F_by_environment,
         max_point=maximum_points_F_by_environment,
     )
+
+
+def _mesh_points_in_prim_frame(root_prim: Usd.Prim) -> np.ndarray:
+    """Return a bounded representative set of descendant mesh vertices in root frame F."""
+    time_code = Usd.TimeCode.Default()
+    transform_cache = UsdGeom.XformCache(time_code)
+    T_W_F = np.asarray(transform_cache.GetLocalToWorldTransform(root_prim).RemoveScaleShear(), dtype=np.float64)
+    T_F_W = np.linalg.inv(T_W_F)
+    points_F = []
+    for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        if UsdGeom.Imageable(prim).ComputePurpose() != UsdGeom.Tokens.default_:
+            continue
+        points = UsdGeom.Mesh(prim).GetPointsAttr().Get()
+        if points is None or len(points) == 0:
+            continue
+        points_h = np.column_stack((np.asarray(points, dtype=np.float64), np.ones(len(points))))
+        T_W_M = np.asarray(transform_cache.GetLocalToWorldTransform(prim), dtype=np.float64)
+        points_F.append((points_h @ T_W_M @ T_F_W)[:, :3])
+
+    if not points_F:
+        return _compute_geometry_bounds_in_prim_frame(root_prim).get_corners_at()[0].cpu().numpy()
+
+    points_F = np.concatenate(points_F)
+    if len(points_F) <= _MAX_CONTAINMENT_POINTS:
+        return points_F
+
+    # Preserve all axis extrema, then fill the remaining budget deterministically across authored vertices.
+    extrema = np.unique(
+        np.concatenate((np.argmin(points_F, axis=0), np.argmax(points_F, axis=0))),
+    )
+    sampled = np.linspace(0, len(points_F) - 1, _MAX_CONTAINMENT_POINTS, dtype=np.int64)
+    selected = np.unique(np.concatenate((extrema, sampled)))
+    if len(selected) > _MAX_CONTAINMENT_POINTS:
+        non_extrema = selected[~np.isin(selected, extrema)]
+        selected = np.concatenate((extrema, non_extrema[: _MAX_CONTAINMENT_POINTS - len(extrema)]))
+    return points_F[selected]
+
+
+def compute_spawned_mesh_points_in_local_frame(
+    scene: InteractiveScene,
+    scene_key: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return padded spawned mesh points in local frame F and their validity mask."""
+    assert scene_key in scene.rigid_objects or scene_key in scene.extras, (
+        "Rigid containment geometry requires a scene key registered in InteractiveScene.rigid_objects "
+        f"or InteractiveScene.extras; '{scene_key}' is registered in neither."
+    )
+    is_rigid_object = scene_key in scene.rigid_objects
+    point_groups = []
+    for representative_prim, environment_ids in get_representative_geometry_prim_groups(scene, scene_key):
+        local_frame_prim = (
+            _find_single_rigid_body_prim_in_subtree(representative_prim, scene_key)
+            if is_rigid_object
+            else representative_prim
+        )
+        point_groups.append((_mesh_points_in_prim_frame(local_frame_prim), environment_ids))
+
+    maximum_point_count = max(len(points_F) for points_F, _ in point_groups)
+    points_F = torch.zeros(
+        (scene.num_envs, maximum_point_count, 3),
+        dtype=torch.float32,
+        device=scene.device,
+    )
+    valid_points = torch.zeros(
+        (scene.num_envs, maximum_point_count),
+        dtype=torch.bool,
+        device=scene.device,
+    )
+    coverage_count = [0] * scene.num_envs
+    for group_points_F, environment_ids in point_groups:
+        environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=scene.device)
+        point_count = len(group_points_F)
+        points_F[environment_indices, :point_count] = torch.as_tensor(
+            group_points_F,
+            dtype=torch.float32,
+            device=scene.device,
+        )
+        valid_points[environment_indices, :point_count] = True
+        for environment_id in environment_ids:
+            coverage_count[environment_id] += 1
+
+    assert all(
+        count == 1 for count in coverage_count
+    ), f"Geometry for scene key '{scene_key}' must cover every environment exactly once; got coverage {coverage_count}."
+    return points_F, valid_points
 
 
 class SceneExtraPoseReader:

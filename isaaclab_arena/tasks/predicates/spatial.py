@@ -521,28 +521,55 @@ def object_on_destination(
     return object_center_over_destination & destination_provides_upward_support & object_moves_slowly
 
 
-def object_in_target_aabb(
+def mesh_point_fraction_in_target(
+    object_points_W: torch.Tensor,
+    valid_object_points: torch.Tensor,
+    T_W_T: torch.Tensor,
+    target_bounds_T: AxisAlignedBoundingBox,
+) -> torch.Tensor:
+    """Return the fraction of valid object mesh points inside target-local bounds."""
+    assert object_points_W.ndim == 3 and object_points_W.shape[2] == 3
+    assert valid_object_points.shape == object_points_W.shape[:2]
+    assert T_W_T.shape == (object_points_W.shape[0], 7)
+    assert valid_object_points.any(dim=1).all(), "Each environment must provide at least one object mesh point."
+
+    t_W_T, q_W_T = T_W_T[:, :3], T_W_T[:, 3:]
+    q_W_T = q_W_T[:, None, :].expand(-1, object_points_W.shape[1], -1)
+    object_points_T = quat_apply_inverse(q_W_T, object_points_W - t_W_T[:, None, :])
+    points_inside = (
+        (object_points_T >= target_bounds_T.min_point[:, None, :])
+        & (object_points_T <= target_bounds_T.max_point[:, None, :])
+    ).all(dim=-1)
+    contained_point_count = (points_inside & valid_object_points).sum(dim=1)
+    return contained_point_count / valid_object_points.sum(dim=1)
+
+
+def object_in_target(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_name: str,
     target_name: str,
     minimum_contained_fraction: float = 1.0,
 ) -> torch.Tensor:
-    """Check the fraction of object AABB volume within the target world-frame AABB.
+    """Check the fraction of object mesh points within the target's local bounds.
 
     Args:
         env: Environment supplying live geometry through ArenaWorld.
         object_name: Deposited object's scene key.
         target_name: Container object's scene key.
-        minimum_contained_fraction: Required volume fraction in (0, 1]; 1 requires full containment.
+        minimum_contained_fraction: Required mesh-point fraction in (0, 1].
 
     Returns:
-        One Boolean result per environment. This measures bounding-box volume,
-        not mesh volume.
+        One Boolean result per environment.
     """
     assert math.isfinite(minimum_contained_fraction) and 0 < minimum_contained_fraction <= 1
-    object_aabb_W = env.arena_world.get_aabb_w(object_name)
-    target_aabb_W = env.arena_world.get_aabb_w(target_name)
-    return object_aabb_W.volume_fraction_within(target_aabb_W) >= minimum_contained_fraction
+    object_points_W, valid_object_points = env.arena_world.get_mesh_points_w(object_name)
+    contained_fraction = mesh_point_fraction_in_target(
+        object_points_W,
+        valid_object_points,
+        env.arena_world.get_pose_w(target_name),
+        env.arena_world.get_aabb_in_local_frame(target_name),
+    )
+    return contained_fraction >= minimum_contained_fraction
 
 
 def object_in_contact_with_target(
@@ -569,7 +596,7 @@ def object_in_contact_with_target(
     return (torch.linalg.vector_norm(forces_W, dim=-1) >= force_threshold).flatten(start_dim=1).any(dim=-1)
 
 
-def object_settled_in_target_aabb(
+def object_settled_in_target(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_name: str,
     target_name: str,
@@ -579,14 +606,14 @@ def object_settled_in_target_aabb(
     linear_velocity_threshold: float,
     angular_velocity_threshold: float,
 ) -> torch.Tensor:
-    """Check world-AABB volume containment, target contact, and low velocity for the current step.
+    """Check target-local mesh-point containment, target contact, and low velocity.
 
     Args:
         env: Environment supplying geometry, contact forces, and velocities.
         object_name: Deposited object's scene key.
         target_name: Container object's scene key.
         contact_sensor_cfg: Object contact sensor filtered to the target.
-        minimum_contained_fraction: Required object AABB volume fraction in (0, 1].
+        minimum_contained_fraction: Required object mesh-point fraction in (0, 1].
         contact_force_threshold: Minimum target contact force in newtons.
         linear_velocity_threshold: Maximum linear speed in meters per second.
         angular_velocity_threshold: Maximum angular speed in radians per second.
@@ -594,7 +621,7 @@ def object_settled_in_target_aabb(
     Returns:
         One Boolean result per environment.
     """
-    contained = object_in_target_aabb(env, object_name, target_name, minimum_contained_fraction)
+    contained = object_in_target(env, object_name, target_name, minimum_contained_fraction)
     touching = object_in_contact_with_target(env, contact_sensor_cfg, contact_force_threshold)
     settled = velocity_below_threshold(env, object_name, linear_velocity_threshold, angular_velocity_threshold)
     return contained & touching & settled

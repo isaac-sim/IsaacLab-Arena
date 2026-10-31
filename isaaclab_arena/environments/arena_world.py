@@ -30,6 +30,7 @@ class ArenaWorld:
     def __init__(self, scene: InteractiveScene):
         self._scene = scene
         self._aabbs_in_local_frame_cache: dict[str, AxisAlignedBoundingBox] = {}
+        self._mesh_points_in_local_frame_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
 
     # -------------------------------------------------------------------------
@@ -365,6 +366,30 @@ class ArenaWorld:
             f"expected ({scene.num_envs}, num_vertices, 3)."
         )
         return vertices_w
+
+    def get_mesh_points_w(self, scene_key: str) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return representative geometry points in W and a validity mask.
+
+        Rigid objects and scene extras use at most 1024 cached spawned mesh vertices per
+        environment. Geometry without a mesh falls back to its local bounding-box corners.
+        Deformables use all live nodes.
+        """
+        scene = self._scene
+        if scene_key in scene.deformable_objects:
+            points_W = self.get_nodal_positions_w(scene_key)
+            valid_points = torch.ones(points_W.shape[:2], dtype=torch.bool, device=points_W.device)
+            return points_W, valid_points
+
+        if scene_key not in self._mesh_points_in_local_frame_cache:
+            self._mesh_points_in_local_frame_cache[scene_key] = scene_access.compute_spawned_mesh_points_in_local_frame(
+                scene, scene_key
+            )
+        points_F, valid_points = self._mesh_points_in_local_frame_cache[scene_key]
+        T_W_F = self.get_pose_w(scene_key)
+        t_W_F, q_W_F = T_W_F[:, :3], T_W_F[:, 3:]
+        q_W_F = q_W_F[:, None, :].expand(-1, points_F.shape[1], -1)
+        points_W = quat_apply(q_W_F, points_F) + t_W_F[:, None, :]
+        return points_W, valid_points
 
     def get_aabb_w(self, scene_key: str) -> AxisAlignedBoundingBox:
         """Return bounds of current geometry vertices in world frame W.

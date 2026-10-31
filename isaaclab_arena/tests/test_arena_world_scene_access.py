@@ -161,6 +161,32 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     assert object_bounds_O is not destination_bounds_D
     assert geometry_build_calls == ["object", "destination"]
 
+    mesh_build_calls = []
+    points_O = torch.tensor([
+        [[0.0, 0.0, 0.0], [0.2, 0.0, 0.0]],
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+    ])
+    valid_points = torch.tensor([[True, True], [True, False]])
+
+    def compute_mesh_points(_scene, scene_key: str):
+        mesh_build_calls.append(scene_key)
+        return points_O, valid_points
+
+    with patch.object(
+        scene_access_module,
+        "compute_spawned_mesh_points_in_local_frame",
+        side_effect=compute_mesh_points,
+    ):
+        points_W, returned_valid_points = arena_world.get_mesh_points_w("object")
+        cached_points_W, cached_valid_points = arena_world.get_mesh_points_w("object")
+
+    torch.testing.assert_close(points_W[:, 0], T_W_O_moved[:, :3])
+    torch.testing.assert_close(points_W[0, 1], T_W_O_moved[0, :3] + torch.tensor([0.2, 0.0, 0.0]))
+    torch.testing.assert_close(cached_points_W, points_W)
+    assert torch.equal(returned_valid_points, valid_points)
+    assert torch.equal(cached_valid_points, valid_points)
+    assert mesh_build_calls == ["object"]
+
 
 def _check_articulation_root_state_reads(arena_world_module) -> None:
     """Check that articulation root poses and velocities are read live."""
