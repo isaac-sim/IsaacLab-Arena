@@ -89,13 +89,19 @@ class TurnableAppliance(Object, Turnable):
             self.object_cfg.init_state.joint_pos = dict(initial_joint_positions)
 
 
-def _write_appliance_wrapper(usd_path: str, joint_name: str, knob_damping: float | None = None) -> str:
+def _write_appliance_wrapper(
+    usd_path: str,
+    joint_name: str,
+    knob_damping: float | None = None,
+    joint_type=UsdPhysics.RevoluteJoint,
+) -> str:
     """Write a physics-enabled reference layer without changing the source package.
 
     Args:
         usd_path: Downloaded USD entrypoint.
-        joint_name: Required enabled revolute joint.
+        joint_name: Required enabled control joint.
         knob_damping: Optional passive rotary damping in N m s/rad.
+        joint_type: USD joint schema required for the control.
 
     Returns:
         Cached USD wrapper path.
@@ -112,10 +118,11 @@ def _write_appliance_wrapper(usd_path: str, joint_name: str, knob_damping: float
     stage.SetDefaultPrim(root)
     apply_usd_variant_selections(stage, {"Physics": "physics", "PhysX": "Enabled"})
     assert not stage.GetCompositionErrors(), "Appliance has unresolved USD references"
-    joints = [p for p in stage.Traverse() if p.GetName() == joint_name and p.IsA(UsdPhysics.RevoluteJoint)]
-    assert len(joints) == 1, f"Expected one revolute joint named {joint_name}"
-    assert UsdPhysics.RevoluteJoint(joints[0]).GetJointEnabledAttr().Get(), "Appliance knob joint is disabled"
+    joints = [p for p in stage.Traverse() if p.GetName() == joint_name and p.IsA(joint_type)]
+    assert len(joints) == 1, f"Expected one {joint_type.__name__} named {joint_name}"
+    assert joint_type(joints[0]).GetJointEnabledAttr().Get(), "Appliance control joint is disabled"
     if knob_damping is not None:
+        assert joint_type == UsdPhysics.RevoluteJoint, "Rotary damping requires a revolute joint"
         assert knob_damping >= 0, "Knob damping must be non-negative"
         drive = UsdPhysics.DriveAPI.Apply(joints[0], "angular")
         drive.CreateTypeAttr("force")
@@ -127,17 +134,17 @@ def _write_appliance_wrapper(usd_path: str, joint_name: str, knob_damping: float
     assert len(roots) <= 1, "Appliance must contain one articulation"
     if not roots:
         # Some SimReady packages author connected rigid bodies and joints but no articulation root.
-        body_paths = UsdPhysics.RevoluteJoint(joints[0]).GetBody0Rel().GetTargets()
-        assert len(body_paths) == 1, "Appliance knob requires a connected base body"
+        body_paths = joint_type(joints[0]).GetBody0Rel().GetTargets()
+        assert len(body_paths) == 1, "Appliance control requires a connected base body"
         base = stage.GetPrimAtPath(body_paths[0])
         # Joint targets may name a mesh below the rigid body that owns it.
         while base and not base.HasAPI(UsdPhysics.RigidBodyAPI):
             base = base.GetParent()
-        assert base, "Appliance knob base must belong to a rigid body"
+        assert base, "Appliance control base must belong to a rigid body"
         UsdPhysics.ArticulationRootAPI.Apply(base)
     cache = Path.home() / ".cache" / "isaaclab_arena" / "turnable-appliances"
     cache.mkdir(parents=True, exist_ok=True)
-    key = hashlib.sha256(f"{usd_path}\n{joint_name}\n{knob_damping}".encode()).hexdigest()
+    key = hashlib.sha256(f"{usd_path}\n{joint_name}\n{knob_damping}\n{joint_type.__name__}".encode()).hexdigest()
     wrapper = cache / f"{key}.usda"
     stage.GetRootLayer().Export(str(wrapper))
     return str(wrapper)

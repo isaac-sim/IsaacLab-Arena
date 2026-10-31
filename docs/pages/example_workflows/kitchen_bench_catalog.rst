@@ -1,12 +1,13 @@
 Kitchen Benchmark Catalog
 =========================
 
-The kitchen benchmark contains 50 DROID tasks defined as environment graph
+The kitchen benchmark contains 58 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
-environment: the original 42 environments on October 28, 2026, and the eight
-additional appliance environments on October 29–30, 2026.
+environment: the original 42 environments on October 28, 2026, the eight
+additional knob environments on October 29–30, 2026, and the eight additional
+button environments on October 31, 2026.
 
 .. list-table:: Task categories
    :header-rows: 1
@@ -21,8 +22,8 @@ additional appliance environments on October 29–30, 2026.
      - 48.4%
 
    * - Press button
-     - 2
-     - 10.0%
+     - 10
+     - 38.3%
 
    * - Turn knob
      - 11
@@ -49,8 +50,8 @@ additional appliance environments on October 29–30, 2026.
      - 42.0%
 
    * - **Total**
-     - **50**
-     - **38.8%**
+     - **58**
+     - **39.7%**
 
 Each row links to the source YAML and shows a Pi policy execution recorded from
 the maintained DROID external camera. Rows are grouped by task category.
@@ -132,6 +133,70 @@ the maintained DROID external camera. Rows are grouped by task category.
      - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian.gif
           :alt: Pi policy pressing the right toaster cancel button in the G-shaped Scandinavian kitchen
           :width: 100%
+   * - Press button
+     - `kitchen_bench_press_palatial_blender_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_palatial_blender_one_wall_coastal.yaml>`_
+     - 38%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_palatial_blender_one_wall_coastal_pi05.gif
+          :alt: Pi0.5 policy: Press the small pulse button to the right of the blender speed dial.
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Press button
+     - `kitchen_bench_press_slow_cooker_galley_industrial.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_slow_cooker_galley_industrial.yaml>`_
+     - 43%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_slow_cooker_galley_industrial_pi05.gif
+          :alt: Pi0.5 policy: Press the Select button on the front of the slow cooker.
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Press button
+     - `kitchen_bench_press_espresso_machine_u_shaped_modern1.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_espresso_machine_u_shaped_modern1.yaml>`_
+     - 34%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_espresso_machine_u_shaped_modern1_pi05.gif
+          :alt: Pi0.5 policy: Press the leftmost power button above the pressure gauge on the espresso machine.
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Press button
+     - `kitchen_bench_press_microwave_g_shaped_large_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_microwave_g_shaped_large_scandinavian.yaml>`_
+     - 91%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_microwave_g_shaped_large_scandinavian_pi05.gif
+          :alt: Pi0.5 policy: Press the large rectangular door-release button at the bottom right of the microwave.
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Press button
+     - `kitchen_bench_press_food_processor_l_shaped_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_food_processor_l_shaped_scandinavian.yaml>`_
+     - 37%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_food_processor_l_shaped_scandinavian_pi05.gif
+          :alt: Pi0.5 policy: Press the rectangular pulse button on the base of the food processor.
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Press button
+     - `kitchen_bench_press_toaster053_g_shaped_rustic.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_toaster053_g_shaped_rustic.yaml>`_
+     - 52%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_toaster053_g_shaped_rustic_pi05.gif
+          :alt: Pi0.5 policy: Press the small cancel button beside the browning dial on the toaster.
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Press button
+     - `kitchen_bench_press_electric_kettle_one_wall_with_island_farmhouse1.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_electric_kettle_one_wall_with_island_farmhouse1.yaml>`_
+     - 13%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_electric_kettle_one_wall_with_island_farmhouse1_pi05.gif
+          :alt: Pi0.5 policy: Press the lid-release button on top of the kettle handle.
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Press button
+     - `kitchen_bench_press_coffee_machine108_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_coffee_machine108_u_shaped_with_island_farmhouse2.yaml>`_
+     - 55%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_coffee_machine108_u_shaped_with_island_farmhouse2_pi05.gif
+          :alt: Pi0.5 policy: Press the right round button above the coffee dispenser.
+          :width: 100%
+
+       Pi0.5, 2x speed.
    * - Turn knob
      - `kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.yaml>`_
      - 31%

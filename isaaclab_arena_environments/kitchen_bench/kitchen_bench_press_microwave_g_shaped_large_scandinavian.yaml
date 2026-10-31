@@ -1,0 +1,121 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_press_microwave_g_shaped_large_scandinavian
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.65
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_g_shaped_large_scandinavian
+  params:
+    collision_mode: mesh
+objects:
+- id: appliance
+  registry_name: pressable_appliance
+  params:
+    pressable_joint_name: release
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/microwave_oven/simready_usd/microwave_oven.usda
+- id: distractor_1
+  registry_name: sugar_box
+- id: distractor_2
+  registry_name: mug
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+- id: counter
+  parent_id: kitchen
+  prim_path: counter_1_left_group
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: counter
+- kind: 'on'
+  subject: appliance
+  reference: counter
+- kind: rotate_around_solution
+  subject: appliance
+  params:
+    yaw_rad: 1.5708
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 3.05
+- kind: position_limits_box
+  subject: appliance
+  params:
+    x_limits:
+    - 0.27
+    - 0.43
+    y_limits:
+    - -3.25
+    - -3.15
+- kind: align_with
+  subject: droid
+  reference: appliance
+  params:
+    axis: x
+    offset_m: 1.13
+    tolerance_m: 0.1
+- kind: align_with
+  subject: droid
+  reference: appliance
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.07
+- kind: 'on'
+  subject: distractor_1
+  reference: counter
+- kind: align_with
+  subject: distractor_1
+  reference: appliance
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.05
+- kind: align_with
+  subject: distractor_1
+  reference: appliance
+  params:
+    axis: y
+    offset_m: 0.42
+    tolerance_m: 0.05
+- kind: 'on'
+  subject: distractor_2
+  reference: counter
+- kind: align_with
+  subject: distractor_2
+  reference: appliance
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.05
+- kind: align_with
+  subject: distractor_2
+  reference: appliance
+  params:
+    axis: y
+    offset_m: 0.7
+    tolerance_m: 0.05
+task:
+  composition: atomic
+  description: Press the large rectangular door-release button at the bottom right
+    of the microwave.
+  subtasks:
+  - kind: PressButtonTask
+    params:
+      pressable_object: appliance
