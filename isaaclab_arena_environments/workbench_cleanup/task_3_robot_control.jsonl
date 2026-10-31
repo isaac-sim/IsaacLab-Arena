@@ -1,0 +1,9 @@
+{"action":"mark","index":0,"boundary":"start","title":"Switch oscilloscope off"}
+{"action":"inspect"}
+{"action":"pose","reference":"oscilloscope","reference_body":"button_01_obj_00","offset":[0.10,-0.04,0.0],"offset_frame":"reference","orientation":[0.0,0.0,1.0,0.0],"orientation_frame":"reference","gripper":1,"planner":"curobo","planner_max_attempts":10,"planner_waypoint_stride":1,"planner_steps_per_waypoint":5,"max_steps":240,"accept_blocked":true,"accept_timeout":true}
+{"action":"wait","steps":120}
+{"action":"check","index":0,"timeout_steps":300}
+{"action":"pose","reference":"oscilloscope","offset":[0.278,-0.143,0.172],"offset_frame":"reference","orientation":[-0.17364818,0.0,0.98480775,0.0],"orientation_frame":"reference","gripper":0,"planner":"curobo","planner_max_attempts":10,"planner_waypoint_stride":1,"planner_steps_per_waypoint":5,"max_steps":240}
+{"action":"mark","index":0,"boundary":"end","title":"Switch oscilloscope off"}
+{"action":"wait_final","timeout_steps":300}
+{"action":"finish"}

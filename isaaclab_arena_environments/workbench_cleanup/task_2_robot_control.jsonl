@@ -1,0 +1,71 @@
+{"action":"mark","index":0,"boundary":"start","title":"Open white cabinet top drawer"}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,0.18,0.04],"offset_frame":"world","orientation":[0.0,0.0,-0.70710678,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":240}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,0.11,0.04],"offset_frame":"world","orientation":[0.0,0.0,-0.70710678,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":1,"max_steps":120,"accept_blocked":true}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,0.42,0.04],"offset_frame":"world","orientation":[0.0,0.0,-0.70710678,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":300,"accept_blocked":true}
+{"action":"wait","steps":120}
+{"action":"check","index":0,"timeout_steps":300}
+{"action":"mark","index":0,"boundary":"end","title":"Open white cabinet top drawer"}
+{"action":"mark","index":1,"boundary":"start","title":"Put slotted screwdriver in drawer"}
+{"action":"pose","reference":"slotted_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.28],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":240}
+{"action":"pose","reference":"slotted_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.14],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":1,"max_steps":120,"accept_blocked":true}
+{"action":"pose","reference":"slotted_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.36],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":240}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,-0.12,0.34],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":300}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,-0.12,0.16],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":0,"max_steps":120,"accept_blocked":true}
+{"action":"wait","steps":240}
+{"action":"check","index":1,"timeout_steps":300}
+{"action":"mark","index":1,"boundary":"end","title":"Put slotted screwdriver in drawer"}
+{"action":"mark","index":2,"boundary":"start","title":"Put torx screwdriver in drawer"}
+{"action":"pose","reference":"torx_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.28],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":240}
+{"action":"pose","reference":"torx_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.14],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":1,"max_steps":120,"accept_blocked":true}
+{"action":"pose","reference":"torx_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.36],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":240}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,-0.06,0.34],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":300}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,-0.06,0.16],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":0,"max_steps":120,"accept_blocked":true}
+{"action":"wait","steps":240}
+{"action":"check","index":2,"timeout_steps":300}
+{"action":"mark","index":2,"boundary":"end","title":"Put torx screwdriver in drawer"}
+{"action":"mark","index":3,"boundary":"start","title":"Put phillips screwdriver in drawer"}
+{"action":"pose","reference":"phillips_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.28],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":240}
+{"action":"pose","reference":"phillips_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.14],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":1,"max_steps":120,"accept_blocked":true}
+{"action":"pose","reference":"phillips_screwdriver","reference_point":"aabb_center","offset":[0.0,0.0,0.36],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":240}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,0.0,0.34],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":300}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,0.0,0.16],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":0,"max_steps":120,"accept_blocked":true}
+{"action":"wait","steps":240}
+{"action":"check","index":3,"timeout_steps":300}
+{"action":"mark","index":3,"boundary":"end","title":"Put phillips screwdriver in drawer"}
+{"action":"mark","index":4,"boundary":"start","title":"Put combination wrench in drawer"}
+{"action":"pose","reference":"combination_wrench","reference_point":"aabb_center","offset":[0.0,0.0,0.28],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":240}
+{"action":"pose","reference":"combination_wrench","reference_point":"aabb_center","offset":[0.0,0.0,0.14],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":1,"max_steps":120,"accept_blocked":true}
+{"action":"pose","reference":"combination_wrench","reference_point":"aabb_center","offset":[0.0,0.0,0.36],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":240}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[-0.05,0.06,0.34],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":300}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[-0.05,0.06,0.16],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":0,"max_steps":120,"accept_blocked":true}
+{"action":"wait","steps":240}
+{"action":"check","index":4,"timeout_steps":300}
+{"action":"mark","index":4,"boundary":"end","title":"Put combination wrench in drawer"}
+{"action":"mark","index":5,"boundary":"start","title":"Put small wrench in drawer"}
+{"action":"pose","reference":"small_wrench","reference_point":"aabb_center","offset":[0.0,0.0,0.28],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":240}
+{"action":"pose","reference":"small_wrench","reference_point":"aabb_center","offset":[0.0,0.0,0.14],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":0,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":1,"max_steps":120,"accept_blocked":true}
+{"action":"pose","reference":"small_wrench","reference_point":"aabb_center","offset":[0.0,0.0,0.36],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":240}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.05,0.06,0.34],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":300}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.05,0.06,0.16],"offset_frame":"world","orientation":[0.0,0.70710678,0.0,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":180,"accept_blocked":true}
+{"action":"gripper","value":0,"max_steps":120,"accept_blocked":true}
+{"action":"wait","steps":240}
+{"action":"check","index":5,"timeout_steps":300}
+{"action":"mark","index":5,"boundary":"end","title":"Put small wrench in drawer"}
+{"action":"mark","index":6,"boundary":"start","title":"Close loaded white cabinet drawer"}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,0.20,0.04],"offset_frame":"world","orientation":[0.0,0.0,-0.70710678,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":240}
+{"action":"pose","reference":"white_cabinet_top_drawer","reference_point":"aabb_center","offset":[0.0,-0.20,0.04],"offset_frame":"world","orientation":[0.0,0.0,-0.70710678,0.70710678],"orientation_frame":"world","gripper":1,"max_steps":300,"accept_blocked":true}
+{"action":"wait","steps":180}
+{"action":"check","index":6,"timeout_steps":300}
+{"action":"mark","index":6,"boundary":"end","title":"Close loaded white cabinet drawer"}
+{"action":"wait_final","timeout_steps":600}
+{"action":"finish"}

@@ -93,3 +93,83 @@ task success unless `--allow_incomplete` is supplied. Use Fabric synchronization
 when rendering these nested SimReady physics assets. For mouse dragging and
 collision inspection instead of a reproducible recipe, use
 `isaaclab_arena/scripts/environment_runner.py`.
+
+## Robot-control recipes
+
+The absolute-IK runner executes object-relative DROID pose, gripper, and
+trajectory commands while checking the same task progress predicates:
+
+```bash
+./submodules/IsaacLab/isaaclab.sh -p \
+  isaaclab_arena/scripts/robot_control_runner.py \
+  --env_spec isaaclab_arena_environments/workbench_cleanup/task_1.yaml \
+  --commands isaaclab_arena_environments/workbench_cleanup/task_1_robot_control.jsonl \
+  --output artifacts/workbench_cleanup/task_1_robot \
+  --placement_seed 17 \
+  --visualizer kit
+```
+
+Select the matching `task_N.yaml` and `task_N_robot_control.jsonl` for Tasks
+1–3. Pose targets may be expressed in the robot root, world, object, object
+body, or AABB-center frame. A pose command can opt into cuRobo v2 planning with
+`"planner":"curobo"`; the runner converts the planned joint path to dense
+end-effector waypoints and executes them through the wrapped environment while
+keeping task progress, recording, and termination behavior active.
+
+### Task 1 robot validation
+
+The Task 1 robot recipe passes with placement seed `17` (2026-10-31).
+No command accepts a blocked or timed-out motion. The runner stops during the
+closing sweep as soon as the native `close_door` predicate reports task success;
+the remaining wait, check, and retreat commands are skipped. The final frame
+and report capture episode `0` before Arena automatically resets it. The run
+stops at control step 335 (22.33 simulated seconds). Only robot actions are
+applied during execution.
+
+![DROID closes the socket set](../../docs/images/workbench_cleanup/task_1_robot/demo.gif)
+
+Artifacts: [start](../../docs/images/workbench_cleanup/task_1_robot/00_start.png),
+[end](../../docs/images/workbench_cleanup/task_1_robot/00_end.png), and
+[validation report](../../docs/images/workbench_cleanup/task_1_robot/validation.json).
+The GIF plays at simulation speed. The runner also saves the full MP4 in its
+output directory. The command above reproduces this run; other placement seeds
+have not been validated.
+
+The original first approach stopped 49.3 mm short of its target. Measured arm
+joints followed their requested positions within 0.0003 radians, indicating
+that increasing the wait or accepting the stall did not fix the IK target.
+The new approach uses a closer offset from the lid's AABB center, then lowers
+the fingertips to the upper portion of the lid and sweeps forward. The sweep
+ends relative to the case root so its target does not follow the moving lid.
+The shared scene starts the arm folded back above the oscilloscope to avoid
+contact with it during reset.
+
+Two runner/planner issues were also corrected:
+
+- The runner stops immediately when a control step reports task success,
+  including during interpolated moves, cuRobo paths, and waits. Arena's normal
+  automatic reset remains enabled. An episode recorder captures the terminal
+  frame and validation state before reset; later recipe commands are skipped.
+- The cuRobo adapter applies the fixed URDF-to-USD end-effector offset on the
+  tool side of the transform. A base-frame offset calibrated at one posture
+  gave incorrect targets when the wrist rotated. Task 1 itself uses Arena's
+  differential IK and does not require cuRobo.
+
+Failed commands now save `validation.json`, including the error, measured and
+target poses, joint positions, episode index, and native predicates, and close
+the video writer. Video frame counts track simulation time. The focused
+runner and planner tests cover rotated-wrist conversion, failure reporting,
+success enforcement, stopping within a command, terminal-state recording across
+automatic reset, and video timing.
+
+Tasks 2 and 3 remain experimental robot recipes. Their force-control demos
+above validate the task predicates; they do not establish successful robot
+execution. A Task 3 probe with the corrected adapter presses the button but
+stalls during both the approach and retreat; it is not a completed robot demo.
+The same probe verifies the corrected cuRobo wrist transform against the
+simulated wrist after motion (position difference below 0.4 micrometers).
+Task 2 has not been revalidated with the new starting posture.
+The optional cuRobo adapter currently plans without scene obstacle
+geometry and executes Cartesian waypoints through differential IK, so it does
+not guarantee collision-free scene motion or preservation of the planned
+joint trajectory.

@@ -8,9 +8,11 @@ embodiment:
   registry_name: droid_abs_ik
   params:
     initial_pose:
-      position_xyz: [0.78, -1.1, 0.6685]
+      position_xyz: [0.35, -0.7, 0.5]
       rotation_xyzw: [0.0, 0.0, 1.0, 0.0]
     stand_height_m: 0.5
+    # Fold back and raise the gripper so reset does not collide with the oscilloscope.
+    initial_joint_pose: [0.0, -1.1, 0.0, -2.2, 0.0, 1.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     stand_footprint_xy_m: [0.2, 0.2]
     placement_bbox_stand_only: true
 background:
@@ -94,6 +96,11 @@ object_references:
 - id: white_cabinet_top_drawer
   parent_id: white_cabinet
   prim_path: Geometry/part_01_obj_00
+  object_type: base
+  params: {}
+- id: socket_set_lid
+  parent_id: socket_set
+  prim_path: Geometry/Case_base/Case_lid
   object_type: base
   params: {}
 relations:
