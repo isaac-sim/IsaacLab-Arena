@@ -1,0 +1,52 @@
+{"action":"setup_joint","name":"white_cabinet","joint_name":"joint_part_01_joint_00","effort_limit":100.0,"replace_existing":true}
+{"action":"mark","index":0,"boundary":"start","title":"Open white cabinet top drawer"}
+{"action":"joint","name":"white_cabinet","joint_name":"joint_part_01_joint_00","normalized_goal":0.95,"gain":300.0,"damping":50.0,"limit":70.0}
+{"action":"check","index":0}
+{"action":"mark","index":0,"boundary":"end","title":"Open white cabinet top drawer"}
+{"action":"mark","index":1,"boundary":"start","title":"Put slotted_screwdriver in drawer"}
+{"action":"lift","name":"slotted_screwdriver","height":0.9,"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"slotted_screwdriver","goal":[0.0,0.0,0.78],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[0.0,-0.12,0.0],"orientation":[0.0,0.0,0.0,1.0],"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"slotted_screwdriver","goal":[0.0,0.0,0.59],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[0.0,-0.12,0.0],"seconds":2.0,"minimum_stiffness":60.0}
+{"action":"release","name":"slotted_screwdriver"}
+{"action":"wait","steps":240}
+{"action":"check","index":1}
+{"action":"mark","index":1,"boundary":"end","title":"Put slotted_screwdriver in drawer"}
+{"action":"mark","index":2,"boundary":"start","title":"Put torx_screwdriver in drawer"}
+{"action":"lift","name":"torx_screwdriver","height":0.9,"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"torx_screwdriver","goal":[0.0,0.0,0.78],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[0.0,-0.06,0.0],"orientation":[0.0,0.0,0.0,1.0],"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"torx_screwdriver","goal":[0.0,0.0,0.59],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[0.0,-0.06,0.0],"seconds":2.0,"minimum_stiffness":60.0}
+{"action":"release","name":"torx_screwdriver"}
+{"action":"wait","steps":240}
+{"action":"check","index":2}
+{"action":"mark","index":2,"boundary":"end","title":"Put torx_screwdriver in drawer"}
+{"action":"mark","index":3,"boundary":"start","title":"Put phillips_screwdriver in drawer"}
+{"action":"lift","name":"phillips_screwdriver","height":0.9,"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"phillips_screwdriver","goal":[0.0,0.0,0.78],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"phillips_screwdriver","goal":[0.0,0.0,0.59],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[0.0,0.0,0.0],"seconds":2.0,"minimum_stiffness":60.0}
+{"action":"release","name":"phillips_screwdriver"}
+{"action":"wait","steps":240}
+{"action":"check","index":3}
+{"action":"mark","index":3,"boundary":"end","title":"Put phillips_screwdriver in drawer"}
+{"action":"mark","index":4,"boundary":"start","title":"Put combination_wrench in drawer"}
+{"action":"lift","name":"combination_wrench","height":0.9,"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"combination_wrench","goal":[0.0,0.0,0.78],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[-0.05,0.06,0.0],"orientation":[0.0,0.0,0.70710678,0.70710678],"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"combination_wrench","goal":[0.0,0.0,0.59],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[-0.05,0.06,0.0],"seconds":2.0,"minimum_stiffness":60.0}
+{"action":"release","name":"combination_wrench"}
+{"action":"wait","steps":240}
+{"action":"check","index":4}
+{"action":"mark","index":4,"boundary":"end","title":"Put combination_wrench in drawer"}
+{"action":"mark","index":5,"boundary":"start","title":"Put small_wrench in drawer"}
+{"action":"lift","name":"small_wrench","height":0.9,"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"small_wrench","goal":[0.0,0.0,0.78],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[0.05,0.06,0.0],"orientation":[0.0,0.0,0.70710678,0.70710678],"seconds":3.0,"minimum_stiffness":60.0}
+{"action":"move","name":"small_wrench","goal":[0.0,0.0,0.59],"reference":"white_cabinet_top_drawer","reference_point":"aabb_center","reference_axes":["x","y"],"offset":[0.05,0.06,0.0],"seconds":2.0,"minimum_stiffness":60.0}
+{"action":"release","name":"small_wrench"}
+{"action":"wait","steps":240}
+{"action":"check","index":5}
+{"action":"mark","index":5,"boundary":"end","title":"Put small_wrench in drawer"}
+{"action":"mark","index":6,"boundary":"start","title":"Close loaded white cabinet drawer"}
+{"action":"joint","name":"white_cabinet","joint_name":"joint_part_01_joint_00","normalized_goal":0.0,"seconds":4.0,"gain":300.0,"damping":50.0,"limit":70.0}
+{"action":"check","index":6}
+{"action":"wait","steps":120}
+{"action":"mark","index":6,"boundary":"end","title":"Close loaded white cabinet drawer"}
+{"action":"wait_final"}
+{"action":"finish"}

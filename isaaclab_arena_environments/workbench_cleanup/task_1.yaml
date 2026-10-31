@@ -1,0 +1,16 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: workbench_cleanup_task_1
+external_yaml: scene.yaml
+task:
+  composition: atomic
+  description: Close the socket set.
+  subtasks:
+  - kind: CloseDoorTask
+    params:
+      openable_object: socket_set
+      closedness_threshold: 0.05
+      reset_openness: 0.85

@@ -1,0 +1,172 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    initial_pose:
+      position_xyz: [0.78, -1.1, 0.6685]
+      rotation_xyzw: [0.0, 0.0, 1.0, 0.0]
+    stand_height_m: 0.5
+    stand_footprint_xy_m: [0.2, 0.2]
+    placement_bbox_stand_only: true
+background:
+  id: workbench
+  registry_name: simready_usd_background
+  params:
+    object_min_z: 0.05
+    static_collision_only: true
+    reference_colliders:
+      ClutterArea:
+        position_xyz: [0.0, -0.07, 0.6685]
+        size_xyz: [0.44, 0.34, 0.001]
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/furniture_workbench_standard_e01/simready_usd/sm_furniture_workbench_standard_e01_01.usd
+objects:
+- id: white_cabinet
+  registry_name: simready_usd_openable_articulation
+  params:
+    initial_pose:
+      position_xyz: [0.0, -1.1, 0.0]
+    scale: [0.72001123, 0.72001123, 0.72001123]
+    fixed_base_body_path: Geometry/body_01_obj_00
+    openable_joint_name: joint_part_01_joint_00
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/fixture_cabinet_b01/simready_usd/sm_fixture_cabinet_b01_01.usd
+- id: socket_set
+  registry_name: simready_usd_openable_articulation
+  params:
+    scale: [0.9, 0.9, 0.9]
+    articulation_root_prim_path: .
+    initial_joint_positions:
+      case_lid: 1.65
+    openable_joint_name: case_lid
+    usd_path: hf://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/ratchet_socket_set/simready_usd/ratchet_socket_set.usda
+- id: oscilloscope
+  registry_name: simready_usd_pressable_articulation
+  params:
+    initial_pose:
+      position_xyz: [-0.04, -0.5, 0.672]
+    articulation_root_prim_path: .
+    pressable_joint_name: joint_button_01_joint_00
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/testingTool_oscilloscope_a01/simready_usd/sm_testingTool_oscilloscope_a01_01.usd
+- id: slotted_screwdriver
+  registry_name: simready_usd_object
+  params:
+    spawn_cfg_addon: &cleanup_tool_spawn_cfg
+      make_uninstanceable: true
+      rigid_props:
+        linear_damping: 2.0
+        angular_damping: 2.0
+      collision_props:
+        contact_offset: 0.001
+        rest_offset: 0.0
+        mesh_collision_property:
+          mesh_approximation_name: convexHull
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/handTool_screwdriver_slotted_55mm_a01/simready_usd/sm_handTool_screwdriver_slotted_55mm_a01_01.usd
+- id: torx_screwdriver
+  registry_name: simready_usd_object
+  params:
+    spawn_cfg_addon: *cleanup_tool_spawn_cfg
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/handTool_screwdriver_torx_t10_a01/simready_usd/sm_handTool_screwdriver_torx_t10_a01_01.usd
+- id: phillips_screwdriver
+  registry_name: simready_usd_object
+  params:
+    spawn_cfg_addon: *cleanup_tool_spawn_cfg
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/handTool_screwdriver_phillips_ph2_a01/simready_usd/sm_handTool_screwdriver_phillips_ph2_a01_01.usd
+- id: combination_wrench
+  registry_name: simready_usd_object
+  params:
+    spawn_cfg_addon: *cleanup_tool_spawn_cfg
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/handTool_wrench_combination_a01/simready_usd/sm_handTool_wrench_combination_a01_01.usd
+- id: small_wrench
+  registry_name: simready_usd_object
+  params:
+    scale: [0.75, 0.75, 0.75]
+    spawn_cfg_addon: *cleanup_tool_spawn_cfg
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/handTool_wrench_combination_a01/simready_usd/sm_handTool_wrench_combination_a01_01.usd
+object_references:
+- id: clutter_area
+  parent_id: workbench
+  prim_path: ClutterArea
+  object_type: base
+  params: {}
+- id: white_cabinet_top_drawer
+  parent_id: white_cabinet
+  prim_path: Geometry/part_01_obj_00
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: clutter_area
+- kind: clutter_on
+  subject: slotted_screwdriver
+  reference: clutter_area
+  params:
+    spread: 0.8
+    gap_m: 0.008
+    clearance_m: 0.015
+    random_yaw: true
+- kind: clutter_on
+  subject: torx_screwdriver
+  reference: clutter_area
+  params:
+    spread: 0.8
+    gap_m: 0.008
+    clearance_m: 0.015
+    random_yaw: true
+- kind: clutter_on
+  subject: phillips_screwdriver
+  reference: clutter_area
+  params:
+    spread: 0.8
+    gap_m: 0.008
+    clearance_m: 0.015
+    random_yaw: true
+- kind: clutter_on
+  subject: combination_wrench
+  reference: clutter_area
+  params:
+    spread: 0.8
+    gap_m: 0.008
+    clearance_m: 0.015
+    random_yaw: true
+- kind: clutter_on
+  subject: small_wrench
+  reference: clutter_area
+  params:
+    spread: 0.8
+    gap_m: 0.008
+    clearance_m: 0.015
+    random_yaw: true
+- kind: is_anchor
+  subject: oscilloscope
+- kind: is_anchor
+  subject: white_cabinet
+- kind: 'on'
+  subject: socket_set
+  reference: white_cabinet
+  params:
+    clearance_m: 0.003
+- kind: rotate_around_solution
+  subject: socket_set
+  params:
+    yaw_rad: 1.57079633
+placer_params:
+  random_yaw_init: false
+  min_unique_layouts_per_env: 1
+  resolve_on_reset: false
+  max_placement_attempts: 2
+  solver_params:
+    clearance_m: 0.002
+    max_iters: 1000
+    save_position_history: false
+  allow_best_loss_fallbacks: false
+env_cfg_override:
+  viewer:
+    eye: [2.15, -1.8, 1.8]
+    lookat: [0, 0, 0.75]
+  sim:
+    dt: 0.008333333333333333
+  decimation: 2

@@ -1,0 +1,7 @@
+{"action":"setup_joint","name":"oscilloscope","joint_name":"joint_button_01_joint_00","effort_limit":100.0,"replace_existing":true}
+{"action":"mark","index":0,"boundary":"start","title":"Switch oscilloscope off"}
+{"action":"joint","name":"oscilloscope","joint_name":"joint_button_01_joint_00","goal":-0.00235,"gain":2.0,"damping":0.015,"limit":0.01}
+{"action":"check","index":0}
+{"action":"mark","index":0,"boundary":"end","title":"Switch oscilloscope off"}
+{"action":"wait_final"}
+{"action":"finish"}
