@@ -62,15 +62,20 @@ cause. Preserve the launcher's automatic per-checkout suffix unless the user req
 
 ## Run a development command
 
-Run commands as the host user, not root:
+Run commands as the host user, not root. The container provides the user environment and
+repository working directory:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su $(id -un) -c \
-  "cd /workspaces/isaaclab_arena && <command>"
+docker exec --user "$(id -un)" "$ARENA_CONTAINER" <command> [args...]
 ```
 
 Use `isaaclab.sh -p` for non-interactive Python commands; do not rely on the
-interactive `python` alias.
+interactive `python` alias. The image installs a launcher in `/usr/local/bin` so it
+also works after `su` or `sudo` resets `PATH`. Use `bash -c '<command>'` when shell
+syntax such as pipelines is needed.
+
+Existing containers need to be recreated after rebuilding to pick up the launcher
+and user environment defaults; follow the rebuild approval guidance above.
 
 ## Hand off
 
