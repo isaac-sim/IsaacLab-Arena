@@ -1,0 +1,84 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Rebuild after each pair of episodes, matching the locally validated execution setup.
+shared:
+  num_rebuilds: 50
+  environment:
+    enable_cameras: true
+  environment_builder:
+    num_envs: 2
+    seed: 42
+    camera_resolution_mode: POLICY_DEFAULT
+  rollout_limit:
+    num_episodes: 100
+runs:
+  palatial_blender_pi05:
+    environment: &id001
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_palatial_blender_one_wall_coastal.yaml
+    policy: &id002
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  palatial_blender_cosmos:
+    environment: *id001
+    policy: &id004
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  slow_cooker_pi05:
+    environment: &id003
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_slow_cooker_galley_industrial.yaml
+    policy: *id002
+  slow_cooker_cosmos:
+    environment: *id003
+    policy: *id004
+  espresso_machine_pi05:
+    environment: &id005
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_espresso_machine_u_shaped_modern1.yaml
+    policy: *id002
+  espresso_machine_cosmos:
+    environment: *id005
+    policy: *id004
+  microwave_pi05:
+    environment: &id006
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_microwave_g_shaped_large_scandinavian.yaml
+    policy: *id002
+  microwave_cosmos:
+    environment: *id006
+    policy: *id004
+  food_processor_pi05:
+    environment: &id007
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_food_processor_l_shaped_scandinavian.yaml
+    policy: *id002
+  food_processor_cosmos:
+    environment: *id007
+    policy: *id004
+  toaster053_pi05:
+    environment: &id008
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_toaster053_g_shaped_rustic.yaml
+    policy: *id002
+  toaster053_cosmos:
+    environment: *id008
+    policy: *id004
+  electric_kettle_pi05:
+    environment: &id009
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_electric_kettle_one_wall_with_island_farmhouse1.yaml
+    policy: *id002
+  electric_kettle_cosmos:
+    environment: *id009
+    policy: *id004
+  coffee_machine108_pi05:
+    environment: &id010
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_coffee_machine108_u_shaped_with_island_farmhouse2.yaml
+    policy: *id002
+  coffee_machine108_cosmos:
+    environment: *id010
+    policy: *id004
