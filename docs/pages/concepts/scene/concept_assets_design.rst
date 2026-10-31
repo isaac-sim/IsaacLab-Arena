@@ -148,6 +148,165 @@ Settings apply after USD loading and before cloning and physics import.
 See :doc:`../environment/physics_configuration` for configuration order and
 :doc:`../embodiment/index` for robot and end-effector physics.
 
+SimReady USD assets
+-------------------
+
+Arena provides generic registered classes for loading SimReady USDs directly from an
+Environment Graph Spec. Use these classes when the asset is not already represented by a
+more specific Arena library class:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Registry name and class
+     - Purpose
+   * - ``simready_usd_object`` (``SimReadyUsdObject``)
+     - One rigid object.
+   * - ``simready_usd_articulation`` (``SimReadyUsdArticulation``)
+     - A generic articulated object.
+   * - ``simready_usd_openable_articulation`` (``SimReadyUsdOpenableArticulation``)
+     - An articulation whose configured joint provides the ``Openable`` affordance.
+   * - ``simready_usd_pressable_articulation`` (``SimReadyUsdPressableArticulation``)
+     - An articulation whose configured joint provides the ``Pressable`` affordance.
+   * - ``simready_usd_background`` (``SimReadyUsdBackground``)
+     - A scene background, optionally converted to static collision and augmented with
+       reference colliders.
+
+The ``usd_path`` may be a supported local path or remote URL. The following rigid objects
+use the beverage can and basket from the agentic environment-generation workflow:
+
+.. code-block:: yaml
+
+   objects:
+   - id: beverage_can
+     registry_name: simready_usd_object
+     params:
+       usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Food/Canned_Goods/Can_M01/sm_food_beverage_can_m01_01.usd
+       scale: [1.0, 1.0, 1.0]
+   - id: mini_plastic_basket
+     registry_name: simready_usd_object
+     params:
+       usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Baskets/Plastic_Basket_A01/sm_misc_basket_plastic_a01_01.usd
+
+``SimReadyUsdObject`` selects the asset's ``Physics=physics`` variant by default. Inspect the
+USD before configuring it: the generic class expects exactly one rigid body, while assets with
+joints must use one of the articulation classes.
+
+Overriding rigid-body and collision properties
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pass common Isaac Lab spawn settings through ``spawn_cfg_addon``. For graph YAML,
+``SimReadyUsdObject`` converts mappings for ``rigid_props`` and ``collision_props`` to
+``RigidBodyPropertiesCfg`` and ``CollisionPropertiesCfg``:
+
+.. code-block:: yaml
+
+   objects:
+   - id: beverage_can
+     registry_name: simready_usd_object
+     params:
+       usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Food/Canned_Goods/Can_M01/sm_food_beverage_can_m01_01.usd
+       spawn_cfg_addon:
+         make_uninstanceable: true
+         rigid_props:
+           linear_damping: 2.0
+           angular_damping: 2.0
+         collision_props:
+           contact_offset: 0.001
+           rest_offset: 0.0
+           mesh_collision_property:
+             mesh_approximation_name: convexHull
+
+Only specify fields accepted by the corresponding Isaac Lab configuration class. These
+overrides apply to the spawned asset without modifying the source USD.
+
+Re-rooting and fixing an articulation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``SimReadyUsdArticulation`` can generate a cached wrapper that moves
+``UsdPhysics.ArticulationRootAPI`` and attaches one authored rigid body to the world:
+
+.. code-block:: yaml
+
+   objects:
+   - id: cabinet
+     registry_name: simready_usd_articulation
+     params:
+       usd_path: <articulated-simready-usd-path>
+       articulation_root_prim_path: .
+       fixed_base_body_path: Geometry/base
+       initial_joint_positions:
+         drawer_joint: 0.2
+
+``articulation_root_prim_path`` and ``fixed_base_body_path`` are paths relative to the source
+asset's default prim. Setting ``articulation_root_prim_path`` removes existing articulation-root
+APIs below the selected root and applies the API to that root. Setting
+``fixed_base_body_path`` creates a world fixed joint targeting that rigid body. The wrapper
+references the original USD; it does not edit it. Verify both paths and the joint name in the
+composed USD. Re-rooting is needed when the source authors
+``UsdPhysics.ArticulationRootAPI`` on a nested prim that does not match the prim spawned and
+matched by Isaac Lab's articulation view. Isaac Lab does not generally require the articulation
+root prim itself to be a rigid body. The fixed-base path is separate: it must identify an
+authored rigid body because the generated world fixed joint attaches to that body, preventing
+the articulation base from moving.
+
+Use the affordance-specific class when a task needs to identify an interaction joint:
+
+.. code-block:: yaml
+
+   objects:
+   - id: cabinet
+     registry_name: simready_usd_openable_articulation
+     params:
+       usd_path: <articulated-simready-usd-path>
+       articulation_root_prim_path: .
+       fixed_base_body_path: Geometry/base
+       openable_joint_name: drawer_joint
+       initial_joint_positions:
+         drawer_joint: 0.2
+
+For a button, use ``simready_usd_pressable_articulation`` and
+``pressable_joint_name`` instead. Re-rooting is optional; use it only when the source asset's
+articulation root is absent or unsuitable for Isaac Lab's articulation view.
+
+Adding a reference collider to a background
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``SimReadyUsdBackground`` accepts ``reference_colliders``. Each entry creates an invisible,
+axis-aligned box collider in the generated wrapper. This is useful when an environment needs a
+simple, stable placement or task surface that the source USD does not expose as a separate prim.
+Most commonly, the desired surface is only one subregion of a larger authored collider mesh.
+Position and size the reference collider so its top surface aligns with the corresponding surface
+of the original mesh rather than creating new or visibly offset collision geometry:
+
+.. code-block:: yaml
+
+   background:
+     id: work_surface
+     registry_name: simready_usd_background
+     params:
+       usd_path: <simready-background-usd-path>
+       object_min_z: 0.0
+       static_collision_only: true
+       reference_colliders:
+         PlacementSurface:
+           position_xyz: [0.0, 0.0, 0.75]
+           size_xyz: [1.0, 0.6, 0.01]
+   object_references:
+   - id: placement_surface
+     parent_id: work_surface
+     prim_path: PlacementSurface
+     object_type: base
+     params: {}
+
+The map key is an asset-relative prim path. Its ``position_xyz`` is the box center and
+``size_xyz`` contains three positive full extents, all in the asset frame. The
+``ObjectReference`` named ``placement_surface`` makes that generated collider available to
+relations and tasks. ``static_collision_only: true`` also removes rigid-body and articulation
+APIs and disables joints throughout the background, so enable it only when no nested body needs
+to move. ``object_min_z`` is the background's local minimum height used for initial placement.
+
 Object types
 ------------
 
