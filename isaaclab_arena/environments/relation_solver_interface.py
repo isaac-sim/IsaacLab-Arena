@@ -9,7 +9,6 @@ import copy
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PlacementSamplerHandle, solve_and_place_objects
 from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_layout
@@ -91,8 +90,6 @@ def prepare_live_relation_placement(
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
         num_envs=num_envs,
         collision_objects=collision_objects,
-        # Same objects in every env: episode j gets layout j on any number of envs.
-        draw_by_episode=not has_heterogeneous_objects(assets),
     )
     # Validators are built once above and reused for every refill, so the embodiment is done being read; drop
     # it before the reset-event params below capture (and deep-copy/validate) the pool.

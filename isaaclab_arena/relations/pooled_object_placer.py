@@ -59,10 +59,6 @@ class PooledObjectPlacer:
 
     The pool is refilled automatically when an env's queue runs out.
 
-    With draw_by_episode, layouts are instead indexed by run-wide episode: episode j gets layout j, solved in the
-    fixed group j // layouts_per_solve. The same episodes then get the same layouts on any number of envs. This
-    requires the same objects in every env; the per-env queues are only built if a per-env method is called.
-
     Args:
         objects: All objects (including anchors) participating in relation solving.
         placer_params: Parameters forwarded to ObjectPlacer for the batched solve.
@@ -70,7 +66,6 @@ class PooledObjectPlacer:
         num_envs: Number of simulation environments.
         collision_objects: Fixed background obstacles avoided during placement but never
             optimized or relation-constrained.
-        draw_by_episode: Whether resets draw layouts by run-wide episode index rather than from per-env queues.
     """
 
     def __init__(
@@ -80,15 +75,11 @@ class PooledObjectPlacer:
         pool_size: int = 100,
         num_envs: int | None = None,
         collision_objects: list[CollisionObject] | None = None,
-        draw_by_episode: bool = False,
     ) -> None:
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         assert not (
             has_heterogeneous_objects(objects) and num_envs is None
         ), "num_envs is required for heterogeneous scenes."
-        assert not (
-            draw_by_episode and has_heterogeneous_objects(objects)
-        ), "Drawing layouts by episode requires the same objects in every env."
         self._num_envs = num_envs if num_envs is not None else 1
         assert self._num_envs >= 1, f"num_envs must be >= 1, got {self._num_envs}"
 
@@ -106,70 +97,14 @@ class PooledObjectPlacer:
         # and independent of other envs.
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
-        self._env_pools_filled = False
-        self._draw_by_episode = draw_by_episode
-        self._episode_layouts: dict[int, PlacementResult] = {}
-        self._solved_layout_groups: set[int] = set()
 
-        if draw_by_episode:
-            # Solve the first group now so impossible constraints fail at construction.
-            self._solve_layout_group(0)
-        else:
-            self._ensure_env_pools()
-
-    def _ensure_env_pools(self) -> None:
-        """Fill the per-env queues on first use."""
-        if self._env_pools_filled:
-            return
-        self._env_pools_filled = True
-        self._solve_and_store(self._pool_size)
+        self._solve_and_store(pool_size)
         for cur_env, pool in enumerate(self._env_pools):
             if not pool.layouts:
                 raise RuntimeError(
                     f"Placement pool failed to produce any valid layouts for env {cur_env} "
-                    f"from {self._pool_size} attempts. Check object relations and constraints."
+                    f"from {pool_size} attempts. Check object relations and constraints."
                 )
-
-    def _solve_layout_group(self, group: int) -> None:
-        """Solve the episode layouts of one fixed group, retrying invalid layouts with unused candidates.
-
-        Retries are bounded by max_placement_attempts; the final retry may keep best-loss layouts as a fallback.
-        """
-        params = self._placer.params
-        if self._base_placement_seed is not None:
-            # Keep episode layouts apart from the per-env queues' (seed, env_id, candidate_id) keys.
-            params.placement_seed = derive_seed(self._base_placement_seed, "episode_layouts")
-        first_layout = group * params.layouts_per_solve
-        pending = list(range(first_layout, first_layout + params.layouts_per_solve))
-        max_solve_batches = max(1, params.max_placement_attempts)
-        fallback_layouts = []
-        for batch_idx in range(max_solve_batches):
-            allow_fallback = self._allow_best_loss_fallbacks and batch_idx == max_solve_batches - 1
-            results = self._placer.place_layouts(
-                self._objects,
-                pending,
-                first_candidate_id=batch_idx * params.max_placement_attempts,
-                collision_objects=self._collision_objects,
-            )
-            still_pending = []
-            for layout_id, result in zip(pending, results, strict=True):
-                if result.success or allow_fallback:
-                    self._episode_layouts[layout_id] = result
-                    if not result.success:
-                        fallback_layouts.append(layout_id)
-                else:
-                    still_pending.append(layout_id)
-            pending = still_pending
-            if not pending:
-                break
-        if fallback_layouts:
-            self._had_fallbacks = True
-            print(f"Falling back to best-loss layouts for episode layouts: {fallback_layouts}")
-        if pending:
-            raise RuntimeError(
-                f"Placement pool could not fill episode layouts {pending} after {max_solve_batches} solve batches."
-            )
-        self._solved_layout_groups.add(group)
 
     # ------------------------------------------------------------------
     # Pool storage internals
@@ -304,7 +239,6 @@ class PooledObjectPlacer:
         """
         if count % self._num_envs != 0:
             raise ValueError(f"count must be a multiple of num_envs ({self._num_envs}), got {count}")
-        self._ensure_env_pools()
 
         layouts_per_env = count // self._num_envs
         if min(self._available_per_env()) < layouts_per_env:
@@ -326,7 +260,6 @@ class PooledObjectPlacer:
         """Consume one layout for each requested absolute env id."""
         if any(env_id < 0 or env_id >= self._num_envs for env_id in env_ids):
             raise ValueError(f"env_ids must be in [0, {self._num_envs}); got {env_ids}")
-        self._ensure_env_pools()
 
         if any(self._env_pools[env_id].available < 1 for env_id in env_ids):
             self._solve_and_store(max(self._pool_size, len(env_ids)))
@@ -341,24 +274,6 @@ class PooledObjectPlacer:
                 )
             results[env_id] = pool.next()
         return results
-
-    def sample_for_episodes(self, episode_indices: list[int]) -> list[PlacementResult]:
-        """Return layout j for each run-wide episode index j, solving the groups that hold them on first use.
-
-        Drawing a layout does not consume it, so asking for the same episode again returns the same layout.
-        """
-        assert self._draw_by_episode, "This pool draws layouts per env; construct it with draw_by_episode=True."
-        assert all(index >= 0 for index in episode_indices), f"Episode indices must be >= 0; got {episode_indices}"
-        layouts_per_solve = self._placer.params.layouts_per_solve
-        for group in sorted({index // layouts_per_solve for index in episode_indices}):
-            if group not in self._solved_layout_groups:
-                self._solve_layout_group(group)
-        return [self._episode_layouts[index] for index in episode_indices]
-
-    @property
-    def draws_by_episode(self) -> bool:
-        """Whether resets draw layouts by run-wide episode index rather than from per-env queues."""
-        return self._draw_by_episode
 
     @property
     def num_envs(self) -> int:
@@ -376,7 +291,6 @@ class PooledObjectPlacer:
         Slot i picks from env i % num_envs's pool so each result matches its
         absolute env, using that env's RNG for a reproducible draw.
         """
-        self._ensure_env_pools()
         # Reads pool.layouts directly, ignoring the consumption cursor.
         results: list[PlacementResult] = []
         for i in range(count):
@@ -389,7 +303,6 @@ class PooledObjectPlacer:
     @property
     def remaining(self) -> int:
         """Number of complete env rounds available, i.e. the minimum unread count across env pools."""
-        self._ensure_env_pools()
         return min(self._available_per_env())
 
     @property
@@ -400,7 +313,6 @@ class PooledObjectPlacer:
     @property
     def total_remaining(self) -> int:
         """Total unread layouts across all env pools."""
-        self._ensure_env_pools()
         return self._total_available()
 
     # ------------------------------------------------------------------
@@ -413,12 +325,5 @@ class PooledObjectPlacer:
         return self._objects
 
     def layouts_per_env(self) -> list[list[PlacementResult]]:
-        """Flattened list of every stored layout, grouped by env pool index.
-
-        A pool that draws by episode lists the episode layouts solved so far, episode j under env j % num_envs.
-        """
-        if self._draw_by_episode:
-            layouts = [self._episode_layouts[index] for index in sorted(self._episode_layouts)]
-            return [layouts[env_id :: self._num_envs] for env_id in range(self._num_envs)]
-        self._ensure_env_pools()
+        """Flattened list of every stored layout, grouped by env pool index."""
         return [list(pool.layouts) for pool in self._env_pools]

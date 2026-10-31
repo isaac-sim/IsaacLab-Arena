@@ -68,19 +68,11 @@ Examples
 Layout Behavior Across Resets
 -----------------------------
 
-When every environment contains the same objects, each reset uses the layout of
-the episode it starts. Arena numbers episodes across all environments, and
-episode *j* receives layout *j*. Layouts are solved in fixed groups of
-``ObjectPlacerParams.layouts_per_solve``, so an evaluation of *N* episodes uses
-the same *N* layouts on any number of environments. Arena solves the next group
-during the reset that first needs it.
-
-When a ``RigidObjectSet`` is used, layouts depend on each environment's
-selected objects. The builder then prepares ranked layouts for each
-environment, and each reset uses the next queued layout from that environment's
-pool. This allows layouts to change without solving on every reset, although
-uniqueness is not guaranteed. If the pool is empty, Arena generates more
-layouts during the reset.
+The builder prepares ranked layouts for each environment. By default, each
+reset uses the next queued layout from that environment's pool. This allows
+layouts to change without solving on every reset, although uniqueness is not
+guaranteed. If the pool is empty, Arena generates more layouts during the
+reset.
 
 Set ``ObjectPlacerParams.resolve_on_reset=False`` to reuse the layout assigned
 during environment creation. The equivalent command-line option is
@@ -90,10 +82,8 @@ Reproducibility
 ---------------
 
 Set ``placement_seed`` when placement must be reproducible. Given the same
-Arena environment definition and placement seed, Arena reproduces the layout of
-every episode, on any number of environments. With a ``RigidObjectSet``, the
-environment count must also match, because it decides which objects each
-environment receives.
+Arena environment definition, placement seed, and environment count, Arena
+reproduces layout generation and random object-set assignment.
 
 For example:
 

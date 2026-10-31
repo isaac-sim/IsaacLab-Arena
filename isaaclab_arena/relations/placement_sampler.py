@@ -75,61 +75,35 @@ class PlacementSampler(SamplerBase):
         self.write_assets = write_assets
         self.last_results: dict[int, PlacementResult] = {}
         self._next_layout_id = 0
-        # Next run-wide episode index, used when the caller does not supply episode indices.
-        self._next_episode_index = 0
         self._fixed_placements: dict[int, tuple[PlacementResult, PlacementSample]] | None = None
 
     def prepare_live(self, num_envs: int, resolve_on_reset: bool) -> list[PlacementResult]:
         """Draw construction layouts and retain them when resets should stay fixed."""
-        if self.placement_pool.draws_by_episode:
-            # Env e keeps episode e's layout when resets stay fixed.
-            num_layouts = 1 if resolve_on_reset else num_envs
-            layouts = self.placement_pool.sample_for_episodes(list(range(num_layouts)))
-        elif resolve_on_reset:
-            layouts = self.placement_pool.sample_with_replacement(1)
-        else:
-            layouts = self.placement_pool.sample_with_replacement(num_envs)
         if resolve_on_reset:
-            return [layouts[0]] * num_envs
+            [construction_layout] = self.placement_pool.sample_with_replacement(1)
+            return [construction_layout] * num_envs
 
+        layouts = self.placement_pool.sample_with_replacement(num_envs)
         self._fixed_placements = {
             env_id: (layout, self._sample_from_result(layout)) for env_id, layout in enumerate(layouts)
         }
         return layouts
 
-    def sample(
-        self, num_samples: int, env_ids: torch.Tensor, episode_indices: list[int] | None = None
-    ) -> list[PlacementSample]:
-        """Return one complete placement sample per requested environment.
-
-        Args:
-            num_samples: Number of samples, one per env id.
-            env_ids: Environments being reset.
-            episode_indices: Run-wide index of the episode each env starts. A pool that draws by episode uses
-                these; without them, the sampler numbers the episodes in the order it is asked for them.
-        """
+    def sample(self, num_samples: int, env_ids: torch.Tensor) -> list[PlacementSample]:
+        """Return one complete placement sample per requested environment."""
         assert env_ids is not None, "Relation placement requires explicit environment ids"
         env_id_list = [int(env_id) for env_id in env_ids.tolist()]
         assert num_samples == len(env_id_list), "Placement sample count must match env_ids"
-        if episode_indices is None:
-            episode_indices = list(range(self._next_episode_index, self._next_episode_index + num_samples))
-        assert len(episode_indices) == num_samples, "One episode index is required per env id"
-        if episode_indices:
-            self._next_episode_index = max(self._next_episode_index, max(episode_indices) + 1)
-        if self._fixed_placements is not None:
+        if self._fixed_placements is None:
+            results = self.placement_pool.sample_for_envs(env_id_list)
+            samples = [self._sample_from_result(results[env_id]) for env_id in env_id_list]
+        else:
             results = {}
             samples = []
             for env_id in env_id_list:
                 result, sample = self._fixed_placements[env_id]
                 results[env_id] = result
                 samples.append(sample)
-        elif self.placement_pool.draws_by_episode:
-            layouts = self.placement_pool.sample_for_episodes(episode_indices)
-            results = dict(zip(env_id_list, layouts, strict=True))
-            samples = [self._sample_from_result(layout) for layout in layouts]
-        else:
-            results = self.placement_pool.sample_for_envs(env_id_list)
-            samples = [self._sample_from_result(results[env_id]) for env_id in env_id_list]
         self.last_results = results
         if self._fixed_placements is None:
             for env_id, result in results.items():

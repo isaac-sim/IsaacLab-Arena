@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.bounding_box_helpers import (
     assign_variants_for_envs,
     build_per_env_bounding_boxes,
-    has_heterogeneous_objects,
     update_candidate_bounds,
 )
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
@@ -150,41 +149,6 @@ class ObjectPlacer:
 
         return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
 
-    def place_layouts(
-        self,
-        objects: list[PlaceableAsset],
-        layout_ids: list[int],
-        first_candidate_id: int = 0,
-        collision_objects: list[CollisionObject] | None = None,
-    ) -> list[PlacementResult]:
-        """Return the best-ranked layout for each layout id, for objects that are the same in every env.
-
-        Candidate c of layout j is seeded from (placement_seed, j, c), so a layout depends on its id and the
-        layouts solved with it, but not on num_envs.
-
-        Args:
-            layout_ids: Layouts to solve, one solver row each.
-            first_candidate_id: ID of each layout's first candidate; a retry passes the IDs it has not drawn yet.
-            collision_objects: Optional fixed background obstacles avoided during
-                placement but never optimized or relation-constrained.
-        """
-        assert not has_heterogeneous_objects(objects), "Layouts by id require the same objects in every env"
-        assert layout_ids, "layout_ids must not be empty"
-        anchor_objects_set, generator = self._prepare_placement(objects)
-        max_attempts = self.params.max_placement_attempts
-        ranked_results = self._place_ranked(
-            objects,
-            anchor_objects_set,
-            len(layout_ids),
-            candidates_per_env=max_attempts,
-            attempts_per_result=max_attempts,
-            generator=generator,
-            collision_objects=collision_objects or [],
-            seed_keys=layout_ids,
-            first_candidate_id=first_candidate_id,
-        )
-        return [results[0] for results in ranked_results]
-
     def _prepare_placement(
         self,
         objects: list[PlaceableAsset],
@@ -242,8 +206,6 @@ class ObjectPlacer:
         attempts_per_result: int,
         generator: torch.Generator | None,
         collision_objects: list[CollisionObject] | None = None,
-        seed_keys: list[int] | None = None,
-        first_candidate_id: int = 0,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -257,14 +219,7 @@ class ObjectPlacer:
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs).get_bounding_boxes_for_all_envs()
         batch = self._candidate_generator.generate_candidates(
-            objects,
-            anchor_objects_set,
-            env_bboxes,
-            candidates_per_env,
-            generator,
-            collision_objects,
-            seed_keys=seed_keys,
-            first_candidate_id=first_candidate_id,
+            objects, anchor_objects_set, env_bboxes, candidates_per_env, generator, collision_objects
         )
         self._solver.solve_candidates(objects, batch, collision_objects)
         self._finish_candidate_geometry(batch, env_bboxes)
