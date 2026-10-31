@@ -1,0 +1,85 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: scaled_articulation_clutter_repro
+embodiment:
+  id: operator
+  registry_name: no_embodiment
+background:
+  id: floor
+  registry_name: ground_plane
+objects:
+- id: white_cabinet
+  registry_name: cleanup_cabinet
+  params:
+    initial_pose:
+      position_xyz: [0.0, 0.0, 0.0]
+    scale: [0.72001123, 0.72001123, 0.72001123]
+    initial_joint_positions:
+      joint_part_01_joint_00: 0.3327
+    usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/fixture_cabinet_b01/simready_usd/sm_fixture_cabinet_b01_01.usd
+- id: scissors
+  registry_name: scissors_ycb_robolab
+- id: marker
+  registry_name: dry_erase_marker_ycb_robolab
+object_references:
+- id: top_drawer
+  parent_id: white_cabinet
+  prim_path: Cabinet/Geometry/part_01_obj_00
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: white_cabinet
+- kind: is_anchor
+  subject: top_drawer
+- kind: clutter_on
+  subject: scissors
+  reference: top_drawer
+  params:
+    spread: 0.6
+    gap_m: 0.005
+    clearance_m: 0.01
+    random_yaw: true
+- kind: clutter_on
+  subject: marker
+  reference: top_drawer
+  params:
+    spread: 0.6
+    gap_m: 0.005
+    clearance_m: 0.01
+    random_yaw: true
+task:
+  composition: parallel
+  description: Keep the scissors and marker inside the open top drawer.
+  subtasks:
+  - kind: ObjectInTask
+    params:
+      object: scissors
+      target: top_drawer
+      consecutive_success_steps: 10
+      episode_length_s: 10.0
+      linear_velocity_threshold: 0.35
+      angular_velocity_threshold: 12.0
+  - kind: ObjectInTask
+    params:
+      object: marker
+      target: top_drawer
+      consecutive_success_steps: 10
+      episode_length_s: 10.0
+      linear_velocity_threshold: 0.35
+      angular_velocity_threshold: 12.0
+placer_params:
+  random_yaw_init: false
+  min_unique_layouts_per_env: 1
+  resolve_on_reset: false
+  max_placement_attempts: 10
+  allow_best_loss_fallbacks: false
+  solver_params:
+    clearance_m: 0.002
+    max_iters: 1000
+env_cfg_override:
+  viewer:
+    eye: [1.8, -1.5, 1.4]
+    lookat: [0.0, 0.0, 0.5]
