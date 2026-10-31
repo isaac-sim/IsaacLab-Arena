@@ -36,7 +36,8 @@ class NewtonArenaMJWarpManager(NewtonMJWarpManager):
 
     This manager delegates solver construction and stepping to Isaac Lab, adding checks that abort
     on buffer exhaustion and MuJoCo-Warp overflow flags. These failures may
-    otherwise silently discard physics data while a run continues.
+    otherwise silently discard physics data while a run continues. Solver and line-search
+    iteration-limit flags drop no data and are only logged.
 
     The manager also handles models without MuJoCo actuators when creating fixed-tendon controls.
 
@@ -141,7 +142,7 @@ class ArenaPhysicsCfg(PresetCfg):
             cone="elliptic",
             update_data_interval=2,
             iterations=100,
-            ls_iterations=30,
+            ls_iterations=50,
             ls_parallel=False,
             use_mujoco_contacts=False,
             ccd_iterations=15000,
