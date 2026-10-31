@@ -1,0 +1,147 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_l_shaped_scandinavian
+  params:
+    collision_mode: mesh
+objects:
+- id: pepper
+  registry_name: red_bell_pepper_objaverse_robolab
+- id: left_bowl
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/bowl/simready_usd/bowl.usda
+    scale: [1.35, 1.35, 1]
+- id: middle_bowl
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/bowl/simready_usd/bowl.usda
+    scale: [1.35, 1.35, 1]
+- id: right_bowl
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/bowl/simready_usd/bowl.usda
+    scale: [1.35, 1.35, 1]
+- id: broccoli
+  registry_name: broccoli
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+- id: counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: counter_top
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: pepper
+  reference: counter_top
+- kind: 'on'
+  subject: left_bowl
+  reference: counter_top
+- kind: 'on'
+  subject: middle_bowl
+  reference: counter_top
+- kind: 'on'
+  subject: right_bowl
+  reference: counter_top
+- kind: 'on'
+  subject: broccoli
+  reference: counter_top
+- kind: align_with
+  subject: left_bowl
+  reference: middle_bowl
+  params:
+    axis: x
+    offset_m: -0.29
+    tolerance_m: 0.04
+- kind: align_with
+  subject: left_bowl
+  reference: middle_bowl
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.06
+- kind: align_with
+  subject: right_bowl
+  reference: middle_bowl
+  params:
+    axis: x
+    offset_m: 0.29
+    tolerance_m: 0.04
+- kind: align_with
+  subject: right_bowl
+  reference: middle_bowl
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.06
+- kind: align_with
+  subject: pepper
+  reference: middle_bowl
+  params:
+    axis: y
+    offset_m: -0.26
+    tolerance_m: 0.06
+- kind: align_with
+  subject: pepper
+  reference: middle_bowl
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.12
+- kind: align_with
+  subject: droid
+  reference: counter_top
+  params:
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.06
+- kind: align_with
+  subject: middle_bowl
+  reference: counter_top
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.1
+- kind: align_with
+  subject: droid
+  reference: middle_bowl
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the red bell pepper and place it in the middle bowl.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: pepper
+      destination_location: middle_bowl
+      destination_object: middle_bowl
+      background_scene: kitchen

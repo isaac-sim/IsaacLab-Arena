@@ -1,0 +1,152 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_one_wall_coastal
+  params:
+    collision_mode: mesh
+objects:
+- id: lime
+  registry_name: lime01_fruits_veggies_robolab
+- id: target_bowl
+  registry_name: bowl_ycb_robolab
+- id: other_bowl
+  registry_name: bowl_ycb_robolab
+- id: mug
+  registry_name: mug_ycb_robolab
+- id: mustard
+  registry_name: mustard_bottle_hope_robolab
+object_references:
+- id: right_counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: right_counter_top
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: lime
+  reference: right_counter_top
+- kind: 'on'
+  subject: target_bowl
+  reference: right_counter_top
+- kind: 'on'
+  subject: other_bowl
+  reference: right_counter_top
+- kind: 'on'
+  subject: mug
+  reference: right_counter_top
+- kind: 'on'
+  subject: mustard
+  reference: right_counter_top
+- kind: align_with
+  subject: mug
+  reference: target_bowl
+  params:
+    axis: x
+    offset_m: -0.23
+    tolerance_m: 0.04
+- kind: align_with
+  subject: mug
+  reference: target_bowl
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.06
+- kind: align_with
+  subject: mustard
+  reference: target_bowl
+  params:
+    axis: x
+    offset_m: 0.23
+    tolerance_m: 0.04
+- kind: align_with
+  subject: mustard
+  reference: target_bowl
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.06
+- kind: align_with
+  subject: other_bowl
+  reference: target_bowl
+  params:
+    axis: x
+    offset_m: 0.47
+    tolerance_m: 0.05
+- kind: align_with
+  subject: other_bowl
+  reference: target_bowl
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.09
+- kind: align_with
+  subject: lime
+  reference: target_bowl
+  params:
+    axis: y
+    offset_m: -0.24
+    tolerance_m: 0.05
+- kind: align_with
+  subject: lime
+  reference: target_bowl
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.12
+- kind: align_with
+  subject: droid
+  reference: right_counter_top
+  params:
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.06
+- kind: align_with
+  subject: target_bowl
+  reference: right_counter_top
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.1
+- kind: align_with
+  subject: droid
+  reference: target_bowl
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the lime and put it in the bowl between the mug and the mustard bottle.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lime
+      destination_location: target_bowl
+      destination_object: target_bowl
+      background_scene: kitchen

@@ -1,0 +1,168 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  num_rebuilds: 50
+  environment:
+    enable_cameras: true
+  environment_builder:
+    num_envs: 2
+    seed: 42
+    camera_resolution_mode: POLICY_DEFAULT
+  rollout_limit:
+    num_episodes: 100
+runs:
+  apple_in_right_bowl_g_shape_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  apple_in_right_bowl_g_shape_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml
+    policy:
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  bagel_on_plate_left_of_mug_l_island_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  bagel_on_plate_left_of_mug_l_island_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml
+    policy:
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  lemon_on_near_plate_peninsula_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  lemon_on_near_plate_peninsula_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml
+    policy:
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  lime_in_bowl_between_landmarks_coastal_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  lime_in_bowl_between_landmarks_coastal_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml
+    policy:
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  orange_in_front_right_bowl_l_island_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  orange_in_front_right_bowl_l_island_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml
+    policy:
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  pepper_in_middle_bowl_scandinavian_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  pepper_in_middle_bowl_scandinavian_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml
+    policy:
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  sponge_on_tray_behind_plate_u_shape_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  sponge_on_tray_behind_plate_u_shape_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml
+    policy:
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  sweet_potato_in_bowl_nearest_pepper_farmhouse_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sweet_potato_in_bowl_nearest_pepper_farmhouse.yaml
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  sweet_potato_in_bowl_nearest_pepper_farmhouse_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sweet_potato_in_bowl_nearest_pepper_farmhouse.yaml
+    policy:
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
