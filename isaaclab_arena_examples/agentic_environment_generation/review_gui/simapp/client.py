@@ -147,6 +147,30 @@ class SimAppClient:
             )
         return response
 
+    def inspect_spawned_physics(
+        self,
+        yaml_text: str,
+        *,
+        asset_id: str,
+        prim_path: str | None = None,
+        include_horizontal_surfaces: bool = False,
+    ) -> dict[str, Any]:
+        """Spawn an Arena asset and return its effective composed physics report."""
+        with self._lock:
+            response = self._request({
+                "cmd": "inspect_spawned_physics",
+                "yaml_text": yaml_text,
+                "asset_id": asset_id,
+                "prim_path": prim_path,
+                "include_horizontal_surfaces": include_horizontal_surfaces,
+            })
+        if not response.get("ok"):
+            raise SimAppError(
+                f"Spawned physics inspection failed: {response.get('error', 'unknown')}\n"
+                f"{response.get('traceback', '')}"
+            )
+        return response["report"]
+
     def ping(self) -> bool:
         """Cheap liveness check round-trip — returns True on a healthy reply."""
         with self._lock:

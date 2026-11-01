@@ -36,6 +36,12 @@ SimulationApp:
 uv run --no-sync python \
   isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
   prim-tree --usd <scene.usd> --output /tmp/scene_prim_tree.txt
+
+# Restrict inspection to one subtree and produce machine-readable output.
+uv run --no-sync python \
+  isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+  prim-tree --usd <scene.usd> --prim <default-prim-relative/path> \
+  --format json --output /tmp/scene_prim_tree.json
 ```
 
 Read the generated text file to inspect the hierarchy and object types. Physics records include
@@ -43,6 +49,8 @@ root-frame bounding-box center and size, joint type/axis/limits/connected bodies
 approximation, and authored rigid-body properties such as mass and density. Use these fields to
 confirm a candidate rather than inferring physics from prim names alone. Mass and inertia are
 authored USD values; they do not include values computed later by PhysX or Newton.
+The report also identifies instances, instance proxies, and prototypes. This command inspects
+the authored USD only; it cannot show Arena or Isaac Lab spawn-time overrides.
 
 ### Render and preview through the persistent backend
 
@@ -70,7 +78,11 @@ uv run --no-sync python $INSPECTOR preview \
   --num-envs 1 --num-steps 10
 uv run --no-sync python $INSPECTOR preview \
   --env-spec <scene.yaml> --output /tmp/scene_placement_overlay.mp4 \
-  --num-envs 1 --num-steps 10 --show-placement-overlay
+  --num-envs 1 --num-steps 10 --show-placement-overlay \
+  --placement-report /tmp/placement_report.json
+uv run --no-sync python $INSPECTOR spawned-physics \
+  --env-spec <scene.yaml> --asset <asset-id> \
+  --output /tmp/spawned_physics.json
 uv run --no-sync python $INSPECTOR shutdown
 ```
 

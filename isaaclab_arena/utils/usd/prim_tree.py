@@ -7,7 +7,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any
 
 from isaaclab_arena.assets.object_type import ObjectType
 
@@ -42,6 +43,8 @@ class UsdColliderInfo:
     enabled: bool
     rigid_body_owner_path: str | None
     approximation: str | None
+    contact_offset_m: float | None = None
+    rest_offset_m: float | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,19 @@ class UsdRigidBodyInfo:
     density_kg_m3: float | None
     center_of_mass: tuple[float, ...] | None
     diagonal_inertia: tuple[float, ...] | None
+    disable_gravity: bool | None = None
+    linear_damping: float | None = None
+    angular_damping: float | None = None
+
+
+@dataclass(frozen=True)
+class UsdInstanceInfo:
+    """Composed USD instancing state."""
+
+    instance: bool
+    instance_proxy: bool
+    instanceable: bool
+    prototype_path: str | None
 
 
 @dataclass(frozen=True)
@@ -67,6 +83,7 @@ class UsdPrimRecord:
     joint: UsdJointInfo | None = None
     collider: UsdColliderInfo | None = None
     rigid_body: UsdRigidBodyInfo | None = None
+    instance: UsdInstanceInfo | None = None
 
 
 def _format_tuple(values: tuple[float, ...]) -> str:
@@ -105,6 +122,8 @@ def format_usd_prim_record_metadata(record: UsdPrimRecord) -> str:
             f"enabled={str(collider.enabled).lower()}",
             f"rigid_body_owner={collider.rigid_body_owner_path or 'world'}",
             f"approximation={collider.approximation}",
+            f"contact_offset_m={collider.contact_offset_m}",
+            f"rest_offset_m={collider.rest_offset_m}",
         ]
         fields.append(f"collider({','.join(collider_fields)})")
     if record.rigid_body is not None:
@@ -114,12 +133,27 @@ def format_usd_prim_record_metadata(record: UsdPrimRecord) -> str:
             f"kinematic={str(rigid_body.kinematic).lower()}",
             f"mass_kg={rigid_body.mass_kg}",
             f"density_kg_m3={rigid_body.density_kg_m3}",
+            f"disable_gravity={rigid_body.disable_gravity}",
+            f"linear_damping={rigid_body.linear_damping}",
+            f"angular_damping={rigid_body.angular_damping}",
         ]
         if rigid_body.center_of_mass is not None:
             rigid_body_fields.append(f"center_of_mass={_format_tuple(rigid_body.center_of_mass)}")
         if rigid_body.diagonal_inertia is not None:
             rigid_body_fields.append(f"diagonal_inertia={_format_tuple(rigid_body.diagonal_inertia)}")
         fields.append(f"rigid_body({','.join(rigid_body_fields)})")
+    if record.instance is not None and (
+        record.instance.instance or record.instance.instance_proxy or record.instance.instanceable
+    ):
+        instance = record.instance
+        fields.append(
+            "instance("
+            f"instance={str(instance.instance).lower()},"
+            f"proxy={str(instance.instance_proxy).lower()},"
+            f"instanceable={str(instance.instanceable).lower()},"
+            f"prototype={instance.prototype_path}"
+            ")"
+        )
     return " ".join(fields)
 
 
@@ -142,6 +176,16 @@ def format_usd_prim_tree(prim_tree: list[UsdPrimRecord], *, heading: str = "USD 
         lines.append(f"{indent}{suffix} ({tag})")
         stack.append(path)
     return "\n".join(lines)
+
+
+def usd_prim_records_to_dicts(prim_tree: list[UsdPrimRecord]) -> list[dict[str, Any]]:
+    """Return JSON-serializable dictionaries for prim-tree records."""
+    records = []
+    for record in prim_tree:
+        data = asdict(record)
+        data["object_type"] = record.object_type.value
+        records.append(data)
+    return records
 
 
 def _attribute_value(attribute, default=None):
@@ -175,6 +219,10 @@ def _bounding_box_in_root_frame(prim, default_prim, bbox_cache) -> UsdBoundingBo
     )
 
 
+def _authored_named_attribute_value(prim, name: str):
+    return _authored_attribute_value(prim.GetAttribute(name))
+
+
 def _rigid_body_info(prim, UsdPhysics) -> UsdRigidBodyInfo:
     rigid_body = UsdPhysics.RigidBodyAPI(prim)
     mass = UsdPhysics.MassAPI(prim)
@@ -185,6 +233,9 @@ def _rigid_body_info(prim, UsdPhysics) -> UsdRigidBodyInfo:
         density_kg_m3=_optional_float(_authored_attribute_value(mass.GetDensityAttr())),
         center_of_mass=_optional_tuple(_authored_attribute_value(mass.GetCenterOfMassAttr())),
         diagonal_inertia=_optional_tuple(_authored_attribute_value(mass.GetDiagonalInertiaAttr())),
+        disable_gravity=_authored_named_attribute_value(prim, "physxRigidBody:disableGravity"),
+        linear_damping=_optional_float(_authored_named_attribute_value(prim, "physxRigidBody:linearDamping")),
+        angular_damping=_optional_float(_authored_named_attribute_value(prim, "physxRigidBody:angularDamping")),
     )
 
 
@@ -252,6 +303,8 @@ def _collider_info(prim, stage, rigid_body_paths: set[str], default_prim, UsdPhy
             default_prim,
         ),
         approximation=str(approximation) if approximation is not None else None,
+        contact_offset_m=_optional_float(_authored_named_attribute_value(prim, "physxCollision:contactOffset")),
+        rest_offset_m=_optional_float(_authored_named_attribute_value(prim, "physxCollision:restOffset")),
     )
 
 
@@ -261,6 +314,13 @@ def _traverse_composed_stage(stage):
 
     stage.Load()
     return Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies())
+
+
+def _traverse_composed_subtree(root_prim):
+    """Traverse a composed subtree, including prims beneath instance proxies."""
+    from pxr import Usd
+
+    return Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies())
 
 
 def find_nested_physics_roots(root_prim) -> dict[str, ObjectType]:
@@ -383,91 +443,118 @@ def load_usd_physics_roots(
     return dict(sorted(roots.items()))
 
 
-def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
-    """Return prim records for the physics/collision subtree of a USD asset.
+def load_stage_prim_tree(stage, root_prim, *, include_physical_root: bool = False) -> list[UsdPrimRecord]:
+    """Return physics/collision records below a composed stage prim.
 
     A prim is included when it directly participates in physics or collision, or
-    when any of its descendants does. Retaining those ancestors keeps the returned
-    records connected as a tree so the nested catalog can recover full paths.
+    when any descendant does. Paths and bounds are relative to ``root_prim``.
 
     Args:
-        usd_path: Local filesystem path or Nucleus/HTTPS URL for the USD. Remote
-            URLs are downloaded via :func:`retrieve_file_path` first — bare
-            ``Usd.Stage.Open(https://…)`` fails outside a Kit asset resolver
-            (e.g. Streamlit generation).
+        stage: Open composed USD stage.
+        root_prim: Root of the subtree to inspect.
+        include_physical_root: Include ``root_prim`` as path ``.`` when it directly
+            participates in physics.
 
     Returns:
         Sorted list of :class:`UsdPrimRecord` entries keyed by relative_path suffix.
     """
-    from isaaclab.utils.assets import retrieve_file_path
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.utils.usd.helpers import (
         articulation_joint_names,
         has_physics_or_collision,
         object_type_for_prim,
-        open_stage,
-        relative_path_from_default_prim,
     )
 
-    local_usd_path = retrieve_file_path(usd_path)
     records: list[UsdPrimRecord] = []
-    with open_stage(local_usd_path) as stage:
-        prims = tuple(_traverse_composed_stage(stage))
-        default_prim = stage.GetDefaultPrim()
-        bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
-        rigid_body_paths = {str(prim.GetPath()) for prim in prims if prim.HasAPI(UsdPhysics.RigidBodyAPI)}
-        # Collect prims that directly participate in physics or collision, then add
-        # every ancestor so a prim is kept whenever any descendant is kept.
-        # TODO(qianl): Ancestor-only prims are labeled base; non-leaf refs are valid today.
-        # Revisit when relation solving adds descendant mesh exclusion; no issue observed yet.
-        included_paths: set[str] = set()
-        for prim in prims:
-            if prim.IsPseudoRoot():
-                continue
-            if not has_physics_or_collision(prim) and not prim.IsA(UsdPhysics.Joint):
-                continue
-            ancestor = prim
-            while ancestor and not ancestor.IsPseudoRoot():
-                path = str(ancestor.GetPath())
-                if path in included_paths:
-                    break
-                included_paths.add(path)
-                ancestor = ancestor.GetParent()
+    assert root_prim and root_prim.IsValid(), "Inspection root prim must exist."
+    prims = tuple(_traverse_composed_subtree(root_prim))
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    rigid_body_paths = {str(prim.GetPath()) for prim in prims if prim.HasAPI(UsdPhysics.RigidBodyAPI)}
+    included_paths: set[str] = set()
+    for prim in prims:
+        if not has_physics_or_collision(prim) and not prim.IsA(UsdPhysics.Joint):
+            continue
+        ancestor = prim
+        while ancestor and ancestor.GetPath().HasPrefix(root_prim.GetPath()):
+            path = str(ancestor.GetPath())
+            if path in included_paths:
+                break
+            included_paths.add(path)
+            if ancestor == root_prim:
+                break
+            ancestor = ancestor.GetParent()
 
-        for prim in prims:
-            if prim.IsPseudoRoot():
-                continue
-            if str(prim.GetPath()) not in included_paths:
-                continue
-            relative_path = relative_path_from_default_prim(stage, str(prim.GetPath()))
-            if not relative_path:
-                continue
-            object_type = object_type_for_prim(prim)
-            joint_names: tuple[str, ...] = ()
-            if object_type == ObjectType.ARTICULATION:
-                joint_names = articulation_joint_names(prim)
-            directly_physical = has_physics_or_collision(prim)
-            records.append(
-                UsdPrimRecord(
-                    relative_path=relative_path,
-                    object_type=object_type,
-                    joint_names=joint_names,
-                    bounding_box_root=(
-                        _bounding_box_in_root_frame(prim, default_prim, bbox_cache) if directly_physical else None
-                    ),
-                    joint=(
-                        _joint_info(prim, stage, rigid_body_paths, default_prim, UsdPhysics)
-                        if prim.IsA(UsdPhysics.Joint)
-                        else None
-                    ),
-                    collider=(
-                        _collider_info(prim, stage, rigid_body_paths, default_prim, UsdPhysics)
-                        if prim.HasAPI(UsdPhysics.CollisionAPI)
-                        else None
-                    ),
-                    rigid_body=_rigid_body_info(prim, UsdPhysics) if prim.HasAPI(UsdPhysics.RigidBodyAPI) else None,
-                )
+    root_path = str(root_prim.GetPath()).rstrip("/")
+    for prim in prims:
+        prim_path = str(prim.GetPath())
+        if prim_path not in included_paths:
+            continue
+        if prim == root_prim and (
+            not include_physical_root or (not has_physics_or_collision(prim) and not prim.IsA(UsdPhysics.Joint))
+        ):
+            continue
+        relative_path = prim_path[len(root_path) :].lstrip("/") or "."
+        object_type = object_type_for_prim(prim)
+        joint_names: tuple[str, ...] = ()
+        if object_type == ObjectType.ARTICULATION:
+            joint_names = articulation_joint_names(prim)
+        directly_physical = has_physics_or_collision(prim)
+        prototype = prim.GetPrototype() if prim.IsInstance() else prim.GetPrimInPrototype()
+        records.append(
+            UsdPrimRecord(
+                relative_path=relative_path,
+                object_type=object_type,
+                joint_names=joint_names,
+                bounding_box_root=(
+                    _bounding_box_in_root_frame(prim, root_prim, bbox_cache) if directly_physical else None
+                ),
+                joint=(
+                    _joint_info(prim, stage, rigid_body_paths, root_prim, UsdPhysics)
+                    if prim.IsA(UsdPhysics.Joint)
+                    else None
+                ),
+                collider=(
+                    _collider_info(prim, stage, rigid_body_paths, root_prim, UsdPhysics)
+                    if prim.HasAPI(UsdPhysics.CollisionAPI)
+                    else None
+                ),
+                rigid_body=_rigid_body_info(prim, UsdPhysics) if prim.HasAPI(UsdPhysics.RigidBodyAPI) else None,
+                instance=UsdInstanceInfo(
+                    instance=prim.IsInstance(),
+                    instance_proxy=prim.IsInstanceProxy(),
+                    instanceable=prim.IsInstanceable(),
+                    prototype_path=str(prototype.GetPath()) if prototype and prototype.IsValid() else None,
+                ),
             )
+        )
     records.sort(key=lambda record: record.relative_path)
     return records
+
+
+def load_usd_prim_tree(usd_path: str, prim_path: str | None = None) -> list[UsdPrimRecord]:
+    """Return prim records for a selected physics/collision subtree of a USD asset.
+
+    Args:
+        usd_path: Local filesystem path or Nucleus/HTTPS URL for the USD.
+        prim_path: Optional absolute stage path or default-prim-relative subtree.
+
+    Returns:
+        Sorted prim records with paths relative to the selected root.
+    """
+    from isaaclab.utils.assets import retrieve_file_path
+
+    from isaaclab_arena.utils.usd.helpers import open_stage
+
+    local_usd_path = retrieve_file_path(usd_path)
+    with open_stage(local_usd_path) as stage:
+        stage.Load()
+        default_prim = stage.GetDefaultPrim()
+        assert default_prim and default_prim.IsValid(), f"USD has no valid default prim: {usd_path}"
+        if prim_path:
+            absolute_path = prim_path if prim_path.startswith("/") else f"{default_prim.GetPath()}/{prim_path}"
+            root_prim = stage.GetPrimAtPath(absolute_path)
+            assert root_prim and root_prim.IsValid(), f"USD prim does not exist: {prim_path}"
+        else:
+            root_prim = default_prim
+        return load_stage_prim_tree(stage, root_prim, include_physical_root=bool(prim_path))

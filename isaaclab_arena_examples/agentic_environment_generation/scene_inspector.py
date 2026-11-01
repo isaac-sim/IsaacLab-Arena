@@ -72,17 +72,22 @@ def _spec_yaml_text(path: Path) -> str:
 
 
 def _dump_prim_tree(args: argparse.Namespace) -> int:
-    from isaaclab_arena.utils.usd.prim_tree import format_usd_prim_tree, load_usd_prim_tree
+    from isaaclab_arena.utils.usd.prim_tree import format_usd_prim_tree, load_usd_prim_tree, usd_prim_records_to_dicts
 
     started_at = time.monotonic()
-    records = load_usd_prim_tree(args.usd)
+    records = load_usd_prim_tree(args.usd, prim_path=args.prim)
     output_path = args.output.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(format_usd_prim_tree(records) + "\n", encoding="utf-8")
+    if args.format == "json":
+        output_text = json.dumps(usd_prim_records_to_dicts(records), indent=2) + "\n"
+    else:
+        output_text = format_usd_prim_tree(records) + "\n"
+    output_path.write_text(output_text, encoding="utf-8")
     _json_stdout({
         "command": "prim-tree",
         "status": "completed",
-        "inputs": {"usd": args.usd},
+        "inputs": {"usd": args.usd, "prim": args.prim},
+        "format": args.format,
         "output": str(output_path),
         "record_count": len(records),
         "timings_s": {"total": time.monotonic() - started_at},
@@ -155,6 +160,34 @@ def _snapshot_scene(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_spawned_physics(args: argparse.Namespace) -> int:
+    started_at = time.monotonic()
+    with _live_backend(args.socket) as client:
+        report = client.inspect_spawned_physics(
+            _spec_yaml_text(args.env_spec),
+            asset_id=args.asset,
+            prim_path=args.prim,
+            include_horizontal_surfaces=args.horizontal_surfaces,
+        )
+    output_path = args.output.resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    _json_stdout({
+        "command": "spawned-physics",
+        "status": "completed",
+        "inputs": {
+            "env_spec": str(args.env_spec.resolve()),
+            "asset": args.asset,
+            "prim": args.prim,
+        },
+        "socket": str(args.socket),
+        "output": str(output_path),
+        "finding_count": len(report.get("unapplied_override_findings", [])),
+        "timings_s": {"total": time.monotonic() - started_at},
+    })
+    return 0
+
+
 def _preview_scene(args: argparse.Namespace) -> int:
     started_at = time.monotonic()
     with _live_backend(args.socket) as client:
@@ -206,8 +239,33 @@ def _parser() -> argparse.ArgumentParser:
 
     prim_tree = commands.add_parser("prim-tree", help="Dump the USD physics/collision prim tree.")
     prim_tree.add_argument("--usd", required=True, help="Local path or supported remote URL of the USD scene.")
+    prim_tree.add_argument(
+        "--prim",
+        help="Optional absolute or default-prim-relative subtree to inspect.",
+    )
+    prim_tree.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Report format (default: text).",
+    )
     prim_tree.add_argument("--output", type=Path, required=True, help="Destination text file.")
     prim_tree.set_defaults(handler=_dump_prim_tree)
+
+    spawned_physics = commands.add_parser(
+        "spawned-physics",
+        help="Report an Arena asset's effective physics after normal environment spawning.",
+    )
+    spawned_physics.add_argument("--env-spec", type=Path, required=True, help="ArenaEnvGraphSpec YAML.")
+    spawned_physics.add_argument("--asset", required=True, help="Scene asset id from the graph YAML.")
+    spawned_physics.add_argument("--prim", help="Optional asset-relative subtree to inspect.")
+    spawned_physics.add_argument("--output", type=Path, required=True, help="Destination JSON report.")
+    spawned_physics.add_argument(
+        "--horizontal-surfaces",
+        action="store_true",
+        help="Also run the opt-in world-Z mesh-facet support-surface heuristic.",
+    )
+    spawned_physics.set_defaults(handler=_inspect_spawned_physics)
 
     snapshot = commands.add_parser(
         "snapshot",

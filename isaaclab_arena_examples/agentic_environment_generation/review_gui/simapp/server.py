@@ -71,6 +71,10 @@ def _serve_connection(
             _write_response(writer, _handle_run_sim_preview(app, req))
             continue
 
+        if cmd == "inspect_spawned_physics":
+            _write_response(writer, _handle_inspect_spawned_physics(app, req))
+            continue
+
         _write_response(writer, {"ok": False, "error": f"unknown cmd: {cmd!r}"})
 
     return False
@@ -193,6 +197,35 @@ def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
         )
     except Exception as exc:
         return {"ok": False, "error": f"sim preview failed: {exc}", "traceback": traceback.format_exc()}
+
+
+def _handle_inspect_spawned_physics(app, req: dict[str, Any]) -> dict[str, Any]:
+    """Handle effective spawned-physics inspection JSON-RPC."""
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.spawned_physics import (  # noqa: PLC0415
+        run_spawned_physics_inspection,
+    )
+
+    yaml_text = req.get("yaml_text")
+    asset_id = req.get("asset_id")
+    prim_path = req.get("prim_path")
+    include_horizontal_surfaces = req.get("include_horizontal_surfaces", False)
+    if not isinstance(yaml_text, str) or not isinstance(asset_id, str) or not asset_id:
+        return {"ok": False, "error": "inspect_spawned_physics requires string 'yaml_text' and 'asset_id'"}
+    if prim_path is not None and not isinstance(prim_path, str):
+        return {"ok": False, "error": "inspect_spawned_physics 'prim_path' must be a string or null"}
+    if not isinstance(include_horizontal_surfaces, bool):
+        return {"ok": False, "error": "inspect_spawned_physics 'include_horizontal_surfaces' must be a boolean"}
+    try:
+        report = run_spawned_physics_inspection(
+            app,
+            yaml_text,
+            asset_id=asset_id,
+            prim_path=prim_path,
+            include_horizontal_surfaces=include_horizontal_surfaces,
+        )
+        return {"ok": True, "report": report}
+    except Exception as exc:
+        return {"ok": False, "error": f"inspection failed: {exc}", "traceback": traceback.format_exc()}
 
 
 def _parse_args() -> argparse.Namespace:

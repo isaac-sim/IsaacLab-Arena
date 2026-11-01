@@ -59,7 +59,7 @@ def test_kitchen_physics_prim_trees():
 
 
 def _test_prim_tree_spatial_and_rigid_body_metadata(_) -> bool:
-    from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
+    from pxr import Gf, PhysxSchema, Sdf, Usd, UsdGeom, UsdPhysics
 
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "metadata.usda"
@@ -81,6 +81,9 @@ def _test_prim_tree_spatial_and_rigid_body_metadata(_) -> bool:
         mesh_collider = UsdGeom.Mesh.Define(stage, "/Asset/MovingBody/MeshCollider").GetPrim()
         UsdPhysics.CollisionAPI.Apply(mesh_collider)
         UsdPhysics.MeshCollisionAPI.Apply(mesh_collider).CreateApproximationAttr("convexHull")
+        PhysxSchema.PhysxCollisionAPI.Apply(mesh_collider).CreateContactOffsetAttr(0.01)
+        PhysxSchema.PhysxCollisionAPI(mesh_collider).CreateRestOffsetAttr(0.002)
+        PhysxSchema.PhysxRigidBodyAPI.Apply(moving_body.GetPrim()).CreateLinearDampingAttr(0.3)
 
         joint = UsdPhysics.RevoluteJoint.Define(stage, "/Asset/MovingBody/Hinge")
         joint.CreateBody0Rel().SetTargets([Sdf.Path("/Asset/FixedBody")])
@@ -100,6 +103,9 @@ def _test_prim_tree_spatial_and_rigid_body_metadata(_) -> bool:
     moving_record = records["MovingBody"]
     assert moving_record.rigid_body is not None
     assert moving_record.rigid_body.density_kg_m3 == 250.0
+    assert moving_record.rigid_body.linear_damping == pytest.approx(0.3)
+    assert moving_record.instance is not None
+    assert not moving_record.instance.instance
     assert moving_record.bounding_box_root is not None
     assert moving_record.bounding_box_root.center_m == pytest.approx((1.0, 2.0, 3.0))
     assert moving_record.bounding_box_root.size_m == pytest.approx((1.0, 2.0, 3.0))
@@ -115,6 +121,8 @@ def _test_prim_tree_spatial_and_rigid_body_metadata(_) -> bool:
     assert mesh_collider_record.collider is not None
     assert mesh_collider_record.collider.type_name == "Mesh"
     assert mesh_collider_record.collider.approximation == "convexHull"
+    assert mesh_collider_record.collider.contact_offset_m == pytest.approx(0.01)
+    assert mesh_collider_record.collider.rest_offset_m == pytest.approx(0.002)
 
     joint_record = records["MovingBody/Hinge"]
     assert joint_record.joint is not None

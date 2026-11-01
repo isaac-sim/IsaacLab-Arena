@@ -69,7 +69,51 @@ def Xform "Asset"
     assert "Counter (base " in output
     assert "bbox_center_m=[0,0,0]" in output
     assert "bbox_size_m=[2,2,2]" in output
-    assert "collider(type=Cube,enabled=true,rigid_body_owner=world,approximation=None)" in output
+    assert "collider(type=Cube,enabled=true,rigid_body_owner=world,approximation=None," in output
+
+
+def test_prim_tree_command_supports_prim_scope_and_json(tmp_path: Path):
+    usd_path = tmp_path / "scene.usda"
+    usd_path.write_text(
+        """\
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+def Xform "Asset"
+{
+    def Xform "Selected"
+    {
+        def Cube "Collider" (prepend apiSchemas = ["PhysicsCollisionAPI"]) {}
+    }
+    def Cube "Excluded" (prepend apiSchemas = ["PhysicsCollisionAPI"]) {}
+}
+""",
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "prim_tree.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_SCRIPT),
+            "prim-tree",
+            "--usd",
+            str(usd_path),
+            "--prim",
+            "Selected",
+            "--format",
+            "json",
+            "--output",
+            str(output_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    records = json.loads(output_path.read_text())
+    assert [record["relative_path"] for record in records] == ["Collider"]
 
 
 def test_backend_entrypoint_help_does_not_start_simapp():
@@ -114,6 +158,47 @@ def test_snapshot_command_writes_backend_images(tmp_path: Path, monkeypatch, cap
     assert response["status"] == "completed"
     assert response["ignore_cache"] is True
     assert response["aabb_dimensions_m"] == {"counter/top": [1.0, 2.0, 3.0]}
+
+
+def test_spawned_physics_command_writes_backend_report(tmp_path: Path, monkeypatch, capsys):
+    from isaaclab_arena_examples.agentic_environment_generation import scene_inspector
+
+    class _Client:
+        def inspect_spawned_physics(
+            self,
+            yaml_text,
+            *,
+            asset_id,
+            prim_path,
+            include_horizontal_surfaces,
+        ):
+            assert yaml_text == "expanded"
+            assert asset_id == "cabinet"
+            assert prim_path == "Drawer"
+            assert include_horizontal_surfaces
+            return {"effective_physics": [], "unapplied_override_findings": [{"reason": "mismatch"}]}
+
+    @contextlib.contextmanager
+    def _backend(_socket):
+        yield _Client()
+
+    monkeypatch.setattr(scene_inspector, "_live_backend", _backend)
+    monkeypatch.setattr(scene_inspector, "_spec_yaml_text", lambda _path: "expanded")
+    output_path = tmp_path / "spawned.json"
+    args = SimpleNamespace(
+        socket=tmp_path / "backend.sock",
+        env_spec=tmp_path / "scene.yaml",
+        asset="cabinet",
+        prim="Drawer",
+        output=output_path,
+        horizontal_surfaces=True,
+    )
+
+    assert scene_inspector._inspect_spawned_physics(args) == 0
+    assert json.loads(output_path.read_text())["unapplied_override_findings"][0]["reason"] == "mismatch"
+    response = json.loads(capsys.readouterr().out)
+    assert response["status"] == "completed"
+    assert response["finding_count"] == 1
 
 
 def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsys):

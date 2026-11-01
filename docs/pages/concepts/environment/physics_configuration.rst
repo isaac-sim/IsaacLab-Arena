@@ -104,3 +104,25 @@ USD prims exist.
 
 For an already constructed object, update ``object_cfg.spawn``; changing only
 ``spawn_cfg_addon`` after construction does not rebuild that config.
+
+Inspecting authored and spawned physics
+---------------------------------------
+
+Use ``scene_inspector.py prim-tree --usd ...`` to inspect the authored USD without
+starting SimulationApp. Add ``--prim`` to select a subtree and ``--format json`` for
+machine-readable output. The report includes composed joints, colliders, rigid-body
+properties, bounds, and instancing metadata.
+
+Authored inspection cannot confirm that spawn-time overrides applied. With the persistent
+scene-inspector backend running, use:
+
+.. code-block:: bash
+
+   python isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+     spawned-physics --env-spec scene.yaml --asset cabinet \
+     --output /tmp/cabinet_spawned_physics.json
+
+This builds the environment through the normal Arena path and reports the configured
+physics settings, effective properties on the live composed stage, and suspicious
+unapplied overrides. ``--horizontal-surfaces`` additionally runs an opt-in authoring
+heuristic; it only examines mesh colliders and assumes world Z is up.
