@@ -22,10 +22,9 @@ supported route:
 | Route | Use it when |
 |---|---|
 | Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic environment generation. |
-| Docker | Use when requested, when the existing workflow is container-based, or when cuRobo reachability validation is required. |
+| Docker | Use when requested or when the existing workflow is container-based. |
 
-Do not silently switch routes. Native uv does not provide the optional cuRobo package; use Docker
-with `-c` for `ik_reachable` validation.
+Do not silently switch routes.
 
 ## Preflight and confirmation
 
@@ -82,7 +81,6 @@ Use these options only when the request needs them:
 | `-d <path>` | Mount datasets at `/datasets`. |
 | `-m <path>` | Mount models at `/models`. |
 | `-e <path>` | Mount evaluation outputs at `/eval`. |
-| `-c` | Build/use the cuRobo image for reachability validation. |
 | `-s <suffix>` | Override the automatic per-checkout container suffix. |
 
 Confirm that each explicitly requested mount path exists before launching. Mount flags apply only
@@ -93,12 +91,11 @@ mounts and show the complete reconstructed launcher command. Populate this shape
 configuration instead of relying on launcher defaults:
 
 ```bash
-./docker/run_docker.sh [-c] [-s <current-suffix>] -d <new-datasets> \
+./docker/run_docker.sh [-s <current-suffix>] -d <new-datasets> \
   [-m <current-models>] [-e <current-evaluation>]
 ```
 
-Include `-c` for an existing cuRobo image, `-s` for an existing suffix, and each current model or
-evaluation mount. Replace only the mount the user asked to change, and stop the container only after
+Include `-s` for an existing suffix and each current model or evaluation mount. Replace only the mount the user asked to change, and stop the container only after
 the user approves that exact command.
 
 The launcher builds a missing image, starts this checkout's container, and attaches interactively.
@@ -111,9 +108,8 @@ List the containers for this checkout without hardcoding a name:
 docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}\t{{.Image}}'
 ```
 
-Select the exact name matching the chosen image flavor and suffix and assign it to
-`ARENA_CONTAINER`. Do not take an arbitrary first match because regular and cuRobo containers can
-coexist for one checkout.
+Select the exact name matching the chosen suffix and assign it to `ARENA_CONTAINER`. Do not take an
+arbitrary first match because containers with different suffixes can coexist for one checkout.
 
 Verify the editable source mount as the host user:
 

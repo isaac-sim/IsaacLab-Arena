@@ -18,6 +18,7 @@ finishes together.
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass, fields
 
 from osmo.tasks.base_task import BaseTask
@@ -143,17 +144,21 @@ class DreamZeroEvaluationWorkflow(CompositeWorkflow):
     task_cfg_type = DreamZeroEvaluationTaskCfg
     workflow_cfg_type = DreamZeroWorkflowCfg
 
-    def _submit_steps(self) -> WorkflowSubmissionResult:
+    def _submit_steps(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
         """Submit the server workflow, then the policy-runner workflow tunnelled to it.
 
-        Returns the policy-runner workflow's submission result, whose workflow ID names
-        the run that produces the evaluation outputs.
+        Args:
+            timeout_s: Wall-clock limit in seconds for each ``osmo workflow submit``; None waits indefinitely.
+
+        Returns:
+            The policy-runner workflow's submission result, whose workflow ID names the run that
+            produces the evaluation outputs.
         """
         server_workflow = DreamZeroServerWorkflow(
             self._build_server_workflow_cfg(),
             DreamZeroServerTaskCfg(image=self.task_cfg.server_image),
         )
-        server_result = server_workflow.submit_workflow()
+        server_result = server_workflow.submit_workflow(timeout_s=timeout_s)
         if server_result.returncode != 0:
             return server_result
 
@@ -173,7 +178,15 @@ class DreamZeroEvaluationWorkflow(CompositeWorkflow):
             server_workflow_id=server_workflow_id,
             server_task_name=server_workflow.task_names[0],
         )
-        runner_result = runner_workflow.submit_workflow()
+        try:
+            runner_result = runner_workflow.submit_workflow(timeout_s=timeout_s)
+        except subprocess.TimeoutExpired:
+            if not self.workflow_cfg.dry_run:
+                print(
+                    f"Policy-runner submission timed out; the DreamZero server workflow {server_workflow_id}"
+                    f" may still be running — cancel it with `osmo workflow cancel {server_workflow_id}`."
+                )
+            raise
         if runner_result.returncode != 0 and not self.workflow_cfg.dry_run:
             print(
                 f"Policy-runner submission failed; the DreamZero server workflow {server_workflow_id}"

@@ -15,6 +15,7 @@ from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_run import RolloutLimitCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_loader import (
     load_arena_experiment_from_yaml,
@@ -70,11 +71,19 @@ def test_getting_started_experiment_composes_typed_runs():
     )
     assert runs["swap_objects"].environment == PickAndPlaceMapleTableEnvironmentCfg(
         embodiment="droid_rel_joint_pos",
-        pick_up_object="mustard_bottle_hot3d_robolab",
         destination_location="wooden_bowl_hot3d_robolab",
         hdr="home_office_robolab",
         episode_length_s=1.5,
     )
+    assert runs["swap_objects"].num_rebuilds == 3
+    assert runs["swap_objects"].variations == {
+        "pick_up_object.asset_selection.enabled": True,
+        "pick_up_object.asset_selection.registry_names": [
+            "mustard_bottle_hot3d_robolab",
+            "orange_01_fruits_veggies_robolab",
+            "rubiks_cube_hot3d_robolab",
+        ],
+    }
     assert runs["change_background_hdr"].environment.hdr == "billiard_hall_robolab"
     assert runs["parallel_envs"].environment.hdr == "home_office_robolab"
     assert all(run.environment.episode_length_s == 1.5 for run in runs.values())
@@ -82,7 +91,7 @@ def test_getting_started_experiment_composes_typed_runs():
     assert [run.environment_builder.num_envs for run in runs.values()] == [1, 1, 1, 64]
     assert runs["parallel_envs"].environment_builder.env_spacing == 2.5
     assert all(run.rollout_limit.num_steps is None for run in runs.values())
-    assert all(run.rollout_limit.num_episodes == 1 for run in runs.values())
+    assert [run.rollout_limit.num_episodes for run in runs.values()] == [1, 3, 1, 1]
 
 
 def test_experiment_composition_preserves_caller_owned_hydra_context():
@@ -244,6 +253,36 @@ runs:
         _load_experiment(config_path, overrides=["shared.missing=true"])
 
 
+def test_run_rollout_limit_replaces_shared_rollout_limit(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+shared:
+  environment:
+    type: pick_and_place_maple_table
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 50
+
+runs:
+  inherited: {}
+  total_episodes:
+    rollout_limit:
+      num_episodes: 4
+  per_rebuild:
+    num_rebuilds: 2
+    rollout_limit:
+      num_episodes_per_rebuild: [3, 1]
+""",
+    )
+
+    runs = _load_experiment(config_path).runs
+    assert runs["inherited"].rollout_limit == RolloutLimitCfg(num_steps=50)
+    assert runs["total_episodes"].rollout_limit == RolloutLimitCfg(num_episodes=4)
+    assert runs["per_rebuild"].rollout_limit == RolloutLimitCfg(num_episodes_per_rebuild=[3, 1])
+
+
 @pytest.mark.parametrize(("operator", "assignment"), [("+", "=75"), ("++", "=75"), ("~", "")])
 @pytest.mark.parametrize("experiment_config_prefix", ["", "experiment_cfg"])
 def test_shared_run_default_overrides_reject_hydra_operators(operator, assignment, experiment_config_prefix):
@@ -275,7 +314,6 @@ def test_robolab_experiments_apply_shared_run_defaults(config_name, expected_run
     assert all(run["environment"]["enable_cameras"] for run in default_run_values.values())
     assert all(run["environment_builder"]["num_envs"] == 20 for run in default_run_values.values())
     assert all(run["rollout_limit"]["num_episodes"] == 100 for run in default_run_values.values())
-    assert all(run["variations"]["light"]["hdr_image"]["enabled"] for run in default_run_values.values())
     assert not any(
         run["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"]
         for run in default_run_values.values()
@@ -327,6 +365,40 @@ runs:
         "recordings/rebuild1.jsonl",
     ]
     assert run.num_rebuilds == 2
+
+    serialized_path = _write_experiment(tmp_path, serialize_arena_experiment_to_yaml(experiment_cfg))
+    assert _load_experiment(serialized_path) == experiment_cfg
+
+
+def test_episodes_per_rebuild_round_trip_and_accept_matching_overrides(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  per_rebuild:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    num_rebuilds: 3
+    rollout_limit:
+      num_episodes_per_rebuild: [20, 5, 5]
+""",
+    )
+
+    experiment_cfg = _load_experiment(config_path)
+    run = experiment_cfg.runs["per_rebuild"]
+    assert run.rollout_limit.num_episodes_per_rebuild == [20, 5, 5]
+
+    overridden_cfg = _load_experiment(
+        config_path,
+        overrides=[
+            "runs.per_rebuild.num_rebuilds=2",
+            "runs.per_rebuild.rollout_limit.num_episodes_per_rebuild=[4,2]",
+        ],
+    )
+    assert overridden_cfg.runs["per_rebuild"].num_rebuilds == 2
+    assert overridden_cfg.runs["per_rebuild"].rollout_limit.num_episodes_per_rebuild == [4, 2]
 
     serialized_path = _write_experiment(tmp_path, serialize_arena_experiment_to_yaml(experiment_cfg))
     assert _load_experiment(serialized_path) == experiment_cfg

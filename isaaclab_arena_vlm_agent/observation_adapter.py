@@ -8,13 +8,12 @@
 from __future__ import annotations
 
 import numpy as np
+import torch
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from scipy.spatial.transform import Rotation
+from typing import Any
 
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
-
-if TYPE_CHECKING:
-    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 POLICY_OBSERVATION_GROUP = "policy"
 """Observation group containing the embodiment's named state terms."""
@@ -92,36 +91,110 @@ class StateObservationAdapter(VLMObservationAdapter):
 
 
 class ImageObservationAdapter(VLMObservationAdapter):
-    """Include the configured current RGB camera views for one environment."""
+    """Include RGB views and calibration from the live environment."""
 
-    def __init__(self, embodiment: EmbodimentBase):
-        observation_cfg = embodiment.get_observation_cfg()
-        camera_cfg = getattr(observation_cfg, CAMERA_OBSERVATION_GROUP, None)
+    def extract_vlm_input_from_observation(self, env, observation, env_id: int):
+        """Return RGB views and optical-frame camera calibration for one environment."""
+        base = env.unwrapped
+        camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP, None)
         assert camera_cfg is not None, "RGB modality requires camera observations; enable the embodiment's cameras"
-        self.camera_keys = tuple(
+        camera_keys = tuple(
             name
             for name, term in vars(camera_cfg).items()
             if hasattr(term, "func") and term.params.get("data_type") == "rgb"
         )
-        assert self.camera_keys, "RGB modality requires at least one configured RGB observation"
-
-    def extract_vlm_input_from_observation(self, env, observation, env_id: int):
-        """Return configured RGB views for the selected environment."""
-        images = extract_rgb_images_from_camera_observations(
-            observation[CAMERA_OBSERVATION_GROUP], self.camera_keys, env_id
-        )
-        return images, {}
+        assert camera_keys, "RGB modality requires at least one configured RGB observation"
+        images = extract_rgb_images_from_camera_observations(observation[CAMERA_OBSERVATION_GROUP], camera_keys, env_id)
+        return images, {"camera_geometry": _extract_camera_geometry(env, images, env_id)}
 
 
 class ImageStateObservationAdapter(VLMObservationAdapter):
     """Include robot state followed by current RGB camera views."""
 
-    def __init__(self, embodiment: EmbodimentBase):
+    def __init__(self):
         self.state_adapter = StateObservationAdapter()
-        self.image_adapter = ImageObservationAdapter(embodiment)
+        self.image_adapter = ImageObservationAdapter()
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
         """Return state and RGB views for the selected environment."""
         _, state = self.state_adapter.extract_vlm_input_from_observation(env, observation, env_id)
-        images, _ = self.image_adapter.extract_vlm_input_from_observation(env, observation, env_id)
-        return images, state
+        images, geometry = self.image_adapter.extract_vlm_input_from_observation(env, observation, env_id)
+        return images, {**state, **geometry}
+
+
+def _extract_camera_geometry(env, images: dict[str, np.ndarray], env_id: int) -> dict[str, dict[str, Any]]:
+    """Read camera intrinsics and optical-frame poses for the selected RGB views.
+
+    Args:
+        env: Arena environment, optionally gym-wrapped, with live camera sensors.
+        images: HWC RGB images indexed by their observation term names.
+        env_id: Environment index whose camera calibration is requested.
+
+    Returns:
+        Calibration by observation term, with world and robot-root poses using XYZW quaternions.
+    """
+    base = env.unwrapped
+    camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP)
+    roots = {}
+    for name in base.action_manager.active_terms:
+        asset_name = base.action_manager.get_term(name).cfg.asset_name
+        if asset_name not in roots:
+            roots[asset_name] = base.arena_world.get_pose_w(asset_name)[env_id].detach().cpu().numpy()
+    geometry = {}
+    for key, image in images.items():
+        term = getattr(camera_cfg, key)
+        sensor = base.scene[term.params["sensor_cfg"].name]
+        t_W_C, q_W_C = _read_mounted_camera_pose_w(base, sensor.cfg, env_id)
+        intrinsics = sensor.data.intrinsic_matrices.torch[env_id]
+        # C is the optical frame (+X right, +Y down, +Z forward); R is an asset root.
+        poses = {}
+        for asset_name, T_W_R in roots.items():
+            rotation_R_W = Rotation.from_quat(T_W_R[3:]).inv()
+            poses[asset_name] = {
+                "position_root_m": rotation_R_W.apply(t_W_C - T_W_R[:3]).tolist(),
+                "quaternion_root_xyzw": (rotation_R_W * Rotation.from_quat(q_W_C)).as_quat().tolist(),
+            }
+        geometry[key] = {
+            "image_size_px": [image.shape[1], image.shape[0]],
+            "intrinsic_matrix": intrinsics.detach().cpu().tolist(),
+            "optical_frame": "x_right_y_down_z_forward",
+            "position_world_m": t_W_C.tolist(),
+            "quaternion_world_xyzw": q_W_C.tolist(),
+            "poses_in_robot_roots": poses,
+        }
+    return geometry
+
+
+def _read_mounted_camera_pose_w(base, camera_cfg, env_id: int) -> tuple[np.ndarray, np.ndarray]:
+    """Compose a camera's parent-link pose with its mount offset.
+
+    Camera extrinsics variations perturb the rendered view but not this nominal calibration.
+
+    Args:
+        base: Unwrapped Arena environment.
+        camera_cfg: Camera configuration whose prim is a direct child of an articulation link.
+        env_id: Environment index whose camera pose is requested.
+
+    Returns:
+        World position in meters and XYZW optical-frame (+X right, +Y down, +Z forward) quaternion.
+    """
+    from isaaclab.utils.math import convert_camera_frame_orientation_convention
+
+    # B is the parent link and C is the optical frame.
+    parent_path, _ = camera_cfg.prim_path.rsplit("/", 1)
+    asset_names = [
+        name
+        for name, articulation in base.scene.articulations.items()
+        if parent_path.startswith(f"{articulation.cfg.prim_path}/")
+    ]
+    assert len(asset_names) == 1, f"Expected one articulation mounting camera '{camera_cfg.prim_path}'"
+    body_name = parent_path.rsplit("/", 1)[1]
+    T_W_B = base.arena_world.get_body_pose_w(asset_names[0], body_name)[env_id].detach().cpu().numpy()
+    offset = camera_cfg.offset
+    q_B_C = convert_camera_frame_orientation_convention(
+        torch.tensor(offset.rot, dtype=torch.float64), origin=offset.convention, target="ros"
+    )
+    rotation_W_B = Rotation.from_quat(T_W_B[3:])
+    t_W_C = rotation_W_B.apply(offset.pos) + T_W_B[:3]
+    q_W_C = (rotation_W_B * Rotation.from_quat(q_B_C.numpy())).as_quat()
+    return t_W_C, q_W_C

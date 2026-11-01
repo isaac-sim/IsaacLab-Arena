@@ -6,8 +6,22 @@
 """Typed configuration for compiling an Arena environment."""
 
 from dataclasses import dataclass
+from enum import Enum
 
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
+
+class CameraResolutionMode(str, Enum):
+    """Which component decides the image size the embodiment cameras render."""
+
+    EMBODIMENT_DEFAULT = "embodiment_default"
+    """Keep every camera at the dimensions the embodiment's camera rig declares."""
+
+    POLICY_DEFAULT = "policy_default"
+    """Shrink every camera, keeping its aspect ratio, to fit inside the image size the policy declares."""
+
+    def __str__(self) -> str:
+        return self.value
 
 
 # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace this flat legacy-CLI-shaped configuration with
@@ -38,7 +52,16 @@ class ArenaEnvBuilderCfg:
     recorded_variation_samples_path: str | None = None
     """Episode-result JSONL containing variation samples to replay; relative to the working directory."""
 
+    camera_resolution_mode: CameraResolutionMode = CameraResolutionMode.EMBODIMENT_DEFAULT
+    """Which component decides the image size the embodiment cameras render.
+
+    ``EMBODIMENT_DEFAULT`` keeps the dimensions the camera rig declares; ``POLICY_DEFAULT`` shrinks each
+    camera, keeping its aspect ratio, to fit inside the image size the policy declares through
+    ``PolicyBase.default_image_size``.
+    """
+
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
         if self.presets is not None:
             self.presets = PhysicsBackend(self.presets)
+        self.camera_resolution_mode = CameraResolutionMode(self.camera_resolution_mode)

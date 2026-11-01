@@ -27,6 +27,14 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     def __init__(self, config: PolicyCfgT):
         self.config = config
 
+    @classmethod
+    def default_image_size(cls, config: PolicyCfgT) -> tuple[int, int] | None:
+        """Return the (height, width) of the camera images this policy is designed for, or None if it has none.
+
+        Policies accept images of any size; this is the size that their image preprocessing targets.
+        """
+        return None  # noqa: R501 - subclasses with image inputs return a size
+
     @abstractmethod
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
         """

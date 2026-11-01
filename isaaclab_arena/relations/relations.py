@@ -6,11 +6,13 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, TypeVar
 
 from isaaclab_arena.assets.register import agent_ready, register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
 if TYPE_CHECKING:
@@ -114,13 +116,52 @@ class FaceTo(RelationBase):
 
 @agent_ready
 @register_object_relation
+class AlignWith(Relation):
+    """Align bounding-box centres along one world axis, leaving other axes unconstrained."""
+
+    name = "align_with"
+
+    def __init__(
+        self,
+        parent: PlaceableAsset,
+        axis: Axis | str,
+        offset_m: float = 0.0,
+        tolerance_m: float = 0.02,
+        relation_loss_weight: float = 1.0,
+    ):
+        """Align the subject's bounding-box centre with the reference centre plus offset_m along axis, within tolerance_m.
+
+        Args:
+            parent: Reference asset participating in placement.
+            axis: World axis to align, one of ``x``, ``y``, or ``z``.
+            offset_m: Signed subject-minus-reference centre displacement along that axis.
+            tolerance_m: Zero-penalty alignment band and maximum error accepted by placement validation.
+            relation_loss_weight: Weight of the alignment objective during solving.
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert math.isfinite(offset_m), "offset_m must be finite"
+        assert math.isfinite(tolerance_m) and tolerance_m >= 0, "tolerance_m must be finite and non-negative"
+        assert math.isfinite(relation_loss_weight) and relation_loss_weight > 0, "Alignment weight must be positive"
+        self.axis = Axis(axis)
+        self.offset_m = offset_m
+        self.tolerance_m = tolerance_m
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Require a movable subject and a distinct reference that participates in placement."""
+        assert self.parent is not subject, "AlignWith requires a different reference asset"
+        assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have an AlignWith relation"
+        assert self.parent in objects, f"AlignWith reference '{self.parent.name}' must participate in placement"
+
+
+@agent_ready
+@register_object_relation
 class NextTo(Relation):
     """Represents a 'next to' relationship between objects.
 
     This relation specifies that a child object should be placed adjacent to
     the parent object on a specified side, at a given distance.
 
-    Note: Loss computation is handled by NextToLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by NextToLossStrategy in optimization/losses/relation_loss_strategies.py.
     """
 
     name = "next_to"
@@ -131,7 +172,7 @@ class NextTo(Relation):
         side: Side | str,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        cross_position_ratio: float = 0.0,
+        cross_position_ratio: float | None = None,
         tolerance_m: float = 1e-2,
     ):
         """
@@ -144,7 +185,8 @@ class NextTo(Relation):
                 (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
                 the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
-                Default: 0.0 (centered).
+                Default: None (any position within the valid cross-axis range).
+                Set 0.0 explicitly to prefer centering.
             tolerance_m: Slack (meters) for placement validation: the child passes when its side and
                 distance violations are each within this value. Raise it to accept the side but care
                 less about the exact distance. cross_position_ratio is a soft preference, not gated.
@@ -152,8 +194,8 @@ class NextTo(Relation):
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
         assert (
-            -1.0 <= cross_position_ratio <= 1.0
-        ), f"cross_position_ratio must be in [-1, 1], got {cross_position_ratio}"
+            cross_position_ratio is None or -1.0 <= cross_position_ratio <= 1.0
+        ), f"cross_position_ratio must be None or in [-1, 1], got {cross_position_ratio}"
         assert tolerance_m >= 0.0, f"tolerance_m must be non-negative, got {tolerance_m}"
         self.distance_m = distance_m
         self.side = Side(side)
@@ -174,7 +216,7 @@ class On(Relation):
 
     Note: Footprint overlap does not guarantee stable support; the child may tip or fall.
 
-    Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by OnLossStrategy in optimization/losses/relation_loss_strategies.py.
     """
 
     name = "on"
@@ -304,7 +346,7 @@ class NotNextTo(Relation):
     all of ``+Y`` past the ``+Y`` edge, clipped to the parent's ``X`` extent).
     Anywhere off to either side of that footprint stays free, at any distance.
 
-    Note: Loss computation is handled by NotNextToLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by NotNextToLossStrategy in optimization/losses/relation_loss_strategies.py.
     """
 
     name = "not_next_to"
@@ -443,7 +485,7 @@ class AtPosition(UnaryRelation):
     unconstrained by this relation (allowing other relations like On to
     control that axis).
 
-    Note: Loss computation is handled by AtPositionLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by AtPositionLossStrategy in optimization/losses/relation_loss_strategies.py.
 
     Usage:
         # Pin object to x=0.5, y=1.0 in world coords (z controlled by On relation)
@@ -480,40 +522,33 @@ class AtPosition(UnaryRelation):
 class PositionLimitsBox(UnaryRelation):
     """Constrains an object's position to an axis-aligned box in world coordinates.
 
-    Each axis bound is independently optional (None = unconstrained).
+    Specify each axis as a (minimum, maximum) pair; None leaves that bound
+    unconstrained. Omitted axes are unconstrained.
 
     Usage:
-        mug.add_relation(PositionLimitsBox(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
-        mug.add_relation(PositionLimitsBox(z_min=0.8))  # only constrain Z
+        mug.add_relation(PositionLimitsBox(x_limits=(-0.5, 0.5), y_limits=(-0.5, 0.5)))
+        mug.add_relation(PositionLimitsBox(z_limits=(0.8, None)))  # only constrain Z
     """
 
     name = "position_limits_box"
 
     def __init__(
         self,
-        x_min: float | None = None,
-        x_max: float | None = None,
-        y_min: float | None = None,
-        y_max: float | None = None,
-        z_min: float | None = None,
-        z_max: float | None = None,
+        x_limits: Sequence[float | None] = (None, None),
+        y_limits: Sequence[float | None] = (None, None),
+        z_limits: Sequence[float | None] = (None, None),
         relation_loss_weight: float = 1.0,
     ):
+        for axis, limits in (("x", x_limits), ("y", y_limits), ("z", z_limits)):
+            assert len(limits) == 2, f"{axis}_limits must contain a minimum and maximum"
+            lower, upper = limits
+            assert lower is None or upper is None or lower < upper, f"{axis}_limits minimum must be less than maximum"
         assert any(
-            bound is not None for bound in (x_min, x_max, y_min, y_max, z_min, z_max)
+            bound is not None for bound in (*x_limits, *y_limits, *z_limits)
         ), "At least one axis bound must be specified for PositionLimitsBox"
-        if x_min is not None and x_max is not None:
-            assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
-        if y_min is not None and y_max is not None:
-            assert y_min < y_max, f"y_min must be less than y_max, got y_min={y_min}, y_max={y_max}"
-        if z_min is not None and z_max is not None:
-            assert z_min < z_max, f"z_min must be less than z_max, got z_min={z_min}, z_max={z_max}"
-        self.x_min = x_min
-        self.x_max = x_max
-        self.y_min = y_min
-        self.y_max = y_max
-        self.z_min = z_min
-        self.z_max = z_max
+        self.x_min, self.x_max = x_limits
+        self.y_min, self.y_max = y_limits
+        self.z_min, self.z_max = z_limits
         self.relation_loss_weight = relation_loss_weight
 
 

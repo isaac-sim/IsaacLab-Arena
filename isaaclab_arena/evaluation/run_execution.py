@@ -167,12 +167,17 @@ def _build_environment_from_cfg(
     run_cfg = deepcopy(cfg)
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
-    arena_builder = build_arena_builder_from_run_cfg(run_cfg)
+    arena_builder = build_arena_builder_from_run_cfg(run_cfg, rebuild_index=rebuild_index)
     return arena_builder.make_registered(render_mode=render_mode)
 
 
-def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
-    """Build an Arena environment builder from one typed run config."""
+def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -> ArenaEnvBuilder:
+    """Build an Arena environment builder from one typed run config.
+
+    Args:
+        cfg: The run whose environment is being built.
+        rebuild_index: Index of the rebuild the builder serves.
+    """
     hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
@@ -181,13 +186,15 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
             cfg.environment,
             environment_builder=cfg.environment_builder,
             hydra_overrides=hydra_overrides,
+            rebuild_index=rebuild_index,
+            policy_cfg=cfg.policy,
         )
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
-        else _build_arena_builder_from_cfg(cfg, hydra_overrides)
+        else _build_arena_builder_from_cfg(cfg, hydra_overrides, rebuild_index)
     )
 
 
-def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
+def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str], rebuild_index: int) -> ArenaEnvBuilder:
     """Build an Arena environment builder from a registered typed config."""
     # ArenaEnvBuilder imports pxr modules that must not load before SimulationApp.
     # Keep this runtime import deferred even though the type-only import is at the top.
@@ -199,6 +206,8 @@ def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str]) 
         arena_environment,
         cfg.environment_builder,
         hydra_overrides=hydra_overrides,
+        rebuild_index=rebuild_index,
+        policy_cfg=cfg.policy,
     )
 
 
@@ -241,6 +250,8 @@ def _resolve_rollout_limit(
 
 def _episodes_per_rebuild(cfg: ArenaRunCfg) -> list[int | None]:
     """Resolve one rollout episode budget per environment rebuild."""
+    if cfg.rollout_limit.num_episodes_per_rebuild is not None:
+        return list(cfg.rollout_limit.num_episodes_per_rebuild)
     if cfg.recorded_variation_samples_paths is not None:
         if cfg.rollout_limit.num_episodes is None:
             return [_recorded_episode_count(path) for path in cfg.recorded_variation_samples_paths]

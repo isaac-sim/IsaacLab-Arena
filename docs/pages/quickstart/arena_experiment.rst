@@ -32,7 +32,8 @@ The four Runs collect the three setups you launched and the parallel setup you p
       .. image:: ../../images/swap_objects.gif
          :alt: DROID pick-and-place environment with a mustard bottle and wooden bowl
 
-      Replaces the Rubik's cube and bowl with a mustard bottle and wooden bowl.
+      Replaces the bowl with a wooden bowl and builds the scene once for each pick-up object in its
+      list: a mustard bottle, an orange and a Rubik's cube.
 
    .. grid-item-card:: ``change_background_hdr``
       :class-card: sd-shadow-sm
@@ -103,6 +104,12 @@ environment for every Run, then closes that environment before starting the next
 By default, Arena saves the result as
 ``outputs/YYYY-MM-DD_HH-MM-SS/arena_experiment_result.json`` and prints the exact path. The file
 records every Run, its status, and its episode results.
+
+When episodes record string or boolean variation values, such as a selected asset, Arena also
+prints a table with one row for each completed Run, variation, and value. Each row shows the
+episode count and success rate across all rebuilds of the Run. Only values that episodes drew get a
+row; a value that no episode drew is not listed. In this Experiment, only ``swap_objects`` has rows,
+one per selected pick-up object.
 
 
 Change values from the command line

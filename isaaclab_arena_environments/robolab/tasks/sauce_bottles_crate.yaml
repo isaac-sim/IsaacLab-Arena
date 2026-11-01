@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: sauce_bottles_crate
-external_yaml: ../scenes/bottles_crate.yaml
+external_yaml:
+- ../scenes/bottles_crate.yaml
+- ../robolab_defaults.yaml
 task:
   composition: atomic
   description: place the bbq sauce bottle into the purple crate on the table
@@ -13,5 +15,5 @@ task:
     params:
       pick_up_object: bbq_sauce_bottle
       destination_location: purple_crate
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 40.0

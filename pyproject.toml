@@ -38,6 +38,9 @@ dependencies = [
     # HDF5 -> LeRobot conversion (isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot), imported at module level.
     # Pinned to 2.2.3 to match the version used in GR00T.
     "pandas==2.2.3",
+    # cuRobo IK for the build-time ik_reachable placement check (isaaclab_arena_curobo). The cu13 extra brings the
+    # cuda.core runtime that compiles cuRobo's kernels on first use, matching torch's CUDA 13.0 build.
+    "nvidia-curobo[cu13]",
 ]
 
 [project.optional-dependencies]
@@ -53,6 +56,7 @@ dev = [
     # its own: it adds one wheel, since Isaac Sim already brings everything it depends on, and an
     # extra only bought a way to install the review GUI with its asset search missing.
     "simready-search>=2026.4.2",
+    "huggingface-hub>=0.36",
 ]
 
 # PEP 735 dependency groups for the native uv install. Docker selects only its
@@ -184,6 +188,8 @@ explicit = true
 # same-named package from the NVIDIA index.
 mujoco-usd-converter = { index = "pypi" }
 isaacteleop = { index = "pypi" }
+# cuRobo v2 is not published as a wheel; build it from the pinned main commit.
+nvidia-curobo = { git = "https://github.com/NVlabs/curobo.git", rev = "78fd485fa82d9b9a063fb4985e371814587e666a" }
 torch = { index = "pytorch-cu130" }
 torchvision = { index = "pytorch-cu130" }
 gr00t = { path = "submodules/Isaac-GR00T", editable = true, group = "gr00t-client" }
@@ -223,6 +229,7 @@ requires-dist = [
 where = ["."]
 include = [
     "isaaclab_arena*",
+    "isaaclab_arena_benchmarking*",
     "isaaclab_arena_cosmos*",
     "isaaclab_arena_curobo*",
     "isaaclab_arena_dreamzero*",

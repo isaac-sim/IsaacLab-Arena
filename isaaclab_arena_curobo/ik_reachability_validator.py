@@ -17,9 +17,9 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
+from isaaclab_arena.relations.runtime.placement_events import get_base_rotation_per_asset
 from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 from isaaclab_arena.relations.validation.registry import register_validator
 from isaaclab_arena.relations.validation.types import PlacementCheck
@@ -39,9 +39,9 @@ from isaaclab_arena_curobo.utils.ik_solver_utils import (
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
+    from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
 

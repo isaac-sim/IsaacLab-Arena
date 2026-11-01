@@ -10,7 +10,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.bounding_box_helpers import rotate_candidate_bboxes
+from isaaclab_arena.relations.geometry.bounding_box_helpers import rotate_candidate_bboxes
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import NextTo, NotNextTo, On, RotateAroundSolution, Side

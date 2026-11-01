@@ -52,11 +52,34 @@ def test_rollout_limits_are_mutually_exclusive_and_positive():
         RolloutLimitCfg(num_steps=0)
     with pytest.raises(AssertionError, match="num_episodes must be greater"):
         RolloutLimitCfg(num_episodes=0)
+    with pytest.raises(AssertionError, match="mutually exclusive"):
+        RolloutLimitCfg(num_steps=2, num_episodes_per_rebuild=[1, 1])
+    with pytest.raises(
+        AssertionError, match="num_episodes \\(3\\) must equal the sum of num_episodes_per_rebuild \\(2\\)"
+    ):
+        RolloutLimitCfg(num_episodes=3, num_episodes_per_rebuild=[1, 1])
+    with pytest.raises(AssertionError, match="must not be empty"):
+        RolloutLimitCfg(num_episodes_per_rebuild=[])
+    with pytest.raises(AssertionError, match="entries must be greater than zero"):
+        RolloutLimitCfg(num_episodes_per_rebuild=[3, 0])
+
+
+def test_episodes_per_rebuild_accept_an_equal_episode_total():
+    rollout_limit = RolloutLimitCfg(num_episodes=30, num_episodes_per_rebuild=[20, 5, 5])
+
+    assert rollout_limit.num_episodes == 30
+    assert rollout_limit.num_episodes_per_rebuild == [20, 5, 5]
 
 
 def test_episode_budget_gives_every_rebuild_an_episode():
     with pytest.raises(AssertionError, match="each rebuild runs at least one episode"):
         _run(rollout_limit=RolloutLimitCfg(num_episodes=2), num_rebuilds=3)
+
+
+@pytest.mark.parametrize("num_rebuilds", [1, 2])
+def test_episodes_per_rebuild_require_matching_rebuild_count(num_rebuilds):
+    with pytest.raises(AssertionError, match=f"num_rebuilds \\({num_rebuilds}\\) must equal the 3 entries"):
+        _run(rollout_limit=RolloutLimitCfg(num_episodes_per_rebuild=[20, 5, 5]), num_rebuilds=num_rebuilds)
 
 
 def test_replay_paths_determine_rebuild_count():
@@ -101,6 +124,22 @@ def test_replay_paths_determine_rebuild_count():
                 "rollout_limit": RolloutLimitCfg(num_episodes=5),
             },
             "num_rebuilds \\(99\\) conflicts with the 2 recorded_variation_samples_paths",
+        ),
+        (
+            {
+                "recorded_variation_samples_paths": ["rebuild0.jsonl", "rebuild1.jsonl"],
+                "num_rebuilds": 2,
+                "rollout_limit": RolloutLimitCfg(num_episodes_per_rebuild=[1, 2]),
+            },
+            "does not support num_episodes_per_rebuild",
+        ),
+        (
+            {
+                "environment_builder": ArenaEnvBuilderCfg(recorded_variation_samples_path="rebuild0.jsonl"),
+                "num_rebuilds": 2,
+                "rollout_limit": RolloutLimitCfg(num_episodes_per_rebuild=[1, 2]),
+            },
+            "does not support num_episodes_per_rebuild",
         ),
     ],
 )

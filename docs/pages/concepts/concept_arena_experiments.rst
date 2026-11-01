@@ -71,8 +71,41 @@ values are reused by every Run. Each key below ``runs`` is a Run name:
 the background. The Run name comes from its key below ``runs``; there is no separate ``name``
 field. Arena uses this name in command-line overrides, output directories, and reports.
 
-Use ``rollout_limit.num_episodes`` instead of ``rollout_limit.num_steps`` to start and finish
-exactly that many episodes per Run, across all rebuilds.
+``rollout_limit`` sets when a Run stops. ``num_rebuilds`` is a Run field next to it that sets how
+many times the Run builds a fresh environment. These settings give:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 55 45
+
+   * - Settings
+     - Result
+   * - ``num_steps: 50``
+     - Each rebuild runs 50 environment steps.
+   * - ``num_episodes: 30``, ``num_rebuilds: 3``
+     - 10 / 10 / 10 episodes. With 31, the first rebuild gets the extra one: 11 / 10 / 10.
+   * - ``num_episodes_per_rebuild: [20, 5, 5]``, ``num_rebuilds: 3``
+     - 20 / 5 / 5 episodes.
+   * - ``num_episodes: 30``, ``num_episodes_per_rebuild: [20, 5, 5]``, ``num_rebuilds: 3``
+     - 20 / 5 / 5 episodes. ``num_episodes`` matches the sum of the list.
+   * - No limit
+     - The policy's own length. Only a policy with a fixed action-sequence length supports this.
+
+These combinations are rejected:
+
+* ``num_steps`` with ``num_episodes`` or ``num_episodes_per_rebuild``.
+* ``num_episodes`` smaller than ``num_rebuilds``.
+* ``num_episodes_per_rebuild`` with a length other than ``num_rebuilds``.
+* ``num_episodes`` that differs from the sum of ``num_episodes_per_rebuild``.
+* ``num_episodes_per_rebuild`` with replay from recorded variation samples.
+
+``num_rebuilds`` sits at the Run level, beside ``rollout_limit``:
+
+.. code-block:: yaml
+
+   num_rebuilds: 3
+   rollout_limit:
+     num_episodes_per_rebuild: [20, 5, 5]   # rebuild 0: 20, rebuild 1: 5, rebuild 2: 5
 
 See :doc:`Record and Replay Experiments <experiment_record_replay>` for variation recording,
 partial and complete replay, and episode scheduling across one or more rebuilds.
@@ -154,6 +187,10 @@ Reuse values with ``shared``
 
 ``shared`` removes repetition. Arena applies these values to every Run, then places each Run's
 own values on top. A Run only needs to declare what is different.
+
+A Run that declares ``rollout_limit`` replaces the shared one as a whole, so a Run can switch from a shared ``num_steps`` to ``num_episodes`` or
+``num_episodes_per_rebuild`` without clearing the shared field. A ``runs.<name>.rollout_limit.*``
+CLI override is applied after this step, so it is still merged with the Run's limit.
 
 Values are applied in this order, from lowest to highest priority:
 

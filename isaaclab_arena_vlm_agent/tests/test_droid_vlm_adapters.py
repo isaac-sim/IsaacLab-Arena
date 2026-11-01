@@ -17,6 +17,7 @@ from isaaclab_arena_vlm_agent.absolute_action_adapter import AbsoluteChunkAction
 from isaaclab_arena_vlm_agent.command_indices import AbsoluteCommandIndices, GripperCommandIndex, PoseCommandIndices
 from isaaclab_arena_vlm_agent.observation_adapter import ImageStateObservationAdapter
 from isaaclab_arena_vlm_agent.pose_target_motion_generator import PoseTargetMotionGenerator
+from isaaclab_arena_vlm_agent.tests.fake_scene import FakeScene, make_mounted_camera
 from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMChunkPolicy, VLMGoalPolicy, VLMGoalPolicyCfg, VLMPolicyCfg
 
 
@@ -30,21 +31,29 @@ def inputs(monkeypatch):
     embodiment = SimpleNamespace(
         get_observation_cfg=lambda: SimpleNamespace(
             policy=SimpleNamespace(concatenate_terms=False, gripper_pos=SimpleNamespace(func=Mock())),
-            camera_obs=SimpleNamespace(front=SimpleNamespace(func=Mock(), params={"data_type": "rgb"})),
+            camera_obs=SimpleNamespace(
+                front=SimpleNamespace(
+                    func=Mock(), params={"data_type": "rgb", "sensor_cfg": SimpleNamespace(name="sensor")}
+                )
+            ),
         ),
         get_action_cfg=lambda: SimpleNamespace(arm=SimpleNamespace(asset_name="robot", body_name="tool")),
     )
     world = SimpleNamespace(get_body_pose_in_root=Mock(return_value=torch.tensor([[0.4, 0, 0.3, 0, 0, 0, 1]] * 2)))
+    world.get_pose_w = Mock(return_value=torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]] * 2))
+    world.get_body_pose_w = Mock(return_value=torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]] * 2))
     env = SimpleNamespace(
         unwrapped=SimpleNamespace(
             num_envs=2,
-            action_dim=8,
             device="cpu",
+            cfg=SimpleNamespace(observations=embodiment.get_observation_cfg()),
+            scene=FakeScene(sensor=make_mounted_camera(torch.eye(3).repeat(2, 1, 1))),
             arena_world=world,
             observation_manager=SimpleNamespace(
                 active_terms={"policy": ["gripper_pos"]}, group_obs_concatenate={"policy": False}
             ),
             action_manager=SimpleNamespace(
+                total_action_dim=8,
                 action=torch.zeros(2, 8),
                 active_terms=["arm"],
                 get_term=lambda name: SimpleNamespace(cfg=embodiment.get_action_cfg().arm),
@@ -80,7 +89,7 @@ def _policy(mode, inputs, infer):
     policy = policy_type(
         config,
         inference_backend=SimpleNamespace(infer=infer),
-        observation_adapter=ImageStateObservationAdapter(embodiment),
+        observation_adapter=ImageStateObservationAdapter(),
         action_adapter=adapter,
     )
     policy.set_task_description("Move the gripper")

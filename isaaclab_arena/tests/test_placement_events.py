@@ -151,9 +151,9 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
 
 def _placement_handle(pool):
     """Wrap a live pool in the same sampler-backed handle used by production."""
-    from isaaclab_arena.relations.placement_events import PlacementSamplerHandle
-    from isaaclab_arena.relations.placement_sampler import PlacementSampler
     from isaaclab_arena.relations.relations import get_anchor_objects
+    from isaaclab_arena.relations.runtime.placement_events import PlacementSamplerHandle
+    from isaaclab_arena.relations.runtime.placement_sampler import PlacementSampler
 
     assets = list(pool.objects)
     anchor_assets = set(get_anchor_objects(assets))
@@ -167,7 +167,7 @@ def _placement_handle(pool):
 
 def _solve_and_place_with_pool(env, env_ids, pool):
     """Call the reset event with the same runtime params EventTermCfg stores."""
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.runtime.placement_events import solve_and_place_objects
 
     return solve_and_place_objects(env, env_ids, placement_sampler=_placement_handle(pool))
 
@@ -202,8 +202,8 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
 
 def test_solve_and_place_objects_uses_runtime_pool():
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.runtime.placement_events import solve_and_place_objects
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -307,7 +307,7 @@ def test_reset_placement_asset_pose_per_env_requires_full_env_coverage():
 
 
 def test_get_placement_pool_returns_runtime_pool():
-    from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
 
     class Pool:
         objects = []
@@ -589,10 +589,10 @@ def test_resolve_on_reset_false_applies_pose_per_env():
     """Simulates the resolve_on_reset=False path: sample layouts and build PosePerEnv per object."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_poses import get_pose_from_layout
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import get_anchor_objects
+    from isaaclab_arena.relations.runtime.placement_poses import get_pose_from_layout
     from isaaclab_arena.utils.pose import PosePerEnv
 
     desk, box1, box2 = _create_test_objects()
@@ -936,7 +936,7 @@ def test_prepare_live_relation_placement_drops_embodiment_from_event_params():
     # and on every built validator alike -- so configclass never deep-copies or recurses into it.
     from isaaclab.utils.configclass import _validate
 
-    from isaaclab_arena.relations.placement_events import PlacementSamplerHandle
+    from isaaclab_arena.relations.runtime.placement_events import PlacementSamplerHandle
 
     sampler_handle = event.params["placement_sampler"]
     assert isinstance(sampler_handle, PlacementSamplerHandle)

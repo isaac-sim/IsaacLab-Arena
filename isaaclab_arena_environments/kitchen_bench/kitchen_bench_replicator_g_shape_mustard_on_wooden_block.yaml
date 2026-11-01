@@ -1,0 +1,94 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_replicator_g_shape_mustard_on_wooden_block
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_g_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: mustard
+  registry_name: mustard_bottle_hope_robolab
+- id: wooden_block
+  registry_name: wood_block_ycb_robolab
+  params:
+    scale: [1.5, 1.5, 0.35]
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+# Sample within alignment bands instead of pulling each layout to a single offset.
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: corner_counter
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: corner_counter
+  params:
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.05
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: mustard
+  reference: corner_counter
+- kind: 'on'
+  subject: wooden_block
+  reference: corner_counter
+- kind: align_with
+  subject: mustard
+  reference: wooden_block
+  params:
+    axis: x
+    tolerance_m: 0.1
+- kind: align_with
+  subject: mustard
+  reference: wooden_block
+  params:
+    axis: y
+    offset_m: -0.18
+    tolerance_m: 0.05
+- kind: position_limits_box
+  subject: wooden_block
+  params:
+    x_limits: [-2.12, -1.78]
+    y_limits: [2.1, 2.23]
+- kind: align_with
+  subject: droid
+  reference: wooden_block
+  params:
+    axis: x
+    offset_m: 0.2
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the mustard bottle and place it on top of the wooden block.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: mustard
+      destination_location: wooden_block
+      destination_object: wooden_block
+      background_scene: kitchen

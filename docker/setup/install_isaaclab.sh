@@ -19,12 +19,14 @@ sync_isaaclab() {
     # is an explicit dependency for HDF5-to-LeRobot video conversion.
     uv sync --frozen --inexact "${IMAGE_EXTRAS[@]}" \
         --no-install-package imageio-ffmpeg "$@"
+    bash /tmp/repair_venv_permissions.sh
 }
 
 case "${1:-}" in
     dependencies)
         ln -sfn /isaac-sim/ "${ISAACLAB_PATH}/_isaac_sim"
         uv venv --seed --python /isaac-sim/kit/python/bin/python3 "${VIRTUAL_ENV}"
+        find "${VIRTUAL_ENV}" -type d -exec chmod g+s {} +
         sync_isaaclab --no-install-local
         ;;
     workspace)

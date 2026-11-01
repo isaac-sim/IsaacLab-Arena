@@ -10,8 +10,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-from isaaclab_arena.relations.placement_events import get_movable_asset_names, get_placement_pool, write_layout_to_sim
 from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.relations.runtime.placement_events import (
+    get_movable_asset_names,
+    get_placement_pool,
+    write_layout_to_sim,
+)
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils import physics_settle
 

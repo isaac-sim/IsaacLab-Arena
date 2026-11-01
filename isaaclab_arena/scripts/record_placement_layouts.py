@@ -57,7 +57,7 @@ def record_placements_to_jsonl(
         write_settled_layouts,
     )
     from isaaclab_arena.offline_placement.settled_placement import resolve_settle_params
-    from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
 
     output = Path(output)
     assert not output.exists(), f"Output already exists: {output}"

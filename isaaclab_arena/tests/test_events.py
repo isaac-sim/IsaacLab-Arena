@@ -201,7 +201,7 @@ def _test_pose_writes_skip_kinematic_velocities(simulation_app, backend, path_ex
     from isaaclab.managers import SceneEntityCfg
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.relations.placement_poses import write_scene_poses_to_sim
+    from isaaclab_arena.relations.runtime.placement_poses import write_scene_poses_to_sim
     from isaaclab_arena.terms.events import set_object_pose
     from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena.utils.velocity import Velocity

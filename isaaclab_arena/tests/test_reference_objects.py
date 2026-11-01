@@ -76,7 +76,7 @@ def test_object_reference_world_bbox_applies_parent_yaw():
     ],
 )
 def test_reference_anchor_bounds_do_not_reapply_prim_rotation(parent_pose, expected_lower, expected_upper):
-    from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
+    from isaaclab_arena.relations.geometry.bounding_box_helpers import build_per_env_bounding_boxes
     from isaaclab_arena.relations.relations import IsAnchor
 
     reference = _object_reference_with_cached_bbox(

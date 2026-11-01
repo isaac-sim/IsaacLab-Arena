@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv, ViewerCfg
@@ -23,9 +23,9 @@ from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
 import isaaclab_arena_curobo  # noqa: F401
-from isaaclab_arena.assets.registries import DeviceRegistry
+from isaaclab_arena.assets.registries import DeviceRegistry, PolicyRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
-from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg, CameraResolutionMode
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     ArenaPhysicsCfg,
@@ -50,14 +50,15 @@ from isaaclab_arena.recording.common_terms import (
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-from isaaclab_arena.relations.placement_sampler import (
+from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
+from isaaclab_arena.relations.runtime.placement_sampler import (
     PlacementSampler,
     RecordedPlacementSampler,
     serialize_placement_samples,
     supports_recorded_placement,
 )
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import task_success_from_progress
@@ -72,6 +73,9 @@ from isaaclab_arena.variations.recorded_variation_replay import configure_record
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase, get_enabled_variations_by_key
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
+
+if TYPE_CHECKING:
+    from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
 # TODO: peterd, 2026-09-16: Remove this once Arena migrates off ViewCfg and into KitVisualizerCfg.
@@ -103,13 +107,53 @@ class ArenaEnvBuilder:
         arena_env: IsaacLabArenaEnvironment,
         cfg: ArenaEnvBuilderCfg,
         hydra_overrides: list[str] | None = None,
+        rebuild_index: int = 0,
+        policy_cfg: PolicyCfg | None = None,
     ):
+        """Create a builder for one Arena environment.
+
+        Args:
+            arena_env: The composed Arena environment to build.
+            cfg: Builder options such as the environment count and camera resolution mode.
+            hydra_overrides: Variation overrides applied when the environment config is composed.
+            rebuild_index: Index of this build among the rebuilds of an Experiment Run; 0 for a single build.
+            policy_cfg: Config of the registered policy that will drive the environment. Required by
+                ``cfg.camera_resolution_mode`` ``policy_default`` to fit the embodiment cameras to the policy.
+        """
         self.arena_env = arena_env
         self.cfg = cfg
         self.hydra_overrides = hydra_overrides
+        self.rebuild_index = rebuild_index
+        self.policy_cfg = policy_cfg
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
+        # How live relation placement filled its pool in the last build_env_cfg(), or None when that build solved no
+        # relations or failed.
+        self.placement_diagnostics: PlacementDiagnostics | None = None
+
+    def _apply_camera_resolution_mode(self) -> None:
+        """Resize the embodiment camera rig as selected by ``cfg.camera_resolution_mode``."""
+        if self.cfg.camera_resolution_mode == CameraResolutionMode.EMBODIMENT_DEFAULT:
+            return
+        assert self.cfg.camera_resolution_mode == CameraResolutionMode.POLICY_DEFAULT
+        embodiment = self.arena_env.embodiment
+        assert embodiment is not None, "camera_resolution_mode 'policy_default' requires an environment embodiment"
+        assert (
+            embodiment.enable_cameras
+        ), "camera_resolution_mode 'policy_default' requires embodiment cameras to be enabled"
+        assert (
+            embodiment.camera_config is not None
+        ), "camera_resolution_mode 'policy_default' requires an embodiment camera rig"
+        assert self.policy_cfg is not None, "camera_resolution_mode 'policy_default' requires the policy config"
+        policy_type = PolicyRegistry().get_policy_type_for_cfg(self.policy_cfg)
+        policy_image_size = policy_type.default_image_size(self.policy_cfg)
+        assert policy_image_size is not None, (
+            "camera_resolution_mode 'policy_default' requires a policy that declares a default image size"
+            f" (PolicyBase.default_image_size), but {policy_type.__name__} declares none; select"
+            " 'embodiment_default' instead"
+        )
+        embodiment.camera_config.fit_resolution(*policy_image_size)
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:
@@ -166,7 +210,7 @@ class ArenaEnvBuilder:
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
-        # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
+        # Delists itself unless the embodiment has a registered cuRobo config.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
         return prepare_live_relation_placement(
@@ -225,7 +269,9 @@ class ArenaEnvBuilder:
         texture), so this must run before ``scene_cfg`` is materialised.
         """
         for variation_key, variation in get_enabled_variations_by_key(self.get_all_variations()).items():
-            variation.configure_at_build_time(seed=self.cfg.seed, variation_key=variation_key)
+            variation.configure_at_build_time(
+                seed=self.cfg.seed, variation_key=variation_key, rebuild_index=self.rebuild_index
+            )
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -297,6 +343,8 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple, with constructor arguments to forward to gym.make.
         """
+        # A failed build reports no placement diagnostics, so they are set only once the build succeeds.
+        self.placement_diagnostics = None
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         variations = self.get_all_variations()
         if self.hydra_overrides:
@@ -332,6 +380,8 @@ class ArenaEnvBuilder:
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
         embodiment.configure_physics_backend(resolved_physics_backend)
+        # Fit the cameras before embodiment.get_scene_cfg() and the observation cfgs read their dimensions.
+        self._apply_camera_resolution_mode()
         task = self.arena_env.task or NoTask()
         task.configure_for_embodiment(embodiment)
         scene_cfg = combine_configclass_instances(
@@ -546,6 +596,10 @@ class ArenaEnvBuilder:
             "variation_recorder": variation_recorder,
             "variation_replay_scheduler": variation_replay_scheduler,
         }
+        # Only live placement solves a pool. The sampler is a RecordedPlacementSampler when the build replays recorded
+        # layouts, and None when it solves no relations; neither has diagnostics.
+        if isinstance(placement_sampler, PlacementSampler):
+            self.placement_diagnostics = placement_sampler.placement_pool.last_fill_diagnostics
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

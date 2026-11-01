@@ -9,11 +9,11 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
-from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer
-from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.optimization.initializers.anchor_initializer import AnchorInitializer
+from isaaclab_arena.relations.optimization.initializers.on_tree_initializer import OnTreeInitializer
+from isaaclab_arena.relations.optimization.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, NextTo, On, PositionLimitsBox, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -306,7 +306,7 @@ def test_anchor_init_is_not_narrowed_by_position_limits():
     desk = _make_desk()
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.0))
-    box.add_relation(PositionLimitsBox(x_min=0.1, x_max=0.2))
+    box.add_relation(PositionLimitsBox(x_limits=(0.1, 0.2)))
     generator = torch.Generator().manual_seed(0)
 
     samples = [_seed(AnchorInitializer(), [desk, box], {desk}, generator=generator)[box] for _ in range(50)]

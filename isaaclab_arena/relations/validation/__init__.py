@@ -2,3 +2,5 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+"""Build-time checks of candidate layouts, their registry and results, and the Rerun view of the verdicts."""

@@ -62,11 +62,12 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
     assert cube_limits.reference is None
     assert cube_limits.params == {
-        "x_min": 0.55,
-        "x_max": 0.7,
-        "y_min": -0.4,
-        "y_max": -0.1,
+        "x_limits": [0.55, 0.7],
+        "y_limits": [-0.4, -0.1],
     }
+
+    limits = PositionLimitsBox(**cube_limits.params)
+    assert (limits.x_min, limits.x_max, limits.y_min, limits.y_max) == (0.55, 0.7, -0.4, -0.1)
 
     mug_position = spec.relations[5]
     assert mug_position.kind == "at_position"
@@ -234,7 +235,7 @@ def test_graph_spec_accepts_legacy_position_limits_box_name():
     data["relations"] = [{
         "kind": "position_limits",
         "subject": "cube",
-        "params": {"x_min": 0.1, "x_max": 0.3},
+        "params": {"x_limits": [0.1, 0.3]},
     }]
 
     (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations
@@ -379,12 +380,12 @@ def test_validate_rejects_duplicate_cli_override_args():
 
 
 def test_from_yaml_rejects_missing_path_with_clear_message():
-    with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
+    with pytest.raises(FileNotFoundError, match="Env graph spec YAML not found"):
         ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "does_not_exist.yaml")
 
 
 def test_read_cli_override_specs_rejects_missing_path_with_clear_message():
-    with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
+    with pytest.raises(FileNotFoundError, match="Env graph spec YAML not found"):
         ArenaEnvGraphSpec.read_cli_override_specs(TEST_DATA_DIR / "does_not_exist.yaml")
 
 

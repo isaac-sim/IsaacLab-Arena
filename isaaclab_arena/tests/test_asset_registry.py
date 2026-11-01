@@ -112,7 +112,14 @@ def _test_all_assets_in_registry(simulation_app, physics_backend: PhysicsBackend
     args_cli = args_parser.parse_args(["--presets", str(physics_backend)])
 
     builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
-    env = builder.make_registered()
+    env_cfg, env_kwargs = builder.build_env_cfg()
+    # Registered Newton deformables require VBD instead of the default MJWarp solver.
+    if physics_backend is PhysicsBackend.NEWTON:
+        from isaaclab_newton.physics import NewtonCfg, VBDSolverCfg
+
+        assert isinstance(env_cfg.sim.physics, NewtonCfg)
+        env_cfg.sim.physics = NewtonCfg(solver_cfg=VBDSolverCfg(iterations=1))
+    env = builder.make_registered(env_cfg, env_kwargs)
     env.reset()
 
     # Run

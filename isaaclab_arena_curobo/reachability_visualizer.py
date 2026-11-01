@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import torch
 
-from isaaclab_arena.relations.placement_visualizer import ROBOT_ENTITY, PlacementRerunVisualizer
+from isaaclab_arena.relations.validation.placement_visualizer import ROBOT_ENTITY, PlacementRerunVisualizer
 
 REACHABLE_COLOR = (40, 200, 80)
 """Color of a grasp the robot can reach."""

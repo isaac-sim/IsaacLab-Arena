@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: marker_in_mug
-external_yaml: ../scenes/workdesk.yaml
+external_yaml:
+- ../scenes/workdesk.yaml
+- ../robolab_defaults.yaml
 task:
   composition: atomic
   description: Put the whiteboard marker in the mug
@@ -13,5 +15,5 @@ task:
     params:
       pick_up_object: marker
       destination_location: ceramic_mug
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 40.0

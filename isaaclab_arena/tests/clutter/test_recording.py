@@ -48,12 +48,12 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.relations.placement_sampler import (
+    from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.runtime.placement_sampler import (
         deserialize_placement_samples,
         placement_samples_to_pose_columns,
     )
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
     from isaaclab_arena.relations.validation.types import PlacementCheck
     from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
     from isaaclab_arena.tests.clutter.test_clutter_collection import _make_primitive_clutter_scene

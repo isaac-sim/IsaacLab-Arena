@@ -1,0 +1,87 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Assets: NVIDIA SimReady Central (nvidia/simready-assets), CC-BY-4.0.
+env_name: tabletop_pick_place_spray_gun_stand_bearing_wrench
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: spray_gun
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/paint_supplies_spraygun_b01/simready_usd/sm_paint_supplies_spraygun_b01_01.usd
+- id: spray_gun_stand
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/serviceTool_sprayGunStand_benchMount_a01/simready_usd/sm_serviceTool_sprayGunStand_benchMount_a01_01.usd
+- id: ball_bearing
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/consumable_bearing_ball_a01/simready_usd/sm_consumable_bearing_ball_a01_01.usd
+- id: combination_wrench
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/handTool_wrench_combination_a01/simready_usd/sm_handTool_wrench_combination_a01_01.usd
+- id: paint_jar
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/paint_container_jar_orange_a01/simready_usd/sm_paint_container_jar_orange_a01_01.usd
+- id: paint_brush
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/paint_supplies_brush_a08/simready_usd/sm_paint_supplies_brush_a08_01.usd
+- id: paint_tube
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/paint_container_tube_d02/simready_usd/sm_paint_container_tube_d02_01.usd
+relations:
+- kind: is_anchor
+  subject: maple_table
+  params: {}
+- kind: 'on'
+  subject: spray_gun
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: spray_gun_stand
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: ball_bearing
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: combination_wrench
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: paint_jar
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: paint_brush
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: paint_tube
+  reference: maple_table
+  params: {}
+task:
+  composition: atomic
+  description: DROID picks up the spray gun from the maple table and places it on
+    the bench stand.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: spray_gun
+      destination_location: spray_gun_stand
+      placement_consecutive_steps: 10
+      background_scene: maple_table

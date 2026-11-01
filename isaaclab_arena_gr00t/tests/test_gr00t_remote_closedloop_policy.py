@@ -287,3 +287,28 @@ def test_synced_batch_holds_joint_position_for_env_after_partial_reset(
     assert clients[0].get_action_calls == 1
     expected_hold = policy._extract_hold_action(synthetic_observation)
     torch.testing.assert_close(action[1], expected_hold[1])
+
+
+def test_default_image_size_keeps_gr00t_padding_in_the_loop():
+    """Declare twice the DROID target size so GR00T's pad-and-resize still runs on fitted camera frames."""
+    from pathlib import Path
+
+    from isaaclab_arena_gr00t.policy.gr00t_core import resize_rgb_for_policy
+
+    droid_config_yaml = Path(gr00t_policy.__file__).parent / "config" / "droid_manip_gr00t_closedloop_config.yaml"
+    cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
+        policy_config_yaml_path=str(droid_config_yaml), remote_host="unused", remote_port=0, remote_api_token=None
+    )
+
+    image_size = gr00t_policy.Gr00tRemoteClosedloopPolicy.default_image_size(cfg)
+
+    assert image_size == (360, 640)
+    fitted_frame = np.zeros((1, *image_size, 3), dtype=np.uint8)
+    fitted_frame[:, : image_size[0] // 2] = 255  # scene content in the top half of the frame
+    (processed,) = resize_rgb_for_policy([fitted_frame], target_image_size=(180, 320, 3))
+    assert processed.shape == (1, 180, 320, 3)
+    # Padding 360x640 to a 640x640 square puts the frame in rows 140-500, so its top half lands in rows
+    # 39-90 of the 180-row output, below a black band, exactly as it does for a 720x1280 camera frame.
+    assert processed[0, :35].max() == 0
+    assert processed[0, 45:85].min() == 255
+    assert processed[0, 95:].max() == 0

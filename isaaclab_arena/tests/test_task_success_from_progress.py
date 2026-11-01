@@ -592,6 +592,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
         SimpleNamespace(name="destination", object_type=ObjectType.RIGID),
         SimpleNamespace(object_min_z=-0.1),
         episode_length_s=12.0,
+        task_description="Put the object on the destination",
     )
     termination_cfg = task.get_termination_cfg()
     assert isinstance(termination_cfg, TaskTerminationCfg)
@@ -616,6 +617,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
         patch.object(task, "get_metrics", return_value=[]),
     ):
         env_cfg, _ = builder.build_env_cfg()
+    assert env_cfg.task_description == "Put the object on the destination"
     assert env_cfg.terminations.success.func is task_success_from_progress
     criteria_sets = env_cfg.task_progress.success_criteria
     assert len(criteria_sets) == 1

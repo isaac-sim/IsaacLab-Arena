@@ -1,0 +1,32 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Settings shared by every RoboLab task: PhysX solver limits and the light rig.
+
+# RoboLab's PhysX solver iteration limits.
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
+
+# RoboLab's light rig: a white dome light textured with an HDR image, and a sphere light.
+# The ids are the keys of the experiment-config variations.
+objects:
+- id: light
+  registry_name: light
+  params:
+    intensity: 500.0
+    color: [1.0, 1.0, 1.0]
+    hdr: home_office_robolab
+- id: sphere_light
+  registry_name: sphere_light
+  params:
+    intensity: 5000.0
+    radius: 0.5
+    color: [1.0, 1.0, 1.0]
+    initial_pose:
+      position_xyz: [0.0, -0.6, 0.7]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]

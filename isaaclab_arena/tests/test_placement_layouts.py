@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from isaaclab_arena.relations.placement_sampler import (
+from isaaclab_arena.relations.runtime.placement_sampler import (
     PlacementSample,
     deserialize_placement_samples,
     placement_samples_from_pose_columns,

@@ -18,7 +18,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelatio
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import AtPosition, FaceTo, IsAnchor, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
@@ -71,6 +71,7 @@ def _set_solver_results(
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[ObjectBase, float]] | None = None,
         collision_objects=None,
+        collision_bboxes=None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         assert len(initial_positions) == len(layouts)
         placer._solver._last_loss_per_env = torch.tensor(losses or [0.0] * len(layouts))
@@ -200,7 +201,7 @@ def test_candidate_stages_update_the_same_layout():
     torch.testing.assert_close(candidate.bboxes[pair.subject].max_point, expected_half_extents)
     torch.testing.assert_close(bounds[pair.subject].max_point, torch.tensor([[0.4, 0.1, 0.1]]))
 
-    assert placer._validation.validate_candidates(batch, []) is None
+    placer._validation.validate_candidates(batch, [])
     assert batch.candidates[0] is candidate
     assert "stale" not in candidate.validation.validation_results
     assert candidate.validation.do_all_required_validation_checks_pass()

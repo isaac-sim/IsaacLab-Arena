@@ -5,6 +5,7 @@
 
 """Verify embodiment-based state and image selection without robot-specific field names."""
 
+import numpy as np
 import torch
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -17,6 +18,7 @@ from isaaclab_arena_vlm_agent.observation_adapter import (
     StateObservationAdapter,
     VLMObservationAdapter,
 )
+from isaaclab_arena_vlm_agent.tests.fake_scene import FakeScene, make_mounted_camera
 
 
 def _inputs():
@@ -27,8 +29,12 @@ def _inputs():
         disabled_term=None,
     )
     camera_cfg = SimpleNamespace(
-        head_color=SimpleNamespace(func=Mock(), params={"data_type": "rgb"}),
-        hand_color=SimpleNamespace(func=Mock(), params={"data_type": "rgb"}),
+        head_color=SimpleNamespace(
+            func=Mock(), params={"data_type": "rgb", "sensor_cfg": SimpleNamespace(name="camera_sensor")}
+        ),
+        hand_color=SimpleNamespace(
+            func=Mock(), params={"data_type": "rgb", "sensor_cfg": SimpleNamespace(name="camera_sensor")}
+        ),
         head_depth=SimpleNamespace(func=Mock(), params={"data_type": "distance_to_image_plane"}),
     )
     action_cfg = SimpleNamespace(
@@ -45,10 +51,20 @@ def _inputs():
         x = 1.0 if asset_name == "left_robot" else 2.0
         return torch.tensor([[x, 0, 0, 0, 0, 0, 1], [x + 10, 0, 0, 0, 0, 0, 1]])
 
-    world = SimpleNamespace(get_body_pose_in_root=Mock(side_effect=get_pose))
+    world = SimpleNamespace(
+        get_body_pose_in_root=Mock(side_effect=get_pose),
+        get_pose_w=Mock(return_value=torch.tensor([[0, 0, 0, 0, 0, 0, 1.0], [10, 0, 0, 0, 0, 2**-0.5, 2**-0.5]])),
+        # Camera mount link poses; the identity ROS offset places the optical frame at the link.
+        get_body_pose_w=Mock(return_value=torch.tensor([[1.0, 2.0, 3.0, 0, 0, 0, 1], [10.0, 2.0, 3.0, 0, 0, 1, 0]])),
+    )
+    scene = FakeScene(
+        camera_sensor=make_mounted_camera(torch.tensor([[[4.0, 0.0, 4.0], [0.0, 4.0, 2.0], [0.0, 0.0, 1.0]]] * 2))
+    )
     env = SimpleNamespace(
         unwrapped=SimpleNamespace(
             num_envs=2,
+            cfg=SimpleNamespace(observations=embodiment.get_observation_cfg()),
+            scene=scene,
             arena_world=world,
             observation_manager=SimpleNamespace(
                 active_terms={"policy": ["left_joints", "right_joints"]}, group_obs_concatenate={"policy": False}
@@ -89,7 +105,7 @@ def test_selects_only_requested_modalities_and_configured_terms(adapter_type, in
     if not include_images:
         del observation["camera_obs"]
         embodiment.get_observation_cfg.return_value.camera_obs = None
-    adapter = adapter_type() if adapter_type is StateObservationAdapter else adapter_type(embodiment)
+    adapter = adapter_type()
     images, state = adapter.extract_vlm_input_from_observation(env, observation, 1)
     if include_state:
         assert state["policy"] == {"left_joints": [3.0, 4.0], "right_joints": [7.0, 8.0]}
@@ -107,8 +123,8 @@ def test_selects_only_requested_modalities_and_configured_terms(adapter_type, in
         assert images["hand_color"].shape == (8, 4, 3)
     else:
         assert images == {}
-    if not include_state:
-        assert state == {}
+    if include_images:
+        assert set(state["camera_geometry"]) == set(images)
 
 
 def test_joint_only_state_does_not_require_command_body_queries():
@@ -129,12 +145,12 @@ def test_state_modality_requires_named_observation_terms():
 
 
 def test_rgb_modality_requires_configured_rgb_views():
-    embodiment, _, _ = _inputs()
+    embodiment, env, observation = _inputs()
     camera_cfg = embodiment.get_observation_cfg.return_value.camera_obs
     del camera_cfg.head_color
     del camera_cfg.hand_color
     with pytest.raises(AssertionError, match="configured RGB"):
-        ImageObservationAdapter(embodiment)
+        ImageObservationAdapter().extract_vlm_input_from_observation(env, observation, 0)
 
 
 def test_observation_base_requires_a_modality_implementation():
@@ -144,7 +160,7 @@ def test_observation_base_requires_a_modality_implementation():
 
 def test_state_uses_live_managers_after_environment_configuration_changes():
     embodiment, env, observation = _inputs()
-    adapter = ImageStateObservationAdapter(embodiment)
+    adapter = ImageStateObservationAdapter()
     env.unwrapped.observation_manager.active_terms["policy"] = ["task_only_term"]
     env.unwrapped.action_manager.active_terms = ["new_arm"]
     env.unwrapped.action_manager.get_term = lambda name: SimpleNamespace(
@@ -154,3 +170,59 @@ def test_state_uses_live_managers_after_environment_configuration_changes():
     assert state["policy"] == {"task_only_term": [1.0, 1.0, 1.0]}
     assert set(state["command_body_poses"]) == {"new_arm"}
     env.unwrapped.arena_world.get_body_pose_in_root.assert_called_once_with("new_robot", "new_tool")
+
+
+def test_camera_optical_pose_uses_selected_environment_and_refreshes():
+    _, env, observation = _inputs()
+    adapter = ImageObservationAdapter()
+    _, values = adapter.extract_vlm_input_from_observation(env, observation, 1)
+    camera = values["camera_geometry"]["head_color"]
+    assert camera["image_size_px"] == [8, 4]
+    assert camera["quaternion_world_xyzw"] == [0.0, 0.0, 1.0, 0.0]
+    pose = camera["poses_in_robot_roots"]["left_robot"]
+    np.testing.assert_allclose(pose["position_root_m"], [2, 0, 3], atol=1e-6)
+    np.testing.assert_allclose(pose["quaternion_root_xyzw"], [0, 0, 2**-0.5, 2**-0.5], atol=1e-6)
+    env.unwrapped.arena_world.get_body_pose_w.return_value[1, 1] += 1
+    _, values = adapter.extract_vlm_input_from_observation(env, observation, 1)
+    np.testing.assert_allclose(
+        values["camera_geometry"]["head_color"]["poses_in_robot_roots"]["left_robot"]["position_root_m"],
+        [3, 0, 3],
+        atol=1e-6,
+    )
+    _, values = adapter.extract_vlm_input_from_observation(env, observation, 0)
+    assert values["camera_geometry"]["head_color"]["position_world_m"] == [1.0, 2.0, 3.0]
+
+
+def test_camera_pose_composes_mount_link_and_offset():
+    from scipy.spatial.transform import Rotation
+
+    _, env, observation = _inputs()
+    # The mount link sits at (1, 0, 0) and is yawed 90 degrees about world +Z.
+    env.unwrapped.arena_world.get_body_pose_w.return_value = torch.tensor(
+        [[1.0, 0.0, 0.0, 0.0, 0.0, 2**-0.5, 2**-0.5]] * 2
+    )
+    env.unwrapped.scene["camera_sensor"].cfg.offset = SimpleNamespace(
+        pos=(0.1, 0.0, 0.2), rot=(0.0, 0.0, 0.0, 1.0), convention="opengl"
+    )
+    _, values = ImageObservationAdapter().extract_vlm_input_from_observation(env, observation, 0)
+    camera = values["camera_geometry"]["head_color"]
+    env.unwrapped.arena_world.get_body_pose_w.assert_called_with("robot", "mount_link")
+    np.testing.assert_allclose(camera["position_world_m"], [1.0, 0.1, 0.2], atol=1e-6)
+    # An identity OpenGL camera looks along the link's -Z with image down along the link's -Y.
+    rotation_W_C = Rotation.from_quat(camera["quaternion_world_xyzw"])
+    np.testing.assert_allclose(rotation_W_C.apply([0, 0, 1]), [0, 0, -1], atol=1e-6)
+    np.testing.assert_allclose(rotation_W_C.apply([0, 1, 0]), [1, 0, 0], atol=1e-6)
+
+
+def test_camera_selection_follows_live_configuration_changes():
+    _, env, observation = _inputs()
+    adapter = ImageObservationAdapter()
+    images, _ = adapter.extract_vlm_input_from_observation(env, observation, 0)
+    assert set(images) == {"head_color", "hand_color"}
+    cfg = env.unwrapped.cfg.observations.camera_obs
+    cfg.new_color = cfg.head_color
+    del cfg.head_color
+    del cfg.hand_color
+    observation["camera_obs"] = {"new_color": observation["camera_obs"]["head_color"]}
+    images, values = adapter.extract_vlm_input_from_observation(env, observation, 0)
+    assert set(images) == set(values["camera_geometry"]) == {"new_color"}

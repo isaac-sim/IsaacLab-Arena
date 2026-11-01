@@ -31,9 +31,16 @@ from isaaclab_arena_vlm_agent.vlm_agent_policy import (
     VLMChunkPolicy,
     VLMGoalPolicy,
     VLMGoalPolicyCfg,
+    VLMPolicy,
     VLMPolicyCfg,
-    VLMStepPolicy,
 )
+
+
+class SingleCommandPolicy(VLMPolicy):
+    """Request one command per step to exercise shared VLM policy behavior."""
+
+    def _get_command(self, env, observation, env_id):
+        return self._infer(self._request_content(env, observation, env_id), env.unwrapped.arena_world, env_id)
 
 
 class ObservationAdapter(VLMObservationAdapter):
@@ -68,7 +75,7 @@ class ActionAdapter(AgentActionAdapter):
         self.joint_names = tuple(f"joint_{i}" for i in range(action_dim))
 
     def is_robot_action_space_supported(self, env):
-        return env.unwrapped.action_dim > 0
+        return env.unwrapped.action_manager.total_action_dim > 0
 
     def decode_command(self, response, arena_world, env_id):
         positions = arena_world.get_joint_positions("robot", self.joint_names)[env_id].cpu().numpy()
@@ -105,7 +112,7 @@ def make_policy(backend, **kwargs):
         image_max_width_or_height=8,
         **kwargs,
     )
-    policy = VLMStepPolicy(
+    policy = SingleCommandPolicy(
         config,
         inference_backend=backend,
         observation_adapter=ObservationAdapter(),
@@ -116,7 +123,9 @@ def make_policy(backend, **kwargs):
 
 
 def inputs(action_dim=2):
-    env = SimpleNamespace(unwrapped=SimpleNamespace(num_envs=2, device="cpu", action_dim=action_dim))
+    env = SimpleNamespace(
+        unwrapped=SimpleNamespace(num_envs=2, device="cpu", action_manager=SimpleNamespace(total_action_dim=action_dim))
+    )
     positions = torch.arange(2 * action_dim, dtype=torch.float32).reshape(2, action_dim)
 
     def get_joint_positions(scene_key, joint_names):
@@ -129,6 +138,28 @@ def inputs(action_dim=2):
     images[0, ..., 0] = 255
     images[1, ..., 2] = 255
     return env, {"position": positions, CAMERA_OBSERVATION_GROUP: {"front_view": images}}
+
+
+@pytest.mark.parametrize("max_size,expected_size", [(8, (8, 4)), (32, (17, 9))])
+def test_request_intrinsics_match_encoded_pixels(backend, max_size, expected_size):
+    policy = make_policy(backend)
+    policy.config.image_max_width_or_height = max_size
+    env, observation = inputs()
+    pixels = np.zeros((9, 17, 3), dtype=np.uint8)
+    intrinsics = np.array([[12.0, 0.0, 8.0], [0.0, 10.0, 4.0], [0.0, 0.0, 1.0]])
+    metadata = {"camera_geometry": {"front_view": {"image_size_px": [17, 9], "intrinsic_matrix": intrinsics.tolist()}}}
+    original_metadata = copy.deepcopy(metadata)
+    policy.observation_adapter.extract_vlm_input_from_observation = lambda *args: ({"front_view": pixels}, metadata)
+    content = policy._request_content(env, observation, 0)
+    assert policy._request_content(env, observation, 0) == content
+    assert metadata == original_metadata
+    geometry = json.loads(content[1]["text"])["camera_geometry"]["front_view"]
+    encoded = Image.open(io.BytesIO(base64.b64decode(content[3]["image_url"]["url"].split(",", 1)[1])))
+    assert encoded.size == expected_size == tuple(geometry["image_size_px"])
+    p_C = np.array([0.2, -0.1, 2.0])
+    original_pixel = (intrinsics @ p_C)[:2] / p_C[2]
+    resized_pixel = (np.array(geometry["intrinsic_matrix"]) @ p_C)[:2] / p_C[2]
+    np.testing.assert_allclose(resized_pixel, original_pixel * np.array(expected_size) / [17, 9])
 
 
 @pytest.mark.parametrize("action_dim", [2, 5])
@@ -146,7 +177,7 @@ def test_policy_uses_adapter_actions_for_each_environment(backend, action_dim):
         system_prompt="Use this robot's joint units.",
         image_max_width_or_height=8,
     )
-    policy = VLMStepPolicy(
+    policy = SingleCommandPolicy(
         config,
         inference_backend=backend,
         observation_adapter=ObservationAdapter(),
@@ -175,7 +206,7 @@ def test_policy_uses_adapter_actions_for_each_environment(backend, action_dim):
         assert all(len(call["messages"]) == 2 for call in calls)
     finally:
         policy.close()
-    client.close.assert_not_called()  # The backend belongs to the caller, not the policy.
+    client.close.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -234,7 +265,7 @@ def test_environment_validation_precedes_inference(backend):
     client = backend.client
     policy = make_policy(backend)
     env, observation = inputs()
-    env.unwrapped.action_dim = 0
+    env.unwrapped.action_manager.total_action_dim = 0
     try:
         with pytest.raises(AssertionError, match="Robot action space"):
             policy.get_action(env, observation)
@@ -265,7 +296,7 @@ def test_goal_config_rejects_invalid_step_budget(max_steps):
 class JointChunkAdapter(ChunkActionAdapter):
 
     def is_robot_action_space_supported(self, env):
-        return env.unwrapped.action_dim > 0
+        return env.unwrapped.action_manager.total_action_dim > 0
 
     def __init__(self, chunk_size: int, action_dim=2):
         super().__init__(chunk_size)
@@ -293,7 +324,7 @@ class JointGoalAdapter(GoalActionAdapter):
         self.joint_names = tuple(f"joint_{i}" for i in range(action_dim))
 
     def is_robot_action_space_supported(self, env):
-        return env.unwrapped.action_dim > 0
+        return env.unwrapped.action_manager.total_action_dim > 0
 
     def decode_command(self, response, arena_world, env_id):
         positions = arena_world.get_joint_positions("robot", self.joint_names)[env_id].cpu().numpy()
@@ -427,6 +458,42 @@ def test_goals_use_measured_feedback_step_limit_and_partial_reset(backend, actio
     assert len(calls) == 7
 
 
+def test_goal_outcomes_are_reported_in_the_next_request(backend):
+    calls = []
+
+    def create(**kwargs):
+        calls.append(copy.deepcopy(kwargs))
+        return response('{"target": [1, 2]}')
+
+    def previous_goals():
+        return [json.loads(call["messages"][1]["content"][0]["text"]).get("previous_goal") for call in calls[-2:]]
+
+    backend.client.chat.completions.create.side_effect = create
+    generator = JointMotionGenerator()
+    generator.goal_blocked = Mock(return_value=False)
+    policy = make_multi_step_policy(backend, JointGoalAdapter(motion_generator=generator))
+    env, observation = inputs()
+    policy.get_action(env, observation)
+    assert previous_goals() == [None, None]
+    policy.get_action(env, observation)
+    assert len(calls) == 2
+    policy.get_action(env, observation)
+    timeout = {"values": [1.0, 2.0], "outcome": "timeout", "executed_steps": 2}
+    assert previous_goals() == [timeout, timeout]
+    # Env 0 reaches its goal while env 1 stalls short of it.
+    observation["position"][0] = torch.tensor([1.0, 2.0])
+    generator.goal_blocked.return_value = True
+    policy.get_action(env, observation)
+    assert previous_goals() == [
+        {"values": [1.0, 2.0], "outcome": "reached", "executed_steps": 1},
+        {"values": [1.0, 2.0], "outcome": "blocked", "executed_steps": 1},
+    ]
+    policy.reset(torch.tensor([0]))
+    observation["position"][0] = torch.tensor([0.0, 1.0])
+    policy.get_action(env, observation)
+    assert previous_goals() == [None, {"values": [1.0, 2.0], "outcome": "blocked", "executed_steps": 1}]
+
+
 @pytest.mark.parametrize("mode", ["step", "goal"])
 def test_actions_use_live_world_without_joint_positions_in_prompt(backend, mode):
     backend.client.chat.completions.create.return_value = response('{"target": [1, 2]}')
@@ -515,16 +582,16 @@ def test_invalid_model_actions_are_rejected_with_python_optimization():
         from types import SimpleNamespace
         from unittest.mock import Mock
         from isaaclab_arena_vlm_agent.tests.test_vlm_agent_policy import (
-            ActionAdapter, ObservationAdapter,
+            ActionAdapter, ObservationAdapter, SingleCommandPolicy,
         )
         from isaaclab_arena_vlm_agent.response_errors import InvalidAgentResponseError
-        from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMStepPolicy, VLMPolicyCfg
+        from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMPolicyCfg
 
         for command in (np.ones((1, 2)), np.empty(0), np.array([1, np.nan])):
             backend = SimpleNamespace(infer=Mock(return_value={"target": [1, 2]}))
             adapter = ActionAdapter()
             adapter.decode_command = Mock(return_value=command)
-            policy = VLMStepPolicy(
+            policy = SingleCommandPolicy(
                 VLMPolicyCfg(system_prompt="Control joints", max_attempts=2),
                 inference_backend=backend, observation_adapter=ObservationAdapter(), action_adapter=adapter,
             )

@@ -23,6 +23,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import has_light, open_stage
 from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
+from isaaclab_arena.variations.rigid_asset_selection_variation import RigidAssetSelectionVariation
 
 
 class Object(RootedObjectBase):
@@ -66,6 +67,8 @@ class Object(RootedObjectBase):
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box: AxisAlignedBoundingBox | None = None
         """Explicit local bounds. None derives bounds from object_cfg.spawn."""
+        self._selected_asset: Object | None = None
+        """Asset that an asset selection spawns instead of the declared asset. None spawns the declared asset."""
         # TODO(cvolk, 2026.10.13): Replace this per-object cache with one cache in spawn_cfg_geometry.py
         # shared across objects, keyed by get_geometry_key(), so objects and asset-selection candidates that
         # use the same asset compute its geometry once.
@@ -75,6 +78,27 @@ class Object(RootedObjectBase):
         keep the cached entry."""
         self.object_cfg = self._init_object_cfg()
         self._pose_event_cfg = self._build_reset_event()
+        if self.object_type == ObjectType.RIGID:
+            self.add_variation(RigidAssetSelectionVariation(self))
+
+    def set_spawned_asset(self, registry_name: str, selected_asset: Object) -> None:
+        """Spawn ``selected_asset``, registered under ``registry_name``, instead of the declared asset.
+
+        The object takes the spawn configuration and the simulation check of ``selected_asset``. It keeps its name,
+        so its scene key, root prim path and variation keys stay the same.
+
+        Args:
+            registry_name: Key of the asset class in the asset registry. Passed separately because an asset built by
+                a registered factory does not carry it.
+            selected_asset: Asset built from that registry entry.
+        """
+        self.registry_name = registry_name
+        self.object_cfg.spawn = deepcopy(selected_asset.object_cfg.spawn)
+        self._selected_asset = selected_asset
+
+    def get_spawned_asset(self) -> Object:
+        """Return the asset whose spawn configuration and simulation check this object uses."""
+        return self._selected_asset if self._selected_asset is not None else self
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin).

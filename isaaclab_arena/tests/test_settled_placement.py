@@ -181,7 +181,7 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
     env = Mock()
     pool = Mock(objects=[])
     with (
-        patch("isaaclab_arena.relations.placement_events.get_placement_pool", return_value=pool),
+        patch("isaaclab_arena.relations.runtime.placement_events.get_placement_pool", return_value=pool),
         patch(
             "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
             return_value=({"cube": []}, [], 1, {(0, 0): "failed"}),
@@ -210,7 +210,7 @@ def test_record_placements_to_jsonl_writes_partial_acceptance(tmp_path):
         Path(destination).write_text("accepted\n")
 
     with (
-        patch("isaaclab_arena.relations.placement_events.get_placement_pool", return_value=pool),
+        patch("isaaclab_arena.relations.runtime.placement_events.get_placement_pool", return_value=pool),
         patch(
             "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
             return_value=({"cube": [Mock()]}, [Mock()], 2, {(1, 0): "failed"}),
@@ -349,9 +349,9 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.reachability_config import ReachabilityConfig
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
     from isaaclab_arena.relations.validation.types import PlacementCheck
     from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
     from isaaclab_arena.utils.pose import PoseRange
@@ -405,7 +405,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         # Both pass On(overlap=True); only the overhanging cube falls to the floor.
         queues[0][0].positions[cube] = (0.0, 0.0, 0.571)
         queues[1][0].positions[cube] = (0.42, 0.0, 0.571)
-        from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
+        from isaaclab_arena.relations.geometry.bounding_box_helpers import build_per_env_bounding_boxes
         from isaaclab_arena.relations.validation.pre_physics import OnRelationValidator, PrePhysicsPlacementValidator
         from isaaclab_arena.tests.dummy_object import make_candidate_batch
 
@@ -492,7 +492,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         )
         for queue in unavailable_pool.layouts_per_env():
             assert PlacementCheck.IK_REACHABLE not in queue[0].validation_results.validation_results
-        from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
+        from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
 
         handle = base.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME).params["placement_sampler"]
         rejected_output = tmp_path / "rejected.jsonl"
@@ -540,8 +540,11 @@ def _test_recording_with_robot(simulation_app, tmp_path):
     from isaaclab_arena.offline_placement.settled_batch import capture_articulation_link_poses_in_root_frame
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_sampler import placement_samples_from_pose_columns, write_placement_samples
-    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
+    from isaaclab_arena.relations.runtime.placement_sampler import (
+        placement_samples_from_pose_columns,
+        write_placement_samples,
+    )
 
     source = tmp_path / "robot.yaml"
     _write_scene(source)
@@ -629,7 +632,7 @@ def _test_configured_validator_reports_write_jsonl(simulation_app, tmp_path, min
 
     from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
     from isaaclab_arena.offline_placement.post_physics_validation import build_post_physics_validators
-    from isaaclab_arena.relations.placement_sampler import (
+    from isaaclab_arena.relations.runtime.placement_sampler import (
         deserialize_placement_samples,
         placement_samples_from_pose_columns,
         placement_samples_to_pose_columns,
@@ -746,8 +749,13 @@ def test_settled_batch_evaluation_uses_captured_state():
         linear_velocity[1, 0] = 0.2
 
     with (
-        patch("isaaclab_arena.relations.placement_events.get_placement_pool", return_value=SimpleNamespace(num_envs=3)),
-        patch("isaaclab_arena.relations.placement_events.get_reset_placement_results", return_value=source_layouts),
+        patch(
+            "isaaclab_arena.relations.runtime.placement_events.get_placement_pool",
+            return_value=SimpleNamespace(num_envs=3),
+        ),
+        patch(
+            "isaaclab_arena.relations.runtime.placement_events.get_reset_placement_results", return_value=source_layouts
+        ),
         patch("isaaclab_arena.utils.physics_settle.step_physics", side_effect=advance_physics),
     ):
         batch = sample_and_settle_batch(env, root_keys=["cube"], link_keys=[], num_env_steps=2)

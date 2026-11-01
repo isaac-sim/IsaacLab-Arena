@@ -18,37 +18,29 @@ background:
 objects:
 - id: bowl
   registry_name: bowl_ycb_robolab
-  params: {}
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: KitchenRoom/Floor
   object_type: base
-  params: {}
 - id: sink
   parent_id: kitchen
   prim_path: Sink/BasinBottom
   object_type: base
-  params: {}
 - id: sink_counter
   parent_id: kitchen
   prim_path: CapSurface_01
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: sink
-  params: {}
 - kind: is_anchor
   subject: sink_counter
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: sink
@@ -63,7 +55,6 @@ relations:
 - kind: 'on'
   subject: bowl
   reference: sink_counter
-  params: {}
 - kind: next_to
   subject: bowl
   reference: sink

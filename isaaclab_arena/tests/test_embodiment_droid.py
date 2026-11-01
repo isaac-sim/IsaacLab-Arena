@@ -250,3 +250,27 @@ def _test_newton_droid_embodiment_config_contract(simulation_app) -> bool:
 @pytest.mark.with_newton
 def test_newton_droid_embodiment_config_contract():
     assert run_function_with_persistent_simulation_app(_test_newton_droid_embodiment_config_contract)
+
+
+def _test_droid_ik_mode_survives_backend_configuration(simulation_app) -> bool:
+    from isaaclab_arena.embodiments.droid.droid import (
+        DroidAbsoluteDifferentialIKEmbodiment,
+        DroidDifferentialIKEmbodiment,
+    )
+    from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
+    expected_modes = {DroidDifferentialIKEmbodiment: (True, 0.5), DroidAbsoluteDifferentialIKEmbodiment: (False, 1.0)}
+    for embodiment_type, (use_relative_mode, scale) in expected_modes.items():
+        for backend in PhysicsBackend:
+            embodiment = embodiment_type()
+            for configure in (False, True):
+                if configure:
+                    embodiment.configure_physics_backend(backend)
+                assert embodiment.get_action_cfg() is embodiment.action_config
+                assert embodiment.action_config.arm_action.controller.use_relative_mode is use_relative_mode
+                assert embodiment.action_config.arm_action.scale == scale
+    return True
+
+
+def test_droid_ik_mode_survives_backend_configuration():
+    assert run_function_with_persistent_simulation_app(_test_droid_ik_mode_survives_backend_configuration)

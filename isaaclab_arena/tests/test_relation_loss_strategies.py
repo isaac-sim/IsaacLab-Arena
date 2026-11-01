@@ -9,8 +9,12 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, NotNextToLossStrategy, OnLossStrategy
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
+    NextToLossStrategy,
+    NotNextToLossStrategy,
+    OnLossStrategy,
+)
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, NotNextTo, On, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -230,18 +234,38 @@ def test_on_loss_strategy_margin_too_large_yields_high_loss():
 # =============================================================================
 
 
-def test_next_to_loss_strategy_zero_loss_when_perfectly_placed():
-    """Test that NextTo loss is zero when child is perfectly placed."""
+def test_next_to_cross_axis_is_free_by_default_and_alignment_is_opt_in():
+    """Default placement has no centering gradient; explicit ratios retain point preferences."""
+    parent = _create_table()
+    child = _create_box()
+    strategy = NextToLossStrategy(slope=10.0, debug=True)
+    # The 0.2 m child fits within the parent's [0, 1] extent at origins in [0, 0.8].
+    for side, cross_axis in ((Side.POSITIVE_X, 1), (Side.POSITIVE_Y, 0)):
+        positions = torch.tensor([[1.05, y, 0.0] for y in (-0.1, 0.2, 0.4, 0.6, 0.9)])
+        if cross_axis == 0:
+            positions = positions[:, [1, 0, 2]]
+        positions.requires_grad_()
+        relation = NextTo(parent, side=side, distance_m=0.05)
+        loss = strategy.compute_loss(relation, positions, child.bounding_box, parent.bounding_box)
+        torch.testing.assert_close(loss, torch.tensor([1.0, 0.0, 0.0, 0.0, 1.0]), atol=1e-5, rtol=1e-5)
+        loss.sum().backward()
+        torch.testing.assert_close(positions.grad[:, cross_axis], torch.tensor([-10.0, 0.0, 0.0, 0.0, 10.0]))
+        # Exercise scalar shape and debug output with the new None default as well.
+        assert strategy.compute_loss(relation, positions[1], child.bounding_box, parent.bounding_box).item() < 1e-5
+        for ratio, target in ((-1.0, 0.0), (0.0, 0.4), (1.0, 0.8)):
+            relation = NextTo(parent, side=side, distance_m=0.05, cross_position_ratio=ratio)
+            loss = strategy.compute_loss(relation, positions, child.bounding_box, parent.bounding_box)
+            expected = 10.0 * (positions[:, cross_axis] - target).abs()
+            torch.testing.assert_close(loss, expected)
 
-    parent_obj = _create_table()
-    child_obj = _create_box()
-    relation = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
-    strategy = NextToLossStrategy(slope=10.0)
-
-    child_pos = torch.tensor([1.05, 0.4, 0.0])
-
-    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
-    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-4)
+    # A child wider than its parent has a single zero-loss, centred position.
+    wide_bounds = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (0.2, 1.5, 0.2))
+    positions = torch.tensor([[1.05, y, 0.0] for y in (-0.5, -0.25, 0.0)], requires_grad=True)
+    relation = NextTo(parent, side=Side.POSITIVE_X, distance_m=0.05)
+    loss = strategy.compute_loss(relation, positions, wide_bounds, parent.bounding_box)
+    torch.testing.assert_close(loss, torch.tensor([2.5, 0.0, 2.5]), atol=1e-5, rtol=1e-5)
+    loss.sum().backward()
+    torch.testing.assert_close(positions.grad[:, 1], torch.tensor([-10.0, 0.0, 10.0]))
 
 
 def test_next_to_loss_strategy_penalizes_wrong_side():

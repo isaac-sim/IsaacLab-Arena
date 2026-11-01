@@ -12,27 +12,36 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.relation_loss_strategies import (
+from isaaclab_arena.relations.geometry.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     SIDE_CONFIGS,
     NotNextToLossStrategy,
     next_to_violations,
     not_next_to_violations,
 )
-from isaaclab_arena.relations.relations import ClutterOn, FaceTo, NextTo, NotNextTo, On, RelationBase, get_relation
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.relations import (
+    AlignWith,
+    ClutterOn,
+    FaceTo,
+    NextTo,
+    NotNextTo,
+    On,
+    RelationBase,
+    get_relation,
+)
 from isaaclab_arena.relations.validation import base
 from isaaclab_arena.relations.validation.registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.validation.types import PlacementCheck
-from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -195,6 +204,43 @@ class ClutterOnRelationValidator(OnRelationValidator):
 
 
 @register_validator
+class AlignWithValidator(PrePhysicsPlacementValidator):
+    """Reject layouts whose bounding-box centres miss the requested alignment tolerance."""
+
+    check = PlacementCheck.ALIGN_WITH
+
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
+
+    def _validate(
+        self,
+        positions: dict[PlaceableAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> bool:
+        """Check every alignment against the same geometry as the solver objective."""
+        for obj, t_W_C in positions.items():
+            for relation in obj.get_relations():
+                if not isinstance(relation, AlignWith):
+                    continue
+                child_bbox = env_bboxes[obj]
+                parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
+                axis_index = relation.axis.index
+                p_W_child_center = child_bbox.min_point.new_tensor(t_W_C) + child_bbox.center
+                center_distance = (
+                    p_W_child_center[..., axis_index] - parent_world.center[..., axis_index] - relation.offset_m
+                )
+                if not torch.isfinite(center_distance).all() or center_distance.abs().item() > relation.tolerance_m:
+                    if self._params.verbose:
+                        print(
+                            f"AlignWith: '{obj.name}' align_with({relation.parent.name}) violated "
+                            f"(world {relation.axis.value} band-centre distance={center_distance.item():.4f} m; "
+                            f"tolerance_m={relation.tolerance_m})"
+                        )
+                    return False
+        return True
+
+
+@register_validator
 class NextToValidator(PrePhysicsPlacementValidator):
     """Validate every NextTo relation: child on the requested side within the relation's tolerance_m."""
 
@@ -332,8 +378,8 @@ class FaceToValidator(PrePhysicsPlacementValidator):
 class NoOverlapValidator(PrePhysicsPlacementValidator):
     """Validate that no two placed bounding boxes (or collision meshes) intersect.
 
-    Owns the CPU mesh/sphere cache so the AABB→mesh short-circuit stays local: cheap AABB pairs are
-    tested first, and only mesh-collision objects fall through to the sphere-to-SDF penetration test.
+    Box pairs are checked across the candidate batch before remaining mesh pairs use the
+    CPU mesh/sphere cache for sphere-to-SDF penetration tests.
     """
 
     check = PlacementCheck.NO_OVERLAP
@@ -343,29 +389,64 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         self._cpu_mesh_manager: WarpMeshAndSphereCache | None = None
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [
-            self._validate(candidate.positions, candidate.bboxes, candidate.orientations, collision_objects)
-            for candidate in batch.candidates
-        ]
+        if not batch.candidates:
+            return []
+        use_mesh = self._should_validate_mesh(batch.candidates[0].positions, collision_objects)
+        results = self._validate_no_overlap(batch, collision_objects, skip_mesh_pairs=use_mesh)
+        if use_mesh:
+            for index, candidate in enumerate(batch.candidates):
+                if results[index]:
+                    results[index] = self._validate_no_overlap_mesh(
+                        candidate.positions, candidate.bboxes, candidate.orientations, collision_objects
+                    )
+        return results
 
-    def _validate(
+    def _validate_no_overlap(
         self,
-        positions: dict[PlaceableAsset, tuple[float, float, float]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        orientations: dict[PlaceableAsset, float] | None,
-        collision_objects: list[CollisionObject] | None,
-    ) -> bool:
-        """AABB overlap check, falling through to mesh penetration for mesh-collision objects."""
-        use_mesh = self._should_validate_mesh(positions, collision_objects)
-        no_overlap = self._validate_no_overlap(
-            positions,
-            env_bboxes,
-            collision_objects=collision_objects,
-            skip_mesh_pairs=use_mesh,
-        )
-        if no_overlap and use_mesh:
-            no_overlap = self._validate_no_overlap_mesh(positions, env_bboxes, orientations, collision_objects)
-        return no_overlap
+        batch: PlacementCandidateBatch,
+        collision_objects: list[CollisionObject],
+        skip_mesh_pairs: bool = False,
+    ) -> list[bool]:
+        """Check each box pair across candidates, excluding On and fixed-fixed pairs."""
+        positions = batch.candidates[0].positions
+        assert all(
+            candidate.positions.keys() == positions.keys() for candidate in batch.candidates
+        ), "No-overlap validation requires the same assets in every candidate."
+        world_boxes = {}
+        for obj, bounds in batch.stacked_collision_bboxes().items():
+            origins_W = torch.tensor([candidate.positions[obj] for candidate in batch.candidates], dtype=torch.float32)
+            world_boxes[obj] = bounds.to("cpu").translated(origins_W)
+
+        valid = torch.ones(len(batch), dtype=torch.bool)
+        margin = max(0.0, self._params.solver_params.clearance_m - 1e-6)
+        for first, second in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
+            overlaps = world_boxes[first].overlaps(world_boxes[second], margin=margin)
+            if self._params.verbose and overlaps.any():
+                print(f"  Overlap between '{first.name}' and '{second.name}' in {int(overlaps.sum())} candidate(s)")
+            valid &= ~overlaps
+
+        mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
+        default_collision_mode = self._params.solver_params.collision_mode
+        for background in collision_objects:
+            if (
+                mesh_manager is not None
+                and object_uses_mesh_collision(background, default_collision_mode)
+                and mesh_manager.get_collision_mesh(background) is not None
+            ):
+                continue
+            background_world = background.get_world_bounding_box().to("cpu")
+            for obj in positions:
+                if obj.is_anchor:
+                    continue
+                overlaps = world_boxes[obj].overlaps(background_world, margin=margin)
+                if self._params.verbose and overlaps.any():
+                    print(
+                        f"  Overlap between '{obj.name}' and background '{background.name}'"
+                        f" in {int(overlaps.sum())} candidate(s)"
+                    )
+                valid &= ~overlaps
+
+        return valid.tolist()
 
     def _should_validate_mesh(
         self,
@@ -430,51 +511,10 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
                     continue
                 yield a, b
 
-    def _validate_no_overlap(
-        self,
-        positions: dict[PlaceableAsset, tuple[float, float, float]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        collision_objects: list[CollisionObject] | None = None,
-        skip_mesh_pairs: bool = False,
-    ) -> bool:
-        """AABB overlap check on pre-rotated env_bboxes. Skips On-pairs and anchor-anchor pairs."""
-        clearance_m = self._params.solver_params.clearance_m
-        margin = max(0.0, clearance_m - 1e-6)
-        collision_objects = collision_objects or []
-        _, anchor_ids = self._collect_skip_pairs(positions)
-
-        for a, b in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
-            if self._pair_aabb_overlaps(env_bboxes[a], env_bboxes[b], positions[a], positions[b], 0.0, 0.0, margin):
-                if self._params.verbose:
-                    print(f"  Overlap between '{a.name}' and '{b.name}'")
-                return False
-
-        # Placed (non-anchor) objects must also clear the fixed background obstacles.
-        # Anchors are fixed scene geometry too, so anchor-vs-background overlap is not gated.
-        background_worlds = [(bg, bg.get_world_bounding_box()) for bg in collision_objects]
-        mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
-        default_collision_mode = self._params.solver_params.collision_mode
-        for obj in positions:
-            if id(obj) in anchor_ids:
-                continue
-            obj_world = env_bboxes[obj].translated(positions[obj])
-            for background, background_world in background_worlds:
-                if (
-                    mesh_manager is not None
-                    and object_uses_mesh_collision(background, default_collision_mode)
-                    and mesh_manager.get_collision_mesh(background) is not None
-                ):
-                    continue
-                if obj_world.overlaps(background_world, margin=margin).item():
-                    if self._params.verbose:
-                        print(f"  Overlap between '{obj.name}' and background '{background.name}'")
-                    return False
-        return True
-
     def _get_cpu_mesh_manager(self) -> WarpMeshAndSphereCache:
         """Return the CPU-device mesh manager, creating it on first call."""
         if self._cpu_mesh_manager is None:
-            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+            from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
 
             self._cpu_mesh_manager = WarpMeshAndSphereCache(
                 num_spheres=self._params.solver_params.num_spheres,
@@ -489,7 +529,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         orientations: dict[PlaceableAsset, float] | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> bool:
-        """Sphere-to-SDF overlap check; both-meshless pairs fall back to AABB validation."""
+        """Check sphere-to-SDF overlap; pairs without meshes use the preceding bounding-box check."""
         clearance_m = self._params.solver_params.clearance_m
         tolerance = max(0.0, clearance_m - 1e-6)
         mesh_manager = self._get_cpu_mesh_manager()
@@ -509,7 +549,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
                         warned_no_mesh.add(obj.name)
                         print(
                             f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh,"
-                            " falling back to AABB validation for this pair"
+                            " falling back to bounding-box validation for this pair"
                         )
                 continue
 
@@ -661,25 +701,6 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         if not isinstance(pose, Pose):
             return 0.0
         return yaw_from_quat_xyzw(pose.rotation_xyzw)
-
-    @staticmethod
-    def _pair_aabb_overlaps(
-        a_bbox: AxisAlignedBoundingBox,
-        b_bbox: AxisAlignedBoundingBox,
-        pos_a: tuple[float, float, float],
-        pos_b: tuple[float, float, float],
-        yaw_a: float,
-        yaw_b: float,
-        margin: float,
-    ) -> bool:
-        """True if two yaw-rotated, world-translated AABBs overlap (with margin)."""
-        if yaw_a != 0.0:
-            a_bbox = a_bbox.rotated_around_z(yaw_a)
-        if yaw_b != 0.0:
-            b_bbox = b_bbox.rotated_around_z(yaw_b)
-        a_world = a_bbox.translated(pos_a)
-        b_world = b_bbox.translated(pos_b)
-        return a_world.overlaps(b_world, margin=margin).item()
 
     @staticmethod
     def _centers_in_target_frame(

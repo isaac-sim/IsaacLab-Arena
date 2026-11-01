@@ -28,8 +28,9 @@ class ReachabilityConfig:
     ik_position_threshold_m: float = 0.01
     """Max IK position error (m) for a grasp to count as reachable."""
 
-    ik_rotation_threshold_rad: float = 0.1
-    """Max IK rotation error (rad) for a grasp to count as reachable."""
+    ik_rotation_threshold_rad: float = 0.2
+    """Max IK rotation error (rad, geodesic angle between the solved and goal orientations) for a grasp to count as
+    reachable."""
 
     require_collision_free: bool = True
     """If True, it's also collision-free with the robot itself."""

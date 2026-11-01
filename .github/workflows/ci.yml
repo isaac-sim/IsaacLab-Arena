@@ -167,7 +167,10 @@ jobs:
           file: docker/Dockerfile.isaaclab_arena
           target: ${{ env.ARENA_TARGET }}
           platforms: linux/amd64
-          build-args: WORKDIR=/workspaces/isaaclab_arena
+          build-args: |
+            WORKDIR=/workspaces/isaaclab_arena
+            GIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}
+            GIT_BRANCH=${{ github.head_ref || github.ref_name }}
           pull: true
           push: true
           # Keep candidate images as single-platform manifests for NGC.
@@ -221,20 +224,6 @@ jobs:
           test -n "$IMAGE_DIGEST"
           echo "ref=${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
           echo "Built ${ARENA_TARGET}: ${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
-
-
-  build_curobo_image:
-    name: Build Arena cuRobo image
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 120
-    needs: [pre_commit]
-    container:
-      image: ubuntu:24.04
-    env:
-      ARENA_TARGET: dev-curobo
-    outputs:
-      image: ${{ steps.image.outputs.ref }}
-    steps: *build_and_push_image_steps
 
 
   test:
@@ -308,22 +297,24 @@ jobs:
       - name: Run in-process PhysX tests without cameras
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ \
+            isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
-
-      - name: Run VLM agent policy tests
-        run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 \
+            isaaclab_arena/tests/ \
             isaaclab_arena_vlm_agent/tests/
 
       - name: Run GR00T policy client & data tests (lightweight gr00t deps only)
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_policy \
             isaaclab_arena_gr00t/tests/
+
+      - name: Run cuRobo IK reachability tests
+        run: |
+          MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
+            isaaclab_arena_curobo/tests/
 
 
   tests_with_subprocess:
@@ -471,34 +462,6 @@ jobs:
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
-  test_curobo_deps:
-    name: cuRobo deps check
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 30
-    needs: [build_curobo_image]
-
-    container:
-      image: ${{ needs.build_curobo_image.outputs.image }}
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-
-    steps:
-      - *nvidia_smi
-      - *lscpu
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_project_step
-
-      - name: Run cuRobo dependency check
-        run: |
-          MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
-            isaaclab_arena_curobo/tests/
-
-
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]
@@ -542,24 +505,3 @@ jobs:
         run: |
           docker buildx imagetools create --prefer-index=false \
             --tag "${ARENA_IMAGE}:latest" "$CANDIDATE_IMAGE"
-
-
-  build_and_push_curobo_image_post_merge:
-    name: Publish tested cuRobo NGC image (post-merge)
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 15
-    # A cuRobo failure must not block the base image's publication.
-    needs: [build_curobo_image, test, test_curobo_deps]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    container:
-      image: ubuntu:24.04
-    env:
-      CANDIDATE_IMAGE: ${{ needs.build_curobo_image.outputs.image }}
-
-    steps:
-      - *install_docker_step
-      - *docker_login_ngc_step
-      - name: Publish the tested cuRobo image without rebuilding
-        run: |
-          docker buildx imagetools create --prefer-index=false \
-            --tag "${ARENA_IMAGE}:curobo" "$CANDIDATE_IMAGE"

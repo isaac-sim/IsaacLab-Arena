@@ -18,32 +18,25 @@ background:
 objects:
 - id: mustard_bottle
   registry_name: mustard_bottle_hope_robolab
-  params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
-  params: {}
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: KitchenRoom/Floor
   object_type: base
-  params: {}
 - id: counter_top
   parent_id: kitchen
   prim_path: CapSurface_03
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: counter_top
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: counter_top
@@ -58,11 +51,9 @@ relations:
 - kind: 'on'
   subject: mustard_bottle
   reference: counter_top
-  params: {}
 - kind: 'on'
   subject: bowl
   reference: counter_top
-  params: {}
 task:
   composition: atomic
   description: pick up the mustard bottle and place it in the red bowl

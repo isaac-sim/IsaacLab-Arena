@@ -16,49 +16,37 @@ background:
   registry_name: lightwheel_kitchen_g_shaped_large_scandinavian
   params:
     collision_mode: mesh
-    repair_collision_mesh_non_watertight: false
 objects:
 - id: green_ladle
   registry_name: ladle_handal_robolab
-  params: {}
 - id: plate
   registry_name: plate_large_vomp_robolab
-  params: {}
 - id: spoon_1
   registry_name: spoon_1_handal_robolab
-  params: {}
 - id: spoon_2
   registry_name: spoon_2_handal_robolab
-  params: {}
 - id: spoon_3
   registry_name: spoon_big_vomp_robolab
-  params: {}
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: counter_top
   parent_id: kitchen
   prim_path: counter_main_main_group/top_geometry
   object_type: base
-  params: {}
 - id: toaster
   parent_id: kitchen
   prim_path: toaster_main_group
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: counter_top
-  params: {}
 - kind: is_anchor
   subject: toaster
-  params: {}
 - kind: rotate_around_solution
   subject: droid
   params:
@@ -71,27 +59,21 @@ relations:
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: 'on'
   subject: green_ladle
   reference: counter_top
-  params: {}
 - kind: 'on'
   subject: plate
   reference: counter_top
-  params: {}
 - kind: 'on'
   subject: spoon_1
   reference: counter_top
-  params: {}
 - kind: 'on'
   subject: spoon_2
   reference: counter_top
-  params: {}
 - kind: 'on'
   subject: spoon_3
   reference: counter_top
-  params: {}
 - kind: next_to
   subject: green_ladle
   reference: toaster

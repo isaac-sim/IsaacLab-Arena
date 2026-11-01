@@ -401,7 +401,7 @@ def _test_relation_free_object_set_is_a_passive_obstacle(simulation_app, tmp_pat
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.relations.passive_collision_objects import discover_passive_assets
+    from isaaclab_arena.relations.geometry.passive_collision_objects import discover_passive_assets
     from isaaclab_arena.utils.pose import Pose
 
     fixed_pose = Pose(position_xyz=(0.0, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))

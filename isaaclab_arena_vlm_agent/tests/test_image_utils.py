@@ -21,9 +21,9 @@ def test_image_encoding_preserves_spatial_color_and_aspect_ratio(max_width_or_he
     pixels[:, :8, 0] = 255
     pixels[:, 8:, 2] = 255
     pixels[..., 3] = 255
-    url = image_to_jpeg_data_url(pixels, max_width_or_height)
+    url, size = image_to_jpeg_data_url(pixels, max_width_or_height)
     image = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1])))
-    assert image.size == expected_size
+    assert image.size == size == expected_size
     assert image.mode == "RGB"
     left, right = image.getpixel((0, 0)), image.getpixel((image.width - 1, 0))
     assert left[0] > left[2] + 100

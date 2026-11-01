@@ -15,7 +15,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg
 from isaaclab.utils.images import is_depth_like, is_normals_like, is_rgb_like
 
 from isaaclab_arena.assets.asset import Asset
@@ -27,7 +27,8 @@ class ArenaCameraCfg:
     """Parent class for camera configs in Arena.
 
     CameraCfg configclasses subclass this and declare camera fields (as per usual). The get_cfg
-    then returns the rig un-tiled, or a tiled copy dependent on the value of ``use_tiled_camera``.
+    then returns a copy using tiled cameras by default. Setting ``use_tiled_camera=False``
+    selects the untiled renderer.
     """
 
     # Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it.
@@ -35,7 +36,7 @@ class ArenaCameraCfg:
 
     @property
     def use_tiled_camera(self) -> bool:
-        """Whether :meth:`get_cfg` returns tiled cameras."""
+        """Whether get_cfg returns tiled cameras instead of independent render products."""
         return self._use_tiled_camera
 
     @use_tiled_camera.setter
@@ -50,30 +51,58 @@ class ArenaCameraCfg:
         """Return the field name of every camera in this rig."""
         return [f.name for f in fields(self) if isinstance(getattr(self, f.name), CameraCfg)]
 
+    def fit_resolution(self, max_height: int, max_width: int) -> None:
+        """Shrink every camera in this rig to fit inside a bounding box, preserving each aspect ratio.
+
+        A 1280x720 camera fitted into a 224x224 box renders at 224x126, the largest 16:9 image that box holds.
+        """
+        for camera_name in self.camera_names():
+            camera_cfg = getattr(self, camera_name)
+            native_height, native_width = camera_cfg.height, camera_cfg.width
+            camera_cfg.height, camera_cfg.width = fit_image_size(native_height, native_width, max_height, max_width)
+            # The lens (focal length and apertures) stays as declared, so a changed aspect ratio would give
+            # non-square pixels and therefore different intrinsics.
+            assert abs(camera_cfg.height - camera_cfg.width * native_height / native_width) <= 1, (
+                f"Fitting {camera_name} to {camera_cfg.height}x{camera_cfg.width} changes the aspect ratio of"
+                f" {native_height}x{native_width}"
+            )
+
     def get_cfg(self) -> Any:
         """Return a copy of this rig, tiled or untiled depending on use_tiled_camera.
 
         A copy is returned so callers may freely combine or mutate it without affecting this instance.
+        Select tiling on the source rig before calling this method.
         """
-        if self._use_tiled_camera:
-            return self._tiled_rig()
-        return self.copy()
+        from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import (
+            UnTiledIsaacRtxRenderer,
+            assert_camera_cfg_compatible_with_independent_rendering,
+        )
 
-    def _tiled_rig(self) -> Any:
-        """Return a copy of this rig with every untiled CameraCfg field converted to tiled."""
-        tiled = self.copy()
-        for f in fields(tiled):
-            value = getattr(tiled, f.name)
-            if isinstance(value, CameraCfg) and not isinstance(value, TiledCameraCfg):
-                setattr(tiled, f.name, self._as_tiled_camera_cfg(value))
-        return tiled
+        # Select the renderer for every camera in a copy, leaving the source rig reusable.
+        # The renderer configuration determines tiling; the camera config type stays unchanged.
+        rig = self.copy()
+        for name in rig.camera_names():
+            camera_cfg = getattr(rig, name)
+            assert camera_cfg.renderer_cfg.class_type is not UnTiledIsaacRtxRenderer, (
+                "get_cfg() expects a source camera rig; change use_tiled_camera on the source rig, "
+                "not on the returned configuration"
+            )
+            if not self._use_tiled_camera:
+                assert_camera_cfg_compatible_with_independent_rendering(camera_cfg)
+                camera_cfg.renderer_cfg.class_type = UnTiledIsaacRtxRenderer
+        return rig
 
-    def _as_tiled_camera_cfg(self, camera_cfg: CameraCfg) -> TiledCameraCfg:
-        """Return a TiledCameraCfg mirroring the settings of an untiled CameraCfg."""
-        init_fields = {
-            f.name: getattr(camera_cfg, f.name) for f in fields(camera_cfg) if f.init and f.name != "class_type"
-        }
-        return TiledCameraCfg(**init_fields)
+
+def fit_image_size(height: int, width: int, max_height: int, max_width: int) -> tuple[int, int]:
+    """Return the largest (height, width) with the same aspect ratio that fits inside the bounding box.
+
+    Both dimensions are divided by the larger axis ratio and truncated to whole pixels, which matches the
+    content area of an aspect-preserving resize-with-pad (such as tf.image.resize_with_pad) into that box.
+    """
+    assert height > 0 and width > 0, "camera dimensions must be greater than zero"
+    assert max_height > 0 and max_width > 0, "bounding box dimensions must be greater than zero"
+    ratio = max(height / max_height, width / max_width)
+    return max(1, int(height / ratio)), max(1, int(width / ratio))
 
 
 def make_camera_observation_cfg(

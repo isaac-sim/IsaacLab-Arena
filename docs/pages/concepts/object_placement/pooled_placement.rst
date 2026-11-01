@@ -78,6 +78,34 @@ Set ``ObjectPlacerParams.resolve_on_reset=False`` to reuse the layout assigned
 during environment creation. The equivalent command-line option is
 ``--no-resolve_on_reset``. Keep the default to change layouts across episodes.
 
+Diagnosing Placement
+--------------------
+
+Each fill of the pool, at creation or during a reset that finds a partition
+empty, records how its candidates did. For each solved batch, it records how
+many candidates passed every required check and, for each check, how many
+candidates the check ran on and how many passed. It also records which
+environments fell back to best-loss layouts.
+
+- After ``build_env_cfg()`` or ``make_registered()``,
+  ``ArenaEnvBuilder.placement_diagnostics`` holds the record of the fill made
+  during that build. It is ``None`` when the build solved no relations or
+  failed.
+- From a running environment, ``get_placement_pool(env).last_fill_diagnostics``
+  holds the pool's most recent fill, including one made during a reset.
+  ``get_placement_pool`` is in ``isaaclab_arena.relations.runtime.placement_events``.
+- When a fill fails, its error message lists the same counts, one line per
+  batch. For a box wider than the table it is placed on, for example:
+
+  .. code-block:: text
+
+     batch 0: 0/4 valid; passed per check: on_relation=0/4, clutter_on_relation=4/4, ..., no_overlap=4/4
+
+The required check that rejects the most candidates, here ``on_relation``,
+points to the relation or collision geometry to adjust. A check that runs only
+on candidates that passed the cheaper required checks, such as
+``ik_reachable``, counts only those candidates.
+
 Reproducibility
 ---------------
 

@@ -32,8 +32,8 @@ def prepare_clutter_settling(env: ManagerBasedEnv, assets: list[PlaceableAsset])
         return
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
-    from isaaclab_arena.relations.passive_collision_objects import discover_passive_assets
+    from isaaclab_arena.relations.geometry.bounding_box_helpers import has_heterogeneous_objects
+    from isaaclab_arena.relations.geometry.passive_collision_objects import discover_passive_assets
 
     # Reusable root poses do not identify which object-set variant was spawned.
     assert not has_heterogeneous_objects(assets), "Resolve object sets before collecting clutter layouts"

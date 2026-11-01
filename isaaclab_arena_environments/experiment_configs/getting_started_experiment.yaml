@@ -29,8 +29,13 @@ runs:
 
   swap_objects:
     environment:
-      pick_up_object: mustard_bottle_hot3d_robolab
       destination_location: wooden_bowl_hot3d_robolab
+    num_rebuilds: 3
+    rollout_limit:
+      num_episodes: 3
+    variations:
+      pick_up_object.asset_selection.enabled: true
+      pick_up_object.asset_selection.registry_names: [mustard_bottle_hot3d_robolab, orange_01_fruits_veggies_robolab, rubiks_cube_hot3d_robolab]
 
   change_background_hdr:
     environment:
