@@ -1,0 +1,142 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_l_island
+  params:
+    collision_mode: mesh
+objects:
+- id: bagel
+  registry_name: bagel_00_objaverse_robolab
+- id: left_plate
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/plate/simready_usd/plate.usda
+    scale: [0.85, 0.85, 1]
+- id: right_plate
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/plate/simready_usd/plate.usda
+    scale: [0.85, 0.85, 1]
+- id: mug
+  registry_name: mug_ycb_robolab
+- id: spoon
+  registry_name: spoon_big_vomp_robolab
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: corner_counter
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: corner_counter
+  params:
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.05
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: bagel
+  reference: corner_counter
+- kind: 'on'
+  subject: left_plate
+  reference: corner_counter
+- kind: 'on'
+  subject: right_plate
+  reference: corner_counter
+- kind: 'on'
+  subject: mug
+  reference: corner_counter
+- kind: 'on'
+  subject: spoon
+  reference: corner_counter
+- kind: align_with
+  subject: mug
+  reference: left_plate
+  params:
+    axis: x
+    offset_m: 0.23
+    tolerance_m: 0.04
+- kind: align_with
+  subject: mug
+  reference: left_plate
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.06
+- kind: align_with
+  subject: right_plate
+  reference: mug
+  params:
+    axis: x
+    offset_m: 0.23
+    tolerance_m: 0.04
+- kind: align_with
+  subject: right_plate
+  reference: mug
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.06
+- kind: align_with
+  subject: bagel
+  reference: left_plate
+  params:
+    axis: y
+    offset_m: -0.25
+    tolerance_m: 0.05
+- kind: align_with
+  subject: bagel
+  reference: left_plate
+  params:
+    axis: x
+    offset_m: 0.1
+    tolerance_m: 0.1
+- kind: align_with
+  subject: left_plate
+  reference: corner_counter
+  params:
+    axis: y
+    tolerance_m: 0.1
+- kind: align_with
+  subject: droid
+  reference: left_plate
+  params:
+    axis: x
+    offset_m: 0.2
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the bagel and place it on the plate to the left of the mug.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: bagel
+      destination_location: left_plate
+      destination_object: left_plate
+      background_scene: kitchen

@@ -1,0 +1,173 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_spatial_orange_in_front_right_bowl_l_island
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_l_island
+  params:
+    collision_mode: mesh
+objects:
+- id: orange
+  registry_name: orange_01_fruits_veggies_robolab
+- id: front_right
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/kitchenware_bowl_o01/simready_usd/sm_kitchenware_bowl_o01_01.usd
+    scale: [1.44, 1.44, 1]
+- id: front_left
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/kitchenware_bowl_o01/simready_usd/sm_kitchenware_bowl_o01_01.usd
+    scale: [1.44, 1.44, 1]
+- id: rear_right
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/kitchenware_bowl_o01/simready_usd/sm_kitchenware_bowl_o01_01.usd
+    scale: [1.44, 1.44, 1]
+- id: rear_left
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/kitchenware_bowl_o01/simready_usd/sm_kitchenware_bowl_o01_01.usd
+    scale: [1.44, 1.44, 1]
+- id: banana
+  registry_name: banana_ycb_robolab
+- id: soup
+  registry_name: alphabet_soup_can_hope_robolab
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: corner_counter
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: orange
+  reference: corner_counter
+- kind: 'on'
+  subject: front_right
+  reference: corner_counter
+- kind: 'on'
+  subject: front_left
+  reference: corner_counter
+- kind: 'on'
+  subject: rear_right
+  reference: corner_counter
+- kind: 'on'
+  subject: rear_left
+  reference: corner_counter
+- kind: 'on'
+  subject: banana
+  reference: corner_counter
+- kind: 'on'
+  subject: soup
+  reference: corner_counter
+- kind: align_with
+  subject: front_right
+  reference: corner_counter
+  params:
+    axis: y
+    offset_m: -0.07
+    tolerance_m: 0.04
+- kind: align_with
+  subject: front_left
+  reference: front_right
+  params:
+    axis: x
+    offset_m: -0.28
+    tolerance_m: 0.04
+- kind: align_with
+  subject: front_left
+  reference: front_right
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.04
+- kind: align_with
+  subject: rear_right
+  reference: front_right
+  params:
+    axis: y
+    offset_m: 0.27
+    tolerance_m: 0.04
+- kind: align_with
+  subject: rear_right
+  reference: front_right
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.04
+- kind: align_with
+  subject: rear_left
+  reference: front_left
+  params:
+    axis: y
+    offset_m: 0.27
+    tolerance_m: 0.04
+- kind: align_with
+  subject: rear_left
+  reference: front_left
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.04
+- kind: align_with
+  subject: orange
+  reference: front_right
+  params:
+    axis: y
+    offset_m: -0.17
+    tolerance_m: 0.04
+- kind: align_with
+  subject: orange
+  reference: front_right
+  params:
+    axis: x
+    offset_m: -0.14
+    tolerance_m: 0.1
+- kind: align_with
+  subject: droid
+  reference: corner_counter
+  params:
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.06
+- kind: align_with
+  subject: droid
+  reference: front_right
+  params:
+    axis: x
+    offset_m: -0.1
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the orange and put it in the front-right bowl.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: orange
+      destination_location: front_right
+      destination_object: front_right
+      background_scene: kitchen
