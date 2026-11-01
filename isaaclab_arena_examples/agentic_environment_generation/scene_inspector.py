@@ -197,6 +197,7 @@ def _preview_scene(args: argparse.Namespace) -> int:
             num_steps=args.num_steps,
             env_spacing=args.env_spacing,
             show_placement_overlay=args.show_placement_overlay,
+            include_placement_report=args.placement_report is not None,
         )
 
     source_path = Path(response["video_path"])
@@ -206,6 +207,14 @@ def _preview_scene(args: argparse.Namespace) -> int:
         shutil.copy2(source_path, output_path)
     finally:
         shutil.rmtree(source_path.parent, ignore_errors=True)
+    placement_report_path = None
+    if args.placement_report is not None:
+        placement_report_path = args.placement_report.resolve()
+        placement_report_path.parent.mkdir(parents=True, exist_ok=True)
+        placement_report_path.write_text(
+            json.dumps(response.get("placement_report"), indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     _json_stdout({
         "command": "preview",
@@ -217,6 +226,7 @@ def _preview_scene(args: argparse.Namespace) -> int:
         "num_steps": response.get("num_steps", args.num_steps),
         "env_spacing": response.get("env_spacing", args.env_spacing),
         "show_placement_overlay": response.get("show_placement_overlay", args.show_placement_overlay),
+        "placement_report": str(placement_report_path) if placement_report_path is not None else None,
         "timings_s": {"total": time.monotonic() - started_at},
     })
     return 0
@@ -290,6 +300,11 @@ def _parser() -> argparse.ArgumentParser:
         "--show-placement-overlay",
         action="store_true",
         help="Overlay relation-solver placement AABBs and mesh collision geometry.",
+    )
+    preview.add_argument(
+        "--placement-report",
+        type=Path,
+        help="Optional destination JSON file for aggregate and relation-level placement diagnostics.",
     )
     preview.set_defaults(handler=_preview_scene)
     return parser

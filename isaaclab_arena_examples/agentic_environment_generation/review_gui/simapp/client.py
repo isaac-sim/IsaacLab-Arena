@@ -129,6 +129,7 @@ class SimAppClient:
         num_steps: int,
         env_spacing: float,
         show_placement_overlay: bool = False,
+        include_placement_report: bool = False,
     ) -> dict[str, Any]:
         """Run a multi-env relation-solver rollout preview in the SimApp server."""
         with self._lock:
@@ -139,6 +140,7 @@ class SimAppClient:
                 "num_steps": num_steps,
                 "env_spacing": env_spacing,
                 "show_placement_overlay": show_placement_overlay,
+                "include_placement_report": include_placement_report,
             })
 
         if not response.get("ok"):

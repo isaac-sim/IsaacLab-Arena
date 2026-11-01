@@ -8,6 +8,67 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass(frozen=True)
+class PlacementBounds:
+    """Serializable world-axis bounds used by a placement check."""
+
+    minimum_m: tuple[float, float, float]
+    maximum_m: tuple[float, float, float]
+
+    def to_dict(self) -> dict[str, list[float]]:
+        """Return JSON-serializable bounds."""
+        return {"minimum_m": list(self.minimum_m), "maximum_m": list(self.maximum_m)}
+
+
+@dataclass(frozen=True)
+class RelationRejectionDiagnostics:
+    """Geometry details for one failed On or ClutterOn candidate relation."""
+
+    check: str
+    failing_test: str
+    relation_type: str
+    subject: str
+    support: str
+    env_id: int
+    candidate_id: int
+    child_bounds: PlacementBounds
+    support_bounds: PlacementBounds
+    signed_height_error_m: float
+    requested_edge_margin_m: float
+    feasible_edge_margin_m: float
+    footprint_margins_m: dict[str, float]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable rejection record."""
+        return {
+            "check": self.check,
+            "failing_test": self.failing_test,
+            "relation_type": self.relation_type,
+            "subject": self.subject,
+            "support": self.support,
+            "env_id": self.env_id,
+            "candidate_id": self.candidate_id,
+            "child_bounds": self.child_bounds.to_dict(),
+            "support_bounds": self.support_bounds.to_dict(),
+            "signed_height_error_m": self.signed_height_error_m,
+            "requested_edge_margin_m": self.requested_edge_margin_m,
+            "feasible_edge_margin_m": self.feasible_edge_margin_m,
+            "footprint_margins_m": self.footprint_margins_m,
+        }
+
+    def format(self) -> str:
+        """Return a compact human-readable rejection explanation."""
+        margins = ", ".join(f"{key}={value:.4f}" for key, value in self.footprint_margins_m.items())
+        return (
+            f"{self.check}/{self.failing_test}: env={self.env_id} candidate={self.candidate_id} "
+            f"{self.subject} {self.relation_type}({self.support}); "
+            f"height_error={self.signed_height_error_m:.4f} m, "
+            f"edge_margin={self.requested_edge_margin_m:.4f} m "
+            f"(feasible={self.feasible_edge_margin_m:.4f} m), footprint=[{margins}]"
+        )
 
 
 @dataclass
@@ -43,6 +104,9 @@ class BatchValidationDiagnostics:
     checks: dict[str, ValidationCheckDiagnostics]
     """Counts for each check that ran on the batch."""
 
+    relation_rejections: list[RelationRejectionDiagnostics] = field(default_factory=list)
+    """Bounded details for failed On and ClutterOn candidates."""
+
     def format_passed_per_check(self) -> str:
         """Return each check's passed and evaluated counts on one line, such as "on_relation=49/50, no_overlap=43/50"."""
         return ", ".join(
@@ -63,6 +127,29 @@ class PlacementDiagnostics:
     fallback_envs: list[int] = field(default_factory=list)
     """Environments given best-loss layouts, which fail at least one required check."""
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return aggregate counts and bounded rejection details as JSON-compatible data."""
+        return {
+            "batches": [
+                {
+                    "num_candidates": batch.num_candidates,
+                    "num_valid": batch.num_valid,
+                    "checks": {
+                        name: {
+                            "num_evaluated": check.num_evaluated,
+                            "num_passed": check.num_passed,
+                            "num_rejected": check.num_rejected,
+                            "required": check.required,
+                        }
+                        for name, check in batch.checks.items()
+                    },
+                    "relation_rejections": [rejection.to_dict() for rejection in batch.relation_rejections],
+                }
+                for batch in self.batches
+            ],
+            "fallback_envs": list(self.fallback_envs),
+        }
+
     def format_summary(self) -> str:
         """Return one line per batch with its valid and per-check counts, then the fallback environments, if any."""
         lines = []
@@ -73,4 +160,6 @@ class PlacementDiagnostics:
             )
         if self.fallback_envs:
             lines.append(f"best-loss fallback for envs: {self.fallback_envs}")
+        for index, batch in enumerate(self.batches):
+            lines.extend(f"batch {index} rejection: {rejection.format()}" for rejection in batch.relation_rejections)
         return "\n".join(lines)

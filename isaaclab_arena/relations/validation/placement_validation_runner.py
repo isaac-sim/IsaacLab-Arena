@@ -13,6 +13,8 @@ from isaaclab_arena.relations.optimization.placement_candidate_batch import Plac
 from isaaclab_arena.relations.placement_diagnostics import BatchValidationDiagnostics, ValidationCheckDiagnostics
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
 
+_MAX_RELATION_REJECTIONS_PER_BATCH = 50
+
 if TYPE_CHECKING:
     from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -36,6 +38,7 @@ class PlacementValidationRunner:
         self.params = params
         self._validators = validators
         self._visualizer = visualizer
+        self._relation_rejections = []
 
     def validate_candidates(
         self,
@@ -53,6 +56,7 @@ class PlacementValidationRunner:
         # Per check, which layouts of this batch (each refill) it actually ran on
         evaluated_layout_indices_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
+        self._relation_rejections = []
 
         if self._visualizer is not None:
             self._visualizer.start_new_batch(
@@ -109,6 +113,7 @@ class PlacementValidationRunner:
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
                 layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(batch, collision_objects)
+                self._collect_relation_rejections(validator)
                 evaluated_layout_indices_by_check[validator.check] = list(range(num_candidates))
 
     def _run_expensive_checks(
@@ -135,6 +140,7 @@ class PlacementValidationRunner:
                     batch.select(passed_layout_indices),
                     collision_objects,
                 )
+                self._collect_relation_rejections(validator)
                 verdicts = [False] * num_candidates
                 for layout_index_within_batch, verdict in zip(
                     passed_layout_indices, verdicts_over_passed_layout, strict=True
@@ -143,8 +149,8 @@ class PlacementValidationRunner:
                 layout_pass_verdicts_by_check[validator.check] = verdicts
                 evaluated_layout_indices_by_check[validator.check] = passed_layout_indices
 
-    @staticmethod
     def _build_batch_validation_diagnostics(
+        self,
         batch: PlacementCandidateBatch,
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
@@ -168,7 +174,13 @@ class PlacementValidationRunner:
                 candidate.validation.do_all_required_validation_checks_pass() for candidate in batch.candidates
             ),
             checks=checks,
+            relation_rejections=list(self._relation_rejections),
         )
+
+    def _collect_relation_rejections(self, validator: PrePhysicsPlacementValidator) -> None:
+        remaining = _MAX_RELATION_REJECTIONS_PER_BATCH - len(self._relation_rejections)
+        if remaining > 0:
+            self._relation_rejections.extend(validator.last_relation_rejections[:remaining])
 
     @staticmethod
     def _passes_required_checks(

@@ -85,7 +85,11 @@ Each fill of the pool, at creation or during a reset that finds a partition
 empty, records how its candidates did. For each solved batch, it records how
 many candidates passed every required check and, for each check, how many
 candidates the check ran on and how many passed. It also records which
-environments fell back to best-loss layouts.
+environments fell back to best-loss layouts. For failed ``On`` and
+``ClutterOn`` candidates, Arena retains a bounded set of relation-level
+records containing subject/support world bounds, signed height error,
+requested and feasible edge margins, and signed margins for all four
+footprint edges.
 
 - After ``build_env_cfg()`` or ``make_registered()``,
   ``ArenaEnvBuilder.placement_diagnostics`` holds the record of the fill made
@@ -105,6 +109,22 @@ The required check that rejects the most candidates, here ``on_relation``,
 points to the relation or collision geometry to adjust. A check that runs only
 on candidates that passed the cheaper required checks, such as
 ``ik_reachable``, counts only those candidates.
+
+Call ``PlacementDiagnostics.to_dict()`` for a serializable report, or request
+one while recording a scene preview:
+
+.. code-block:: bash
+
+   python isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+     preview --env-spec scene.yaml --output /tmp/preview.mp4 \
+     --num-envs 1 --num-steps 10 \
+     --placement-report /tmp/placement_report.json
+
+In a relation rejection, a negative footprint margin identifies an edge
+outside the feasible support region. A negative signed height error is below
+the accepted height band; a positive value is above it. Zero means height
+passed, so inspect ``failing_test`` to distinguish height, edge-margin
+feasibility, and footprint failures.
 
 Reproducibility
 ---------------

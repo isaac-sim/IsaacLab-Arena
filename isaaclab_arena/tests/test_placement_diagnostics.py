@@ -91,6 +91,16 @@ def test_pool_diagnostics_record_fallbacks_and_explain_fill_failures():
     assert [batch.num_valid for batch in diagnostics.batches] == [0, 0]
     assert diagnostics.batches[0].checks["on_relation"].num_rejected == diagnostics.batches[0].num_candidates
     assert diagnostics.fallback_envs == [0, 1] and pool.had_fallbacks
+    rejection = diagnostics.batches[0].relation_rejections[0]
+    assert rejection.check == "on_relation"
+    assert rejection.failing_test in {"edge_margin", "footprint"}
+    assert rejection.subject == "box"
+    assert rejection.support == "desk"
+    assert rejection.requested_edge_margin_m > rejection.feasible_edge_margin_m
+    assert min(rejection.footprint_margins_m.values()) < 0.0
+    serialized = diagnostics.to_dict()
+    assert serialized["batches"][0]["relation_rejections"][0]["candidate_id"] == rejection.candidate_id
+    assert "height_error=" in diagnostics.format_summary()
 
     with pytest.raises(RuntimeError, match=r"batch 0: 0/4 valid; passed per check: .*on_relation=0/4"):
         PooledObjectPlacer(

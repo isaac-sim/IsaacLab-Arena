@@ -90,6 +90,7 @@ def run_sim_preview(
     num_steps: int,
     env_spacing: float,
     show_placement_overlay: bool = False,
+    include_placement_report: bool = False,
 ) -> dict[str, Any]:
     """Run relation-solver preview and record the task-configured viewport."""
     import gymnasium as gym
@@ -148,6 +149,12 @@ def run_sim_preview(
 
         env = wrap_env_for_video(env, video_cfg, num_steps=num_steps, num_episodes=None)
         obs, _ = env.reset()
+        placement_report = None
+        if include_placement_report:
+            from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
+
+            placement_pool = get_placement_pool(env)
+            placement_report = placement_pool.last_fill_diagnostics.to_dict() if placement_pool is not None else None
         if show_placement_overlay:
             from isaaclab_arena.visualization.placement_geometry_draw import PlacementGeometryDraw
 
@@ -187,6 +194,7 @@ def run_sim_preview(
             "env_spacing": env_spacing,
             "num_steps": num_steps,
             "show_placement_overlay": show_placement_overlay,
+            "placement_report": placement_report,
         }
     finally:
         if placement_overlay is not None:

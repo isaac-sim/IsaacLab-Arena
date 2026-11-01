@@ -210,15 +210,26 @@ def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsy
     source_path.write_bytes(b"video")
 
     class _Client:
-        def run_sim_preview(self, yaml_text, *, num_envs, num_steps, env_spacing, show_placement_overlay):
+        def run_sim_preview(
+            self,
+            yaml_text,
+            *,
+            num_envs,
+            num_steps,
+            env_spacing,
+            show_placement_overlay,
+            include_placement_report,
+        ):
             assert yaml_text == "expanded"
             assert show_placement_overlay
+            assert include_placement_report
             return {
                 "video_path": str(source_path),
                 "num_envs": num_envs,
                 "num_steps": num_steps,
                 "env_spacing": env_spacing,
                 "show_placement_overlay": show_placement_overlay,
+                "placement_report": {"batches": [], "fallback_envs": []},
             }
 
     @contextlib.contextmanager
@@ -236,6 +247,7 @@ def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsy
         num_steps=3,
         env_spacing=4.0,
         show_placement_overlay=True,
+        placement_report=tmp_path / "result" / "placement.json",
     )
 
     assert scene_inspector._preview_scene(args) == 0
@@ -246,6 +258,7 @@ def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsy
     assert response["status"] == "completed"
     assert response["num_envs"] == 2
     assert response["show_placement_overlay"] is True
+    assert json.loads((tmp_path / "result" / "placement.json").read_text())["batches"] == []
 
 
 @pytest.mark.parametrize("requested_ignore_cache", [False, True])

@@ -92,8 +92,15 @@ selects its USD subtree and enables collider visualization, which is useful for 
 and interaction geometry. The review GUI continues to reuse cached thumbnails by default.
 `preview` runs the graph's relation solver, builds the scene, takes bounded zero-action steps, and
 records the configured viewport. Add `--show-placement-overlay` to draw the placement solver's
-object AABBs and mesh collision geometry in the video. Use `prim-tree` without the backend for static USD inspection;
-`snapshot`, `preview`, `status`, and `shutdown` require the live backend.
+object AABBs and mesh collision geometry in the video. Add `--placement-report` to retain aggregate
+check counts and bounded On/ClutterOn rejection details. Negative footprint margins identify the
+failed edge; a negative signed height error is below the accepted band and a positive value is
+above it. `spawned-physics` builds the graph through Arena and reports configured overrides,
+effective composed collider/rigid-body properties, and overrides that appear not to have applied.
+Use its `--prim` option for a subtree. `--horizontal-surfaces` is opt-in because that heuristic
+considers mesh colliders only and assumes world Z is up. Use `prim-tree` without the backend for
+static authored USD inspection; `spawned-physics`, `snapshot`, `preview`, `status`, and `shutdown`
+require the live backend.
 
 ## Assemble from maintained sources
 
@@ -161,6 +168,13 @@ isaaclab.sh -p isaaclab_arena/scripts/force_control_runner.py \
   --output artifacts/force_control/bananas_in_bowl \
   --visualizer kit
 ```
+
+When a `check` command reaches `timeout_steps`, the runner raises and writes
+`failure_check_timeout_subtask_<NN>_step_<step>.json` in `--output` (plus a PNG when a viewport is
+available). The JSON captures live poses, linear/angular velocities, joint positions/velocities,
+configured contact-sensor forces, predicate/completion state, and controller wrench records.
+Inspect this artifact before adding sleeps or hard-coded sensor names; contact sensors are
+discovered from the environment configuration.
 
 For variation inspection, use the `--list_variations` path through
 [run-experiment](../../user/run-experiment/SKILL.md). Check the

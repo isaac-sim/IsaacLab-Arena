@@ -9,6 +9,7 @@ import torch
 import trimesh
 from abc import abstractmethod
 from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
@@ -20,7 +21,9 @@ from isaaclab_arena.relations.optimization.losses.relation_loss_strategies impor
     not_next_to_violations,
 )
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.placement_diagnostics import PlacementBounds, RelationRejectionDiagnostics
 from isaaclab_arena.relations.relations import (
+    CLUTTER_RELEASE_HEIGHT_TOLERANCE_M,
     AlignWith,
     ClutterOn,
     FaceTo,
@@ -65,6 +68,7 @@ class PrePhysicsPlacementValidator(base.PlacementValidator):
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
         self._params = params
         self._visualizer = visualizer
+        self.last_relation_rejections: list[RelationRejectionDiagnostics] = []
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -114,6 +118,101 @@ def build_validators(
     return validators
 
 
+@dataclass(frozen=True)
+class OnRelationGeometryEvaluation:
+    """Shared boolean verdict and signed geometry measurements for On validation."""
+
+    valid: bool
+    failing_test: str
+    signed_height_error_m: float
+    requested_edge_margin_m: float
+    feasible_edge_margin_m: float
+    footprint_margins_m: dict[str, float]
+
+
+def _placement_bounds(bounds: AxisAlignedBoundingBox) -> PlacementBounds:
+    return PlacementBounds(
+        minimum_m=tuple(float(value) for value in bounds.min_point[0]),
+        maximum_m=tuple(float(value) for value in bounds.max_point[0]),
+    )
+
+
+def evaluate_on_relation_geometry(
+    relation: On,
+    child: AxisAlignedBoundingBox,
+    support: AxisAlignedBoundingBox,
+    bottom: float,
+    support_top: float,
+    tolerance_m: float,
+    *,
+    check_height: bool = True,
+) -> OnRelationGeometryEvaluation:
+    """Evaluate On/ClutterOn height, edge margin, and footprint with shared math."""
+    height_fits = (
+        relation.is_child_bottom_z_within_placement_height_range(bottom, support_top, tolerance_m)
+        if check_height
+        else True
+    )
+    if height_fits:
+        signed_height_error_m = 0.0
+    elif isinstance(relation, ClutterOn):
+        minimum_bottom = support_top + max(0.0, relation.clearance_m - CLUTTER_RELEASE_HEIGHT_TOLERANCE_M)
+        signed_height_error_m = bottom - minimum_bottom
+    elif bottom <= support_top - tolerance_m:
+        signed_height_error_m = bottom - (support_top - tolerance_m)
+    else:
+        signed_height_error_m = bottom - (support_top + relation.clearance_m + tolerance_m)
+
+    margin = 0.0 if relation.overlap else relation.edge_margin_m
+    free_space = (support.size - child.size)[0, :2]
+    feasible_margin = max(0.0, float(free_space.min()) / 2.0)
+    margin_fits = margin == 0.0 or bool(torch.all(free_space >= 2 * margin))
+
+    child_min = child.min_point[0, :2]
+    child_max = child.max_point[0, :2]
+    support_min = support.min_point[0, :2]
+    support_max = support.max_point[0, :2]
+    if relation.overlap:
+        margins = torch.stack((
+            child_max[0] - support_min[0],
+            support_max[0] - child_min[0],
+            child_max[1] - support_min[1],
+            support_max[1] - child_min[1],
+        ))
+        footprint_fits = bool(torch.all(child_max >= support_min) and torch.all(child_min <= support_max))
+    else:
+        margins = torch.stack((
+            child_min[0] - support_min[0] - margin,
+            support_max[0] - child_max[0] - margin,
+            child_min[1] - support_min[1] - margin,
+            support_max[1] - child_max[1] - margin,
+        ))
+        footprint_fits = bool(
+            torch.all(child_min >= support_min + margin) and torch.all(child_max <= support_max - margin)
+        )
+    footprint_margins = {
+        "min_x": float(margins[0]),
+        "max_x": float(margins[1]),
+        "min_y": float(margins[2]),
+        "max_y": float(margins[3]),
+    }
+    failing_test = ""
+    if not height_fits:
+        failing_test = "height"
+    elif not margin_fits:
+        failing_test = "edge_margin"
+    elif not footprint_fits:
+        failing_test = "footprint"
+    return OnRelationGeometryEvaluation(
+        valid=height_fits and margin_fits and footprint_fits,
+        failing_test=failing_test,
+        signed_height_error_m=signed_height_error_m,
+        requested_edge_margin_m=margin,
+        feasible_edge_margin_m=feasible_margin,
+        footprint_margins_m=footprint_margins,
+    )
+
+
 @register_validator
 class OnRelationValidator(PrePhysicsPlacementValidator):
     """Contact-band and footprint checks for ordinary On relations."""
@@ -121,7 +220,21 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
     check = PlacementCheck.ON_RELATION
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
+        self.last_relation_rejections = []
+        verdicts = []
+        for candidate in batch.candidates:
+            verdict, rejection = self._evaluate(candidate.positions, candidate.bboxes)
+            verdicts.append(verdict)
+            if rejection is not None:
+                self.last_relation_rejections.append(
+                    RelationRejectionDiagnostics(
+                        check=self.check,
+                        env_id=candidate.env_id,
+                        candidate_id=candidate.candidate_id,
+                        **rejection,
+                    )
+                )
+        return verdicts
 
     def _validate(
         self,
@@ -134,6 +247,14 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
             positions: Solved positions for each object.
             env_bboxes: Per-object bounds for one environment, each with min/max shape (1, 3).
         """
+        return self._evaluate(positions, env_bboxes)[0]
+
+    def _evaluate(
+        self,
+        positions: dict[PlaceableAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> tuple[bool, dict | None]:
+        """Evaluate support geometry and return the first rejection's measurements."""
         for obj in positions:
             for relation in obj.get_relations():
                 if not self._matches_relation(relation) or relation.parent not in positions:
@@ -143,14 +264,31 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
                 # Preserve scalar height arithmetic at the strict On contact boundary.
                 bottom = positions[obj][2] + float(env_bboxes[obj].min_point[0, 2])
                 top = positions[relation.parent][2] + float(env_bboxes[relation.parent].max_point[0, 2])
-                height_fits = relation.is_child_bottom_z_within_placement_height_range(
-                    bottom, top, self._params.on_relation_z_tolerance_m
+                support_world = self._support_footprint(relation, parent_world)
+                evaluation = evaluate_on_relation_geometry(
+                    relation,
+                    child_world,
+                    support_world,
+                    bottom,
+                    top,
+                    self._params.on_relation_z_tolerance_m,
                 )
-                if not height_fits or not self._validate_footprint(relation, child_world, parent_world):
+                if not evaluation.valid:
                     if self._params.verbose:
                         print(f"{type(relation).__name__}: '{obj.name}' outside support footprint or height range")
-                    return False
-        return True
+                    return False, {
+                        "failing_test": evaluation.failing_test,
+                        "relation_type": relation.name,
+                        "subject": obj.name,
+                        "support": relation.parent.name,
+                        "child_bounds": _placement_bounds(child_world),
+                        "support_bounds": _placement_bounds(support_world),
+                        "signed_height_error_m": evaluation.signed_height_error_m,
+                        "requested_edge_margin_m": evaluation.requested_edge_margin_m,
+                        "feasible_edge_margin_m": evaluation.feasible_edge_margin_m,
+                        "footprint_margins_m": evaluation.footprint_margins_m,
+                    }
+        return True, None
 
     @staticmethod
     def _matches_relation(relation: RelationBase) -> bool:
@@ -158,8 +296,19 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
 
     def _validate_footprint(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
         """Check feasible margins and containment or overlap within the support footprint."""
-        margin = 0.0 if relation.overlap else relation.edge_margin_m
-        return self._margin_fits(child, parent, margin) and self._footprint_fits(relation, child, parent, margin)
+        return evaluate_on_relation_geometry(
+            relation,
+            child,
+            self._support_footprint(relation, parent),
+            bottom=0.0,
+            support_top=0.0,
+            tolerance_m=0.0,
+            check_height=False,
+        ).valid
+
+    @staticmethod
+    def _support_footprint(relation: On, parent: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        return parent
 
     def _margin_fits(self, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox, margin: float) -> bool:
         """Whether the child fits inside the inset support footprint."""
@@ -197,10 +346,9 @@ class ClutterOnRelationValidator(OnRelationValidator):
     def _matches_relation(relation: RelationBase) -> bool:
         return isinstance(relation, ClutterOn)
 
-    def _validate_footprint(
-        self, relation: ClutterOn, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox
-    ) -> bool:
-        return super()._validate_footprint(relation, child, relation.get_release_region_bbox(parent))
+    @staticmethod
+    def _support_footprint(relation: ClutterOn, parent: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        return relation.get_release_region_bbox(parent)
 
 
 @register_validator
