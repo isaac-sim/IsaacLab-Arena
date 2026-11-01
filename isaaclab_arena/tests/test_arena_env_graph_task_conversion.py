@@ -188,14 +188,18 @@ def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
 
 
 @pytest.mark.parametrize("composition, subtasks_are_sequential", [("sequential", True), ("parallel", False)])
-def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, subtasks_are_sequential):
+@pytest.mark.parametrize("final_states", [None, [True, None], [False, True]])
+def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, subtasks_are_sequential, final_states):
     captured: dict[str, Any] = {}
 
     class FakeCompositeTask:
-        def __init__(self, subtasks, task_description=None, subtasks_are_sequential=False):
+        def __init__(
+            self, subtasks, task_description=None, subtasks_are_sequential=False, desired_subtask_success_state=None
+        ):
             captured["subtasks"] = subtasks
             captured["task_description"] = task_description
             captured["subtasks_are_sequential"] = subtasks_are_sequential
+            captured["final_states"] = desired_subtask_success_state
 
     monkeypatch.setattr(
         conversion,
@@ -212,6 +216,7 @@ def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, 
     spec = CompositeTaskSpec(
         composition=TaskCompositionType(composition),
         description="place two objects",
+        desired_subtask_success_state=final_states,
         subtasks=[
             TaskSpec(kind="PickAndPlaceTask", params={}),
             TaskSpec(kind="PickAndPlaceTask", params={}),
@@ -222,6 +227,7 @@ def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, 
     assert captured["subtasks"] == ["PickAndPlaceTask", "PickAndPlaceTask"]
     assert captured["task_description"] == "place two objects"
     assert captured["subtasks_are_sequential"] is subtasks_are_sequential
+    assert captured["final_states"] == final_states
 
 
 def test_build_atomic_task_from_spec_params_task_description_takes_precedence(monkeypatch):

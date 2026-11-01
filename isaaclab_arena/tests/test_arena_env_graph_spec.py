@@ -94,6 +94,41 @@ def test_graph_spec_parses_default_physics_backend():
     assert spec.default_physics_backend is PhysicsBackend.NEWTON
 
 
+def test_graph_spec_round_trips_desired_subtask_success_state():
+    data = _minimal_env_graph_data()
+    data["task"] = {
+        "composition": "sequential",
+        "description": "complete both milestones",
+        "subtasks": [{"kind": "NoTask"}, {"kind": "NoTask"}],
+        "desired_subtask_success_state": [False, True],
+    }
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+
+    assert spec.task.desired_subtask_success_state == [False, True]
+    assert ArenaEnvGraphSpec.from_dict(spec.to_dict()).task.desired_subtask_success_state == [False, True]
+
+
+@pytest.mark.parametrize(
+    "composition, subtasks, desired_states, message",
+    [
+        ("atomic", [{"kind": "NoTask"}], [True], "Final subtask states require a composite task"),
+        ("sequential", [{"kind": "NoTask"}, {"kind": "NoTask"}], [True], "One final state is required per subtask"),
+    ],
+)
+def test_graph_spec_rejects_invalid_desired_subtask_success_state(composition, subtasks, desired_states, message):
+    data = _minimal_env_graph_data()
+    data["task"] = {
+        "composition": composition,
+        "description": "invalid final states",
+        "subtasks": subtasks,
+        "desired_subtask_success_state": desired_states,
+    }
+
+    with pytest.raises(ValidationError, match=message):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
     data = _minimal_env_graph_data()
     data["embodiment"].setdefault("params", {})["initial_pose"] = {
