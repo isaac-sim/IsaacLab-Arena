@@ -61,6 +61,12 @@ Read only the references relevant to the requested behavior:
   [Run configuration](../../../isaaclab_arena/evaluation/arena_run.py). Keep variations opt-in and
   cameras optional unless requested. Keep execution settings separate from task semantics.
 
+## IMPORTANT Rule of thumbs
+- **Author in YAML:** author a new environment as env spec yaml whenever possible. Only use python environment if functions not supported by env spec yaml is absolutely necessary.
+- **Reuse existing tasks:** try to reuse and composite existing atomic task whenever possible. Use task parameters to adapt the success terms. Avoid creating a new or subtask existing tasks whenever possible.
+- **Avoid modifying assets:** use the original USD assets's mesh and collider, avoid removing collider whenever possible, but ok to change the approximate type.
+- **Use relation placement:** prefer to use relation for placing foreground objects over fixed poses.
+
 ## Validate and hand off
 
 Use [dev-container](../dev-container/SKILL.md) for the clone's runtime and host-user execution,
