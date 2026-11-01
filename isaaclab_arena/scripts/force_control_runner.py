@@ -405,7 +405,10 @@ class PhysicalCommandRunner:
             self.last_wrenches[name] = {
                 "goal": hold.t_W_goal.tolist(),
                 "velocity": v_W.tolist(),
+                "linear_velocity": v_W.tolist(),
+                "angular_velocity": omega_W.tolist(),
                 "force": force_W.tolist(),
+                "torque": torque_W.tolist(),
                 "mass": mass,
             }
             forces_W = masses[:, :, None] / mass * force_W[:, None, :]
@@ -454,6 +457,99 @@ class PhysicalCommandRunner:
                 values.append(evaluate(self.env).tolist())
             status[criterion.name] = values
         return status
+
+    @staticmethod
+    def _buffer_to_list(value):
+        """Convert an Isaac Lab runtime buffer or tensor to JSON-compatible lists."""
+        if value is None:
+            return None
+        value = getattr(value, "torch", value)
+        if hasattr(value, "tolist"):
+            return value.tolist()
+        return None
+
+    def _contact_sensor_state(self) -> dict[str, dict]:
+        """Return configured contact-sensor forces without relying on task-specific names."""
+        from dataclasses import fields, is_dataclass
+
+        from isaaclab.sensors import ContactSensorCfg
+
+        scene_cfg = self.env.cfg.scene
+        if is_dataclass(scene_cfg):
+            configured_sensors = ((field.name, getattr(scene_cfg, field.name)) for field in fields(scene_cfg))
+        else:
+            configured_sensors = vars(scene_cfg).items()
+
+        result = {}
+        for name, sensor_cfg in configured_sensors:
+            if not isinstance(sensor_cfg, ContactSensorCfg) or name not in self.env.scene.sensors:
+                continue
+            data = self.env.scene.sensors[name].data
+            result[name] = {
+                "prim_path": sensor_cfg.prim_path,
+                "filter_prim_paths_expr": list(sensor_cfg.filter_prim_paths_expr or []),
+                "net_forces_w": self._buffer_to_list(getattr(data, "net_forces_w", None)),
+                "force_matrix_w": self._buffer_to_list(getattr(data, "force_matrix_w", None)),
+            }
+        return result
+
+    def _collect_state(self) -> dict:
+        """Collect live task, object, articulation, controller, and sensor state."""
+        scene_object_names = (*self.env.scene.articulations, *self.env.scene.rigid_objects)
+        return {
+            "simulation_step": self.steps,
+            "simulation_time_s": self.steps * self.env.physics_dt,
+            "active_subtask": {
+                "index": self.current_subtask_index,
+                "title": self.current_subtask_title,
+            },
+            "poses": {name: self.env.arena_world.get_pose_w(name).tolist() for name in scene_object_names},
+            "velocities": {
+                name: {
+                    "linear_w": self.env.arena_world.get_root_linear_velocity_w(name).tolist(),
+                    "angular_w": self.env.arena_world.get_root_angular_velocity_w(name).tolist(),
+                }
+                for name in scene_object_names
+            },
+            "joints": {
+                name: {
+                    joint_name: {
+                        "position": position,
+                        "velocity": velocity,
+                    }
+                    for joint_name, position, velocity in zip(
+                        obj.data.joint_names,
+                        obj.data.joint_pos.torch[0].tolist(),
+                        obj.data.joint_vel.torch[0].tolist(),
+                        strict=True,
+                    )
+                }
+                for name, obj in self.env.scene.articulations.items()
+            },
+            "contact_sensors": self._contact_sensor_state(),
+            "completion": self._task_completion().tolist(),
+            "current_predicates": self._criterion_status(),
+            "wrenches": self.last_wrenches,
+        }
+
+    def _write_failure_snapshot(self, trigger: str, subtask_index: int | None = None) -> Path:
+        """Persist live state and an optional viewport image for a failed command."""
+        import imageio.v3 as iio
+
+        suffix = f"_subtask_{subtask_index:02d}" if subtask_index is not None else ""
+        stem = f"failure_{trigger}{suffix}_step_{self.steps:06d}"
+        state = self._collect_state()
+        state["trigger"] = trigger
+        if self.viewport is not None:
+            self._capture_frame()
+        if self.last_image is not None:
+            image_name = f"{stem}.png"
+            iio.imwrite(self.output / image_name, self.last_image)
+            state["viewport"] = image_name
+        output_path = self.output / f"{stem}.json"
+        output_path.write_text(json.dumps(state, indent=2))
+        print("FORCE_CONTROL_FAILURE", json.dumps({"trigger": trigger, "output": str(output_path)}), flush=True)
+        return output_path
 
     def mark(self, index: int, boundary: str, title: str) -> None:
         import imageio.v3 as iio
@@ -565,9 +661,10 @@ class PhysicalCommandRunner:
             if self._task_completion()[0, index].item():
                 return
             self.step()
+        snapshot_path = self._write_failure_snapshot("check_timeout", index)
         raise AssertionError(
             f"Subtask {index} did not complete: {self._task_completion()[0].tolist()}; "
-            f"current predicates: {self._criterion_status()}"
+            f"current predicates: {self._criterion_status()}; diagnostics: {snapshot_path}"
         )
 
     def wait_final(self, timeout_steps: int = 1200) -> None:
@@ -581,19 +678,7 @@ class PhysicalCommandRunner:
     def inspect(self) -> None:
         print(
             "FORCE_CONTROL_STATE",
-            json.dumps({
-                "poses": {
-                    name: self.env.arena_world.get_pose_w(name).tolist()
-                    for name in (*self.env.scene.articulations, *self.env.scene.rigid_objects)
-                },
-                "joints": {
-                    name: dict(zip(obj.data.joint_names, obj.data.joint_pos.torch[0].tolist()))
-                    for name, obj in self.env.scene.articulations.items()
-                },
-                "completion": self._task_completion().tolist(),
-                "current_predicates": self._criterion_status(),
-                "wrenches": self.last_wrenches,
-            }),
+            json.dumps(self._collect_state()),
             flush=True,
         )
 
@@ -655,20 +740,20 @@ class PhysicalCommandRunner:
         from isaaclab_arena.tasks.terminations import task_success_from_progress
 
         success = task_success_from_progress(self.env).tolist()
+        state = self._collect_state()
         report = {
             "mode": "followed_force_commands" if self.args.follow_commands else "force_control_recipe",
             "success": success,
-            "subtasks": self._task_completion().tolist(),
-            "current_predicates": self._criterion_status(),
             "video_frames": self.frames,
-            "final_poses": {
-                name: self.env.arena_world.get_pose_w(name).tolist()
-                for name in (*self.env.scene.articulations, *self.env.scene.rigid_objects)
-            },
+            "state": state,
+            "subtasks": state["completion"],
+            "current_predicates": state["current_predicates"],
+            "final_poses": state["poses"],
             "final_joints": {
-                name: dict(zip(obj.data.joint_names, obj.data.joint_pos.torch[0].tolist()))
-                for name, obj in self.env.scene.articulations.items()
+                name: {joint_name: values["position"] for joint_name, values in joints.items()}
+                for name, joints in state["joints"].items()
             },
+            "final_joint_state": state["joints"],
             "events": self.events,
         }
         (self.output / "validation.json").write_text(json.dumps(report, indent=2))

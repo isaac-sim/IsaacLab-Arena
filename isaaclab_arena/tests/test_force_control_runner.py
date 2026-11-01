@@ -94,6 +94,74 @@ def test_criterion_status_evaluates_wrapped_and_direct_predicates():
     assert runner._criterion_status() == {"criterion": [[True], [False]]}
 
 
+def test_contact_sensor_state_discovers_configured_contact_sensors():
+    import torch
+
+    from isaaclab.sensors import ContactSensorCfg
+
+    from isaaclab_arena.scripts.force_control_runner import PhysicalCommandRunner
+
+    contact_cfg = ContactSensorCfg(
+        prim_path="/World/Object",
+        filter_prim_paths_expr=["/World/Support"],
+    )
+    runner = PhysicalCommandRunner.__new__(PhysicalCommandRunner)
+    runner.env = SimpleNamespace(
+        cfg=SimpleNamespace(scene=SimpleNamespace(object_contact=contact_cfg, unrelated=object())),
+        scene=SimpleNamespace(
+            sensors={
+                "object_contact": SimpleNamespace(
+                    data=SimpleNamespace(
+                        net_forces_w=torch.tensor([[[1.0, 2.0, 3.0]]]),
+                        force_matrix_w=torch.tensor([[[[4.0, 5.0, 6.0]]]]),
+                    )
+                )
+            }
+        ),
+    )
+
+    assert runner._contact_sensor_state() == {
+        "object_contact": {
+            "prim_path": "/World/Object",
+            "filter_prim_paths_expr": ["/World/Support"],
+            "net_forces_w": [[[
+                1.0,
+                2.0,
+                3.0,
+            ]]],
+            "force_matrix_w": [[[[
+                4.0,
+                5.0,
+                6.0,
+            ]]]],
+        }
+    }
+
+
+def test_check_timeout_writes_failure_snapshot(tmp_path):
+    import torch
+
+    from isaaclab_arena.scripts.force_control_runner import PhysicalCommandRunner
+
+    runner = PhysicalCommandRunner.__new__(PhysicalCommandRunner)
+    runner.output = tmp_path
+    runner.steps = 10
+    runner.viewport = None
+    runner.last_image = None
+    runner._task_completion = lambda: torch.tensor([[False]])
+    runner._criterion_status = lambda: {"criterion": [[False]]}
+    runner._collect_state = lambda: {"completion": [[False]], "current_predicates": {"criterion": [[False]]}}
+    runner.step = lambda: setattr(runner, "steps", runner.steps + 1)
+
+    with pytest.raises(AssertionError, match="diagnostics:"):
+        runner.check(0, timeout_steps=2)
+
+    [snapshot_path] = tmp_path.glob("failure_check_timeout_subtask_00_step_*.json")
+    snapshot = json.loads(snapshot_path.read_text())
+    assert snapshot["trigger"] == "check_timeout"
+    assert snapshot["completion"] == [[False]]
+
+
 def test_execute_dispatches_commands_and_stops_on_finish(monkeypatch):
     from isaaclab_arena.scripts.force_control_runner import PhysicalCommandRunner
 
