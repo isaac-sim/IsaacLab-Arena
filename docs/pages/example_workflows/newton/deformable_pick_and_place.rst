@@ -79,6 +79,8 @@ The Isaac Lab teleoperation script can control the task through Arena's interop 
 The commands below use keyboard control; replace ``keyboard`` with ``spacemouse`` to use a
 SpaceMouse. Press ``K`` to open or close the gripper and ``R`` to reset an attempt.
 
+See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
+
 .. tab-set::
 
    .. tab-item:: Newton
