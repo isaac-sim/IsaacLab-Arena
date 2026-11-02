@@ -1135,3 +1135,27 @@ def _test_clutter_release_uses_usd_mesh_geometry(simulation_app, tmp_path):
 
 def test_clutter_release_uses_usd_mesh_geometry(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_clutter_release_uses_usd_mesh_geometry, tmp_path=tmp_path)
+
+
+def test_placed_background_with_mesh_collision_is_rejected(monkeypatch):
+    """Relations on a mesh-collision background fail fast; with bbox collision they stay allowed."""
+    import pytest
+
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.relations.geometry import passive_collision_objects
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode
+
+    background = Background.__new__(Background)
+    background.name = "kitchen"
+    background.collision_mode = CollisionMode.MESH
+    monkeypatch.setattr(passive_collision_objects, "discover_passive_assets", lambda *args, **kwargs: [])
+
+    with pytest.raises(AssertionError, match="Background 'kitchen' has relations and mesh collision"):
+        passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.BBOX)
+
+    background.collision_mode = None
+    assert (
+        passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.BBOX) == []
+    )
+    with pytest.raises(AssertionError, match="anchor an object reference to the support surface"):
+        passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.MESH)
