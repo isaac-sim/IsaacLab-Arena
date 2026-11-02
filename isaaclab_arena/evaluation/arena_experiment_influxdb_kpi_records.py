@@ -59,6 +59,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
+    ALL_RUNS_TIMING_RUN_NAME,
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
     ArenaExperimentResultData,
@@ -83,9 +84,6 @@ RECORD_TYPE_KEY = "type"
 
 TIMESTAMP_NS_KEY = "timestamp_ns"
 """Key of a record's point time, the only numeric value that is not a field."""
-
-ALL_RUNS_TIMING_RUN_NAME = "all"
-"""``run_name`` tag of timing records summed over every Run."""
 
 
 def _is_number(value: object) -> bool:
@@ -297,7 +295,7 @@ class PerRunRecord(InfluxdbKpiRecord):
         Returns:
             The per-Run record.
         """
-        record_tags = {
+        shared_values = {
             "timestamp_ns": timestamp_ns,
             "git_sha": git_stamp.git_sha,
             "git_branch": git_stamp.git_branch,
@@ -306,9 +304,9 @@ class PerRunRecord(InfluxdbKpiRecord):
             "policy_variant": run_result["policy_variant"],
         }
         if pooled_job is None:
-            return cls(**record_tags, completed=0)
+            return cls(**shared_values, completed=0)
         return cls(
-            **record_tags,
+            **shared_values,
             success_rate=pooled_job.success_rate,
             num_episodes=pooled_job.num_episodes,
             num_successes=pooled_job.num_successes,
@@ -406,13 +404,12 @@ def _mean_episode_length(episodes: list[EpisodeSummary]) -> float | None:
 
 
 def _build_timing_records(
-    experiment_output_directory: Path, run_names: set[str], *, timestamp_ns: int, git_stamp: GitStamp
+    experiment_output_directory: Path, *, timestamp_ns: int, git_stamp: GitStamp
 ) -> list[TimingRecord]:
     """Return timing records from the Experiment timings file, or none when the file is absent.
 
     Args:
         experiment_output_directory: Experiment output root that may hold ``arena_experiment_timings.json``.
-        run_names: Names of the Experiment's Runs.
         timestamp_ns: Point time of every record in Unix epoch nanoseconds (UTC).
         git_stamp: Arena git commit and branch the Experiment ran with.
 
@@ -422,10 +419,6 @@ def _build_timing_records(
     timings_path = experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME
     if not timings_path.is_file():
         return []
-    assert ALL_RUNS_TIMING_RUN_NAME not in run_names, (
-        f"Run name {ALL_RUNS_TIMING_RUN_NAME!r} is reserved for timing totals in"
-        f" {ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME}"
-    )
     timings = json.loads(timings_path.read_text(encoding="utf-8"))
     # Totals over every Run first, then each Run's own timers; timers that never ran have no statistics.
     records = [
@@ -505,9 +498,7 @@ def build_experiment_influxdb_kpi_records(experiment_output_directory: Path) -> 
         )
         for run_name in sorted(runs)
     )
-    records.extend(
-        _build_timing_records(experiment_output_directory, run_names, timestamp_ns=timestamp_ns, git_stamp=git_stamp)
-    )
+    records.extend(_build_timing_records(experiment_output_directory, timestamp_ns=timestamp_ns, git_stamp=git_stamp))
     assert_unique_tag_sets(records)
     return records
 

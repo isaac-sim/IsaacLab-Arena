@@ -12,7 +12,6 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import write_experiment_influxdb_kpi_records
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
@@ -153,6 +152,9 @@ def main():
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
     with SimulationAppContext(args_cli):
+        from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
+            write_experiment_influxdb_kpi_records,
+        )
         from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
         from isaaclab_arena.evaluation.arena_run import RunStatus, build_runs_info_table
         from isaaclab_arena.evaluation.run_execution import execute_experiment
