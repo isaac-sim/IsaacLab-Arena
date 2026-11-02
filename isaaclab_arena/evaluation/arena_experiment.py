@@ -17,7 +17,13 @@ class ArenaExperimentCfg:
     runs: dict[str, ArenaRunCfg]
     """Runs keyed by the names used for overrides, execution, and results."""
 
+    name: str | None = None
+    """Name of the Experiment, used as the `benchmark_id` of its KPI records."""
+
     def __post_init__(self) -> None:
+        assert self.name is None or (
+            isinstance(self.name, str) and self.name and "\n" not in self.name and "\r" not in self.name
+        ), f"Experiment name must be a non-empty single-line string, got {self.name!r}"
         assert isinstance(self.runs, dict) and self.runs, "Experiment Definition must contain at least one Run"
         for run_name, run_cfg in self.runs.items():
             assert isinstance(run_name, str) and run_name, "Experiment Definition Run names must be non-empty strings"

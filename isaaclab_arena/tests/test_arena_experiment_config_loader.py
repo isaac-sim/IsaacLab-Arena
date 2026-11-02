@@ -79,6 +79,91 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert all(run.environment_builder.device == "cuda:1" for run in runs.values())
 
 
+def _patch_typed_loader_registries(monkeypatch):
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+    )
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+
+
+def test_name_defaults_to_the_yaml_stem(monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
+
+    assert experiment_cfg.name == "getting_started_experiment"
+
+
+def test_name_defaults_to_the_json_stem(tmp_path, monkeypatch):
+    config_path = tmp_path / "legacy_benchmark.json"
+    config_path.write_text('{"jobs": []}', encoding="utf-8")
+    run_cfg = _experiment_cfg().runs["baseline"]
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "run_cfgs_from_legacy_eval_config",
+        lambda _config, device: [run_cfg],
+    )
+
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+    assert experiment_cfg.name == "legacy_benchmark"
+
+
+def test_name_in_the_file_wins_over_the_stem(tmp_path, monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        yaml.safe_dump({
+            "name": "named-in-file",
+            "runs": {
+                "baseline": {
+                    "environment": {"type": "pick_and_place_maple_table"},
+                    "policy": {"type": "zero_action"},
+                }
+            },
+        }),
+        encoding="utf-8",
+    )
+
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+    assert experiment_cfg.name == "named-in-file"
+
+
+def test_name_override_wins(monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name=my-benchmark"]
+    )
+
+    assert experiment_cfg.name == "my-benchmark"
+
+
+def test_numeric_looking_name_override_stays_a_string(monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name=2024"]
+    )
+
+    assert experiment_cfg.name == "2024"
+
+
+@pytest.mark.parametrize("name", ["", "two\nlines"])
+def test_experiment_name_must_be_a_non_empty_single_line(name):
+    run_cfg = _experiment_cfg().runs["baseline"]
+
+    with pytest.raises(AssertionError, match="name"):
+        ArenaExperimentCfg(runs={"baseline": run_cfg}, name=name)
+
+
 def test_load_typed_yaml_experiment_with_graph_spec_environment(tmp_path, monkeypatch):
     monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
     monkeypatch.setattr(
