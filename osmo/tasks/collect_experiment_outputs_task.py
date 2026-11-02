@@ -34,6 +34,7 @@ class CollectExperimentOutputsTask(BaseTask):
     copies completed Run outputs to ``{{output}}/<run-name>/...``, preserves failed runner results without partial Run
     artifacts, and writes ``{{output}}/arena_experiment_result.json``, ``{{output}}/arena_experiment_timings.json``,
     plus ``{{output}}/index.html``. These list failed Run executions but exclude their partial episode artifacts.
+    The selected KPI exporters also write ``{{output}}/kpis_*.json`` records files, only when every Run completed.
     Only this final task output is published to Swift; the Experiment Runner task outputs remain workflow-local.
     """
 

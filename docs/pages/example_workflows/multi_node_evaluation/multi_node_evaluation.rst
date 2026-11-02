@@ -281,6 +281,9 @@ common ones are:
    * - ``osmo.storage``
      - ``200Gi``
      - Storage requested per Run.
+   * - ``osmo.kpi_exporters``
+     - ``[success_rate, timing]``
+     - KPI exporters the collector runs, for example ``osmo.kpi_exporters=[timing]``.
    * - ``osmo.output_url``
      - ``swift://pdx.s8k.io/...``
      - Swift path for collected results.

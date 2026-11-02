@@ -46,7 +46,9 @@ The Experiment Definition
 -------------------------
 
 The YAML has a required ``runs`` mapping. A ``shared`` mapping is optional. When present, its
-values are reused by every Run. Each key below ``runs`` is a Run name:
+values are reused by every Run. An optional top-level ``name`` string names the Experiment; it
+becomes the ``benchmark_id`` of the Experiment's KPI records and defaults to the file stem. Each
+key below ``runs`` is a Run name:
 
 .. code-block:: yaml
 
@@ -207,7 +209,10 @@ Values are applied in this order, from lowest to highest priority:
 .. dropdown:: Configuration rules
    :animate: fade-in
 
-   * The only top-level fields are ``shared`` and ``runs``.
+   * The only top-level fields are ``name``, ``shared``, and ``runs``.
+   * ``name`` is an optional string. It becomes the ``benchmark_id`` of the KPI records. It defaults
+     to the file stem, and an override ``name=<x>`` replaces it. Quote a name that looks like a
+     boolean or a number (``name='true'``), or Hydra converts it.
    * ``runs`` must contain at least one Run.
    * A Run name starts with a letter or underscore. It can then contain letters, numbers,
      underscores, or hyphens.
