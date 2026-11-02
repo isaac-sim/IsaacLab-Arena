@@ -3,11 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import numpy as np
 import trimesh
+from dataclasses import MISSING
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from pxr import Usd
+from isaaclab.utils.configclass import configclass
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.pressable import Pressable
@@ -18,6 +21,11 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.articulation import (
+    articulation_joint_prims,
+    compute_posed_prim_world_deltas,
+    resolve_joint_pos_patterns,
+)
 from isaaclab_arena.utils.usd.helpers import (
     NoCollisionMeshError,
     compute_world_aligned_bounding_box_relative_to_prim_origin,
@@ -27,6 +35,24 @@ from isaaclab_arena.utils.usd.helpers import (
 from isaaclab_arena.utils.usd.pose import get_prim_pose_in_default_prim_frame
 
 
+@configclass
+class ArticulationBodyReferenceCfg(AssetBaseCfg):
+    """Configure a scene extra whose live pose is the link pose of an articulation body."""
+
+    articulation_name: str = MISSING
+    """Scene key of the articulation that owns the body."""
+
+    body_name: str = MISSING
+    """Name of the body within the articulation."""
+
+
+def _get_rigid_body_prim(prim: Usd.Prim) -> Usd.Prim:
+    """Return the nearest rigid body at or above prim, or an invalid prim when there is none."""
+    while prim and not prim.HasAPI(UsdPhysics.RigidBodyAPI):
+        prim = prim.GetParent()
+    return prim
+
+
 class ObjectReference(RootedObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
@@ -34,9 +60,11 @@ class ObjectReference(RootedObjectBase):
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
         self._parent_scale = parent_asset.scale
-        # Resolve the path and pose together to avoid opening the parent USD stage multiple times.
+        # Resolve the path, link motion and pose together to avoid opening the parent USD stage multiple times.
+        # The link motion is None unless the reference is a BASE reference to a body of an articulated parent.
         (
             self._prim_path_in_parent_usd,
+            self._initial_link_world_delta,
             self.initial_pose_relative_to_parent,
         ) = self._get_referenced_prim_path_and_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
@@ -83,7 +111,8 @@ class ObjectReference(RootedObjectBase):
         """Get world-axis-aligned bounds measured from the referenced prim's origin.
 
         The coordinates use the parent asset's USD axes, with the origin shifted to
-        the referenced prim's world position.
+        the referenced prim's world position. A referenced articulation link is
+        measured at the parent's initial joint positions.
 
         The bounding box is computed lazily and cached for subsequent calls.
         """
@@ -93,6 +122,11 @@ class ObjectReference(RootedObjectBase):
                     self.prim_path, self.parent_asset, parent_stage
                 )
                 raw_bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(parent_stage, prim_path_in_usd)
+                if self._initial_link_world_delta is not None:
+                    # The bounds are measured from the link origin, which carries the motion's translation.
+                    q_link = Gf.Matrix4d(self._initial_link_world_delta.tolist()).ExtractRotationQuat()
+                    q_link_xyzw = (*q_link.GetImaginary(), q_link.GetReal())
+                    raw_bbox = raw_bbox.transformed((0.0, 0.0, 0.0), q_link_xyzw).to_aabb()
                 # Apply parent's scale (no centering - solver is origin-agnostic)
                 self._bounding_box = raw_bbox.scaled(self._parent_scale)
         return self._bounding_box
@@ -166,18 +200,22 @@ class ObjectReference(RootedObjectBase):
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
         initial_pose = self.get_initial_pose()
-        object_cfg = AssetBaseCfg(
+        init_state = AssetBaseCfg.InitialStateCfg(pos=initial_pose.position_xyz, rot=initial_pose.rotation_xyzw)
+        if self._initial_link_world_delta is None:
+            return AssetBaseCfg(prim_path=self.prim_path, init_state=init_state)
+        return ArticulationBodyReferenceCfg(
             prim_path=self.prim_path,
-            init_state=AssetBaseCfg.InitialStateCfg(
-                pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_xyzw,
-            ),
+            init_state=init_state,
+            articulation_name=self.parent_asset.name,
+            body_name=Sdf.Path(self._prim_path_in_parent_usd).name,
         )
-        return object_cfg
 
-    def _get_referenced_prim_path_and_pose_relative_to_parent(self, parent_asset: Object) -> tuple[str, Pose]:
-        """Get the prim path and transform pose relative to the parent's default prim.
+    def _get_referenced_prim_path_and_pose_relative_to_parent(
+        self, parent_asset: Object
+    ) -> tuple[str, np.ndarray | None, Pose]:
+        """Get the prim path, initial link motion and pose relative to the parent's default prim.
 
+        A referenced articulation link is posed at the parent's initial joint positions.
         The position is scaled by the parent's scale factor.
         """
         with open_stage(parent_asset.usd_path) as parent_stage:
@@ -185,14 +223,98 @@ class ObjectReference(RootedObjectBase):
             prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
             if not prim:
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
-            prim_pose = get_prim_pose_in_default_prim_frame(prim, parent_stage)
+            initial_link_world_delta = self._get_initial_link_world_delta(parent_asset, parent_stage, prim)
+            prim_pose = get_prim_pose_in_default_prim_frame(prim, parent_stage, initial_link_world_delta)
             # Apply parent's scale to the position
             scaled_pos = (
                 prim_pose.position_xyz[0] * self._parent_scale[0],
                 prim_pose.position_xyz[1] * self._parent_scale[1],
                 prim_pose.position_xyz[2] * self._parent_scale[2],
             )
-            return prim_path_in_usd, Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
+            return (
+                prim_path_in_usd,
+                initial_link_world_delta,
+                Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw),
+            )
+
+    def _get_initial_link_world_delta(
+        self, parent_asset: Object, parent_stage: Usd.Stage, prim: Usd.Prim
+    ) -> np.ndarray | None:
+        """Return the stage-world motion of a referenced link at the parent's initial joint positions.
+
+        Args:
+            parent_asset: Asset whose USD contains the referenced prim.
+            parent_stage: The parent asset's opened USD stage.
+            prim: The referenced prim.
+
+        Returns:
+            Row-vector 4x4 delta, as returned by compute_posed_prim_world_deltas, for a BASE reference to a rigid
+            body of an articulated parent. The identity when no revolute or prismatic joint drives the body.
+            None for every other reference.
+        """
+        if not (
+            self.object_type == ObjectType.BASE
+            and parent_asset.object_type == ObjectType.ARTICULATION
+            and prim.HasAPI(UsdPhysics.RigidBodyAPI)
+        ):
+            return None
+        default_prim = parent_stage.GetDefaultPrim()
+        joint_prims = articulation_joint_prims(default_prim)
+        # Joints may target a mesh beneath the body, so match each child target by its rigid body.
+        parent_joint_child_paths = []
+        for joint_prim in joint_prims.values():
+            for child_path in UsdPhysics.Joint(joint_prim).GetBody1Rel().GetTargets():
+                if _get_rigid_body_prim(parent_stage.GetPrimAtPath(child_path)) == prim:
+                    parent_joint_child_paths.append(child_path.pathString)
+        assert len(parent_joint_child_paths) <= 1, f"Body {prim.GetPath()} is the child of several movable joints."
+        if not parent_joint_child_paths:
+            return np.eye(4)
+        joint_positions = self._get_initial_joint_positions_in_usd_units(parent_asset, joint_prims)
+        body_world_deltas = compute_posed_prim_world_deltas(
+            parent_stage, default_prim.GetPath().pathString, joint_positions
+        )
+        link_world_delta = body_world_deltas[parent_joint_child_paths[0]]
+        # Posing treats joint targets as unscaled frames, so a target scaled relative to its body moves non-rigidly.
+        assert np.allclose(
+            link_world_delta[:3, :3] @ link_world_delta[:3, :3].T, np.eye(3), atol=1e-5
+        ), f"Cannot pose body {prim.GetPath()}: a joint targets a prim scaled relative to its body."
+        return link_world_delta
+
+    def _get_initial_joint_positions_in_usd_units(
+        self, parent_asset: Object, joint_prims: dict[str, Usd.Prim]
+    ) -> dict[str, float]:
+        """Return the parent's initial joint positions in the units its USD joints move in.
+
+        Isaac Lab applies prismatic positions in metres of the spawned asset, while a USD prismatic joint
+        translates in its body0 frame, which carries that body's scale. Revolute positions stay in radians.
+        """
+        joint_positions = resolve_joint_pos_patterns(joint_prims, parent_asset.object_cfg.init_state.joint_pos)
+        for name, position in joint_positions.items():
+            joint = UsdPhysics.Joint(joint_prims[name])
+            if position == 0.0 or not joint.GetPrim().IsA(UsdPhysics.PrismaticJoint):
+                continue
+            stage = joint.GetPrim().GetStage()
+            body0_paths = joint.GetBody0Rel().GetTargets()
+            body0_prim = stage.GetPrimAtPath(body0_paths[0]) if body0_paths else stage.GetDefaultPrim()
+            body0_scale = self._get_spawned_scale(body0_prim)
+            assert np.allclose(body0_scale, body0_scale[0]), f"Prismatic joint '{name}' requires a uniform scale."
+            joint_positions[name] = position / body0_scale[0]
+        return joint_positions
+
+    def _get_spawned_scale(self, prim: Usd.Prim) -> np.ndarray:
+        """Return a prim's per-axis scale relative to the spawned parent root.
+
+        The scale combines the parent's spawn scale with the scale authored between the parent's
+        default prim and the prim. Isaac Lab replaces the default prim's own transform when spawning.
+        """
+        default_prim = prim.GetStage().GetDefaultPrim()
+        # USD matrices act on row vectors, so T_D_P = T_W_P @ inv(T_W_D).
+        T_W_D = np.array(UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+        T_W_P = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+        T_D_P = T_W_P @ np.linalg.inv(T_W_D)
+        # Each row of the linear block is one of the prim's scaled axes.
+        authored_scale = np.linalg.norm(T_D_P[:3, :3], axis=1)
+        return authored_scale * np.asarray(self._parent_scale)
 
     @staticmethod
     def isaaclab_prim_path_to_original_prim_path(

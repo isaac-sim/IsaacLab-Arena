@@ -289,6 +289,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
             self.rigid_objects = {}
             self.articulations = {}
             self.extras = {"reference": object()}
+            self.cfg = SimpleNamespace(reference=object())
 
     class PoseReaderDouble:
         def __init__(self):
