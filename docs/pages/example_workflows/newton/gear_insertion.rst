@@ -39,7 +39,7 @@ Then open a **host terminal at the Arena repository root**.
 SpaceMouse Setup (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Skip this section if using keyboard input. **Shut down all running Docker containers**,
+Skip this section if using keyboard input. **Stop the Arena container if it is running**,
 then copy and paste the entire block below into a terminal on the Linux host:
 
 .. code-block:: bash
