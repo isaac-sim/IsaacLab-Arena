@@ -46,7 +46,7 @@ from isaaclab_arena_vlm_agent.vlm_agent_policy import (
 class SingleCommandPolicy(VLMPolicy):
     """Request one command per step to exercise shared VLM policy behavior."""
 
-    def _needs_prediction(self, env, env_id):
+    def _update_prediction_status(self, env, env_id):
         return True
 
     def _get_command(self, env, env_id, prediction):
@@ -737,7 +737,8 @@ def test_requests_in_flight_never_exceed_the_configured_limit(backend, max_concu
         policy.close()
     torch.testing.assert_close(actions, torch.full((6, 2), 0.5))
     assert backend.client.chat.completions.create.call_count == 6
-    assert peak == max_concurrent_requests
+    # Overlap itself is checked deterministically by the barrier test above.
+    assert 1 <= peak <= max_concurrent_requests
 
 
 def test_concurrent_corrections_stay_in_their_own_conversation(backend):
@@ -767,7 +768,12 @@ def test_concurrent_corrections_stay_in_their_own_conversation(backend):
 
 
 def test_concurrent_rejection_fails_the_step_after_bounded_attempts(backend):
+    calls = []
+    lock = threading.Lock()
+
     def create(**kwargs):
+        with lock:
+            calls.append(copy.deepcopy(kwargs))
         state = json.loads(kwargs["messages"][1]["content"][1]["text"])
         if state["joint_positions"][0] in (2.0, 4.0):  # Envs 1 and 2 always return the wrong dimensions.
             return response('{"target": [1]}')
@@ -782,5 +788,34 @@ def test_concurrent_rejection_fails_the_step_after_bounded_attempts(backend):
     finally:
         policy.close()
     # Envs 1 and 2 use both attempts; env 0 succeeds on its first.
-    assert backend.client.chat.completions.create.call_count == 5
+    assert len(calls) == 5
     policy.action_adapter.command_to_action.assert_not_called()
+    # Corrections sent in the same round must each carry only their own env's rejection.
+    corrections = [call for call in calls if len(call["messages"]) > 2]
+    assert [len(call["messages"]) for call in corrections] == [4, 4]
+    corrected_positions = sorted(
+        json.loads(call["messages"][1]["content"][1]["text"])["joint_positions"] for call in corrections
+    )
+    assert corrected_positions == [[2.0, 3.0], [4.0, 5.0]]
+
+
+def test_failed_request_fails_the_step_and_close_without_waiting(backend):
+    release = threading.Event()
+
+    def create(**kwargs):
+        state = json.loads(kwargs["messages"][1]["content"][1]["text"])
+        if state["joint_positions"] == [0.0, 1.0]:
+            release.wait(timeout=10)  # Env 0's request is still in flight when env 1 fails.
+            return target_above_joint_positions(kwargs)
+        raise ConnectionError("endpoint unavailable")
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_policy(backend, max_concurrent_requests=2)
+    start = time.monotonic()
+    try:
+        with pytest.raises(RuntimeError, match="endpoint unavailable"):
+            policy.get_action(*inputs())
+        policy.close()
+        assert time.monotonic() - start < 5
+    finally:
+        release.set()

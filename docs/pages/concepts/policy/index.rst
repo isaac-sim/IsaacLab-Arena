@@ -244,8 +244,9 @@ preset. Then select it in the YAML:
 register it with ``@register_policy``, as in `Writing a custom policy`_. Then
 implement two methods:
 
-* ``_needs_prediction(env, env_id)``: return whether the environment must request a new
-  prediction before its next command. It runs for every environment before any request is sent.
+* ``_update_prediction_status(env, env_id)``: update the environment's prediction state and
+  return whether it needs a new prediction. It runs once per environment step, before any request
+  is sent, so it can record how the previous prediction ended for the next request to report.
 * ``_get_command(env, env_id, prediction)``: return the next command. ``prediction`` is the
   validated response when one was just requested for this environment, and ``None`` otherwise.
 * ``reset(env_ids)``: discard pending predictions.

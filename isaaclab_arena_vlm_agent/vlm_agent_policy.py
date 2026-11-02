@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from abc import abstractmethod
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
@@ -220,14 +220,17 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 base_url=config.base_url,
             )
         )
-        # Worker threads start on first use, so a serial policy never creates any.
-        self._request_executor = ThreadPoolExecutor(
-            max_workers=config.max_concurrent_requests, thread_name_prefix="vlm_inference"
-        )
+        self._request_executor = None
+        if config.max_concurrent_requests > 1:
+            self._request_executor = ThreadPoolExecutor(
+                max_workers=config.max_concurrent_requests, thread_name_prefix="vlm_inference"
+            )
 
     def close(self) -> None:
         """Close the inference client and request threads owned by this policy."""
-        self._request_executor.shutdown(cancel_futures=True)
+        if self._request_executor is not None:
+            # Requests still in flight after a failed step are never read, so do not wait for them.
+            self._request_executor.shutdown(wait=False, cancel_futures=True)
         self._inference_backend.client.close()
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
@@ -249,7 +252,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         ), "Robot action space is unsupported by this adapter"
         contents = {}
         for env_id in range(env.unwrapped.num_envs):
-            if self._needs_prediction(env, env_id):
+            if self._update_prediction_status(env, env_id):
                 contents[env_id] = self._request_content(env, observation, env_id)
         predictions = self._infer(contents, env.unwrapped.arena_world)
         actions = []
@@ -263,11 +266,11 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         return torch.stack(actions)
 
     @abstractmethod
-    def _needs_prediction(self, env: gym.Env, env_id: int) -> bool:
-        """Return whether env_id must request a new prediction before its next command.
+    def _update_prediction_status(self, env: gym.Env, env_id: int) -> bool:
+        """Update env_id's prediction state for this step and return whether it needs a new prediction.
 
-        Called once per environment step, before any request is sent; a strategy may record how
-        its previous prediction ended so the next request can report it.
+        Called exactly once per environment step, before any request is sent. A strategy can record
+        here how its previous prediction ended, so the next request can report it.
         """
 
     @abstractmethod
@@ -343,7 +346,16 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         return commands
 
     def _request_payloads(self, conversations: dict[int, list[dict]]) -> dict[int, dict[str, Any]]:
-        """Send one structured-output request per conversation, up to max_concurrent_requests at a time."""
+        """Send one structured-output request per conversation, up to max_concurrent_requests at a time.
+
+        The first failed request fails the call without waiting for the others.
+
+        Args:
+            conversations: Chat messages keyed by environment index.
+
+        Returns:
+            Parsed response payloads keyed by environment index.
+        """
         requests = {}
         for env_id, messages in conversations.items():
             requests[env_id] = InferenceRequest(
@@ -352,34 +364,37 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 schema_name="agent_actions",
                 retry_label=f"policy_action env {env_id}",
             )
-        payloads = {}
-        if len(requests) == 1 or self.config.max_concurrent_requests == 1:
-            for env_id, request in requests.items():
-                payloads[env_id] = self._inference_backend.infer(request)
-            return payloads
+        if self._request_executor is None or len(requests) == 1:
+            return {env_id: self._inference_backend.infer(request) for env_id, request in requests.items()}
         futures = {}
         for env_id, request in requests.items():
             futures[env_id] = self._request_executor.submit(self._inference_backend.infer, request)
-        try:
-            for env_id, future in futures.items():
-                payloads[env_id] = future.result()
-        finally:
-            # After a failure, skip requests that have not started; started ones finish in the background.
-            for future in futures.values():
-                future.cancel()
-        return payloads
+        done, not_done = wait(futures.values(), return_when=FIRST_EXCEPTION)
+        for future in done:
+            if future.exception() is not None:
+                # Skip requests that have not started; results of running ones are never read.
+                for pending in not_done:
+                    pending.cancel()
+                raise future.exception()
+        return {env_id: future.result() for env_id, future in futures.items()}
 
     def _decode_payload(self, payload: dict[str, Any], arena_world: ArenaWorld, env_id: int) -> np.ndarray:
         """Validate a response payload and decode it into a command for env_id.
 
-        Rejections the model can correct raise InvalidAgentResponseError; adapter implementation
-        errors propagate unchanged so they are not sent to the model.
+        Args:
+            payload: Parsed response from the endpoint.
+            arena_world: Live world state passed to the action adapter's decoder.
+            env_id: Environment index within the batched world state.
+
+        Returns:
+            Command with the adapter's required shape.
         """
         try:
             response = self.action_adapter.response_model.model_validate(payload)
         except ValidationError as exc:
             raise InvalidAgentResponseError(str(exc)) from exc
         command = np.asarray(self.action_adapter.decode_command(response, arena_world, env_id), dtype=np.float32)
+        # Only InvalidAgentResponseError asks the model for a correction; adapter bugs propagate unchanged.
         if not self.action_adapter.is_command_valid(command):
             raise InvalidAgentResponseError("Expected finite commands with the adapter's required shape")
         return command
@@ -413,7 +428,7 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
         )
         self._chunks: dict[int, deque] = {}
 
-    def _needs_prediction(self, env: gym.Env, env_id: int) -> bool:
+    def _update_prediction_status(self, env: gym.Env, env_id: int) -> bool:
         return not self._chunks.get(env_id)
 
     def _get_command(self, env: gym.Env, env_id: int, prediction: np.ndarray | None) -> np.ndarray:
@@ -461,25 +476,24 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
         self._goals: dict[int, tuple[np.ndarray, int]] = {}
         self._previous_goals: dict[int, dict[str, Any]] = {}
 
-    def _needs_prediction(self, env: gym.Env, env_id: int) -> bool:
+    def _update_prediction_status(self, env: gym.Env, env_id: int) -> bool:
+        """Record how a finished goal ended, and return whether env_id needs a new goal."""
         pending = self._goals.get(env_id)
-        if pending is None:
-            return True
-        outcome = self._get_goal_outcome(env, env_id, *pending)
-        if outcome is None:
-            return False
-        self._previous_goals[env_id] = {
-            "values": [round(value, 4) for value in pending[0].tolist()],
-            "outcome": outcome,
-            "executed_steps": pending[1],
-        }
+        if pending is not None:
+            outcome = self._get_goal_outcome(env, env_id, *pending)
+            if outcome is None:
+                return False
+            self._previous_goals[env_id] = {
+                "values": [round(value, 4) for value in pending[0].tolist()],
+                "outcome": outcome,
+                "executed_steps": pending[1],
+            }
         return True
 
     def _get_command(self, env: gym.Env, env_id: int, prediction: np.ndarray | None) -> np.ndarray:
         if prediction is not None:
-            goal, executed = prediction, 0
-        else:
-            goal, executed = self._goals[env_id]
+            self._goals[env_id] = (prediction, 0)
+        goal, executed = self._goals[env_id]
         command = np.asarray(
             self.action_adapter.motion_generator.compute_command(goal, env, env_id),
             dtype=np.float32,
