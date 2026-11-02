@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import numpy as np
 import trimesh
 from collections.abc import Sequence
@@ -51,8 +53,13 @@ class ArticulationBodyReferenceCfg(AssetBaseCfg):
 class ObjectReference(RootedObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
-    def __init__(self, parent_asset: Object, **kwargs):
+    def __init__(self, parent_asset: Object | ObjectReference, **kwargs):
         super().__init__(**kwargs)
+        if isinstance(parent_asset, ObjectReference):
+            assert parent_asset.object_type == ObjectType.ARTICULATION, (
+                "Nested object references currently require an articulation reference parent, "
+                f"got {parent_asset.object_type} for '{parent_asset.name}'."
+            )
         self.parent_asset = parent_asset
         self._parent_scale = parent_asset.scale
         self._pose_articulation_name: str | None = None
@@ -90,9 +97,21 @@ class ObjectReference(RootedObjectBase):
 
     def get_parent_pose(self) -> Pose:
         """Return the parent's fixed pose, using identity when no pose is configured."""
+        if isinstance(self.parent_asset, ObjectReference):
+            return self.parent_asset.get_initial_pose()
         pose = self.parent_asset.initial_pose
         assert pose is None or isinstance(pose, Pose), "ObjectReference requires a fixed parent pose"
         return pose if pose is not None else Pose.identity()
+
+    @property
+    def scale(self) -> tuple[float, float, float]:
+        """Return the scale inherited from the source asset."""
+        return self._parent_scale
+
+    @property
+    def usd_path(self) -> str:
+        """Return the source USD path inherited from the root asset."""
+        return self.parent_asset.usd_path
 
     @property
     def prim_path_in_parent_usd(self) -> str:
@@ -239,6 +258,10 @@ class ObjectReference(RootedObjectBase):
                     parent_asset,
                     prim_pose,
                 )
+            if isinstance(parent_asset, ObjectReference):
+                parent_prim = parent_stage.GetPrimAtPath(parent_asset.prim_path_in_parent_usd)
+                parent_pose = get_prim_pose_in_default_prim_frame(parent_prim, parent_stage)
+                prim_pose = self._pose_relative_to_parent(parent_pose, prim_pose)
             # Apply parent's scale to the position
             scaled_pos = (
                 prim_pose.position_xyz[0] * self._parent_scale[0],
@@ -246,6 +269,29 @@ class ObjectReference(RootedObjectBase):
                 prim_pose.position_xyz[2] * self._parent_scale[2],
             )
             return prim_path_in_usd, Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
+
+    @staticmethod
+    def _pose_relative_to_parent(T_D_P: Pose, T_D_O: Pose) -> Pose:
+        """Return T_P_O from source-default-frame poses T_D_P and T_D_O."""
+        t_D_P = np.asarray(T_D_P.position_xyz, dtype=np.float64)
+        t_D_O = np.asarray(T_D_O.position_xyz, dtype=np.float64)
+        x, y, z, w = T_D_P.rotation_xyzw
+        R_D_P = np.asarray([
+            [1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)],
+            [2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)],
+            [2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)],
+        ])
+        t_P_O = R_D_P.T @ (t_D_O - t_D_P)
+        q_P_D = (-x, -y, -z, w)
+        ox, oy, oz, ow = T_D_O.rotation_xyzw
+        px, py, pz, pw = q_P_D
+        q_P_O = (
+            pw * ox + px * ow + py * oz - pz * oy,
+            pw * oy - px * oz + py * ow + pz * ox,
+            pw * oz + px * oy - py * ox + pz * ow,
+            pw * ow - px * ox - py * oy - pz * oz,
+        )
+        return Pose(position_xyz=tuple(float(value) for value in t_P_O), rotation_xyzw=q_P_O)
 
     def _get_direct_movable_joint(
         self,
@@ -394,7 +440,7 @@ class ObjectReference(RootedObjectBase):
 
     @staticmethod
     def isaaclab_prim_path_to_original_prim_path(
-        isaaclab_prim_path: str, parent_asset: Object, stage: Usd.Stage
+        isaaclab_prim_path: str, parent_asset: Object | ObjectReference, stage: Usd.Stage
     ) -> str:
         """Map a runtime path beneath the parent asset to its source USD stage.
 
@@ -413,7 +459,12 @@ class ObjectReference(RootedObjectBase):
             parent_path + "/"
         ), f"Reference path '{isaaclab_prim_path}' must be beneath parent path '{parent_path}'"
         relative_path = isaaclab_prim_path.removeprefix(parent_path)
-        return str(default_prim.GetPath()) + relative_path
+        source_parent_path = (
+            parent_asset.prim_path_in_parent_usd
+            if isinstance(parent_asset, ObjectReference)
+            else str(default_prim.GetPath())
+        )
+        return source_parent_path + relative_path
 
 
 class OpenableObjectReference(ObjectReference, Openable):

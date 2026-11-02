@@ -76,7 +76,7 @@ class Scene:
             pose_articulation_name = getattr(asset.object_cfg, "pose_articulation_name", "")
             if pose_articulation_name:
                 pose_articulation = self.assets.get(pose_articulation_name)
-                assert isinstance(pose_articulation, Object) and (
+                assert isinstance(pose_articulation, (Object, ObjectReference)) and (
                     pose_articulation.object_type == ObjectType.ARTICULATION
                 ), (
                     f"ObjectReference '{asset.name}' pose articulation '{pose_articulation_name}' "
