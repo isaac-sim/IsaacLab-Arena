@@ -13,9 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
-    ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME,
-)
+from isaaclab_arena.evaluation.arena_experiment_kpi_exporter import ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.recording.episode_results import read_episode_records
