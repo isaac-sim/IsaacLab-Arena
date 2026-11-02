@@ -1,0 +1,8 @@
+# Host editing/TTS environment; do not install into the Isaac Lab environment.
+Pillow==11.3.0
+numpy==2.3.1
+soundfile==0.14.0
+kokoro==0.9.4
+misaki[en]==0.9.4
+espeakng-loader==0.2.4
+PyYAML==6.0.3

@@ -1,0 +1,37 @@
+{
+  "font_family": "NVIDIA Sans",
+  "font_stylesheet": "https://webassets.nvidia.com/kaizen-ui-foundations/1.8.2/base-for-aem-only.css",
+  "fonts": {
+    "NVIDIASans_Rg.woff2": {
+      "source": "https://brand-assets.cne.ngc.nvidia.com/assets/fonts/nvidia-sans/1.0.0/NVIDIASans_Rg.woff2",
+      "sha256": "da76017f2084c111962999f89ae2398f14db97e8689d09da3e90bdbac501c088"
+    },
+    "NVIDIASans_Bd.woff2": {
+      "source": "https://brand-assets.cne.ngc.nvidia.com/assets/fonts/nvidia-sans/1.0.0/NVIDIASans_Bd.woff2",
+      "sha256": "e77a40c0c57903432aabc67c176e9ad9ac6768acc1883a3a14557aa2f2f8184a"
+    }
+  },
+  "logo": {
+    "product": "OpenAI Codex",
+    "publisher_page": "https://marketplace.visualstudio.com/items?itemName=openai.chatgpt",
+    "download_url": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51021.22027/1792788319200/Microsoft.VisualStudio.Services.Icons.Default",
+    "sha256": "2ce1c57dd3b312417106a487815ab1235bddce17e1fa9b32a2f048bd71ee25d3"
+  },
+  "physical_intelligence_logo": {
+    "publisher_page": "https://github.com/Physical-Intelligence",
+    "source": "https://github.com/Physical-Intelligence.png?size=512",
+    "dimensions": [
+      392,
+      392
+    ],
+    "sha256": "fe201e2717750293ddb2b12c991ef7167083199511cb2bfe8a1ee95e512322fc"
+  },
+  "omniverse_logo": {
+    "source": "Installed NVIDIA Kit extension: omni.kit.window.filepicker/icons/NvidiaLight/omniverse_logo.svg",
+    "dimensions": [
+      512,
+      512
+    ],
+    "sha256": "7b510235152dbf0398c17f3cd47ab68c1296d5b9031e1591dfcc8d8e1d811695"
+  }
+}

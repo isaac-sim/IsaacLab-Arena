@@ -1,0 +1,159 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchenbench_banana_wooden_bowl_orange_far_red_bowl
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_peninsula
+  params:
+    collision_mode: mesh
+objects:
+- id: banana
+  registry_name: banana_ycb_robolab
+  params: {}
+- id: wooden_bowl
+  registry_name: wooden_bowl_hot3d_robolab
+  params: {}
+- id: far_bowl
+  registry_name: bowl_ycb_robolab
+  params:
+    scale:
+    - 1.25
+    - 1.25
+    - 1.0
+- id: orange
+  registry_name: orange_01_fruits_veggies_robolab
+  params: {}
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+  params: {}
+- id: island_top
+  parent_id: kitchen
+  prim_path: CapSurface_02
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: island_top
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: align_with
+  subject: droid
+  reference: island_top
+  params:
+    axis: y
+    offset_m: 1.16
+    tolerance_m: 0.05
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: -1.57
+- kind: 'on'
+  subject: banana
+  params: {}
+  reference: island_top
+- kind: 'on'
+  subject: wooden_bowl
+  params: {}
+  reference: island_top
+- kind: 'on'
+  subject: far_bowl
+  params: {}
+  reference: island_top
+- kind: position_limits_box
+  subject: wooden_bowl
+  params:
+    x_limits: [-0.55, 0.45]
+    y_limits: [-0.22, -0.09]
+- kind: align_with
+  subject: far_bowl
+  reference: wooden_bowl
+  params:
+    axis: y
+    offset_m: -0.27
+    tolerance_m: 0.05
+- kind: align_with
+  subject: banana
+  reference: wooden_bowl
+  params:
+    axis: x
+    offset_m: 0.21
+    tolerance_m: 0.05
+- kind: align_with
+  subject: banana
+  reference: wooden_bowl
+  params:
+    axis: y
+    offset_m: -0.0
+    tolerance_m: 0.1
+- kind: align_with
+  subject: far_bowl
+  reference: wooden_bowl
+  params:
+    axis: x
+    tolerance_m: 0.06
+- kind: align_with
+  subject: droid
+  reference: wooden_bowl
+  params:
+    axis: x
+    tolerance_m: 0.12
+- kind: 'on'
+  subject: orange
+  reference: island_top
+  params: {}
+- kind: align_with
+  subject: orange
+  reference: wooden_bowl
+  params:
+    axis: x
+    offset_m: 0.21
+    tolerance_m: 0.05
+- kind: align_with
+  subject: orange
+  reference: wooden_bowl
+  params:
+    axis: y
+    offset_m: -0.2
+    tolerance_m: 0.04
+task:
+  composition: parallel
+  description: Put the banana in the wooden bowl closest to the robot, and put the
+    orange in the farther red bowl. Complete both placements, in either order.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: banana
+      destination_location: wooden_bowl
+      destination_object: wooden_bowl
+      background_scene: kitchen
+      episode_length_s: 80
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: orange
+      destination_location: far_bowl
+      destination_object: far_bowl
+      background_scene: kitchen
+      episode_length_s: 80
+env_cfg_override:
+  sim:
+    render_interval: 8
+placer_params:
+  allow_best_loss_fallbacks: false

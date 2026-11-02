@@ -1,0 +1,27 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: film_kitchenbench_split_bowls
+    enable_cameras: true
+  environment_builder:
+    num_envs: 1
+    seed: 45
+    placement_seed: 45
+    resolve_on_reset: false
+    solve_relations: false
+    camera_resolution_mode: embodiment_default
+  policy:
+    type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+    policy_variant: pi05
+    remote_host: 127.0.0.1
+    remote_port: 8001
+    openpi_embodiment_adapter: droid
+    policy_device: cuda:0
+  rollout_limit:
+    num_episodes: 3
+runs:
+  kitchenbench_split_bowls_pi05: {}

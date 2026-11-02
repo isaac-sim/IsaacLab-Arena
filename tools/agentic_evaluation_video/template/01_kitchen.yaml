@@ -1,0 +1,46 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: film_01_kitchen
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_peninsula
+  params:
+    collision_mode: mesh
+objects: []
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+  params: {}
+- id: island_top
+  parent_id: kitchen
+  prim_path: CapSurface_02
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: island_top
+  params: {}
+task:
+  composition: atomic
+  description: Inspect the KitchenBench environment
+  subtasks:
+  - kind: NoTask
+env_cfg_override:
+  sim:
+    render_interval: 8
+placer_params:
+  allow_best_loss_fallbacks: false

@@ -1,0 +1,24 @@
+{
+  "stages": [
+    "01_kitchen",
+    "02_wooden_bowl",
+    "03_robot",
+    "04_fruits_far_bowl"
+  ],
+  "capture_counts": [
+    1,
+    5,
+    5,
+    5
+  ],
+  "replay_placements": "reference_placements.jsonl",
+  "expected_subtasks": 2,
+  "rollout_count": 3,
+  "rollout_sides": [
+    "right",
+    "left",
+    "right"
+  ],
+  "require_front_left": true,
+  "reference_commit": "ec00f683c4304bdc2a496e5dc876c2934cc07ca5"
+}
