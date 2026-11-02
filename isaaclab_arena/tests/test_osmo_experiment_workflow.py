@@ -490,6 +490,30 @@ def test_embeds_effective_experiment_yaml():
     assert embedded_experiment["runs"]["baseline"]["environment_builder"]["num_envs"] == 1
 
 
+def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
+    """Embed the Experiment name in each single-Run Experiment so remote results keep it."""
+    source_experiment_cfg = _pi0_experiment_cfg()
+    source_experiment_cfg.name = "my-benchmark"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="named-experiment"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+
+    run_groups = groups[:-1]
+    assert run_groups
+    for group in run_groups:
+        assert _embedded_experiment(group["tasks"][0])["name"] == "my-benchmark"
+
+
+def test_experiment_name_can_be_overridden_at_submission():
+    """Route experiment_cfg.name=<x> to the Experiment name of the submission."""
+    submission_cfg = _compose_submission(["experiment_cfg.name=my-benchmark"])
+
+    assert submission_cfg.experiment_cfg.name == "my-benchmark"
+
+
 def test_result_wrapper_preserves_experiment_video_options():
     """Pass selected video options through the result-recording wrapper."""
     experiment_runner_task = ExperimentRunnerTask(
