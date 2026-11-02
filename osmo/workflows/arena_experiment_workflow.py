@@ -129,10 +129,15 @@ class ArenaExperimentWorkflow(Workflow):
         experiment_runner_task_names_by_run_name: dict[str, str],
     ) -> dict[str, Any]:
         """Collect every Experiment Runner task output into one published Experiment output."""
+        assert self.experiment_cfg.name is not None, (
+            "The Experiment needs a name to be recorded as the benchmark id of its KPI records; the Experiment"
+            " loaders always set it"
+        )
         collect_experiment_outputs_task = CollectExperimentOutputsTask(
             task_name="collect-experiment-outputs",
             image=self.task_cfg.image,
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
+            benchmark_id=self.experiment_cfg.name,
             lead=True,
             resource=self.experiment_output_resource_name,
             output_url=self.workflow_cfg.output_url,

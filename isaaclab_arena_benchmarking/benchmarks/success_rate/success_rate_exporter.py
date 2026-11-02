@@ -6,7 +6,7 @@
 """Export the success rate of a finished Arena Experiment as an InfluxDB KPI record.
 
 The records file is ``kpis_success_rates.json``. It holds one ``per_experiment`` record with the episode-weighted
-success rate over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA and branch.
+success rate over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA, branch and benchmark id.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 from typing import ClassVar
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
+    get_benchmark_id,
     get_git_stamp,
     get_latest_run_end_timestamp_ns,
     read_experiment_result,
@@ -49,7 +50,7 @@ class PerExperimentRecord(InfluxdbKpiRecord):
 
 
 def build_per_experiment_record(
-    num_runs: int, jobs: list[JobSummary], *, timestamp_ns: int, git_stamp: GitStamp
+    num_runs: int, jobs: list[JobSummary], *, timestamp_ns: int, git_stamp: GitStamp, benchmark_id: str
 ) -> PerExperimentRecord:
     """Return the per-Experiment record, with the success rate episode-weighted over the given jobs.
 
@@ -58,6 +59,7 @@ def build_per_experiment_record(
         jobs: One report job per Run, pooling that Run's episodes.
         timestamp_ns: Point time in Unix epoch nanoseconds (UTC).
         git_stamp: Arena git commit and branch the Experiment ran with.
+        benchmark_id: Benchmark the Experiment belongs to.
 
     Returns:
         The per-Experiment record.
@@ -68,6 +70,7 @@ def build_per_experiment_record(
         timestamp_ns=timestamp_ns,
         git_sha=git_stamp.git_sha,
         git_branch=git_stamp.git_branch,
+        benchmark_id=benchmark_id,
         success_rate=success_rate,
         num_episodes=sum(job.num_episodes for job in jobs),
         num_runs=num_runs,
@@ -117,12 +120,13 @@ class SuccessRateKpiExporter(InfluxdbKpiExporter):
 
         Returns:
             One per-Experiment record over every Run, timestamped with the latest Run end and tagged with the
-            Experiment's git stamp.
+            Experiment's git stamp and benchmark id.
         """
         output_dir = Path(output_dir)
         result = read_experiment_result(output_dir)
         runs = result["runs"]
         git_stamp = get_git_stamp(result)
+        benchmark_id = get_benchmark_id(result)
         timestamp_ns = get_latest_run_end_timestamp_ns(result)
 
         # Pool each Run's episodes into one report job, so success counts use the report's definitions.
@@ -138,7 +142,9 @@ class SuccessRateKpiExporter(InfluxdbKpiExporter):
             for run_name, run_result in runs.items()
         ]
         records: list[InfluxdbKpiRecord] = [
-            build_per_experiment_record(len(runs), jobs, timestamp_ns=timestamp_ns, git_stamp=git_stamp)
+            build_per_experiment_record(
+                len(runs), jobs, timestamp_ns=timestamp_ns, git_stamp=git_stamp, benchmark_id=benchmark_id
+            )
         ]
         assert_unique_tag_sets(records)
         return records

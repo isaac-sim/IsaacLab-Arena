@@ -81,6 +81,10 @@ def _write_arena_experiment_result(
     """Combine every Run's metadata and episode results into one Experiment JSON file and return the result."""
     from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
 
+    assert experiment_cfg.name is not None, (
+        "The Experiment needs a name to be recorded as the benchmark id of its result; the Experiment loaders always"
+        " set it"
+    )
     run_results_by_name = {run_result.run_name: run_result for run_result in run_results}
     assert len(run_results_by_name) == len(run_results), "Experiment results must contain each Run exactly once"
     assert set(run_results_by_name) == set(
@@ -96,7 +100,9 @@ def _write_arena_experiment_result(
         }
         for run_name, run_cfg in experiment_cfg.runs.items()
     }
-    experiment_result = ArenaExperimentResult(experiment_output_directory, run_metadata_by_name)
+    experiment_result = ArenaExperimentResult(
+        experiment_output_directory, run_metadata_by_name, benchmark_id=experiment_cfg.name
+    )
     experiment_result.write()
     return experiment_result
 

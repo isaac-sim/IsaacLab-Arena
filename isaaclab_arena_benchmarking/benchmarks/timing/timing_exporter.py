@@ -6,7 +6,7 @@
 """Export the timer statistics of a finished Arena Experiment as InfluxDB KPI records.
 
 The records file is ``kpis_timing.json``. It holds one ``timing`` record per timer that ran, with the statistics
-totalled over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA and branch.
+totalled over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA, branch and benchmark id.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from typing import Any, ClassVar
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
+    get_benchmark_id,
     get_git_stamp,
     get_latest_run_end_timestamp_ns,
     read_experiment_result,
@@ -58,13 +59,16 @@ class TimingRecord(InfluxdbKpiRecord):
     """Number of timed intervals."""
 
 
-def build_timing_record(timing: dict[str, Any], *, timestamp_ns: int, git_stamp: GitStamp) -> TimingRecord:
+def build_timing_record(
+    timing: dict[str, Any], *, timestamp_ns: int, git_stamp: GitStamp, benchmark_id: str
+) -> TimingRecord:
     """Return the record of one Experiment timings total; the entry must have a nonzero count.
 
     Args:
         timing: Timer statistics with ``name``, ``count``, ``total_ms``, ``min_ms`` and ``max_ms``.
         timestamp_ns: Point time in Unix epoch nanoseconds (UTC).
         git_stamp: Arena git commit and branch the Experiment ran with.
+        benchmark_id: Benchmark the Experiment belongs to.
 
     Returns:
         The timing record, with the mean computed from the total and count.
@@ -75,6 +79,7 @@ def build_timing_record(timing: dict[str, Any], *, timestamp_ns: int, git_stamp:
         timestamp_ns=timestamp_ns,
         git_sha=git_stamp.git_sha,
         git_branch=git_stamp.git_branch,
+        benchmark_id=benchmark_id,
         name=timing["name"],
         mean_ms=total_ms / count,
         total_ms=total_ms,
@@ -95,7 +100,7 @@ class TimingKpiExporter(InfluxdbKpiExporter):
     def build_records_from_output_dir(self, output_dir: Path) -> list[InfluxdbKpiRecord]:
         """Build the timing records of a finished Experiment output directory.
 
-        Reads ``arena_experiment_result.json`` for the timestamp and git stamp and
+        Reads ``arena_experiment_result.json`` for the timestamp, git stamp and benchmark id and
         ``arena_experiment_timings.json`` for the timers.
 
         Args:
@@ -111,10 +116,11 @@ class TimingKpiExporter(InfluxdbKpiExporter):
         result = read_experiment_result(output_dir)
         timestamp_ns = get_latest_run_end_timestamp_ns(result)
         git_stamp = get_git_stamp(result)
+        benchmark_id = get_benchmark_id(result)
         timings = json.loads(timings_path.read_text(encoding="utf-8"))
         # Timers that never ran have no statistics.
         records: list[InfluxdbKpiRecord] = [
-            build_timing_record(timing, timestamp_ns=timestamp_ns, git_stamp=git_stamp)
+            build_timing_record(timing, timestamp_ns=timestamp_ns, git_stamp=git_stamp, benchmark_id=benchmark_id)
             for timing in timings["totals"]
             if timing["count"] > 0
         ]

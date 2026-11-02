@@ -35,6 +35,7 @@ START_TIMESTAMP_NS = 1792799000000000000
 END_TIMESTAMP_NS = 1792800000000000000
 GIT_SHA = "0123456789abcdef0123456789abcdef01234567"
 GIT_BRANCH = "feature/provenance"
+BENCHMARK_ID = "pnp_benchmark"
 
 
 def _run_metadata(environment_name: str, policy_variant: str) -> dict[str, object]:
@@ -286,6 +287,7 @@ def test_rejects_runs_executed_at_different_commits(tmp_path):
         build_experiment_output(
             {"first": first_runner_output_directory, "second": second_runner_output_directory},
             tmp_path / "experiment-output",
+            benchmark_id=BENCHMARK_ID,
         )
 
 
@@ -328,6 +330,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
             "second": second_experiment_runner_output_directory,
         },
         experiment_output_directory,
+        benchmark_id=BENCHMARK_ID,
     )
 
     assert report_path == experiment_output_directory / "index.html"
@@ -336,6 +339,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     experiment_result = json.loads(
         (experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8")
     )
+    assert experiment_result["benchmark_id"] == BENCHMARK_ID
     assert list(experiment_result["runs"]) == ["first", "second"]
     first_run_result = experiment_result["runs"]["first"]
     assert first_run_result["environment"] == {
@@ -406,6 +410,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
         "type": "per_experiment",
         "timestamp_ns": END_TIMESTAMP_NS + 1,
         **GitStamp(git_sha=GIT_SHA, git_branch=GIT_BRANCH).to_dict(),
+        "benchmark_id": BENCHMARK_ID,
         "success_rate": 0.5,
         "num_episodes": 2,
         "num_runs": 2,
@@ -414,6 +419,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert_influxdb_kpi_records_are_valid(timing_kpis)
     assert sorted(record["name"] for record in timing_kpis) == ["step", "step/policy_inference"]
     assert all(record["type"] == "timing" and "run_name" not in record for record in timing_kpis)
+    assert all(record["benchmark_id"] == BENCHMARK_ID for record in timing_kpis)
 
 
 def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
@@ -444,6 +450,7 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
             "failed-run": failed_runner_output_directory,
         },
         experiment_output_directory,
+        benchmark_id=BENCHMARK_ID,
     )
 
     assert (experiment_output_directory / "completed-run/episode_results_rebuild0.jsonl").is_file()
@@ -517,6 +524,7 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
             "second": second_runner_output_directory,
         },
         experiment_output_directory,
+        benchmark_id=BENCHMARK_ID,
     )
 
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
@@ -560,7 +568,9 @@ def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch,
     experiment_output_directory = tmp_path / "experiment-output"
     monkeypatch.setitem(registry.EXPORTERS_BY_NAME, "success_rate", _FailingSuccessRateExporter)
 
-    build_experiment_output({"run_a": experiment_runner_output_directory}, experiment_output_directory)
+    build_experiment_output(
+        {"run_a": experiment_runner_output_directory}, experiment_output_directory, benchmark_id=BENCHMARK_ID
+    )
 
     assert (experiment_output_directory / "index.html").is_file()
     assert not (experiment_output_directory / "kpis_success_rates.json").exists()

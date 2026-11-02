@@ -45,7 +45,7 @@ def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_completed_run(tmp_pat
     for filename, records in records_by_file.items():
         (tmp_path / filename).write_text("".join(json.dumps(record) + "\n" for record in records))
 
-    result = ArenaExperimentResult(tmp_path, metadata)
+    result = ArenaExperimentResult(tmp_path, metadata, benchmark_id="pnp_benchmark")
     table = build_categorical_variation_table(result.to_dict())
 
     assert table.rows == [

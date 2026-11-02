@@ -72,6 +72,9 @@ class ArenaExperimentResultData(TypedDict):
     git_stamp: dict[str, str]
     """JSON object of the Arena ``GitStamp``, mapping ``git_sha`` and ``git_branch`` to their values."""
 
+    benchmark_id: NotRequired[str]
+    """Benchmark the Experiment belongs to; absent in results written before benchmark ids were recorded."""
+
     runs: dict[str, ArenaExperimentRunData]
     """Maps each configured Run name to that Run's data."""
 
@@ -83,7 +86,8 @@ def read_experiment_result(output_dir: Path) -> ArenaExperimentResultData:
         output_dir: Experiment output root holding the result file.
 
     Returns:
-        The Experiment result, with at least one Run, a git stamp and an integer end time for every Run.
+        The Experiment result, with at least one Run, a git stamp, a benchmark id and an integer end time for every
+        Run.
     """
     output_dir = Path(output_dir)
     result: ArenaExperimentResultData = json.loads(
@@ -92,6 +96,14 @@ def read_experiment_result(output_dir: Path) -> ArenaExperimentResultData:
     runs = result["runs"]
     assert runs, f"Experiment result in '{output_dir}' has no Runs"
     assert "git_stamp" in result, f"Experiment result in '{output_dir}' has no git stamp"
+    benchmark_id = result.get("benchmark_id")
+    assert benchmark_id is not None, (
+        f"Experiment result in '{output_dir}' has no benchmark_id; results written before benchmark ids were"
+        " recorded cannot produce KPI records"
+    )
+    assert _is_single_line_nonempty_string(
+        benchmark_id
+    ), f"benchmark_id in Experiment result in '{output_dir}' must be a non-empty single-line string"
     for run_name, run_result in runs.items():
         end_timestamp_ns = run_result.get("end_timestamp_ns")
         assert isinstance(end_timestamp_ns, int) and not isinstance(end_timestamp_ns, bool), (
@@ -106,6 +118,11 @@ def get_latest_run_end_timestamp_ns(result: ArenaExperimentResultData) -> int:
     return max(run_result["end_timestamp_ns"] for run_result in result["runs"].values())
 
 
+def get_benchmark_id(result: ArenaExperimentResultData) -> str:
+    """Return the benchmark id recorded in an Experiment result."""
+    return result["benchmark_id"]
+
+
 def get_git_stamp(result: ArenaExperimentResultData) -> GitStamp:
     """Return the Arena git stamp recorded in an Experiment result."""
     return GitStamp.from_dict(result["git_stamp"])
@@ -114,6 +131,11 @@ def get_git_stamp(result: ArenaExperimentResultData) -> GitStamp:
 def all_runs_completed(result: ArenaExperimentResultData) -> bool:
     """Return whether every Run of an Experiment result has the completed status."""
     return all(run_result["status"] == "completed" for run_result in result["runs"].values())
+
+
+def _is_single_line_nonempty_string(value: object) -> bool:
+    """Return whether a value is a non-empty string without line breaks."""
+    return isinstance(value, str) and bool(value) and "\n" not in value and "\r" not in value
 
 
 def _require_nonempty_string(value: object, field_name: str) -> str:
@@ -148,7 +170,7 @@ def _collect_rebuilds(
 class ArenaExperimentResult:
     """Combine every Run's metadata and episode JSONLs into one Experiment result file.
 
-    The result contains the Arena git stamp and each configured Run's environment, policy variant,
+    The result contains the benchmark id, the Arena git stamp and each configured Run's environment, policy variant,
     execution status, start and end times, and raw episode records grouped by rebuild. It does not compute aggregate
     metrics or collect videos.
     """
@@ -170,6 +192,8 @@ class ArenaExperimentResult:
         experiment_output_directory: str | Path,
         run_metadata_by_name: Mapping[str, Mapping[str, Any]],
         git_stamp: GitStamp | None = None,
+        *,
+        benchmark_id: str,
     ) -> None:
         """Collect declared Run outputs from an Experiment output directory.
 
@@ -177,8 +201,13 @@ class ArenaExperimentResult:
             experiment_output_directory: Experiment output root containing one directory per Run.
             run_metadata_by_name: Environment, policy variant, final status, start time, and end time for each declared Run.
             git_stamp: Arena git commit and branch; read from the environment when omitted.
+            benchmark_id: Benchmark the Experiment belongs to, a non-empty single-line string.
         """
         assert run_metadata_by_name, "run_metadata_by_name must not be empty"
+        assert _is_single_line_nonempty_string(
+            benchmark_id
+        ), f"benchmark_id must be a non-empty single-line string, got {benchmark_id!r}"
+        self._benchmark_id = benchmark_id
         self.experiment_output_directory = Path(experiment_output_directory)
         self._git_stamp = git_stamp if git_stamp is not None else GitStamp.from_environment()
         self._runs: dict[str, ArenaExperimentRunData] = {
@@ -231,7 +260,7 @@ class ArenaExperimentResult:
 
     def to_dict(self) -> ArenaExperimentResultData:
         """Return the collected JSON-compatible Experiment result."""
-        return {"git_stamp": self._git_stamp.to_dict(), "runs": self._runs}
+        return {"git_stamp": self._git_stamp.to_dict(), "benchmark_id": self._benchmark_id, "runs": self._runs}
 
     def write(self) -> Path:
         """Write all collected Runs to ``arena_experiment_result.json`` in the Experiment output directory."""

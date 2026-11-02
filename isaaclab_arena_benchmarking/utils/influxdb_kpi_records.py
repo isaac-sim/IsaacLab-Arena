@@ -21,6 +21,7 @@ A records file is a JSON list of flat records. Fields appearing in every record:
 - ``type``: Record type.
 - ``git_sha``: Git commit SHA the records were produced with.
 - ``git_branch``: Git branch the records were produced with.
+- ``benchmark_id``: Benchmark the records belong to.
 """
 
 from __future__ import annotations
@@ -82,6 +83,9 @@ class InfluxdbKpiRecord(ABC):
     git_branch: str
     """Git branch the records were produced with."""
 
+    benchmark_id: str
+    """Benchmark the records belong to."""
+
     @property
     @abstractmethod
     def record_type(self) -> str:
@@ -119,7 +123,7 @@ class InfluxdbKpiRecord(ABC):
     def to_flat_dict(self) -> dict[str, str | int | float]:
         """Return the record as a flat JSON object.
 
-        The keys are ``type``, ``timestamp_ns``, ``git_sha`` and ``git_branch``, then every other attribute that is
+        The keys are ``type``, ``timestamp_ns``, ``git_sha``, ``git_branch`` and ``benchmark_id``, then every other attribute that is
         not None.
         """
         flat_dict: dict[str, str | int | float] = {RECORD_TYPE_KEY: self.record_type}

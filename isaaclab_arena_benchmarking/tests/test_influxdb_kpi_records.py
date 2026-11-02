@@ -32,7 +32,12 @@ from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import (  # noqa: E4
 TIMESTAMP_NS = 1792800000000000000
 """2026-10-23 UTC, in Unix epoch nanoseconds."""
 
-SHARED_VALUES = {"timestamp_ns": TIMESTAMP_NS, "git_sha": "1a2b3c4", "git_branch": "main"}
+SHARED_VALUES = {
+    "timestamp_ns": TIMESTAMP_NS,
+    "git_sha": "1a2b3c4",
+    "git_branch": "main",
+    "benchmark_id": "pnp_benchmark",
+}
 
 TEST_RECORDS_FILENAME = "test_records.json"
 
@@ -72,6 +77,8 @@ class _TestExporter(InfluxdbKpiExporter):
         pytest.param({"timestamp_ns": 1767225599999999999}, id="timestamp_ns_before_2026"),
         pytest.param({"git_sha": ""}, id="empty_git_sha"),
         pytest.param({"git_branch": "a\nb"}, id="line_break_git_branch"),
+        pytest.param({"benchmark_id": ""}, id="empty_benchmark_id"),
+        pytest.param({"benchmark_id": "a\nb"}, id="line_break_benchmark_id"),
         pytest.param({"name": ""}, id="empty_tag"),
         pytest.param({"name": "a\nb"}, id="line_break_tag"),
         pytest.param({"count": True}, id="bool_field"),
@@ -98,13 +105,20 @@ def test_record_omits_missing_fields_from_flat_dict():
         ("timestamp_ns", TIMESTAMP_NS),
         ("git_sha", "1a2b3c4"),
         ("git_branch", "main"),
+        ("benchmark_id", "pnp_benchmark"),
         ("name", "a"),
         ("count", 1),
     ]
 
 
 def test_tag_set_holds_only_string_values():
-    assert _test_record().tag_set() == {("type", "test"), ("git_sha", "1a2b3c4"), ("git_branch", "main"), ("name", "a")}
+    assert _test_record().tag_set() == {
+        ("type", "test"),
+        ("git_sha", "1a2b3c4"),
+        ("git_branch", "main"),
+        ("benchmark_id", "pnp_benchmark"),
+        ("name", "a"),
+    }
 
 
 def test_unique_tag_sets_reject_duplicate_records():

@@ -43,7 +43,9 @@ END_TIMESTAMP_NS = 1792800000000000000
 
 GIT_STAMP = {"git_sha": "1a2b3c4", "git_branch": "main"}
 
-SHARED_VALUES = {"timestamp_ns": END_TIMESTAMP_NS, **GIT_STAMP}
+BENCHMARK_ID = "pnp_benchmark"
+
+SHARED_VALUES = {"timestamp_ns": END_TIMESTAMP_NS, **GIT_STAMP, "benchmark_id": BENCHMARK_ID}
 
 KPI_FILENAMES = {"kpis_success_rates.json", "kpis_timing.json"}
 
@@ -65,7 +67,7 @@ def _write_experiment(output_dir: Path, run_statuses: dict[str, str]) -> Path:
             "rebuilds": [{"index": 0, "episodes": episodes}],
         }
     (output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(
-        json.dumps({"git_stamp": GIT_STAMP, "runs": result_runs}), encoding="utf-8"
+        json.dumps({"git_stamp": GIT_STAMP, "benchmark_id": BENCHMARK_ID, "runs": result_runs}), encoding="utf-8"
     )
     timings = {"totals": [{"name": "step", "count": 2, "total_ms": 3.0, "min_ms": 1.0, "max_ms": 2.0}], "runs": []}
     (output_dir / ARENA_AGGREGATED_TIMINGS_FILENAME).write_text(json.dumps(timings), encoding="utf-8")
@@ -111,6 +113,29 @@ def test_completed_experiment_writes_every_default_file(tmp_path: Path):
         assert_influxdb_kpi_records_are_valid(file_kpis)
         kpis.extend(file_kpis)
     assert {record["type"] for record in kpis} == {"per_experiment", "timing"}
+
+
+def test_every_record_has_benchmark_id_tag(tmp_path: Path):
+    output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
+
+    written_paths = export_kpis(output_dir)
+
+    kpis = [record for path in written_paths for record in json.loads(path.read_text(encoding="utf-8"))]
+    assert {record["type"] for record in kpis} == {"per_experiment", "timing"}
+    assert all(record["benchmark_id"] == BENCHMARK_ID for record in kpis)
+
+
+def test_old_result_without_benchmark_id_fails_kpi_export(tmp_path: Path):
+    output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
+    result_path = output_dir / ARENA_EXPERIMENT_RESULT_FILENAME
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    del result["benchmark_id"]
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="benchmark_id"):
+        export_kpis(output_dir)
+
+    assert _kpi_filenames(output_dir) == set()
 
 
 def test_experiment_without_timings_file_writes_only_the_success_rate_file(tmp_path: Path):

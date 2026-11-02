@@ -70,6 +70,7 @@ FAKE_OSMO_SUBMIT_STDOUT = """Workflow submit successful.
     Workflow ID        - arena-kpi-run-7
     Workflow Overview  - https://osmo.example.com/workflows/arena-kpi-run-7
 """
+EXPERIMENT_NAME = "pnp_benchmark"
 GR00T_CONFIG_YAML_PATH = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
 
 
@@ -96,7 +97,8 @@ def _pi0_experiment_cfg(first_variant: str = "pi05") -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             ),
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -118,7 +120,8 @@ def _mixed_experiment_cfg() -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             ),
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -130,7 +133,8 @@ def _zero_action_experiment_cfg() -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             )
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -316,6 +320,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
         in experiment_output_command
     )
     assert "--experiment-output-directory" in experiment_output_command
+    assert f"--benchmark-id {EXPERIMENT_NAME}" in experiment_output_command
     assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
 
@@ -505,6 +510,34 @@ def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
     assert run_groups
     for group in run_groups:
         assert _embedded_experiment(group["tasks"][0])["name"] == "my-benchmark"
+
+
+def test_collector_task_script_passes_the_experiment_name_as_benchmark_id():
+    """The collector writes the Experiment name into the result, so it needs it on its command line."""
+    source_experiment_cfg = _zero_action_experiment_cfg()
+    source_experiment_cfg.name = "my benchmark"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="named-collector"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    experiment_output_task = _workflow_groups(workflow.generate_workflow())[-1]["tasks"][0]
+
+    experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
+    assert "--benchmark-id 'my benchmark'" in experiment_output_command
+
+
+def test_unnamed_experiment_cannot_build_a_workflow():
+    """Reject an Experiment without a name, because its KPI records need a benchmark id."""
+    unnamed_experiment_cfg = _zero_action_experiment_cfg()
+    unnamed_experiment_cfg.name = None
+
+    with pytest.raises(AssertionError, match="Experiment name"):
+        workflow = ArenaExperimentWorkflow(
+            workflow_cfg=WorkflowCfg(workflow_name="unnamed"),
+            experiment_cfg=unnamed_experiment_cfg,
+        )
+        workflow.generate_workflow()
 
 
 def test_experiment_name_can_be_overridden_at_submission():

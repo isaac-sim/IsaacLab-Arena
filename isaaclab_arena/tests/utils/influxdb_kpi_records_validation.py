@@ -41,6 +41,7 @@ def _assert_record_is_valid_point(record_index: int, record: object) -> frozense
     """Assert that one record maps to an InfluxDB point and return its tag set: the record's string-valued items."""
     assert isinstance(record, dict), f"record {record_index} must be a JSON object"
     assert isinstance(record.get("type"), str), f"record {record_index} must have a string type"
+    assert isinstance(record.get("benchmark_id"), str), f"record {record_index} must have a string benchmark_id tag"
 
     timestamp_ns = record.get(TIMESTAMP_NS_KEY)
     assert isinstance(timestamp_ns, int) and not isinstance(
@@ -72,8 +73,8 @@ def assert_influxdb_kpi_records_are_valid(contents: object) -> None:
 
     Checks for a non-empty list of flat records, each with an integer ``timestamp_ns`` from 2026 that is not in
     the future, keys that InfluxDB does not reserve (no leading ``_``, not ``time``), values that are finite numbers
-    or single-line strings, at least one numeric value other than ``timestamp_ns``, and a tag set unique within the
-    list.
+    or single-line strings, a string ``benchmark_id`` tag, at least one numeric value other than ``timestamp_ns``, and a
+    tag set unique within the list.
 
     Args:
         contents: Parsed JSON of a ``kpis_*.json`` file.
