@@ -18,7 +18,11 @@ from isaaclab_arena.environment_spec import arena_env_graph_yaml_loader
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
     ArenaExperimentResult,
+    all_runs_completed,
     build_arena_run_result_metadata,
+    get_git_stamp,
+    get_latest_run_end_timestamp_ns,
+    read_experiment_result,
 )
 from isaaclab_arena.utils.git_stamp import GitStamp
 
@@ -280,3 +284,41 @@ def test_builds_registered_environment_and_policy_metadata(monkeypatch):
         },
         "policy_variant": "registered_policy",
     }
+
+
+def _write_result(output_dir: Path, runs: dict, **extra) -> None:
+    result = {"git_stamp": {"git_sha": "abc1234", "git_branch": "main"}, "runs": runs, **extra}
+    (output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(json.dumps(result), encoding="utf-8")
+
+
+def _run(status: str = "completed", end_timestamp_ns: int = END_TIMESTAMP_NS) -> dict:
+    return {**_metadata("env", status=status), "end_timestamp_ns": end_timestamp_ns, "rebuilds": []}
+
+
+def test_read_experiment_result_rejects_missing_end_timestamp(tmp_path):
+    run = _run()
+    del run["end_timestamp_ns"]
+    _write_result(tmp_path, {"run_a": run})
+
+    with pytest.raises(AssertionError, match="no integer end_timestamp_ns"):
+        read_experiment_result(tmp_path)
+
+
+def test_get_latest_run_end_timestamp_ns_is_the_maximum(tmp_path):
+    _write_result(tmp_path, {"run_a": _run(end_timestamp_ns=5), "run_b": _run(end_timestamp_ns=9)})
+
+    assert get_latest_run_end_timestamp_ns(read_experiment_result(tmp_path)) == 9
+
+
+def test_all_runs_completed_is_false_with_one_failed_run(tmp_path):
+    _write_result(tmp_path, {"run_a": _run(), "run_b": _run(status="failed")})
+    assert not all_runs_completed(read_experiment_result(tmp_path))
+
+    _write_result(tmp_path, {"run_a": _run()})
+    assert all_runs_completed(read_experiment_result(tmp_path))
+
+
+def test_get_git_stamp_builds_stamp_from_result(tmp_path):
+    _write_result(tmp_path, {"run_a": _run()})
+
+    assert get_git_stamp(read_experiment_result(tmp_path)) == GitStamp(git_sha="abc1234", git_branch="main")

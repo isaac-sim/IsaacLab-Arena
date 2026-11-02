@@ -48,9 +48,10 @@ from typing import Any, ClassVar
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ALL_RUNS_TIMING_RUN_NAME,
     ARENA_AGGREGATED_TIMINGS_FILENAME,
-    ARENA_EXPERIMENT_RESULT_FILENAME,
-    ArenaExperimentResultData,
     ArenaExperimentRunData,
+    get_git_stamp,
+    get_latest_run_end_timestamp_ns,
+    read_experiment_result,
 )
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
@@ -306,19 +307,9 @@ class ArenaExperimentKpiExporter(InfluxdbKpiExporter):
         output_dir = Path(output_dir)
 
         # Read the Experiment result and check that it holds what the records need.
-        result: ArenaExperimentResultData = json.loads(
-            (output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8")
-        )
+        result = read_experiment_result(output_dir)
         runs = result["runs"]
-        assert runs, f"Experiment result in '{output_dir}' has no Runs"
-        assert "git_stamp" in result, f"Experiment result in '{output_dir}' has no git stamp"
-        git_stamp = GitStamp.from_dict(result["git_stamp"])
-        for run_name, run_result in runs.items():
-            end_timestamp_ns = run_result.get("end_timestamp_ns")
-            assert isinstance(end_timestamp_ns, int) and not isinstance(end_timestamp_ns, bool), (
-                f"Run {run_name!r} in '{output_dir}' has no integer end_timestamp_ns; results written"
-                " before Run end times were recorded cannot produce KPI records"
-            )
+        git_stamp = get_git_stamp(result)
 
         # Pool each completed Run's episodes into one report job, so success counts use the report's definitions.
         run_names = set(runs)
@@ -336,7 +327,7 @@ class ArenaExperimentKpiExporter(InfluxdbKpiExporter):
         }
 
         # Every record is a point at the latest Run end, tagged with the Experiment's git stamp.
-        timestamp_ns = max(run_result["end_timestamp_ns"] for run_result in runs.values())
+        timestamp_ns = get_latest_run_end_timestamp_ns(result)
 
         records: list[InfluxdbKpiRecord] = [
             build_per_experiment_record(
