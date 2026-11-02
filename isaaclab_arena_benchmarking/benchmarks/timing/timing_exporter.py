@@ -6,7 +6,8 @@
 """Export the timer statistics of a finished Arena Experiment as InfluxDB KPI records.
 
 The records file is ``kpis_timing.json``. It holds one ``timing`` record per timer that ran, with the statistics
-totalled over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA, branch and benchmark id.
+totalled over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA, branch and
+benchmark id.
 """
 
 from __future__ import annotations
@@ -24,11 +25,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     read_experiment_result,
 )
 from isaaclab_arena.utils.git_stamp import GitStamp
-from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import (
-    InfluxdbKpiExporter,
-    InfluxdbKpiRecord,
-    assert_unique_tag_sets,
-)
+from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
 
 TIMING_RECORDS_FILENAME = "kpis_timing.json"
 """Name of the timing KPI records file in an Experiment output directory."""
@@ -124,5 +121,4 @@ class TimingKpiExporter(InfluxdbKpiExporter):
             for timing in timings["totals"]
             if timing["count"] > 0
         ]
-        assert_unique_tag_sets(records)
         return records

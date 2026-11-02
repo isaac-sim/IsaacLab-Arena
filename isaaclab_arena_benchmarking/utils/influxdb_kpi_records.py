@@ -123,8 +123,8 @@ class InfluxdbKpiRecord(ABC):
     def to_flat_dict(self) -> dict[str, str | int | float]:
         """Return the record as a flat JSON object.
 
-        The keys are ``type``, ``timestamp_ns``, ``git_sha``, ``git_branch`` and ``benchmark_id``, then every other attribute that is
-        not None.
+        The keys are ``type``, ``timestamp_ns``, ``git_sha``, ``git_branch`` and ``benchmark_id``, then every other
+        attribute that is not None.
         """
         flat_dict: dict[str, str | int | float] = {RECORD_TYPE_KEY: self.record_type}
         for record_field in fields(self):

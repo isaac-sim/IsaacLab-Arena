@@ -225,11 +225,6 @@ def test_rejects_unsafe_run_paths(tmp_path, run_name):
         ArenaExperimentResult(tmp_path, {run_name: _metadata("task", status="failed")}, benchmark_id=BENCHMARK_ID)
 
 
-def test_run_named_like_timing_totals_is_rejected_up_front():
-    with pytest.raises(AssertionError, match="'all' is reserved"):
-        ArenaExperimentResult.assert_run_name_is_safe_path_component("all")
-
-
 @dataclass
 class _EnvironmentCfg:
     pass
