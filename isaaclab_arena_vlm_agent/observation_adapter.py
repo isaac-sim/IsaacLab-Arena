@@ -13,6 +13,8 @@ from abc import ABC, abstractmethod
 from scipy.spatial.transform import Rotation
 from typing import Any
 
+from pydantic import BaseModel
+
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 
 POLICY_OBSERVATION_GROUP = "policy"
@@ -23,7 +25,41 @@ CAMERA_OBSERVATION_GROUP = "camera_obs"
 
 
 class VLMObservationAdapter(ABC):
-    """Extract camera images and prompt values from environment observations."""
+    """Extract camera images and prompt values from environment observations.
+
+    An adapter may also offer tools the model calls before acting, such as zooming into an image. The
+    policy answers tool requests through the hooks below, which by default offer no tools.
+    """
+
+    max_tool_rounds: int = 0
+    """Tool request rounds the policy answers per decision before it requires an action."""
+
+    def get_system_prompt_addition(self) -> str:
+        """Return text describing this adapter's inputs and tools, appended to the system prompt."""
+        return ""
+
+    def extend_response_model(self, action_model: type[BaseModel]) -> type[BaseModel]:
+        """Return the response model with this adapter's tool request fields added to the action fields."""
+        return action_model
+
+    def read_tool_requests(self, payload: Any) -> Any | None:
+        """Return the tool requests in a raw model response, or None when it asks for none."""
+
+    def answer_tool_requests(self, requests: Any, env_id: int, is_last_round: bool) -> list[dict[str, Any]]:
+        """Answer tool requests from read_tool_requests as user chat content.
+
+        Args:
+            requests: Requests returned by read_tool_requests.
+            env_id: Environment whose current observation answers the requests.
+            is_last_round: Whether this is the decision's last tool round, so the next response must act.
+
+        Returns:
+            Text and image content parts for the next user message.
+        """
+        raise NotImplementedError(f"{type(self).__name__} offers no tools")
+
+    def reset(self, env_ids: list[int] | None = None) -> None:
+        """Discard per-environment state for selected environments, or all environments."""
 
     @abstractmethod
     def extract_vlm_input_from_observation(

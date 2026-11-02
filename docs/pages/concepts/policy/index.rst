@@ -169,6 +169,40 @@ holds the goal pose, closes or opens the gripper, and reports the goal as:
   at its target or stopped while closing on an object;
 * **blocked:** the arm and fingers stopped moving short of the goal for several steps.
 
+Pixel measurement
+~~~~~~~~~~~~~~~~~
+
+Vision-language models judge where things are in an image only roughly, to a few centimeters.
+That is enough to pick up a cube, but not to fit a gear onto a peg within a few millimeters. Set
+``pixel_measurement: true`` to let the model measure positions instead of estimating them. The
+policy then wraps the selected observation adapter in ``PixelMeasurementObservationAdapter``, from
+`pixel_measurement.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/pixel_measurement.py>`__,
+which changes each request:
+
+* every image carries a yellow pixel grid, labelled in that image's transmitted pixels;
+* the response schema gains two lists, ``zoom_requests`` and ``point_queries``, and the system
+  prompt explains them;
+* a **zoom request** names a camera, a center pixel, and a half size. The reply is a magnified
+  crop of the rendered image, with a finer grid labelled in the same full-image pixels;
+* a **point query** names a camera and a pixel. The reply is the 3D point in the robot root frame
+  where that pixel's ray hits a surface, read from the camera's depth image and calibration.
+
+While either list is non-empty, the policy answers the requests and asks again, up to five rounds
+per decision, before it decodes an action. The last 12 measurements are repeated in later
+requests, so a part measured while visible stays usable after the gripper hides it.
+
+Every camera must also render ``distance_to_image_plane``. Rendering the cameras larger than
+``image_max_width_or_height`` gives zoomed crops more detail than the full images. The DROID gear
+insertion example renders at 1280x720 and sends 640 pixels:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py --viz none \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_experiment.yaml
+
+Its system prompt adds the gear and peg geometry, such as the spacing of the three pegs, and a
+grasp and insertion strategy.
+
 Add your own implementation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -192,7 +226,10 @@ The rows follow the order of the stages above.
      - Observation adapter
      - Subclass ``VLMObservationAdapter`` and implement
        ``extract_vlm_input_from_observation(env, observation, env_id)``. It returns the images by
-       camera name and the JSON-serializable values to send.
+       camera name and the JSON-serializable values to send. To offer tools the model calls before
+       acting, also set ``max_tool_rounds`` and implement ``get_system_prompt_addition``,
+       ``extend_response_model``, ``read_tool_requests``, and ``answer_tool_requests``, as
+       ``PixelMeasurementObservationAdapter`` does.
    * - Response
      - Action adapter
      - Subclass ``ChunkActionAdapter`` or ``GoalActionAdapter``. Set ``response_model``, a

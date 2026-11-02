@@ -31,6 +31,7 @@ from isaaclab_arena_vlm_agent.observation_adapter import (
     StateObservationAdapter,
     VLMObservationAdapter,
 )
+from isaaclab_arena_vlm_agent.pixel_measurement import PixelMeasurementObservationAdapter
 from isaaclab_arena_vlm_agent.response_errors import InvalidAgentResponseError
 
 if TYPE_CHECKING:
@@ -86,6 +87,13 @@ class VLMPolicyCfg(PolicyCfg):
     base_url: str | None = None
     """Optional URL override; credentials come from the endpoint's environment variable."""
 
+    pixel_measurement: bool = False
+    """Whether the model may zoom into images and measure 3D points from camera depth before acting.
+
+    Wraps the modality's adapter in PixelMeasurementObservationAdapter; ignored when an observation adapter is
+    injected. Images then carry labelled pixel grids, and every camera must also render distance_to_image_plane.
+    """
+
     def __post_init__(self):
         if self.system_prompt is None:
             assert self.vlm_embodiment_adapter is not None, "Set policy.system_prompt or policy.vlm_embodiment_adapter"
@@ -93,6 +101,9 @@ class VLMPolicyCfg(PolicyCfg):
             assert isinstance(self.system_prompt, str) and self.system_prompt.strip(), "Set policy.system_prompt"
         assert self.vlm_embodiment_adapter in (None, "droid"), "Unknown vlm_embodiment_adapter; expected 'droid'"
         self.observation_modality = ObservationModality(self.observation_modality)
+        assert (
+            not self.pixel_measurement or self.observation_modality != ObservationModality.state
+        ), "pixel_measurement requires camera images; set observation_modality to image or image_state"
         assert self.image_max_width_or_height > 0
         assert isinstance(self.max_attempts, int) and self.max_attempts >= 1
 
@@ -160,23 +171,32 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         Args:
             config: Prompt, image encoding, and action-validation settings.
             inference_backend: Backend whose ownership transfers to this policy, or None to create one.
-            observation_adapter: Adapter selecting images and state, or None to construct it from config.
+            observation_adapter: Adapter selecting images, state, and any tools the model may call before acting,
+                or None to construct it from config.
             action_adapter: Adapter validating responses and converting commands to native actions.
         """
         super().__init__(config)
         if observation_adapter is None:
             adapter_type = ObservationModality(config.observation_modality).get_adapter_type()
             observation_adapter = adapter_type()
+            if config.pixel_measurement:
+                observation_adapter = PixelMeasurementObservationAdapter(
+                    observation_adapter, config.image_max_width_or_height
+                )
         assert isinstance(observation_adapter, VLMObservationAdapter)
         assert isinstance(action_adapter, AgentActionAdapter)
         self.observation_adapter = observation_adapter
         self.action_adapter = action_adapter
-        self._response_schema = build_strict_schema(action_adapter.response_model)
+        self._response_model = observation_adapter.extend_response_model(action_adapter.response_model)
+        self._response_schema = build_strict_schema(self._response_model)
         self._system_prompt = config.system_prompt
         if self._system_prompt is None:
             self._system_prompt = _get_vlm_embodiment_adapter(config.vlm_embodiment_adapter).get_system_prompt(
                 action_adapter
             )
+        prompt_addition = observation_adapter.get_system_prompt_addition()
+        if prompt_addition:
+            self._system_prompt = f"{self._system_prompt} {prompt_addition}".strip()
         self.task_description = None
         # Construct the client last so invalid adapters or schemas cannot leak a connection.
         self._inference_backend = (
@@ -217,6 +237,10 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             actions.append(action.to(device=env.unwrapped.device))
         return torch.stack(actions)
 
+    def _reset_observation_adapter(self, env_ids: torch.Tensor | None) -> None:
+        """Discard observation adapter state for selected environments, or all environments."""
+        self.observation_adapter.reset(None if env_ids is None else env_ids.reshape(-1).tolist())
+
     @abstractmethod
     def _get_command(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> np.ndarray:
         """Return one command using the current observation and any pending prediction."""
@@ -248,13 +272,15 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         return content
 
     def _infer(self, content: list[dict], arena_world: ArenaWorld, env_id: int) -> np.ndarray:
-        """Request a command, allowing the model to correct locally rejected responses."""
+        """Request a command, answering observation tool requests and letting the model correct rejected responses."""
         messages = [
             {"role": "system", "content": self._system_prompt},
             {"role": "user", "content": content},
         ]
         rejection: InvalidAgentResponseError | None = None
-        for attempt in range(self.config.max_attempts):
+        attempts = 0
+        tool_rounds = 0
+        while attempts < self.config.max_attempts:
             payload = self._inference_backend.infer(
                 InferenceRequest(
                     messages=messages,
@@ -263,8 +289,21 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                     retry_label="policy_action",
                 )
             )
+            if tool_rounds < self.observation_adapter.max_tool_rounds:
+                # Answer requests before validating the action, whose fields are placeholders meanwhile.
+                # Tool rounds do not count as validation attempts; after the last one, requests are ignored.
+                requests = self.observation_adapter.read_tool_requests(payload)
+                if requests is not None:
+                    tool_rounds += 1
+                    is_last_round = tool_rounds == self.observation_adapter.max_tool_rounds
+                    messages.append({"role": "assistant", "content": json.dumps(payload)})
+                    messages.append({
+                        "role": "user",
+                        "content": self.observation_adapter.answer_tool_requests(requests, env_id, is_last_round),
+                    })
+                    continue
             try:
-                response = self.action_adapter.response_model.model_validate(payload)
+                response = self._response_model.model_validate(payload)
             except ValidationError as exc:
                 rejection = InvalidAgentResponseError(str(exc))
             else:
@@ -279,6 +318,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                     if self.action_adapter.is_command_valid(command):
                         return command
                     rejection = InvalidAgentResponseError("Expected finite commands with the adapter's required shape")
+            attempts += 1
             messages.append({"role": "assistant", "content": json.dumps(payload)})
             messages.append({
                 "role": "user",
@@ -324,6 +364,7 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending commands for selected environments, or all environments."""
+        self._reset_observation_adapter(env_ids)
         if env_ids is None:
             self._chunks.clear()
         else:
@@ -411,6 +452,7 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending and previous goals for selected environments, or all environments."""
+        self._reset_observation_adapter(env_ids)
         if env_ids is None:
             self._goals.clear()
             self._previous_goals.clear()

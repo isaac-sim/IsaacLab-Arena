@@ -25,7 +25,16 @@ from isaaclab_arena.inference.backend import InferenceBackend, build_strict_sche
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 from isaaclab_arena_vlm_agent.motion_generator import MotionGenerator
-from isaaclab_arena_vlm_agent.observation_adapter import CAMERA_OBSERVATION_GROUP, VLMObservationAdapter
+from isaaclab_arena_vlm_agent.observation_adapter import (
+    CAMERA_OBSERVATION_GROUP,
+    ImageStateObservationAdapter,
+    VLMObservationAdapter,
+)
+from isaaclab_arena_vlm_agent.pixel_measurement import (
+    PIXEL_MEASUREMENT_PROMPT,
+    CameraView,
+    PixelMeasurementObservationAdapter,
+)
 from isaaclab_arena_vlm_agent.response_errors import InvalidAgentResponseError
 from isaaclab_arena_vlm_agent.vlm_agent_policy import (
     VLMChunkPolicy,
@@ -641,3 +650,126 @@ def test_missing_camera_keys_fail_before_inference(backend):
     with pytest.raises(AssertionError, match="camera observation key"):
         policy.get_action(*inputs())
     backend.client.chat.completions.create.assert_not_called()
+
+
+class FlatDepthMeasurement(PixelMeasurementObservationAdapter):
+    """Report a surface 2 m in front of a camera at the robot root, for every pixel."""
+
+    def __init__(self, **kwargs):
+        super().__init__(ObservationAdapter(include_joint_positions=False), 8, **kwargs)
+
+    def read_camera_views(self, env, images, env_id, geometry, sent_sizes):
+        image = images["front_view"]
+        height, width = image.shape[:2]
+        intrinsics = np.array([[10.0, 0.0, width / 2], [0.0, 10.0, height / 2], [0.0, 0.0, 1.0]])
+        return {
+            "front_view": CameraView(
+                rgb=image,
+                depth=np.full((height, width), 2.0),
+                intrinsic_matrix=intrinsics,
+                t_R_C=np.zeros(3),
+                q_R_C=np.array([0.0, 0.0, 0.0, 1.0]),
+                sent_size=sent_sizes["front_view"],
+            )
+        }
+
+
+class NonEmptyTargetResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    target: list[float] = Field(min_length=1)
+
+
+class NonEmptyTargetAdapter(ActionAdapter):
+    """Reject empty targets in validation, like the DROID command schema."""
+
+    response_model = NonEmptyTargetResponse
+
+
+def make_measurement_policy(backend, observation_adapter, **kwargs):
+    config = VLMPolicyCfg(system_prompt="Return the joint targets.", image_max_width_or_height=8, **kwargs)
+    policy = SingleCommandPolicy(
+        config,
+        inference_backend=backend,
+        observation_adapter=observation_adapter,
+        action_adapter=NonEmptyTargetAdapter(),
+    )
+    policy.set_task_description("Move to the target")
+    return policy
+
+
+MEASUREMENT_REQUEST = {
+    "target": [],
+    "zoom_requests": [{"camera": "front_view", "u": 4.0, "v": 2.0, "half_size": 20.0}],
+    "point_queries": [{"camera": "front_view", "u": 4.0, "v": 2.0}],
+}
+
+
+def test_pixel_measurement_answers_requests_with_placeholder_actions(backend):
+    replies = [MEASUREMENT_REQUEST, {"target": [1, 2], "zoom_requests": [], "point_queries": []}]
+    replies.append({"target": [3, 4], "zoom_requests": [], "point_queries": []})
+    calls = []
+
+    def create(**kwargs):
+        calls.append(copy.deepcopy(kwargs))
+        return response(json.dumps(replies[min(len(calls), len(replies)) - 1]))
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_measurement_policy(backend, FlatDepthMeasurement())
+    env, observation = inputs()
+    try:
+        torch.testing.assert_close(policy.get_action(env, observation), torch.tensor([[1.0, 1.0], [1.0, 1.0]]))
+        assert len(calls) == 3
+        assert calls[0]["messages"][0]["content"].endswith(PIXEL_MEASUREMENT_PROMPT.strip())
+        properties = calls[0]["response_format"]["json_schema"]["schema"]["properties"]
+        assert {"target", "zoom_requests", "point_queries"} <= set(properties)
+        # The empty placeholder target would fail validation, but the requests are answered first.
+        reply = calls[1]["messages"][-1]["content"]
+        assert [part["type"] for part in reply] == ["text", "image_url", "text"]
+        measurement = json.loads(reply[2]["text"])["point_measurements"][0]
+        # The transmitted center pixel looks straight along the optical axis.
+        np.testing.assert_allclose(measurement["point_root_m"], [0.0, 0.0, 2.0], atol=1e-4)
+        assert len(calls[2]["messages"]) == 2  # Measurement rounds for env 0 must not leak into env 1.
+        policy.get_action(env, observation)
+        texts = [part["text"] for part in calls[3]["messages"][1]["content"] if part["type"] == "text"]
+        remembered = [json.loads(text) for text in texts if "recent_point_measurements" in text]
+        assert remembered[0]["recent_point_measurements"][0]["decisions_ago"] == 1
+        policy._reset_observation_adapter(torch.tensor([0]))
+        assert policy.observation_adapter.recent_measurements(0) == []
+    finally:
+        policy.close()
+
+
+def test_pixel_measurement_rounds_are_bounded(backend):
+    # Env 0 points once, then repeats its requests with an action; env 1 acts at once.
+    replies = [MEASUREMENT_REQUEST, {**MEASUREMENT_REQUEST, "target": [1, 2]}]
+    replies.append({"target": [3, 4], "zoom_requests": [], "point_queries": []})
+    calls = []
+
+    def create(**kwargs):
+        calls.append(copy.deepcopy(kwargs))
+        return response(json.dumps(replies[len(calls) - 1]))
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_measurement_policy(backend, FlatDepthMeasurement(max_rounds=1))
+    try:
+        # After the only round, requests are ignored and the action fields are decoded.
+        torch.testing.assert_close(policy.get_action(*inputs()), torch.ones((2, 2)))
+        assert len(calls) == 3
+        assert "return an action now" in calls[1]["messages"][-1]["content"][-1]["text"]
+    finally:
+        policy.close()
+
+
+def test_pixel_measurement_requires_camera_images():
+    with pytest.raises(AssertionError, match="pixel_measurement requires camera images"):
+        VLMPolicyCfg(system_prompt="Act.", observation_modality="state", pixel_measurement=True)
+
+
+def test_pixel_measurement_config_wraps_the_modality_adapter(backend):
+    policy = make_measurement_policy(backend, None, pixel_measurement=True)
+    try:
+        assert isinstance(policy.observation_adapter, PixelMeasurementObservationAdapter)
+        assert isinstance(policy.observation_adapter.image_adapter, ImageStateObservationAdapter)
+        assert make_policy(backend).observation_adapter.max_tool_rounds == 0
+    finally:
+        policy.close()
