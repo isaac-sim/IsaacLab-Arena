@@ -27,6 +27,9 @@ MAX_RECONNECT_ATTEMPTS = 3
 NUM_INFERENCE_WORKERS = 4
 """Threads sending chunk requests concurrently when an inference latency is modeled, one connection each."""
 
+BATCH_REQUEST_KEY = "batch"
+"""Wire key under which a batched request (and its response) carries one entry per environment."""
+
 
 class EmbodimentAdapter(ABC):
     """Translates between Arena's gym observation dict and an openpi-protocol server's
@@ -54,6 +57,11 @@ class RemoteChunkReplayPolicy:
     refetching. A ``LatencyActionScheduler`` decides when each env's request is sent and when its
     chunk becomes usable, according to ``config.inference_latency_ms``.
 
+    The envs that request a chunk on the same step share one ``{"batch": [obs, ...]}`` request when
+    ``config.batch_chunk_fetches`` is set and the server advertises ``batch_inference`` in its connect
+    metadata, which the batched openpi server in ``isaaclab_arena_openpi/server`` does; otherwise each
+    env gets its own request.
+
     Concrete policies inherit (RemoteChunkReplayPolicy, PolicyBase[ConcreteCfg]).
     The PolicyBase[ConcreteCfg] is the concrete config class for the policy, parameterized
     by a concrete Cfg class.
@@ -73,6 +81,11 @@ class RemoteChunkReplayPolicy:
         )
         self._adapter = adapter
         self._open_loop_horizon = open_loop_horizon
+        self._batch_chunk_fetches: bool = getattr(config, "batch_chunk_fetches", True)
+        self._max_batch_size: int | None = getattr(config, "max_batch_size", None)
+        assert (
+            self._max_batch_size is None or self._max_batch_size >= 1
+        ), f"max_batch_size must be at least 1 or None, got {self._max_batch_size}"
         self.device = config.policy_device
 
         self._remote_host = config.remote_host
@@ -89,6 +102,11 @@ class RemoteChunkReplayPolicy:
         self._clients_lock = threading.Lock()
         self._websocket_client: WebsocketClientPolicy | None = self._client_for_current_thread()
         print(f"[{name}] Connected.")
+        if self._batch_chunk_fetches and not self.server_batches_requests():
+            print(f"[{name}] Server does not advertise batch_inference; sending one request per environment.")
+        # Server calls made so far, over every thread; compared with the chunks requested in the summary.
+        self._server_calls = 0
+        self._server_calls_lock = threading.Lock()
 
         # Per-env chunk bookkeeping. Created on the first get_action call, when num_envs and the
         # control step that converts the latency to steps are known.
@@ -115,17 +133,48 @@ class RemoteChunkReplayPolicy:
             scheduler.reset()
             self._flush_requested = False
 
-        def prepare_requests(env_ids: list[int]) -> list[functools.partial]:
-            # The observation is read here, on the calling thread and for this step, because the
-            # environment overwrites its buffers on the next step while the request is in flight.
-            requests = [
-                self._adapter.pack_request(self._adapter.extract(observation, env_id), self.task_description)
-                for env_id in env_ids
-            ]
-            return [functools.partial(self._fetch_action_chunk, request) for request in requests]
-
         hold_action = hold_action_from_action_manager(env) if scheduler.latency_steps > 0 else None
-        return scheduler.get_action(prepare_requests, hold_action=hold_action)
+        return scheduler.get_action(functools.partial(self._prepare_requests, observation), hold_action=hold_action)
+
+    def _prepare_requests(self, observation: dict[str, Any], env_ids: list[int]) -> list[functools.partial]:
+        """Snapshot the given envs' observations and return the calls that fetch their chunks, in env order.
+
+        The observation is read here, on the calling thread and for this step, because the environment
+        overwrites its buffers on the next step while the requests are in flight. With a batching server
+        the envs are grouped into requests of at most ``max_batch_size``; otherwise each env gets its own.
+        """
+        requests = [
+            self._adapter.pack_request(self._adapter.extract(observation, env_id), self.task_description)
+            for env_id in env_ids
+        ]
+        if not self.server_batches_requests():
+            return [functools.partial(self._fetch_action_chunk, request) for request in requests]
+        batch_size = self._batch_size_limit()
+        return [
+            functools.partial(self._fetch_action_chunks_batched, requests[start : start + batch_size])
+            for start in range(0, len(requests), batch_size)
+        ]
+
+    def server_batches_requests(self) -> bool:
+        """Return whether chunk requests of several envs go to the server as one batched request.
+
+        True when ``config.batch_chunk_fetches`` is set and the connected server advertises
+        ``batch_inference`` in its connect metadata.
+        """
+        if not self._batch_chunk_fetches or self._websocket_client is None:
+            return False
+        return bool(self._websocket_client.get_server_metadata().get("batch_inference", False))
+
+    def _batch_size_limit(self) -> int:
+        """Return the most envs one batched request may carry: the config limit or the server's advertised one."""
+        assert self._websocket_client is not None
+        server_limit = self._websocket_client.get_server_metadata().get("max_batch_size")
+        if self._max_batch_size is not None and server_limit is not None:
+            return min(self._max_batch_size, int(server_limit))
+        if self._max_batch_size is not None:
+            return self._max_batch_size
+        assert server_limit is not None, "a server advertising batch_inference must advertise max_batch_size"
+        return int(server_limit)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         if self._scheduler is None:
@@ -180,7 +229,23 @@ class RemoteChunkReplayPolicy:
         """
         with Timer("policy_server_round_trip"):
             response = self._call_server_with_retry(request)
+        return self._chunks_to_tensor([self._chunk_from_response(response)])
 
+    def _fetch_action_chunks_batched(self, requests: list[dict[str, Any]]) -> torch.Tensor:
+        """Send several envs' requests as one batched request and return their ``(len(requests), horizon, dim)`` chunks.
+
+        Runs on a worker thread when a latency is modeled, otherwise on the calling thread.
+        """
+        with Timer("policy_server_round_trip"):
+            response = self._call_server_with_retry({BATCH_REQUEST_KEY: requests})
+        responses = response[BATCH_REQUEST_KEY]
+        assert len(responses) == len(
+            requests
+        ), f"server returned {len(responses)} chunks for a batched request of {len(requests)} environments"
+        return self._chunks_to_tensor([self._chunk_from_response(entry) for entry in responses])
+
+    def _chunk_from_response(self, response: dict[str, Any]) -> np.ndarray:
+        """Return the ``(open_loop_horizon, action_dim)`` float32 chunk of one env's server response."""
         chunk = np.asarray(response[self.server_response_actions_key])
         assert (
             chunk.ndim == 2 and chunk.shape[1] == self._adapter.action_dim
@@ -188,8 +253,11 @@ class RemoteChunkReplayPolicy:
         assert (
             chunk.shape[0] >= self._open_loop_horizon
         ), f"Server returned horizon {chunk.shape[0]} < configured open_loop_horizon {self._open_loop_horizon}"
-        chunk = chunk[: self._open_loop_horizon].astype(np.float32, copy=True)
-        return torch.from_numpy(chunk).unsqueeze(0).to(device=self.device)
+        return chunk[: self._open_loop_horizon].astype(np.float32, copy=True)
+
+    def _chunks_to_tensor(self, chunks: list[np.ndarray]) -> torch.Tensor:
+        """Stack per-env chunks into a ``(len(chunks), horizon, dim)`` tensor on the policy device."""
+        return torch.from_numpy(np.stack(chunks)).to(device=self.device)
 
     def _call_server_with_retry(self, server_request: dict[str, Any]) -> dict[str, Any]:
         """Send the request on this thread's connection, reconnecting up to ``MAX_RECONNECT_ATTEMPTS`` times.
@@ -198,6 +266,8 @@ class RemoteChunkReplayPolicy:
         re-queries with a fresh observation rather than replaying a potentially-stale chunk
         against the new server state.
         """
+        with self._server_calls_lock:
+            self._server_calls += 1
         for attempt_index in range(MAX_RECONNECT_ATTEMPTS):
             try:
                 return self._client_for_current_thread().infer(server_request)
@@ -251,13 +321,21 @@ class RemoteChunkReplayPolicy:
         return client
 
     def _print_latency_summary(self) -> None:
-        """Print how the modeled latency played out: requests sent and steps spent holding."""
+        """Print how the chunk requests went out: server calls per chunk, and steps spent holding under latency."""
         scheduler = self._scheduler
         assert scheduler is not None
+        name = type(self).__name__
+        with self._server_calls_lock:
+            server_calls = self._server_calls
+        if self.server_batches_requests() and scheduler.requests_issued:
+            print(
+                f"[{name}] {scheduler.requests_issued} chunk requests sent in {server_calls} batched server calls"
+                f" ({scheduler.requests_issued / max(server_calls, 1):.1f} environments per call)"
+            )
         if scheduler.latency_steps == 0:
             return
         print(
-            f"[{type(self).__name__}] Inference latency {scheduler.latency_steps} steps:"
+            f"[{name}] Inference latency {scheduler.latency_steps} steps:"
             f" {scheduler.requests_issued} chunk requests,"
             f" {int(scheduler.hold_steps.sum().item())} env-steps holding"
             f" ({int(scheduler.stall_steps.sum().item())} of them stalled between chunks)"

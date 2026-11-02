@@ -202,10 +202,12 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
             def prepare_requests(env_ids: list[int]) -> list[Callable[[], torch.Tensor]]:
                 # The observation is converted on the calling thread, for this step, because the
-                # environment overwrites its buffers while the request is in flight.
-                policy_observations = self._build_policy_observations(observation, self.policy_config.pov_cam_name_sim)
-                rows = torch.tensor(env_ids, device=self.device)
-                return [lambda: self._request_action_tensor(policy_observations)[rows]]
+                # environment overwrites its buffers while the request is in flight. Only the
+                # requesting envs are sent, as one batch.
+                policy_observations = _select_policy_observations(
+                    self._build_policy_observations(observation, self.policy_config.pov_cam_name_sim), env_ids
+                )
+                return [lambda: self._request_action_tensor(policy_observations, num_envs=len(env_ids))]
 
             return self._chunking_state.get_action(prepare_requests, hold_action=hold_action)
 
@@ -254,8 +256,15 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             modality_configs=self.modality_configs,
         )
 
-    def _request_action_tensor(self, policy_observations: dict[str, Any]) -> torch.Tensor:
-        """Send the policy observations to the server and return the ``(num_envs, horizon, action_dim)`` chunks."""
+    def _request_action_tensor(self, policy_observations: dict[str, Any], num_envs: int | None = None) -> torch.Tensor:
+        """Send the policy observations to the server and return the ``(num_envs, horizon, action_dim)`` chunks.
+
+        Args:
+            policy_observations: Observations in the server's format, batched along their first axis.
+            num_envs: Number of envs in the batch; defaults to every env of the policy.
+        """
+        if num_envs is None:
+            num_envs = self.num_envs
         assert self._client is not None, "GR00T remote policy has been closed"
         with Timer("policy_server_round_trip"):
             robot_action_policy, _ = self._client.get_action(policy_observations)
@@ -270,7 +279,10 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             embodiment_tag=self.policy_config.embodiment_tag,
         )
 
-        assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.action_chunk_length
+        assert action_tensor.shape[0] == num_envs and action_tensor.shape[1] >= self.action_chunk_length, (
+            f"server returned actions of shape {tuple(action_tensor.shape)} for {num_envs} envs and chunk length"
+            f" {self.action_chunk_length}"
+        )
         return action_tensor
 
     def reset(self, env_ids: torch.Tensor | None = None):
@@ -300,3 +312,19 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             self._client = None
             self._chunking_state = None
             self.modality_configs = None
+
+
+def _select_policy_observations(policy_observations: dict[str, Any], env_ids: list[int]) -> dict[str, Any]:
+    """Return the rows ``env_ids`` of GR00T policy observations, whose leaves are batched along their first axis.
+
+    Array leaves are indexed; list leaves, such as the per-env language instructions, are re-listed.
+    """
+
+    def select(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {key: select(value) for key, value in node.items()}
+        if isinstance(node, list):
+            return [node[env_id] for env_id in env_ids]
+        return node[env_ids]
+
+    return select(policy_observations)

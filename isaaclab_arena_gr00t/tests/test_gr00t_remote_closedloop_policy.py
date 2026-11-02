@@ -102,8 +102,10 @@ class _FakePolicyClient:
     def get_action(self, observation: dict[str, Any]):
         self.last_observation = observation
         self.get_action_calls += 1
+        # One action chunk per observation row, as the server does.
+        num_envs = next(iter(observation["state"].values())).shape[0]
         # Match the real PolicyClient return signature: (action_dict, latency_or_meta).
-        return _make_action_response(NUM_ENVS, ACTION_HORIZON), None
+        return _make_action_response(num_envs, ACTION_HORIZON), None
 
     def reset(self):
         self.reset_called = True
@@ -378,4 +380,36 @@ def test_latency_scheduler_holds_joint_positions_until_the_first_chunk_is_due(
     assert first_chunk_action.shape == (NUM_ENVS, EXPECTED_ACTION_DIM)
     torch.testing.assert_close(first_chunk_action, policy._chunking_state.current_action_chunk[:, 0])
     assert policy._chunking_state.hold_steps.tolist() == [2, 2]
+    policy.close()
+
+
+def test_latency_scheduler_requests_chunks_for_the_due_envs_only(
+    policy_config_yaml, synthetic_observation, fake_client_factory
+):
+    """After a partial reset only the reset env requests a chunk, and the request carries that env alone."""
+    clients = fake_client_factory(ping_ok=True)
+    cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
+        policy_config_yaml_path=policy_config_yaml,
+        policy_device="cpu",
+        num_envs=NUM_ENVS,
+        remote_host="unused",
+        remote_port=0,
+        scheduler="latency",
+        inference_latency_ms=100.0,
+    )
+    policy = gr00t_policy.Gr00tRemoteClosedloopPolicy(cfg)
+    policy.set_task_description("pick up the brown box")
+    env = _fake_env()
+
+    for _ in range(3):
+        policy.get_action(env, synthetic_observation)  # both envs request on step 0 and replay from step 2
+    policy.reset(env_ids=torch.tensor([1]))
+    policy.get_action(env, synthetic_observation)  # env 1 requests alone on step 3
+
+    assert clients[0].get_action_calls == 2
+    sent = clients[0].last_observation
+    assert all(array.shape[0] == 1 for array in sent["state"].values())
+    assert all(array.shape[0] == 1 for array in sent["video"].values())
+    assert all(len(instructions) == 1 for instructions in sent["language"].values())
+    assert policy._chunking_state.current_action_index.tolist() == [2, -1]
     policy.close()

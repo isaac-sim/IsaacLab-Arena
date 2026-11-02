@@ -152,6 +152,36 @@ Not modeled: the delay between a policy's command and the actuators, which lands
 substeps rather than on control-step boundaries, and jitter around the configured value. Both can be
 added on top of this mechanism.
 
+.. _batched-inference:
+
+Batched inference requests
+--------------------------
+
+The openpi wire protocol carries one observation per request, so a remote policy serving ``N``
+environments used to send ``N`` requests on every step on which chunks ran out, and the server ran the
+model once per request. ``Pi0RemotePolicy`` and ``CosmosRemotePolicy`` now pack the requests of every
+environment that needs a chunk on the same step into one ``{"batch": [obs, ...]}`` request whenever the
+connected server advertises ``batch_inference`` in the metadata it sends on connect. The server runs
+the model once for the whole batch. This is the request pattern of a synchronized rollout, where all
+environments request on the same step, and of a large desynchronized one, where several environments
+request on most steps; with an inference latency the batches are sent from the worker threads like
+single requests. Against a server without that metadata, such as upstream openpi's
+``scripts/serve_policy.py`` or the Cosmos server, requests fall back to one per environment, so the
+policies keep working unchanged.
+
+``isaaclab_arena_openpi/server/serve_batched_policy.py`` is the batching server. It runs inside the
+openpi server image next to upstream's ``scripts/serve_policy.py``, accepts the same arguments plus
+``--max-batch-size``, applies the policy's input transforms per observation, samples actions once for
+the stacked batch (padded to the next power of two, so JAX compiles a handful of shapes) and applies
+the output transforms per observation. ``isaaclab_arena_openpi/docker/run_openpi_server.sh`` serves it
+by default, ``-b`` sets the batch limit and ``-u`` serves upstream's script instead. On OSMO the pi0
+server task embeds the script into the server container, so Experiments submitted with
+``osmo/submit_arena_experiment.py`` get batched inference without a new server image.
+
+On the client, ``batch_chunk_fetches`` (default ``true``) turns the batched requests off, and
+``max_batch_size`` caps the environments per request below the server's advertised limit. The policy
+prints, when it closes, how many chunk requests it sent in how many server calls.
+
 .. _vlm-agent-policies:
 
 VLM agent policies
