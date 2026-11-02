@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import time
 import traceback
 from copy import deepcopy
 from dataclasses import fields, replace
@@ -63,6 +64,7 @@ def execute_experiment(
         run_output_dir = output_dir / run_cfg.name
         # Clear timers.
         reset_timer_stats()
+        start_timestamp_ns = time.time_ns()
         try:
             result = build_and_run(
                 run_cfg,
@@ -74,7 +76,14 @@ def execute_experiment(
                 ),
             )
         except Exception as error:
-            results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
+            results.append(
+                ArenaRunResult(
+                    run_name=run_cfg.name,
+                    status=RunStatus.FAILED,
+                    start_timestamp_ns=start_timestamp_ns,
+                    end_timestamp_ns=time.time_ns(),
+                )
+            )
             print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
             print(f"Traceback: {traceback.format_exc()}", flush=True)
             if not continue_on_error:
@@ -92,7 +101,8 @@ def build_and_run(
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
 ) -> ArenaRunResult:
-    """Build and execute one typed Arena run, then return its result."""
+    """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
+    start_timestamp_ns = time.time_ns()
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
@@ -134,6 +144,8 @@ def build_and_run(
     return ArenaRunResult(
         run_name=cfg.name,
         status=RunStatus.COMPLETED,
+        start_timestamp_ns=start_timestamp_ns,
+        end_timestamp_ns=time.time_ns(),
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
     )
 
