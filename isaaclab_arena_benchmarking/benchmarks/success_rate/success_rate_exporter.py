@@ -6,7 +6,8 @@
 """Export the success rate of a finished Arena Experiment as an InfluxDB KPI record.
 
 The records file is ``kpis_success_rates.json``. It holds one ``per_experiment`` record with the episode-weighted
-success rate over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA, branch and benchmark id.
+success rate over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA, branch
+and benchmark id.
 """
 
 from __future__ import annotations
@@ -23,11 +24,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report_data import EpisodeSummary, JobSummary, build_experiment_summary
-from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import (
-    InfluxdbKpiExporter,
-    InfluxdbKpiRecord,
-    assert_unique_tag_sets,
-)
+from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
 
 SUCCESS_RATE_RECORDS_FILENAME = "kpis_success_rates.json"
 """Name of the success-rate KPI records file in an Experiment output directory."""
@@ -101,8 +98,7 @@ def _episodes_by_run_name(experiment_output_directory: Path, run_names: set[str]
 class SuccessRateKpiExporter(InfluxdbKpiExporter):
     """Exports the success rate of a finished Arena Experiment output directory.
 
-    The exporter pools every Run in the result and does not check Run statuses; the gate that every Run completed
-    lives in the caller that decides whether to export.
+    The exporter pools every Run in the result and does not check Run statuses.
     """
 
     record_types: ClassVar[tuple[str, ...]] = (PerExperimentRecord.record_type,)
@@ -146,5 +142,4 @@ class SuccessRateKpiExporter(InfluxdbKpiExporter):
                 len(runs), jobs, timestamp_ns=timestamp_ns, git_stamp=git_stamp, benchmark_id=benchmark_id
             )
         ]
-        assert_unique_tag_sets(records)
         return records

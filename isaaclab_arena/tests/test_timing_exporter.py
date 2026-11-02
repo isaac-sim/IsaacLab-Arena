@@ -8,18 +8,13 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from isaaclab_arena.evaluation.arena_experiment_result import (  # noqa: E402
+from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
 )
-from isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter import TimingKpiExporter  # noqa: E402
+from isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter import TimingKpiExporter
 
 END_TIMESTAMP_NS = 1792800000000000000
 """2026-10-23 UTC, in Unix epoch nanoseconds."""

@@ -27,9 +27,6 @@ ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 ARENA_SINGLE_RUN_TIMINGS_FILENAME = "arena_run_timings.json"
 ARENA_AGGREGATED_TIMINGS_FILENAME = "arena_experiment_timings.json"
 
-ALL_RUNS_TIMING_RUN_NAME = "all"
-"""``run_name`` tag of timing records summed over every Run; no Run may use this name."""
-
 
 class ArenaEpisodeResultData(TypedDict):
     """Core data stored for one episode, with optional recorder data."""
@@ -177,15 +174,12 @@ class ArenaExperimentResult:
 
     @staticmethod
     def assert_run_name_is_safe_path_component(run_name: str) -> None:
-        """Check that a Run name selects one direct child of an output directory and is not reserved."""
+        """Check that a Run name selects one direct child of an output directory."""
         assert isinstance(run_name, str) and run_name.strip(), "Run name must be a non-empty string"
         assert (
             run_name not in {".", ".."} and "/" not in run_name and "\\" not in run_name
         ), f"Run name {run_name!r} must be one safe path component"
         assert not PureWindowsPath(run_name).drive, f"Run name {run_name!r} must not contain a drive"
-        assert (
-            run_name != ALL_RUNS_TIMING_RUN_NAME
-        ), f"Run name {ALL_RUNS_TIMING_RUN_NAME!r} is reserved for timing totals over every Run"
 
     def __init__(
         self,
