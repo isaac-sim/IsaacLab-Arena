@@ -558,20 +558,20 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
 
 
 def test_failing_kpi_build_fails_after_the_report_is_written(tmp_path):
-    # A Run named "all" clashes with the timing totals, so building the KPI file fails.
+    # A multi-line environment name is not a valid InfluxDB tag value, so building the KPI file fails.
     experiment_runner_output_directory = tmp_path / "experiment-runner-output"
-    _write_run_output(experiment_runner_output_directory / "all", "all", True)
-    _write_run_timings(experiment_runner_output_directory, "all", [_timing_record("step", 1, 10.0)])
+    _write_run_output(experiment_runner_output_directory / "run_a", "run_a", True)
+    _write_run_timings(experiment_runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
     _write_experiment_runner_result(
         experiment_runner_output_directory,
         RunStatus.COMPLETED,
         0,
-        {"all": _run_metadata("all-environment", "pi05")},
+        {"run_a": _run_metadata("bad\nenvironment", "pi05")},
     )
     experiment_output_directory = tmp_path / "experiment-output"
 
-    with pytest.raises(AssertionError, match="reserved for timing totals"):
-        build_experiment_output({"all": experiment_runner_output_directory}, experiment_output_directory)
+    with pytest.raises(AssertionError, match="single-line string"):
+        build_experiment_output({"run_a": experiment_runner_output_directory}, experiment_output_directory)
 
     assert (experiment_output_directory / "index.html").is_file()
     assert not (experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME).exists()

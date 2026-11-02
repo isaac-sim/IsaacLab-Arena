@@ -25,6 +25,7 @@ from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
+    ArenaExperimentResult,
 )
 from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.visualization.report_data import build_experiment_summary
@@ -119,7 +120,7 @@ def test_per_run_and_per_experiment_success_rate(tmp_path):
         tmp_path / "experiment",
         {
             "pnp_pi05": {"episodes": _episode_records(50, 41), "environment": "droid_pnp"},
-            "pnp_pi0": {"episodes": _episode_records(50, 40, episode_length=20), "policy_variant": "pi0"},
+            "pnp_pi0": {"episodes": _episode_records(10, 2, episode_length=20), "policy_variant": "pi0"},
         },
     )
 
@@ -137,19 +138,26 @@ def test_per_run_and_per_experiment_success_rate(tmp_path):
         "mean_episode_length": 10.0,
         "completed": 1,
     }
-    assert _per_run(kpis, "pnp_pi0")["num_successes"] == 40
+    assert _per_run(kpis, "pnp_pi0")["num_successes"] == 2
+    assert _per_run(kpis, "pnp_pi0")["num_episodes"] == 10
+    assert _per_run(kpis, "pnp_pi0")["success_rate"] == 2 / 10
     assert _per_run(kpis, "pnp_pi0")["policy_variant"] == "pi0"
     assert _per_run(kpis, "pnp_pi0")["mean_episode_length"] == 20.0
     assert _per_experiment(kpis) == {
         "type": "per_experiment",
         **SHARED_VALUES,
-        "success_rate": 81 / 100,
-        "num_episodes": 100,
+        "success_rate": 43 / 60,
+        "num_episodes": 60,
         "num_runs": 2,
         "num_runs_completed": 2,
         "num_runs_failed": 0,
     }
     assert_influxdb_kpi_records_are_valid(kpis)
+
+
+def test_run_named_like_timing_totals_is_rejected_up_front():
+    with pytest.raises(AssertionError, match="'all' is reserved"):
+        ArenaExperimentResult.assert_run_name_is_safe_path_component("all")
 
 
 def test_report_job_names_match_run_names(tmp_path):
@@ -185,8 +193,8 @@ def test_timestamp_is_latest_run_end(tmp_path):
     experiment_output_directory = _write_experiment(
         tmp_path / "experiment",
         {
-            "late": {"episodes": _episode_records(1, 1), "end_timestamp_ns": t2},
             "early": {"episodes": _episode_records(1, 0), "end_timestamp_ns": t1},
+            "late": {"episodes": _episode_records(1, 1), "end_timestamp_ns": t2},
         },
     )
 
