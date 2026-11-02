@@ -21,7 +21,7 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import write_experiment_influxdb_kpi_records
+from isaaclab_arena.evaluation.arena_experiment_kpi_exporter import ArenaExperimentKpiExporter
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
@@ -203,7 +203,7 @@ def build_experiment_output(
     )
     print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
     report_path = build_report(experiment_output_directory, run_executions=run_execution_reports)
-    write_experiment_influxdb_kpi_records(experiment_output_directory)
+    ArenaExperimentKpiExporter().export_to_json(experiment_output_directory)
     return report_path
 
 

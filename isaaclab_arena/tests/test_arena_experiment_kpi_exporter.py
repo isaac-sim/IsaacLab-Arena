@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for building and writing the Arena Experiment InfluxDB KPI records file."""
+"""Tests for the Arena Experiment InfluxDB KPI exporter."""
 
 from __future__ import annotations
 
@@ -13,14 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
+from isaaclab_arena.evaluation.arena_experiment_kpi_exporter import (
     ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME,
+    ArenaExperimentKpiExporter,
     PerExperimentRecord,
     PerRunRecord,
-    TimingRecord,
-    assert_unique_tag_sets,
-    build_experiment_influxdb_kpi_records,
-    write_experiment_influxdb_kpi_records,
 )
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
@@ -29,6 +26,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.visualization.report_data import build_experiment_summary
+from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import TimingRecord
 
 START_TIMESTAMP_NS = 1792799000000000000
 """Before every Run end timestamp, in Unix epoch nanoseconds."""
@@ -96,7 +94,10 @@ def _write_experiment(
 
 
 def _build_kpi_records_list(experiment_output_directory: Path) -> list[dict]:
-    return [record.to_flat_dict() for record in build_experiment_influxdb_kpi_records(experiment_output_directory)]
+    return [
+        record.to_flat_dict()
+        for record in ArenaExperimentKpiExporter().build_records_from_output_dir(experiment_output_directory)
+    ]
 
 
 def _records_of_type(kpis: list[dict], record_type: str) -> list[dict]:
@@ -377,54 +378,6 @@ def test_records_are_valid_influxdb_points():
     assert_influxdb_kpi_records_are_valid(_valid_records())
 
 
-def test_unique_tag_sets_reject_duplicate_records():
-    assert_unique_tag_sets([_per_run_record(), _per_run_record(run_name="b")])
-    with pytest.raises(AssertionError, match="record 1 has the same tags as record 0"):
-        assert_unique_tag_sets([_per_run_record(), _per_run_record(completed=0)])
-
-
-@pytest.mark.parametrize(
-    "overrides",
-    [
-        pytest.param({"timestamp_ns": 1.5e18}, id="float_timestamp_ns"),
-        pytest.param({"timestamp_ns": True}, id="bool_timestamp_ns"),
-        pytest.param({"timestamp_ns": 1_000}, id="tiny_timestamp_ns"),
-        pytest.param({"timestamp_ns": 1767225599999999999}, id="timestamp_ns_before_2026"),
-        pytest.param({"git_sha": ""}, id="empty_git_sha"),
-        pytest.param({"git_branch": "a\nb"}, id="line_break_git_branch"),
-        pytest.param({"run_name": ""}, id="empty_tag"),
-        pytest.param({"run_name": "a\nb"}, id="line_break_tag"),
-        pytest.param({"completed": True}, id="bool_field"),
-        pytest.param({"success_rate": math.nan}, id="nan_field"),
-        pytest.param({"success_rate": math.inf}, id="inf_field"),
-        pytest.param({"success_rate": "1"}, id="string_field"),
-    ],
-)
-def test_record_rejects_invalid_values(overrides):
-    with pytest.raises(AssertionError):
-        _per_run_record(**overrides)
-
-
-def test_timestamp_ns_does_not_count_as_a_field():
-    with pytest.raises(AssertionError, match="at least one numeric field"):
-        _per_run_record(completed=None)
-
-
-def test_failed_run_record_omits_missing_fields():
-    record = _per_run_record(completed=0)
-
-    assert list(record.to_flat_dict().items()) == [
-        ("type", "per_run"),
-        ("timestamp_ns", END_TIMESTAMP_NS),
-        ("git_sha", "1a2b3c4"),
-        ("git_branch", "main"),
-        ("run_name", "a"),
-        ("environment", "e"),
-        ("policy_variant", "p"),
-        ("completed", 0),
-    ]
-
-
 def _set_record_value(kpis: list[dict], key: str, value: object) -> None:
     kpis[1][key] = value
 
@@ -489,7 +442,7 @@ def test_written_file_is_valid_influxdb_points(tmp_path):
         },
     )
 
-    kpi_records_path = write_experiment_influxdb_kpi_records(experiment_output_directory)
+    kpi_records_path = ArenaExperimentKpiExporter().export_to_json(experiment_output_directory)
 
     assert kpi_records_path == experiment_output_directory / ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME
     text = kpi_records_path.read_text(encoding="utf-8")
@@ -497,3 +450,7 @@ def test_written_file_is_valid_influxdb_points(tmp_path):
     written_kpis = json.loads(text)
     assert_influxdb_kpi_records_are_valid(written_kpis)
     assert written_kpis == _build_kpi_records_list(experiment_output_directory)
+
+
+def test_records_filename_matches_the_name_the_ingest_job_expects():
+    assert ArenaExperimentKpiExporter().get_records_filename() == "arena_experiment_influxdb_kpi_records.json"

@@ -11,9 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_influxdb_kpi_records import (
-    ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME,
-)
+from isaaclab_arena.evaluation.arena_experiment_kpi_exporter import ARENA_EXPERIMENT_INFLUXDB_KPI_RECORDS_FILENAME
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
