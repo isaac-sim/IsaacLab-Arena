@@ -105,7 +105,9 @@ def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref.object_type = ObjectType.BASE
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
-    parent = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen", object_type=ObjectType.BASE)
+    parent = SimpleNamespace(
+        usd_path="/tmp/kitchen.usd", name="kitchen", object_type=ObjectType.BASE, spawn_cfg_addon={}
+    )
 
     class OpenStage:
         def __init__(self, path):
@@ -141,11 +143,25 @@ def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
     assert calls["open_count"] == 1
 
 
-def _write_scaled_drawer_articulation(path: pathlib.Path, joint_type: str) -> None:
+def _write_scaled_drawer_articulation(
+    path: pathlib.Path,
+    joint_type: str,
+    collider_scale: float = 1.0,
+    drawer_physics_in_variant: bool = False,
+    repeat_joint_name: bool = False,
+) -> None:
     """Write a cabinet scaled by 2 whose drawer body is driven by one prismatic or revolute joint.
 
     The drawer origin sits at x = 0.2 in the default prim frame. Its collider spans x in [-0.4, 0.8]
     from that origin, so a rotation's direction changes its bounds.
+
+    Args:
+        path: File to write the USD stage to.
+        joint_type: "prismatic" or "revolute".
+        collider_scale: Scale of the collider the drawer joint targets, relative to the drawer body.
+        drawer_physics_in_variant: Author the drawer's rigid body only inside a "Physics" variant that is
+            not selected by default, as SimReady assets do.
+        repeat_joint_name: Add a second drawer whose joint repeats the first joint's name.
     """
     from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
@@ -161,9 +177,20 @@ def _write_scaled_drawer_articulation(path: pathlib.Path, joint_type: str) -> No
     UsdPhysics.RigidBodyAPI.Apply(base)
     drawer = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/Drawer")
     drawer.AddTranslateOp().Set(Gf.Vec3d(0.1, 0.0, 0.0))
-    UsdPhysics.RigidBodyAPI.Apply(drawer.GetPrim())
+    if drawer_physics_in_variant:
+        physics_variants = root.GetVariantSets().AddVariantSet("Physics")
+        physics_variants.AddVariant("none")
+        physics_variants.AddVariant("physics")
+        physics_variants.SetVariantSelection("physics")
+        with physics_variants.GetVariantEditContext():
+            UsdPhysics.RigidBodyAPI.Apply(drawer.GetPrim())
+        physics_variants.SetVariantSelection("none")
+    else:
+        UsdPhysics.RigidBodyAPI.Apply(drawer.GetPrim())
     collider = UsdGeom.Cube.Define(stage, "/Asset/Cabinet/Drawer/Collider")
     collider.CreateExtentAttr([Gf.Vec3f(-0.2, -0.1, -0.05), Gf.Vec3f(0.4, 0.1, 0.05)])
+    if collider_scale != 1.0:
+        collider.AddScaleOp().Set(Gf.Vec3f(collider_scale))
     UsdPhysics.CollisionAPI.Apply(collider.GetPrim())
 
     joint_schema = UsdPhysics.PrismaticJoint if joint_type == "prismatic" else UsdPhysics.RevoluteJoint
@@ -174,27 +201,47 @@ def _write_scaled_drawer_articulation(path: pathlib.Path, joint_type: str) -> No
     joint.CreateAxisAttr("X" if joint_type == "prismatic" else "Z")
     joint.CreateLocalPos0Attr(Gf.Vec3f(0.1, 0.0, 0.0))
     joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
+
+    if repeat_joint_name:
+        second_drawer = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/SecondDrawer").GetPrim()
+        UsdPhysics.RigidBodyAPI.Apply(second_drawer)
+        second_joint = UsdPhysics.PrismaticJoint.Define(stage, "/Asset/Cabinet/SecondDrawer/drawer_joint")
+        second_joint.CreateBody0Rel().SetTargets(["/Asset/Cabinet/Base"])
+        second_joint.CreateBody1Rel().SetTargets(["/Asset/Cabinet/SecondDrawer"])
+        second_joint.CreateAxisAttr("X")
     stage.GetRootLayer().Save()
 
 
-def _drawer_reference(tmp_path: pathlib.Path, joint_type: str, joint_position: float, spawn_scale: float = 1.0):
-    """Return a BASE reference to the drawer body of a cabinet opened to joint_position."""
+def _drawer_reference(
+    tmp_path: pathlib.Path,
+    joint_type: str,
+    joint_position: float,
+    spawn_scale: float = 1.0,
+    body_name: str = "Drawer",
+    spawn_cfg_addon: dict | None = None,
+    **stage_options,
+):
+    """Return a BASE reference to a body of a cabinet whose drawer is opened to joint_position.
+
+    stage_options are passed to _write_scaled_drawer_articulation.
+    """
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_type import ObjectType
 
     usd_path = tmp_path / f"{joint_type}.usda"
-    _write_scaled_drawer_articulation(usd_path, joint_type)
+    _write_scaled_drawer_articulation(usd_path, joint_type, **stage_options)
     cabinet = Object(
         name="cabinet",
         usd_path=str(usd_path),
         object_type=ObjectType.ARTICULATION,
         scale=(spawn_scale, spawn_scale, spawn_scale),
+        spawn_cfg_addon=spawn_cfg_addon,
     )
     cabinet.object_cfg.init_state.joint_pos = {"drawer_.*": joint_position}
     return ObjectReference(
         name="drawer",
-        prim_path="{ENV_REGEX_NS}/cabinet/Cabinet/Drawer",
+        prim_path=f"{{ENV_REGEX_NS}}/cabinet/Cabinet/{body_name}",
         parent_asset=cabinet,
         object_type=ObjectType.BASE,
     )
@@ -260,6 +307,87 @@ def test_articulation_link_reference_follows_initial_revolute_joint_angle(tmp_pa
     """A drawer reference turned a quarter turn about +Z rotates its pose and bounds the same way."""
     assert run_function_with_persistent_simulation_app(
         _test_articulation_link_reference_follows_initial_revolute_joint_angle,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+    )
+
+
+def _test_articulation_link_reference_keeps_its_authored_pose_with_every_joint_at_zero(
+    simulation_app, tmp_path: pathlib.Path
+) -> bool:
+    from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg
+
+    # The drawer joint targets a collider scaled relative to the drawer, which posing cannot move rigidly.
+    (tmp_path / "closed").mkdir()
+    (tmp_path / "open").mkdir()
+    closed_drawer = _drawer_reference(tmp_path / "closed", "prismatic", 0.0, collider_scale=0.5)
+
+    assert isinstance(closed_drawer.object_cfg, ArticulationBodyReferenceCfg)
+    assert closed_drawer.get_initial_pose().position_xyz == pytest.approx((0.2, 0.0, 0.0))
+    with pytest.raises(AssertionError, match="scaled relative to its body"):
+        _drawer_reference(tmp_path / "open", "prismatic", 0.3, collider_scale=0.5)
+    return True
+
+
+def test_articulation_link_reference_keeps_its_authored_pose_with_every_joint_at_zero(tmp_path: pathlib.Path):
+    """With every joint at zero a link reference keeps its authored pose, even where posing a joint would fail."""
+    assert run_function_with_persistent_simulation_app(
+        _test_articulation_link_reference_keeps_its_authored_pose_with_every_joint_at_zero,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+    )
+
+
+def _test_articulation_link_reference_to_an_undriven_link_allows_repeated_joint_names(
+    simulation_app, tmp_path: pathlib.Path
+) -> bool:
+    from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg
+
+    base = _drawer_reference(tmp_path, "prismatic", 0.3, body_name="Base", repeat_joint_name=True)
+
+    assert isinstance(base.object_cfg, ArticulationBodyReferenceCfg)
+    assert base.object_cfg.body_name == "Base"
+    assert base.get_initial_pose().position_xyz == pytest.approx((0.0, 0.0, 0.0))
+    return True
+
+
+def test_articulation_link_reference_to_an_undriven_link_allows_repeated_joint_names(tmp_path: pathlib.Path):
+    """A reference to a link that no joint moves builds even when the parent repeats a joint name."""
+    assert run_function_with_persistent_simulation_app(
+        _test_articulation_link_reference_to_an_undriven_link_allows_repeated_joint_names,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+    )
+
+
+def _test_articulation_link_reference_selects_the_parent_spawn_variants(simulation_app, tmp_path: pathlib.Path) -> bool:
+    from pxr import Usd, UsdPhysics
+
+    from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg
+
+    # Without the Physics variant the drawer has no rigid body, so it would not be posed as a link.
+    unselected_path = tmp_path / "unselected.usda"
+    _write_scaled_drawer_articulation(unselected_path, "prismatic", drawer_physics_in_variant=True)
+    unselected_stage = Usd.Stage.Open(str(unselected_path))
+    assert not unselected_stage.GetPrimAtPath("/Asset/Cabinet/Drawer").HasAPI(UsdPhysics.RigidBodyAPI)
+
+    drawer = _drawer_reference(
+        tmp_path,
+        "prismatic",
+        0.3,
+        spawn_cfg_addon={"variants": {"Physics": "physics"}},
+        drawer_physics_in_variant=True,
+    )
+
+    assert isinstance(drawer.object_cfg, ArticulationBodyReferenceCfg)
+    assert drawer.get_initial_pose().position_xyz == pytest.approx((0.5, 0.0, 0.0))
+    return True
+
+
+def test_articulation_link_reference_selects_the_parent_spawn_variants(tmp_path: pathlib.Path):
+    """A link whose rigid body sits behind the parent's spawn variants is still posed as a link."""
+    assert run_function_with_persistent_simulation_app(
+        _test_articulation_link_reference_selects_the_parent_spawn_variants,
         headless=HEADLESS,
         tmp_path=tmp_path,
     )
