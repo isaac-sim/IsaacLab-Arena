@@ -10,7 +10,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.placement_diagnostics import BatchValidationDiagnostics, ValidationCheckDiagnostics
+from isaaclab_arena.relations.placement_diagnostics import (
+    BatchValidationDiagnostics,
+    CheckFailureDiagnostics,
+    ValidationCheckDiagnostics,
+)
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
 
 if TYPE_CHECKING:
@@ -61,6 +65,9 @@ class PlacementValidationRunner:
                 [candidate.bboxes for candidate in batch.candidates],
             )
 
+        # Drop rejections recorded outside a batch, such as by direct validate_batch calls.
+        for validator in self._validators:
+            validator.pop_failures()
         self._run_inexpensive_checks(
             batch,
             collision_objects,
@@ -87,8 +94,9 @@ class PlacementValidationRunner:
                 },
                 required_checks=set(required) if required is not None else None,
             )
+        failures_by_check = {validator.check: validator.pop_failures() for validator in self._validators}
         batch_diagnostics = self._build_batch_validation_diagnostics(
-            batch, required, layout_pass_verdicts_by_check, evaluated_layout_indices_by_check
+            batch, required, layout_pass_verdicts_by_check, evaluated_layout_indices_by_check, failures_by_check
         )
         if batch_diagnostics.checks:
             print(
@@ -149,8 +157,9 @@ class PlacementValidationRunner:
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
+        failures_by_check: dict[str, dict[str, CheckFailureDiagnostics]],
     ) -> BatchValidationDiagnostics:
-        """Return the batch's validation diagnostics from each check's verdicts and evaluated layouts.
+        """Return the batch's validation diagnostics from each check's verdicts, evaluated layouts, and rejections.
 
         Call it after every candidate's validation results are set, since the valid count reads them.
         """
@@ -161,6 +170,7 @@ class PlacementValidationRunner:
                 num_evaluated=len(evaluated_layout_indices_by_check[check]),
                 num_passed=sum(verdicts),
                 required=required is None or check in required,
+                failures=failures_by_check.get(check, {}),
             )
         return BatchValidationDiagnostics(
             num_candidates=len(batch),

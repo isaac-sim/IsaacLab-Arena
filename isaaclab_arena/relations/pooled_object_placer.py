@@ -173,8 +173,23 @@ class PooledObjectPlacer:
         raise RuntimeError(
             f"Placement pool could not fill {target_num_layouts_per_env} layouts per env after "
             f"{max_solve_batches} solve batches. Available per env: {self._available_per_env()}.\n"
-            f"{self._last_fill_diagnostics.format_summary()}"
+            f"{self._last_fill_diagnostics.format_summary()}\n"
+            f"{self._format_placement_bounds()}"
         )
+
+    def _format_placement_bounds(self) -> str:
+        """Return one line per object with the size and origin-relative centre of the bounds placement uses.
+
+        Relations such as AlignWith and NextTo act on these bounds rather than on object origins, so an
+        off-centre box, such as a robot stand, offsets every relation that uses it.
+        """
+        lines = ["placement bounds (size; centre relative to the object origin), in metres:"]
+        for obj in self._objects:
+            bounding_box = obj.get_bounding_box()
+            size = ", ".join(f"{value:.3f}" for value in bounding_box.size[0].tolist())
+            centre = ", ".join(f"{value:+.3f}" for value in bounding_box.center[0].tolist())
+            lines.append(f"  '{obj.name}': size ({size}); centre ({centre})")
+        return "\n".join(lines)
 
     def _solve_env_ranked_layouts(self, num_layouts: int) -> tuple[list[list[PlacementResult]], int]:
         """Solve ranked layouts tied to each env's actual object geometry.

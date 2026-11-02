@@ -154,6 +154,53 @@ def test_aggregated_pool_diagnostics_file_round_trips(tmp_path):
     assert aggregated.batches[0].checks
 
 
+def test_fill_failure_names_the_failing_relation_and_object_bounds():
+    """A fill failure names the relation and object that rejected candidates and lists each object's bounds."""
+    objects = _desk_and_box(box_width_m=1.5)
+    pool = PooledObjectPlacer(objects, _placer_params(), pool_size=2, num_envs=2)
+
+    failures = pool.last_fill_diagnostics.get_failures_per_check()["on_relation"]
+    num_candidates = sum(batch.num_candidates for batch in pool.last_fill_diagnostics.batches)
+    assert list(failures) == ["'box' on(desk)"]
+    assert failures["'box' on(desk)"].count == num_candidates
+    assert "footprint" in failures["'box' on(desk)"].example
+
+    with pytest.raises(RuntimeError) as error:
+        PooledObjectPlacer(
+            _desk_and_box(box_width_m=1.5),
+            _placer_params(allow_best_loss_fallbacks=False),
+            pool_size=2,
+            num_envs=2,
+        )
+    message = str(error.value)
+    assert "on_relation: 'box' on(desk) x" in message
+    assert "'box': size (1.500, 1.500, 0.200); centre (+0.750, +0.750, +0.100)" in message
+
+
+def test_next_to_validator_records_the_relation_and_its_violation():
+    """A NextTo rejection is recorded under the subject, reference and side, with the measured violation."""
+    from isaaclab_arena.relations.relations import NextTo, Side
+    from isaaclab_arena.relations.validation.pre_physics import NextToValidator
+    from isaaclab_arena.tests.dummy_object import make_candidate_batch
+
+    desk, box = _desk_and_box(box_width_m=0.2)
+    plate = DummyObject(name="plate", bounding_box=AxisAlignedBoundingBox((0.0, 0.0, 0.0), (0.1, 0.1, 0.02)))
+    plate.add_relation(NextTo(box, side=Side.POSITIVE_X, distance_m=0.05, tolerance_m=0.01))
+    bounds = {obj: obj.get_bounding_box() for obj in (desk, box, plate)}
+    on_side = {desk: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.1), plate: (0.65, 0.4, 0.1)}
+    wrong_side = {desk: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.1), plate: (0.1, 0.4, 0.1)}
+    validator = NextToValidator(_placer_params())
+
+    verdicts = validator.validate_batch(make_candidate_batch([on_side, wrong_side], [{}, {}], [bounds, bounds]), [])
+
+    assert verdicts == [True, False]
+    failures = validator.pop_failures()
+    assert list(failures) == ["'plate' next_to(box, positive_x)"]
+    assert failures["'plate' next_to(box, positive_x)"].count == 1
+    assert "wrong side" in failures["'plate' next_to(box, positive_x)"].example
+    assert validator.pop_failures() == {}
+
+
 def _desk_and_box(box_width_m: float) -> list[DummyObject]:
     desk = DummyObject(name="desk", bounding_box=AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 0.1)))
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))

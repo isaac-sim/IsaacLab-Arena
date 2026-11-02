@@ -194,6 +194,13 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                 robot_spheres=robot_collision_spheres(self._solver, ik.joint_positions),
                 muted_sphere_mask=hand_sphere_mask(self._solver) if self._require_collision_free else None,
             )
+        for target_index, target in enumerate(targets):
+            if not ik.feasible[target_index].item():
+                self._record_failure(
+                    f"'{target.name}' top-down grasp unreachable",
+                    f"IK position error {ik.position_error[target_index].item():.3f} m,"
+                    f" rotation error {ik.rotation_error[target_index].item():.3f} rad",
+                )
         return bool(ik.feasible.all().item())
 
     def _solve_grasp_per_target(

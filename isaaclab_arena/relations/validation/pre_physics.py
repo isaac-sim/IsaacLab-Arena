@@ -20,6 +20,7 @@ from isaaclab_arena.relations.optimization.losses.relation_loss_strategies impor
     not_next_to_violations,
 )
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.placement_diagnostics import CheckFailureDiagnostics
 from isaaclab_arena.relations.relations import (
     AlignWith,
     ClutterOn,
@@ -65,6 +66,32 @@ class PrePhysicsPlacementValidator(base.PlacementValidator):
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
         self._params = params
         self._visualizer = visualizer
+        self._failures: dict[str, CheckFailureDiagnostics] = {}
+
+    def pop_failures(self) -> dict[str, CheckFailureDiagnostics]:
+        """Return the rejections recorded since the last call, keyed by cause, and start a new record."""
+        # Validators that skip this class's __init__ have recorded nothing.
+        failures = getattr(self, "_failures", {})
+        self._failures = {}
+        return failures
+
+    def _record_failure(self, cause: str, example: str = "", count: int = 1) -> None:
+        """Record that candidates failed this check because of cause, and print it when verbose.
+
+        Args:
+            cause: What failed, naming the objects and relation, such as "'bowl' next_to(plate, +x)". Rejections
+                with the same cause are counted together.
+            example: Measured violation, kept from the first rejection with this cause.
+            count: Candidates rejected for this cause.
+        """
+        failures = self.__dict__.setdefault("_failures", {})
+        if cause in failures:
+            failures[cause].count += count
+        else:
+            failures[cause] = CheckFailureDiagnostics(count, example)
+        if self._params.verbose:
+            detail = f": {example}" if example else ""
+            print(f"  [{self.check}] {cause} x{count}{detail}")
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -146,9 +173,14 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
                 height_fits = relation.is_child_bottom_z_within_placement_height_range(
                     bottom, top, self._params.on_relation_z_tolerance_m
                 )
-                if not height_fits or not self._validate_footprint(relation, child_world, parent_world):
-                    if self._params.verbose:
-                        print(f"{type(relation).__name__}: '{obj.name}' outside support footprint or height range")
+                cause = f"'{obj.name}' {relation.name}({relation.parent.name})"
+                if not height_fits:
+                    self._record_failure(
+                        cause, f"bottom z {bottom:.3f} m outside the band above support top z {top:.3f} m"
+                    )
+                    return False
+                if not self._validate_footprint(relation, child_world, parent_world):
+                    self._record_failure(cause, "footprint outside the support footprint")
                     return False
         return True
 
@@ -230,12 +262,10 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
                     p_W_child_center[..., axis_index] - parent_world.center[..., axis_index] - relation.offset_m
                 )
                 if not torch.isfinite(center_distance).all() or center_distance.abs().item() > relation.tolerance_m:
-                    if self._params.verbose:
-                        print(
-                            f"AlignWith: '{obj.name}' align_with({relation.parent.name}) violated "
-                            f"(world {relation.axis.value} band-centre distance={center_distance.item():.4f} m; "
-                            f"tolerance_m={relation.tolerance_m})"
-                        )
+                    self._record_failure(
+                        f"'{obj.name}' align_with({relation.parent.name}, {relation.axis.value})",
+                        f"centre error {center_distance.item():+.3f} m, tolerance {relation.tolerance_m} m",
+                    )
                     return False
         return True
 
@@ -276,12 +306,14 @@ class NextToValidator(PrePhysicsPlacementValidator):
                 half_plane, distance = next_to_violations(cfg, child_pos, child_bbox, parent_world, rel.distance_m)
 
                 if half_plane.item() > rel.tolerance_m or distance.item() > rel.tolerance_m:
-                    if self._params.verbose:
-                        print(
-                            f"NextTo: '{obj.name}' next_to({parent.name}) violated"
-                            f" (side={half_plane.item():.4f}, distance={distance.item():.4f} m;"
-                            f" tolerance_m={rel.tolerance_m})"
+                    if half_plane.item() > rel.tolerance_m:
+                        example = f"on the wrong side by {half_plane.item():.3f} m"
+                    else:
+                        example = (
+                            f"gap off target {rel.distance_m} m by {distance.item():.3f} m,"
+                            f" tolerance {rel.tolerance_m} m"
                         )
+                    self._record_failure(f"'{obj.name}' next_to({parent.name}, {rel.side.value})", example)
                     return False
         return True
 
@@ -325,13 +357,11 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
                 )
 
                 if min(remaining_side.item(), remaining_cross.item()) > rel.tolerance_m:
-                    if self._params.verbose:
-                        print(
-                            f"NotNextTo: '{obj.name}' not_next_to({parent.name}) violated"
-                            f" (remaining_side={remaining_side.item():.4f},"
-                            f" remaining_cross={remaining_cross.item():.4f} m;"
-                            f" margin_m={margin_m}, tolerance_m={rel.tolerance_m})"
-                        )
+                    self._record_failure(
+                        f"'{obj.name}' not_next_to({parent.name}, {rel.side.value})",
+                        f"inside the keep-out zone; {remaining_side.item():.3f} m to clear over the edge,"
+                        f" {remaining_cross.item():.3f} m past the footprint end",
+                    )
                     return False
         return True
 
@@ -363,13 +393,12 @@ class FaceToValidator(PrePhysicsPlacementValidator):
             subject_position = torch.tensor([positions[obj]])
             target_position = torch.tensor([positions[face_to.parent]])
             _, direction_is_defined = yaw_toward_positions(subject_position, target_position)
+            cause = f"'{obj.name}' face_to({face_to.parent.name})"
             if not direction_is_defined.item():
-                if self._params.verbose:
-                    print(f"  FaceTo: '{obj.name}' is too close to its target in XY")
+                self._record_failure(cause, "too close to its target in XY to define a heading")
                 return False
             if orientations is None or obj not in orientations:
-                if self._params.verbose:
-                    print(f"  FaceTo: '{obj.name}' has no computed facing yaw")
+                self._record_failure(cause, "no computed facing yaw")
                 return False
         return True
 
@@ -421,8 +450,10 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         margin = max(0.0, self._params.solver_params.clearance_m - 1e-6)
         for first, second in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
             overlaps = world_boxes[first].overlaps(world_boxes[second], margin=margin)
-            if self._params.verbose and overlaps.any():
-                print(f"  Overlap between '{first.name}' and '{second.name}' in {int(overlaps.sum())} candidate(s)")
+            if overlaps.any():
+                self._record_failure(
+                    f"'{first.name}' overlaps '{second.name}'", "bounding boxes intersect", int(overlaps.sum())
+                )
             valid &= ~overlaps
 
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
@@ -439,10 +470,11 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
                 if obj.is_anchor:
                     continue
                 overlaps = world_boxes[obj].overlaps(background_world, margin=margin)
-                if self._params.verbose and overlaps.any():
-                    print(
-                        f"  Overlap between '{obj.name}' and background '{background.name}'"
-                        f" in {int(overlaps.sum())} candidate(s)"
+                if overlaps.any():
+                    self._record_failure(
+                        f"'{obj.name}' overlaps background '{background.name}'",
+                        "bounding boxes intersect",
+                        int(overlaps.sum()),
                     )
                 valid &= ~overlaps
 
@@ -679,10 +711,14 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         sdf = mesh_sdf(centers, warp_mesh)
         mesh_manager.warn_sdf_sentinel(sdf)
         if has_sdf_sentinel(sdf):
+            self._record_failure(f"'{source.name}' mesh overlaps '{target.name}'", "SDF query found no mesh face")
             return True
-        if (sdf < spheres[:, 3] + tolerance).any():
-            if self._params.verbose:
-                print(f"  Mesh overlap between '{source.name}' and '{target.name}'")
+        penetration = spheres[:, 3] + tolerance - sdf
+        if (penetration > 0).any():
+            self._record_failure(
+                f"'{source.name}' mesh overlaps '{target.name}'",
+                f"intrudes by up to {float(penetration.max()):.3f} m, including {tolerance:.3f} m clearance",
+            )
             return True
         return False
 

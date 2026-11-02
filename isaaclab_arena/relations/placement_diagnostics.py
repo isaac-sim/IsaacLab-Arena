@@ -14,6 +14,18 @@ from pathlib import Path
 
 
 @dataclass
+class CheckFailureDiagnostics:
+    """How often one relation, object, or object pair caused a check to reject candidates."""
+
+    count: int
+    """Rejections attributed to this cause. A check that inspects every object pair, such as no_overlap, can
+    attribute one candidate to several causes."""
+
+    example: str = ""
+    """Measured violation from the first rejection, such as "gap error 0.021 m > tolerance 0.02 m"."""
+
+
+@dataclass
 class ValidationCheckDiagnostics:
     """How one pre-physics check did on a batch of candidate layouts."""
 
@@ -26,6 +38,9 @@ class ValidationCheckDiagnostics:
 
     required: bool
     """Whether a candidate must pass this check to be valid."""
+
+    failures: dict[str, CheckFailureDiagnostics] = field(default_factory=dict)
+    """Rejections keyed by cause, such as "'red_bowl' next_to(wooden_bowl, -y)"."""
 
     @property
     def num_rejected(self) -> int:
@@ -69,14 +84,45 @@ class PlacementDiagnostics:
     fallback_envs: list[int] = field(default_factory=list)
     """Environments given best-loss layouts, which fail at least one required check."""
 
-    def format_summary(self) -> str:
-        """Return one line per batch with its valid and per-check counts, then the fallback environments, if any."""
+    def get_failures_per_check(self) -> dict[str, dict[str, CheckFailureDiagnostics]]:
+        """Return each check's rejections summed over every batch, keyed by cause, most frequent first."""
+        failures_per_check: dict[str, dict[str, CheckFailureDiagnostics]] = {}
+        for batch in self.batches:
+            for check, check_diagnostics in batch.checks.items():
+                check_failures = failures_per_check.setdefault(check, {})
+                for cause, failure in check_diagnostics.failures.items():
+                    if cause in check_failures:
+                        check_failures[cause].count += failure.count
+                    else:
+                        check_failures[cause] = CheckFailureDiagnostics(failure.count, failure.example)
+        return {
+            check: dict(sorted(failures.items(), key=lambda item: item[1].count, reverse=True))
+            for check, failures in failures_per_check.items()
+            if failures
+        }
+
+    def format_summary(self, max_causes_per_check: int | None = 5) -> str:
+        """Return one line per batch with its valid and per-check counts, then the most frequent rejection causes
+        of each check over all batches, then the fallback environments, if any.
+
+        Args:
+            max_causes_per_check: Most rejection causes listed for each check. None lists every cause.
+        """
         lines = []
         for index, batch in enumerate(self.batches):
             lines.append(
                 f"batch {index}: {batch.num_valid}/{batch.num_candidates} valid; passed per check:"
                 f" {batch.format_passed_per_check()}"
             )
+        failures_per_check = self.get_failures_per_check()
+        if failures_per_check:
+            lines.append("rejections by cause over all batches:")
+        for check, failures in failures_per_check.items():
+            for cause, failure in list(failures.items())[:max_causes_per_check]:
+                example = f" (e.g. {failure.example})" if failure.example else ""
+                lines.append(f"  {check}: {cause} x{failure.count}{example}")
+            if max_causes_per_check is not None and len(failures) > max_causes_per_check:
+                lines.append(f"  {check}: {len(failures) - max_causes_per_check} more cause(s)")
         if self.fallback_envs:
             lines.append(f"best-loss fallback for envs: {self.fallback_envs}")
         return "\n".join(lines)
