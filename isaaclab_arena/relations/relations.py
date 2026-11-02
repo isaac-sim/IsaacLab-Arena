@@ -159,7 +159,10 @@ class NextTo(Relation):
     """Represents a 'next to' relationship between objects.
 
     This relation specifies that a child object should be placed adjacent to
-    the parent object on a specified side, at a given distance.
+    the parent object on a specified side, at a given distance. The gap may be anywhere within
+    ``tolerance_m`` of ``distance_m``: the default initializer samples it in that range and the solver
+    only pulls it back when it leaves the range, so a wider ``tolerance_m`` gives more variation
+    between layouts.
 
     Note: Loss computation is handled by NextToLossStrategy in optimization/losses/relation_loss_strategies.py.
     """
@@ -187,9 +190,9 @@ class NextTo(Relation):
                 the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
                 Default: None (any position within the valid cross-axis range).
                 Set 0.0 explicitly to prefer centering.
-            tolerance_m: Slack (meters) for placement validation: the child passes when its side and
-                distance violations are each within this value. Raise it to accept the side but care
-                less about the exact distance. cross_position_ratio is a soft preference, not gated.
+            tolerance_m: Allowed gap error in meters. The solver treats any gap within this value of
+                distance_m as satisfied, and validation passes when the side and distance violations
+                are each within it. cross_position_ratio is a soft preference, not gated.
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
