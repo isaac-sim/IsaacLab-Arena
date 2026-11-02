@@ -13,6 +13,8 @@ import numpy as np
 import subprocess
 import sys
 import textwrap
+import threading
+import time
 import torch
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -44,8 +46,11 @@ from isaaclab_arena_vlm_agent.vlm_agent_policy import (
 class SingleCommandPolicy(VLMPolicy):
     """Request one command per step to exercise shared VLM policy behavior."""
 
-    def _get_command(self, env, observation, env_id):
-        return self._infer(self._request_content(env, observation, env_id), env.unwrapped.arena_world, env_id)
+    def _needs_prediction(self, env, env_id):
+        return True
+
+    def _get_command(self, env, env_id, prediction):
+        return prediction
 
 
 class ObservationAdapter(VLMObservationAdapter):
@@ -112,6 +117,8 @@ def backend(monkeypatch):
 
 
 def make_policy(backend, **kwargs):
+    # Serial requests keep the mocked call order deterministic; concurrency has its own tests.
+    kwargs.setdefault("max_concurrent_requests", 1)
     config = VLMPolicyCfg(
         system_prompt="Return the joint targets using the supplied schema.",
         image_max_width_or_height=8,
@@ -127,11 +134,13 @@ def make_policy(backend, **kwargs):
     return policy
 
 
-def inputs(action_dim=2):
+def inputs(action_dim=2, num_envs=2):
     env = SimpleNamespace(
-        unwrapped=SimpleNamespace(num_envs=2, device="cpu", action_manager=SimpleNamespace(total_action_dim=action_dim))
+        unwrapped=SimpleNamespace(
+            num_envs=num_envs, device="cpu", action_manager=SimpleNamespace(total_action_dim=action_dim)
+        )
     )
-    positions = torch.arange(2 * action_dim, dtype=torch.float32).reshape(2, action_dim)
+    positions = torch.arange(num_envs * action_dim, dtype=torch.float32).reshape(num_envs, action_dim)
 
     def get_joint_positions(scene_key, joint_names):
         assert scene_key == "robot"
@@ -139,7 +148,7 @@ def inputs(action_dim=2):
         return positions[:, indices].clone()
 
     env.unwrapped.arena_world = SimpleNamespace(get_joint_positions=Mock(side_effect=get_joint_positions))
-    images = torch.zeros((2, 8, 16, 3), dtype=torch.uint8)
+    images = torch.zeros((num_envs, 8, 16, 3), dtype=torch.uint8)
     images[0, ..., 0] = 255
     images[1, ..., 2] = 255
     return env, {"position": positions, CAMERA_OBSERVATION_GROUP: {"front_view": images}}
@@ -181,6 +190,7 @@ def test_policy_uses_adapter_actions_for_each_environment(backend, action_dim):
     config = VLMPolicyCfg(
         system_prompt="Use this robot's joint units.",
         image_max_width_or_height=8,
+        max_concurrent_requests=1,
     )
     policy = SingleCommandPolicy(
         config,
@@ -244,10 +254,12 @@ def test_invalid_responses_are_corrected_before_actions(backend, bad_raw, needs_
         torch.testing.assert_close(action, torch.tensor([[1.0, 1.0], [-1.0, -1.0]]))
         assert len(calls) == 3
         if needs_correction:
-            assert "Invalid actions" in calls[1]["messages"][-1]["content"]
+            # Both envs request first; env 0's correction follows and must not leak into env 1.
+            assert len(calls[1]["messages"]) == 2
+            assert "Invalid actions" in calls[2]["messages"][-1]["content"]
         else:
             assert calls[1]["messages"] == calls[0]["messages"]  # Backend retries preserve image inputs.
-        assert len(calls[2]["messages"]) == 2  # Correction from env 0 must not leak into env 1.
+            assert len(calls[2]["messages"]) == 2
     finally:
         policy.close()
 
@@ -260,7 +272,7 @@ def test_invalid_commands_fail_after_bounded_attempts(backend):
     try:
         with pytest.raises(InvalidAgentResponseError, match="Wrong command dimensions"):
             policy.get_action(*inputs())
-        assert client.chat.completions.create.call_count == 2
+        assert client.chat.completions.create.call_count == 4  # Two attempts for each of two envs.
         policy.action_adapter.command_to_action.assert_not_called()
     finally:
         policy.close()
@@ -358,11 +370,14 @@ class JointMotionGenerator(MotionGenerator):
 def make_multi_step_policy(backend, adapter, *, max_steps_per_goal=2):
     if isinstance(adapter, ChunkActionAdapter):
         policy_type = VLMChunkPolicy
-        config = VLMPolicyCfg(system_prompt="Control these joints.", max_attempts=1)
+        config = VLMPolicyCfg(system_prompt="Control these joints.", max_attempts=1, max_concurrent_requests=1)
     else:
         policy_type = VLMGoalPolicy
         config = VLMGoalPolicyCfg(
-            system_prompt="Control these joints.", max_attempts=1, max_steps_per_goal=max_steps_per_goal
+            system_prompt="Control these joints.",
+            max_attempts=1,
+            max_concurrent_requests=1,
+            max_steps_per_goal=max_steps_per_goal,
         )
     policy = policy_type(
         config,
@@ -429,7 +444,7 @@ def test_whole_chunk_is_validated_before_execution(backend, commands):
     with pytest.raises(InvalidAgentResponseError):
         policy.get_action(*inputs())
     adapter.command_to_action.assert_not_called()
-    assert backend.client.chat.completions.create.call_count == 1
+    assert backend.client.chat.completions.create.call_count == 2
 
 
 @pytest.mark.parametrize("action_dim", [2, 5])
@@ -546,7 +561,7 @@ def test_invalid_goals_are_rejected_before_motion_generation(backend):
     with pytest.raises(InvalidAgentResponseError, match="Wrong goal dimensions"):
         policy.get_action(*inputs())
     generator.compute_command.assert_not_called()
-    assert backend.client.chat.completions.create.call_count == 1
+    assert backend.client.chat.completions.create.call_count == 2
 
 
 @pytest.mark.parametrize("command", [np.array([np.inf, 0]), np.zeros(1), np.zeros((1, 2)), np.empty(0)])
@@ -577,7 +592,7 @@ def test_response_rejection_sends_correction_message(backend, payload, message):
         policy.get_action(*inputs())
     correction = backend.client.chat.completions.create.call_args.kwargs["messages"][-1]["content"]
     assert correction == f"Invalid actions: {caught.value}. Return a corrected prediction."
-    assert backend.client.chat.completions.create.call_count == 2
+    assert backend.client.chat.completions.create.call_count == 4  # Two attempts for each of two envs.
 
 
 def test_invalid_model_actions_are_rejected_with_python_optimization():
@@ -601,7 +616,7 @@ def test_invalid_model_actions_are_rejected_with_python_optimization():
                 inference_backend=backend, observation_adapter=ObservationAdapter(), action_adapter=adapter,
             )
             try:
-                policy._infer([], SimpleNamespace(), 0)
+                policy._infer({0: []}, SimpleNamespace())
             except InvalidAgentResponseError as error:
                 if "Expected finite commands" not in str(error) or backend.infer.call_count != 2:
                     raise RuntimeError("Incorrect rejection message or retry count")
@@ -624,7 +639,7 @@ def test_adapter_implementation_errors_are_not_retried(backend, error_type, meth
     with pytest.raises(error_type) as caught:
         policy.get_action(*inputs())
     assert caught.value is error
-    assert backend.client.chat.completions.create.call_count == 1
+    assert backend.client.chat.completions.create.call_count == 2  # One request per env, no retries.
 
 
 def test_empty_choices_retry_without_correction_message(backend):
@@ -662,3 +677,110 @@ def test_config_wraps_object_poses_and_appends_prompt_files(backend, tmp_path):
         policy.close()
     with pytest.raises(AssertionError, match="System prompt file does not exist"):
         VLMPolicyCfg(system_prompt="Act.", system_prompt_files=[str(tmp_path / "missing.txt")])
+
+
+@pytest.mark.parametrize("max_concurrent_requests", [0, -1, 1.5, True, None])
+def test_config_rejects_invalid_request_concurrency(max_concurrent_requests):
+    with pytest.raises(AssertionError, match="max_concurrent_requests"):
+        VLMPolicyCfg(system_prompt="Control joints", max_concurrent_requests=max_concurrent_requests)
+
+
+def target_above_joint_positions(kwargs, offset=0.5):
+    """Return a mocked response targeting the request's joint positions plus offset."""
+    state = json.loads(kwargs["messages"][1]["content"][1]["text"])
+    return response(json.dumps({"target": (np.asarray(state["joint_positions"]) + offset).tolist()}))
+
+
+def test_environments_request_concurrently_and_receive_their_own_commands(backend):
+    num_envs = 4
+    # Each request waits until all are in flight, so serial requests would time out here.
+    all_in_flight = threading.Barrier(num_envs, timeout=10)
+    thread_names = set()
+
+    def create(**kwargs):
+        thread_names.add(threading.current_thread().name)
+        all_in_flight.wait()
+        return target_above_joint_positions(kwargs)
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_policy(backend, max_concurrent_requests=num_envs)
+    try:
+        actions = policy.get_action(*inputs(num_envs=num_envs))
+    finally:
+        policy.close()
+    torch.testing.assert_close(actions, torch.full((num_envs, 2), 0.5))
+    assert len(thread_names) == num_envs
+    assert all(name.startswith("vlm_inference") for name in thread_names)
+
+
+@pytest.mark.parametrize("max_concurrent_requests", [1, 3])
+def test_requests_in_flight_never_exceed_the_configured_limit(backend, max_concurrent_requests):
+    lock = threading.Lock()
+    in_flight = 0
+    peak = 0
+
+    def create(**kwargs):
+        nonlocal in_flight, peak
+        with lock:
+            in_flight += 1
+            peak = max(peak, in_flight)
+        time.sleep(0.05)
+        with lock:
+            in_flight -= 1
+        return target_above_joint_positions(kwargs)
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_policy(backend, max_concurrent_requests=max_concurrent_requests)
+    try:
+        actions = policy.get_action(*inputs(num_envs=6))
+    finally:
+        policy.close()
+    torch.testing.assert_close(actions, torch.full((6, 2), 0.5))
+    assert backend.client.chat.completions.create.call_count == 6
+    assert peak == max_concurrent_requests
+
+
+def test_concurrent_corrections_stay_in_their_own_conversation(backend):
+    calls = []
+    lock = threading.Lock()
+
+    def create(**kwargs):
+        with lock:
+            calls.append(copy.deepcopy(kwargs))
+        state = json.loads(kwargs["messages"][1]["content"][1]["text"])
+        if state["joint_positions"] == [0.0, 1.0] and len(kwargs["messages"]) == 2:
+            return response('{"target": [1]}')  # Env 0's first response has the wrong dimensions.
+        return target_above_joint_positions(kwargs)
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_policy(backend, max_attempts=2, max_concurrent_requests=4)
+    try:
+        actions = policy.get_action(*inputs(num_envs=3))
+    finally:
+        policy.close()
+    torch.testing.assert_close(actions, torch.full((3, 2), 0.5))
+    assert len(calls) == 4
+    corrections = [call for call in calls if len(call["messages"]) > 2]
+    assert len(corrections) == 1
+    assert json.loads(corrections[0]["messages"][1]["content"][1]["text"])["joint_positions"] == [0.0, 1.0]
+    assert "Wrong command dimensions" in corrections[0]["messages"][-1]["content"]
+
+
+def test_concurrent_rejection_fails_the_step_after_bounded_attempts(backend):
+    def create(**kwargs):
+        state = json.loads(kwargs["messages"][1]["content"][1]["text"])
+        if state["joint_positions"][0] in (2.0, 4.0):  # Envs 1 and 2 always return the wrong dimensions.
+            return response('{"target": [1]}')
+        return target_above_joint_positions(kwargs)
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_policy(backend, max_attempts=2, max_concurrent_requests=4)
+    policy.action_adapter.command_to_action = Mock()
+    try:
+        with pytest.raises(InvalidAgentResponseError, match="Wrong command dimensions"):
+            policy.get_action(*inputs(num_envs=3))
+    finally:
+        policy.close()
+    # Envs 1 and 2 use both attempts; env 0 succeeds on its first.
+    assert backend.client.chat.completions.create.call_count == 5
+    policy.action_adapter.command_to_action.assert_not_called()

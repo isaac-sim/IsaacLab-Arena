@@ -161,6 +161,13 @@ The adapter rejects a response with the wrong number of values, non-finite value
 that is not unit length, or a gripper value other than open or closed. It sends the error back to
 the model and asks for a corrected response, up to ``max_attempts`` times.
 
+**Parallel environments.** When several environments need a new response on the same step,
+their requests are sent concurrently, up to ``max_concurrent_requests`` at a time (8 by
+default). Each environment keeps its own conversation, so a correction for one environment is
+never sent to another. Responses are validated on the main thread, so adapters can read the live
+world state safely. Set ``max_concurrent_requests: 1`` to send requests one at a time, for
+example if the endpoint rate-limits concurrent requests.
+
 **Execution, by the motion generator (goal policy only).** ``PoseTargetMotionGenerator`` in
 `pose_target_motion_generator.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/pose_target_motion_generator.py>`__
 holds the goal pose, closes or opens the gripper, and reports the goal as:
@@ -237,9 +244,11 @@ preset. Then select it in the YAML:
 register it with ``@register_policy``, as in `Writing a custom policy`_. Then
 implement two methods:
 
-* ``_get_command(env, observation, env_id)``: decide when to request a new prediction, and call
-  ``self._infer(self._request_content(...), ...)`` to get a validated one.
+* ``_needs_prediction(env, env_id)``: return whether the environment must request a new
+  prediction before its next command. It runs for every environment before any request is sent.
+* ``_get_command(env, env_id, prediction)``: return the next command. ``prediction`` is the
+  validated response when one was just requested for this environment, and ``None`` otherwise.
 * ``reset(env_ids)``: discard pending predictions.
 
-``VLMPolicy`` already handles request assembly, image encoding, response validation, and the
-correction loop.
+``VLMPolicy`` already handles request assembly, image encoding, concurrent requests, response
+validation, and the correction loop.
