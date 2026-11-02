@@ -495,8 +495,11 @@ class PhysicalCommandRunner:
 
     def _collect_state(self) -> dict:
         """Collect live task, object, articulation, controller, and sensor state."""
+        from isaaclab_arena.tasks.terminations import task_success_from_progress
+
         scene_object_names = (*self.env.scene.articulations, *self.env.scene.rigid_objects)
         return {
+            "success": task_success_from_progress(self.env).tolist(),
             "simulation_step": self.steps,
             "simulation_time_s": self.steps * self.env.physics_dt,
             "active_subtask": {
