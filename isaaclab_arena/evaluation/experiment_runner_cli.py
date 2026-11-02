@@ -71,10 +71,13 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--kpi_exporters",
-        nargs="+",
+        nargs="*",
         choices=sorted(EXPORTERS_BY_NAME),
         default=list(DEFAULT_EXPORTER_NAMES),
-        help="KPI exporters that write the Experiment's KPI records after all Runs complete.",
+        help=(
+            "KPI exporters that write the Experiment's KPI records after all Runs complete."
+            " Pass the flag with no names to skip KPI export."
+        ),
     )
     parser.add_argument(
         "--serve_evaluation_report",

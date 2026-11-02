@@ -57,6 +57,31 @@ def test_experiment_runner_parses_kpi_exporters():
     assert selected_arguments.kpi_exporters == ["timing"]
 
 
+def test_experiment_runner_parses_bare_kpi_exporters_flag_as_no_exporters():
+    arguments, _ = parse_experiment_runner_args(["--experiment_config", "experiment.yaml", "--kpi_exporters"])
+
+    assert arguments.kpi_exporters == []
+
+
+def test_experiment_runner_skips_kpi_export_for_empty_selection(monkeypatch, tmp_path, capsys):
+    from isaaclab_arena.evaluation import experiment_runner
+    from isaaclab_arena_benchmarking.benchmarks import registry
+
+    exported_selections = []
+    monkeypatch.setattr(
+        registry,
+        "export_kpis",
+        lambda output_dir, names, **kwargs: exported_selections.append((output_dir, list(names), kwargs)),
+    )
+
+    experiment_runner._export_selected_kpis(tmp_path, [])
+    assert exported_selections == []
+    assert "KPI export is skipped" in capsys.readouterr().out
+
+    experiment_runner._export_selected_kpis(tmp_path, ["timing"])
+    assert exported_selections == [(tmp_path, ["timing"], {})]
+
+
 @pytest.mark.with_subprocess
 def test_experiment_runner_rejects_unknown_kpi_exporter():
     """Reject an unknown exporter name in a fresh process, because argparse exits."""
