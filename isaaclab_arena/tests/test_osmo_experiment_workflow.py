@@ -532,7 +532,7 @@ def test_unnamed_experiment_cannot_build_a_workflow():
     unnamed_experiment_cfg = _zero_action_experiment_cfg()
     unnamed_experiment_cfg.name = None
 
-    with pytest.raises(AssertionError, match="Experiment name"):
+    with pytest.raises(AssertionError, match="needs a name"):
         workflow = ArenaExperimentWorkflow(
             workflow_cfg=WorkflowCfg(workflow_name="unnamed"),
             experiment_cfg=unnamed_experiment_cfg,
