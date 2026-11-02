@@ -1,0 +1,140 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_multi_object_two_snack_packets_in_basket_u_shape
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_u_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: snack_one
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_processed_chips_h01/simready_usd/sm_food_processed_chips_h01_01.usd
+    scale: [0.7, 0.7, 0.7]
+- id: snack_two
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_processed_chips_k01/simready_usd/sm_food_processed_chips_k01_01.usd
+    scale: [0.7, 0.7, 0.7]
+- id: basket
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/69a87329036cec0440403351c12230970c4e67d8/D00323/simready_usd/D00323.usd
+- id: lime
+  registry_name: lime01_fruits_veggies_robolab
+- id: ketchup
+  registry_name: ketchup_bottle_hope_robolab
+- id: cup
+  registry_name: mug
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: counter
+  parent_id: kitchen
+  prim_path: CapSurface_03
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: counter
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: counter
+  params:
+    axis: x
+    offset_m: -0.9574
+    tolerance_m: 0.1
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 0.0
+- kind: 'on'
+  subject: snack_one
+  reference: counter
+- kind: 'on'
+  subject: snack_two
+  reference: counter
+- kind: 'on'
+  subject: basket
+  reference: counter
+- kind: 'on'
+  subject: lime
+  reference: counter
+- kind: 'on'
+  subject: ketchup
+  reference: counter
+- kind: 'on'
+  subject: cup
+  reference: counter
+- kind: align_with
+  subject: snack_one
+  reference: droid
+  params:
+    axis: y
+    tolerance_m: 0.3
+- kind: align_with
+  subject: snack_one
+  reference: droid
+  params:
+    axis: x
+    offset_m: 1.03
+    tolerance_m: 0.15
+- kind: align_with
+  subject: snack_two
+  reference: droid
+  params:
+    axis: y
+    tolerance_m: 0.3
+- kind: align_with
+  subject: snack_two
+  reference: droid
+  params:
+    axis: x
+    offset_m: 1.03
+    tolerance_m: 0.15
+- kind: align_with
+  subject: basket
+  reference: droid
+  params:
+    axis: y
+    tolerance_m: 0.3
+- kind: align_with
+  subject: basket
+  reference: droid
+  params:
+    axis: x
+    offset_m: 1.03
+    tolerance_m: 0.15
+task:
+  composition: parallel
+  description: Put both snack packets into the basket.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: snack_one
+      destination_location: basket
+      destination_object: basket
+      background_scene: kitchen
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: snack_two
+      destination_location: basket
+      destination_object: basket
+      background_scene: kitchen

@@ -1,0 +1,133 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_multi_object_milk_and_juice_in_basket_coastal
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_one_wall_coastal
+  params:
+    collision_mode: mesh
+objects:
+- id: milk
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_processed_milk_g01/simready_usd/sm_food_processed_milk_g01_01.usd
+- id: juice
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_beverage_boxedDrink_c01/simready_usd/sm_food_beverage_boxedDrink_c01_01.usd
+- id: basket
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/69a87329036cec0440403351c12230970c4e67d8/D00536/simready_usd/D00536.usd
+- id: soup_can
+  registry_name: tomato_soup_can_ycb_robolab
+- id: lemon
+  registry_name: lemon_02_fruits_veggies_robolab
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+- id: counter
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: counter
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: counter
+  params:
+    axis: y
+    offset_m: -0.965
+    tolerance_m: 0.1
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.5707963268
+- kind: 'on'
+  subject: milk
+  reference: counter
+- kind: 'on'
+  subject: juice
+  reference: counter
+- kind: 'on'
+  subject: basket
+  reference: counter
+- kind: 'on'
+  subject: soup_can
+  reference: counter
+- kind: 'on'
+  subject: lemon
+  reference: counter
+- kind: align_with
+  subject: milk
+  reference: droid
+  params:
+    axis: x
+    tolerance_m: 0.3
+- kind: align_with
+  subject: milk
+  reference: droid
+  params:
+    axis: y
+    offset_m: 1.03
+    tolerance_m: 0.15
+- kind: align_with
+  subject: juice
+  reference: droid
+  params:
+    axis: x
+    tolerance_m: 0.3
+- kind: align_with
+  subject: juice
+  reference: droid
+  params:
+    axis: y
+    offset_m: 1.03
+    tolerance_m: 0.15
+- kind: align_with
+  subject: basket
+  reference: droid
+  params:
+    axis: x
+    tolerance_m: 0.3
+- kind: align_with
+  subject: basket
+  reference: droid
+  params:
+    axis: y
+    offset_m: 1.03
+    tolerance_m: 0.15
+task:
+  composition: parallel
+  description: Put the milk carton and the juice carton into the basket for recycling.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: milk
+      destination_location: basket
+      destination_object: basket
+      background_scene: kitchen
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: juice
+      destination_location: basket
+      destination_object: basket
+      background_scene: kitchen

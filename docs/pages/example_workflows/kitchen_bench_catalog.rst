@@ -1,14 +1,15 @@
 Kitchen Benchmark Catalog
 =========================
 
-The kitchen benchmark contains 66 DROID tasks defined as environment graph
+The kitchen benchmark contains 73 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
 environment: the original 42 environments on October 28, 2026, the eight
 additional knob environments on October 29–30, 2026, and the eight additional
 button environments on October 31, 2026, and the eight additional spatial
-placement environments on October 31–November 1, 2026.
+placement environments on October 31–November 1, 2026, and the seven additional
+multi-object environments on November 1, 2026.
 
 .. list-table:: Task categories
    :header-rows: 1
@@ -39,8 +40,8 @@ placement environments on October 31–November 1, 2026.
      - 26.0%
 
    * - Multi-object pick-and-place
-     - 3
-     - 39.7%
+     - 10
+     - 20.7%
 
    * - Spatial placement
      - 10
@@ -51,8 +52,8 @@ placement environments on October 31–November 1, 2026.
      - 42.0%
 
    * - **Total**
-     - **66**
-     - **38.7%**
+     - **73**
+     - **36.2%**
 
 Each row links to the source YAML and shows a Pi policy execution recorded from
 the maintained DROID external camera. Rows are grouped by task category.
@@ -433,6 +434,62 @@ the maintained DROID external camera. Rows are grouped by task category.
      - 54%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian_pi05.gif
           :alt: Pi0.5 policy placing a lime, lemon, and apple into a wooden bowl in the Scandinavian kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Multi-object pick-and-place
+     - `kitchen_bench_multi_object_clear_two_cups_from_plate_l_island.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_multi_object_clear_two_cups_from_plate_l_island.yaml>`_
+     - 5%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_multi_object_clear_two_cups_from_plate_l_island_pi05.gif
+          :alt: Pi0.5 policy clearing two cups from a plate
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Multi-object pick-and-place
+     - `kitchen_bench_multi_object_milk_and_juice_in_basket_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_multi_object_milk_and_juice_in_basket_coastal.yaml>`_
+     - 0%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_multi_object_milk_and_juice_in_basket_coastal_pi05.gif
+          :alt: Pi0.5 policy attempting to pack milk and juice cartons into a basket
+          :width: 100%
+
+       Pi0.5, 2x speed. Unsuccessful attempt.
+   * - Multi-object pick-and-place
+     - `kitchen_bench_multi_object_two_cans_in_basket_farmhouse.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_multi_object_two_cans_in_basket_farmhouse.yaml>`_
+     - 48%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_multi_object_two_cans_in_basket_farmhouse_pi05.gif
+          :alt: Pi0.5 policy placing two cans into a basket
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Multi-object pick-and-place
+     - `kitchen_bench_multi_object_two_food_boxes_in_basket_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_multi_object_two_food_boxes_in_basket_scandinavian.yaml>`_
+     - 0%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_multi_object_two_food_boxes_in_basket_scandinavian_pi05.gif
+          :alt: Pi0.5 policy attempting to pack two food boxes into a basket
+          :width: 100%
+
+       Pi0.5, 2x speed. Unsuccessful attempt.
+   * - Multi-object pick-and-place
+     - `kitchen_bench_multi_object_two_mugs_on_tray_g_shape.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_multi_object_two_mugs_on_tray_g_shape.yaml>`_
+     - 14%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_multi_object_two_mugs_on_tray_g_shape_pi05.gif
+          :alt: Pi0.5 policy placing two mugs onto a tray
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Multi-object pick-and-place
+     - `kitchen_bench_multi_object_two_pastries_on_plate_peninsula.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_multi_object_two_pastries_on_plate_peninsula.yaml>`_
+     - 18%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_multi_object_two_pastries_on_plate_peninsula_pi05.gif
+          :alt: Pi0.5 policy placing two pastries onto a plate
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Multi-object pick-and-place
+     - `kitchen_bench_multi_object_two_snack_packets_in_basket_u_shape.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_multi_object_two_snack_packets_in_basket_u_shape.yaml>`_
+     - 3%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_multi_object_two_snack_packets_in_basket_u_shape_pi05.gif
+          :alt: Pi0.5 policy placing two snack packets into a basket
           :width: 100%
 
        Pi0.5, 2x speed.

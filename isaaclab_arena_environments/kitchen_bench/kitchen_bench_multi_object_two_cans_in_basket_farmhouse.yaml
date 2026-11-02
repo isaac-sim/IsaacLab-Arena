@@ -1,0 +1,144 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_multi_object_two_cans_in_basket_farmhouse
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
+  params:
+    collision_mode: mesh
+objects:
+- id: can_one
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_processed_cannedFood_d01/simready_usd/sm_food_processed_cannedFood_d01_01.usd
+- id: can_two
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_processed_cannedFood_e01/simready_usd/sm_food_processed_cannedFood_e01_01.usd
+    scale: [0.85, 0.85, 0.85]
+- id: basket
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/misc_basket_plastic_a01/simready_usd/sm_misc_basket_plastic_a01_01.usd
+- id: mustard
+  registry_name: mustard_bottle_hope_robolab
+- id: banana
+  registry_name: banana_ycb_robolab
+- id: bowl
+  registry_name: bowl_ycb_robolab
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+- id: counter
+  parent_id: kitchen
+  prim_path: island_island_group/top_geometry_left
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: counter
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: counter
+  params:
+    axis: y
+    offset_m: 1.42
+    tolerance_m: 0.1
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: -1.5707963268
+- kind: 'on'
+  subject: can_one
+  reference: counter
+- kind: 'on'
+  subject: can_two
+  reference: counter
+- kind: 'on'
+  subject: basket
+  reference: counter
+- kind: 'on'
+  subject: mustard
+  reference: counter
+- kind: 'on'
+  subject: banana
+  reference: counter
+- kind: 'on'
+  subject: bowl
+  reference: counter
+- kind: align_with
+  subject: can_one
+  reference: droid
+  params:
+    axis: x
+    tolerance_m: 0.3
+- kind: align_with
+  subject: can_one
+  reference: droid
+  params:
+    axis: y
+    offset_m: -1.03
+    tolerance_m: 0.15
+- kind: align_with
+  subject: can_two
+  reference: droid
+  params:
+    axis: x
+    tolerance_m: 0.3
+- kind: align_with
+  subject: can_two
+  reference: droid
+  params:
+    axis: y
+    offset_m: -1.03
+    tolerance_m: 0.15
+- kind: align_with
+  subject: basket
+  reference: droid
+  params:
+    axis: x
+    tolerance_m: 0.3
+- kind: align_with
+  subject: basket
+  reference: droid
+  params:
+    axis: y
+    offset_m: -1.03
+    tolerance_m: 0.15
+task:
+  composition: parallel
+  description: Put both food cans into the plastic basket.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: can_one
+      destination_location: basket
+      destination_object: basket
+      background_scene: kitchen
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: can_two
+      destination_location: basket
+      destination_object: basket
+      background_scene: kitchen
