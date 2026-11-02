@@ -83,8 +83,10 @@ Most environments can be described with a small set of relations:
    ``ObjectReference`` that identifies the valid support surface.
 
    The default ``ON_TREE`` initializer samples parents before their children,
-   using each parent's sampled pose and bounds. This sets the starting poses;
-   the solver then optimizes the complete layout jointly.
+   using each parent's sampled pose and bounds. ``PositionLimitsBox``,
+   ``AlignWith``, and ``NextTo`` relations further narrow where each child
+   starts. This sets the starting poses; the solver then optimizes the complete
+   layout jointly.
 
 .. _clutter-on-relation:
 
@@ -172,7 +174,9 @@ Most environments can be described with a small set of relations:
    when needed. Geometric validation rejects candidates that are not on the
    requested side, or whose gap to the parent differs from ``distance_m`` by
    more than ``tolerance_m`` (0.01 m by default). Placing the object closer than
-   requested also fails.
+   requested also fails. The default initializer starts the object on the
+   requested side within this tolerance, so the solver does not need to move it
+   around the parent.
 
    By default, the solver applies zero cross-axis loss anywhere the subject's
    footprint fits within the parent's perpendicular extent. Set
