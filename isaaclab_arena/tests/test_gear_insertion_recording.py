@@ -136,7 +136,7 @@ def test_gear_insertion_recording_exports_two_successful_episodes(tmp_path):
             np.testing.assert_array_equal(actions, np.zeros_like(actions))
             assert len(episode["camera_obs"]) == 3
             for images in episode["camera_obs"].values():
-                assert images.shape == (len(actions), 360, 640, 3)
+                assert images.shape == (len(actions), 720, 1280, 3)
                 assert images.dtype == np.uint8
                 assert images.compression == "gzip"
                 assert images[:].max() > images[:].min(), "Recorded images must not be blank."

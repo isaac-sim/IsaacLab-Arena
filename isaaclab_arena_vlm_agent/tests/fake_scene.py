@@ -24,5 +24,5 @@ def make_mounted_camera(intrinsic_matrices: torch.Tensor) -> SimpleNamespace:
             prim_path="{ENV_REGEX_NS}/Robot/mount_link/camera",
             offset=SimpleNamespace(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0), convention="ros"),
         ),
-        data=SimpleNamespace(intrinsic_matrices=SimpleNamespace(torch=intrinsic_matrices)),
+        data=SimpleNamespace(intrinsic_matrices=SimpleNamespace(torch=intrinsic_matrices), output={}),
     )

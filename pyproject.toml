@@ -242,11 +242,11 @@ include = [
 ]
 namespaces = false
 
-# setuptools installs only .py files. Declare the configuration data files, and
+# setuptools installs only .py files. Declare the configuration and prompt data files, and
 # exclude the test fixtures, for a non-editable install. The globs are recursive
 # because the environment spec directories are not packages of their own.
 [tool.setuptools.package-data]
-"*" = ["**/*.yaml", "**/*.yml", "**/*.json", "**/*.jsonl", "**/*.html"]
+"*" = ["**/*.yaml", "**/*.yml", "**/*.json", "**/*.jsonl", "**/*.html", "**/*.txt"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["tests/test_data/**", "test_data/**"]

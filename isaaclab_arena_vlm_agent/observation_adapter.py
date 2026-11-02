@@ -13,8 +13,7 @@ from abc import ABC, abstractmethod
 from scipy.spatial.transform import Rotation
 from typing import Any
 
-from pydantic import BaseModel
-
+from isaaclab_arena_vlm_agent.camera_view import DEPTH_DATA_TYPE, CameraView
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 
 POLICY_OBSERVATION_GROUP = "policy"
@@ -25,41 +24,11 @@ CAMERA_OBSERVATION_GROUP = "camera_obs"
 
 
 class VLMObservationAdapter(ABC):
-    """Extract camera images and prompt values from environment observations.
+    """Extract camera images and prompt values from environment observations."""
 
-    An adapter may also offer tools the model calls before acting, such as zooming into an image. The
-    policy answers tool requests through the hooks below, which by default offer no tools.
-    """
-
-    max_tool_rounds: int = 0
-    """Tool request rounds the policy answers per decision before it requires an action."""
-
-    def get_system_prompt_addition(self) -> str:
-        """Return text describing this adapter's inputs and tools, appended to the system prompt."""
-        return ""
-
-    def extend_response_model(self, action_model: type[BaseModel]) -> type[BaseModel]:
-        """Return the response model with this adapter's tool request fields added to the action fields."""
-        return action_model
-
-    def read_tool_requests(self, payload: Any) -> Any | None:
-        """Return the tool requests in a raw model response, or None when it asks for none."""
-
-    def answer_tool_requests(self, requests: Any, env_id: int, is_last_round: bool) -> list[dict[str, Any]]:
-        """Answer tool requests from read_tool_requests as user chat content.
-
-        Args:
-            requests: Requests returned by read_tool_requests.
-            env_id: Environment whose current observation answers the requests.
-            is_last_round: Whether this is the decision's last tool round, so the next response must act.
-
-        Returns:
-            Text and image content parts for the next user message.
-        """
-        raise NotImplementedError(f"{type(self).__name__} offers no tools")
-
-    def reset(self, env_ids: list[int] | None = None) -> None:
-        """Discard per-environment state for selected environments, or all environments."""
+    def read_camera_views(self, env, observation, env_id: int) -> dict[str, CameraView]:
+        """Return the rendered camera views behind this adapter's images, or none when it sends no images."""
+        return {}
 
     @abstractmethod
     def extract_vlm_input_from_observation(
@@ -131,6 +100,12 @@ class ImageObservationAdapter(VLMObservationAdapter):
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
         """Return RGB views and optical-frame camera calibration for one environment."""
+        views = self.read_camera_views(env, observation, env_id)
+        images = {name: view.rgb for name, view in views.items()}
+        return images, {"camera_geometry": {name: view.to_camera_geometry() for name, view in views.items()}}
+
+    def read_camera_views(self, env, observation, env_id: int) -> dict[str, CameraView]:
+        """Return each configured RGB view with its calibration and any rendered depth."""
         base = env.unwrapped
         camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP, None)
         assert camera_cfg is not None, "RGB modality requires camera observations; enable the embodiment's cameras"
@@ -141,7 +116,7 @@ class ImageObservationAdapter(VLMObservationAdapter):
         )
         assert camera_keys, "RGB modality requires at least one configured RGB observation"
         images = extract_rgb_images_from_camera_observations(observation[CAMERA_OBSERVATION_GROUP], camera_keys, env_id)
-        return images, {"camera_geometry": _extract_camera_geometry(env, images, env_id)}
+        return _read_camera_views(env, images, env_id)
 
 
 class ImageStateObservationAdapter(VLMObservationAdapter):
@@ -157,48 +132,76 @@ class ImageStateObservationAdapter(VLMObservationAdapter):
         images, geometry = self.image_adapter.extract_vlm_input_from_observation(env, observation, env_id)
         return images, {**state, **geometry}
 
+    def read_camera_views(self, env, observation, env_id: int) -> dict[str, CameraView]:
+        """Return the image adapter's camera views."""
+        return self.image_adapter.read_camera_views(env, observation, env_id)
 
-def _extract_camera_geometry(env, images: dict[str, np.ndarray], env_id: int) -> dict[str, dict[str, Any]]:
-    """Read camera intrinsics and optical-frame poses for the selected RGB views.
+
+def _read_camera_views(env, images: dict[str, np.ndarray], env_id: int) -> dict[str, CameraView]:
+    """Pair each RGB image with its camera's calibration and any rendered depth.
 
     Args:
         env: Arena environment, optionally gym-wrapped, with live camera sensors.
         images: HWC RGB images indexed by their observation term names.
-        env_id: Environment index whose camera calibration is requested.
+        env_id: Environment index whose cameras are read.
 
     Returns:
-        Calibration by observation term, with world and robot-root poses using XYZW quaternions.
+        Camera views indexed by observation term name.
     """
     base = env.unwrapped
     camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP)
+    roots = read_robot_root_poses_w(base, env_id)
+    views = {}
+    for key, image in images.items():
+        term = getattr(camera_cfg, key)
+        sensor = base.scene[term.params["sensor_cfg"].name]
+        t_W_C, q_W_C = _read_mounted_camera_pose_w(base, sensor.cfg, env_id)
+        depth = None
+        if DEPTH_DATA_TYPE in sensor.data.output:
+            depth = sensor.data.output[DEPTH_DATA_TYPE]
+            depth = getattr(depth, "torch", depth)[env_id].detach().cpu().numpy().reshape(image.shape[:2])
+        views[key] = CameraView(
+            rgb=image,
+            intrinsic_matrix=sensor.data.intrinsic_matrices.torch[env_id].detach().cpu().numpy(),
+            t_W_C=t_W_C,
+            q_W_C=q_W_C,
+            poses_in_robot_roots=poses_in_robot_roots(roots, t_W_C, q_W_C),
+            depth=depth,
+        )
+    return views
+
+
+def read_robot_root_poses_w(base, env_id: int) -> dict[str, np.ndarray]:
+    """Return the world pose of each commanded asset root, as XYZ then XYZW, indexed by asset name."""
     roots = {}
     for name in base.action_manager.active_terms:
         asset_name = base.action_manager.get_term(name).cfg.asset_name
         if asset_name not in roots:
             roots[asset_name] = base.arena_world.get_pose_w(asset_name)[env_id].detach().cpu().numpy()
-    geometry = {}
-    for key, image in images.items():
-        term = getattr(camera_cfg, key)
-        sensor = base.scene[term.params["sensor_cfg"].name]
-        t_W_C, q_W_C = _read_mounted_camera_pose_w(base, sensor.cfg, env_id)
-        intrinsics = sensor.data.intrinsic_matrices.torch[env_id]
-        # C is the optical frame (+X right, +Y down, +Z forward); R is an asset root.
-        poses = {}
-        for asset_name, T_W_R in roots.items():
-            rotation_R_W = Rotation.from_quat(T_W_R[3:]).inv()
-            poses[asset_name] = {
-                "position_root_m": rotation_R_W.apply(t_W_C - T_W_R[:3]).tolist(),
-                "quaternion_root_xyzw": (rotation_R_W * Rotation.from_quat(q_W_C)).as_quat().tolist(),
-            }
-        geometry[key] = {
-            "image_size_px": [image.shape[1], image.shape[0]],
-            "intrinsic_matrix": intrinsics.detach().cpu().tolist(),
-            "optical_frame": "x_right_y_down_z_forward",
-            "position_world_m": t_W_C.tolist(),
-            "quaternion_world_xyzw": q_W_C.tolist(),
-            "poses_in_robot_roots": poses,
+    return roots
+
+
+def poses_in_robot_roots(
+    roots: dict[str, np.ndarray], t_W_F: np.ndarray, q_W_F: np.ndarray
+) -> dict[str, dict[str, list[float]]]:
+    """Express a world pose of frame F in each robot root frame R.
+
+    Args:
+        roots: World poses T_W_R of robot roots, as XYZ then XYZW, indexed by asset name.
+        t_W_F: Position of F in the world frame, in meters.
+        q_W_F: XYZW rotation from F into the world frame.
+
+    Returns:
+        Position and XYZW quaternion of F in each root frame, indexed by asset name.
+    """
+    poses = {}
+    for asset_name, T_W_R in roots.items():
+        q_R_W = Rotation.from_quat(T_W_R[3:]).inv()
+        poses[asset_name] = {
+            "position_root_m": q_R_W.apply(t_W_F - T_W_R[:3]).tolist(),
+            "quaternion_root_xyzw": (q_R_W * Rotation.from_quat(q_W_F)).as_quat().tolist(),
         }
-    return geometry
+    return poses
 
 
 def _read_mounted_camera_pose_w(base, camera_cfg, env_id: int) -> tuple[np.ndarray, np.ndarray]:

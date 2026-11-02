@@ -48,11 +48,11 @@ def _test_vlm_experiment(simulation_app):
     wrist_positions = []
     wrist_offset = DroidCameraCfg().wrist_camera.offset
     envs = []
-    extract_camera_geometry = observation_adapter._extract_camera_geometry
+    read_camera_views = observation_adapter._read_camera_views
 
     def record_env(env, images, env_id):
         envs.append(env)
-        return extract_camera_geometry(env, images, env_id)
+        return read_camera_views(env, images, env_id)
 
     def move_nearby(request):
         content = request.messages[1]["content"]
@@ -112,7 +112,7 @@ def _test_vlm_experiment(simulation_app):
     with tempfile.TemporaryDirectory() as output_dir:
         with (
             patch("isaaclab_arena_vlm_agent.vlm_agent_policy.InferenceBackend", return_value=backend),
-            patch.object(observation_adapter, "_extract_camera_geometry", record_env),
+            patch.object(observation_adapter, "_read_camera_views", record_env),
         ):
             result = build_and_run(run, output_dir)
         assert result.status is RunStatus.COMPLETED

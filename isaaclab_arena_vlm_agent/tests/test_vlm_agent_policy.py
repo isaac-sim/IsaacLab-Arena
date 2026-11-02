@@ -23,17 +23,20 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from isaaclab_arena.inference.backend import InferenceBackend, build_strict_schema
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
+from isaaclab_arena_vlm_agent.camera_view import CameraView
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 from isaaclab_arena_vlm_agent.motion_generator import MotionGenerator
+from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
 from isaaclab_arena_vlm_agent.observation_adapter import (
     CAMERA_OBSERVATION_GROUP,
     ImageStateObservationAdapter,
     VLMObservationAdapter,
 )
-from isaaclab_arena_vlm_agent.pixel_measurement import (
+from isaaclab_arena_vlm_agent.pixel_measurement_tools import (
+    MEASURE_POINT_TOOL,
     PIXEL_MEASUREMENT_PROMPT,
-    CameraView,
-    PixelMeasurementObservationAdapter,
+    ZOOM_TOOL,
+    PixelMeasurementToolSet,
 )
 from isaaclab_arena_vlm_agent.response_errors import InvalidAgentResponseError
 from isaaclab_arena_vlm_agent.vlm_agent_policy import (
@@ -652,26 +655,23 @@ def test_missing_camera_keys_fail_before_inference(backend):
     backend.client.chat.completions.create.assert_not_called()
 
 
-class FlatDepthMeasurement(PixelMeasurementObservationAdapter):
+class FlatDepthAdapter(ObservationAdapter):
     """Report a surface 2 m in front of a camera at the robot root, for every pixel."""
 
-    def __init__(self, **kwargs):
-        super().__init__(ObservationAdapter(include_joint_positions=False), 8, **kwargs)
-
-    def read_camera_views(self, env, images, env_id, geometry, sent_sizes):
+    def read_camera_views(self, env, observation, env_id):
+        images, _ = self.extract_vlm_input_from_observation(env, observation, env_id)
         image = images["front_view"]
         height, width = image.shape[:2]
-        intrinsics = np.array([[10.0, 0.0, width / 2], [0.0, 10.0, height / 2], [0.0, 0.0, 1.0]])
-        return {
-            "front_view": CameraView(
-                rgb=image,
-                depth=np.full((height, width), 2.0),
-                intrinsic_matrix=intrinsics,
-                t_R_C=np.zeros(3),
-                q_R_C=np.array([0.0, 0.0, 0.0, 1.0]),
-                sent_size=sent_sizes["front_view"],
-            )
-        }
+        pose = {"position_root_m": [0.0, 0.0, 0.0], "quaternion_root_xyzw": [0.0, 0.0, 0.0, 1.0]}
+        view = CameraView(
+            rgb=image,
+            intrinsic_matrix=np.array([[10.0, 0.0, width / 2], [0.0, 10.0, height / 2], [0.0, 0.0, 1.0]]),
+            t_W_C=np.zeros(3),
+            q_W_C=np.array(pose["quaternion_root_xyzw"]),
+            poses_in_robot_roots={"robot": pose},
+            depth=np.full((height, width), 2.0),
+        )
+        return {"front_view": view}
 
 
 class NonEmptyTargetResponse(BaseModel):
@@ -685,91 +685,111 @@ class NonEmptyTargetAdapter(ActionAdapter):
     response_model = NonEmptyTargetResponse
 
 
-def make_measurement_policy(backend, observation_adapter, **kwargs):
+def make_measurement_policy(backend, observation_adapter, tool_set=None, **kwargs):
     config = VLMPolicyCfg(system_prompt="Return the joint targets.", image_max_width_or_height=8, **kwargs)
     policy = SingleCommandPolicy(
         config,
         inference_backend=backend,
         observation_adapter=observation_adapter,
         action_adapter=NonEmptyTargetAdapter(),
+        tool_set=tool_set,
     )
     policy.set_task_description("Move to the target")
     return policy
 
 
-MEASUREMENT_REQUEST = {
-    "target": [],
-    "zoom_requests": [{"camera": "front_view", "u": 4.0, "v": 2.0, "half_size": 20.0}],
-    "point_queries": [{"camera": "front_view", "u": 4.0, "v": 2.0}],
-}
+def tool_call_response(*calls):
+    tool_calls = [
+        SimpleNamespace(id=f"call_{index}", function=SimpleNamespace(name=name, arguments=json.dumps(arguments)))
+        for index, (name, arguments) in enumerate(calls)
+    ]
+    message = SimpleNamespace(content=None, refusal=None, tool_calls=tool_calls)
+    return SimpleNamespace(choices=[SimpleNamespace(message=message, finish_reason="tool_calls")])
 
 
-def test_pixel_measurement_answers_requests_with_placeholder_actions(backend):
-    replies = [MEASUREMENT_REQUEST, {"target": [1, 2], "zoom_requests": [], "point_queries": []}]
-    replies.append({"target": [3, 4], "zoom_requests": [], "point_queries": []})
+ZOOM_CALL = (ZOOM_TOOL, {"camera": "front_view", "u": 4.0, "v": 2.0, "half_size": 20.0})
+POINT_CALL = (MEASURE_POINT_TOOL, {"camera": "front_view", "u": 4.0, "v": 2.0})
+
+
+def record_replies(backend, replies):
     calls = []
 
     def create(**kwargs):
         calls.append(copy.deepcopy(kwargs))
-        return response(json.dumps(replies[min(len(calls), len(replies)) - 1]))
+        return replies[len(calls) - 1]
 
     backend.client.chat.completions.create.side_effect = create
-    policy = make_measurement_policy(backend, FlatDepthMeasurement())
+    return calls
+
+
+def test_pixel_measurement_tool_calls_are_answered_before_the_action(backend):
+    replies = [tool_call_response(ZOOM_CALL, POINT_CALL), response('{"target": [1, 2]}')]
+    replies += [response('{"target": [3, 4]}'), response('{"target": [1, 2]}'), response('{"target": [3, 4]}')]
+    calls = record_replies(backend, replies)
+    policy = make_measurement_policy(
+        backend, FlatDepthAdapter(include_joint_positions=False), PixelMeasurementToolSet(8)
+    )
     env, observation = inputs()
     try:
         torch.testing.assert_close(policy.get_action(env, observation), torch.tensor([[1.0, 1.0], [1.0, 1.0]]))
         assert len(calls) == 3
-        assert calls[0]["messages"][0]["content"].endswith(PIXEL_MEASUREMENT_PROMPT.strip())
-        properties = calls[0]["response_format"]["json_schema"]["schema"]["properties"]
-        assert {"target", "zoom_requests", "point_queries"} <= set(properties)
-        # The empty placeholder target would fail validation, but the requests are answered first.
-        reply = calls[1]["messages"][-1]["content"]
-        assert [part["type"] for part in reply] == ["text", "image_url", "text"]
-        measurement = json.loads(reply[2]["text"])["point_measurements"][0]
+        assert calls[0]["messages"][0]["content"].endswith(PIXEL_MEASUREMENT_PROMPT)
+        assert [tool["function"]["name"] for tool in calls[0]["tools"]] == [ZOOM_TOOL, MEASURE_POINT_TOOL]
+        # The action schema has no tool fields; tools are offered separately.
+        assert set(calls[0]["response_format"]["json_schema"]["schema"]["properties"]) == {"target"}
+        messages = calls[1]["messages"]
+        assert [message["role"] for message in messages] == ["system", "user", "assistant", "tool", "tool", "user"]
+        assert [part["type"] for part in messages[-1]["content"]] == ["text", "image_url"]
         # The transmitted center pixel looks straight along the optical axis.
-        np.testing.assert_allclose(measurement["point_root_m"], [0.0, 0.0, 2.0], atol=1e-4)
-        assert len(calls[2]["messages"]) == 2  # Measurement rounds for env 0 must not leak into env 1.
+        np.testing.assert_allclose(json.loads(messages[4]["content"])["point_root_m"], [0.0, 0.0, 2.0], atol=1e-4)
+        assert len(calls[2]["messages"]) == 2  # Tool calls for env 0 must not leak into env 1.
         policy.get_action(env, observation)
         texts = [part["text"] for part in calls[3]["messages"][1]["content"] if part["type"] == "text"]
         remembered = [json.loads(text) for text in texts if "recent_point_measurements" in text]
         assert remembered[0]["recent_point_measurements"][0]["decisions_ago"] == 1
-        policy._reset_observation_adapter(torch.tensor([0]))
-        assert policy.observation_adapter.recent_measurements(0) == []
+        policy._reset_tool_set(torch.tensor([0]))
+        assert policy.tool_set.recent_measurements(0) == []
     finally:
         policy.close()
 
 
 def test_pixel_measurement_rounds_are_bounded(backend):
-    # Env 0 points once, then repeats its requests with an action; env 1 acts at once.
-    replies = [MEASUREMENT_REQUEST, {**MEASUREMENT_REQUEST, "target": [1, 2]}]
-    replies.append({"target": [3, 4], "zoom_requests": [], "point_queries": []})
-    calls = []
-
-    def create(**kwargs):
-        calls.append(copy.deepcopy(kwargs))
-        return response(json.dumps(replies[len(calls) - 1]))
-
-    backend.client.chat.completions.create.side_effect = create
-    policy = make_measurement_policy(backend, FlatDepthMeasurement(max_rounds=1))
+    # Env 0 calls tools, calls them again despite tool_choice none, then acts; env 1 acts at once.
+    replies = [tool_call_response(POINT_CALL), tool_call_response(POINT_CALL)]
+    replies += [response('{"target": [1, 2]}'), response('{"target": [3, 4]}')]
+    calls = record_replies(backend, replies)
+    tool_set = PixelMeasurementToolSet(8, max_rounds=1)
+    policy = make_measurement_policy(backend, FlatDepthAdapter(include_joint_positions=False), tool_set)
     try:
-        # After the only round, requests are ignored and the action fields are decoded.
         torch.testing.assert_close(policy.get_action(*inputs()), torch.ones((2, 2)))
-        assert len(calls) == 3
-        assert "return an action now" in calls[1]["messages"][-1]["content"][-1]["text"]
+        assert len(calls) == 4
+        assert "tool_choice" not in calls[0] and calls[1]["tool_choice"] == "none"
+        assert "No tool calls remain" in calls[1]["messages"][-1]["content"][-1]["text"]
+        # Tool calls after the last round are rejected and count as an attempt.
+        assert "Invalid actions: No tool calls remain" in calls[2]["messages"][-1]["content"]
     finally:
         policy.close()
+    with pytest.raises(AssertionError, match="exceeds policy.image_max_width_or_height"):
+        make_measurement_policy(backend, FlatDepthAdapter(), PixelMeasurementToolSet(16))
 
 
-def test_pixel_measurement_requires_camera_images():
+def test_config_builds_adapters_and_tools_and_appends_prompt_files(backend, tmp_path):
+    prompt_path = tmp_path / "task.txt"
+    prompt_path.write_text("The peg is 0.1 m tall.\n")
+    policy = make_measurement_policy(
+        backend, None, object_poses=["gear"], pixel_measurement=True, system_prompt_files=[str(prompt_path)]
+    )
+    try:
+        assert isinstance(policy.observation_adapter, ObjectPoseObservationAdapter)
+        assert policy.observation_adapter.scene_keys == ("gear",)
+        assert isinstance(policy.observation_adapter.observation_adapter, ImageStateObservationAdapter)
+        assert isinstance(policy.tool_set, PixelMeasurementToolSet)
+        assert policy._system_prompt == "\n\n".join(
+            ["Return the joint targets.", "The peg is 0.1 m tall.", PIXEL_MEASUREMENT_PROMPT]
+        )
+    finally:
+        policy.close()
     with pytest.raises(AssertionError, match="pixel_measurement requires camera images"):
         VLMPolicyCfg(system_prompt="Act.", observation_modality="state", pixel_measurement=True)
-
-
-def test_pixel_measurement_config_wraps_the_modality_adapter(backend):
-    policy = make_measurement_policy(backend, None, pixel_measurement=True)
-    try:
-        assert isinstance(policy.observation_adapter, PixelMeasurementObservationAdapter)
-        assert isinstance(policy.observation_adapter.image_adapter, ImageStateObservationAdapter)
-        assert make_policy(backend).observation_adapter.max_tool_rounds == 0
-    finally:
-        policy.close()
+    with pytest.raises(AssertionError, match="System prompt file does not exist"):
+        VLMPolicyCfg(system_prompt="Act.", system_prompt_files=[str(tmp_path / "missing.txt")])

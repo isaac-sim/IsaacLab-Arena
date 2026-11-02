@@ -3,106 +3,54 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Run inside the Arena runtime with NV_API_KEY set:
+# VLMGoalPolicy on gear insertion, with three ways for the model to locate the gear and the pegs:
+# - images: camera images and robot state only.
+# - object_poses: also the exact gear and target poses, as privileged state.
+# - pixel_measurement: the model zooms into images and measures 3D points from camera depth.
+# Run inside the Arena runtime with NV_API_KEY set, from the repository root so the prompt files are found:
 # python isaaclab_arena/evaluation/experiment_runner.py --viz none \
 #   --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_experiment.yaml
-# The policy sees only camera images and robot state. pixel_measurement lets it zoom into images and measure 3D points
-# from camera depth; cameras render at 1280x720 with depth and are sent at 640 pixels, so zoomed crops show
-# twice the detail of the full images. The system prompt adds gear-insertion geometry and strategy.
+# Add ~runs.<name> to skip a Run, for example ~runs.images.
+shared:
+  environment:
+    type: gear_insertion
+    enable_cameras: true
+    embodiment: droid_abs_ik
+    camera_depth: true
+  environment_builder:
+    num_envs: 1
+    language_instruction: >-
+      Pick up the loose gear on the table and insert it onto the middle peg of the gear base,
+      so the gear slides down the peg and sits flat on the base.
+  policy:
+    type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
+    endpoint: internal
+    vlm_embodiment_adapter: droid
+    observation_modality: image_state
+    # Send the DROID cameras' full 1280x720 images.
+    image_max_width_or_height: 1280
+    max_steps_per_goal: 30
+    # Match GearInsertionCriteria: 3.5 mm lateral error and 5 degrees from upright.
+    position_tolerance_m: 0.0035
+    rotation_tolerance_rad: 0.0873
+    system_prompt_files:
+      - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion.txt
+  rollout_limit:
+    num_episodes: 5
+
 runs:
-  droid_gear_insertion_vlm_goal:
-    environment:
-      type: gear_insertion
-      enable_cameras: true
-      embodiment: droid_abs_ik
-      camera_width: 1280
-      camera_height: 720
-      camera_depth: true
-    environment_builder:
-      num_envs: 1
-      language_instruction: >-
-        Pick up the loose gear on the table and insert it onto the middle peg of the gear base,
-        so the gear slides down the peg and sits flat on the base. Grasp the gear from above, lift it clear of the
-        pegs, center its hole over the middle peg, lower it onto the peg, and open the gripper to release it.
+  images: {}
+
+  object_poses:
     policy:
-      type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
-      endpoint: internal
-      vlm_embodiment_adapter: droid
-      observation_modality: image_state
+      object_poses: [gear_insertion_medium_gear, medium_gear_target]
+      system_prompt_files:
+        - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion.txt
+        - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion_object_poses.txt
+
+  pixel_measurement:
+    policy:
       pixel_measurement: true
-      image_max_width_or_height: 640
-      max_steps_per_goal: 30
-      # Match GearInsertionCriteria: 3.5 mm lateral error and 5 degrees from upright.
-      position_tolerance_m: 0.0035
-      rotation_tolerance_rad: 0.0873
-      system_prompt: >-
-        Control DROID to complete the supplied task using the current camera images and robot state.
-        Return one goal as a JSON object with a values list of eight numbers. The goal is held until it is reached,
-        blocked, or its step budget runs out. After the first goal, previous_goal reports the last goal's values,
-        executed_steps, and outcome: reached (within tolerance), blocked (the arm and gripper stopped moving short
-        of the goal, for example because the fingers or the held gear touch the table, the base, or a peg), or
-        timeout (the budget ran out while still moving). Do not resend a blocked goal unchanged; correct it from
-        the images and current pose. The values are absolute XYZ in meters and a unit XYZW quaternion for the
-        gripper base_link body, expressed in the robot root frame, followed by the gripper command (0 opens,
-        1 closes). camera_geometry gives each named image's size, intrinsics, and pose for reference. All
-        quaternions in input and output use XYZW. policy.eef_pos is in world meters and policy.eef_quat is the
-        gripper's world orientation in XYZW. Read the current commanded-body pose from
-        command_body_poses.arm_action. This body is not the finger midpoint. The grasp point between the open
-        finger pads is 0.131 m along base_link's local +X axis, toward the fingertips, and the fingers close
-        along local Y. The episode starts with the fingers pointing straight down. Keep that orientation for
-        every goal: copy the current quaternion from command_body_poses.arm_action, because tilting the gripper
-        tilts the gear and it will not slide onto the peg. With the fingers pointing down, base_link sits
-        0.131 m above the grasp point.
-        Scene geometry in the robot root frame: the table top is at z = 0.071 m. The gear lies flat and has two
-        parts: a toothed ring 0.063 m across and 0.016 m thick at the bottom, and a smooth cylindrical hub
-        0.045 m across that rises 0.021 m above the teeth. On the table the teeth top is at z = 0.088 m and the
-        hub top at z = 0.110 m. A 0.016 m hole runs through the center. The gear base is a fixed flat cyan plate
-        with rounded lobes and small dark screw holes. Its three vertical pegs are the same cyan, show only as
-        short upright stubs with faint shading, and have tops at about z = 0.108 m. They stand in one row along
-        the robot root +X axis, all at the same y: the near peg (closest to the robot), the target middle peg
-        0.075 m farther in +X, and the far peg 0.047 m beyond the middle one. The middle peg must pass 0.03 m up
-        into the gear hole.
-        Measuring: the camera images are sent at 640 pixels wide (external_camera_rgb, external_camera_2_rgb,
-        wrist_camera_rgb). Always zoom before pointing at the gear or a peg: zoom with half_size about 40 around
-        the object, then about 15 around the exact spot, then point. Find a peg candidate in the zoom and
-        confirm it by depth: send several point queries a few pixels apart around the candidate in one round. A
-        peg top reads z between 0.100 and 0.115 m, the plate about 0.08 m, and the table 0.071 m. Keep a peg
-        measurement only if its z is in that range; otherwise zoom closer and query again, or use another
-        camera, because the gripper often hides the base from one camera. A peg-height point is not necessarily
-        the middle peg: measure at least two pegs and use their x spacing to identify which is which, then take
-        the middle one; the base never moves, so once the middle peg is confirmed keep using that measurement.
-        A point on the gear hub top reads about 0.110 m when the gear is on the table. To find the gear's hole
-        axis, point at two opposite spots on the hub's flat top face across the hole, never into the hole, and
-        average them.
-        Grasp only the hub: center base_link over the hole so both fingers straddle the hub, and put the grasp
-        point 0.007 m below the measured hub top (base_link at measured hub top z + 0.124 m, near z = 0.234 m)
-        so the finger pads close on the hub above the teeth. Never grasp across the teeth or off center; that
-        tilts the gear in the fingers. Strategy, one goal per step: (1) with the gripper open, move base_link to
-        z = 0.30 m directly above the hole, checking centering in the wrist camera; (2) keep the gripper open (0)
-        and descend straight down to the hub grasp height. Never close the gripper in the same goal as a
-        descent: closing while moving lands the fingers on top of the hub and pushes the gear. The arm often
-        stops a few millimeters short of the commanded grasp height: a descent blocked within 0.008 m above the
-        grasp height has reached the hub, so go straight to step (3) at the current pose. Only if it is blocked
-        more than 0.008 m above the grasp height are the open fingers touching the gear: lift to z = 0.30 m,
-        re-center over the hole, and descend again, at most twice; after that, close at the lowest height
-        reached; (3) only after base_link has reached or stopped near the grasp height, send the same pose with
-        the gripper closed (1) to close the fingers on the hub without moving the arm; (4) keep the gripper
-        closed from then on and lift base_link to z = 0.30 m so the gear clears the peg tops; check in the images
-        that the gear rose with the fingers, level and centered between them; if not, put it down, open, and
-        regrasp; (5) measure the held gear's hole axis (two opposite hub top points in an external camera) and
-        the middle peg top (a recent measurement is fine), move base_link horizontally by peg xy minus gear-axis
-        xy, and re-measure until the gear hole is directly above the middle peg, then lower base_link to
-        z = 0.28 m, which leaves the gear bottom about 0.01 m above the peg top. The held gear hides the peg from
-        the wrist camera, so check alignment in both external cameras: the peg must be hidden under the hub
-        center, not beside the gear; correct in steps of a few millimeters until it is; (6) lower straight down
-        in steps of at most 0.01 m. When seated, the gear rests 0.0065 m higher than on the table, so base_link
-        ends near z = 0.2405 m. A descent blocked above z = 0.25 m means the hole is not on the peg: lift
-        0.01 m, shift a few millimeters toward the peg center, and lower again; (7) open the gripper only when
-        base_link is within 0.005 m of the seated height, then lift straight up to z = 0.30 m. Recovery: if the
-        gear tilts in the fingers, lower it until it touches the table, open, lift, and regrasp the hub. If the
-        gear rests on the base but is not seated, regrasp its hub at its current height, lift 0.02 m, re-center
-        over the peg, and lower again. Every regrasp uses the same order: open, descend open, then close in a
-        separate goal. The gear must end within 3.5 mm of the peg axis and level. Follow the response schema
-        exactly, with no explanatory text.
-    rollout_limit:
-      num_episodes: 5
+      system_prompt_files:
+        - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion.txt
+        - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion_pixel_measurement.txt
