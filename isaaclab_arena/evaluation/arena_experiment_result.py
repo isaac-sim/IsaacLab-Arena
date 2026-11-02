@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
+from isaaclab_arena.evaluation.single_line_string import is_single_line_nonempty_string
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
@@ -98,7 +99,7 @@ def read_experiment_result(output_dir: Path) -> ArenaExperimentResultData:
         f"Experiment result in '{output_dir}' has no benchmark_id; results written before benchmark ids were"
         " recorded cannot produce KPI records"
     )
-    assert _is_single_line_nonempty_string(
+    assert is_single_line_nonempty_string(
         benchmark_id
     ), f"benchmark_id in Experiment result in '{output_dir}' must be a non-empty single-line string"
     for run_name, run_result in runs.items():
@@ -128,11 +129,6 @@ def get_git_stamp(result: ArenaExperimentResultData) -> GitStamp:
 def all_runs_completed(result: ArenaExperimentResultData) -> bool:
     """Return whether every Run of an Experiment result has the completed status."""
     return all(run_result["status"] == "completed" for run_result in result["runs"].values())
-
-
-def _is_single_line_nonempty_string(value: object) -> bool:
-    """Return whether a value is a non-empty string without line breaks."""
-    return isinstance(value, str) and bool(value) and "\n" not in value and "\r" not in value
 
 
 def _require_nonempty_string(value: object, field_name: str) -> str:
@@ -198,7 +194,7 @@ class ArenaExperimentResult:
             benchmark_id: Benchmark the Experiment belongs to, a non-empty single-line string.
         """
         assert run_metadata_by_name, "run_metadata_by_name must not be empty"
-        assert _is_single_line_nonempty_string(
+        assert is_single_line_nonempty_string(
             benchmark_id
         ), f"benchmark_id must be a non-empty single-line string, got {benchmark_id!r}"
         self._benchmark_id = benchmark_id

@@ -54,7 +54,7 @@ def load_arena_experiment_from_config_file(
 
     Returns:
         The loaded, typed Experiment configuration with the process device applied. Its name is the
-        one set by the file or an override, else the file stem.
+        one set by an override or the file, else the file stem; an explicit null override leaves it None.
     """
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
@@ -86,7 +86,7 @@ def load_arena_experiment_from_config_file(
             environment_builder=environment_builder_with_process_device,
         )
         runs_with_process_device[run_name] = run_config_with_process_device
-    return ArenaExperimentCfg(runs=runs_with_process_device, name=experiment_cfg.name or path.stem)
+    return ArenaExperimentCfg(runs=runs_with_process_device, name=experiment_cfg.name)
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:

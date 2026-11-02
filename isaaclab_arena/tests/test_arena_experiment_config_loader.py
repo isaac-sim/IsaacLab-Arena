@@ -156,6 +156,27 @@ def test_numeric_looking_name_override_stays_a_string(monkeypatch):
     assert experiment_cfg.name == "2024"
 
 
+def test_quoted_boolean_like_name_override_keeps_its_text(monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name='true'"]
+    )
+
+    assert experiment_cfg.name == "true"
+
+
+def test_null_name_override_is_not_replaced_by_the_stem(monkeypatch):
+    """An explicit null leaves the Experiment unnamed; the workflow and KPI export reject an unnamed Experiment."""
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name=null"]
+    )
+
+    assert experiment_cfg.name is None
+
+
 @pytest.mark.parametrize("name", ["", "two\nlines"])
 def test_experiment_name_must_be_a_non_empty_single_line(name):
     run_cfg = _experiment_cfg().runs["baseline"]

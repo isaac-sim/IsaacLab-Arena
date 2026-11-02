@@ -55,8 +55,10 @@ def load_arena_experiment_from_yaml(
     Each entry in the runs mapping declares one Run using its key as the Run
     name. The environment.type selector chooses from the supplied mapping, or
     names a graph-spec YAML path; policy.type is resolved when its Run is built.
-    Hydra overrides can update shared Run defaults, the optional top-level Experiment name, or
+    Hydra overrides can update shared Run defaults, the Experiment name, or
     fields on Runs declared in YAML, but cannot add Runs. Shared defaults are applied before Run overrides.
+    The Experiment name is the file's top-level ``name`` or, when it has none, the file stem; an override
+    ``name=<x>`` replaces it, and ``name=null`` leaves the Experiment unnamed.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
@@ -65,7 +67,8 @@ def load_arena_experiment_from_yaml(
         overrides: Hydra field overrides for shared Run defaults or Runs already declared in YAML.
 
     Returns:
-        The typed Experiment Definition, preserving YAML mapping declaration order.
+        The typed Experiment Definition, preserving YAML mapping declaration order. Its name is None only when
+        an override set it to null.
     """
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 
@@ -74,7 +77,7 @@ def load_arena_experiment_from_yaml(
         yaml_path,
         shared_default_overrides=shared_default_overrides,
     )
-    experiment_name = _read_experiment_name_from_yaml(yaml_path)
+    default_experiment_name = _read_experiment_name_from_yaml(yaml_path) or Path(yaml_path).stem
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_typed_experiment_loader"
@@ -96,7 +99,7 @@ def load_arena_experiment_from_yaml(
             hydra_experiment_config_name = f"{hydra_config_namespace}_root"
             config_store.store(
                 name=hydra_experiment_config_name,
-                node=ArenaExperimentCfg(runs=arena_runs_by_name, name=experiment_name),
+                node=ArenaExperimentCfg(runs=arena_runs_by_name, name=default_experiment_name),
             )
             composed_experiment = compose(config_name=hydra_experiment_config_name, overrides=run_overrides)
             experiment_cfg = OmegaConf.to_object(composed_experiment)
