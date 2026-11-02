@@ -23,6 +23,8 @@ BENCHMARK_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "overrides", "kpis"}
 
+REQUIRED_BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "kpis"}
+
 RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url", "experiment_cfg.name", "osmo.kpi_exporters")
 """OSMO settings chosen per launch, which a benchmark entry must not fix."""
 
@@ -56,6 +58,8 @@ def test_benchmark_entry_is_well_formed(entry):
     ), f"benchmark name {name!r} must match {BENCHMARK_NAME_PATTERN.pattern}"
     unknown_keys = set(entry) - BENCHMARK_ENTRY_KEYS
     assert not unknown_keys, f"benchmark {name!r} has unknown keys {sorted(unknown_keys)}"
+    missing_keys = REQUIRED_BENCHMARK_ENTRY_KEYS - set(entry)
+    assert not missing_keys, f"benchmark {name!r} is missing required keys {sorted(missing_keys)}"
 
     experiment_cfg = entry.get("experiment_cfg")
     assert isinstance(experiment_cfg, str), f"benchmark {name!r} needs a string experiment_cfg"
@@ -76,19 +80,41 @@ def test_benchmark_entry_is_well_formed(entry):
         ), f"benchmark {name!r} override {override!r} sets reserved key {override_key!r}"
 
 
-@pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
-def test_benchmark_kpis_name_known_exporters(entry):
-    if "kpis" not in entry:
-        return
+def _assert_kpis_are_valid(entry: dict) -> None:
+    """Check that a benchmark entry lists its KPIs as unique, known exporter names."""
+    name = entry.get("name")
+    assert "kpis" in entry, f"benchmark {name!r} must list its kpis"
     kpis = entry["kpis"]
     assert (
         isinstance(kpis, list) and kpis and all(isinstance(kpi, str) for kpi in kpis)
-    ), f"benchmark {entry.get('name')!r} kpis must be a non-empty list of strings"
+    ), f"benchmark {name!r} kpis must be a non-empty list of strings"
     unknown_kpis = [kpi for kpi in kpis if kpi not in EXPORTERS_BY_NAME]
-    assert not unknown_kpis, (
-        f"benchmark {entry.get('name')!r} kpis {unknown_kpis} are not exporters; valid names are"
-        f" {sorted(EXPORTERS_BY_NAME)}"
-    )
+    assert (
+        not unknown_kpis
+    ), f"benchmark {name!r} kpis {unknown_kpis} are not exporters; valid names are {sorted(EXPORTERS_BY_NAME)}"
+    assert len(kpis) == len(set(kpis)), f"benchmark {name!r} kpis {kpis} contain duplicates"
+
+
+@pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
+def test_benchmark_kpis_name_known_exporters(entry):
+    _assert_kpis_are_valid(entry)
+
+
+@pytest.mark.parametrize(
+    "invalid_entry",
+    [
+        {"name": "no-kpis"},
+        {"name": "empty", "kpis": []},
+        {"name": "not-a-list", "kpis": "timing"},
+        {"name": "not-strings", "kpis": [1]},
+        {"name": "unknown", "kpis": ["latency"]},
+        {"name": "duplicate", "kpis": ["timing", "timing"]},
+    ],
+    ids=lambda entry: entry["name"],
+)
+def test_invalid_kpis_are_rejected(invalid_entry):
+    with pytest.raises(AssertionError):
+        _assert_kpis_are_valid(invalid_entry)
 
 
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
@@ -102,6 +128,9 @@ def test_benchmark_renders_an_osmo_workflow_dry_run(entry):
             entry["experiment_cfg"],
             "--dry_run",
             *entry.get("overrides", []),
+            # The per-launch settings an internal launcher adds from the entry.
+            f"osmo.kpi_exporters=[{','.join(entry['kpis'])}]",
+            f"experiment_cfg.name='{entry['name']}'",
         ],
         cwd=REPO_ROOT,
         capture_output=True,
