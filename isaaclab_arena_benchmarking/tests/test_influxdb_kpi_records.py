@@ -184,3 +184,12 @@ def test_exporter_cannot_be_instantiated_without_its_abstract_methods():
 def test_exporter_declares_the_record_types_it_builds():
     assert typing.get_type_hints(InfluxdbKpiExporter)["record_types"] == typing.ClassVar[tuple[str, ...]]
     assert _TestExporter.record_types == (_TestRecord.record_type,)
+
+
+def test_export_to_json_writes_no_file_without_records(tmp_path, capsys):
+    (tmp_path / "names.txt").write_text("", encoding="utf-8")
+
+    assert _TestExporter().export_to_json(tmp_path) is None
+
+    assert not (tmp_path / TEST_RECORDS_FILENAME).exists()
+    assert TEST_RECORDS_FILENAME in capsys.readouterr().out

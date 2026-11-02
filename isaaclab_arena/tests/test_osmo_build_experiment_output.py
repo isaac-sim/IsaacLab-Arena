@@ -547,7 +547,7 @@ class _FailingSuccessRateExporter(SuccessRateKpiExporter):
         raise RuntimeError("success rate exporter broke")
 
 
-def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch):
+def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch, capsys):
     experiment_runner_output_directory = tmp_path / "experiment-runner-output"
     _write_run_output(experiment_runner_output_directory / "run_a", "run_a", True)
     _write_run_timings(experiment_runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
@@ -565,3 +565,6 @@ def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch)
     assert (experiment_output_directory / "index.html").is_file()
     assert not (experiment_output_directory / "kpis_success_rates.json").exists()
     assert (experiment_output_directory / "kpis_timing.json").is_file()
+    printed = capsys.readouterr().out
+    assert "success_rate" in printed
+    assert "success rate exporter broke" in printed

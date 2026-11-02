@@ -170,17 +170,22 @@ class InfluxdbKpiExporter(ABC):
             The KPI records of the output directory.
         """
 
-    def export_to_json(self, output_dir: Path) -> Path:
+    def export_to_json(self, output_dir: Path) -> Path | None:
         """Build the records of an output directory and write them to the records file in that directory.
+
+        A file with no records is not valid for ingestion, so nothing is written when there are no records.
 
         Args:
             output_dir: Directory holding the results to build records from; the records file is written into it.
 
         Returns:
-            Path to the written records file.
+            Path to the written records file, or None when there were no records and no file was written.
         """
         output_dir = Path(output_dir)
         records = self.build_records_from_output_dir(output_dir)
+        if not records:
+            print(f"No InfluxDB KPI records to write for: {self.get_records_filename()}")
+            return None
         assert_unique_tag_sets(records)
         records_path = output_dir / self.get_records_filename()
         records_json = json.dumps([record.to_flat_dict() for record in records], allow_nan=False, indent=2)
