@@ -53,7 +53,8 @@ def load_arena_experiment_from_config_file(
         overrides: Hydra overrides applied to typed YAML Experiments.
 
     Returns:
-        The loaded, typed Experiment configuration with the process device applied.
+        The loaded, typed Experiment configuration with the process device applied. Its name is the
+        one set by the file or an override, else the file stem.
     """
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
@@ -65,7 +66,7 @@ def load_arena_experiment_from_config_file(
         with path.open(encoding="utf-8") as experiment_config_file:
             legacy_experiment_config = json.load(experiment_config_file)
         run_cfgs = run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
-        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs})
+        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs}, name=path.stem)
 
     experiment_cfg = load_arena_experiment_from_yaml(
         path,
@@ -85,7 +86,7 @@ def load_arena_experiment_from_config_file(
             environment_builder=environment_builder_with_process_device,
         )
         runs_with_process_device[run_name] = run_config_with_process_device
-    return ArenaExperimentCfg(runs=runs_with_process_device)
+    return ArenaExperimentCfg(runs=runs_with_process_device, name=experiment_cfg.name or path.stem)
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
