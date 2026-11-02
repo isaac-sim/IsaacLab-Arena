@@ -10,7 +10,8 @@ its ``<run-name>/...`` output is included. Completed Run directories are copied 
 ``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. The
 ``arena_experiment_result.json`` and ``index.html`` report list every Run execution and include episode details only
 from completed Runs. ``arena_experiment_timings.json`` holds each completed Run's timings and their per-timer totals.
-``arena_experiment_influxdb_kpi_records.json`` holds the Experiment's KPIs as records ready for InfluxDB.
+``kpis_*.json`` files hold the Experiment's KPIs as records ready for InfluxDB; they are written only when every Run
+completed.
 """
 
 from __future__ import annotations
@@ -21,12 +22,12 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment_kpi_exporter import ArenaExperimentKpiExporter
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
+from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 
@@ -203,7 +204,8 @@ def build_experiment_output(
     )
     print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
     report_path = build_report(experiment_output_directory, run_executions=run_execution_reports)
-    ArenaExperimentKpiExporter().export_to_json(experiment_output_directory)
+    # A raising exporter must not fail the collector, so the Experiment output is still published.
+    export_kpis(experiment_output_directory, raise_on_exporter_failure=False)
     return report_path
 
 

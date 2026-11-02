@@ -152,13 +152,13 @@ def main():
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
     with SimulationAppContext(args_cli):
-        from isaaclab_arena.evaluation.arena_experiment_kpi_exporter import ArenaExperimentKpiExporter
         from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
         from isaaclab_arena.evaluation.arena_run import RunStatus, build_runs_info_table
         from isaaclab_arena.evaluation.run_execution import execute_experiment
         from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
         from isaaclab_arena.metrics.metrics_logger import MetricsLogger
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
+        from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
         experiment_cfg = load_arena_experiment_from_config_file(
             experiment_config_path,
@@ -205,8 +205,8 @@ def main():
         # Write HTML report.
         report_path = build_report(experiment_output_directory)
 
-        # Write KPI records for InfluxDB.
-        ArenaExperimentKpiExporter().export_to_json(experiment_output_directory)
+        # Write KPI records for InfluxDB; writes nothing when a Run failed.
+        export_kpis(experiment_output_directory)
 
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)

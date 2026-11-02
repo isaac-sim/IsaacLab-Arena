@@ -149,36 +149,11 @@ def assert_unique_tag_sets(records: list[InfluxdbKpiRecord]) -> None:
         record_index_by_tag_set[tag_set] = record_index
 
 
-@dataclass(kw_only=True)
-class TimingRecord(InfluxdbKpiRecord):
-    """Statistics of one timer, for one run or summed over every run."""
-
-    record_type: ClassVar[str] = "timing"
-
-    name: str
-    """Timer name."""
-
-    run_name: str
-    """Name of the run, or ``"all"`` for totals over every run."""
-
-    mean_ms: float
-    """Mean duration in milliseconds."""
-
-    total_ms: float
-    """Total duration in milliseconds."""
-
-    min_ms: float
-    """Shortest duration in milliseconds."""
-
-    max_ms: float
-    """Longest duration in milliseconds."""
-
-    count: int
-    """Number of timed intervals."""
-
-
 class InfluxdbKpiExporter(ABC):
     """Abstract base class for exporters that build KPI records from an output directory and write them to JSON."""
+
+    record_types: ClassVar[tuple[str, ...]]
+    """The ``type`` values of the records this exporter builds."""
 
     @abstractmethod
     def get_records_filename(self) -> str:
