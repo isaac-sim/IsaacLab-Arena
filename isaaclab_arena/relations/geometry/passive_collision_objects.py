@@ -38,6 +38,17 @@ def get_placement_collision_objects(
     checks those supports separately.
     """
     scene_assets = list(scene_assets)
+    for asset in placement_assets:
+        # A placed asset's mesh is treated as one solid, and a non-watertight one is replaced by its convex hull.
+        # For a room that hull fills the open space, so every candidate collides with it.
+        assert not (
+            isinstance(asset, Background)
+            and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
+        ), (
+            f"Background '{asset.name}' has relations and mesh collision, so placement would treat its whole mesh"
+            " as one solid, filling its open space. Remove its relations so placement treats it as a fixed"
+            " obstacle, and anchor an object reference to the support surface instead, such as a countertop prim."
+        )
     include_background = (
         default_collision_mode == CollisionMode.MESH
         or any(
