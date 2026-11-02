@@ -25,6 +25,7 @@ from isaaclab_arena_benchmarking.benchmarks import registry
 from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import SuccessRateKpiExporter
 from osmo.scripts.build_experiment_output import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
+    _parse_arguments,
     build_experiment_output,
     collect_run_outputs_into_experiment_output,
     load_experiment_runner_output_directories_by_run_name,
@@ -578,3 +579,62 @@ def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch,
     printed = capsys.readouterr().out
     assert "success_rate" in printed
     assert "success rate exporter broke" in printed
+
+
+def _parse_collector_arguments(monkeypatch, extra_arguments: list[str]):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "build_experiment_output.py",
+            "--experiment-runner-output-directories-file",
+            "runners.json",
+            "--experiment-output-directory",
+            "output",
+            "--benchmark-id",
+            BENCHMARK_ID,
+            *extra_arguments,
+        ],
+    )
+    return _parse_arguments()
+
+
+def test_collector_runs_every_kpi_exporter_by_default(monkeypatch):
+    parsed_arguments = _parse_collector_arguments(monkeypatch, [])
+
+    assert tuple(parsed_arguments.kpi_exporters) == registry.DEFAULT_EXPORTER_NAMES
+
+
+def test_collector_parses_selected_kpi_exporters(monkeypatch):
+    parsed_arguments = _parse_collector_arguments(monkeypatch, ["--kpi-exporters", "timing"])
+
+    assert parsed_arguments.kpi_exporters == ["timing"]
+
+
+def test_collector_rejects_unknown_kpi_exporter(monkeypatch, capsys):
+    with pytest.raises(SystemExit):
+        _parse_collector_arguments(monkeypatch, ["--kpi-exporters", "success_rate", "latency"])
+
+    assert "invalid choice: 'latency'" in capsys.readouterr().err
+
+
+def test_collector_writes_only_the_selected_kpi_records(tmp_path):
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(experiment_runner_output_directory / "run_a", "run_a", True)
+    _write_run_timings(experiment_runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        experiment_runner_output_directory,
+        RunStatus.COMPLETED,
+        0,
+        {"run_a": _run_metadata("environment", "pi05")},
+    )
+    experiment_output_directory = tmp_path / "experiment-output"
+
+    build_experiment_output(
+        {"run_a": experiment_runner_output_directory},
+        experiment_output_directory,
+        benchmark_id=BENCHMARK_ID,
+        kpi_exporters=["timing"],
+    )
+
+    assert (experiment_output_directory / "kpis_timing.json").is_file()
+    assert not (experiment_output_directory / "kpis_success_rates.json").exists()

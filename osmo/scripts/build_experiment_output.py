@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
@@ -27,7 +27,7 @@ from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
-from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
+from isaaclab_arena_benchmarking.benchmarks.registry import DEFAULT_EXPORTER_NAMES, EXPORTERS_BY_NAME, export_kpis
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 
@@ -182,6 +182,7 @@ def build_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
     benchmark_id: str,
+    kpi_exporters: Sequence[str] = DEFAULT_EXPORTER_NAMES,
 ) -> Path:
     """Build one complete Experiment output from Experiment Runner task outputs.
 
@@ -191,6 +192,7 @@ def build_experiment_output(
         experiment_output_directory: Experiment output directory containing one subdirectory per Run and
             ``index.html``.
         benchmark_id: Benchmark the Experiment belongs to, written into the Experiment result.
+        kpi_exporters: Names of the KPI exporters that write the Experiment's KPI records.
 
     Returns:
         Path to the generated Experiment report.
@@ -209,7 +211,7 @@ def build_experiment_output(
     print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
     report_path = build_report(experiment_output_directory, run_executions=run_execution_reports)
     # A raising exporter must not fail the collector, so the Experiment output is still published.
-    export_kpis(experiment_output_directory, raise_on_exporter_failure=False)
+    export_kpis(experiment_output_directory, kpi_exporters, raise_on_exporter_failure=False)
     return report_path
 
 
@@ -232,6 +234,13 @@ def _parse_arguments() -> argparse.Namespace:
         required=True,
         help="Benchmark the Experiment belongs to, recorded in the Experiment result and its KPI records",
     )
+    parser.add_argument(
+        "--kpi-exporters",
+        nargs="+",
+        choices=sorted(EXPORTERS_BY_NAME),
+        default=list(DEFAULT_EXPORTER_NAMES),
+        help="KPI exporters that write the Experiment's KPI records",
+    )
     return parser.parse_args()
 
 
@@ -245,6 +254,7 @@ def main() -> None:
         experiment_runner_output_directories_by_run_name,
         parsed_arguments.experiment_output_directory,
         parsed_arguments.benchmark_id,
+        parsed_arguments.kpi_exporters,
     )
 
 

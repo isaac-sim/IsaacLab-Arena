@@ -212,7 +212,7 @@ def main():
         report_path = build_report(experiment_output_directory)
 
         # Write KPI records for InfluxDB; writes nothing when a Run failed.
-        export_kpis(experiment_output_directory)
+        export_kpis(experiment_output_directory, args_cli.kpi_exporters)
 
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
