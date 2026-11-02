@@ -16,6 +16,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME  # noqa: E402
+from isaaclab_arena.visualization.report_data import build_experiment_summary  # noqa: E402
 from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import (  # noqa: E402
     PerExperimentRecord,
     SuccessRateKpiExporter,
@@ -53,7 +54,8 @@ def _write_jsonl(path: Path, records: list[dict]) -> None:
 def _write_experiment(experiment_output_directory: Path, runs: dict[str, dict]) -> Path:
     """Write a result file and the per-Run episode JSONL.
 
-    Each entry of ``runs`` may set ``episodes`` (records written to ``<run>/episode_results.jsonl``).
+    Each entry of ``runs`` may set ``episodes`` (records written to ``<run>/episode_results.jsonl``) and
+    ``end_timestamp_ns``.
     """
     result_runs = {}
     for run_name, run in runs.items():
@@ -65,7 +67,7 @@ def _write_experiment(experiment_output_directory: Path, runs: dict[str, dict]) 
             "policy_variant": "pi05",
             "status": "completed",
             "start_timestamp_ns": START_TIMESTAMP_NS,
-            "end_timestamp_ns": END_TIMESTAMP_NS,
+            "end_timestamp_ns": run.get("end_timestamp_ns", END_TIMESTAMP_NS),
             "rebuilds": [{"index": 0, "episodes": episodes}],
         }
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
@@ -137,3 +139,42 @@ def test_success_rate_exporter_writes_kpis_success_rates_file(tmp_path: Path):
         "num_episodes": 4,
         "num_runs": 1,
     }]
+
+
+def test_report_job_names_match_run_names(tmp_path: Path):
+    experiment_output_directory = _write_experiment(
+        tmp_path / "experiment",
+        {"run_a": {"episodes": _episode_records(2, 1)}, "run_b": {"episodes": _episode_records(3, 3)}},
+    )
+
+    summary = build_experiment_summary(experiment_output_directory, experiment_output_directory.name)
+
+    assert sorted(job.name for job in summary.jobs) == ["run_a", "run_b"]
+
+
+def test_episodes_in_nested_run_directories_are_pooled_into_their_run(tmp_path: Path):
+    experiment_output_directory = _write_experiment(
+        tmp_path / "experiment", {"run_a": {"episodes": _episode_records(2, 1)}}
+    )
+    _write_jsonl(
+        experiment_output_directory / "run_a" / "nested" / "episode_results_rebuild1.jsonl",
+        [{"env_id": 0, "episode_in_env": 0, "success": True, "episode_length": 4}],
+    )
+
+    record = _build_record(experiment_output_directory)
+
+    assert record["num_episodes"] == 3
+    assert record["success_rate"] == 2 / 3
+
+
+def test_timestamp_is_latest_run_end(tmp_path: Path):
+    latest_end_timestamp_ns = END_TIMESTAMP_NS + 5_000_000_000
+    experiment_output_directory = _write_experiment(
+        tmp_path / "experiment",
+        {
+            "early": {"episodes": _episode_records(1, 0), "end_timestamp_ns": END_TIMESTAMP_NS},
+            "late": {"episodes": _episode_records(1, 1), "end_timestamp_ns": latest_end_timestamp_ns},
+        },
+    )
+
+    assert _build_record(experiment_output_directory)["timestamp_ns"] == latest_end_timestamp_ns

@@ -12,6 +12,7 @@ import math
 import sys
 import textwrap
 import types
+import typing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
@@ -51,6 +52,8 @@ def _test_record(**overrides) -> _TestRecord:
 
 class _TestExporter(InfluxdbKpiExporter):
     """Exporter that builds one record per line of ``names.txt`` in the output directory."""
+
+    record_types: ClassVar[tuple[str, ...]] = ("test",)
 
     def get_records_filename(self) -> str:
         return TEST_RECORDS_FILENAME
@@ -176,3 +179,8 @@ def test_export_to_json_rejects_duplicate_tag_sets_without_writing(tmp_path):
 def test_exporter_cannot_be_instantiated_without_its_abstract_methods():
     with pytest.raises(TypeError):
         InfluxdbKpiExporter()
+
+
+def test_exporter_declares_the_record_types_it_builds():
+    assert typing.get_type_hints(InfluxdbKpiExporter)["record_types"] == typing.ClassVar[tuple[str, ...]]
+    assert _TestExporter.record_types == (_TestRecord.record_type,)

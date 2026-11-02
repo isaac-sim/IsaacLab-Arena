@@ -34,7 +34,7 @@ TIMING_RECORDS_FILENAME = "kpis_timing.json"
 
 
 @dataclass(kw_only=True)
-class TotalTimingRecord(InfluxdbKpiRecord):
+class TimingRecord(InfluxdbKpiRecord):
     """Statistics of one timer, totalled over every Run."""
 
     record_type: ClassVar[str] = "timing"
@@ -58,7 +58,7 @@ class TotalTimingRecord(InfluxdbKpiRecord):
     """Number of timed intervals."""
 
 
-def build_timing_record(timing: dict[str, Any], *, timestamp_ns: int, git_stamp: GitStamp) -> TotalTimingRecord:
+def build_timing_record(timing: dict[str, Any], *, timestamp_ns: int, git_stamp: GitStamp) -> TimingRecord:
     """Return the record of one Experiment timings total; the entry must have a nonzero count.
 
     Args:
@@ -71,7 +71,7 @@ def build_timing_record(timing: dict[str, Any], *, timestamp_ns: int, git_stamp:
     """
     count = int(timing["count"])
     total_ms = float(timing["total_ms"])
-    return TotalTimingRecord(
+    return TimingRecord(
         timestamp_ns=timestamp_ns,
         git_sha=git_stamp.git_sha,
         git_branch=git_stamp.git_branch,
@@ -86,6 +86,8 @@ def build_timing_record(timing: dict[str, Any], *, timestamp_ns: int, git_stamp:
 
 class TimingKpiExporter(InfluxdbKpiExporter):
     """Exports the timer statistics of a finished Arena Experiment output directory."""
+
+    record_types: ClassVar[tuple[str, ...]] = (TimingRecord.record_type,)
 
     def get_records_filename(self) -> str:
         return TIMING_RECORDS_FILENAME

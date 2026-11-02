@@ -71,11 +71,12 @@ def assert_influxdb_kpi_records_are_valid(contents: object) -> None:
     """Assert that parsed KPI records file contents map to InfluxDB points without changes.
 
     Checks for a non-empty list of flat records, each with an integer ``timestamp_ns`` from 2026 that is not in
-    the future, keys that InfluxDB does not reserve (no leading ``_``, not ``time``), values that are finite numbers or single-line strings, at least one
-    numeric value other than ``timestamp_ns``, and a tag set unique within the list.
+    the future, keys that InfluxDB does not reserve (no leading ``_``, not ``time``), values that are finite numbers
+    or single-line strings, at least one numeric value other than ``timestamp_ns``, and a tag set unique within the
+    list.
 
     Args:
-        contents: Parsed JSON of an ``arena_experiment_influxdb_kpi_records.json`` file.
+        contents: Parsed JSON of a ``kpis_*.json`` file.
     """
     assert isinstance(contents, list) and contents, "KPI records file contents must be a non-empty JSON list"
     record_index_by_tag_set: dict[frozenset, int] = {}

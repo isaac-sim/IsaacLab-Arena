@@ -102,6 +102,8 @@ class SuccessRateKpiExporter(InfluxdbKpiExporter):
     lives in the caller that decides whether to export.
     """
 
+    record_types: ClassVar[tuple[str, ...]] = (PerExperimentRecord.record_type,)
+
     def get_records_filename(self) -> str:
         return SUCCESS_RATE_RECORDS_FILENAME
 
