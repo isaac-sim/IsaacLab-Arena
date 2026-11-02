@@ -20,6 +20,7 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena_benchmarking.benchmarks.registry import DEFAULT_EXPORTER_NAMES
 
 HEADLESS = True
 NUM_STEPS = 2
@@ -41,6 +42,39 @@ def test_experiment_runner_parses_native_hydra_overrides():
         "runs.baseline.environment.enable_cameras=true",
         "runs.baseline.environment_builder.record_trajectories=true",
     ]
+
+
+def test_experiment_runner_parses_kpi_exporters():
+    default_arguments, _ = parse_experiment_runner_args(["--experiment_config", "experiment.yaml"])
+    selected_arguments, _ = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+        "--kpi_exporters",
+        "timing",
+    ])
+
+    assert tuple(default_arguments.kpi_exporters) == DEFAULT_EXPORTER_NAMES
+    assert selected_arguments.kpi_exporters == ["timing"]
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_rejects_unknown_kpi_exporter():
+    """Reject an unknown exporter name in a fresh process, because argparse exits."""
+    result = subprocess.run(
+        [
+            TestConstants.python_path,
+            f"{TestConstants.evaluation_dir}/experiment_runner.py",
+            "--kpi_exporters",
+            "latency",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    assert result.returncode == 2
+    assert "invalid choice: 'latency'" in result.stderr
 
 
 def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp_path):

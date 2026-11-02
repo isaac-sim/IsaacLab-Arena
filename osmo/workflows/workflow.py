@@ -19,11 +19,12 @@ import subprocess
 import tempfile
 import yaml
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from isaaclab_arena_benchmarking.benchmarks.registry import DEFAULT_EXPORTER_NAMES, EXPORTERS_BY_NAME
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL
@@ -94,6 +95,16 @@ class WorkflowCfg:
     output_url: str = DATASET_SWIFT_URL
     """Swift URL the collected Experiment output is published to. OSMO resolves the ``{{workflow_id}}`` token;
     include it to give each workflow a unique path, or omit it to let later workflows overwrite the same path."""
+
+    kpi_exporters: list[str] = field(default_factory=lambda: list(DEFAULT_EXPORTER_NAMES))
+    """Names of the KPI exporters the collector runs, for example ``osmo.kpi_exporters=[success_rate,timing]``."""
+
+    def __post_init__(self) -> None:
+        unknown_names = [name for name in self.kpi_exporters if name not in EXPORTERS_BY_NAME]
+        assert not unknown_names, f"Unknown KPI exporters {unknown_names}; valid names are {sorted(EXPORTERS_BY_NAME)}"
+        assert self.kpi_exporters, f"Select at least one KPI exporter from {sorted(EXPORTERS_BY_NAME)}"
+        duplicate_names = sorted({name for name in self.kpi_exporters if self.kpi_exporters.count(name) > 1})
+        assert not duplicate_names, f"Select each KPI exporter once; duplicate KPI exporters {duplicate_names}"
 
 
 @dataclass(frozen=True)

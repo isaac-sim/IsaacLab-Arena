@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import shlex
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +42,7 @@ class CollectExperimentOutputsTask(BaseTask):
         image: str,
         experiment_runner_task_names_by_run_name: Mapping[str, str],
         benchmark_id: str,
+        kpi_exporters: Sequence[str],
         lead: bool | None = None,
         resource: str | None = None,
         output_url: str = DATASET_SWIFT_URL,
@@ -50,8 +51,10 @@ class CollectExperimentOutputsTask(BaseTask):
     ) -> None:
         assert experiment_runner_task_names_by_run_name, "Experiment output requires at least one Run task"
         assert benchmark_id, "Experiment output requires a benchmark id"
+        assert kpi_exporters, "Experiment output requires at least one KPI exporter"
         super().__init__(task_name=task_name, lead=lead, resource=resource)
         self.benchmark_id = benchmark_id
+        self.kpi_exporters = list(kpi_exporters)
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
         self.output_url = output_url
@@ -100,5 +103,7 @@ class CollectExperimentOutputsTask(BaseTask):
             OSMO_TASK_OUTPUT_DIR,
             "--benchmark-id",
             self.benchmark_id,
+            "--kpi-exporters",
+            *self.kpi_exporters,
         ])
         return f"set -euo pipefail\n{build_experiment_output_command}\n"

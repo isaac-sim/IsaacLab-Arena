@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena_benchmarking.benchmarks.registry import EXPORTERS_BY_NAME
 
 REPO_ROOT = Path(TestConstants.repo_root).resolve()
 TRACKED_BENCHMARKS_PATH = REPO_ROOT / "isaaclab_arena_benchmarking" / "benchmark_lists" / "tracked_benchmarks.yaml"
@@ -20,9 +21,9 @@ TRACKED_BENCHMARKS_PATH = REPO_ROOT / "isaaclab_arena_benchmarking" / "benchmark
 BENCHMARK_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 """Benchmark names are used in OSMO workflow names and folder paths."""
 
-BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "overrides"}
+BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "overrides", "kpis"}
 
-RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url")
+RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url", "experiment_cfg.name", "osmo.kpi_exporters")
 """OSMO settings chosen per launch, which a benchmark entry must not fix."""
 
 
@@ -73,6 +74,21 @@ def test_benchmark_entry_is_well_formed(entry):
         assert (
             override_key not in RESERVED_OVERRIDE_KEYS
         ), f"benchmark {name!r} override {override!r} sets reserved key {override_key!r}"
+
+
+@pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
+def test_benchmark_kpis_name_known_exporters(entry):
+    if "kpis" not in entry:
+        return
+    kpis = entry["kpis"]
+    assert (
+        isinstance(kpis, list) and kpis and all(isinstance(kpi, str) for kpi in kpis)
+    ), f"benchmark {entry.get('name')!r} kpis must be a non-empty list of strings"
+    unknown_kpis = [kpi for kpi in kpis if kpi not in EXPORTERS_BY_NAME]
+    assert not unknown_kpis, (
+        f"benchmark {entry.get('name')!r} kpis {unknown_kpis} are not exporters; valid names are"
+        f" {sorted(EXPORTERS_BY_NAME)}"
+    )
 
 
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
