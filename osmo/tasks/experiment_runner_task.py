@@ -116,6 +116,8 @@ class ExperimentRunnerTask(BaseTask):
             REMOTE_EXPERIMENT_PATH,
             "--experiment_output_directory",
             OSMO_TASK_OUTPUT_DIR,
+            # No names: the collector task writes and publishes the KPI files, so a Run does not export them.
+            "--kpi_exporters",
             "--viz",
             "none",
             "--enable_cameras",

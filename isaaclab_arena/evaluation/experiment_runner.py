@@ -82,8 +82,8 @@ def _write_arena_experiment_result(
     from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
 
     assert experiment_cfg.name is not None, (
-        "The Experiment needs a name to be recorded as the benchmark id of its result; the Experiment loaders always"
-        " set it"
+        "The Experiment needs a name to be recorded as the benchmark id of its result; the Experiment loaders set it"
+        " unless an override sets it to null"
     )
     run_results_by_name = {run_result.run_name: run_result for run_result in run_results}
     assert len(run_results_by_name) == len(run_results), "Experiment results must contain each Run exactly once"
@@ -105,6 +105,23 @@ def _write_arena_experiment_result(
     )
     experiment_result.write()
     return experiment_result
+
+
+def _export_selected_kpis(experiment_output_directory: Path, kpi_exporter_names: list[str]) -> None:
+    """Write the selected KPI records for InfluxDB, or skip KPI export when no exporter is selected.
+
+    Nothing is written when a Run failed.
+
+    Args:
+        experiment_output_directory: Experiment output root holding the result file.
+        kpi_exporter_names: Names of the KPI exporters to run; empty to skip KPI export.
+    """
+    if not kpi_exporter_names:
+        print("[INFO] No KPI exporters selected; KPI export is skipped.")
+        return
+    from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
+
+    export_kpis(experiment_output_directory, kpi_exporter_names)
 
 
 def main():
@@ -164,7 +181,6 @@ def main():
         from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
         from isaaclab_arena.metrics.metrics_logger import MetricsLogger
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
-        from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
         experiment_cfg = load_arena_experiment_from_config_file(
             experiment_config_path,
@@ -211,8 +227,7 @@ def main():
         # Write HTML report.
         report_path = build_report(experiment_output_directory)
 
-        # Write KPI records for InfluxDB; writes nothing when a Run failed.
-        export_kpis(experiment_output_directory, args_cli.kpi_exporters)
+        _export_selected_kpis(experiment_output_directory, args_cli.kpi_exporters)
 
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
