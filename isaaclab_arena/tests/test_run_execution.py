@@ -19,6 +19,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_T
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
+from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.utils.timer import Timer
 
 
@@ -50,8 +51,26 @@ class _EpisodeRecorder:
         self.path = path
 
 
-def _environment():
-    return SimpleNamespace(unwrapped=SimpleNamespace(episode_recorder=_EpisodeRecorder()))
+class _EventManager:
+    """Has a placement reset event, whose live pool reports placement_diagnostics, unless they are None."""
+
+    def __init__(self, placement_diagnostics):
+        self.placement_diagnostics = placement_diagnostics
+
+    def get_term_cfg(self, term_name):
+        if term_name != PLACEMENT_RESET_EVENT_NAME or self.placement_diagnostics is None:
+            raise ValueError(f"Event term '{term_name}' not found.")
+        pool = SimpleNamespace(last_fill_diagnostics=self.placement_diagnostics)
+        return SimpleNamespace(params={"placement_sampler": SimpleNamespace(pool=pool)})
+
+
+def _environment(placement_diagnostics=None):
+    return SimpleNamespace(
+        unwrapped=SimpleNamespace(
+            episode_recorder=_EpisodeRecorder(),
+            event_manager=_EventManager(placement_diagnostics),
+        )
+    )
 
 
 @dataclass
@@ -66,10 +85,6 @@ class _ArenaEnvBuilder:
     def __init__(self, recorders):
         self.env_cfg = SimpleNamespace(recorders=recorders)
         self.made_with = None
-        self.placement_diagnostics = None
-
-    def build_env_cfg(self):
-        return self.env_cfg, {}
 
     def make_registered(self, env_cfg=None, env_kwargs=None, render_mode=None):
         self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
@@ -463,15 +478,6 @@ def test_build_environment_tolerates_an_environment_without_recorders(monkeypatc
     assert builder.made_with.render_mode is None
 
 
-def test_build_environment_writes_placement_diagnostics_to_the_run_directory(monkeypatch, tmp_path):
-    builder = _builder(monkeypatch, None)
-    builder.placement_diagnostics = PlacementDiagnostics(num_envs=2, fallback_envs=[1])
-
-    run_execution._build_environment_from_cfg(_run(), render_mode=None, output_dir=tmp_path, rebuild_index=1)
-
-    assert PlacementDiagnostics.load(tmp_path / "placement_diagnostics_rebuild1.json") == builder.placement_diagnostics
-
-
 def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_path):
     """Each Run's timings cover that Run alone, matching what OSMO produces per process."""
 
@@ -523,3 +529,38 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
     assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+
+
+def test_execute_experiment_writes_the_placement_diagnostics_that_built_each_rebuild_of_a_completed_run(
+    monkeypatch, tmp_path
+):
+    """A completed Run writes the diagnostics of the fill that built each rebuild, although its rollout can refill the
+    pool. A failed Run writes none."""
+    built_diagnostics = PlacementDiagnostics(num_envs=2, fallback_envs=[1])
+    # Rebuild 0 of the passing Run solves no relations.
+    diagnostics_per_build = {("passing", 1): built_diagnostics, ("failing", 0): built_diagnostics}
+
+    def build_environment(cfg, render_mode, output_dir, rebuild_index):
+        return _environment(diagnostics_per_build.get((cfg.name, rebuild_index)))
+
+    def roll_out(env, policy, num_steps, num_episodes):
+        # A reset that refills the pool replaces its diagnostics.
+        env.unwrapped.event_manager.placement_diagnostics = PlacementDiagnostics(num_envs=2)
+        if env.unwrapped.episode_recorder.name == "failing":
+            raise RuntimeError("rollout failed")
+
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", build_environment)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
+    monkeypatch.setattr(run_execution, "rollout_policy", roll_out)
+
+    run_execution.execute_experiment(
+        _experiment(_run(name="passing"), _run(name="failing", num_rebuilds=1)),
+        output_dir=tmp_path,
+        continue_on_error=True,
+    )
+
+    written_paths = [str(path.relative_to(tmp_path)) for path in tmp_path.glob("*/placement_diagnostics_rebuild*.json")]
+    assert written_paths == ["passing/placement_diagnostics_rebuild1.json"]
+    assert PlacementDiagnostics.load(tmp_path / written_paths[0]) == built_diagnostics

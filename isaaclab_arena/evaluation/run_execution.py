@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_experiment_result import PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
@@ -28,6 +28,7 @@ from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
+from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+    from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 
 def execute_experiment(
@@ -92,9 +94,17 @@ def execute_experiment(
             continue
 
         print_timer_stats()
-        write_run_timings(run_output_dir)
+        _write_run_outputs(run_output_dir, result)
         results.append(result)
     return results
+
+
+def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult) -> None:
+    """Write a completed Run's timings and the placement diagnostics of its rebuilds to its output directory."""
+    write_run_timings(run_output_dir)
+    for rebuild_index, placement_diagnostics in result.placement_diagnostics_per_rebuild.items():
+        filename = ARENA_PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
+        placement_diagnostics.save(run_output_dir / filename)
 
 
 def build_and_run(
@@ -105,6 +115,7 @@ def build_and_run(
     """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
     start_timestamp_ns = time.time_ns()
     metrics_per_rebuild: list[MetricsDataCollection] = []
+    placement_diagnostics_per_rebuild: dict[int, PlacementDiagnostics] = {}
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _episodes_per_rebuild(cfg)
@@ -125,6 +136,10 @@ def build_and_run(
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
             )
+            # Read before the rollout, whose resets can refill the placement pool and replace its diagnostics.
+            placement_diagnostics = get_placement_diagnostics(env)
+            if placement_diagnostics is not None:
+                placement_diagnostics_per_rebuild[rebuild_index] = placement_diagnostics
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
@@ -148,6 +163,7 @@ def build_and_run(
         start_timestamp_ns=start_timestamp_ns,
         end_timestamp_ns=time.time_ns(),
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
+        placement_diagnostics_per_rebuild=placement_diagnostics_per_rebuild,
     )
 
 
@@ -167,12 +183,12 @@ def _build_environment_from_cfg(
     output_dir: str | Path,
     rebuild_index: int = 0,
 ) -> gym.Env:
-    """Compile and instantiate a run's environment, and write its placement diagnostics, if any, to output_dir.
+    """Compile and instantiate a run's environment.
 
     Args:
         cfg: The run whose environment is being built.
         render_mode: Render mode required by the enabled video recorders.
-        output_dir: Directory the run's recorded dataset and placement diagnostics are written to.
+        output_dir: Directory the run's recorded dataset is exported to.
         rebuild_index: Index of the rebuild this environment serves.
     """
     # Copy runtime-derived recorder output options into the builder cfg so
@@ -181,14 +197,7 @@ def _build_environment_from_cfg(
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg, rebuild_index=rebuild_index)
-    env_cfg, env_kwargs = arena_builder.build_env_cfg()
-    # A build that solves no relations, or replays recorded layouts, has no placement diagnostics.
-    if arena_builder.placement_diagnostics is not None:
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        filename = PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
-        arena_builder.placement_diagnostics.save(output_path / filename)
-    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
+    return arena_builder.make_registered(render_mode=render_mode)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -> ArenaEnvBuilder:

@@ -14,13 +14,13 @@ import pytest
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
-    PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE,
+    ARENA_PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE,
 )
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_diagnostics import BatchValidationDiagnostics, PlacementDiagnostics
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-from isaaclab_arena_benchmarking.object_placement.placement_success import (
+from isaaclab_arena_benchmarking.object_placement.compute_placement_kpis_from_experiment_output import (
     RunPlacementCounts,
     format_placement_success,
     read_run_placement_counts,
@@ -124,12 +124,8 @@ def test_experiment_placement_success_weights_runs_equally_and_needs_every_run_t
         "pick_banana": {1: _diagnostics(25, 250, 250, 0, 1)},
     }
     _write_experiment(tmp_path / "completed", runs, diagnostics_per_run)
-    # The failed Run wrote diagnostics before it failed, so only its status keeps it out of the means.
-    _write_experiment(
-        tmp_path / "with_failure",
-        {**runs, "place_lime": "failed"},
-        {**diagnostics_per_run, "place_lime": {0: _diagnostics(25, 250, 250, 0, 1)}},
-    )
+    # A failed Run writes no diagnostics, so only its status tells it apart from a Run that solved no relations.
+    _write_experiment(tmp_path / "with_failure", {**runs, "place_lime": "failed"}, diagnostics_per_run)
 
     counts_per_run = read_run_placement_counts(tmp_path / "completed")
 
@@ -169,7 +165,7 @@ def _write_experiment(
     for run_name, diagnostics_per_rebuild in diagnostics_per_run.items():
         (experiment_output_directory / run_name).mkdir()
         for rebuild_index, diagnostics in diagnostics_per_rebuild.items():
-            filename = PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
+            filename = ARENA_PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
             diagnostics.save(experiment_output_directory / run_name / filename)
 
 

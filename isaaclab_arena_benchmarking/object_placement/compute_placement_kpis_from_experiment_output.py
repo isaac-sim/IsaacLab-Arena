@@ -3,11 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Placement success of an Arena Experiment, read from the placement diagnostics that its Runs write.
+"""Compute the placement success KPIs of an Arena Experiment from the placement diagnostics that its Runs wrote.
 
-Print the placement success of an Experiment output directory, without the simulator:
+Print the KPIs of an Experiment output directory, without the simulator:
 
-    python -m isaaclab_arena_benchmarking.object_placement.placement_success <experiment_output_directory>
+    python -m isaaclab_arena_benchmarking.object_placement.compute_placement_kpis_from_experiment_output \\
+        <experiment_output_directory>
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
-    PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE,
+    ARENA_PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE,
 )
 from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
@@ -54,8 +55,8 @@ class RunPlacementCounts:
 
     @property
     def is_scored(self) -> bool:
-        """Whether the Run completed and wrote placement diagnostics."""
-        return not self.failed and self.num_builds > 0
+        """Whether the Run wrote placement diagnostics, which only a completed Run does."""
+        return self.num_builds > 0
 
     @property
     def valid_candidate_rate_first_batch(self) -> float:
@@ -174,11 +175,12 @@ def format_placement_success(counts_per_run: list[RunPlacementCounts]) -> str:
 
 
 def main() -> None:
-    """Print the placement success of the Experiment output directory given on the command line."""
-    parser = argparse.ArgumentParser(description="Print the placement success of an Arena Experiment.")
+    """Print the placement success KPIs of the Experiment output directory given on the command line."""
+    parser = argparse.ArgumentParser(description="Print the placement success KPIs of an Arena Experiment.")
     parser.add_argument("experiment_output_directory", type=Path, help="Directory that experiment_runner.py wrote.")
     args_cli = parser.parse_args()
-    print(format_placement_success(read_run_placement_counts(args_cli.experiment_output_directory)))
+    counts_per_run = read_run_placement_counts(args_cli.experiment_output_directory)
+    print(format_placement_success(counts_per_run))
 
 
 def _load_placement_diagnostics(run_output_directory: Path) -> list[PlacementDiagnostics]:
@@ -186,7 +188,7 @@ def _load_placement_diagnostics(run_output_directory: Path) -> list[PlacementDia
 
     A rebuild that replays recorded layouts writes none, so the rebuilds with diagnostics need not be consecutive.
     """
-    paths = sorted(run_output_directory.glob(PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index="*")))
+    paths = sorted(run_output_directory.glob(ARENA_PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index="*")))
     return [PlacementDiagnostics.load(path) for path in paths]
 
 

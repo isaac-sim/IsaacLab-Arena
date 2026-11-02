@@ -29,13 +29,14 @@ lowest loss. This best-loss fallback is on by default. When the last batch gives
 some valid candidates but too few, or none while fallback is off, the build
 fails.
 
-The experiment runner writes the placement diagnostics of each build that solves
-relation placement to ``placement_diagnostics_rebuild<i>.json`` in the Run
-directory, whatever the Run's policy. The file holds the number of environments,
-the environments that fell back, and for each batch the number of candidates,
-the number of valid ones, and how many candidates each check ran on and passed,
-which shows which check rejects candidates. A build whose placement fails, or
-that replays recorded layouts, writes none. From these files the benchmark reports for each
+When a Run completes, the experiment runner writes the placement diagnostics of
+each build that solved relation placement to
+``placement_diagnostics_rebuild<i>.json`` in the Run directory, whatever the
+Run's policy. The file holds the number of environments, the environments that
+fell back, and for each batch the number of candidates, the number of valid
+ones, and how many candidates each check ran on and passed, which shows which
+check rejects candidates. A failed Run writes none, and neither does a build
+that replays recorded layouts. From these files the benchmark reports for each
 Run:
 
 * **Valid candidates** (``valid_candidate_rate_first_batch``): the share of
@@ -108,7 +109,7 @@ lists it, and the means leave it out:
 
 .. code-block:: bash
 
-   python -m isaaclab_arena_benchmarking.object_placement.placement_success \
+   python -m isaaclab_arena_benchmarking.object_placement.compute_placement_kpis_from_experiment_output \
      outputs/placement_success/robolab
 
 Add Specs
