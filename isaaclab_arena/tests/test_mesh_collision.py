@@ -974,6 +974,94 @@ def test_solver_mesh_loss_broadphase_respects_yawed_collision_object():
     assert solver.last_loss_per_env[0].item() > 0.0
 
 
+_YAW_0_XYZW = (0.0, 0.0, 0.0, 1.0)
+_YAW_90_XYZW = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
+_YAW_180_XYZW = (0.0, 0.0, 1.0, 0.0)
+# A long thin bar's bounds: long along X, or along Y once turned a quarter.
+_BAR_ALONG_X = AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025))
+_BAR_ALONG_Y = AxisAlignedBoundingBox(min_point=(-0.01, -0.2, -0.025), max_point=(0.01, 0.2, 0.025))
+
+
+class _ReferenceLikeObject(DummyObject):
+    """Dummy object whose bounds, like an ObjectReference's, already include its own yaw in its parent's axes."""
+
+    parent_rotation_xyzw = _YAW_0_XYZW
+    """Rotation of the parent's axes, which the bounds are expressed in."""
+
+    def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
+        """Return the parent rotation."""
+        return self.parent_rotation_xyzw
+
+
+@requires_warp
+@pytest.mark.parametrize(
+    "is_reference, parent_rotation_xyzw, bounding_box, rotation_xyzw, position_xyz, subject_offset_xyz",
+    [
+        # A prim long along its own X, yawed 90° in an unrotated parent: its bounds are long along the parent's Y.
+        pytest.param(True, _YAW_0_XYZW, _BAR_ALONG_Y, _YAW_90_XYZW, (0.0, 0.0, 0.0), (0.0, 0.1, 0.0), id="reference"),
+        pytest.param(
+            True, _YAW_0_XYZW, _BAR_ALONG_Y, _YAW_90_XYZW, (1.0, 2.0, 0.0), (0.0, 0.1, 0.0), id="reference_off_origin"
+        ),
+        # The same prim in a parent yawed 90°: the pose yaw is 180°, so the bar lies along world X.
+        pytest.param(
+            True,
+            _YAW_90_XYZW,
+            _BAR_ALONG_Y,
+            _YAW_180_XYZW,
+            (0.0, 0.0, 0.0),
+            (0.1, 0.0, 0.0),
+            id="reference_yawed_parent",
+        ),
+        # A plain anchor's bounds are in its own frame, so the pose yaw turns them.
+        pytest.param(False, None, _BAR_ALONG_X, _YAW_90_XYZW, (0.5, -0.3, 0.0), (0.0, 0.1, 0.0), id="plain_anchor"),
+    ],
+)
+def test_mesh_broadphase_keeps_a_subject_inside_a_fixed_obstacle(
+    is_reference, parent_rotation_xyzw, bounding_box, rotation_xyzw, position_xyz, subject_offset_xyz
+):
+    """A subject inside a yawed fixed obstacle's mesh, but outside a wrongly rotated or placed box, still gets loss."""
+    obstacle_type = _ReferenceLikeObject if is_reference else DummyObject
+    obstacle = obstacle_type(
+        "obstacle", bounding_box=bounding_box, collision_mesh=trimesh.creation.box(extents=(0.4, 0.02, 0.05))
+    )
+    if is_reference:
+        obstacle.parent_rotation_xyzw = parent_rotation_xyzw
+    obstacle.set_initial_pose(Pose(position_xyz=position_xyz, rotation_xyzw=rotation_xyzw))
+    obstacle.add_relation(IsAnchor())
+    subject = _make_box_obj("subject", sx=0.02, sy=0.02, sz=0.02)
+    subject_position_xyz = tuple(t + offset for t, offset in zip(position_xyz, subject_offset_xyz))
+    initial = [{obstacle: position_xyz, subject: subject_position_xyz}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([obstacle, subject], initial)
+
+    assert solver.last_loss_per_env[0].item() > 0.0, "Broad phase must keep a subject that penetrates the mesh"
+
+
+@requires_warp
+def test_mesh_broadphase_follows_an_orientations_yaw_for_a_fixed_obstacle():
+    """An orientations yaw for an anchor turns its broad-phase box along with its mesh."""
+    table = _make_table()
+    target = _make_box_obj("target", sx=0.2, sy=0.02, sz=0.05)
+    target.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
+    target.add_relation(IsAnchor())
+    child = _make_cylinder("child", radius=0.015)
+    child.add_relation(On(table))
+    # Beyond the culling margin of the unturned bar, but inside its mesh once it is turned 90°.
+    initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (0.0, 0.08, 0.05)}]
+
+    losses = []
+    for orientations in (None, [{target: math.pi / 2, child: 0.0}]):
+        solver = RelationSolver(
+            params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+        )
+        solver.solve([table, target, child], initial, orientations=orientations)
+        losses.append(solver.last_loss_per_env[0].item())
+
+    loss_unturned, loss_turned = losses
+    assert loss_turned > loss_unturned, f"Turning the bar into the child must add loss, got {losses}"
+
+
 @requires_warp
 def test_multi_mesh_sdf_distinct_meshes():
     """Regression: mesh_indices routing could silently query only mesh 0."""

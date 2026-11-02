@@ -37,7 +37,8 @@ class MeshPairEntry(NamedTuple):
     """(3,) world-frame position of the fixed obstacle; None for non-fixed obstacles."""
 
     fixed_obstacle_yaw: float
-    """Fixed obstacle Z-yaw in radians (0.0 for non-fixed obstacles)."""
+    """Fixed obstacle Z-yaw in radians (0.0 for non-fixed obstacles). An obstacle bbox that doesn't already include
+    yaw is at this yaw."""
 
     centers_local: torch.Tensor
     """(S, 3) sphere centers in subject-local frame."""
@@ -102,7 +103,8 @@ class MeshPairCache:
     """(P,) world position for fixed obstacles (None for non-fixed obstacles)."""
 
     pair_fixed_obstacle_yaw: list[float]
-    """(P,) fixed obstacle yaw in radians (0.0 for non-fixed obstacles)."""
+    """(P,) fixed obstacle yaw in radians (0.0 for non-fixed obstacles). An obstacle bbox that doesn't already include
+    yaw is at this yaw."""
 
     pair_subject_bbox_min: torch.Tensor
     """(P, B, 3) subject bounding box min corners."""
