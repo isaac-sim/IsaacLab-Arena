@@ -76,6 +76,46 @@ class ArenaExperimentResultData(TypedDict):
     """Maps each configured Run name to that Run's data."""
 
 
+def read_experiment_result(output_dir: Path) -> ArenaExperimentResultData:
+    """Read ``arena_experiment_result.json`` and check it holds what KPI export needs.
+
+    Args:
+        output_dir: Experiment output root holding the result file.
+
+    Returns:
+        The Experiment result, with at least one Run, a git stamp and an integer end time for every Run.
+    """
+    output_dir = Path(output_dir)
+    result: ArenaExperimentResultData = json.loads(
+        (output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8")
+    )
+    runs = result["runs"]
+    assert runs, f"Experiment result in '{output_dir}' has no Runs"
+    assert "git_stamp" in result, f"Experiment result in '{output_dir}' has no git stamp"
+    for run_name, run_result in runs.items():
+        end_timestamp_ns = run_result.get("end_timestamp_ns")
+        assert isinstance(end_timestamp_ns, int) and not isinstance(end_timestamp_ns, bool), (
+            f"Run {run_name!r} in '{output_dir}' has no integer end_timestamp_ns; results written"
+            " before Run end times were recorded cannot produce KPI records"
+        )
+    return result
+
+
+def get_latest_run_end_timestamp_ns(result: ArenaExperimentResultData) -> int:
+    """Return the latest Run end time of an Experiment result in Unix epoch nanoseconds (UTC)."""
+    return max(run_result["end_timestamp_ns"] for run_result in result["runs"].values())
+
+
+def get_git_stamp(result: ArenaExperimentResultData) -> GitStamp:
+    """Return the Arena git stamp recorded in an Experiment result."""
+    return GitStamp.from_dict(result["git_stamp"])
+
+
+def all_runs_completed(result: ArenaExperimentResultData) -> bool:
+    """Return whether every Run of an Experiment result has the completed status."""
+    return all(run_result["status"] == "completed" for run_result in result["runs"].values())
+
+
 def _require_nonempty_string(value: object, field_name: str) -> str:
     """Return a non-empty string used in Run metadata."""
     assert isinstance(value, str) and value.strip(), f"{field_name} must be a non-empty string"
