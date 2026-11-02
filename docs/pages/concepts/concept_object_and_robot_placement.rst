@@ -189,6 +189,7 @@ objects to see placement adapt to different dimensions and footprints.
    :maxdepth: 1
 
    object_placement/relations
+   object_placement/relations_reference
    offline_placement/recording
    object_placement/collision_handling
    object_placement/solver

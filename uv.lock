@@ -1602,6 +1602,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "debugpy" },
+    { name = "docstring-parser" },
     { name = "huggingface-hub" },
     { name = "jupyter" },
     { name = "rerun-sdk" },
@@ -1643,6 +1644,7 @@ openpi = [
 requires-dist = [
     { name = "debugpy", marker = "extra == 'dev'" },
     { name = "decorator", specifier = ">=4.0.2,<5" },
+    { name = "docstring-parser", marker = "extra == 'dev'", specifier = ">=0.16" },
     { name = "huggingface-hub", marker = "extra == 'dev'", specifier = ">=0.36" },
     { name = "imageio" },
     { name = "imageio-ffmpeg" },

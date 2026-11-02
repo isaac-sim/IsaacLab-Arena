@@ -82,10 +82,24 @@ class Relation(RelationBase):
 
 @register_object_relation
 class FaceTo(RelationBase):
-    """Relates an object's local +X heading to a target object's world-XY direction.
+    """Turns the subject so its local +X axis points at the reference in world XY.
 
-    This orientation relation does not constrain either object's position. The
-    subject's XY position must differ from the target's.
+    Sets the heading only; it does not constrain either object's position. The heading is computed
+    after positions are solved, from the subject's position towards the reference's, and replaces
+    any random yaw from ``random_yaw_init``.
+
+    Validation:
+        the ``face_to`` check rejects layouts where the subject and reference share an XY
+        position, so that no facing direction is defined.
+
+    Restrictions:
+        a subject can have only one FaceTo and cannot combine it with
+        RotateAroundSolution. An anchor cannot use FaceTo, and the reference must take part in placement.
+        The turn is about the subject's origin, so if the subject's placement bounds are not centred on
+        its origin, such as a robot on an offset stand, the turn moves the bounds' centre. A horizontal
+        AlignWith that uses those bounds, as subject or reference, would then no longer hold, so
+        placement raises an error for that combination. Use a fixed RotateAroundSolution heading or
+        centred placement bounds instead.
     """
 
     name = "face_to"
@@ -117,7 +131,21 @@ class FaceTo(RelationBase):
 @agent_ready
 @register_object_relation
 class AlignWith(Relation):
-    """Align bounding-box centres along one world axis, leaving other axes unconstrained."""
+    """Aligns the subject's placement-box centre with the reference's along one world axis.
+
+    The subject's centre is placed at the reference's centre plus ``offset_m`` along ``axis``; the
+    other axes stay free. Combine it with NextTo to set a gap on one horizontal axis and alignment on
+    the other, or use two AlignWith relations for a target region relative to the reference's centre.
+
+    Validation:
+        the ``align_with`` check rejects layouts whose centre error along ``axis`` exceeds
+        ``tolerance_m``.
+
+    Restrictions:
+        the subject cannot be an anchor, and the reference must be a different object that
+        takes part in placement. Horizontal alignment cannot use an object that FaceTo turns if that
+        object's placement bounds are off-centre; see FaceTo.
+    """
 
     name = "align_with"
 
@@ -133,7 +161,7 @@ class AlignWith(Relation):
 
         Args:
             parent: Reference asset participating in placement.
-            axis: World axis to align, one of ``x``, ``y``, or ``z``.
+            axis: World axis to align along.
             offset_m: Signed subject-minus-reference centre displacement along that axis.
             tolerance_m: Zero-penalty alignment band and maximum error accepted by placement validation.
             relation_loss_weight: Weight of the alignment objective during solving.
@@ -156,13 +184,18 @@ class AlignWith(Relation):
 @agent_ready
 @register_object_relation
 class NextTo(Relation):
-    """Represents a 'next to' relationship between objects.
+    """Places the subject beside the reference on one side, with a set gap between their placement boxes.
 
-    This relation specifies that a child object should be placed adjacent to
-    the parent object on a specified side, at a given distance. The gap may be anywhere within
-    ``tolerance_m`` of ``distance_m``.
+    ``side`` picks the reference's side. The gap between the reference's edge on that side and the
+    subject's facing edge targets ``distance_m``. Along the other horizontal axis the subject may sit
+    anywhere within the reference's extent, unless ``cross_position_ratio`` sets a soft preference.
+    The solver treats any gap within ``tolerance_m`` of ``distance_m`` as satisfied, and the default
+    initializer starts the subject on the requested side within ``tolerance_m``.
 
-    Note: Loss computation is handled by NextToLossStrategy in optimization/losses/relation_loss_strategies.py.
+    Validation:
+        the ``next_to`` check rejects layouts where the subject is on the wrong side, or its
+        gap differs from ``distance_m`` by more than ``tolerance_m``, including when it is closer than
+        requested. ``cross_position_ratio`` is not checked.
     """
 
     name = "next_to"
@@ -179,18 +212,15 @@ class NextTo(Relation):
         """
         Args:
             parent: The parent asset that this object should be placed next to.
-            side: Which axis direction to place the object.
+            side: Side of the parent, in world axes, to place this object on.
             relation_loss_weight: Weight for the relationship loss function.
-            distance_m: Target distance from parent's boundary in meters (default: 5cm).
-            cross_position_ratio: Where to place the child along the parent's perpendicular
-                (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
-                The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
-                the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
-                Default: None (any position within the valid cross-axis range).
-                Set 0.0 explicitly to prefer centering.
-            tolerance_m: Allowed gap error in meters. The solver treats any gap within this value of
-                distance_m as satisfied, and validation passes when the side and distance violations
-                are each within it. cross_position_ratio is a soft preference, not gated.
+            distance_m: Target gap in metres between the parent's edge and this object's facing edge.
+            cross_position_ratio: Soft preference for where to place this object along the parent's
+                other horizontal axis (Y for an X side, X for a Y side), from -1.0 (min edge) through
+                0.0 (centred) to 1.0 (max edge). None allows any position within the parent's extent.
+            tolerance_m: Allowed gap error in metres. The solver treats any gap within this value of
+                distance_m as satisfied, and validation passes when the side and gap errors are each
+                within it.
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
@@ -207,17 +237,17 @@ class NextTo(Relation):
 @agent_ready
 @register_object_relation
 class On(Relation):
-    """Represents an 'on top of' relationship between objects.
+    """Places the subject on top of the reference, with its footprint inside the reference's top surface.
 
-    This relation specifies that a child object should be placed on top of
-    the parent object, with X/Y bounded within the parent's extent (optionally
-    inset by ``edge_margin_m`` so the child stays off the rim) and Z positioned
-    on the parent's top surface. With ``overlap=True``, only intersection with
-    the parent's original footprint is required on both horizontal axes; the margin is ignored.
+    Uses the top and XY footprint of the reference's axis-aligned placement box, inset by
+    ``edge_margin_m`` so the subject stays off the rim. With ``overlap=True`` the footprints only need
+    to overlap on both horizontal axes and the margin is ignored; the subject may then tip or fall.
+    For L-shaped, hollow or concave supports, anchor an ObjectReference to the actual support surface.
 
-    Note: Footprint overlap does not guarantee stable support; the child may tip or fall.
-
-    Note: Loss computation is handled by OnLossStrategy in optimization/losses/relation_loss_strategies.py.
+    Validation:
+        the ``on_relation`` check rejects layouts where the subject's bottom is not within
+        ``clearance_m`` above the reference's top, give or take ``ObjectPlacerParams.on_relation_z_tolerance_m``,
+        or where its footprint leaves the inset support (or, with ``overlap=True``, does not overlap it).
     """
 
     name = "on"
@@ -234,11 +264,10 @@ class On(Relation):
         Args:
             parent: The parent asset that this object should be placed on top of.
             relation_loss_weight: Weight for the relationship loss function.
-            clearance_m: Safety clearance above parent's surface in meters (default: 1cm).
-            edge_margin_m: Inward inset from each X/Y edge of the parent's surface in
-                meters (default: 5cm), applied only for containment. Ignored for overlap.
-            overlap: Allow footprint overlap instead of full containment on both X and Y
-                axes (default: False). Ignores edge_margin_m when True.
+            clearance_m: Allowed gap in metres between the parent's top and this object's bottom.
+            edge_margin_m: Inward inset in metres from each X/Y edge of the parent's surface, applied
+                only for containment. Ignored when overlap is True.
+            overlap: Require only footprint overlap on both X and Y instead of full containment.
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
@@ -256,10 +285,22 @@ class On(Relation):
 
 @register_object_relation
 class ClutterOn(On):
-    """An object above its support, with its footprint inside the release region.
+    """Releases the subject above a support, inside a central release region, for physics to settle.
 
-    The object's bottom must clear the support surface; contact is not required.
-    The support may be an anchor or positioned jointly through its own relations.
+    Defines a release pose before physics, not a resting pose. The release region is the central
+    ``spread`` fraction of the support's width and depth, and follows the support if the solver moves
+    it. The subject's bottom must clear the support by ``clearance_m``; there is no upper height
+    limit. The support may be an anchor or positioned through its own relations.
+
+    Validation:
+        the ``clutter_on_relation`` check rejects layouts whose footprint leaves the release
+        region or whose bottom is below the minimum clearance. It does not check the settled pile.
+
+    Restrictions:
+        ClutterOn must be the subject's only spatial relation. The support must take part
+        in placement, cannot itself use ClutterOn, and must stay upright at a fixed yaw that is a multiple
+        of 90 degrees; a movable support cannot use FaceTo. Roll or pitch on the subject requires
+        ``collision_mode="bbox"``. Not offered to agentic environment generation.
     """
 
     name = "clutter_on"
@@ -340,14 +381,18 @@ class ClutterOn(On):
 @agent_ready
 @register_object_relation
 class NotNextTo(Relation):
-    """Forbids placing the child next to the parent on the given side.
+    """Keeps the subject out of the region beside the reference on one side.
 
-    The inverse of ``NextTo``. Blocks the whole half-plane past the parent's edge
-    on that side, within the parent's perpendicular footprint (for ``side=+Y``:
-    all of ``+Y`` past the ``+Y`` edge, clipped to the parent's ``X`` extent).
-    Anywhere off to either side of that footprint stays free, at any distance.
+    The inverse of NextTo. The keep-out region starts at the reference's edge on ``side``, extends
+    outward without limit, and spans the reference's footprint along the other horizontal axis: for
+    ``side=positive_y``, everything past the reference's +Y edge within its X extent. Positions off
+    either end of that footprint stay free at any distance. The subject must clear the region by a
+    margin, 0.1 m by default, set by ``NotNextToLossStrategy.margin_m`` in
+    ``RelationSolverParams.strategies``.
 
-    Note: Loss computation is handled by NotNextToLossStrategy in optimization/losses/relation_loss_strategies.py.
+    Validation:
+        the ``not_next_to`` check rejects layouts where the subject has not cleared the
+        keep-out region, to within ``tolerance_m``.
     """
 
     name = "not_next_to"
@@ -361,9 +406,9 @@ class NotNextTo(Relation):
     ):
         """
         Args:
-            parent: The parent asset whose adjacent half-plane is forbidden.
+            parent: The parent asset whose adjacent region is forbidden.
             relation_loss_weight: Weight for the relationship loss function.
-            side: Which side of the parent is blocked (default: Side.POSITIVE_X).
+            side: Side of the parent, in world axes, that is blocked.
             tolerance_m: Slack (meters) for placement validation: the child passes when it has cleared
                 the keep-out zone to within this value.
         """
@@ -376,11 +421,18 @@ class NotNextTo(Relation):
 @agent_ready
 @register_object_relation
 class IsAnchor(RelationBase):
-    """Marker indicating this object is an anchor for relation solving.
+    """Marks the subject as a fixed reference that the solver does not move.
 
-    Anchor objects are fixed references that won't be optimized during
-    relation solving. Multiple objects can be marked as anchors.
-    Each anchor must have an initial_pose set before calling ObjectPlacer.place().
+    An anchor keeps its initial pose, which must be set before placement; in a graph YAML an omitted
+    pose defaults to identity, and an ObjectReference takes its pose from the referenced prim. Several
+    objects can be anchors. Anchoring does not make an object static or kinematic in physics.
+
+    Validation:
+        none; anchors are not moved.
+
+    Restrictions:
+        an anchor's root rotation must be a multiple of 90 degrees about world Z, with no
+        tilt.
 
     Usage:
         table.set_initial_pose(Pose(position_xyz=(1.0, 0.0, 0.0), ...))
@@ -403,9 +455,15 @@ class IsAnchor(RelationBase):
 
 @register_object_relation
 class RequiresReachability(RelationBase):
-    """Indicates the robot shall be able to reach this object.
+    """Requires the robot to reach a top-down grasp at the subject.
 
-    It does not affect placement geometry during optimization, but rejects unreachable placements.
+    Adds no solver objective; it only rejects layouts. Tasks such as pick and place add it to the
+    objects they need the robot to grasp.
+
+    Validation:
+        the ``ik_reachable`` check solves cuRobo IK for a top-down grasp at the subject from
+        the robot's placed base, and rejects layouts where it fails. The check runs only when
+        ``ObjectPlacerParams.reachability_config.embodiment`` has a cuRobo configuration.
 
     Usage:
         banana.add_relation(RequiresReachability())  # IK-check reachability of the banana
@@ -422,13 +480,18 @@ class RequiresReachability(RelationBase):
 @agent_ready
 @register_object_relation
 class RotateAroundSolution(RelationBase):
-    """Marker specifying an explicit rotation to apply on top of the solver solution.
+    """Applies a fixed rotation to the subject on top of its solved position.
 
-    When ObjectPlacer applies positions, objects with this marker will have the
-    specified rotation applied on top of the solved position to create a fixed Pose.
+    The solver does not optimise it; placement composes this rotation with the solved position. Use
+    it for a fixed heading, such as a robot facing a counter. Because the heading is known before
+    solving, it works with AlignWith on objects whose placement bounds are off-centre, unlike FaceTo.
+    A ClutterOn subject keeps it as its base rotation.
 
-    Note: This is NOT a spatial relation - the RelationSolver ignores it. It only
-    affects how ObjectPlacer applies the solved position to the object.
+    Validation:
+        none.
+
+    Restrictions:
+        cannot be combined with FaceTo on the same subject.
 
     Usage:
         import math
@@ -479,14 +542,12 @@ class RotateAroundSolution(RelationBase):
 
 @register_object_relation
 class AtPosition(UnaryRelation):
-    """Constrains object to specific world coordinates.
+    """Pulls the subject towards fixed world coordinates on the selected axes.
 
-    This is a unary relation (no parent) that pins an object's position to
-    specific x, y, and/or z world coordinates. Any axis set to None is
-    unconstrained by this relation (allowing other relations like On to
-    control that axis).
+    Axes left as None stay free, so another relation such as On can set them.
 
-    Note: Loss computation is handled by AtPositionLossStrategy in optimization/losses/relation_loss_strategies.py.
+    Validation:
+        none; this is a solver objective only, so a valid layout can miss the target slightly.
 
     Usage:
         # Pin object to x=0.5, y=1.0 in world coords (z controlled by On relation)
@@ -521,10 +582,14 @@ class AtPosition(UnaryRelation):
 
 @register_object_relation
 class PositionLimitsBox(UnaryRelation):
-    """Constrains an object's position to an axis-aligned box in world coordinates.
+    """Keeps the subject's position within an axis-aligned box in world coordinates.
 
-    Specify each axis as a (minimum, maximum) pair; None leaves that bound
-    unconstrained. Omitted axes are unconstrained.
+    Give each axis as a (minimum, maximum) pair; None leaves that bound open, and omitted axes are
+    free.
+
+    Validation:
+        none; this is a solver objective only, so a valid layout can exceed the limits
+        slightly.
 
     Usage:
         mug.add_relation(PositionLimitsBox(x_limits=(-0.5, 0.5), y_limits=(-0.5, 0.5)))
@@ -540,6 +605,13 @@ class PositionLimitsBox(UnaryRelation):
         z_limits: Sequence[float | None] = (None, None),
         relation_loss_weight: float = 1.0,
     ):
+        """
+        Args:
+            x_limits: Minimum and maximum world X in metres; None leaves a bound open.
+            y_limits: Minimum and maximum world Y in metres; None leaves a bound open.
+            z_limits: Minimum and maximum world Z in metres; None leaves a bound open.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
         for axis, limits in (("x", x_limits), ("y", y_limits), ("z", z_limits)):
             assert len(limits) == 2, f"{axis}_limits must contain a minimum and maximum"
             lower, upper = limits
@@ -562,12 +634,15 @@ if not _relation_registry.is_registered("position_limits", ensure_loaded=False):
 
 @register_object_relation
 class PositionLimitsCylindrical(UnaryRelation):
-    """Constrains an object's world-XY radius around a fixed center.
+    """Keeps the subject's world-XY distance from a fixed centre within a radius range.
 
-    A lower bound creates a cylindrical keep-out region, an upper bound keeps
-    the object inside a cylinder, and both bounds create a cylindrical annulus.
-    The relation constrains only XY; use ``PositionLimitsBox`` separately for Z
-    or axis-aligned XY limits.
+    ``radius_min`` alone keeps the subject outside a cylinder, ``radius_max`` alone keeps it inside
+    one, and both give an annulus. It does not constrain Z; use PositionLimitsBox for that or for
+    axis-aligned XY limits.
+
+    Validation:
+        none; this is a solver objective only, so a valid layout can exceed the limits
+        slightly.
 
     Usage:
         mug.add_relation(PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=0.5))
@@ -583,6 +658,14 @@ class PositionLimitsCylindrical(UnaryRelation):
         radius_max: float | None = None,
         relation_loss_weight: float = 1.0,
     ):
+        """
+        Args:
+            center_x: World X of the cylinder's axis in metres.
+            center_y: World Y of the cylinder's axis in metres.
+            radius_min: Smallest allowed XY distance from the centre in metres, or None for no minimum.
+            radius_max: Largest allowed XY distance from the centre in metres, or None for no maximum.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
         assert (
             radius_min is not None or radius_max is not None
         ), "At least one radial bound must be specified for PositionLimitsCylindrical"
