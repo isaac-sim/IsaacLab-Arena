@@ -131,7 +131,7 @@ class ArenaExperimentWorkflow(Workflow):
         """Collect every Experiment Runner task output into one published Experiment output."""
         assert self.experiment_cfg.name is not None, (
             "The Experiment needs a name to be recorded as the benchmark id of its KPI records; the Experiment"
-            " loaders always set it"
+            " loaders set it unless an override sets it to null"
         )
         collect_experiment_outputs_task = CollectExperimentOutputsTask(
             task_name="collect-experiment-outputs",

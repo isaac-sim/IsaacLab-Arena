@@ -7,6 +7,7 @@
 
 import json
 import os
+import shlex
 import subprocess
 import time
 import yaml
@@ -604,6 +605,14 @@ def test_experiment_name_can_be_overridden_at_submission():
     assert submission_cfg.experiment_cfg.name == "my-benchmark"
 
 
+@pytest.mark.parametrize("quoted_name", ["true", "1e3"])
+def test_quoted_boolean_or_number_like_experiment_name_keeps_its_text(quoted_name):
+    """Quote experiment_cfg.name=<x> so Hydra keeps the text instead of converting it to a boolean or number."""
+    submission_cfg = _compose_submission([f"experiment_cfg.name='{quoted_name}'"])
+
+    assert submission_cfg.experiment_cfg.name == quoted_name
+
+
 def test_result_wrapper_preserves_experiment_video_options():
     """Pass selected video options through the result-recording wrapper."""
     experiment_runner_task = ExperimentRunnerTask(
@@ -619,6 +628,23 @@ def test_result_wrapper_preserves_experiment_video_options():
     assert "--record_viewport_video" in experiment_runner_command
     assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
     assert experiment_runner_command.endswith("exit 0\n")
+
+
+def test_experiment_runner_task_disables_kpi_export():
+    """The Experiment Runner task passes a bare --kpi_exporters; the collector task publishes the KPI files."""
+    experiment_runner_task = ExperimentRunnerTask(
+        task_cfg=ExperimentRunnerTaskCfg(),
+        experiment_cfg=_zero_action_experiment_cfg(),
+        lead=True,
+        task_name="experiment-runner",
+    )
+
+    experiment_runner_command = _task_file(experiment_runner_task.create_task_dict(), "/tmp/entry.sh")["contents"]
+
+    command_line = next(line for line in experiment_runner_command.splitlines() if "--kpi_exporters" in line)
+    command_tokens = shlex.split(command_line)
+    flag_index = command_tokens.index("--kpi_exporters")
+    assert command_tokens[flag_index + 1].startswith("--"), "--kpi_exporters must take no names"
 
 
 def test_experiment_runner_without_timeout_runs_unbounded():

@@ -8,6 +8,7 @@
 from dataclasses import dataclass
 
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.evaluation.single_line_string import is_single_line_nonempty_string
 
 
 @dataclass
@@ -18,11 +19,15 @@ class ArenaExperimentCfg:
     """Runs keyed by the names used for overrides, execution, and results."""
 
     name: str | None = None
-    """Name of the Experiment, used as the `benchmark_id` of its KPI records."""
+    """Name of the Experiment, used as the `benchmark_id` of its KPI records.
+
+    A command-line override must quote a name that looks like a boolean or a number, for example
+    ``name='true'`` or ``name='1e3'``; Hydra otherwise converts the value and the name becomes ``True`` or ``1000.0``.
+    """
 
     def __post_init__(self) -> None:
-        assert self.name is None or (
-            isinstance(self.name, str) and self.name and "\n" not in self.name and "\r" not in self.name
+        assert self.name is None or is_single_line_nonempty_string(
+            self.name
         ), f"Experiment name must be a non-empty single-line string, got {self.name!r}"
         assert isinstance(self.runs, dict) and self.runs, "Experiment Definition must contain at least one Run"
         for run_name, run_cfg in self.runs.items():

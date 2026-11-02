@@ -353,8 +353,15 @@ def test_serializer_round_trips_the_name(tmp_path):
     assert _load_experiment(serialized_path) == experiment_cfg
 
 
-def test_serializer_omits_an_unset_name():
+def test_yaml_without_a_name_defaults_to_the_file_stem():
     experiment_cfg = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
+
+    assert experiment_cfg.name == GETTING_STARTED_EXPERIMENT_PATH.stem
+
+
+def test_serializer_omits_an_unset_name():
+    experiment_cfg = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH, overrides=["name=null"])
+    assert experiment_cfg.name is None
 
     assert "name" not in yaml.safe_load(serialize_arena_experiment_to_yaml(experiment_cfg))
 
