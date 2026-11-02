@@ -164,11 +164,15 @@ def validate_pool_layouts(
     return results
 
 
-def print_validation_results(results: list[tuple[int, int, PlacementValidationResults]]) -> None:
-    """Print each layout's validation results and a pass/fail summary for a pool validation run."""
+def print_validation_results(results: list[tuple[int, int, PlacementValidationResults]]) -> bool:
+    """Print each layout's validation results and a pass/fail summary for a pool validation run.
+
+    Returns:
+        Whether there were layouts and every one passed its required checks and settled.
+    """
     if not results:
         print("Placement pool has no layouts to validate.")
-        return
+        return False
 
     print(f"Validated {len(results)} pooled placement layout(s):")
     for env_id, episode_index, validation_results in results:
@@ -183,3 +187,4 @@ def print_validation_results(results: list[tuple[int, int, PlacementValidationRe
         if validation_results.validation_results.get(PlacementCheck.PHYSICS_SETTLED)
     )
     print(f"Summary: {num_pass}/{len(results)} pass validation, {num_settled}/{len(results)} physically settled.")
+    return num_pass == len(results) and num_settled == len(results)

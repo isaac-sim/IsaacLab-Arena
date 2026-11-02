@@ -6,7 +6,8 @@
 """Offline placement-pool validator.
 
 Builds any registered (or graph-spec) Arena environment, then physics-validates every candidate layout
-its placement pool holds and logs the validation results.
+its placement pool holds and logs the validation results. Exits non-zero when any layout fails its
+required checks or does not settle.
 
 Run inside the container (example with a registered example environment):
 
@@ -22,6 +23,7 @@ Or against a graph spec:
 from __future__ import annotations
 
 import argparse
+import math
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -31,12 +33,13 @@ def add_pool_validation_arguments(parser: argparse.ArgumentParser) -> None:
     """Add settle-check tuning flags. Registered before the env subparser so they stay top-level."""
     group = parser.add_argument_group("Pool Validation Arguments")
     group.add_argument(
-        "--settle_steps",
-        type=int,
-        default=5,
+        "--settle_time_s",
+        type=float,
+        default=2.0,
         help=(
-            "Environment steps to advance before reading back object velocities for each layout. "
-            "Converted to physics substeps internally (x the env's decimation)."
+            "Simulated time (s) to advance before reading back object velocities for each layout. "
+            "Rounded up to whole environment steps of the env's control rate. The default gives objects "
+            "released with placement clearance time to land and come to rest."
         ),
     )
     group.add_argument(
@@ -78,6 +81,7 @@ def main() -> None:
 
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         args_cli = args_parser.parse_args()
+        assert args_cli.settle_time_s > 0, f"--settle_time_s must be positive, got {args_cli.settle_time_s}."
 
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
@@ -85,8 +89,11 @@ def main() -> None:
         # validator overwrites poses per candidate, so that initial layout does not bias the results.
         env.reset()
 
+        step_dt = env.unwrapped.step_dt
+        settle_steps = math.ceil(args_cli.settle_time_s / step_dt)
+        print(f"Settling each layout for {settle_steps} environment steps ({settle_steps * step_dt:.2f} s).")
         settle_params = PhysicsSettleParams(
-            num_steps=args_cli.settle_steps,
+            num_steps=settle_steps,
             lin_vel_thresh=args_cli.lin_vel_thresh,
             ang_vel_thresh=args_cli.ang_vel_thresh,
         )
@@ -96,9 +103,12 @@ def main() -> None:
             "Recorded replay bypasses the pool; omit recorded placement replay to validate solver candidates. "
             "Pooled placement also requires placement relations and resolve_on_reset=True."
         )
-        print_validation_results(validation_results)
+        all_layouts_valid = print_validation_results(validation_results)
 
         env.close()
+        # Raising inside the app context exits non-zero; a normal exit can report success regardless.
+        if not all_layouts_valid:
+            raise RuntimeError("Some placement pool layouts failed validation; see the summary above.")
 
 
 if __name__ == "__main__":
