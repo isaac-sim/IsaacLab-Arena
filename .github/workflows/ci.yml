@@ -265,9 +265,21 @@ jobs:
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - &setup_isaac_sim_kit_cache_step
-        name: Setup Isaac Sim kit cache (shader warmup on miss)
-        uses: ./.github/actions/setup-isaac-sim-kit-cache
+      - name: Restore Isaac Sim caches
+        uses: ./.github/actions/setup-isaac-sim-caches
+        with:
+          mode: restore
+          name: tests
+
+      # FIXME(before merge): PR-only probe of the cache effect. One kitchen bring-up is
+      # cold on a PR's first run and warm on a re-run; compare the step times. Delete.
+      - name: Probe Isaac Sim cache effect (one kitchen env)
+        if: github.event_name == 'pull_request'
+        run: |
+          START=$(date +%s)
+          isaaclab.sh -p -m pytest -sv -p no:cacheprovider \
+            isaaclab_arena/tests/test_kitchen_bench_yaml_env.py -k lightwheel_open_fridge_g_shaped
+          echo "Kitchen probe (attempt ${{ github.run_attempt }}): $(( $(date +%s) - START )) s" | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Run the tests.
       #
@@ -316,6 +328,13 @@ jobs:
           MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
             isaaclab_arena_curobo/tests/
 
+      - name: Save Isaac Sim caches
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/setup-isaac-sim-caches
+        with:
+          mode: save
+          name: tests
+
 
   tests_with_subprocess:
     name: Run tests with subprocess
@@ -340,7 +359,11 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
-      - *setup_isaac_sim_kit_cache_step
+      - name: Restore Isaac Sim caches
+        uses: ./.github/actions/setup-isaac-sim-caches
+        with:
+          mode: restore
+          name: subprocess
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
@@ -356,6 +379,13 @@ jobs:
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
             isaaclab_arena/tests/
+
+      - name: Save Isaac Sim caches
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/setup-isaac-sim-caches
+        with:
+          mode: save
+          name: subprocess
 
 
   test_gr00t_closedloop_e2e:
@@ -434,9 +464,12 @@ jobs:
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - name: Setup Isaac Sim kit cache (shader warmup on miss)
+      - name: Restore Isaac Sim caches
         if: steps.gr00t_cuda.outputs.enabled == 'true'
-        uses: ./.github/actions/setup-isaac-sim-kit-cache
+        uses: ./.github/actions/setup-isaac-sim-caches
+        with:
+          mode: restore
+          name: gr00t
 
       # The GR00T server post-trains a tiny checkpoint before loading it. Its
       # entrypoint waits for the LFS-backed dataset media fetched above before
