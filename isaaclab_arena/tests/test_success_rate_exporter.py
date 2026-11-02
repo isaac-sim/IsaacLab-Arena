@@ -30,7 +30,9 @@ END_TIMESTAMP_NS = 1792800000000000000
 
 GIT_STAMP = {"git_sha": "1a2b3c4", "git_branch": "main"}
 
-SHARED_VALUES = {"timestamp_ns": END_TIMESTAMP_NS, **GIT_STAMP}
+BENCHMARK_ID = "pnp_benchmark"
+
+SHARED_VALUES = {"timestamp_ns": END_TIMESTAMP_NS, **GIT_STAMP, "benchmark_id": BENCHMARK_ID}
 """Values every record built from a default ``_write_experiment`` output carries."""
 
 
@@ -72,7 +74,7 @@ def _write_experiment(experiment_output_directory: Path, runs: dict[str, dict]) 
         }
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
     (experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(
-        json.dumps({"git_stamp": GIT_STAMP, "runs": result_runs}), encoding="utf-8"
+        json.dumps({"git_stamp": GIT_STAMP, "benchmark_id": BENCHMARK_ID, "runs": result_runs}), encoding="utf-8"
     )
     return experiment_output_directory
 
@@ -119,7 +121,16 @@ def test_record_has_no_run_counts_of_completed_or_failed(tmp_path: Path):
 
     record = _build_record(experiment_output_directory)
 
-    assert set(record) == {"type", "timestamp_ns", "git_sha", "git_branch", "success_rate", "num_episodes", "num_runs"}
+    assert set(record) == {
+        "type",
+        "timestamp_ns",
+        "git_sha",
+        "git_branch",
+        "benchmark_id",
+        "success_rate",
+        "num_episodes",
+        "num_runs",
+    }
 
 
 def test_success_rate_exporter_writes_kpis_success_rates_file(tmp_path: Path):
