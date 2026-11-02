@@ -39,6 +39,9 @@ DROID_GEAR_APPROACH_JOINT_POSITIONS = {
 class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Newton DROID gear insertion environment."""
 
+    embodiment: str = "droid_differential_ik"
+    """Registered DROID differential-IK embodiment, such as ``droid_differential_ik`` or ``droid_abs_ik``."""
+
     hdr: str | None = "empty_warehouse_robolab"
     """Registered HDR background, or None for uniform dome lighting."""
 
@@ -48,10 +51,20 @@ class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
     position_randomization_m: float = 0.05
     """Maximum initial X/Y offset for each gear asset; zero keeps the nominal positions."""
 
+    camera_width: int = 640
+    """Rendered width of every DROID camera, in pixels."""
+
+    camera_height: int = 360
+    """Rendered height of every DROID camera, in pixels."""
+
+    camera_depth: bool = False
+    """Whether every DROID camera also renders ``distance_to_image_plane`` depth."""
+
     def __post_init__(self) -> None:
         assert (
             math.isfinite(self.position_randomization_m) and self.position_randomization_m >= 0.0
         ), "position_randomization_m must be finite and non-negative"
+        assert self.camera_width > 0 and self.camera_height > 0, "camera_width and camera_height must be positive"
 
 
 @register_environment
@@ -112,12 +125,14 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
             light.add_hdr(self.hdr_registry.get_hdr_by_name(cfg.hdr)())
         directional_light = self.asset_registry.get_asset_by_name("directional_light")()
 
-        embodiment = self.asset_registry.get_asset_by_name("droid_differential_ik")(enable_cameras=cfg.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.set_joint_initial_pos(DROID_GEAR_APPROACH_JOINT_POSITIONS)
         for camera_name in embodiment.camera_config.camera_names():
             camera = getattr(embodiment.camera_config, camera_name)
-            camera.width = 640
-            camera.height = 360
+            camera.width = cfg.camera_width
+            camera.height = cfg.camera_height
+            if cfg.camera_depth and "distance_to_image_plane" not in camera.data_types:
+                camera.data_types = [*camera.data_types, "distance_to_image_plane"]
 
         teleop_device = (
             self.device_registry.get_device_by_name(cfg.teleop_device)() if cfg.teleop_device is not None else None
