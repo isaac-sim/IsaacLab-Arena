@@ -54,8 +54,11 @@ class ArenaExperimentRunData(TypedDict):
     """Data stored for one configured Run in an Arena Experiment result."""
 
     environment: dict[str, str]
+    """Maps ``name`` and ``definition`` to the Run's environment name and definition."""
+
     policy_variant: str
     status: Literal["completed", "failed"]
+    start_timestamp_ns: int
     end_timestamp_ns: int
     rebuilds: list[ArenaRebuildResultData]
 
@@ -64,7 +67,10 @@ class ArenaExperimentResultData(TypedDict):
     """Contents of an Arena Experiment result file."""
 
     git_stamp: dict[str, str]
+    """JSON object of the Arena ``GitStamp``, mapping ``git_sha`` and ``git_branch`` to their values."""
+
     runs: dict[str, ArenaExperimentRunData]
+    """Maps each configured Run name to that Run's data."""
 
 
 def _require_nonempty_string(value: object, field_name: str) -> str:
@@ -100,7 +106,7 @@ class ArenaExperimentResult:
     """Combine every Run's metadata and episode JSONLs into one Experiment result file.
 
     The result contains the Arena git stamp and each configured Run's environment, policy variant,
-    execution status, end time, and raw episode records grouped by rebuild. It does not compute aggregate
+    execution status, start and end times, and raw episode records grouped by rebuild. It does not compute aggregate
     metrics or collect videos.
     """
 
@@ -123,7 +129,7 @@ class ArenaExperimentResult:
 
         Args:
             experiment_output_directory: Experiment output root containing one directory per Run.
-            run_metadata_by_name: Environment, policy variant, final status, and end time for each declared Run.
+            run_metadata_by_name: Environment, policy variant, final status, start time, and end time for each declared Run.
             git_stamp: Arena git commit and branch; read from the environment when omitted.
         """
         assert run_metadata_by_name, "run_metadata_by_name must not be empty"
@@ -141,6 +147,10 @@ class ArenaExperimentResult:
         status = run_metadata["status"]
         assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
 
+        start_timestamp_ns = run_metadata["start_timestamp_ns"]
+        assert isinstance(start_timestamp_ns, int) and not isinstance(
+            start_timestamp_ns, bool
+        ), f"start_timestamp_ns for Run {run_name!r} must be an int"
         end_timestamp_ns = run_metadata["end_timestamp_ns"]
         assert isinstance(end_timestamp_ns, int) and not isinstance(
             end_timestamp_ns, bool
@@ -168,6 +178,7 @@ class ArenaExperimentResult:
             },
             "policy_variant": run_metadata["policy_variant"],
             "status": status,
+            "start_timestamp_ns": start_timestamp_ns,
             "end_timestamp_ns": end_timestamp_ns,
             "rebuilds": rebuilds,
         }

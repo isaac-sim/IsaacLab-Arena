@@ -91,6 +91,7 @@ def _write_arena_experiment_result(
         run_name: {
             **build_arena_run_result_metadata(run_cfg),
             "status": run_results_by_name[run_name].status.value,
+            "start_timestamp_ns": run_results_by_name[run_name].start_timestamp_ns,
             "end_timestamp_ns": run_results_by_name[run_name].end_timestamp_ns,
         }
         for run_name, run_cfg in experiment_cfg.runs.items()

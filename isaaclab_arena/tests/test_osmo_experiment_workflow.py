@@ -264,6 +264,8 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "experiment_runner_process_exit_code=$?" in experiment_runner_command
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
     assert "experiment_runner_execution_status=failed" in experiment_runner_command
+    # The start time is taken before the Experiment Runner process starts.
+    assert "experiment_runner_start_timestamp_ns=$(date +%s%N)\nif " in experiment_runner_command
     # The end time is taken once the Experiment Runner process has exited, before the result is written.
     assert "fi\nexperiment_runner_end_timestamp_ns=$(date +%s%N)\n" in experiment_runner_command
     assert '"policy_variant": "pi05"' in experiment_runner_command
@@ -354,7 +356,7 @@ def test_experiment_runner_script_writes_a_result_the_collector_loads(
     run_execution_report, run_metadata, git_stamp = load_experiment_runner_result(tmp_path, "baseline")
     assert run_execution_report.status is RunStatus.FAILED
     assert run_execution_report.process_exit_code == 3
-    assert before_ns <= run_metadata["end_timestamp_ns"] <= after_ns
+    assert before_ns <= run_metadata["start_timestamp_ns"] <= run_metadata["end_timestamp_ns"] <= after_ns
     assert git_stamp == GitStamp(git_sha=expected_git_sha, git_branch=expected_git_branch)
 
 

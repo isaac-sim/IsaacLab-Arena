@@ -22,6 +22,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.utils.git_stamp import GitStamp
 
+START_TIMESTAMP_NS = 1792799000000000000
 END_TIMESTAMP_NS = 1792800000000000000
 
 
@@ -38,6 +39,7 @@ def _metadata(
         },
         "policy_variant": policy_variant,
         "status": status,
+        "start_timestamp_ns": START_TIMESTAMP_NS,
         "end_timestamp_ns": END_TIMESTAMP_NS,
     }
 
@@ -85,6 +87,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                 },
                 "policy_variant": "pi05",
                 "status": "completed",
+                "start_timestamp_ns": START_TIMESTAMP_NS,
                 "end_timestamp_ns": END_TIMESTAMP_NS,
                 "rebuilds": [
                     {"index": 0, "episodes": [{"rebuild": 0}]},
@@ -99,6 +102,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                 },
                 "policy_variant": "pi05",
                 "status": "failed",
+                "start_timestamp_ns": START_TIMESTAMP_NS,
                 "end_timestamp_ns": END_TIMESTAMP_NS,
                 "rebuilds": [{"index": 0, "episodes": [{"partial": True}]}],
             },
@@ -151,6 +155,14 @@ def test_result_records_given_git_stamp(tmp_path):
 def test_git_stamp_rejects_unexpected_keys(git_stamp):
     with pytest.raises(AssertionError, match="git stamp"):
         GitStamp.from_dict(git_stamp)
+
+
+def test_run_metadata_requires_integer_start_timestamp(tmp_path):
+    metadata = _metadata("task", status="failed")
+    metadata["start_timestamp_ns"] = "1792799000000000000"
+
+    with pytest.raises(AssertionError, match="start_timestamp_ns for Run 'run' must be an int"):
+        ArenaExperimentResult(tmp_path, {"run": metadata})
 
 
 def test_run_metadata_requires_integer_end_timestamp(tmp_path):

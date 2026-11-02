@@ -40,7 +40,7 @@ def load_experiment_runner_result(
         run_name: Run associated with the task output, used in validation messages.
 
     Returns:
-        Validated Run execution result, its environment, policy, and end time metadata, and the Arena git stamp
+        Validated Run execution result, its environment, policy, start time, and end time metadata, and the Arena git stamp
         that executed it.
     """
     experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
@@ -60,15 +60,17 @@ def load_experiment_runner_result(
         git_sha=experiment_runner_result["git_sha"],
         git_branch=experiment_runner_result["git_branch"],
     )
-    return (
-        RunExecutionReport(
-            run_name=run_name,
-            status=execution_status,
-            process_exit_code=process_exit_code,
-        ),
-        {**run_metadata, "end_timestamp_ns": experiment_runner_result["end_timestamp_ns"]},
-        git_stamp,
+    run_metadata = {
+        **run_metadata,
+        "start_timestamp_ns": experiment_runner_result["start_timestamp_ns"],
+        "end_timestamp_ns": experiment_runner_result["end_timestamp_ns"],
+    }
+    run_execution_report = RunExecutionReport(
+        run_name=run_name,
+        status=execution_status,
+        process_exit_code=process_exit_code,
     )
+    return run_execution_report, run_metadata, git_stamp
 
 
 def load_experiment_runner_output_directories_by_run_name(

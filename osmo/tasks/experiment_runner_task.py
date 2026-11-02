@@ -133,16 +133,18 @@ class ExperimentRunnerTask(BaseTask):
             })
         )
         write_experiment_runner_result_command = (
-            'printf \'{"execution_status":"%s","process_exit_code":%d,"end_timestamp_ns":%d,'
+            'printf \'{"execution_status":"%s","process_exit_code":%d,'
+            '"start_timestamp_ns":%d,"end_timestamp_ns":%d,'
             '"git_sha":"%s","git_branch":"%s","runs":%s}\\n\' '
             '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
-            '"$experiment_runner_end_timestamp_ns" '
+            '"$experiment_runner_start_timestamp_ns" "$experiment_runner_end_timestamp_ns" '
             f'"${{{ARENA_GIT_SHA_ENV_VAR}:-{UNKNOWN_GIT_STAMP_VALUE}}}" '
             f'"${{{ARENA_GIT_BRANCH_ENV_VAR}:-{UNKNOWN_GIT_STAMP_VALUE}}}" '
             f"{run_metadata_json} > {experiment_runner_result_path}"
         )
         return "\n".join([
             "# Record the application result without failing the OSMO task.",
+            "experiment_runner_start_timestamp_ns=$(date +%s%N)",
             f"if {experiment_runner_command}; then",
             "  experiment_runner_process_exit_code=0",
             f"  experiment_runner_execution_status={RunStatus.COMPLETED.value}",

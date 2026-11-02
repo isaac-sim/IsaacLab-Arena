@@ -144,6 +144,9 @@ class ArenaRunResult:
     status: RunStatus
     """Final execution status."""
 
+    start_timestamp_ns: int
+    """Unix epoch nanoseconds (UTC) at which the run started."""
+
     end_timestamp_ns: int
     """Unix epoch nanoseconds (UTC) at which the run finished or failed."""
 
