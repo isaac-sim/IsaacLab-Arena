@@ -113,6 +113,16 @@ def test_completed_experiment_writes_every_default_file(tmp_path: Path):
     assert {record["type"] for record in kpis} == {"per_experiment", "timing"}
 
 
+def test_experiment_without_timings_file_writes_only_the_success_rate_file(tmp_path: Path):
+    output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
+    (output_dir / ARENA_AGGREGATED_TIMINGS_FILENAME).unlink()
+
+    written_paths = export_kpis(output_dir)
+
+    assert [path.name for path in written_paths] == ["kpis_success_rates.json"]
+    assert _kpi_filenames(output_dir) == {"kpis_success_rates.json"}
+
+
 def test_failed_run_writes_no_files(tmp_path: Path, capsys):
     output_dir = _write_experiment(tmp_path / "experiment", {"good_run": "completed", "bad_run": "failed"})
 
@@ -134,7 +144,7 @@ def test_one_exporter_failing_still_writes_the_other(tmp_path: Path, monkeypatch
     assert _kpi_filenames(output_dir) == {"kpis_success_rates.json"}
 
 
-def test_first_exception_is_raised_after_every_exporter_ran(tmp_path: Path, monkeypatch):
+def test_first_exception_is_raised_after_every_exporter_ran(tmp_path: Path, monkeypatch, capsys):
     output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
     monkeypatch.setitem(EXPORTERS_BY_NAME, "failing", _FailingExporter)
     monkeypatch.setitem(EXPORTERS_BY_NAME, "failing_too", _SecondFailingExporter)
@@ -143,6 +153,9 @@ def test_first_exception_is_raised_after_every_exporter_ran(tmp_path: Path, monk
         export_kpis(output_dir, ("failing", "failing_too", "timing"))
 
     assert _kpi_filenames(output_dir) == {"kpis_timing.json"}
+    printed = capsys.readouterr().out
+    assert "exporter broke" in printed
+    assert "second exporter broke" in printed
 
 
 def test_raise_on_exporter_failure_false_does_not_raise(tmp_path: Path, monkeypatch, capsys):

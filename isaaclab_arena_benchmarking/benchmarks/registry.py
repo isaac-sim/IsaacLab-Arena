@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import traceback
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -43,7 +44,7 @@ def export_kpis(
             False, each failure is printed with its exporter name instead.
 
     Returns:
-        Paths of the written records files; empty when a Run failed.
+        Paths of the records files actually written; empty when a Run failed. An exporter with no records writes none.
     """
     unknown_names = [name for name in exporter_names if name not in EXPORTERS_BY_NAME]
     assert not unknown_names, f"Unknown KPI exporters {unknown_names}; valid names are {sorted(EXPORTERS_BY_NAME)}"
@@ -71,11 +72,17 @@ def export_kpis(
     failures: list[tuple[str, Exception]] = []
     for name, exporter in exporters.items():
         try:
-            written_paths.append(exporter.export_to_json(output_dir))
+            written_path = exporter.export_to_json(output_dir)
         except Exception as error:
             failures.append((name, error))
-    if failures and raise_on_exporter_failure:
-        raise failures[0][1]
+            continue
+        if written_path is not None:
+            written_paths.append(written_path)
+    # Print every failure before any re-raise, so a later failure is not lost behind the first.
     for name, error in failures:
         print(f"KPI exporter {name!r} failed: {type(error).__name__}: {error}")
+        if not raise_on_exporter_failure:
+            traceback.print_exception(error)
+    if failures and raise_on_exporter_failure:
+        raise failures[0][1]
     return written_paths

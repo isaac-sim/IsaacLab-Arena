@@ -245,11 +245,11 @@ runs:
         "end_timestamp_ns",
         "rebuilds",
     }
-    assert {path.name for path in (tmp_path / "output").glob("kpis_*.json")} == {
-        "kpis_success_rates.json",
-        "kpis_timing.json",
-    }
-    for kpis_filename in ("kpis_success_rates.json", "kpis_timing.json"):
+    # The timing file exists only when a timer ran, so it is checked when present.
+    kpis_filenames = {path.name for path in (tmp_path / "output").glob("kpis_*.json")}
+    assert "kpis_success_rates.json" in kpis_filenames
+    assert kpis_filenames <= {"kpis_success_rates.json", "kpis_timing.json"}
+    for kpis_filename in kpis_filenames:
         experiment_kpis = json.loads((tmp_path / "output" / kpis_filename).read_text(encoding="utf-8"))
         assert_influxdb_kpi_records_are_valid(experiment_kpis)
         assert {record["timestamp_ns"] for record in experiment_kpis} == {run_result["end_timestamp_ns"]}
