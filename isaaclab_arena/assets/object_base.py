@@ -16,7 +16,14 @@ from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_objec
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
+from isaaclab_arena.terms.events import (
+    randomize_articulation_pose_and_reset_joints,
+    reset_articulation_joints,
+    reset_articulation_pose_and_joints,
+    reset_articulation_pose_per_env_and_joints,
+    set_object_pose,
+    set_object_pose_per_env,
+)
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_disappear_variation import ObjectDisappearVariation
@@ -114,15 +121,33 @@ class RootedObjectBase(ObjectBase):
             ObjectType.ARTICULATION,
         )
 
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        """Return this object's scene key and reset event.
+
+        An articulation without a root-pose reset event still gets an event that resets its joints.
+
+        Returns:
+            The scene key, and the reset event or None when no event resets this object.
+        """
+        name, event_cfg = super().get_event_cfg()
+        if event_cfg is None and self.object_type == ObjectType.ARTICULATION:
+            event_cfg = EventTermCfg(
+                func=reset_articulation_joints,
+                mode="reset",
+                params={"asset_cfg": SceneEntityCfg(name)},
+            )
+        return name, event_cfg
+
     def _build_reset_event(self) -> EventTermCfg | None:
-        """Build the ``EventTermCfg`` for resetting this object's pose and velocity."""
+        """Build the ``EventTermCfg`` for resetting this object's pose, velocity and articulation joints."""
         if not self._requires_reset_pose_event():
             return None
 
         initial_pose = self.get_initial_pose()
+        is_articulation = self.object_type == ObjectType.ARTICULATION
         if isinstance(initial_pose, PosePerEnv):
             return EventTermCfg(
-                func=set_object_pose_per_env,
+                func=reset_articulation_pose_per_env_and_joints if is_articulation else set_object_pose_per_env,
                 mode="reset",
                 params={
                     "asset_cfg": SceneEntityCfg(self.name),
@@ -131,7 +156,7 @@ class RootedObjectBase(ObjectBase):
             )
         elif isinstance(initial_pose, PoseRange):
             return EventTermCfg(
-                func=randomize_object_pose,
+                func=randomize_articulation_pose_and_reset_joints if is_articulation else randomize_object_pose,
                 mode="reset",
                 params={
                     "pose_range": initial_pose.to_dict(),
@@ -140,7 +165,7 @@ class RootedObjectBase(ObjectBase):
             )
         else:  # Pose
             return EventTermCfg(
-                func=set_object_pose,
+                func=reset_articulation_pose_and_joints if is_articulation else set_object_pose,
                 mode="reset",
                 params={
                     "pose": initial_pose,

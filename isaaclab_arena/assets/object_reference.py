@@ -6,7 +6,6 @@
 import trimesh
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Usd
 
@@ -17,7 +16,6 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
-from isaaclab_arena.terms.events import reset_articulation_joints, reset_articulation_pose_and_joints
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import (
@@ -47,24 +45,6 @@ class ObjectReference(RootedObjectBase):
         self._collision_mesh: trimesh.Trimesh | None = None
         # None is a valid cached result for meshless prims; this flag distinguishes that from not-yet-loaded.
         self._collision_mesh_loaded = False
-
-    def _build_reset_event(self):
-        """Build a complete reset event for a referenced rigid body or articulation."""
-        event_cfg = super()._build_reset_event()
-        if event_cfg is not None and self.object_type == ObjectType.ARTICULATION:
-            event_cfg.func = reset_articulation_pose_and_joints
-        return event_cfg
-
-    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        """Retain joint initialization when another event owns the articulation's root reset."""
-        name, event_cfg = super().get_event_cfg()
-        if event_cfg is None and self.object_type == ObjectType.ARTICULATION:
-            event_cfg = EventTermCfg(
-                func=reset_articulation_joints,
-                mode="reset",
-                params={"asset_cfg": SceneEntityCfg(name)},
-            )
-        return name, event_cfg
 
     def get_initial_pose(self) -> Pose:
         """Return T_E_O for reference O, parent P and local environment frame E."""

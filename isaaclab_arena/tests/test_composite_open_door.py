@@ -70,6 +70,9 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
         # Preserve door poses for geometry assertions while task progress resets normally.
         cfg.events.reset_openable_object_revolute_joint_percentage_subtask_0 = None
         cfg.events.reset_openable_object_revolute_joint_percentage_subtask_1 = None
+        # The microwaves' own reset events also restore their default joint states.
+        cfg.events.microwave_0 = None
+        cfg.events.microwave_1 = None
     env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 
