@@ -30,3 +30,84 @@
 .kitchen-bench-catalog td:nth-child(2) a {
     overflow-wrap: anywhere;
 }
+
+/* Value-report styling for the What's New authoring study: stat callouts and a
+   comparison table with the Arena column highlighted. */
+:root {
+    --arena-value-rule: #0b4f3a;
+    --arena-value-header: #0b4f3a;
+    --arena-value-header-ink: #fff;
+    --arena-value-highlight: #eefaf1;
+    --arena-value-gain: #13804f;
+    --arena-value-muted: #5f685c;
+}
+
+html[data-theme="dark"] {
+    --arena-value-rule: #3fa57a;
+    --arena-value-header: #123d30;
+    --arena-value-header-ink: #f2f7f4;
+    --arena-value-highlight: #16271f;
+    --arena-value-gain: #6fd39f;
+    --arena-value-muted: #a3ad9f;
+}
+
+.arena-value-eyebrow p {
+    margin: 0;
+    color: var(--arena-value-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.arena-value-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1.25rem;
+    margin: 1.5rem 0;
+}
+
+.arena-value-stat {
+    padding-top: 0.6rem;
+    border-top: 4px solid var(--arena-value-rule);
+}
+
+.arena-value-stat p {
+    margin: 0;
+    color: var(--arena-value-muted);
+    font-size: 0.85rem;
+}
+
+.arena-value-stat p:first-child {
+    color: var(--pst-color-text-base);
+    font-size: 2rem;
+    line-height: 1.2;
+}
+
+table.arena-value-table thead th {
+    background-color: var(--arena-value-header);
+    color: var(--arena-value-header-ink);
+}
+
+table.arena-value-table td:first-child {
+    font-weight: 600;
+}
+
+table.arena-value-table td:nth-child(3),
+table.arena-value-table th:nth-child(3) {
+    background-color: var(--arena-value-highlight);
+}
+
+table.arena-value-table thead th:nth-child(3) {
+    background-color: var(--arena-value-rule);
+}
+
+table.arena-value-table td p {
+    margin: 0;
+}
+
+.arena-value-gain {
+    color: var(--arena-value-gain);
+    font-size: 0.85em;
+    font-weight: 700;
+}
