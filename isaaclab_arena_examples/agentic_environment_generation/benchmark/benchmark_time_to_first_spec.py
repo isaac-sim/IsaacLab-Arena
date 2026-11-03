@@ -39,14 +39,18 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
 )
 from isaaclab_arena.agentic_environment_generation.spec_io import write_env_graph_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.inference.backend import TokenUsage, resolve_inference_endpoint
+from isaaclab_arena.inference.backend import (
+    DEFAULT_ENDPOINT_NAME,
+    INFERENCE_ENDPOINTS,
+    TokenUsage,
+    resolve_inference_endpoint,
+)
 from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results import (
     format_ms,
     percentile,
     summarize_latencies,
     write_json,
 )
-from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
 
 DEFAULT_OUTPUT_PATH = Path("outputs/time_to_first_spec.json")
 DEFAULT_CASES_PATH = Path(__file__).with_name("time_to_first_spec_cases.yaml")
@@ -215,10 +219,36 @@ def summarize_token_usage(results: list[SampleResult]) -> dict[str, int | None]:
     return summary
 
 
+def add_inference_cli_args(parser: argparse.ArgumentParser) -> None:
+    """Add the endpoint, model, and temperature arguments for the benchmarked agent."""
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Override the LLM model id (default: the endpoint's model).",
+    )
+    parser.add_argument(
+        "--inference_endpoint",
+        type=str,
+        choices=tuple(INFERENCE_ENDPOINTS),
+        default=None,
+        help=(
+            "Inference endpoint to call (default: the ARENA_INFERENCE_ENDPOINT environment variable, "
+            f"else '{DEFAULT_ENDPOINT_NAME}')."
+        ),
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.2,
+        help="LLM sampling temperature (default: 0.2).",
+    )
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
-    add_agent_inference_cli_args(parser)
+    add_inference_cli_args(parser)
     workload = parser.add_mutually_exclusive_group()
     workload.add_argument(
         "--case",

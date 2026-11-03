@@ -23,10 +23,10 @@ from typing import Any
 
 from isaaclab_arena_examples.agentic_environment_generation.benchmark.benchmark_time_to_first_spec import (
     DEFAULT_CASES_PATH,
+    add_inference_cli_args,
     load_benchmark_cases,
 )
 from isaaclab_arena_examples.agentic_environment_generation.benchmark.latency_results import format_ms, write_json
-from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
 
 _BENCHMARK_SCRIPT = Path(__file__).with_name("benchmark_time_to_first_spec.py")
 _DEFAULT_OUTPUT_DIR = Path("outputs/time_to_first_spec")
@@ -35,7 +35,7 @@ _DEFAULT_OUTPUT_DIR = Path("outputs/time_to_first_spec")
 def parse_args() -> argparse.Namespace:
     """Parse batch benchmark arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
-    add_agent_inference_cli_args(parser)
+    add_inference_cli_args(parser)
     parser.add_argument(
         "--cases_file",
         type=Path,
