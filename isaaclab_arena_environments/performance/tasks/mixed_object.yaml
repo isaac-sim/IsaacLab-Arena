@@ -5,18 +5,8 @@
 
 # Environments take the ten fruit in list order, repeating after the tenth (random_choice: false).
 env_name: perflab_ten_fruit_into_bowl_maple_table
-embodiment:
-  id: droid
-  registry_name: droid_rel_joint_pos
-  params: {}
-background:
-  id: maple_table
-  registry_name: maple_table_robolab
-  params: {}
-objects:
-- id: bowl
-  registry_name: bowl_ycb_robolab
-  params: {}
+external_yaml:
+- ../scenes/fruit_bowl_maple_table.yaml
 object_sets:
 - id: fruit
   members:
@@ -31,19 +21,6 @@ object_sets:
   - pomegranate01_fruits_veggies_robolab
   - lychee01_fruits_veggies_robolab
   random_choice: false
-  params: {}
-relations:
-- kind: is_anchor
-  subject: maple_table
-  params: {}
-- kind: 'on'
-  subject: bowl
-  reference: maple_table
-  params: {}
-- kind: 'on'
-  subject: fruit
-  reference: maple_table
-  params: {}
 task:
   composition: atomic
   description: Pick up the fruit from the maple table and place it into the bowl on the table.

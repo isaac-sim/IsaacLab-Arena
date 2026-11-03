@@ -5,7 +5,7 @@
 
 shared:
   environment:
-    type: isaaclab_arena_environments/performance/mixed_object_environment.yaml
+    type: isaaclab_arena_environments/performance/tasks/same_object.yaml
     enable_cameras: false
   environment_builder:
     num_envs: 1
@@ -20,4 +20,4 @@ shared:
   num_rebuilds: 1
 
 runs:
-  mixed_object_workload: {}
+  same_object_control: {}
