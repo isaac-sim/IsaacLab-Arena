@@ -23,13 +23,16 @@ if TYPE_CHECKING:
 
 
 def ensure_environments_registered():
-    """Trigger registration of all environments in the ``isaaclab_arena_environments`` package.
+    """Register first-party and externally packaged Arena environments.
 
-    Importing the package fires the ``@register_environment`` decorator on each
-    environment module, which handles registration.  The import is cached by
-    Python, so subsequent calls are free.
+    Importing the first-party package fires its ``@register_environment`` decorators.
+    Installed packages can publish additional factories through the
+    ``isaaclab_arena.environments`` Python entry-point group.
     """
     import isaaclab_arena_environments  # noqa: F401
+    from isaaclab_arena.environments.environment_discovery import load_external_environment_entry_points
+
+    load_external_environment_entry_points()
 
 
 # Legacy argparse compatibility
@@ -129,6 +132,24 @@ def parse_and_return_external_environment_from_string(
     return name, environment_class
 
 
+def register_external_environment_from_class_path(
+    environment_path: str,
+) -> tuple[str, type[ArenaEnvironmentFactory]]:
+    """Register a legacy class-path environment unless the same factory is already registered."""
+    name, environment_factory_type = parse_and_return_external_environment_from_string(environment_path)
+    environment_registry = EnvironmentRegistry()
+    if environment_registry.is_registered(name, ensure_loaded=False):
+        registered_factory_type = environment_registry.get_component_by_name(name)
+        if registered_factory_type is not environment_factory_type:
+            raise RuntimeError(
+                f"Arena environment {name!r} is already registered by"
+                f" {registered_factory_type.__module__}.{registered_factory_type.__qualname__}"
+            )
+    else:
+        environment_registry.register(environment_factory_type, name)
+    return name, environment_factory_type
+
+
 def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[CliOverrideSpec]) -> None:
     """Add each declared override to the CLI ``parser`` as a ``--flag``."""
     for override in override_specs:
@@ -153,8 +174,7 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     environment = getattr(args, "external_environment_class_path", None)
     if environment is not None:
         print(f"Adding external environment: {environment}")
-        name, cls = parse_and_return_external_environment_from_string(environment)
-        env_registry.register(cls, name)
+        register_external_environment_from_class_path(environment)
 
     # A graph spec YAML may declare its own swappable flags under `cli_override_specs`. Register them
     # here, before parsing, so they appear in --help and parse like any other flag.

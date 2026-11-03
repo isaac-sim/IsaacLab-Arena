@@ -35,7 +35,8 @@ Details below:
   exactly the requested number of evaluation episodes. Added
   ``uv run isaaclab arena evaluate`` and automatic Arena task discovery for Isaac Lab's
   ``train``, ``play``, ``teleop record``, and ``teleop replay`` commands
-  (#1198, #1254, #1371).
+  (#1198, #1254, #1371). External packages can publish typed environment factories through
+  the ``isaaclab_arena.environments`` entry-point group for the same command support.
 - **Embodiments and physics backends:** Enabled Newton-backed DROID control and
   backend hooks on embodiments. Added an embodiment-owned gripper interface and
   environment-specific spawn physics settings (#1189, #1284, #1293).

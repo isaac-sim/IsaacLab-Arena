@@ -58,6 +58,10 @@ before your own package run ``pip install -e``.
    COPY my_package /workspace/my_package
    RUN uv pip install --editable /workspace/my_package
 
+Installing the external package is required even when its source is already on ``PYTHONPATH``.
+Arena discovers registered environment factories through Python package entry-point metadata,
+which is created by ``pip`` or ``uv pip install``.
+
 See Arena's own `Dockerfile
 <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/docker/Dockerfile.isaaclab_arena>`_
 for a complete reference, including Isaac Lab installation and optional GR00T dependencies.
