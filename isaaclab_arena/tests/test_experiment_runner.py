@@ -43,26 +43,7 @@ def test_experiment_runner_parses_native_hydra_overrides():
     ]
 
 
-def test_experiment_runner_parses_kpi_exporters():
-    default_arguments, _ = parse_experiment_runner_args(["--experiment_config", "experiment.yaml"])
-    selected_arguments, _ = parse_experiment_runner_args([
-        "--experiment_config",
-        "experiment.yaml",
-        "--kpi_exporters",
-        "timing",
-    ])
-
-    assert default_arguments.kpi_exporters is None
-    assert selected_arguments.kpi_exporters == ["timing"]
-
-
-def test_experiment_runner_parses_bare_kpi_exporters_flag_as_no_exporters():
-    arguments, _ = parse_experiment_runner_args(["--experiment_config", "experiment.yaml", "--kpi_exporters"])
-
-    assert arguments.kpi_exporters == []
-
-
-def test_experiment_runner_selects_kpi_exporters_from_the_experiment_unless_overridden(monkeypatch, tmp_path, capsys):
+def test_experiment_runner_exports_the_kpis_selected_by_the_experiment(monkeypatch, tmp_path):
     from isaaclab_arena.evaluation import experiment_runner
 
     exported_selections = []
@@ -71,33 +52,10 @@ def test_experiment_runner_selects_kpi_exporters_from_the_experiment_unless_over
         "export_kpis",
         lambda output_dir, names, **kwargs: exported_selections.append((output_dir, list(names), kwargs)),
     )
-    experiment_cfg = SimpleNamespace(kpi_exporters=["success_rate"])
 
-    experiment_runner._export_selected_kpis(tmp_path, experiment_cfg, None)
-    assert exported_selections == [(tmp_path, ["success_rate"], {})]
+    experiment_runner._export_selected_kpis(tmp_path, SimpleNamespace(kpi_exporters=["success_rate", "timing"]))
 
-    exported_selections.clear()
-    experiment_runner._export_selected_kpis(tmp_path, experiment_cfg, ["timing"])
-    assert exported_selections == [(tmp_path, ["timing"], {})]
-
-    exported_selections.clear()
-    experiment_runner._export_selected_kpis(tmp_path, experiment_cfg, [])
-    assert exported_selections == []
-    assert "KPI export is skipped" in capsys.readouterr().out
-
-
-def test_experiment_runner_rejects_duplicate_kpi_exporter_override(monkeypatch, tmp_path):
-    from isaaclab_arena.evaluation import experiment_runner
-
-    exported_selections = []
-    monkeypatch.setattr(experiment_runner, "export_kpis", lambda *args, **kwargs: exported_selections.append(args))
-
-    with pytest.raises(AssertionError, match=r"duplicate KPI exporters \['timing'\]"):
-        experiment_runner._export_selected_kpis(
-            tmp_path, SimpleNamespace(kpi_exporters=["timing"]), ["timing", "timing"]
-        )
-
-    assert exported_selections == []
+    assert exported_selections == [(tmp_path, ["success_rate", "timing"], {})]
 
 
 def test_experiment_runner_skips_kpi_export_when_the_experiment_selects_none(monkeypatch, tmp_path, capsys):
@@ -106,30 +64,10 @@ def test_experiment_runner_skips_kpi_export_when_the_experiment_selects_none(mon
     exported_selections = []
     monkeypatch.setattr(experiment_runner, "export_kpis", lambda *args, **kwargs: exported_selections.append(args))
 
-    experiment_runner._export_selected_kpis(tmp_path, SimpleNamespace(kpi_exporters=[]), None)
+    experiment_runner._export_selected_kpis(tmp_path, SimpleNamespace(kpi_exporters=[]))
 
     assert exported_selections == []
     assert "KPI export is skipped" in capsys.readouterr().out
-
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_rejects_unknown_kpi_exporter():
-    """Reject an unknown exporter name in a fresh process, because argparse exits."""
-    result = subprocess.run(
-        [
-            TestConstants.python_path,
-            f"{TestConstants.evaluation_dir}/experiment_runner.py",
-            "--kpi_exporters",
-            "latency",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=60,
-    )
-
-    assert result.returncode == 2
-    assert "invalid choice: 'latency'" in result.stderr
 
 
 def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp_path):

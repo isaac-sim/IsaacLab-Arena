@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
 import sys
 from pathlib import Path
 from typing import ClassVar
@@ -26,10 +27,10 @@ from isaaclab_arena.evaluation.arena_experiment_result import (  # noqa: E402
 from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import (  # noqa: E402
     assert_influxdb_kpi_records_are_valid,
 )
-from isaaclab_arena_benchmarking.benchmarks.registry import EXPORTERS_BY_NAME, export_kpis  # noqa: E402
+from isaaclab_arena_benchmarking.benchmarks import registry  # noqa: E402
+from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis, get_exporters_by_name  # noqa: E402
 from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import PerExperimentRecord  # noqa: E402
 from isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter import TimingRecord  # noqa: E402
-from isaaclab_arena_benchmarking.utils import kpi_exporter_registry  # noqa: E402
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord  # noqa: E402
 
 START_TIMESTAMP_NS = 1792799000000000000
@@ -95,7 +96,24 @@ class _SecondFailingExporter(_FailingExporter):
 
 
 def test_registry_lists_the_default_exporters():
-    assert set(EXPORTERS_BY_NAME) == {"success_rate", "timing"}
+    assert set(get_exporters_by_name()) == {"success_rate", "timing"}
+
+
+def test_registry_lists_the_exporters_in_a_fresh_process_without_importing_torch_or_isaaclab():
+    """Read the registry before any exporter module is imported, in a fresh process."""
+    code = (
+        "import sys\n"
+        "from isaaclab_arena_benchmarking.benchmarks.registry import get_exporters_by_name\n"
+        "print(sorted(get_exporters_by_name()))\n"
+        "heavy_modules = sorted(name for name in ('torch', 'isaaclab', 'isaacsim') if name in sys.modules)\n"
+        "print(heavy_modules)\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True, cwd=REPO_ROOT, timeout=120
+    )
+
+    assert result.stdout.splitlines()[-2:] == ["['success_rate', 'timing']", "[]"]
 
 
 def test_completed_experiment_writes_every_default_file(tmp_path: Path):
@@ -159,7 +177,7 @@ def test_failed_run_writes_no_files(tmp_path: Path, capsys):
 
 def test_one_exporter_failing_still_writes_the_other(tmp_path: Path, monkeypatch):
     output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
-    monkeypatch.setitem(EXPORTERS_BY_NAME, "failing", _FailingExporter)
+    monkeypatch.setitem(get_exporters_by_name(), "failing", _FailingExporter)
 
     with pytest.raises(RuntimeError, match="exporter broke"):
         export_kpis(output_dir, ("failing", "success_rate"))
@@ -169,8 +187,8 @@ def test_one_exporter_failing_still_writes_the_other(tmp_path: Path, monkeypatch
 
 def test_first_exception_is_raised_after_every_exporter_ran(tmp_path: Path, monkeypatch, capsys):
     output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
-    monkeypatch.setitem(EXPORTERS_BY_NAME, "failing", _FailingExporter)
-    monkeypatch.setitem(EXPORTERS_BY_NAME, "failing_too", _SecondFailingExporter)
+    monkeypatch.setitem(get_exporters_by_name(), "failing", _FailingExporter)
+    monkeypatch.setitem(get_exporters_by_name(), "failing_too", _SecondFailingExporter)
 
     with pytest.raises(RuntimeError, match="exporter broke"):
         export_kpis(output_dir, ("failing", "failing_too", "timing"))
@@ -183,8 +201,8 @@ def test_first_exception_is_raised_after_every_exporter_ran(tmp_path: Path, monk
 
 def test_raise_on_exporter_failure_false_does_not_raise(tmp_path: Path, monkeypatch, capsys):
     output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
-    monkeypatch.setitem(EXPORTERS_BY_NAME, "failing", _FailingExporter)
-    monkeypatch.setitem(EXPORTERS_BY_NAME, "failing_too", _SecondFailingExporter)
+    monkeypatch.setitem(get_exporters_by_name(), "failing", _FailingExporter)
+    monkeypatch.setitem(get_exporters_by_name(), "failing_too", _SecondFailingExporter)
 
     written_paths = export_kpis(output_dir, ("failing", "success_rate", "failing_too"), raise_on_exporter_failure=False)
 
@@ -195,19 +213,17 @@ def test_raise_on_exporter_failure_false_does_not_raise(tmp_path: Path, monkeypa
 
 
 def test_registering_a_second_exporter_under_a_taken_name_is_rejected(monkeypatch):
-    monkeypatch.setattr(kpi_exporter_registry, "EXPORTERS_BY_NAME", dict(EXPORTERS_BY_NAME))
-
     with pytest.raises(AssertionError, match="'timing' is already registered"):
-        kpi_exporter_registry.register_kpi_exporter("timing")(_FailingExporter)
+        registry.register_kpi_exporter("timing")(_FailingExporter)
 
 
 def test_register_kpi_exporter_adds_the_class_under_its_name(monkeypatch):
-    monkeypatch.setattr(kpi_exporter_registry, "EXPORTERS_BY_NAME", {})
+    monkeypatch.setattr(registry, "_EXPORTERS_BY_NAME", {})
 
-    decorated_type = kpi_exporter_registry.register_kpi_exporter("failing")(_FailingExporter)
+    decorated_type = registry.register_kpi_exporter("failing")(_FailingExporter)
 
     assert decorated_type is _FailingExporter
-    assert kpi_exporter_registry.EXPORTERS_BY_NAME == {"failing": _FailingExporter}
+    assert registry._EXPORTERS_BY_NAME == {"failing": _FailingExporter}
 
 
 def test_unknown_exporter_name_is_rejected(tmp_path: Path):
@@ -244,7 +260,7 @@ def test_exporters_with_the_same_type_are_rejected(tmp_path: Path, monkeypatch):
     class _DuplicateTimingExporter(_FailingExporter):
         record_types: ClassVar[tuple[str, ...]] = ("timing",)
 
-    monkeypatch.setitem(EXPORTERS_BY_NAME, "duplicate_timing", _DuplicateTimingExporter)
+    monkeypatch.setitem(get_exporters_by_name(), "duplicate_timing", _DuplicateTimingExporter)
 
     with pytest.raises(AssertionError, match="timing"):
         export_kpis(output_dir, ("timing", "duplicate_timing"))
@@ -253,8 +269,8 @@ def test_exporters_with_the_same_type_are_rejected(tmp_path: Path, monkeypatch):
 
 
 def test_exporters_declare_the_record_types_they_build():
-    assert EXPORTERS_BY_NAME["success_rate"].record_types == (PerExperimentRecord.record_type,)
-    assert EXPORTERS_BY_NAME["timing"].record_types == (TimingRecord.record_type,)
+    assert get_exporters_by_name()["success_rate"].record_types == (PerExperimentRecord.record_type,)
+    assert get_exporters_by_name()["timing"].record_types == (TimingRecord.record_type,)
 
 
 def _valid_records() -> list[dict]:

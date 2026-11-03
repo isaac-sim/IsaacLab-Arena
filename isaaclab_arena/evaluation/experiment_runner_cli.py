@@ -8,7 +8,6 @@ from pathlib import Path
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
-from isaaclab_arena_benchmarking.benchmarks.registry import EXPORTERS_BY_NAME
 
 _DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
 _DEFAULT_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "outputs"
@@ -67,17 +66,6 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
             "Exact directory that will contain this Experiment's report and one subdirectory per Run."
             " The directory must be missing or empty. Managed execution can use this instead of a timestamped"
             " directory."
-        ),
-    )
-    parser.add_argument(
-        "--kpi_exporters",
-        nargs="*",
-        choices=sorted(EXPORTERS_BY_NAME),
-        default=None,
-        help=(
-            "KPI exporters that write the Experiment's KPI records after all Runs complete, replacing the"
-            " Experiment's kpi_exporters. Pass the flag with no names to skip KPI export; omit it to use the"
-            " Experiment's kpi_exporters."
         ),
     )
     parser.add_argument(

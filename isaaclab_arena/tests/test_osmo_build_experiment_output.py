@@ -572,7 +572,7 @@ def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch,
         {"run_a": _run_metadata("environment", "pi05")},
     )
     experiment_output_directory = tmp_path / "experiment-output"
-    monkeypatch.setitem(registry.EXPORTERS_BY_NAME, "success_rate", _FailingSuccessRateExporter)
+    monkeypatch.setitem(registry.get_exporters_by_name(), "success_rate", _FailingSuccessRateExporter)
 
     build_experiment_output(
         {"run_a": experiment_runner_output_directory},

@@ -19,8 +19,8 @@ from typing import Any, ClassVar
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_AGGREGATED_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.utils.git_stamp import GitStamp
+from isaaclab_arena_benchmarking.benchmarks.registry import register_kpi_exporter
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
-from isaaclab_arena_benchmarking.utils.kpi_exporter_registry import register_kpi_exporter
 
 TIMING_RECORDS_FILENAME = "kpis_timing.json"
 """Name of the timing KPI records file in an Experiment output directory."""

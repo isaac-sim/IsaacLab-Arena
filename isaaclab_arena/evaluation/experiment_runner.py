@@ -21,7 +21,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
-from isaaclab_arena_benchmarking.benchmarks.registry import assert_valid_kpi_exporter_names, export_kpis
+from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
 if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -104,27 +104,19 @@ def _write_arena_experiment_result(
     return experiment_result
 
 
-def _export_selected_kpis(
-    experiment_output_directory: Path,
-    experiment_cfg: ArenaExperimentCfg,
-    kpi_exporter_override: list[str] | None,
-) -> None:
-    """Write the selected KPI records for InfluxDB, or skip KPI export when no exporter is selected.
+def _export_selected_kpis(experiment_output_directory: Path, experiment_cfg: ArenaExperimentCfg) -> None:
+    """Write the KPI records for InfluxDB of the Experiment's ``kpi_exporters``, if any are selected.
 
-    Nothing is written when a Run failed.
+    No KPI file is written when any of the Runs in the Experiment failed.
 
     Args:
         experiment_output_directory: Experiment output root holding the result file.
-        experiment_cfg: Experiment whose ``kpi_exporters`` select the exporters unless overridden.
-        kpi_exporter_override: Names of the KPI exporters to run instead of the Experiment's; None to use the
-            Experiment's, empty to skip KPI export.
+        experiment_cfg: Experiment whose ``kpi_exporters`` select the exporters; empty to skip KPI export.
     """
-    kpi_exporter_names = experiment_cfg.kpi_exporters if kpi_exporter_override is None else kpi_exporter_override
-    assert_valid_kpi_exporter_names(kpi_exporter_names)
-    if not kpi_exporter_names:
+    if not experiment_cfg.kpi_exporters:
         print("[INFO] No KPI exporters selected; KPI export is skipped.")
         return
-    export_kpis(experiment_output_directory, kpi_exporter_names)
+    export_kpis(experiment_output_directory, experiment_cfg.kpi_exporters)
 
 
 def main():
@@ -230,7 +222,7 @@ def main():
         # Write HTML report.
         report_path = build_report(experiment_output_directory)
 
-        _export_selected_kpis(experiment_output_directory, experiment_cfg, args_cli.kpi_exporters)
+        _export_selected_kpis(experiment_output_directory, experiment_cfg)
 
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)

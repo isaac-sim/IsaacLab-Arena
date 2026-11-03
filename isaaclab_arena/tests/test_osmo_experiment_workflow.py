@@ -496,8 +496,8 @@ def test_embeds_effective_experiment_yaml():
     assert embedded_experiment["runs"]["baseline"]["environment_builder"]["num_envs"] == 1
 
 
-def test_embedded_experiment_of_every_run_keeps_the_kpi_exporters():
-    """Embed the Experiment's kpi_exporters in each single-Run Experiment, like its name."""
+def test_embedded_experiment_of_every_run_exports_no_kpis():
+    """Embed an empty kpi_exporters in each single-Run Experiment; the collector task exports the KPIs."""
     source_experiment_cfg = _pi0_experiment_cfg()
     source_experiment_cfg.kpi_exporters = ["success_rate", "timing"]
     workflow = ArenaExperimentWorkflow(
@@ -509,7 +509,7 @@ def test_embedded_experiment_of_every_run_keeps_the_kpi_exporters():
 
     assert run_groups
     for group in run_groups:
-        assert _embedded_experiment(group["tasks"][0])["kpi_exporters"] == ["success_rate", "timing"]
+        assert _embedded_experiment(group["tasks"][0])["kpi_exporters"] == []
 
 
 def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
@@ -657,8 +657,8 @@ def test_result_wrapper_preserves_experiment_video_options():
     assert experiment_runner_command.endswith("exit 0\n")
 
 
-def test_experiment_runner_task_disables_kpi_export():
-    """The Experiment Runner task passes a bare --kpi_exporters; the collector task publishes the KPI files."""
+def test_experiment_runner_task_does_not_pass_a_kpi_exporters_option():
+    """The Experiment Runner task has no KPI exporter option; its embedded Experiment selects none."""
     experiment_runner_task = ExperimentRunnerTask(
         task_cfg=ExperimentRunnerTaskCfg(),
         experiment_cfg=_zero_action_experiment_cfg(),
@@ -668,10 +668,7 @@ def test_experiment_runner_task_disables_kpi_export():
 
     experiment_runner_command = _task_file(experiment_runner_task.create_task_dict(), "/tmp/entry.sh")["contents"]
 
-    command_line = next(line for line in experiment_runner_command.splitlines() if "--kpi_exporters" in line)
-    command_tokens = shlex.split(command_line)
-    flag_index = command_tokens.index("--kpi_exporters")
-    assert command_tokens[flag_index + 1].startswith("--"), "--kpi_exporters must take no names"
+    assert "--kpi_exporters" not in experiment_runner_command
 
 
 def test_experiment_runner_without_timeout_runs_unbounded():

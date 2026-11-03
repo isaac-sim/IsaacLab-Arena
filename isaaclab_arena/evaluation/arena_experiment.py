@@ -23,8 +23,7 @@ class ArenaExperimentCfg:
     """Name of the Experiment, a non-empty single-line string."""
 
     kpi_exporters: list[str] = field(default_factory=lambda: ["timing"])
-    """Names of the registered KPI exporters that write the Experiment's KPI records once every Run completed.
-    Each name appears once; an empty list exports no KPIs."""
+    """Names of the registered KPI exporters that write the Experiment's KPI records once every Run completed."""
 
     def __post_init__(self) -> None:
         assert is_single_line_nonempty_string(
