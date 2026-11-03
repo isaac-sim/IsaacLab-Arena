@@ -10,7 +10,13 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
+from isaaclab_arena.relations.placement_diagnostics import (
+    AggregatedPlacementDiagnostics,
+    BatchValidationDiagnostics,
+    PlacementDiagnostics,
+    ValidationCheckDiagnostics,
+    aggregate_placement_diagnostics,
+)
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
@@ -102,16 +108,50 @@ def test_pool_diagnostics_record_fallbacks_and_explain_fill_failures():
         )
 
 
-def test_pool_diagnostics_file_round_trips(tmp_path):
-    """A fill's diagnostics, with its batches, checks and fallback environments, load back from their file unchanged."""
+def test_aggregated_diagnostics_sum_fills_by_batch_position():
+    """Fills sum batch by batch and check by check; a later batch sums only the fills that validated one."""
+    first_batch = BatchValidationDiagnostics(
+        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True)}
+    )
+    later_batch = BatchValidationDiagnostics(
+        20,
+        15,
+        {
+            "no_overlap": ValidationCheckDiagnostics(20, 16, required=True),
+            "ik_reachable": ValidationCheckDiagnostics(16, 15, required=False),
+        },
+    )
+
+    aggregated = aggregate_placement_diagnostics([
+        PlacementDiagnostics(10, [first_batch, later_batch], fallback_envs=[3]),
+        PlacementDiagnostics(10, [first_batch]),
+        PlacementDiagnostics(5, [first_batch]),
+    ])
+
+    summed_first_batch = BatchValidationDiagnostics(
+        300, 180, {"no_overlap": ValidationCheckDiagnostics(300, 210, required=True)}
+    )
+    assert aggregated == AggregatedPlacementDiagnostics(
+        num_builds=3, num_envs=25, num_fallback_envs=1, num_batches=4, batches=[summed_first_batch, later_batch]
+    )
+    # The fills' own diagnostics are left unchanged.
+    assert first_batch == BatchValidationDiagnostics(
+        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True)}
+    )
+
+
+def test_aggregated_pool_diagnostics_file_round_trips(tmp_path):
+    """A fill's summed diagnostics, with its batches, checks and fallback count, load back from their file unchanged."""
     pool = PooledObjectPlacer(_desk_and_box(box_width_m=1.5), _placer_params(), pool_size=2, num_envs=2)
+    aggregated = aggregate_placement_diagnostics([pool.last_fill_diagnostics])
     path = tmp_path / "placement_diagnostics.json"
 
-    pool.last_fill_diagnostics.save(path)
+    aggregated.save(path)
 
-    assert PlacementDiagnostics.load(path) == pool.last_fill_diagnostics
-    assert pool.last_fill_diagnostics.num_envs == 2
-    assert pool.last_fill_diagnostics.fallback_envs
+    assert AggregatedPlacementDiagnostics.load(path) == aggregated
+    assert aggregated.num_envs == 2
+    assert aggregated.num_fallback_envs > 0
+    assert aggregated.batches[0].checks
 
 
 def _desk_and_box(box_width_m: float) -> list[DummyObject]:
