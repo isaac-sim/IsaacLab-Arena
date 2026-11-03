@@ -31,7 +31,7 @@ from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLMimicEnv
-from isaaclab_arena.terms.events import reset_all_articulation_joints
+from isaaclab_arena.terms.events import reset_articulation_to_default
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_g1.g1_env.mdp import g1_events as g1_events_mdp
@@ -786,7 +786,9 @@ def _remove_waist_from_pink_ik_action_config(
 class G1WBCJointEventCfg:
     """Configuration for events."""
 
-    reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
+    reset_robot = EventTerm(
+        func=reset_articulation_to_default, mode="reset", params={"asset_cfg": SceneEntityCfg("robot")}
+    )
     reset_wbc_policy = EventTerm(func=g1_events_mdp.reset_decoupled_wbc_joint_policy, mode="reset")
     apply_high_friction_to_g1_fingers: EventTerm | None = None
 
@@ -795,7 +797,9 @@ class G1WBCJointEventCfg:
 class G1WBCPinkEventCfg:
     """Configuration for events."""
 
-    reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
+    reset_robot = EventTerm(
+        func=reset_articulation_to_default, mode="reset", params={"asset_cfg": SceneEntityCfg("robot")}
+    )
     reset_wbc_policy = EventTerm(func=g1_events_mdp.reset_decoupled_wbc_pink_policy, mode="reset")
     apply_high_friction_to_g1_fingers: EventTerm | None = None
 

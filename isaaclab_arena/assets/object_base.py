@@ -16,7 +16,12 @@ from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_objec
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.terms.events import reset_articulation_joints, set_object_pose, set_object_pose_per_env
+from isaaclab_arena.terms.events import (
+    reset_articulation_joints,
+    reset_articulation_root_to_default,
+    set_object_pose,
+    set_object_pose_per_env,
+)
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_disappear_variation import ObjectDisappearVariation
@@ -80,6 +85,7 @@ class RootedObjectBase(ObjectBase):
             self.add_variation(ObjectMassVariation(self.name))
             self.add_variation(ObjectDisappearVariation(self.name))
         self.initial_velocity: Velocity | None = None
+        self.reset_pose = True
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
@@ -108,23 +114,31 @@ class RootedObjectBase(ObjectBase):
         self._pose_event_cfg = self._build_reset_event()
 
     def _requires_reset_pose_event(self) -> bool:
-        """Whether a reset-event for the initial pose should be generated.
-
-        Subclasses may override to add extra conditions (e.g. a ``reset_pose`` flag).
-        """
-        return self.get_initial_pose() is not None and self.object_type in (
-            ObjectType.RIGID,
-            ObjectType.ARTICULATION,
+        """Whether a reset event for the configured initial pose should be generated."""
+        return (
+            self.reset_pose
+            and self.get_initial_pose() is not None
+            and self.object_type in (ObjectType.RIGID, ObjectType.ARTICULATION)
         )
 
     def get_event_cfgs(self) -> list[tuple[str, EventTermCfg]]:
         """Return this object's reset events, each paired with its event name.
 
         An articulation also gets an event named ``<name>_joints`` that restores its default joint state, whether or
-        not it has a root-pose reset event.
+        not it has a root-pose reset event. Without a configured pose, it also restores its default root state
+        unless pose resets are disabled.
         """
         event_cfgs = super().get_event_cfgs()
         if self.object_type == ObjectType.ARTICULATION:
+            if not event_cfgs and self.get_initial_pose() is None and self.reset_pose:
+                event_cfgs.append((
+                    self.name,
+                    EventTermCfg(
+                        func=reset_articulation_root_to_default,
+                        mode="reset",
+                        params={"asset_cfg": SceneEntityCfg(self.name)},
+                    ),
+                ))
             joint_reset_cfg = EventTermCfg(
                 func=reset_articulation_joints,
                 mode="reset",
