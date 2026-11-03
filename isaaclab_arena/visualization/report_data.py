@@ -591,7 +591,11 @@ class _IndexedEvent(NamedTuple):
 
 
 def _indexed_events(record: dict[str, Any]) -> Iterator[_IndexedEvent]:
-    """Yield (criteria name, sequence name, predicate index, event) for events that record all three keys."""
+    """Yield (criteria name, sequence name, predicate index, event) for events that record all three keys.
+
+    Args:
+        record: Episode record containing named predicate events.
+    """
     for event in _progress_events(record):
         criteria_name = event.get("criteria_name")
         sequence_name = event.get("sequence_name")
@@ -601,7 +605,11 @@ def _indexed_events(record: dict[str, Any]) -> Iterator[_IndexedEvent]:
 
 
 def _sequence_names_by_criteria(record: dict[str, Any]) -> dict[str, set[str]]:
-    """Map each criteria name to its sequence names, including sequences that emitted no event."""
+    """Map each criteria name to its sequence names, including sequences that emitted no event.
+
+    Args:
+        record: Episode record containing criterion progress and predicate events.
+    """
     sequence_names = {
         name: set(detail.get("active_predicates") or {}) for name, detail in _progress_criteria(record).items()
     }
