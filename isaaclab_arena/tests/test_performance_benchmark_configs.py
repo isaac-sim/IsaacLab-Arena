@@ -11,8 +11,9 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.evaluation.arena_experiment_config_loader import _resolve_policy_cfg_type_from_name_or_class_path
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
+from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
 from isaaclab_arena.tests.utils.constants import TestConstants
 
 _PERFLAB_DIRECTORY = Path(TestConstants.arena_environments_dir) / "performance"
@@ -68,6 +69,22 @@ _REMOTE_HOST = "10.0.0.1"
 _REMOTE_PORT = 8001
 
 
+def _load_experiment(config_name: str, overrides: list[str] | None = None):
+    """Load a PerfLab Experiment with the environment config types its Runs select."""
+    from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
+
+    # NOTE(alexmillane, 2026-11-03): Pass the environment config types explicitly instead of using
+    # load_arena_experiment_from_config_file, which checks every registered environment and fails when
+    # an earlier test in the same process leaves an external environment registered without a config
+    # (issue #1580). Switch back once PR #1379 lands.
+    return load_arena_experiment_from_yaml(
+        _PERFLAB_CONFIG_DIRECTORY / config_name,
+        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
+        overrides=overrides,
+    )
+
+
 @pytest.mark.parametrize("config_name", _WORKLOAD_BY_CONFIG_NAME)
 def test_perflab_experiments_load_with_the_guide_overrides(config_name):
     """Load each Experiment with the overrides from the PerfLab guide's commands and check its workload."""
@@ -79,11 +96,7 @@ def test_perflab_experiments_load_with_the_guide_overrides(config_name):
     if workload.uses_remote_policy:
         overrides += [f"shared.policy.remote_host={_REMOTE_HOST}", f"shared.policy.remote_port={_REMOTE_PORT}"]
 
-    experiment_cfg = load_arena_experiment_from_config_file(
-        _PERFLAB_CONFIG_DIRECTORY / config_name,
-        device="cuda:0",
-        overrides=overrides,
-    )
+    experiment_cfg = _load_experiment(config_name, overrides)
 
     assert list(experiment_cfg.runs) == [workload.run_name]
     run_cfg = experiment_cfg.runs[workload.run_name]
@@ -121,14 +134,8 @@ def test_same_and_mixed_object_workloads_differ_only_by_object_set_members():
     )
     assert normalized_same_object_spec == mixed_object_spec
 
-    same_object_run = load_arena_experiment_from_config_file(
-        _PERFLAB_CONFIG_DIRECTORY / "same_object_benchmark_experiment.yaml",
-        device="cuda:0",
-    ).runs["same_object_control"]
-    mixed_object_run = load_arena_experiment_from_config_file(
-        _PERFLAB_CONFIG_DIRECTORY / "mixed_object_benchmark_experiment.yaml",
-        device="cuda:0",
-    ).runs["mixed_object_workload"]
+    same_object_run = _load_experiment("same_object_benchmark_experiment.yaml").runs["same_object_control"]
+    mixed_object_run = _load_experiment("mixed_object_benchmark_experiment.yaml").runs["mixed_object_workload"]
 
     normalized_environment = replace(
         same_object_run.environment, env_spec_path=mixed_object_run.environment.env_spec_path
