@@ -1,7 +1,7 @@
 PerfLab Benchmarks
 ==================
 
-This guide tells a PerfLab operator how to set up and run six non-OSMO Arena benchmarks on Arena's
+This guide tells a PerfLab operator how to set up and run seven non-OSMO Arena benchmarks on Arena's
 ``main`` branch:
 
 1. ``zero_action`` without cameras.
@@ -10,12 +10,15 @@ This guide tells a PerfLab operator how to set up and run six non-OSMO Arena ben
 4. The same apple in every environment.
 5. Ten fruit assets distributed across environments.
 6. Cosmos with the maintained production DROID cameras and a separate Cosmos server.
+7. GR00T N1.6 with the maintained production DROID cameras and a separate GR00T server.
 
-Each command starts one fresh Arena Experiment Runner process on one simulator GPU. Pi0.5 and
-Cosmos also need separately started policy servers, which run in their own containers on the same
-machine.
+Each command starts one fresh Arena Experiment Runner process on one simulator GPU. Pi0.5,
+Cosmos, and GR00T also need separately started policy servers on the same machine. The Pi0.5 and
+Cosmos servers run in their own containers; the GR00T server runs on the host.
 
-The Experiment configurations live in ``isaaclab_arena_environments/performance/``.
+The configurations live in ``isaaclab_arena_environments/performance/``, laid out like RoboLab's:
+``experiment_configs/`` holds the Experiments, ``tasks/`` the fruit tasks, and ``scenes/`` the scene
+they share.
 
 
 What the experiments show
@@ -37,8 +40,8 @@ Rubik's cube in a bowl. The object workloads place fruit in a bowl.
        camera or policy cost.
    * - Production-camera baseline
      - ``zero_action``; the maintained three-camera DROID rig is on
-     - The additional cost of producing the normal camera observations. This guide does not change
-       or state a camera resolution.
+     - The additional cost of producing the normal camera observations. The rig renders at its
+       declared 1280x720.
    * - Pi0.5
      - Pi0.5 remote policy; the maintained three-camera DROID rig is on
      - End-to-end production evaluation cost, including camera rendering and calls to the OpenPI
@@ -53,10 +56,14 @@ Rubik's cube in a bowl. The object workloads place fruit in a bowl.
      - Cosmos remote policy; the maintained three-camera DROID rig is on
      - End-to-end production evaluation cost, including camera rendering and calls to the Cosmos
        server.
+   * - GR00T
+     - GR00T N1.6 remote closed-loop policy; the maintained three-camera DROID rig is on
+     - End-to-end production evaluation cost, including camera rendering and calls to the GR00T
+       server.
 
 The first two experiments use the same ``droid_rel_joint_pos`` embodiment, so comparing them
 isolates the cost of enabling the production camera rig. Pi0.5 requires the ``droid_abs_joint_pos``
-embodiment. Cosmos also uses ``droid_abs_joint_pos``. Therefore, compare Pi0.5 or Cosmos with the
+embodiment. Cosmos and GR00T also use ``droid_abs_joint_pos``. Therefore, compare a policy run with the
 production-camera baseline only as a complete production-path comparison, not as a measurement of
 policy inference alone.
 
@@ -65,13 +72,13 @@ external-camera image and the wrist-camera image; the second external-camera ima
 is not sent to OpenPI.
 
 The homogeneous and heterogeneous experiments use the same task, zero-action policy, and
-camera-free setup. Their scenes come from ``same_object_environment.yaml`` and
-``mixed_object_environment.yaml`` in ``isaaclab_arena_environments/performance/``, which differ
-only in the fruit list. The homogeneous run uses one apple in every environment. The heterogeneous
-run assigns its ten fruit assets repeatedly in the listed order. Compare these two runs to measure
-the cost of heterogeneous parallel environments. Do not compare them with the Rubik's-cube
-baseline, which uses a different scene definition, different task assets, and an explicit HDR. All
-ten fruit assets appear when ``NUM_ENVS`` is at least 10.
+camera-free setup. They come from ``tasks/same_object.yaml`` and ``tasks/mixed_object.yaml``, which
+share ``scenes/fruit_bowl_maple_table.yaml`` and differ only in the fruit list. The homogeneous
+run uses one apple in every environment. The heterogeneous run assigns its ten fruit assets
+repeatedly in the listed order. Compare these two runs to measure the cost of heterogeneous
+parallel environments. Do not compare them with the Rubik's-cube baseline, which uses a different
+scene definition, different task assets, and an explicit HDR. All ten fruit assets appear when
+``NUM_ENVS`` is at least 10.
 
 The zero-action policy keeps the robot stationary. A completed zero-action run proves that the
 performance pipeline worked; it is not expected to solve the task.
@@ -82,7 +89,7 @@ Installation
 
 Follow the `Isaac Lab-Arena installation guide
 <https://isaac-sim.github.io/IsaacLab-Arena/main/pages/quickstart/installation.html>`_ and use the
-Docker setup. Pi0.5 and Cosmos also require the policy servers described below.
+Docker setup. Pi0.5, Cosmos, and GR00T also require the policy servers described below.
 
 The Arena image installs PyTorch built for CUDA 13.0, so the host needs an NVIDIA driver from the
 R580 branch or newer. Check the driver version with ``nvidia-smi`` on the host. With an older
@@ -160,7 +167,7 @@ command runs:
 
 .. code-block:: bash
 
-   PERFLAB_OUTPUT_ROOT=/eval/perflab-six-workloads
+   PERFLAB_OUTPUT_ROOT=/eval/perflab-workloads
    mkdir -p "${PERFLAB_OUTPUT_ROOT}"
 
 
@@ -212,7 +219,7 @@ Run this command inside the Arena container:
    env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
      ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config \
-       isaaclab_arena_environments/performance/camera_free_benchmark_experiment.yaml \
+       isaaclab_arena_environments/performance/experiment_configs/camera_free_benchmark_experiment.yaml \
      --experiment_output_directory \
        "${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
      --viz none \
@@ -243,7 +250,7 @@ Every environment uses the same apple asset. Cameras and policy inference are of
    env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
      ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config \
-       isaaclab_arena_environments/performance/same_object_benchmark_experiment.yaml \
+       isaaclab_arena_environments/performance/experiment_configs/same_object_benchmark_experiment.yaml \
      --experiment_output_directory \
        "${PERFLAB_OUTPUT_ROOT}/same-object/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
      --viz none \
@@ -264,7 +271,7 @@ The environments use ten fruit assets in a repeating order. Cameras and policy i
    env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
      ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config \
-       isaaclab_arena_environments/performance/mixed_object_benchmark_experiment.yaml \
+       isaaclab_arena_environments/performance/experiment_configs/mixed_object_benchmark_experiment.yaml \
      --experiment_output_directory \
        "${PERFLAB_OUTPUT_ROOT}/mixed-object/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
      --viz none \
@@ -290,7 +297,7 @@ Run this command inside the Arena container:
    env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
      ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config \
-       isaaclab_arena_environments/performance/production_camera_benchmark_experiment.yaml \
+       isaaclab_arena_environments/performance/experiment_configs/production_camera_benchmark_experiment.yaml \
      --experiment_output_directory \
        "${PERFLAB_OUTPUT_ROOT}/production-camera/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
      --viz none \
@@ -356,7 +363,7 @@ Run this command inside the Arena container:
    env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
      ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config \
-       isaaclab_arena_environments/performance/pi05_benchmark_experiment.yaml \
+       isaaclab_arena_environments/performance/experiment_configs/pi05_benchmark_experiment.yaml \
      --experiment_output_directory \
        "${PERFLAB_OUTPUT_ROOT}/pi05/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
      --viz none \
@@ -419,7 +426,7 @@ Then run:
    env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
      ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config \
-       isaaclab_arena_environments/performance/cosmos_benchmark_experiment.yaml \
+       isaaclab_arena_environments/performance/experiment_configs/cosmos_benchmark_experiment.yaml \
      --experiment_output_directory \
        "${PERFLAB_OUTPUT_ROOT}/cosmos/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
      --viz none \
@@ -433,7 +440,75 @@ Use ``1, 16, 64, 128, 256``, then continue doubling while the preceding point su
 Cosmos server with Ctrl-C after the sweep finishes.
 
 
-12. Decide whether a trial passed
+12. Prepare the GR00T policy server
+-----------------------------------
+
+GR00T uses port ``5555``, so it does not conflict with the Pi0.5 or Cosmos server. Unlike those
+servers, it runs on the host from the pinned ``submodules/Isaac-GR00T`` checkout and needs ``uv``
+on the host. Populate the submodule if needed, then start the server in the second terminal on the
+host, from the repository root:
+
+.. code-block:: bash
+
+   git submodule update --init submodules/Isaac-GR00T
+   cd submodules/Isaac-GR00T
+   uv run python gr00t/eval/run_gr00t_server.py \
+     --model-path nvidia/GR00T-N1.6-DROID \
+     --embodiment-tag OXE_DROID \
+     --device cuda --host 127.0.0.1 --port 5555
+
+On the first invocation, ``uv`` creates the GR00T Python environment and the server downloads the
+``nvidia/GR00T-N1.6-DROID`` checkpoint. Complete that work before starting the measured clock. See
+:doc:`../quickstart/running_a_real_policy/gr00t` for hardware requirements.
+
+The server prints its configuration when it starts. Before the sweep, confirm that it answers
+requests:
+
+.. code-block:: bash
+
+   uv run python ../../isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
+     --host 127.0.0.1 --port 5555 \
+     --timeout-sec 60 --poll-interval-sec 5 --request-timeout-ms 5000
+
+Leave the server running throughout the GR00T sweep, and record the GPU memory it uses, as shown by
+``nvidia-smi``.
+
+
+13. GR00T with production cameras
+---------------------------------
+
+Set the GR00T endpoint inside the Arena container:
+
+.. code-block:: bash
+
+   GR00T_HOST=127.0.0.1
+   GR00T_PORT=5555
+
+Then run:
+
+.. code-block:: bash
+
+   env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+     ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config \
+       isaaclab_arena_environments/performance/experiment_configs/gr00t_benchmark_experiment.yaml \
+     --experiment_output_directory \
+       "${PERFLAB_OUTPUT_ROOT}/gr00t/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
+     --viz none \
+     --device cuda:0 \
+     "shared.environment_builder.num_envs=${NUM_ENVS}" \
+     "shared.rollout_limit.num_steps=${NUM_STEPS}" \
+     "shared.policy.remote_host=${GR00T_HOST}" \
+     "shared.policy.remote_port=${GR00T_PORT}"
+
+The client reuses each GR00T action chunk for 32 simulation steps, so the 300-step run exercises
+repeated requests.
+
+Use ``1, 16, 64, 128, 256``, then continue doubling while the preceding point succeeds. Stop the
+GR00T server with Ctrl-C after the sweep finishes.
+
+
+14. Decide whether a trial passed
 ---------------------------------
 
 A successful trial has all of the following:
@@ -466,6 +541,8 @@ Expected Run names are:
      - ``pi05_evaluation``
    * - Cosmos
      - ``cosmos_evaluation``
+   * - GR00T
+     - ``gr00t_evaluation``
 
 In ``<run-name>/arena_run_timings.json``, the ``count`` of the ``step``, ``step/env_step``, and
 ``step/policy_inference`` records must equal ``NUM_STEPS``.

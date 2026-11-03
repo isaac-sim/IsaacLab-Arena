@@ -319,3 +319,7 @@ Tested revisions
   <https://github.com/isaac-sim/IsaacLab/commit/bb0c8e1b9af381bf13064ec3303e17db79e4b6ef>`_, and
   the `OSMO benchmark configuration
   <https://github.com/isaac-sim/IsaacLab-Arena/blob/4ee056866b0f222fa166561ed46e2b5bace39445/isaaclab_arena_environments/experiment_configs/perflab/osmo/camera_free_scaling_validation_experiment.yaml>`_.
+
+The links above point to the exact configurations that were measured. The maintained PerfLab
+configurations on ``main`` live in ``isaaclab_arena_environments/performance/experiment_configs/``
+and may differ from them, for example in rollout length.

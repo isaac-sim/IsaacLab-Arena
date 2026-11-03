@@ -3,6 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Renders the DROID camera rig at its declared 1280x720 (camera_resolution_mode: embodiment_default).
+# TODO(alexmillane, 2026-11-03): Move to GR00T's policy-default resolution
+# (camera_resolution_mode: policy_default) together with the Pi0.5 evaluation.
 shared:
   environment:
     type: pick_and_place_maple_table
