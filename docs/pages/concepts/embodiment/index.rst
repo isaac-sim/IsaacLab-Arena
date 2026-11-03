@@ -256,6 +256,28 @@ without an instance key.
 Arena requires unique scene entity and manager term names across robots.
 Duplicate names raise an error during environment construction.
 
+Updating custom reset and recorder configurations
+-------------------------------------------------
+
+* The removed ``reset_all_articulation_joints`` helper reset every articulation.
+* Call ``reset_articulation_to_default`` per articulation to restore its default root and joint state.
+  Pass the articulation's scene name through the selector:
+
+  .. code-block:: python
+
+     from isaaclab.managers import SceneEntityCfg
+     from isaaclab_arena.terms.events import reset_articulation_to_default
+
+     reset_articulation_to_default(env, env_ids, asset_cfg=SceneEntityCfg("left"))
+
+* The removed ``make_trajectory_recorder_terms_cfg`` helper also included shared scene recorders.
+* Its replacement, ``make_end_effector_pose_recorder_terms_cfg``, returns only one robot's end-effector pose recorders.
+  Pass the robot's scene name through ``asset_name``.
+  Keep its sensor names in ``frame_transformer_names``.
+  Supply its callback through ``term_name`` to name terms without collisions.
+* ``ArenaEnvBuilder`` now adds shared scene recorders once per environment.
+  Custom builders add ``TrajectoryRecorderTermsBaseCfg`` once, separately from each robot's recorders.
+
 More details
 ------------
 

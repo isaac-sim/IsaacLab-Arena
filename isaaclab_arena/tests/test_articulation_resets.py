@@ -71,9 +71,11 @@ def _test_robot_reset_restores_only_its_articulation(simulation_app):
     reset_articulation_to_default(env, torch.tensor([1]), SceneEntityCfg("robot"))
 
     default_root_state = wp.to_torch(robot.data.default_root_state)[1]
-    expected_root_pose = default_root_state[:7].clone()
-    expected_root_pose[:3] += torch.tensor([10.0, 20.0, 30.0])
-    torch.testing.assert_close(robot.root_pose[1], expected_root_pose)
+    # W is the simulation world frame.
+    # R is the articulation root frame.
+    T_W_R_expected = default_root_state[:7].clone()
+    T_W_R_expected[:3] += torch.tensor([10.0, 20.0, 30.0])
+    torch.testing.assert_close(robot.root_pose[1], T_W_R_expected)
     torch.testing.assert_close(robot.root_velocity[1], default_root_state[7:])
     torch.testing.assert_close(robot.joint_pos[1], robot.data.default_joint_pos.torch[1])
     torch.testing.assert_close(robot.joint_vel[1], torch.zeros(3))
@@ -131,9 +133,11 @@ def _test_articulated_objects_reset_their_joints(simulation_app):
     # Without a configured pose, the drawer restores its default root and joints.
     articulation = reset_drawer(drawer)
     default_root_state = wp.to_torch(articulation.data.default_root_state)[1]
-    expected_root_pose = default_root_state[:7].clone()
-    expected_root_pose[:3] += torch.tensor([10.0, 20.0, 30.0])
-    torch.testing.assert_close(articulation.root_pose[1], expected_root_pose)
+    # W is the simulation world frame.
+    # R is the articulation root frame.
+    T_W_R_expected = default_root_state[:7].clone()
+    T_W_R_expected[:3] += torch.tensor([10.0, 20.0, 30.0])
+    torch.testing.assert_close(articulation.root_pose[1], T_W_R_expected)
     torch.testing.assert_close(articulation.root_velocity[1], default_root_state[7:])
 
     # Explicitly disabling pose resets keeps the displaced root.

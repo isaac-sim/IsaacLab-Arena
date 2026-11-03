@@ -282,5 +282,9 @@ def combine_observation_cfgs(*configs: Any) -> Any:
 
 
 def _without_camera_group(entries: list[tuple[str, type, Any]]) -> list[tuple[str, type, Any]]:
-    """Return the observation field entries other than the ``camera_obs`` group."""
+    """Return the observation field entries other than the ``camera_obs`` group.
+
+    Args:
+        entries: Observation fields, each containing a name, type, and value.
+    """
     return [entry for entry in entries if entry[0] != "camera_obs"]

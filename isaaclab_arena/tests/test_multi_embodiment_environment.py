@@ -86,8 +86,10 @@ def _test_two_robots(simulation_app, output_dir, cameras=False):
         assert set(env.unwrapped.scene.articulations) == keys
         if cameras:
             for key, x in (("left", -2.0), ("right", 2.0)):
-                position = env.unwrapped.scene[key].data.root_pos_w.torch - env.unwrapped.scene.env_origins
-                assert torch.allclose(position[:, 0], torch.full_like(position[:, 0], x), atol=0.02)
+                # E is the local environment frame.
+                # R is this robot's root frame.
+                t_E_R = env.unwrapped.scene[key].data.root_pos_w.torch - env.unwrapped.scene.env_origins
+                assert torch.allclose(t_E_R[:, 0], torch.full_like(t_E_R[:, 0], x), atol=0.02)
             assert set(observations["camera_obs"]) == {"left_wrist_cam_rgb", "right_wrist_cam_rgb"}
             assert env.unwrapped.cfg.demo_recorder_config is not None
             assert {"left", "right"} <= set(builder.get_all_variations())
