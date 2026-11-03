@@ -514,6 +514,8 @@ for consecutive control steps. The checks below are task-defined predicates:
   not count as a dropped object because the lift must happen first.
 * Each event is recorded once while its last predicate stays true. It can be recorded again
   after that predicate has been false for a step and the whole sequence completes again.
+  Set ``latch=True`` to retain only the first completion in each environment until its episode resets.
+  The default remains recurring behavior.
 * To require several conditions at the same time, combine them in one predicate, as in
   ``not_grasped_and_resting_outside_bowl``.
 * Separate events run independently, including throughout sequential composite tasks. Event names
@@ -546,3 +548,42 @@ also includes configured events with no occurrences.
 The HTML report shows a timeline and count per event. Select an occurrence to seek the recorded
 camera videos when timing is available. Record videos using simulation time for playback to keep
 seeking aligned with event steps.
+
+Capturing measurements at completion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An event can capture measurements when its whole sequence completes.
+Supply an explicit callback through ``event_details``.
+The callback receives the environment and the index of the environment that completed the event.
+It must return a dictionary of JSON-compatible values.
+Include units in measurement names so recorded values remain understandable.
+
+.. code-block:: python
+
+   def capture_object_height(env, env_idx):
+       return {"height_m": float(env.scene["object"].data.root_pos_w[env_idx, 2])}
+
+   first_lift = TrackedEventCfg(
+       name="first_lift",
+       predicate_sequence=[lifted_and_grasped],
+       latch=True,
+       event_details=capture_object_height,
+   )
+
+The callback runs once per completed occurrence, after predicate evaluation.
+It does not run for intermediate predicate transitions or while a completed condition stays true.
+Read measurements without evaluating predicates again.
+The tracker copies callback results and returned occurrence snapshots.
+Later changes to those dictionaries cannot change the retained history.
+Resetting one environment clears only that environment's history and latch.
+
+Read captured values from each occurrence's ``details`` attribute.
+The recorder includes a ``details`` dictionary only when it is nonempty:
+
+.. code-block:: json
+
+   {"name": "first_lift", "step": 12, "details": {"height_m": 0.34}}
+
+Without a callback, the recorded occurrence remains ``{"name": "first_lift", "step": 12}``.
+The report displays captured values in an event-measurement table within the tracked-occurrences section.
+Events remain separate from success criteria and contribute no score or termination signal.

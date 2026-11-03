@@ -105,15 +105,8 @@ class EpisodeSummary:
             for name in names:
                 if isinstance(name, str):
                     occurrences_by_event.setdefault(name, [])
-        events = progress.get("tracked_events", [])
-        if isinstance(events, list):
-            for event in events:
-                if not isinstance(event, dict):
-                    continue
-                name = event.get("name")
-                step = _as_int(event.get("step"))
-                if isinstance(name, str) and step is not None and step >= 0:
-                    occurrences_by_event.setdefault(name, []).append(step)
+        for event in _tracked_event_records(self.record):
+            occurrences_by_event.setdefault(event["name"], []).append(event["step"])
         return occurrences_by_event
 
     @property
@@ -534,6 +527,21 @@ def _criteria_names_are_compatible(episodes: list[EpisodeSummary], criteria_name
 def _progress(record: dict[str, Any]) -> dict[str, Any]:
     progress = record.get("progress")
     return progress if isinstance(progress, dict) else {}
+
+
+def _tracked_event_records(record: dict[str, Any]) -> list[dict[str, Any]]:
+    """Read valid event occurrences with the same integer steps in every report view."""
+    events = _progress(record).get("tracked_events", [])
+    if not isinstance(events, list):
+        return []
+    occurrences = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        name, step = event.get("name"), _as_int(event.get("step"))
+        if isinstance(name, str) and step is not None and step >= 0:
+            occurrences.append({**event, "step": step})
+    return occurrences
 
 
 def _progress_criteria(record: dict[str, Any]) -> dict[str, dict[str, Any]]:

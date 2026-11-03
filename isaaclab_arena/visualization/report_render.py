@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import html
+import json
 import pathlib
 import re
 import string
@@ -20,6 +21,7 @@ from isaaclab_arena.visualization.report_data import (
     JobSummary,
     RunExecutionReport,
     TaskSummary,
+    _tracked_event_records,
     is_completed_execution,
     is_failed_execution,
 )
@@ -453,6 +455,27 @@ def _render_consecutive_step_summary(episode) -> str:
     )
 
 
+def _render_tracked_event_details(episode) -> str:
+    """Render measurements captured at completed event transitions, when present."""
+    rows = []
+    for event in _tracked_event_records(episode.record):
+        name, step, details = event["name"], event["step"], event.get("details")
+        if not isinstance(details, dict):
+            continue
+        for measurement in sorted(details):
+            value = json.dumps(details[measurement], sort_keys=True, ensure_ascii=False)
+            rows.append(
+                f"<tr><td>{html.escape(name)}</td><td>{step}</td>"
+                f"<td>{html.escape(measurement)}</td><td>{html.escape(value)}</td></tr>"
+            )
+    if not rows:
+        return ""
+    return (
+        "<h4>Event measurements</h4><table><thead><tr><th>Event</th><th>Step</th>"
+        f"<th>Measurement</th><th>Value</th></tr></thead><tbody>{''.join(rows)}</tbody></table>"
+    )
+
+
 def _render_tracked_event_occurrences(episode) -> str:
     """Render recurring observations as timelines and a table of occurrence steps."""
     occurrences_by_event = episode.tracked_event_occurrences
@@ -498,7 +521,7 @@ def _render_tracked_event_occurrences(episode) -> str:
         " recorded occurrence. These observations do not affect task success. Select an occurrence to seek"
         " recorded video when timing is available.</p>"
         "<table><thead><tr><th>Event</th><th>Count</th><th>Occurrences</th></tr></thead>"
-        f'<tbody>{"".join(rows)}</tbody></table></details>'
+        f'<tbody>{"".join(rows)}</tbody></table>{_render_tracked_event_details(episode)}</details>'
     )
 
 
