@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable
 from typing import Any
 
@@ -55,9 +56,15 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
     # EpisodeRecorderManager invokes this before resetting the tracker's live counters.
     tracker = env.progress_tracker
     if "tracked_events" in progress:
+        tracked_events = []
+        for event in progress["tracked_events"][env_id]:
+            occurrence = {"name": event.name, "step": event.step}
+            if event.details:
+                occurrence["details"] = copy.deepcopy(event.details)
+            tracked_events.append(occurrence)
         recorded["progress"].update(
             tracked_event_names=progress["tracked_event_names"],
-            tracked_events=[{"name": event.name, "step": event.step} for event in progress["tracked_events"][env_id]],
+            tracked_events=tracked_events,
             control_step_dt=float(env.step_dt),
         )
     if tracker is not None:

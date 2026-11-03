@@ -623,8 +623,15 @@ class ProgressTracker:
             is_complete = runner.is_complete()
             newly_complete = is_complete & ~was_complete
             for env_idx in newly_complete.nonzero(as_tuple=False).flatten().tolist():
+                details = event_cfg.event_details(env, env_idx) if event_cfg.event_details is not None else {}
+                assert isinstance(details, dict), "event_details must return a dictionary."
                 self._tracked_event_occurrences[env_idx].append(
-                    TrackedEventOccurrence(env_idx, runner.completion_criteria.name, int(step_index[env_idx].item()))
+                    TrackedEventOccurrence(
+                        env_idx,
+                        runner.completion_criteria.name,
+                        int(step_index[env_idx].item()),
+                        copy.deepcopy(details),
+                    )
                 )
             if event_cfg.latch:
                 continue
@@ -781,8 +788,8 @@ class ProgressTracker:
         return [runner.completion_criteria.name for runner in self._tracked_event_runners]
 
     def get_tracked_event_occurrences(self) -> list[list[TrackedEventOccurrence]]:
-        """Return recorded event occurrences per environment without advancing predicates."""
-        return [list(events) for events in self._tracked_event_occurrences]
+        """Return independent snapshots of occurrences without advancing predicates."""
+        return copy.deepcopy(self._tracked_event_occurrences)
 
 
 class ProgressTrackingRecorder(RecorderTerm):
