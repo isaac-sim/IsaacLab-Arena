@@ -145,8 +145,8 @@ runs:
 
 def _test_getting_started_experiment_executes_baseline_run(simulation_app, output_dir: Path):
     """Load the checked-in Experiment and execute its baseline Run in Isaac Sim."""
-    from isaaclab_arena.evaluation.arena_run import RunStatus
     from isaaclab_arena.evaluation.run_execution import build_and_run
+    from isaaclab_arena.evaluation.run_status import RunStatus
 
     baseline_run = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH).runs["baseline"]
 

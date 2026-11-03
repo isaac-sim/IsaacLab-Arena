@@ -13,8 +13,10 @@ from dataclasses import dataclass
 from prettytable import PrettyTable
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.evaluation.run_status import RunStatus
+
 if TYPE_CHECKING:
-    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResultData
+    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
 
 
 @dataclass
@@ -24,7 +26,7 @@ class _EpisodeCounts:
     num_unknown: int = 0
 
 
-def build_categorical_variation_table(result: ArenaExperimentResultData) -> PrettyTable:
+def build_categorical_variation_table(result: ArenaExperimentResult) -> PrettyTable:
     """Count episodes and successes for each observed string or boolean variation value.
 
     Args:
@@ -37,9 +39,9 @@ def build_categorical_variation_table(result: ArenaExperimentResultData) -> Pret
         numeric and vector values are omitted.
     """
     counts: dict[tuple[str, str, str], _EpisodeCounts] = defaultdict(_EpisodeCounts)
-    for run_name, run in result["runs"].items():
+    for run_name, run in result.runs.items():
         # A failed Run can keep the episodes it finished before failing; leave them out.
-        if run["status"] == "completed":
+        if run["status"] == RunStatus.COMPLETED.value:
             for rebuild in run["rebuilds"]:
                 for episode in rebuild["episodes"]:
                     for variation, value in episode.get("variations", {}).items():

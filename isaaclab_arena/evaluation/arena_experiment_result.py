@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Collect one Arena Experiment result from its Run output directories."""
+"""Collect, write and read the Arena Experiment result."""
 
 from __future__ import annotations
 
@@ -11,9 +11,11 @@ import json
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
+from isaaclab_arena.utils.string_checks import is_single_line_nonempty_string
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
     parse_episode_results_filename,
@@ -58,7 +60,9 @@ class ArenaExperimentRunData(TypedDict):
     """Maps ``name`` and ``definition`` to the Run's environment name and definition."""
 
     policy_variant: str
-    status: Literal["completed", "failed"]
+    status: str
+    """Value of the Run's ``RunStatus``."""
+
     start_timestamp_ns: int
     end_timestamp_ns: int
     rebuilds: list[ArenaRebuildResultData]
@@ -68,7 +72,10 @@ class ArenaExperimentResultData(TypedDict):
     """Contents of an Arena Experiment result file."""
 
     git_stamp: dict[str, str]
-    """JSON object of the Arena ``GitStamp``, mapping ``git_sha`` and ``git_branch`` to their values."""
+    """JSON object of the Arena ``GitStamp``."""
+
+    experiment_name: str
+    """Name of the Experiment, a non-empty single-line string."""
 
     runs: dict[str, ArenaExperimentRunData]
     """Maps each configured Run name to that Run's data."""
@@ -104,11 +111,10 @@ def _collect_rebuilds(
 
 
 class ArenaExperimentResult:
-    """Combine every Run's metadata and episode JSONLs into one Experiment result file.
+    """One Arena Experiment result: its name, Arena git stamp and the data of every configured Run.
 
-    The result contains the Arena git stamp and each configured Run's environment, policy variant,
-    execution status, start and end times, and raw episode records grouped by rebuild. It does not compute aggregate
-    metrics or collect videos.
+    Each Run holds its environment, policy variant, execution status, start and end times, and raw episode records
+    grouped by rebuild. The result does not compute aggregate metrics or collect videos.
     """
 
     @staticmethod
@@ -123,30 +129,109 @@ class ArenaExperimentResult:
     def __init__(
         self,
         experiment_output_directory: str | Path,
+        experiment_name: str,
+        git_stamp: GitStamp,
+        runs: Mapping[str, ArenaExperimentRunData],
+    ) -> None:
+        """Construct a result from already collected Run data.
+
+        Intended for internal use; prefer ``from_experiment_output`` to load a written result or
+        ``from_run_outputs`` to collect the outputs of executed Runs.
+
+        Args:
+            experiment_output_directory: Experiment output root the result file is written to.
+            experiment_name: Name of the Experiment, a non-empty single-line string.
+            git_stamp: Arena git commit and branch the Experiment ran with.
+            runs: Data of each configured Run by Run name, with an integer end time for every Run.
+        """
+        assert is_single_line_nonempty_string(
+            experiment_name
+        ), f"experiment_name must be a non-empty single-line string, got {experiment_name!r}"
+        assert runs, "runs must not be empty"
+        for run_name, run_data in runs.items():
+            end_timestamp_ns = run_data.get("end_timestamp_ns")
+            assert isinstance(end_timestamp_ns, int) and not isinstance(end_timestamp_ns, bool), (
+                f"Run {run_name!r} in '{experiment_output_directory}' has no integer end_timestamp_ns; results"
+                " written before Run end times were recorded are not supported"
+            )
+        self.experiment_output_directory = Path(experiment_output_directory)
+        self.experiment_name = experiment_name
+        self.git_stamp = git_stamp
+        self.runs: dict[str, ArenaExperimentRunData] = dict(runs)
+
+    @classmethod
+    def from_experiment_output(cls, output_dir: str | Path) -> ArenaExperimentResult:
+        """Load and check ``arena_experiment_result.json`` of an Experiment output directory.
+
+        Args:
+            output_dir: Experiment output root holding the result file.
+
+        Returns:
+            The Experiment result, with at least one Run, a git stamp, an Experiment name and an integer end time for
+            every Run.
+        """
+        output_dir = Path(output_dir)
+        data: ArenaExperimentResultData = json.loads(
+            (output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8")
+        )
+        assert "git_stamp" in data, f"Experiment result in '{output_dir}' has no git stamp"
+        assert "experiment_name" in data, f"Experiment result in '{output_dir}' has no experiment_name"
+        assert "runs" in data, f"Experiment result in '{output_dir}' has no runs"
+        return cls(output_dir, data["experiment_name"], GitStamp.from_dict(data["git_stamp"]), data["runs"])
+
+    @classmethod
+    def from_run_outputs(
+        cls,
+        experiment_output_directory: str | Path,
         run_metadata_by_name: Mapping[str, Mapping[str, Any]],
         git_stamp: GitStamp | None = None,
-    ) -> None:
+        *,
+        experiment_name: str,
+    ) -> ArenaExperimentResult:
         """Collect declared Run outputs from an Experiment output directory.
 
         Args:
             experiment_output_directory: Experiment output root containing one directory per Run.
             run_metadata_by_name: Environment, policy variant, final status, start time, and end time for each declared Run.
             git_stamp: Arena git commit and branch; read from the environment when omitted.
+            experiment_name: Name of the Experiment, a non-empty single-line string.
+
+        Returns:
+            The Experiment result holding each declared Run's metadata and episode results.
         """
         assert run_metadata_by_name, "run_metadata_by_name must not be empty"
-        self.experiment_output_directory = Path(experiment_output_directory)
-        self._git_stamp = git_stamp if git_stamp is not None else GitStamp.from_environment()
-        self._runs: dict[str, ArenaExperimentRunData] = {
-            run_name: self._collect_run(run_name, run_metadata)
+        experiment_output_directory = Path(experiment_output_directory)
+        runs = {
+            run_name: cls._collect_run(experiment_output_directory, run_name, run_metadata)
             for run_name, run_metadata in run_metadata_by_name.items()
         }
+        return cls(
+            experiment_output_directory,
+            experiment_name,
+            git_stamp if git_stamp is not None else GitStamp.from_environment(),
+            runs,
+        )
 
-    def _collect_run(self, run_name: str, run_metadata: Mapping[str, Any]) -> ArenaExperimentRunData:
+    @property
+    def all_runs_completed(self) -> bool:
+        """Whether every Run has the completed status."""
+        return all(run_data["status"] == RunStatus.COMPLETED.value for run_data in self.runs.values())
+
+    @property
+    def latest_run_end_timestamp_ns(self) -> int:
+        """Latest Run end time in Unix epoch nanoseconds (UTC)."""
+        return max(run_data["end_timestamp_ns"] for run_data in self.runs.values())
+
+    @classmethod
+    def _collect_run(
+        cls, experiment_output_directory: Path, run_name: str, run_metadata: Mapping[str, Any]
+    ) -> ArenaExperimentRunData:
         """Collect one declared Run's metadata and episode results."""
-        self.assert_run_name_is_safe_path_component(run_name)
+        cls.assert_run_name_is_safe_path_component(run_name)
         environment = run_metadata["environment"]
         status = run_metadata["status"]
-        assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
+        valid_statuses = [run_status.value for run_status in RunStatus]
+        assert status in valid_statuses, f"status for Run {run_name!r} must be one of {valid_statuses}"
 
         start_timestamp_ns = run_metadata["start_timestamp_ns"]
         assert isinstance(start_timestamp_ns, int) and not isinstance(
@@ -157,8 +242,8 @@ class ArenaExperimentResult:
             end_timestamp_ns, bool
         ), f"end_timestamp_ns for Run {run_name!r} must be an int"
 
-        run_output_directory = self.experiment_output_directory / run_name
-        if status == "completed":
+        run_output_directory = experiment_output_directory / run_name
+        if status == RunStatus.COMPLETED.value:
             assert (
                 run_output_directory.is_dir()
             ), f"completed Run {run_name!r} is missing its output directory: {run_output_directory}"
@@ -168,7 +253,7 @@ class ArenaExperimentResult:
             ), f"output path for failed Run {run_name!r} must be a directory: {run_output_directory}"
 
         rebuilds = (
-            _collect_rebuilds(run_output_directory, self.experiment_output_directory)
+            _collect_rebuilds(run_output_directory, experiment_output_directory)
             if run_output_directory.is_dir()
             else []
         )
@@ -185,11 +270,11 @@ class ArenaExperimentResult:
         }
 
     def to_dict(self) -> ArenaExperimentResultData:
-        """Return the collected JSON-compatible Experiment result."""
-        return {"git_stamp": self._git_stamp.to_dict(), "runs": self._runs}
+        """Return the JSON-compatible Experiment result."""
+        return {"git_stamp": self.git_stamp.to_dict(), "experiment_name": self.experiment_name, "runs": self.runs}
 
     def write(self) -> Path:
-        """Write all collected Runs to ``arena_experiment_result.json`` in the Experiment output directory."""
+        """Write the Experiment result to ``arena_experiment_result.json`` in the Experiment output directory."""
         result_path = self.experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
         result_path.write_text(
             json.dumps(self.to_dict(), allow_nan=False, indent=2) + "\n",

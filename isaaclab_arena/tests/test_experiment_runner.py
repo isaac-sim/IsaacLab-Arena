@@ -153,8 +153,9 @@ def run_experiment_runner(
 
 def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monkeypatch, tmp_path):
     from isaaclab_arena.evaluation import arena_experiment_result
-    from isaaclab_arena.evaluation.arena_run import ArenaRunResult, RunStatus
+    from isaaclab_arena.evaluation.arena_run import ArenaRunResult
     from isaaclab_arena.evaluation.experiment_runner import _write_arena_experiment_result
+    from isaaclab_arena.evaluation.run_status import RunStatus
 
     monkeypatch.setattr(
         arena_experiment_result,
@@ -164,7 +165,9 @@ def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monke
             "policy_variant": "zero_action",
         },
     )
-    experiment_cfg = SimpleNamespace(runs={"passing": SimpleNamespace(), "failing": SimpleNamespace()})
+    experiment_cfg = SimpleNamespace(
+        name="pnp_benchmark", runs={"passing": SimpleNamespace(), "failing": SimpleNamespace()}
+    )
     run_results = [
         ArenaRunResult(
             run_name="passing",
@@ -183,6 +186,7 @@ def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monke
 
     experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, tmp_path)
 
+    assert experiment_result.to_dict()["experiment_name"] == "pnp_benchmark"
     runs = experiment_result.to_dict()["runs"]
     assert runs["passing"]["start_timestamp_ns"] == 1792799000000000000
     assert runs["passing"]["end_timestamp_ns"] == 1792800000000000000

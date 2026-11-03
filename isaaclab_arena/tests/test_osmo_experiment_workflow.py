@@ -7,6 +7,7 @@
 
 import json
 import os
+import shlex
 import subprocess
 import time
 import yaml
@@ -18,15 +19,16 @@ from hydra.errors import ConfigCompositionException
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RunStatus
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
-from osmo.scripts.build_experiment_output import load_experiment_runner_result
+from osmo.scripts.build_experiment_output import _parse_arguments, load_experiment_runner_result
 from osmo.submit_arena_experiment import (
     ArenaExperimentSubmissionCfg,
     build_arena_experiment_submission_cfg,
@@ -320,6 +322,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
         in experiment_output_command
     )
     assert "--experiment-output-directory" in experiment_output_command
+    assert f"--experiment-name={EXPERIMENT_NAME}" in experiment_output_command
     assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
 
@@ -509,6 +512,41 @@ def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
     assert run_groups
     for group in run_groups:
         assert _embedded_experiment(group["tasks"][0])["name"] == "my-benchmark"
+
+
+def test_collector_task_script_passes_the_experiment_name_to_the_collector():
+    """The collector writes the Experiment name into the result, so it needs it on its command line."""
+    source_experiment_cfg = _zero_action_experiment_cfg()
+    source_experiment_cfg.name = "my benchmark"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="named-collector"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    experiment_output_task = _workflow_groups(workflow.generate_workflow())[-1]["tasks"][0]
+
+    experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
+    assert "'--experiment-name=my benchmark'" in experiment_output_command
+
+
+@pytest.mark.parametrize("name", ["--benchmark", "-x"])
+def test_collector_task_script_accepts_an_experiment_name_starting_with_a_dash(name, monkeypatch):
+    """A valid name that looks like an option reaches the collector's parser as the --experiment-name value."""
+    source_experiment_cfg = _zero_action_experiment_cfg()
+    source_experiment_cfg.name = name
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="dash-named-collector"),
+        experiment_cfg=source_experiment_cfg,
+    )
+    experiment_output_task = _workflow_groups(workflow.generate_workflow())[-1]["tasks"][0]
+
+    command_line = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"].splitlines()[1]
+    command_tokens = shlex.split(command_line)
+
+    assert f"--experiment-name={name}" in command_tokens
+    assert name not in command_tokens
+    monkeypatch.setattr("sys.argv", command_tokens[1:])  # argv[0] is the script path
+    assert _parse_arguments().experiment_name == name
 
 
 def test_null_experiment_name_fails_submission():
