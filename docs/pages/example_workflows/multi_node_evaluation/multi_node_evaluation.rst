@@ -286,10 +286,6 @@ common ones are:
      - Swift path for collected results.
        Use ``{{workflow_id}}`` for a unique path per workflow.
 
-The collector writes the KPI records of the exporters named by the Experiment's ``kpi_exporters`` field.
-Change them for one submission with ``experiment_cfg.kpi_exporters=[timing]``; an empty list
-(``experiment_cfg.kpi_exporters=[]``) exports no KPIs.
-
 
 Preview before submitting
 -------------------------
