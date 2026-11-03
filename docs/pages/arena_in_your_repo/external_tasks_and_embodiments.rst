@@ -91,11 +91,27 @@ that composes the custom task and custom embodiment.
 
    # my_package/isaaclab_arena_environments/my_environment_with_task.py
 
-   class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
+   from dataclasses import dataclass
+
+   from isaaclab_arena.environments.arena_environment_factory import (
+       ArenaEnvironmentCfg,
+       ArenaEnvironmentFactory,
+   )
+
+
+   @dataclass
+   class ExternalFrankaTableWithTaskEnvironmentCfg(ArenaEnvironmentCfg):
+       object: str = "cracker_box"
+
+
+   class ExternalFrankaTableWithTaskEnvironment(
+       ArenaEnvironmentFactory[ExternalFrankaTableWithTaskEnvironmentCfg]
+   ):
 
        name: str = "franka_table_with_task"
+       _legacy_argparse_cfg_type = ExternalFrankaTableWithTaskEnvironmentCfg
 
-       def get_env(self, args_cli: argparse.Namespace):
+       def build(self, cfg: ExternalFrankaTableWithTaskEnvironmentCfg):
            from isaaclab_arena.assets.object_reference import ObjectReference
            from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
            from isaaclab_arena.relations.relations import IsAnchor, On
@@ -103,7 +119,7 @@ that composes the custom task and custom embodiment.
 
            background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
            light = self.asset_registry.get_asset_by_name("light")()
-           pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+           pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
            embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")()
 
            table_reference = ObjectReference(
@@ -128,43 +144,21 @@ that composes the custom task and custom embodiment.
                task=task,
            )
 
-       @staticmethod
-       def add_cli_args(parser: argparse.ArgumentParser) -> None:
-           parser.add_argument("--object", type=str, default="cracker_box")
+Publish this factory from the external package:
 
-External environments can be used in Isaac Lab - Arena workflows by using a particular
-CLI syntax. For example, a zero-action policy can be run with an
-externally-defined environment like this:
+.. code-block:: toml
+
+   [project.entry-points."isaaclab_arena.environments"]
+   franka_table_with_task = "my_package.isaaclab_arena_environments.my_environment_with_task:ExternalFrankaTableWithTaskEnvironment"
+
+After installing the package, use the registered environment name directly:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_episodes 1 \
-     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableWithTaskEnvironment \
      franka_table_with_task \
      --object tomato_soup_can
 
-So the flag ``external_environment_class_path`` is used to specify the (fully qualified) path to the
-external environment module and class. The environment name is then specified as the
-first non flag argument to the policy runner, and any additional arguments are passed to the
-environment's ``add_cli_args()`` method.
-
-.. note::
-
-    The environment above is actually located in ``isaaclab_arena_examples/external_environments/advanced.py``.
-    So this environment is located in the Isaac Lab - Arena source-tree, but isn't included
-    in the built in environments, so must be called through the external environment syntax.
-    This is done to demonstrate how this would be done in an external codebase.
-
-    The environment can be run with:
-
-    .. code-block:: bash
-
-        python isaaclab_arena/evaluation/policy_runner.py \
-          --viz kit \
-          --policy_type zero_action \
-          --num_episodes 1 \
-          --external_environment_class_path isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \
-          franka_table_with_task \
-          --object tomato_soup_can
+See :doc:`external_environments` for typed Experiment YAML and unified Isaac Lab CLI examples.
