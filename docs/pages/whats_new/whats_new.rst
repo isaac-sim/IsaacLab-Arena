@@ -24,9 +24,14 @@ details page.
       :link: newton_evaluation
       :link-type: doc
 
-      .. image:: ../../images/whats_new/newton_usb_insertion.gif
+      .. video:: ../../images/whats_new/arena_v04_newton_deformables_rendered.mp4
          :width: 100%
-         :alt: USB insertion task running on the Newton physics backend
+         :alt: DROID placing a deformable block on a plate, simulated with Newton
+         :autoplay:
+         :loop:
+         :muted:
+         :playsinline:
+         :nocontrols:
 
       Connect the Newton physics engine to Arena's evaluation tools to move beyond pick-and-place
       tasks to insertion, contact-rich assembly, and deformable tasks. Example workflows use
