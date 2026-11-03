@@ -391,12 +391,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                     retry_label=f"policy_action env {env_id}",
                 )
             )
-        # Sending many requests at once can exceed the endpoint's rate limit, which answers with HTTP 429
-        # ("too many requests"). No delay is added here because the OpenAI client already waits and
-        # retries those responses, doubling the wait each time and honoring the endpoint's Retry-After
-        # header, before InferenceBackend counts a failed attempt.
-        # Blocks until every request returns; most of a step's time is spent here. map keeps results in
-        # submission order and cancels requests that have not started if one fails.
+        # Waits for all requests. This is the slow part of a step.
         model_outputs = list(self._request_executor.map(self._inference_backend.infer, requests))
         return dict(zip(conversations, model_outputs))
 
