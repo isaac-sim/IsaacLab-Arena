@@ -77,7 +77,7 @@ def load_arena_experiment_from_yaml(
         yaml_path,
         shared_default_overrides=shared_default_overrides,
     )
-    default_experiment_name = _read_experiment_name_from_yaml(yaml_path) or Path(yaml_path).stem
+    default_experiment_name = _read_experiment_name_from_yaml_or_stem(yaml_path)
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_typed_experiment_loader"
@@ -110,14 +110,14 @@ def load_arena_experiment_from_yaml(
     return experiment_cfg
 
 
-def _read_experiment_name_from_yaml(yaml_path: str | Path) -> str | None:
-    """Return the optional top-level name of an Arena Experiment YAML file, or None when it has none."""
+def _read_experiment_name_from_yaml_or_stem(yaml_path: str | Path) -> str:
+    """Return the top-level name of an Arena Experiment YAML file, or the file stem when it has none."""
     raw_experiment_config = OmegaConf.load(Path(yaml_path))
     experiment_name = raw_experiment_config.get("name")
     assert experiment_name is None or isinstance(
         experiment_name, str
     ), f"Experiment 'name' must be a string, got {experiment_name!r}"
-    return experiment_name
+    return experiment_name if experiment_name is not None else Path(yaml_path).stem
 
 
 def _assert_run_name_is_hydra_compatible(run_name: str) -> None:

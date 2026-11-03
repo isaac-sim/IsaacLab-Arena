@@ -21,6 +21,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
+from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
 if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -81,10 +82,7 @@ def _write_arena_experiment_result(
     """Combine every Run's metadata and episode results into one Experiment JSON file and return the result."""
     from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
 
-    assert experiment_cfg.name is not None, (
-        "The Experiment needs a name to be recorded as the benchmark id of its result; the Experiment loaders set it"
-        " unless an override sets it to null"
-    )
+    assert experiment_cfg.name is not None, "The Experiment must have a name"
     run_results_by_name = {run_result.run_name: run_result for run_result in run_results}
     assert len(run_results_by_name) == len(run_results), "Experiment results must contain each Run exactly once"
     assert set(run_results_by_name) == set(
@@ -119,8 +117,6 @@ def _export_selected_kpis(experiment_output_directory: Path, kpi_exporter_names:
     if not kpi_exporter_names:
         print("[INFO] No KPI exporters selected; KPI export is skipped.")
         return
-    from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
-
     export_kpis(experiment_output_directory, kpi_exporter_names)
 
 

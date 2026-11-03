@@ -19,11 +19,7 @@ class ArenaExperimentCfg:
     """Runs keyed by the names used for overrides, execution, and results."""
 
     name: str | None = None
-    """Name of the Experiment, used as the `benchmark_id` of its KPI records.
-
-    A command-line override must quote a name that looks like a boolean or a number, for example
-    ``name='true'`` or ``name='1e3'``; Hydra otherwise converts the value and the name becomes ``True`` or ``1000.0``.
-    """
+    """Name of the Experiment."""
 
     def __post_init__(self) -> None:
         assert self.name is None or is_single_line_nonempty_string(

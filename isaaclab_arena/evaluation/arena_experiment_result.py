@@ -68,7 +68,7 @@ class ArenaExperimentResultData(TypedDict):
     """Contents of an Arena Experiment result file."""
 
     git_stamp: dict[str, str]
-    """JSON object of the Arena ``GitStamp``, mapping ``git_sha`` and ``git_branch`` to their values."""
+    """JSON object of the Arena ``GitStamp``."""
 
     benchmark_id: NotRequired[str]
     """Benchmark the Experiment belongs to; absent in results written before benchmark ids were recorded."""
@@ -78,7 +78,7 @@ class ArenaExperimentResultData(TypedDict):
 
 
 def read_experiment_result(output_dir: Path) -> ArenaExperimentResultData:
-    """Read ``arena_experiment_result.json`` and check it holds what KPI export needs.
+    """Read ``arena_experiment_result.json`` and check it holds the fields its readers need.
 
     Args:
         output_dir: Experiment output root holding the result file.
@@ -97,7 +97,7 @@ def read_experiment_result(output_dir: Path) -> ArenaExperimentResultData:
     benchmark_id = result.get("benchmark_id")
     assert benchmark_id is not None, (
         f"Experiment result in '{output_dir}' has no benchmark_id; results written before benchmark ids were"
-        " recorded cannot produce KPI records"
+        " recorded are not supported"
     )
     assert is_single_line_nonempty_string(
         benchmark_id
@@ -106,7 +106,7 @@ def read_experiment_result(output_dir: Path) -> ArenaExperimentResultData:
         end_timestamp_ns = run_result.get("end_timestamp_ns")
         assert isinstance(end_timestamp_ns, int) and not isinstance(end_timestamp_ns, bool), (
             f"Run {run_name!r} in '{output_dir}' has no integer end_timestamp_ns; results written"
-            " before Run end times were recorded cannot produce KPI records"
+            " before Run end times were recorded are not supported"
         )
     return result
 

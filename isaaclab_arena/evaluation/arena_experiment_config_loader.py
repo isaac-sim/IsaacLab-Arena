@@ -53,8 +53,7 @@ def load_arena_experiment_from_config_file(
         overrides: Hydra overrides applied to typed YAML Experiments.
 
     Returns:
-        The loaded, typed Experiment configuration with the process device applied. Its name is the
-        one set by an override or the file, else the file stem; an explicit null override leaves it None.
+        The loaded, typed Experiment configuration with the process device applied.
     """
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml

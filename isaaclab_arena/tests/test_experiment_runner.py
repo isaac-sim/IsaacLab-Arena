@@ -65,11 +65,10 @@ def test_experiment_runner_parses_bare_kpi_exporters_flag_as_no_exporters():
 
 def test_experiment_runner_skips_kpi_export_for_empty_selection(monkeypatch, tmp_path, capsys):
     from isaaclab_arena.evaluation import experiment_runner
-    from isaaclab_arena_benchmarking.benchmarks import registry
 
     exported_selections = []
     monkeypatch.setattr(
-        registry,
+        experiment_runner,
         "export_kpis",
         lambda output_dir, names, **kwargs: exported_selections.append((output_dir, list(names), kwargs)),
     )
