@@ -244,5 +244,5 @@ With the Kit window focused, press ``B`` to pause the replayed actions and ``N``
    physics in Isaac Lab is not deterministically reproducible across ``env.reset()``
    calls. A demonstration may therefore fail during replay even though it succeeded
    during recording. Demonstrations with more aggressive actions and borderline grasps
-   are more susceptible to this issue. All recorded demonstrations in the HDF5 remain with respect
-   to the task's success condition.
+   are more susceptible to this issue. All recorded demonstrations in the HDF5 remain
+   valid with respect to the task's success condition.
