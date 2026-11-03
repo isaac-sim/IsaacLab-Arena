@@ -456,7 +456,11 @@ def _render_consecutive_step_summary(episode) -> str:
 
 
 def _render_tracked_event_details(episode) -> str:
-    """Render measurements captured at completed event transitions, when present."""
+    """Render measurements captured at completed event transitions, when present.
+
+    Args:
+        episode: Episode summary containing recorded event occurrences.
+    """
     rows = []
     for event in _tracked_event_records(episode.record):
         name, step, details = event["name"], event["step"], event.get("details")

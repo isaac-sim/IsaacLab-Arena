@@ -530,7 +530,11 @@ def _progress(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def _tracked_event_records(record: dict[str, Any]) -> list[dict[str, Any]]:
-    """Read valid event occurrences with the same integer steps in every report view."""
+    """Read valid event occurrences with the same integer steps in every report view.
+
+    Args:
+        record: Episode record containing tracked event occurrences.
+    """
     events = _progress(record).get("tracked_events", [])
     if not isinstance(events, list):
         return []
