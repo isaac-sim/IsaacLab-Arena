@@ -4,10 +4,33 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+from collections.abc import Sequence
 
 from pxr import Gf, Usd, UsdGeom, UsdSkel
 
 from isaaclab_arena.utils.pose import Pose
+
+
+def get_prim_scale_in_spawned_asset(prim: Usd.Prim, spawn_scale: Sequence[float]) -> np.ndarray:
+    """Return a prim's effective per-axis scale after asset spawning.
+
+    The scale combines the asset's spawn scale with the scale authored between the stage's default prim and the
+    prim. Isaac Lab replaces the default prim's own transform when spawning.
+
+    Args:
+        prim: A prim at or beneath its stage's default prim.
+        spawn_scale: Per-axis scale the asset is spawned with.
+
+    Returns:
+        The prim's scale along each of its own axes.
+    """
+    default_prim = prim.GetStage().GetDefaultPrim()
+    # USD matrices act on row vectors, so T_D_P = T_W_P @ inv(T_W_D).
+    T_W_D = np.array(UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+    T_W_P = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+    T_D_P = T_W_P @ np.linalg.inv(T_W_D)
+    # Each row of the linear block is one of the prim's axes in the default prim frame, where the spawn scale applies.
+    return np.linalg.norm(T_D_P[:3, :3] * np.asarray(tuple(spawn_scale)), axis=1)
 
 
 def get_prim_pose_in_default_prim_frame(

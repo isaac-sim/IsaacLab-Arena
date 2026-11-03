@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import numpy as np
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
+
+from isaaclab_arena.utils.usd.pose import get_prim_scale_in_spawned_asset
 
 _AXIS_VECTORS: dict[str, Gf.Vec3d] = {
     "X": Gf.Vec3d(1.0, 0.0, 0.0),
@@ -69,31 +71,16 @@ def resolve_joint_pos_patterns(
     return resolved
 
 
-def get_spawned_scale(prim: Usd.Prim, spawn_scale: Iterable[float]) -> np.ndarray:
-    """Return a prim's per-axis scale relative to the spawned root of its asset.
-
-    The scale combines the asset's spawn scale with the scale authored between the stage's default prim and the
-    prim. Isaac Lab replaces the default prim's own transform when spawning.
-    """
-    default_prim = prim.GetStage().GetDefaultPrim()
-    # USD matrices act on row vectors, so T_D_P = T_W_P @ inv(T_W_D).
-    T_W_D = np.array(UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
-    T_W_P = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
-    T_D_P = T_W_P @ np.linalg.inv(T_W_D)
-    # Each row of the linear block is one of the prim's scaled axes.
-    authored_scale = np.linalg.norm(T_D_P[:3, :3], axis=1)
-    return authored_scale * np.asarray(tuple(spawn_scale))
-
-
-def joint_positions_to_usd_units(
+def adjust_prismatic_joint_positions_for_spawn_scale(
     joint_prims: Mapping[str, Usd.Prim],
     joint_pos: Mapping[str, float],
-    spawn_scale: Iterable[float],
+    spawn_scale: Sequence[float],
 ) -> dict[str, float]:
     """Return Isaac Lab joint positions in the units an asset's USD joints move in.
 
     Isaac Lab applies prismatic positions in metres of the spawned asset, while a USD prismatic joint translates in
-    its body0 frame, which carries that body's scale. Revolute positions stay in radians.
+    its body0 frame, which the spawn scale and any scale authored inside the asset both stretch. Revolute positions
+    stay in radians.
 
     Args:
         joint_prims: Movable joint prims keyed by joint name, as returned by articulation_joint_prims.
@@ -111,7 +98,7 @@ def joint_positions_to_usd_units(
         stage = joint_prim.GetStage()
         body0_paths = UsdPhysics.Joint(joint_prim).GetBody0Rel().GetTargets()
         body0_prim = stage.GetPrimAtPath(body0_paths[0]) if body0_paths else stage.GetDefaultPrim()
-        body0_scale = get_spawned_scale(body0_prim, spawn_scale)
+        body0_scale = get_prim_scale_in_spawned_asset(body0_prim, spawn_scale)
         assert np.allclose(body0_scale, body0_scale[0]), f"Prismatic joint '{name}' requires a uniform scale."
         usd_joint_pos[name] = position / body0_scale[0]
     return usd_joint_pos
@@ -129,8 +116,10 @@ def compute_posed_prim_world_deltas(
     a geometry prim's delta from its nearest ancestor present in the mapping.
 
     Joints not named in joint_pos are posed at zero. Revolute values are radians, matching Isaac
-    Lab rather than USD's degrees. Prismatic values are in stage linear units, which coincide with
-    metres for robot USDs authored at ``metersPerUnit = 1``.
+    Lab rather than USD's degrees. Prismatic values are distances in the joint's body0 frame, so that
+    body's scale applies to them. They coincide with metres for an unscaled body in a USD authored at
+    ``metersPerUnit = 1``; adjust_prismatic_joint_positions_for_spawn_scale converts Isaac Lab
+    positions into them.
 
     Args:
         stage: Stage holding the articulation.

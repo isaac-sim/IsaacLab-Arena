@@ -105,26 +105,26 @@ def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref.object_type = ObjectType.BASE
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
+
+    def open_spawned_usd_stage():
+        calls["open_count"] += 1
+        return SimpleNamespace(GetPrimAtPath=lambda path: object())
+
     parent = SimpleNamespace(
-        usd_path="/tmp/kitchen.usd", name="kitchen", object_type=ObjectType.BASE, spawn_cfg_addon={}
+        usd_path="/tmp/kitchen.usd",
+        name="kitchen",
+        object_type=ObjectType.BASE,
+        open_spawned_usd_stage=open_spawned_usd_stage,
     )
 
-    class OpenStage:
-        def __init__(self, path):
-            assert path == parent.usd_path
-
-        def __enter__(self):
-            calls["open_count"] += 1
-            return SimpleNamespace(GetPrimAtPath=lambda path: object())
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
     monkeypatch.setattr(
         ObjectReference,
         "isaaclab_prim_path_to_original_prim_path",
-        staticmethod(lambda prim_path, parent_asset, stage: "/World/counter"),
+        staticmethod(lambda prim_path, parent_asset, stage: "/Asset/counter"),
+    )
+    monkeypatch.setattr(
+        "isaaclab_arena.assets.object_reference._get_prim_path_in_referenced_usd",
+        lambda stage, prim_path: "/World/counter",
     )
     monkeypatch.setattr(
         "isaaclab_arena.assets.object_reference.get_prim_pose_in_default_prim_frame",
@@ -218,7 +218,6 @@ def _drawer_reference(
     joint_position: float,
     spawn_scale: float = 1.0,
     body_name: str = "Drawer",
-    spawn_cfg_addon: dict | None = None,
     **stage_options,
 ):
     """Return a BASE reference to a body of a cabinet whose drawer is opened to joint_position.
@@ -236,7 +235,6 @@ def _drawer_reference(
         usd_path=str(usd_path),
         object_type=ObjectType.ARTICULATION,
         scale=(spawn_scale, spawn_scale, spawn_scale),
-        spawn_cfg_addon=spawn_cfg_addon,
     )
     cabinet.object_cfg.init_state.joint_pos = {"drawer_.*": joint_position}
     return ObjectReference(
@@ -363,29 +361,41 @@ def test_articulation_link_reference_to_an_undriven_link_allows_repeated_joint_n
 def _test_articulation_link_reference_selects_the_parent_spawn_variants(simulation_app, tmp_path: pathlib.Path) -> bool:
     from pxr import Usd, UsdPhysics
 
-    from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg, ObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
 
     # Without the Physics variant the drawer has no rigid body, so it would not be posed as a link.
-    unselected_path = tmp_path / "unselected.usda"
-    _write_scaled_drawer_articulation(unselected_path, "prismatic", drawer_physics_in_variant=True)
-    unselected_stage = Usd.Stage.Open(str(unselected_path))
-    assert not unselected_stage.GetPrimAtPath("/Asset/Cabinet/Drawer").HasAPI(UsdPhysics.RigidBodyAPI)
+    usd_path = tmp_path / "prismatic.usda"
+    _write_scaled_drawer_articulation(usd_path, "prismatic", drawer_physics_in_variant=True)
+    # Keep the source layer open, as a stage that already spawned the cabinet would.
+    source_stage = Usd.Stage.Open(str(usd_path))
+    assert not source_stage.GetPrimAtPath("/Asset/Cabinet/Drawer").HasAPI(UsdPhysics.RigidBodyAPI)
 
-    drawer = _drawer_reference(
-        tmp_path,
-        "prismatic",
-        0.3,
+    cabinet = Object(
+        name="cabinet",
+        usd_path=str(usd_path),
+        object_type=ObjectType.ARTICULATION,
         spawn_cfg_addon={"variants": {"Physics": "physics"}},
-        drawer_physics_in_variant=True,
+    )
+    cabinet.object_cfg.init_state.joint_pos = {"drawer_.*": 0.3}
+    drawer = ObjectReference(
+        name="drawer",
+        prim_path="{ENV_REGEX_NS}/cabinet/Cabinet/Drawer",
+        parent_asset=cabinet,
+        object_type=ObjectType.BASE,
     )
 
     assert isinstance(drawer.object_cfg, ArticulationBodyReferenceCfg)
     assert drawer.get_initial_pose().position_xyz == pytest.approx((0.5, 0.0, 0.0))
+    # Selecting the variants leaves the shared source layer, and so every stage using it, unchanged.
+    assert not source_stage.GetRootLayer().dirty
+    assert not source_stage.GetPrimAtPath("/Asset/Cabinet/Drawer").HasAPI(UsdPhysics.RigidBodyAPI)
     return True
 
 
 def test_articulation_link_reference_selects_the_parent_spawn_variants(tmp_path: pathlib.Path):
-    """A link whose rigid body sits behind the parent's spawn variants is still posed as a link."""
+    """A link whose rigid body sits behind the parent's spawn variants is posed as a link, without editing its USD."""
     assert run_function_with_persistent_simulation_app(
         _test_articulation_link_reference_selects_the_parent_spawn_variants,
         headless=HEADLESS,
@@ -439,6 +449,137 @@ def test_articulation_link_reference_matches_simulated_link():
     )
 
 
+def _test_prismatic_link_placement_and_posed_bounds_match_simulation_at_spawn_scale(
+    simulation_app, tmp_path: pathlib.Path
+) -> bool:
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd_at_joint_pos
+
+    # The cabinet is authored at scale 2 and spawned at scale 2, so the drawer joint's body0 is scaled by 4.
+    spawn_scale = 2.0
+    drawer_travel = 0.3
+    drawer = _drawer_reference(tmp_path, "prismatic", drawer_travel, spawn_scale)
+    cabinet = drawer.parent_asset
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "2"])
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(name="scaled_drawer", scene=Scene(assets=[cabinet, drawer]))
+    env = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
+    try:
+        env.reset()
+        articulation = env.unwrapped.scene[cabinet.name]
+        drawer_joint_index = articulation.data.joint_names.index("drawer_joint")
+        # Env 0 closes the drawer and env 1 opens it.
+        articulation.write_joint_position_to_sim_index(
+            position=torch.tensor([[0.0], [drawer_travel]], device=env.unwrapped.device),
+            joint_ids=[drawer_joint_index],
+        )
+        # The cabinet's base B is free and drops during reset, so measure drawer D from it. B is not rotated.
+        world = env.unwrapped.arena_world
+        t_W_D = world.get_pose_w(drawer.name)[:, :3]
+        t_W_B = world.get_body_pose_w(cabinet.name, "Base")[:, :3]
+        t_B_D = (t_W_D - t_W_B).cpu()
+    finally:
+        env.close()
+
+    # PhysX moves the drawer by its joint position in metres, whatever the scale.
+    torch.testing.assert_close(t_B_D[1] - t_B_D[0], torch.tensor([drawer_travel, 0.0, 0.0]), atol=1e-4, rtol=0)
+    # The reference is placed where PhysX puts the opened drawer; the base sits at the cabinet's origin.
+    torch.testing.assert_close(t_B_D[1], torch.tensor(drawer.get_initial_pose().position_xyz), atol=1e-4, rtol=0)
+    # The posed bounds of the drawer move by the same distance.
+    scale = (spawn_scale, spawn_scale, spawn_scale)
+    closed_bounds = compute_local_bounding_box_from_usd_at_joint_pos(
+        cabinet.usd_path, {"drawer_joint": 0.0}, scale, prim_path="/Asset/Cabinet/Drawer"
+    )
+    opened_bounds = compute_local_bounding_box_from_usd_at_joint_pos(
+        cabinet.usd_path, {"drawer_joint": drawer_travel}, scale, prim_path="/Asset/Cabinet/Drawer"
+    )
+    torch.testing.assert_close(
+        opened_bounds.min_point - closed_bounds.min_point, torch.tensor([[drawer_travel, 0.0, 0.0]]), atol=1e-6, rtol=0
+    )
+    return True
+
+
+def test_prismatic_link_placement_and_posed_bounds_match_simulation_at_spawn_scale(tmp_path: pathlib.Path):
+    """A scaled drawer's reference and posed bounds open by the distance PhysX opens the drawer."""
+    assert run_function_with_persistent_simulation_app(
+        _test_prismatic_link_placement_and_posed_bounds_match_simulation_at_spawn_scale,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+    )
+
+
+def _kitchen_with_counter(tmp_path: pathlib.Path, spawn_cfg_addon: dict | None = None):
+    """Return a kitchen whose default prim is /World, with a counter at (1, 2, 0) and a reference to it.
+
+    The default prim references a prototype prim, as many asset files' default prims reference others. The counter's
+    top is a cube of size 0.2 in the selected "small" variant of a "Size" variant set and of size 1 in its "large"
+    variant.
+    """
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
+
+    usd_path = tmp_path / "kitchen.usda"
+    stage = Usd.Stage.CreateNew(str(usd_path))
+    UsdGeom.Xform.Define(stage, "/Prototype/shelf")
+    root = UsdGeom.Xform.Define(stage, "/World").GetPrim()
+    stage.SetDefaultPrim(root)
+    root.GetReferences().AddInternalReference("/Prototype")
+    UsdGeom.Xform.Define(stage, "/World/counter").AddTranslateOp().Set(Gf.Vec3d(1.0, 2.0, 0.0))
+    size_variants = root.GetVariantSets().AddVariantSet("Size")
+    for variant_name, size in (("small", 0.2), ("large", 1.0)):
+        size_variants.AddVariant(variant_name)
+        size_variants.SetVariantSelection(variant_name)
+        with size_variants.GetVariantEditContext():
+            top = UsdGeom.Cube.Define(stage, "/World/counter/top")
+            top.CreateSizeAttr(size)
+            top.CreateExtentAttr([Gf.Vec3f(-size / 2), Gf.Vec3f(size / 2)])
+    size_variants.SetVariantSelection("small")
+    stage.GetRootLayer().Save()
+    kitchen = Object(
+        name="kitchen", usd_path=str(usd_path), object_type=ObjectType.BASE, spawn_cfg_addon=spawn_cfg_addon
+    )
+    return ObjectReference(name="counter", prim_path="{ENV_REGEX_NS}/kitchen/counter", parent_asset=kitchen)
+
+
+def _test_object_reference_keeps_its_path_in_the_parent_usd_file(simulation_app, tmp_path: pathlib.Path) -> bool:
+    counter = _kitchen_with_counter(tmp_path)
+
+    # Placement leaves the counter out of the kitchen's collision mesh by this path, which is read from the USD file.
+    assert counter.prim_path_in_parent_usd == "/World/counter"
+    assert counter.get_initial_pose().position_xyz == pytest.approx((1.0, 2.0, 0.0))
+    return True
+
+
+def test_object_reference_keeps_its_path_in_the_parent_usd_file(tmp_path: pathlib.Path):
+    """A reference records its prim's path in the parent's USD file, not in the stage it inspects."""
+    assert run_function_with_persistent_simulation_app(
+        _test_object_reference_keeps_its_path_in_the_parent_usd_file,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+    )
+
+
+def _test_object_reference_bounds_follow_the_parent_spawn_variants(simulation_app, tmp_path: pathlib.Path) -> bool:
+    counter = _kitchen_with_counter(tmp_path, spawn_cfg_addon={"variants": {"Size": "large"}})
+
+    torch.testing.assert_close(counter.get_bounding_box().size, torch.tensor([[1.0, 1.0, 1.0]]))
+    return True
+
+
+def test_object_reference_bounds_follow_the_parent_spawn_variants(tmp_path: pathlib.Path):
+    """A reference's bounds come from the geometry of the variants its parent spawns with."""
+    assert run_function_with_persistent_simulation_app(
+        _test_object_reference_bounds_follow_the_parent_spawn_variants,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+    )
+
+
 def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatch):
     """ObjectReference collision meshes are extracted from the referenced sub-prim."""
     import trimesh
@@ -446,29 +587,25 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
     from isaaclab_arena.assets.object_reference import ObjectReference
 
     expected_mesh = trimesh.creation.box(extents=(0.2, 0.1, 0.05))
-    calls = {}
+    calls = {"open_count": 0}
+
+    class Stage:
+        def GetPrimAtPath(self, prim_path):
+            return object()
+
+    def open_spawned_usd_stage():
+        calls["open_count"] += 1
+        return Stage()
+
     obj_ref = ObjectReference.__new__(ObjectReference)
-    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.parent_asset = SimpleNamespace(
+        usd_path="/tmp/kitchen.usd", name="kitchen", open_spawned_usd_stage=open_spawned_usd_stage
+    )
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (2.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
 
-    class OpenStage:
-        def __init__(self, path):
-            calls["opened"] = path
-
-        def __enter__(self):
-            class Stage:
-                def GetPrimAtPath(self, prim_path):
-                    return object()
-
-            return Stage()
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
     monkeypatch.setattr(
         ObjectReference,
         "isaaclab_prim_path_to_original_prim_path",
@@ -484,7 +621,7 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
     assert obj_ref.get_collision_mesh() is expected_mesh
     assert obj_ref.get_collision_mesh() is expected_mesh
     assert calls == {
-        "opened": "/tmp/kitchen.usd",
+        "open_count": 1,
         "extract": ("/World/counter", (2.0, 1.0, 1.0)),
     }
 
@@ -495,29 +632,19 @@ def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(
     from isaaclab_arena.utils.usd.helpers import NoCollisionMeshError
 
     calls = {"extract_count": 0}
+
+    class Stage:
+        def GetPrimAtPath(self, prim_path):
+            return object()
+
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
-    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen", open_spawned_usd_stage=Stage)
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
 
-    class OpenStage:
-        def __init__(self, path):
-            pass
-
-        def __enter__(self):
-            class Stage:
-                def GetPrimAtPath(self, prim_path):
-                    return object()
-
-            return Stage()
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
     monkeypatch.setattr(
         ObjectReference,
         "isaaclab_prim_path_to_original_prim_path",
@@ -540,29 +667,18 @@ def test_object_reference_get_collision_mesh_returns_none_on_unsupported_geometr
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError
 
+    class Stage:
+        def GetPrimAtPath(self, prim_path):
+            return object()
+
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
-    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen", open_spawned_usd_stage=Stage)
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
 
-    class OpenStage:
-        def __init__(self, path):
-            pass
-
-        def __enter__(self):
-            class Stage:
-                def GetPrimAtPath(self, prim_path):
-                    return object()
-
-            return Stage()
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
     monkeypatch.setattr(
         ObjectReference,
         "isaaclab_prim_path_to_original_prim_path",
@@ -583,29 +699,18 @@ def test_object_reference_get_collision_mesh_raises_on_missing_prim(monkeypatch)
 
     from isaaclab_arena.assets.object_reference import ObjectReference
 
+    class Stage:
+        def GetPrimAtPath(self, prim_path):
+            return None
+
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
-    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen", open_spawned_usd_stage=Stage)
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/missing"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
 
-    class OpenStage:
-        def __init__(self, path):
-            pass
-
-        def __enter__(self):
-            class Stage:
-                def GetPrimAtPath(self, prim_path):
-                    return None
-
-            return Stage()
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
     monkeypatch.setattr(
         ObjectReference,
         "isaaclab_prim_path_to_original_prim_path",
