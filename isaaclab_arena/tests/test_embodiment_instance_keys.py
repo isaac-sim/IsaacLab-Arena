@@ -122,6 +122,41 @@ def test_keyed_robot_modes():
     assert run_function_with_persistent_simulation_app(_test_keyed_robot_modes)
 
 
+def _test_keyed_franka_steps(simulation_app):
+    import torch
+
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena_environments.cube_goal_pose_environment import (
+        CubeGoalPoseEnvironment,
+        CubeGoalPoseEnvironmentCfg,
+    )
+
+    definition = CubeGoalPoseEnvironment().build(CubeGoalPoseEnvironmentCfg())
+    definition.embodiment = FrankaIKEmbodiment(
+        instance_key="arm", initial_pose=definition.embodiment.get_initial_pose()
+    )
+    env = ArenaEnvBuilder(
+        definition, ArenaEnvBuilderCfg(num_envs=1, solve_relations=False, record_trajectories=True)
+    ).make_registered()
+    try:
+        env.reset()
+        assert "arm" in env.unwrapped.scene.articulations
+        assert "arm_ee_frame" in env.unwrapped.scene.sensors
+        assert env.unwrapped.action_manager.active_terms == ["arm_arm_action", "arm_gripper_action"]
+        assert "arm_policy" in env.unwrapped.observation_manager.active_terms
+        for _ in range(2):
+            env.step(torch.zeros(env.action_space.shape, device=env.unwrapped.device))
+    finally:
+        env.close()
+    return True
+
+
+def test_keyed_franka_steps():
+    assert run_function_with_persistent_simulation_app(_test_keyed_franka_steps)
+
+
 def _test_unkeyed_franka_defaults(simulation_app, embodiment_name):
     from dataclasses import fields
 

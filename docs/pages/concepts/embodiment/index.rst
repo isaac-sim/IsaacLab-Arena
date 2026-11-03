@@ -234,7 +234,7 @@ and building its configurations with these helpers:
 .. code-block:: python
 
    class MyRobot(EmbodimentBase):
-       name = "my_robot"
+       registry_name = "my_robot"
 
        def __init__(self, instance_key: str | None = None):
            super().__init__(instance_key=instance_key)
