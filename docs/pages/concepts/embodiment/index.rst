@@ -253,6 +253,9 @@ The shipped G1 controllers look up their action term by a fixed name and reject 
 Teleoperation, demonstration generation, and extended-reality control require one robot
 without an instance key.
 
+Arena requires unique scene entity and manager term names across robots.
+Duplicate names raise an error during environment construction.
+
 More details
 ------------
 

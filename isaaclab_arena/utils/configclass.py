@@ -177,6 +177,30 @@ def combine_configclass_instances(
     return combined_configclass_instance
 
 
+def combine_unique(name: str, *configs: Any, bases: tuple[type, ...] = ()) -> Any:
+    """Combine configclass instances whose fields extend each other.
+
+    Contribution order and each instance's field order are kept. Each field must come from one
+    contribution, except the fields that ``bases`` declare: those are shared settings, such as the
+    recorder dataset settings, and later contributions override them.
+
+    Args:
+        name: The name of the new configclass.
+        configs: The configclass instances in contribution order. None entries are skipped.
+        bases: Base classes of the new configclass.
+
+    Returns:
+        A new configclass instance holding every contributed field.
+    """
+    shared_settings: set[str] = set()
+    for base in bases:
+        shared_settings.update(field.name for field in dataclasses.fields(base))
+    duplicates = check_configclass_field_duplicates(*configs)
+    repeated = {field_name: duplicates[field_name] for field_name in duplicates.keys() - shared_settings}
+    assert not repeated, f"Contributions to {name} repeat fields: {repeated}"
+    return combine_configclass_instances(name, *configs, bases=bases)
+
+
 def combine_post_inits(*cls_list: type) -> Callable:
     """Takes a list of classes and returns a function that calls the
     __post_init__ method of each class.
