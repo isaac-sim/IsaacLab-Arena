@@ -168,6 +168,44 @@ def test_criteria_list_predicates_the_episode_never_reached():
     assert criteria.signals[0].step == 7
 
 
+def test_related_criteria_keep_their_own_observed_signals():
+    progress = _progress(
+        {"subtask_0/check": None, "subtask_1/check": None},
+        [
+            ("subtask_0/check", 0, "ready"),
+            ("subtask_1/check", 0, "ready"),
+            ("subtask_1/check", 1, "inspected"),
+        ],
+        score=1.0,
+    )
+    progress["criteria_by_name"]["subtask_1/check"]["required_for_success"] = False
+    episode = _episode({"success": True, "progress": progress})
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[episode])
+
+    criteria = job.criteria_for(episode)
+    assert [[signal.name for signal in row.signals] for row in criteria] == [["ready"], ["ready", "inspected"]]
+    assert [row.num_triggered for row in criteria] == [1, 2]
+    assert [row.family for row in criteria] == ["check", "check"]
+    assert len(job.funnels) == 1
+    assert [stage.num_reached for stage in job.funnels[0].stages] == [2, 1]
+
+
+def test_unobserved_criterion_does_not_inherit_sibling_signals():
+    progress = _progress(
+        {"subtask_0/check": "ready", "subtask_1/check": None},
+        [("subtask_1/check", 0, "ready")],
+        score=0.0,
+    )
+    progress["criteria_by_name"]["subtask_0/check"]["active_predicates"] = {"default_sequence": "ready"}
+    episode = _episode({"progress": progress})
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[episode])
+
+    required, sibling = job.criteria_for(episode)
+    assert required.signals == []
+    assert required.blocked_predicates == ["ready"]
+    assert sibling.num_triggered == 1
+
+
 def test_temporal_predicates_keep_distinct_report_labels_and_recorded_details():
     resting_requirement = "TrueForConsecutiveStepsCfg(objects_below_velocity_thresholds, required_steps=10)"
     placement_requirement = "TrueForConsecutiveStepsCfg(object_on_destination(force_threshold=0.1), required_steps=5)"

@@ -237,12 +237,15 @@ class JobSummary:
     _criteria_family_by_name: dict[str, str] = field(init=False, repr=False)
     _family_sequences: dict[str, dict[str, dict[int, str]]] = field(init=False, repr=False)
     """Predicate names by index, per sequence name, per criteria family."""
+    _criteria_sequences: dict[str, dict[str, dict[int, str]]] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._criteria_family_by_name, family_issues = _build_criteria_family_map(self.name, self.episodes)
         self._family_sequences, sequence_issues = _build_family_sequences(
             self.name, self.episodes, self._criteria_family_by_name
         )
+        # Episode rows use only this exact criterion's observations across episodes.
+        self._criteria_sequences, _ = _build_family_sequences(self.name, self.episodes, {})
         self.issues.extend(family_issues)
         self.issues.extend(sequence_issues)
 
@@ -337,7 +340,8 @@ class JobSummary:
         for name in names:
             detail = criteria_by_name.get(name, {}) if criteria_by_name else {}
             family = self._criteria_family_by_name.get(name, name)
-            sequences = self._family_sequences.get(family, {})
+            sequences = self._criteria_sequences.get(name, {})
+            show_sequence_names = len(self._family_sequences.get(family, {})) > 1
             active_predicates = detail.get("active_predicates") or {}
             signals = []
             blocked_predicates = []
@@ -345,7 +349,7 @@ class JobSummary:
                 predicate_names = sequences[sequence_name]
                 active_predicate = active_predicates.get(sequence_name)
                 active_name = _base_predicate_name(active_predicate) if active_predicate else None
-                label_prefix = f"{sequence_name}/" if len(sequences) > 1 else ""
+                label_prefix = f"{sequence_name}/" if show_sequence_names else ""
                 matched_blocked = False
                 for index in sorted(predicate_names):
                     event = fired.get((name, sequence_name, index))
