@@ -194,7 +194,11 @@ class FrankaIKActionCfg:
 
 
 def _franka_ik_action_cfg(asset_name: str) -> FrankaIKActionCfg:
-    """Return relative differential-IK arm and binary gripper actions for the named robot asset."""
+    """Return relative differential-IK arm and binary gripper actions for the named robot asset.
+
+    Args:
+        asset_name: Scene entity name of the robot articulation.
+    """
     return FrankaIKActionCfg(
         arm_action=DifferentialInverseKinematicsActionCfg(
             asset_name=asset_name,
@@ -252,7 +256,11 @@ class FrankaJointPosActionsCfg:
 
 
 def _franka_joint_pos_action_cfg(asset_name: str) -> FrankaJointPosActionsCfg:
-    """Return joint-position arm and binary gripper actions for the named robot asset."""
+    """Return joint-position arm and binary gripper actions for the named robot asset.
+
+    Args:
+        asset_name: Scene entity name of the robot articulation.
+    """
     return FrankaJointPosActionsCfg(
         arm_action=JointPositionActionCfg(
             asset_name=asset_name,
@@ -273,7 +281,11 @@ def _franka_joint_pos_action_cfg(asset_name: str) -> FrankaJointPosActionsCfg:
 
 
 def _franka_gripper_action_cfg(asset_name: str) -> BinaryJointPositionActionCfg:
-    """Return the binary finger action for the named robot asset."""
+    """Return the binary finger action for the named robot asset.
+
+    Args:
+        asset_name: Scene entity name of the robot articulation.
+    """
     return BinaryJointPositionActionCfg(
         asset_name=asset_name,
         joint_names=["panda_finger.*"],
@@ -341,7 +353,11 @@ class FrankaCameraCfg(ArenaCameraCfg):
 
 
 def _franka_wrist_cam_cfg(robot_path: str) -> CameraCfg:
-    """Return the wrist camera mounted on the hand of the robot at ``robot_path``."""
+    """Return the wrist camera mounted on the hand of the robot at ``robot_path``.
+
+    Args:
+        robot_path: Scene path of the robot root.
+    """
     return CameraCfg(
         prim_path=f"{robot_path}/panda_hand/wrist_cam",
         update_period=0.0,
@@ -429,7 +445,11 @@ class FrankaEventCfg:
 
 
 def _franka_event_cfg(asset_name: str) -> FrankaEventCfg:
-    """Return the reset-time joint noise event for the named robot asset."""
+    """Return the reset-time joint noise event for the named robot asset.
+
+    Args:
+        asset_name: Scene entity name of the robot articulation.
+    """
     return FrankaEventCfg(
         randomize_franka_joint_state=EventTerm(
             func=franka_stack_events.randomize_joint_by_gaussian_offset,

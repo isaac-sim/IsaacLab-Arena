@@ -360,6 +360,11 @@ class EmbodimentBase(PlaceableAsset):
             return cfg
 
         def name_fields(fields: list[tuple[str, type, Any]]) -> list[tuple[str, type, Any]]:
+            """Return configuration fields with this robot's instance names.
+
+            Args:
+                fields: Ordered configuration fields, each containing a name, type, and value.
+            """
             return [(self.get_instance_name(name), field_type, value) for name, field_type, value in fields]
 
         return transform_configclass_instance(cfg, name_fields, bases=bases)
