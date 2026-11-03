@@ -235,12 +235,11 @@ To visualize the data produced, you can replay the dataset using the following c
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/tools/replay_demos.py \
+   uv run isaaclab teleop replay \
      --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated.hdf5 \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_pink

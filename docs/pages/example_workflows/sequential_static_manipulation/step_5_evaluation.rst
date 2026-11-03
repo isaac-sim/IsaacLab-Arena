@@ -324,9 +324,9 @@ Run the batch evaluation:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
+     --experiment-config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
 You should see the following output on the console indicating the jobs and metrics.

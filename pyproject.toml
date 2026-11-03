@@ -72,6 +72,12 @@ docs = [
     "myst-parser>=3.0.0",
 ]
 
+[project.entry-points."isaaclab.cli"]
+arena = "isaaclab_arena.cli.entrypoint:main"
+
+[project.entry-points."isaaclab.tasks"]
+arena = "isaaclab_arena.environments.isaaclab_task_registration"
+
 # PEP 735 dependency groups for the native uv install. Docker selects only its
 # required groups explicitly because it installs Isaac Lab from the copied
 # submodule and inherits Isaac Sim from the base image.

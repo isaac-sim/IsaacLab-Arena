@@ -49,6 +49,49 @@ class _RecordingEnv(gym.Env):
         return {}, {"sample": sample}
 
 
+def test_rl_discovery_placeholder_declares_automatic_registration():
+    from isaaclab_tasks.utils.task_registration import TASK_REGISTRATION_CALLBACK_KEY
+
+    from isaaclab_arena.environments import isaaclab_interop
+
+    task_name = "arena_interop_discovery_test"
+    gym.registry.pop(task_name, None)
+    try:
+        isaaclab_interop.register_rl_discovery_placeholder(task_name)
+
+        spec = gym.spec(task_name)
+        assert spec.kwargs["_arena_rl_discovery_placeholder"]
+        assert spec.kwargs["default_agent"] == "rsl_rl"
+        assert spec.kwargs[TASK_REGISTRATION_CALLBACK_KEY].endswith(".environment_registration_callback")
+    finally:
+        gym.registry.pop(task_name, None)
+
+
+def test_arena_task_discovery_is_idempotent_and_preserves_native_tasks(monkeypatch):
+    from isaaclab_arena.environments import isaaclab_interop
+
+    arena_task = "arena_interop_catalogue_test"
+    native_task = "arena_interop_native_collision_test"
+    gym.registry.pop(arena_task, None)
+    gym.registry.pop(native_task, None)
+    gym.register(native_task, entry_point=lambda: None, kwargs={"native": True})
+    monkeypatch.setattr(isaaclab_interop, "ensure_environments_registered", lambda: None)
+    monkeypatch.setattr(
+        isaaclab_interop.EnvironmentRegistry,
+        "get_all_keys",
+        lambda _registry: [arena_task, native_task],
+    )
+    try:
+        isaaclab_interop.register_arena_tasks_for_discovery()
+        isaaclab_interop.register_arena_tasks_for_discovery()
+
+        assert gym.spec(arena_task).kwargs["_arena_rl_discovery_placeholder"]
+        assert gym.spec(native_task).kwargs == {"native": True}
+    finally:
+        gym.registry.pop(arena_task, None)
+        gym.registry.pop(native_task, None)
+
+
 def _test_registered_environment_preserves_runtime_recorders(
     _simulation_app, monkeypatch, tmp_path, entry_point_is_string
 ):

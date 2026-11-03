@@ -62,9 +62,9 @@ start the rollout:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
 
 The runner reads the other values from YAML and records the Run under the name
 ``droid_pnp_dreamzero``. Run headless by omitting ``--viz kit``.

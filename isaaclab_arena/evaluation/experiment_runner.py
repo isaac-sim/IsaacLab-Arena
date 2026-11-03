@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -119,8 +120,11 @@ def _export_selected_kpis(experiment_output_directory: Path, experiment_cfg: Are
     export_kpis(experiment_output_directory, experiment_cfg.kpi_exporters)
 
 
-def main():
-    args_cli, experiment_overrides = parse_experiment_runner_args()
+def main(argv: list[str] | None = None) -> None:
+    """Run an Arena Experiment from explicit arguments or the process command line."""
+    if argv is None:
+        argv = sys.argv[1:]
+    args_cli, experiment_overrides = parse_experiment_runner_args(argv)
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
     legacy_experiment_config = load_legacy_json_experiment_config(
         experiment_config_path,
@@ -159,7 +163,7 @@ def main():
             assert (
                 args_cli.experiment_output_directory is None
             ), "--experiment_output_directory is not supported when --chunk_size dispatches multiple chunks"
-            run_legacy_json_in_chunks(args_cli, legacy_experiment_config)
+            run_legacy_json_in_chunks(args_cli, legacy_experiment_config, argv)
             return
 
     if args_cli.experiment_output_directory is not None:

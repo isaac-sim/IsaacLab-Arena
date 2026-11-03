@@ -138,9 +138,9 @@ Run the goal policy:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml \
      runs.droid_pnp_vlm_goal.policy.endpoint=internal  # public or openai: also set policy.model
 
 The runner prints the endpoint and model it connects to, then steps the episode. Run the chunk
@@ -174,9 +174,9 @@ For example, to run the step policy, which makes one request per simulation step
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_chunk_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_chunk_experiment.yaml \
      runs.droid_pnp_vlm_chunk.policy.chunk_size=1 \
      runs.droid_pnp_vlm_chunk.policy.endpoint=internal  # public or openai: also set policy.model
 

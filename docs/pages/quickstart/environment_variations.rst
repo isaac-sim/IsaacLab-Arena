@@ -51,9 +51,9 @@ Then run the example:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
 The viewport will show the environment being rebuilt with different backgrounds and light
 intensities:
@@ -79,8 +79,8 @@ environment:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml \
+   uv run isaaclab arena evaluate \
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml \
      --list_variations
 
 See :doc:`../concepts/variations/variations` for the available variations and their

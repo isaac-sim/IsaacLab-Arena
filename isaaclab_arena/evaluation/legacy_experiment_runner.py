@@ -51,7 +51,11 @@ def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
     )
 
 
-def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> int:
+def _run_legacy_json_chunk(
+    chunk_label: str,
+    legacy_job_configs: list[dict],
+    runner_args: list[str],
+) -> int:
     """Run legacy JSON entries in a fresh experiment_runner subprocess."""
     print(f"[experiment_runner] {chunk_label}", flush=True)
     # Serialize this chunk's jobs to a temp config the child loads via --experiment_config.
@@ -62,9 +66,15 @@ def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> 
     # the master config (argparse keeps the last value).
     # Strip --serve_evaluation_report: a child that served its report would block on
     # serve_until_ctrl_c forever.
-    forwarded_args = [arg for arg in sys.argv if arg != "--serve_evaluation_report"]
+    forwarded_args = [arg for arg in runner_args if arg != "--serve_evaluation_report"]
     config_override = ["--experiment_config", str(chunk_path)]
-    child_cmd = [sys.executable, *forwarded_args, *config_override]
+    child_cmd = [
+        sys.executable,
+        "-m",
+        "isaaclab_arena.evaluation.experiment_runner",
+        *forwarded_args,
+        *config_override,
+    ]
     try:
         result = subprocess.run(child_cmd, check=False)
     finally:
@@ -73,7 +83,11 @@ def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> 
     return result.returncode
 
 
-def run_legacy_json_in_chunks(args_cli: argparse.Namespace, legacy_experiment_config: dict) -> None:
+def run_legacy_json_in_chunks(
+    args_cli: argparse.Namespace,
+    legacy_experiment_config: dict,
+    runner_args: list[str],
+) -> None:
     """Run each chunk of a legacy JSON Experiment in a fresh subprocess."""
     # TODO(cvolk): Aggregate per-chunk metrics into one centralized view. Each chunk
     # subprocess currently prints its own MetricsLogger summary and nothing is merged
@@ -92,7 +106,7 @@ def run_legacy_json_in_chunks(args_cli: argparse.Namespace, legacy_experiment_co
         start = chunk_idx * chunk_size
         end = min(start + chunk_size, len(jobs))
         chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: Runs {start}..{end - 1}"
-        returncode = _run_legacy_json_chunk(chunk_label, jobs[start:end])
+        returncode = _run_legacy_json_chunk(chunk_label, jobs[start:end], runner_args)
         if returncode != 0:
             print(f"[experiment_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
             sys.exit(returncode)

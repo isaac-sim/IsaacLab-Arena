@@ -28,6 +28,20 @@ or you can download a pre-trained one as described below.
 
    Replace checkpoint paths in the examples below with this path.
 
+Preview the Trained Policy
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Isaac Lab's play command discovers the Arena task automatically:
+
+.. code-block:: bash
+
+   uv run isaaclab play \
+     --rl_library rsl_rl \
+     --task lift_object \
+     --checkpoint $MODELS_DIR/lift_object_checkpoint/model_1999.pt \
+     --num_envs 1 \
+     --viz kit
+
 
 Evaluation Methods
 ^^^^^^^^^^^^^^^^^^
@@ -138,9 +152,9 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --eval_jobs_config eval_config.json
+     --experiment-config eval_config.json
 
 .. code-block:: text
 

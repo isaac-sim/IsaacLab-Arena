@@ -157,9 +157,8 @@ To validate the environment loads correctly, run one training iteration and chec
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/train.py \
+   uv run isaaclab train \
      --rl_library rsl_rl \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
      --num_envs 64 \

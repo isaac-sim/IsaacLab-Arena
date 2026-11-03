@@ -77,9 +77,9 @@ Then run the Experiment:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
 
 The Experiment Runner loads the Runs in YAML order and reuses one SimulationApp. It builds a fresh
 environment for every Run, then closes that environment before starting the next one.
@@ -108,9 +108,9 @@ limit inherited by every Run:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml \
      shared.rollout_limit.num_episodes=4
 
 A value written directly inside a Run would still take priority over this shared override. To
@@ -119,9 +119,9 @@ parallel environments in ``parallel_envs``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml \
      runs.parallel_envs.environment_builder.num_envs=8
 
 This changes only ``environment_builder.num_envs`` in the ``parallel_envs`` Run. OSMO uses the same

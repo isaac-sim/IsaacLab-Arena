@@ -141,6 +141,11 @@ The mimic environment is used for demonstration generation and includes
 subtask configurations from the task. Metrics and recorders are excluded
 in mimic mode.
 
+Isaac Lab's ``train``, ``play``, ``teleop record``, and ``teleop replay`` commands discover
+Arena's task-registration callback automatically. The explicit ``--external_callback`` option
+remains available for scripts that do not use task-owned registration metadata and for
+unregistered third-party environments.
+
 .. code-block:: bash
 
    python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \

@@ -69,9 +69,9 @@ Start the rollout to connect to the server:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml
 
 The YAML selects the pi05 checkpoint, the DROID adapter, and port ``8000``. If the server is on
 another machine, change ``policy.remote_host``. If terminal 1 uses another port, change
@@ -79,9 +79,9 @@ another machine, change ``policy.remote_host``. If terminal 1 uses another port,
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml \
      runs.droid_pnp_openpi.policy.remote_port=8001
 
 The server terminal will start logging connection and inference events as the arena
@@ -103,9 +103,9 @@ and destination:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml
 
 The Runs execute in YAML order and report a success rate for each Run. Arena builds a fresh
 environment for every Run without restarting Isaac Sim.
@@ -183,9 +183,9 @@ The runner collects the rollouts into a browsable HTML evaluation report. Add
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
      --output_base_dir ./output \
      --record_camera_video --serve_evaluation_report
 

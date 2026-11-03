@@ -42,13 +42,13 @@ the repository root:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
      --record_camera_video \
      --serve_evaluation_report \
      --evaluation_report_port 8001 \
      --experiment_output_directory "${CAMERA_SENSITIVITY_OUTPUT_DIR}" \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
 
 At each episode reset, Arena samples a new wrist-camera position. OpenPI then uses observations from
 that shifted camera to control the arm through the pick-and-place attempt.

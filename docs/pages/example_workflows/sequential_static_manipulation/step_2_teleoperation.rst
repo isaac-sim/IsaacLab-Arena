@@ -58,7 +58,7 @@ Step 1: Start Recording
    .. code-block:: bash
 
       export CLOUDXR_ENV=cloudxrjs  # Use "avp" for Apple Vision Pro.
-      python submodules/IsaacLab/scripts/tools/record_demos.py \
+      uv run isaaclab teleop record \
         --device cpu \
         --viz kit \
         --xr \
@@ -66,7 +66,6 @@ Step 1: Start Recording
         --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
         --num_demos 10 \
         --num_success_steps 10 \
-        --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
         --task put_item_in_fridge_and_close_door \
         --object ranch_dressing_hope_robolab \
         --embodiment gr1_pink \

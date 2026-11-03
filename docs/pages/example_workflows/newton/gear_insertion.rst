@@ -115,9 +115,8 @@ Choose the tab for your input device.
 
       .. code-block:: bash
 
-         python submodules/IsaacLab/scripts/tools/record_demos.py \
+         uv run isaaclab teleop record \
            --task gear_insertion \
-           --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
            --device cuda:0 \
            --viz kit \
            --enable_cameras \
@@ -133,9 +132,8 @@ Choose the tab for your input device.
 
       .. code-block:: bash
 
-         python submodules/IsaacLab/scripts/tools/record_demos.py \
+         uv run isaaclab teleop record \
            --task gear_insertion \
-           --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
            --device cuda:0 \
            --viz kit \
            --enable_cameras \
@@ -180,9 +178,8 @@ After recording finishes, replay the saved dataset:
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/tools/replay_demos.py \
+   uv run isaaclab teleop replay \
      --task gear_insertion \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --device cuda:0 \
      --viz kit \
      --enable_cameras \

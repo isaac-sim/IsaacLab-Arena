@@ -119,12 +119,11 @@ Replay the downloaded dataset to verify the environment setup:
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/tools/replay_demos.py \
+   uv run isaaclab teleop replay \
      --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge_annotated.hdf5" \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task put_item_in_fridge_and_close_door \
      --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink
