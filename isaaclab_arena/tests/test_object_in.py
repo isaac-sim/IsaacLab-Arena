@@ -28,6 +28,54 @@ def get_pose_at_midpoint(env, object_name: str, target_name: str):
     return T_W_O
 
 
+def test_object_in_accepts_rotated_mesh_inside_target():
+    """ObjectIn uses object geometry rather than conservative world AABB corners."""
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab_arena.tasks.object_in_task import ObjectInTask
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    class ArenaWorld:
+        def get_aabb_w(self, scene_key):
+            if scene_key == "tool":
+                return AxisAlignedBoundingBox((-1.2, -0.6, -0.1), (1.2, 0.6, 0.1))
+            return AxisAlignedBoundingBox((-1.0, -0.5, -0.1), (1.0, 0.5, 0.1))
+
+        def get_mesh_points_w(self, scene_key):
+            from isaaclab.utils.math import quat_apply
+
+            assert scene_key == "tool"
+            points_O = torch.tensor([[
+                [-0.8, -0.05, 0.0],
+                [0.8, -0.05, 0.0],
+                [-0.8, 0.05, 0.0],
+                [0.8, 0.05, 0.0],
+            ]])
+            q_W_O = torch.tensor([[0.0, 0.0, 0.25881905, 0.96592583]]).expand(4, -1)
+            points_W = quat_apply(q_W_O, points_O[0]).unsqueeze(0)
+            return points_W, torch.ones((1, 4), dtype=torch.bool)
+
+        def get_pose_w(self, scene_key):
+            assert scene_key == "drawer"
+            return torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+
+        def get_aabb_in_local_frame(self, scene_key):
+            assert scene_key == "drawer"
+            return AxisAlignedBoundingBox((-1.0, -0.5, -0.1), (1.0, 0.5, 0.1))
+
+    task = ObjectInTask(
+        object=SimpleNamespace(name="tool"),
+        target=SimpleNamespace(name="drawer"),
+        minimum_contained_fraction=1.0,
+    )
+    object_in_predicate = task.get_termination_cfg().success[0].predicate_sequence[0]
+
+    result = object_in_predicate(SimpleNamespace(arena_world=ArenaWorld()))
+
+    assert result.tolist() == [True]
+
+
 def _test_apple_in_microwave(_simulation_app):
     import torch
 
