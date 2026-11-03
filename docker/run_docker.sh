@@ -158,9 +158,6 @@ else
                     "--env" "DISPLAY"
                     "--env" "ACCEPT_EULA=Y"
                     "--env" "PRIVACY_CONSENT=Y"
-                    # docker exec inherits these user labels and the image's WORKDIR.
-                    "--env" "USER=$(id -un)"
-                    "--env" "LOGNAME=$(id -un)"
                     "--env" "DOCKER_RUN_USER_ID=$(id -u)"
                     "--env" "DOCKER_RUN_USER_NAME=$(id -un)"
                     "--env" "DOCKER_RUN_GROUP_ID=$(id -g)"
