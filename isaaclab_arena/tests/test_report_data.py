@@ -282,6 +282,33 @@ def test_unknown_active_predicates_are_renderable_without_inventing_sequence_ind
     assert criteria.blocked_predicates == ["never_seen_predicate"]
 
 
+def test_missing_sequence_names_are_flagged_without_assigning_attempts():
+    failed = _episode({"progress": {"criteria_by_name": {"reach": {"total_sequences": 1}}, "events": []}})
+    succeeded = _episode(
+        {
+            "progress": {
+                "criteria_by_name": {"reach": {"total_sequences": 1}},
+                "events": [_event("reach", "default_sequence", 0, "arrive")],
+            }
+        },
+        episode=1,
+    )
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[failed, succeeded])
+
+    assert job.has_incomplete_sequence_data
+    assert job.funnels[0].num_instances == 1
+    assert job.funnels[0].stages[0].num_reached == 1
+
+
+def test_partial_sequence_names_are_flagged():
+    episode = _episode(
+        {"progress": {"criteria_by_name": {"reach": {"total_sequences": 2, "active_predicates": {"left": "arrive"}}}}}
+    )
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[episode])
+
+    assert job.has_incomplete_sequence_data
+
+
 def test_sequences_keep_independent_funnels_and_event_steps():
     episode = _episode({
         "progress": {
@@ -309,6 +336,81 @@ def test_sequences_keep_independent_funnels_and_event_steps():
         ("left/arrive", 9),
         ("right/found", 7),
     ]
+
+
+def test_sequence_funnels_count_episodes_where_the_sequence_emitted_no_event():
+    first = _episode({
+        "progress": {
+            "criteria_by_name": {"reach": {"active_predicates": {"left": None, "right": "arrive"}}},
+            "events": [_event("reach", "left", 0, "arrive")],
+        }
+    })
+    second = _episode(
+        {
+            "progress": {
+                "criteria_by_name": {"reach": {"active_predicates": {"left": "arrive", "right": None}}},
+                "events": [_event("reach", "right", 0, "arrive")],
+            }
+        },
+        episode=1,
+    )
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[first, second])
+
+    assert [(funnel.name, funnel.num_instances, funnel.stages[0].num_reached) for funnel in job.funnels] == [
+        ("reach/left", 2, 1),
+        ("reach/right", 2, 1),
+    ]
+
+
+def test_wait_in_an_eventless_sibling_sequence_is_listed_without_an_index():
+    left_done = _episode({
+        "progress": {
+            "criteria_by_name": {"reach": {"active_predicates": {"left": None, "right": "arrive"}}},
+            "events": [_event("reach", "left", 0, "arrive")],
+        }
+    })
+    stalled = _episode(
+        {"progress": {"criteria_by_name": {"reach": {"active_predicates": {"left": "arrive", "right": "arrive"}}}}},
+        episode=1,
+    )
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[left_done, stalled])
+
+    # The right sequence never emitted an event, so its funnel has no stages and its wait has no index.
+    assert [(funnel.name, len(funnel.stages)) for funnel in job.funnels] == [("reach/left", 1), ("reach/right", 0)]
+    assert job.criteria_for(left_done)[0].blocked_predicates == ["right/arrive"]
+    stalled_criteria = job.criteria_for(stalled)[0]
+    assert [(signal.name, signal.blocked) for signal in stalled_criteria.signals] == [("left/arrive", True)]
+    assert stalled_criteria.blocked_predicates == ["right/arrive"]
+
+
+def test_waiting_predicates_are_matched_within_their_sequence():
+    # The two sequences reach the same predicates in opposite order, so a wait matched against
+    # another sequence's predicates would block every signal.
+    complete = _episode({
+        "progress": {
+            "criteria_by_name": {"reach": {"active_predicates": {"left": None, "right": None}}},
+            "events": [
+                _event("reach", "left", 0, "found"),
+                _event("reach", "left", 1, "arrive"),
+                _event("reach", "right", 0, "arrive"),
+                _event("reach", "right", 1, "found"),
+            ],
+        }
+    })
+    stalled = _episode(
+        {"progress": {"criteria_by_name": {"reach": {"active_predicates": {"left": "found", "right": "arrive"}}}}},
+        episode=1,
+    )
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[complete, stalled])
+
+    stalled_criteria = job.criteria_for(stalled)[0]
+    assert [(signal.name, signal.blocked) for signal in stalled_criteria.signals] == [
+        ("left/found", True),
+        ("left/arrive", False),
+        ("right/arrive", True),
+        ("right/found", False),
+    ]
+    assert stalled_criteria.blocked_predicates == []
 
 
 def test_subtask_criteria_coalesce_when_each_sequence_agrees():
