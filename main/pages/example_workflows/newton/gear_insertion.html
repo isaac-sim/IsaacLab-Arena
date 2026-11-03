@@ -596,7 +596,7 @@
 <h1>Gear Insertion<a class="headerlink" href="#gear-insertion" title="Link to this heading">#</a></h1>
 <p>Use a keyboard or SpaceMouse to teleoperate and pick up a gear with the DROID robot and insert it onto the
 peg board. This walkthrough covers previewing the environment, recording demonstrations,
-and replaying the saved dataset.</p>
+replaying the saved dataset, and evaluating a vision-language model (VLM) agent as the policy.</p>
 <section id="task-overview">
 <h2>Task Overview<a class="headerlink" href="#task-overview" title="Link to this heading">#</a></h2>
 <p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">gear_insertion</span></code></p>
@@ -833,6 +833,41 @@ demonstrations in the dataset and exits when finished.</p>
 <a class="reference internal image-reference" href="../../../_images/gear_insertion_env_replay.gif"><img alt="../../../_images/gear_insertion_env_replay.gif" class="align-center" src="../../../_images/gear_insertion_env_replay.gif" style="height: 400px;" />
 </a>
 </section>
+<section id="step-4-evaluate-a-vlm-agent-policy">
+<span id="gear-insertion-vlm-agent"></span><h2>Step 4: Evaluate a VLM Agent Policy<a class="headerlink" href="#step-4-evaluate-a-vlm-agent-policy" title="Link to this heading">#</a></h2>
+<p>A hosted VLM can also act as the policy, through <code class="docutils literal notranslate"><span class="pre">VLMGoalPolicy</span></code>. Gear insertion needs the gear
+within 3.5 mm of the peg, a precise test of how well the model locates parts from camera images.
+See <a class="reference internal" href="../../concepts/policy/index.html#vlm-agent-policies"><span class="std std-ref">VLM agent policies</span></a> for how the policy works, and set up an inference API key as in
+<a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html"><span class="doc">VLM Agent</span></a>.</p>
+<p>Three experiment configurations run the policy on the <code class="docutils literal notranslate"><span class="pre">droid_abs_ik</span></code> embodiment with the full
+1280x720 camera images. They differ only in what the model is given. Run them from the repository
+root, so the prompt files they reference are found.</p>
+<p><strong>Images only.</strong> The model gets the camera images, the robot state, and the DROID default system
+prompt, and must locate the gear and the pegs in the images:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml
+</pre></div>
+</div>
+<p><strong>Images with exact object poses.</strong> <code class="docutils literal notranslate"><span class="pre">object_poses</span></code> adds the gear’s exact pose and its seated
+target pose to each request. A real robot does not observe these, so this run is a reference for
+what the policy achieves once it knows where the parts are:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml
+</pre></div>
+</div>
+<p><strong>Images with a task prompt.</strong> <code class="docutils literal notranslate"><span class="pre">system_prompt_files</span></code> appends
+<code class="docutils literal notranslate"><span class="pre">experiment_configs/prompts/droid_gear_insertion.txt</span></code> to the default prompt. It describes the
+gear and peg geometry and a grasp and insertion strategy, but no object positions:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml
+</pre></div>
+</div>
+<p>Add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> to watch a rollout.</p>
+<p>The same layout under each experiment: images only (left), exact object poses (middle), and the
+task prompt (right).</p>
+<a class="reference internal image-reference" href="../../../_images/gear_insertion_vlm_agent.gif"><img alt="../../../_images/gear_insertion_vlm_agent.gif" class="align-center" src="../../../_images/gear_insertion_vlm_agent.gif" style="width: 100%;" />
+</a>
+</section>
 </section>
 
 
@@ -893,6 +928,7 @@ demonstrations in the dataset and exits when finished.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-launch-the-environment">Step 1: Launch the Environment</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-record-demonstrations">Step 2: Record Demonstrations</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-replay-demonstrations">Step 3: Replay Demonstrations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-evaluate-a-vlm-agent-policy">Step 4: Evaluate a VLM Agent Policy</a></li>
 </ul>
   </nav></div>
 
