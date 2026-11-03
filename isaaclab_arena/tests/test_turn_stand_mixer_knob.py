@@ -55,8 +55,8 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
     name, cfg, env_kwargs = env_builder.build_registered()
     if remove_reset_knob_state_event:
         cfg.events.reset_knob_state = None
-        # The stand mixer's own reset event also restores its default joint state.
-        cfg.events.stand_mixer = None
+        # The stand mixer's joint reset would also return the knob to its default level.
+        cfg.events.stand_mixer_joints = None
     env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 

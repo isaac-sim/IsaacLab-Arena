@@ -64,8 +64,8 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
         # NOTE(alexmillane, 2025-09-01): We remove the event to reset the door position,
         # to allow us to inspect the scene without having it reset.
         cfg.events.reset_openable_object_revolute_joint_percentage = None
-        # The microwave's own reset event also restores its default joint state.
-        cfg.events.microwave = None
+        # The microwave's joint reset would also return the door to its default state.
+        cfg.events.microwave_joints = None
     env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 

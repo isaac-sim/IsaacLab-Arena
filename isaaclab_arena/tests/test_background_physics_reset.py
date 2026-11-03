@@ -92,7 +92,7 @@ def _test_background_physics_discovery_and_reset(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.terms.events import ResetBackgroundPhysics, reset_articulation_pose_and_joints
+    from isaaclab_arena.terms.events import ResetBackgroundPhysics, reset_articulation_joints, set_object_pose
     from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
 
     assert ResetBackgroundPhysics._is_unavailable_backend_error(
@@ -143,10 +143,10 @@ def _test_background_physics_discovery_and_reset(
             parent_asset=background,
             object_type=ObjectType.ARTICULATION,
         )
-        assert referenced_free_body.get_event_cfg()[1] is not None
-        referenced_articulation_event = referenced_articulation.get_event_cfg()[1]
-        assert referenced_articulation_event is not None
-        assert referenced_articulation_event.func is reset_articulation_pose_and_joints
+        assert referenced_free_body.get_event_cfgs()
+        referenced_articulation_events = dict(referenced_articulation.get_event_cfgs())
+        assert referenced_articulation_events["referenced_articulation"].func is set_object_pose
+        assert referenced_articulation_events["referenced_articulation_joints"].func is reset_articulation_joints
         physics_paths = background.get_nested_physics_prim_paths({
             "{ENV_REGEX_NS}/background/free_body": ObjectType.RIGID,
             "{ENV_REGEX_NS}/background/referenced_articulation": ObjectType.ARTICULATION,

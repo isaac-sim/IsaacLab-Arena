@@ -13,7 +13,6 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import math as math_utils
-from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_object_pose
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
@@ -355,43 +354,6 @@ def reset_cable_to_default(
     segment_velocity = cable.data.default_segment_velocity_w.torch[env_ids].clone()
     cable.write_segment_pose_to_sim_index(segment_pose=segment_pose, env_ids=env_ids)
     cable.write_segment_velocity_to_sim_index(segment_velocity=segment_velocity, env_ids=env_ids)
-
-
-def reset_articulation_pose_and_joints(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor,
-    asset_cfg: SceneEntityCfg,
-    pose: Pose,
-    velocity: Velocity | None = None,
-) -> None:
-    """Restore an articulation's root state and default joint state."""
-    if env_ids is None:
-        return
-    set_object_pose(env, env_ids, asset_cfg, pose, velocity)
-    reset_articulation_joints(env, env_ids, asset_cfg)
-
-
-def reset_articulation_pose_per_env_and_joints(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor,
-    asset_cfg: SceneEntityCfg,
-    pose_list: list[Pose],
-) -> None:
-    """Restore an articulation's per-environment root poses and default joint state."""
-    set_object_pose_per_env(env, env_ids, asset_cfg, pose_list)
-    reset_articulation_joints(env, env_ids, asset_cfg)
-
-
-def randomize_articulation_pose_and_reset_joints(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor,
-    asset_cfgs: list[SceneEntityCfg],
-    pose_range: dict[str, tuple[float, float]],
-) -> None:
-    """Sample articulation root poses from pose_range and restore their default joint states."""
-    randomize_object_pose(env, env_ids, asset_cfgs, pose_range=pose_range)
-    for asset_cfg in asset_cfgs:
-        reset_articulation_joints(env, env_ids, asset_cfg)
 
 
 def reset_articulation_joints(
