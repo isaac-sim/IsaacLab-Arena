@@ -356,20 +356,6 @@ def reset_cable_to_default(
     cable.write_segment_velocity_to_sim_index(segment_velocity=segment_velocity, env_ids=env_ids)
 
 
-def reset_articulation_pose_and_joints(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor,
-    asset_cfg: SceneEntityCfg,
-    pose: Pose,
-    velocity: Velocity | None = None,
-) -> None:
-    """Restore an articulation's root state and default joint state."""
-    if env_ids is None:
-        return
-    set_object_pose(env, env_ids, asset_cfg, pose, velocity)
-    reset_articulation_joints(env, env_ids, asset_cfg)
-
-
 def reset_articulation_joints(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,
