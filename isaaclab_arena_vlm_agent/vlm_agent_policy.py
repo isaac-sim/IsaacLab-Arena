@@ -16,6 +16,7 @@ from collections import deque
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
@@ -25,6 +26,7 @@ from isaaclab_arena.inference.backend import InferenceBackend, InferenceRequest,
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
+from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
 from isaaclab_arena_vlm_agent.observation_adapter import (
     ImageObservationAdapter,
     ImageStateObservationAdapter,
@@ -61,6 +63,12 @@ class VLMPolicyCfg(PolicyCfg):
     system_prompt: str | None
     """System message override, or None to use the selected embodiment adapter's prompt."""
 
+    system_prompt_files: list[str] = field(default_factory=list)
+    """Text files appended in order to the system prompt, such as task geometry and strategy.
+
+    Relative paths are read from the current working directory.
+    """
+
     image_max_width_or_height: int = 384
     """Maximum image width or height sent to the endpoint, in pixels.
 
@@ -86,12 +94,21 @@ class VLMPolicyCfg(PolicyCfg):
     base_url: str | None = None
     """Optional URL override; credentials come from the endpoint's environment variable."""
 
+    object_poses: list[str] = field(default_factory=list)
+    """Scene keys of objects whose exact poses in the robot root frames are added to the prompt values.
+
+    Wraps the modality's adapter in ObjectPoseObservationAdapter; ignored when an observation adapter is injected.
+    These poses are privileged state that cameras and robot sensors do not provide.
+    """
+
     def __post_init__(self):
         if self.system_prompt is None:
             assert self.vlm_embodiment_adapter is not None, "Set policy.system_prompt or policy.vlm_embodiment_adapter"
         else:
             assert isinstance(self.system_prompt, str) and self.system_prompt.strip(), "Set policy.system_prompt"
         assert self.vlm_embodiment_adapter in (None, "droid"), "Unknown vlm_embodiment_adapter; expected 'droid'"
+        for path in self.system_prompt_files:
+            assert Path(path).is_file(), f"System prompt file does not exist: '{path}'"
         self.observation_modality = ObservationModality(self.observation_modality)
         assert self.image_max_width_or_height > 0
         assert isinstance(self.max_attempts, int) and self.max_attempts >= 1
@@ -167,6 +184,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         if observation_adapter is None:
             adapter_type = ObservationModality(config.observation_modality).get_adapter_type()
             observation_adapter = adapter_type()
+            if config.object_poses:
+                observation_adapter = ObjectPoseObservationAdapter(observation_adapter, config.object_poses)
         assert isinstance(observation_adapter, VLMObservationAdapter)
         assert isinstance(action_adapter, AgentActionAdapter)
         self.observation_adapter = observation_adapter
@@ -177,6 +196,9 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             self._system_prompt = _get_vlm_embodiment_adapter(config.vlm_embodiment_adapter).get_system_prompt(
                 action_adapter
             )
+        prompt_parts = [self._system_prompt]
+        prompt_parts.extend(Path(path).read_text().strip() for path in config.system_prompt_files)
+        self._system_prompt = "\n\n".join(part.strip() for part in prompt_parts if part.strip())
         self.task_description = None
         # Construct the client last so invalid adapters or schemas cannot leak a connection.
         self._inference_backend = (

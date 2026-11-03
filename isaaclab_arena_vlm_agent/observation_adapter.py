@@ -14,6 +14,7 @@ from scipy.spatial.transform import Rotation
 from typing import Any
 
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
+from isaaclab_arena_vlm_agent.pose_utils import poses_in_robot_roots, read_robot_root_poses_w
 
 POLICY_OBSERVATION_GROUP = "policy"
 """Observation group containing the embodiment's named state terms."""
@@ -135,32 +136,21 @@ def _extract_camera_geometry(env, images: dict[str, np.ndarray], env_id: int) ->
     """
     base = env.unwrapped
     camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP)
-    roots = {}
-    for name in base.action_manager.active_terms:
-        asset_name = base.action_manager.get_term(name).cfg.asset_name
-        if asset_name not in roots:
-            roots[asset_name] = base.arena_world.get_pose_w(asset_name)[env_id].detach().cpu().numpy()
+    roots = read_robot_root_poses_w(base, env_id)
     geometry = {}
     for key, image in images.items():
         term = getattr(camera_cfg, key)
         sensor = base.scene[term.params["sensor_cfg"].name]
+        # C is the optical frame (+X right, +Y down, +Z forward).
         t_W_C, q_W_C = _read_mounted_camera_pose_w(base, sensor.cfg, env_id)
         intrinsics = sensor.data.intrinsic_matrices.torch[env_id]
-        # C is the optical frame (+X right, +Y down, +Z forward); R is an asset root.
-        poses = {}
-        for asset_name, T_W_R in roots.items():
-            rotation_R_W = Rotation.from_quat(T_W_R[3:]).inv()
-            poses[asset_name] = {
-                "position_root_m": rotation_R_W.apply(t_W_C - T_W_R[:3]).tolist(),
-                "quaternion_root_xyzw": (rotation_R_W * Rotation.from_quat(q_W_C)).as_quat().tolist(),
-            }
         geometry[key] = {
             "image_size_px": [image.shape[1], image.shape[0]],
             "intrinsic_matrix": intrinsics.detach().cpu().tolist(),
             "optical_frame": "x_right_y_down_z_forward",
             "position_world_m": t_W_C.tolist(),
             "quaternion_world_xyzw": q_W_C.tolist(),
-            "poses_in_robot_roots": poses,
+            "poses_in_robot_roots": poses_in_robot_roots(roots, t_W_C, q_W_C),
         }
     return geometry
 
