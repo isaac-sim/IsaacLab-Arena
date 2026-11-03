@@ -329,7 +329,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         Returns:
             Validated commands keyed by environment index.
         """
-        # Start one conversation per environment, so corrections stay with their own environment.
+        # Step 1: one conversation per env. An env leaves this dict once it has a valid command.
         conversations = {}
         for env_id, content in contents.items():
             conversations[env_id] = [
@@ -337,17 +337,21 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 {"role": "user", "content": content},
             ]
         commands = {}
+        # Last error per env, reported if the env runs out of attempts.
         rejections: dict[int, InvalidAgentResponseError] = {}
-        # Each round sends the unresolved conversations concurrently, then validates the outputs here.
-        # A rejected output gets a correction message and is sent again in the next round.
+
+        # Step 2: retry up to max_attempts rounds, stopping when every env has a command.
         attempts = 0
         while conversations and attempts < self.config.max_attempts:
             attempts += 1
+            # Step 2a: send all remaining requests at once.
             model_outputs = self._get_model_outputs(conversations)
+            # Step 2b: check each output here, on the main thread.
             for env_id, model_output in model_outputs.items():
                 try:
                     commands[env_id] = self._model_output_to_command(model_output, arena_world, env_id)
                 except InvalidAgentResponseError as exc:
+                    # Invalid: ask the model to fix it in the next round.
                     rejections[env_id] = exc
                     conversations[env_id].append({"role": "assistant", "content": json.dumps(model_output)})
                     conversations[env_id].append({
@@ -355,8 +359,10 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                         "content": f"Invalid actions: {exc}. Return a corrected prediction.",
                     })
                 else:
+                    # Valid: this env is done.
                     del conversations[env_id]
-        # Fail the step if any environment still has no valid output, naming each one's last rejection.
+
+        # Step 3: fail if any env still has no valid command, and list each one's last error.
         if conversations:
             failures = []
             for env_id in sorted(conversations):
