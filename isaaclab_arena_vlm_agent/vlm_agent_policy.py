@@ -391,8 +391,10 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                     retry_label=f"policy_action env {env_id}",
                 )
             )
-        # Waits for all requests. This is the slow part of a step.
-        model_outputs = list(self._request_executor.map(self._inference_backend.infer, requests))
+        # Launch all requests at once.
+        pending_outputs = self._request_executor.map(self._inference_backend.infer, requests)
+        # Wait for all requests. This is the slow part of a step.
+        model_outputs = list(pending_outputs)
         return dict(zip(conversations, model_outputs))
 
     def _model_output_to_command(
