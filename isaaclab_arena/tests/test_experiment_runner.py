@@ -17,6 +17,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_R
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
@@ -40,6 +41,33 @@ def test_experiment_runner_parses_native_hydra_overrides():
         "runs.baseline.environment.enable_cameras=true",
         "runs.baseline.environment_builder.record_trajectories=true",
     ]
+
+
+def test_experiment_runner_exports_the_kpis_selected_by_the_experiment(monkeypatch, tmp_path):
+    from isaaclab_arena.evaluation import experiment_runner
+
+    exported_selections = []
+    monkeypatch.setattr(
+        experiment_runner,
+        "export_kpis",
+        lambda output_dir, names, **kwargs: exported_selections.append((output_dir, list(names), kwargs)),
+    )
+
+    experiment_runner._export_selected_kpis(tmp_path, SimpleNamespace(kpi_exporters=["success_rate", "timing"]))
+
+    assert exported_selections == [(tmp_path, ["success_rate", "timing"], {})]
+
+
+def test_experiment_runner_skips_kpi_export_when_the_experiment_selects_none(monkeypatch, tmp_path, capsys):
+    from isaaclab_arena.evaluation import experiment_runner
+
+    exported_selections = []
+    monkeypatch.setattr(experiment_runner, "export_kpis", lambda *args, **kwargs: exported_selections.append(args))
+
+    experiment_runner._export_selected_kpis(tmp_path, SimpleNamespace(kpi_exporters=[]))
+
+    assert exported_selections == []
+    assert "KPI export is skipped" in capsys.readouterr().out
 
 
 def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp_path):
@@ -153,8 +181,9 @@ def run_experiment_runner(
 
 def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monkeypatch, tmp_path):
     from isaaclab_arena.evaluation import arena_experiment_result
-    from isaaclab_arena.evaluation.arena_run import ArenaRunResult, RunStatus
+    from isaaclab_arena.evaluation.arena_run import ArenaRunResult
     from isaaclab_arena.evaluation.experiment_runner import _write_arena_experiment_result
+    from isaaclab_arena.evaluation.run_status import RunStatus
 
     monkeypatch.setattr(
         arena_experiment_result,
@@ -164,7 +193,9 @@ def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monke
             "policy_variant": "zero_action",
         },
     )
-    experiment_cfg = SimpleNamespace(runs={"passing": SimpleNamespace(), "failing": SimpleNamespace()})
+    experiment_cfg = SimpleNamespace(
+        name="pnp_benchmark", runs={"passing": SimpleNamespace(), "failing": SimpleNamespace()}
+    )
     run_results = [
         ArenaRunResult(
             run_name="passing",
@@ -183,6 +214,7 @@ def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monke
 
     experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, tmp_path)
 
+    assert experiment_result.to_dict()["experiment_name"] == "pnp_benchmark"
     runs = experiment_result.to_dict()["runs"]
     assert runs["passing"]["start_timestamp_ns"] == 1792799000000000000
     assert runs["passing"]["end_timestamp_ns"] == 1792800000000000000
@@ -196,6 +228,7 @@ def test_experiment_runner_from_typed_yaml(tmp_path):
     experiment_config_path = tmp_path / "experiment.yaml"
     experiment_config_path.write_text(
         """
+kpi_exporters: [success_rate, timing]
 runs:
   yaml_baseline:
     environment:
@@ -244,6 +277,14 @@ runs:
         "end_timestamp_ns",
         "rebuilds",
     }
+    # The timing file exists only when a timer ran, so it is checked when present.
+    kpis_filenames = {path.name for path in (tmp_path / "output").glob("kpis_*.json")}
+    assert "kpis_success_rates.json" in kpis_filenames
+    assert kpis_filenames <= {"kpis_success_rates.json", "kpis_timing.json"}
+    for kpis_filename in kpis_filenames:
+        experiment_kpis = json.loads((tmp_path / "output" / kpis_filename).read_text(encoding="utf-8"))
+        assert_influxdb_kpi_records_are_valid(experiment_kpis)
+        assert {record["timestamp_ns"] for record in experiment_kpis} == {run_result["end_timestamp_ns"]}
 
 
 @pytest.mark.with_subprocess

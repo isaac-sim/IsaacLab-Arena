@@ -7,6 +7,7 @@
 
 import json
 import os
+import shlex
 import subprocess
 import time
 import yaml
@@ -18,8 +19,9 @@ from hydra.errors import ConfigCompositionException
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RunStatus
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -70,6 +72,7 @@ FAKE_OSMO_SUBMIT_STDOUT = """Workflow submit successful.
     Workflow ID        - arena-kpi-run-7
     Workflow Overview  - https://osmo.example.com/workflows/arena-kpi-run-7
 """
+EXPERIMENT_NAME = "pnp_benchmark"
 GR00T_CONFIG_YAML_PATH = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
 
 
@@ -96,7 +99,8 @@ def _pi0_experiment_cfg(first_variant: str = "pi05") -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             ),
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -118,7 +122,8 @@ def _mixed_experiment_cfg() -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             ),
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -130,7 +135,8 @@ def _zero_action_experiment_cfg() -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             )
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -316,6 +322,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
         in experiment_output_command
     )
     assert "--experiment-output-directory" in experiment_output_command
+    assert f"--experiment-name {EXPERIMENT_NAME}" in experiment_output_command
     assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
 
@@ -490,6 +497,150 @@ def test_embeds_effective_experiment_yaml():
     assert embedded_experiment["runs"]["baseline"]["environment_builder"]["num_envs"] == 1
 
 
+def test_embedded_experiment_of_every_run_exports_no_kpis():
+    """Embed an empty kpi_exporters in each single-Run Experiment; the collector task exports the KPIs."""
+    source_experiment_cfg = _pi0_experiment_cfg()
+    source_experiment_cfg.kpi_exporters = ["success_rate", "timing"]
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="exporters-experiment"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    run_groups = _workflow_groups(workflow.generate_workflow())[:-1]
+
+    assert run_groups
+    for group in run_groups:
+        assert _embedded_experiment(group["tasks"][0])["kpi_exporters"] == []
+
+
+def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
+    """Embed the Experiment name in each single-Run Experiment so remote results keep it."""
+    source_experiment_cfg = _pi0_experiment_cfg()
+    source_experiment_cfg.name = "my-benchmark"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="named-experiment"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+
+    run_groups = groups[:-1]
+    assert run_groups
+    for group in run_groups:
+        assert _embedded_experiment(group["tasks"][0])["name"] == "my-benchmark"
+
+
+def test_collector_task_script_passes_the_experiment_name_to_the_collector():
+    """The collector writes the Experiment name into the result, so it needs it on its command line."""
+    source_experiment_cfg = _zero_action_experiment_cfg()
+    source_experiment_cfg.name = "my benchmark"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="named-collector"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    experiment_output_task = _workflow_groups(workflow.generate_workflow())[-1]["tasks"][0]
+
+    experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
+    assert "--experiment-name 'my benchmark'" in experiment_output_command
+
+
+def _collector_command(workflow: dict) -> str:
+    experiment_output_task = _workflow_groups(workflow)[-1]["tasks"][0]
+    return _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
+
+
+def _collector_command_for_submission(overrides: list[str], experiment_cfg_path: Path) -> tuple[str, list[str]]:
+    submission_cfg = _compose_submission(overrides, experiment_cfg_path=experiment_cfg_path)
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=submission_cfg.osmo,
+        experiment_cfg=submission_cfg.experiment_cfg,
+        task_cfg=submission_cfg.experiment_runner,
+    )
+    return _collector_command(workflow.generate_workflow()), submission_cfg.experiment_cfg.kpi_exporters
+
+
+def test_collector_runs_the_kpi_exporters_of_the_experiment():
+    """Pass the Experiment's kpi_exporters to the collector script."""
+    collector_command, kpi_exporters = _collector_command_for_submission([], GETTING_STARTED_EXPERIMENT_CFG_PATH)
+
+    assert kpi_exporters == ["success_rate", "timing"]
+    assert "--kpi-exporters success_rate timing" in collector_command
+
+
+def test_kpi_exporters_override_narrows_the_collector_selection():
+    """Pass only the overridden exporter names to the collector script."""
+    collector_command, kpi_exporters = _collector_command_for_submission(
+        ["experiment_cfg.kpi_exporters=[timing]"], GETTING_STARTED_EXPERIMENT_CFG_PATH
+    )
+
+    assert kpi_exporters == ["timing"]
+    assert "--kpi-exporters timing" in collector_command
+    assert "success_rate" not in collector_command
+
+
+def test_empty_kpi_exporters_override_passes_a_bare_flag_to_the_collector():
+    """An empty kpi_exporters list gives the collector no names, so it exports no KPIs."""
+    collector_command, kpi_exporters = _collector_command_for_submission(
+        ["experiment_cfg.kpi_exporters=[]"], GETTING_STARTED_EXPERIMENT_CFG_PATH
+    )
+
+    assert kpi_exporters == []
+    command_tokens = shlex.split(collector_command.splitlines()[-1])
+    assert command_tokens[-1] == "--kpi-exporters"
+
+
+def test_unknown_kpi_exporter_fails_submission_with_the_valid_names():
+    """Reject an exporter name that is not in the registry, listing the valid names."""
+    with pytest.raises(AssertionError, match=r"Unknown KPI exporters \['latency'\].*\['success_rate', 'timing'\]"):
+        _compose_submission(
+            ["experiment_cfg.kpi_exporters=[success_rate,latency]"],
+            experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH,
+        )
+
+
+def test_duplicate_kpi_exporters_fail_submission():
+    """Reject a submission that selects the same KPI exporter twice."""
+    with pytest.raises(AssertionError, match=r"duplicate KPI exporters \['timing'\]"):
+        _compose_submission(
+            ["experiment_cfg.kpi_exporters=[timing,timing]"], experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH
+        )
+
+
+def test_osmo_workflow_cfg_has_no_kpi_exporters_field():
+    """KPI exporters belong to the Experiment, so the submission's osmo section does not accept them."""
+    assert not hasattr(WorkflowCfg(), "kpi_exporters")
+    with pytest.raises(Exception, match="osmo.kpi_exporters"):
+        _compose_submission(["osmo.kpi_exporters=[timing]"], experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH)
+
+
+def test_null_experiment_name_fails_submission():
+    """Reject experiment_cfg.name=null, because an Experiment must have a name."""
+    with pytest.raises(Exception, match="experiment_cfg.name=null"):
+        _compose_submission(["experiment_cfg.name=null"])
+
+
+@pytest.mark.parametrize("name", ["None", "none"])
+def test_none_like_experiment_name_is_an_ordinary_string_at_submission(name):
+    """Hydra parses only null as None, so experiment_cfg.name=None names the Experiment 'None'."""
+    assert _compose_submission([f"experiment_cfg.name={name}"]).experiment_cfg.name == name
+
+
+def test_experiment_name_can_be_overridden_at_submission():
+    """Route experiment_cfg.name=<x> to the Experiment name of the submission."""
+    submission_cfg = _compose_submission(["experiment_cfg.name=my-benchmark"])
+
+    assert submission_cfg.experiment_cfg.name == "my-benchmark"
+
+
+@pytest.mark.parametrize("quoted_name", ["true", "1e3"])
+def test_quoted_boolean_or_number_like_experiment_name_keeps_its_text(quoted_name):
+    """Quote experiment_cfg.name=<x> so Hydra keeps the text instead of converting it to a boolean or number."""
+    submission_cfg = _compose_submission([f"experiment_cfg.name='{quoted_name}'"])
+
+    assert submission_cfg.experiment_cfg.name == quoted_name
+
+
 def test_result_wrapper_preserves_experiment_video_options():
     """Pass selected video options through the result-recording wrapper."""
     experiment_runner_task = ExperimentRunnerTask(
@@ -505,6 +656,20 @@ def test_result_wrapper_preserves_experiment_video_options():
     assert "--record_viewport_video" in experiment_runner_command
     assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
     assert experiment_runner_command.endswith("exit 0\n")
+
+
+def test_experiment_runner_task_does_not_pass_a_kpi_exporters_option():
+    """The Experiment Runner task has no KPI exporter option; its embedded Experiment selects none."""
+    experiment_runner_task = ExperimentRunnerTask(
+        task_cfg=ExperimentRunnerTaskCfg(),
+        experiment_cfg=_zero_action_experiment_cfg(),
+        lead=True,
+        task_name="experiment-runner",
+    )
+
+    experiment_runner_command = _task_file(experiment_runner_task.create_task_dict(), "/tmp/entry.sh")["contents"]
+
+    assert "--kpi_exporters" not in experiment_runner_command
 
 
 def test_experiment_runner_without_timeout_runs_unbounded():

@@ -10,6 +10,8 @@ its ``<run-name>/...`` output is included. Completed Run directories are copied 
 ``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. The
 ``arena_experiment_result.json`` and ``index.html`` report list every Run execution and include episode details only
 from completed Runs. ``arena_experiment_timings.json`` holds each completed Run's timings and their per-timer totals.
+``kpis_*.json`` files hold the Experiment's KPIs as records ready for InfluxDB; they are written only when every Run
+completed.
 """
 
 from __future__ import annotations
@@ -17,14 +19,15 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
-from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
+from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis, get_exporters_by_name
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 
@@ -178,6 +181,8 @@ def collect_run_outputs_into_experiment_output(
 def build_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
+    experiment_name: str,
+    kpi_exporters: Sequence[str],
 ) -> Path:
     """Build one complete Experiment output from Experiment Runner task outputs.
 
@@ -186,6 +191,8 @@ def build_experiment_output(
             directories.
         experiment_output_directory: Experiment output directory containing one subdirectory per Run and
             ``index.html``.
+        experiment_name: Name of the Experiment, written into the Experiment result.
+        kpi_exporters: Names of the KPI exporters that write the Experiment's KPI records; empty to skip KPI export.
 
     Returns:
         Path to the generated Experiment report.
@@ -194,13 +201,18 @@ def build_experiment_output(
         experiment_runner_output_directories_by_run_name,
         experiment_output_directory,
     )
-    ArenaExperimentResult(experiment_output_directory, run_metadata_by_name, git_stamp).write()
+    ArenaExperimentResult.from_run_outputs(
+        experiment_output_directory, run_metadata_by_name, git_stamp, experiment_name=experiment_name
+    ).write()
     experiment_timings_path = aggregate_experiment_timings(
         experiment_output_directory,
         [report.run_name for report in run_execution_reports if report.status is RunStatus.COMPLETED],
     )
     print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
-    return build_report(experiment_output_directory, run_executions=run_execution_reports)
+    report_path = build_report(experiment_output_directory, run_executions=run_execution_reports)
+    # A raising exporter must not fail the collector, so the Experiment output is still published.
+    export_kpis(experiment_output_directory, kpi_exporters, raise_on_exporter_failure=False)
+    return report_path
 
 
 def _parse_arguments() -> argparse.Namespace:
@@ -217,6 +229,18 @@ def _parse_arguments() -> argparse.Namespace:
         type=Path,
         help="Arena Experiment output containing one directory per Run and index.html",
     )
+    parser.add_argument(
+        "--experiment-name",
+        required=True,
+        help="Name of the Experiment, recorded in the Experiment result",
+    )
+    parser.add_argument(
+        "--kpi-exporters",
+        nargs="*",
+        choices=sorted(get_exporters_by_name()),
+        default=[],
+        help="KPI exporters that write the Experiment's KPI records; omit the flag or pass no names to skip KPI export",
+    )
     return parser.parse_args()
 
 
@@ -229,6 +253,8 @@ def main() -> None:
     build_experiment_output(
         experiment_runner_output_directories_by_run_name,
         parsed_arguments.experiment_output_directory,
+        parsed_arguments.experiment_name,
+        parsed_arguments.kpi_exporters,
     )
 
 
