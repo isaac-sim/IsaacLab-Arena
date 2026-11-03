@@ -103,7 +103,7 @@ the live drawer body pose and require the tools to remain contained, supported, 
      - $3.95
 
        :gain:`65% lower token cost`
-   * - Add four physically stable layout variations
+   * - Add ten physically stable layout variations
      - 19.4 min + $11.1 + 301 lines of Python
      - 0 additional setup; Arena's native batched placement solver handles the variations
 
