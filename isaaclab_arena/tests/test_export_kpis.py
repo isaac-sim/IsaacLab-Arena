@@ -33,6 +33,7 @@ from isaaclab_arena_benchmarking.benchmarks.registry import (  # noqa: E402
 )
 from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import PerExperimentRecord  # noqa: E402
 from isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter import TimingRecord  # noqa: E402
+from isaaclab_arena_benchmarking.utils import kpi_exporter_registry  # noqa: E402
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord  # noqa: E402
 
 START_TIMESTAMP_NS = 1792799000000000000
@@ -194,6 +195,22 @@ def test_raise_on_exporter_failure_false_does_not_raise(tmp_path: Path, monkeypa
     printed = capsys.readouterr().out
     assert "failing" in printed and "exporter broke" in printed
     assert "failing_too" in printed and "second exporter broke" in printed
+
+
+def test_registering_a_second_exporter_under_a_taken_name_is_rejected(monkeypatch):
+    monkeypatch.setattr(kpi_exporter_registry, "EXPORTERS_BY_NAME", dict(EXPORTERS_BY_NAME))
+
+    with pytest.raises(AssertionError, match="'timing' is already registered"):
+        kpi_exporter_registry.register_kpi_exporter("timing")(_FailingExporter)
+
+
+def test_register_kpi_exporter_adds_the_class_under_its_name(monkeypatch):
+    monkeypatch.setattr(kpi_exporter_registry, "EXPORTERS_BY_NAME", {})
+
+    decorated_type = kpi_exporter_registry.register_kpi_exporter("failing")(_FailingExporter)
+
+    assert decorated_type is _FailingExporter
+    assert kpi_exporter_registry.EXPORTERS_BY_NAME == {"failing": _FailingExporter}
 
 
 def test_unknown_exporter_name_is_rejected(tmp_path: Path):

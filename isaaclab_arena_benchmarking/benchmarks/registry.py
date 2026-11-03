@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Registry of the KPI exporters and the function that runs them on a finished Arena Experiment."""
+"""Imports the KPI exporters so they register, and runs them on a finished Arena Experiment."""
 
 from __future__ import annotations
 
@@ -12,15 +12,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import SuccessRateKpiExporter
-from isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter import TimingKpiExporter
-from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter
 
-EXPORTERS_BY_NAME: dict[str, type[InfluxdbKpiExporter]] = {
-    "success_rate": SuccessRateKpiExporter,
-    "timing": TimingKpiExporter,
-}
-"""KPI exporter classes by the name used to select them."""
+# Importing each exporter module runs its ``register_kpi_exporter`` decorator; add new exporter modules here.
+from isaaclab_arena_benchmarking.benchmarks.success_rate import success_rate_exporter  # noqa: F401
+from isaaclab_arena_benchmarking.benchmarks.timing import timing_exporter  # noqa: F401
+from isaaclab_arena_benchmarking.utils.kpi_exporter_registry import EXPORTERS_BY_NAME
 
 DEFAULT_EXPORTER_NAMES: tuple[str, ...] = ("success_rate", "timing")
 """Names of the exporters that run when no selection is given."""

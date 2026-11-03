@@ -20,6 +20,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentRes
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report_data import EpisodeSummary, JobSummary, build_experiment_summary
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
+from isaaclab_arena_benchmarking.utils.kpi_exporter_registry import register_kpi_exporter
 
 SUCCESS_RATE_RECORDS_FILENAME = "kpis_success_rates.json"
 """Name of the success-rate KPI records file in an Experiment output directory."""
@@ -90,6 +91,7 @@ def _episodes_by_run_name(experiment_output_directory: Path, run_names: set[str]
     return episodes_by_run_name
 
 
+@register_kpi_exporter("success_rate")
 class SuccessRateKpiExporter(InfluxdbKpiExporter):
     """Exports the success rate of a finished Arena Experiment output directory.
 
