@@ -64,7 +64,11 @@ def _environment_yaml_values(
         return {"type": run_cfg.environment.env_spec_path, **run_cfg.environment.per_run_overrides}
     else:
         environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
-        return {"type": environment_type.name, **dumped_environment_values}
+        environment_selector = environment_type.name
+        # Only built-in environments are registered by name when a fresh process loads the YAML.
+        if not environment_type.__module__.startswith("isaaclab_arena_environments."):
+            environment_selector = f"{environment_type.__module__}.{environment_type.__qualname__}"
+        return {"type": environment_selector, **dumped_environment_values}
 
 
 def _to_yaml_values(value: Any) -> Any:

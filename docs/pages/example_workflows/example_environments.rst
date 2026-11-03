@@ -6,7 +6,7 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
 
 * **Python registered environments**: small compositions of the building blocks
   introduced in :doc:`../concepts/environment/index` — **Scene**,
-  **Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
+  **Embodiment**, and **Task** — wrapped in an ``ArenaEnvironmentFactory``
   subclass and registered with the global ``EnvironmentRegistry``. The
   registered ``Task ID`` is passed as the positional ``example_environment``
   argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
@@ -41,7 +41,7 @@ policy executions.
 Python Environment Catalog
 --------------------------
 
-Python registered environments wrapped in an ``ExampleEnvironmentBase`` subclass
+Python registered environments wrapped in an ``ArenaEnvironmentFactory`` subclass
 and consumed via the positional ``example_environment`` name. They span
 pick-and-place, articulated-object manipulation, sorting, assembly,
 goal-pose / lift (RL), sandbox, and sequential / composite tasks.
@@ -56,7 +56,7 @@ See Also
 
 - :doc:`../concepts/environment/index` — the Scene / Embodiment / Task building blocks used by every environment listed here.
 - :doc:`../quickstart/arena_env` — walkthrough of the ``pick_and_place_maple_table`` environment.
-- :doc:`../arena_in_your_repo/index` — how to register your own ``ExampleEnvironmentBase`` subclass alongside the built-in ones.
+- :doc:`../arena_in_your_repo/index` — how to register your own environment factory alongside the built-in ones.
 
 .. toctree::
    :maxdepth: 1

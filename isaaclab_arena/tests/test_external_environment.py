@@ -3,21 +3,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import sys
 from unittest.mock import patch
 
 import pytest
 
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
+from isaaclab_arena.tests.test_experiment_runner import run_experiment_runner
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
 
 EXTERNAL_ENV_BASIC_IMPORT_PATH = "isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment"
-EXTERNAL_ENV_ADVANCED_IMPORT_PATH = (
-    "isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment"
+EXTERNAL_ENVIRONMENTS_EXPERIMENT_PATH = (
+    f"{TestConstants.repo_root}/isaaclab_arena_examples/external_environments/external_environments_experiment.yaml"
 )
 
 
@@ -50,47 +52,22 @@ def test_external_environment_registration_callback():
     assert result
 
 
-def run_policy_runner_with_external_environment(
-    policy_type: str,
-    environment_import_path: str,
-    example_environment: str,
-    num_steps: int,
-    object_name: str | None = None,
-):
-    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
-    args.append("--policy_type")
-    args.append(policy_type)
-    args.append("--num_steps")
-    args.append(str(num_steps))
-    if not HEADLESS:
-        args.append("--visualizer")
-        args.append("kit")
-    args.append("--external_environment_class_path")
-    args.append(environment_import_path)
-    args.append(example_environment)
-    if object_name is not None:
-        args.append("--object")
-        args.append(object_name)
-    run_subprocess(args)
-
-
 @pytest.mark.with_subprocess
-def test_external_environment_franka_table():
-    run_policy_runner_with_external_environment(
-        policy_type="zero_action",
-        environment_import_path=EXTERNAL_ENV_BASIC_IMPORT_PATH,
-        example_environment="franka_table",
-        object_name="cracker_box",
-        num_steps=NUM_STEPS,
+def test_experiment_runner_with_external_environments(tmp_path):
+    """The Experiment Runner imports environments that an Experiment selects by class path."""
+    experiment_output_directory = tmp_path / "output"
+    run_experiment_runner(
+        EXTERNAL_ENVIRONMENTS_EXPERIMENT_PATH,
+        headless=HEADLESS,
+        config_option="--experiment_config",
+        extra_args=[
+            "--experiment_output_directory",
+            str(experiment_output_directory),
+            f"shared.rollout_limit.num_steps={NUM_STEPS}",
+        ],
     )
 
-
-@pytest.mark.with_subprocess
-def test_external_environment_franka_table_with_task():
-    run_policy_runner_with_external_environment(
-        policy_type="zero_action",
-        environment_import_path=EXTERNAL_ENV_ADVANCED_IMPORT_PATH,
-        example_environment="franka_table_with_task",
-        object_name="cracker_box",
-        num_steps=NUM_STEPS,
-    )
+    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
+    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
+    run_statuses = {run_name: run_result["status"] for run_name, run_result in experiment_result["runs"].items()}
+    assert run_statuses == {"franka_table": "completed", "franka_table_with_task": "completed"}

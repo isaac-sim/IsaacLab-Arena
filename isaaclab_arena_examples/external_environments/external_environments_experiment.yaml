@@ -1,0 +1,24 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# An Arena Experiment that evaluates two environments defined outside isaaclab_arena_environments.
+# environment.type names each environment factory by its dotted Python class path.
+# The Experiment Runner imports the module, and its @register_environment decorator registers the factory.
+shared:
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 50
+
+runs:
+  franka_table:
+    environment:
+      type: isaaclab_arena_examples.external_environments.basic.ExternalFrankaTableEnvironment
+      object: tomato_soup_can
+
+  franka_table_with_task:
+    environment:
+      type: isaaclab_arena_examples.external_environments.advanced.ExternalFrankaTableWithTaskEnvironment
+      object: tomato_soup_can

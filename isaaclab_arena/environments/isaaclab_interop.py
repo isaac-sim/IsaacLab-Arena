@@ -11,7 +11,7 @@ from isaaclab_arena_environments.cli import (
     add_environment_cli_args,
     build_environment_from_cli,
     ensure_environments_registered,
-    parse_and_return_external_environment_from_string,
+    import_external_environment,
 )
 
 _RL_DISCOVERY_PLACEHOLDER_KEY = "_arena_rl_discovery_placeholder"
@@ -118,13 +118,9 @@ def environment_registration_callback() -> list[str]:
     environment_name = initial_args.task
     _remove_rl_discovery_placeholder(environment_name)
     ensure_environments_registered()
-    environment_registry = EnvironmentRegistry()
     if initial_args.external_environment_class_path is not None:
-        external_environment_name, external_environment_factory_type = (
-            parse_and_return_external_environment_from_string(initial_args.external_environment_class_path)
-        )
-        environment_registry.register(external_environment_factory_type, external_environment_name)
-    environment_factory_type = environment_registry.get_component_by_name(environment_name)
+        import_external_environment(initial_args.external_environment_class_path)
+    environment_factory_type = EnvironmentRegistry().get_component_by_name(environment_name)
     # Get the full list of environment-specific CLI args.
     AppLauncher.add_app_launcher_args(parser)
     add_isaac_lab_cli_args(parser)
