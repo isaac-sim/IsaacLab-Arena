@@ -833,6 +833,23 @@ you use an <code class="docutils literal notranslate"><span class="pre">ObjectRe
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">parent_asset</span></code> tells the environment which spawned USD the prim path belongs to.
 The prim path uses <code class="docutils literal notranslate"><span class="pre">{ENV_REGEX_NS}</span></code> so it resolves correctly across parallel environments.</p>
+<p>A reference can also name a link of an <code class="docutils literal notranslate"><span class="pre">ARTICULATION</span></code> object, such as a door or a drawer.
+When a revolute or prismatic joint moves the link, the reference is placed where the
+parent’s initial joint positions put it, and during simulation it follows the link. Set the
+joint positions before creating the reference, because the reference reads them when it is
+created. Links inside a <code class="docutils literal notranslate"><span class="pre">BASE</span></code> background, such as a kitchen’s cabinet doors, keep their
+authored poses.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"microwave"</span><span class="p">)()</span>
+<span class="c1"># Revolute positions are in radians, prismatic positions in metres of the spawned asset.</span>
+<span class="n">microwave</span><span class="o">.</span><span class="n">object_cfg</span><span class="o">.</span><span class="n">init_state</span><span class="o">.</span><span class="n">joint_pos</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"microjoint"</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">}</span>
+
+<span class="n">door</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"microwave_door"</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/microwave/Microwave039_door"</span><span class="p">,</span>
+    <span class="n">parent_asset</span><span class="o">=</span><span class="n">microwave</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
 </section>
 <section id="rigid-object-sets">
 <h2>Rigid object sets<a class="headerlink" href="#rigid-object-sets" title="Link to this heading">#</a></h2>
