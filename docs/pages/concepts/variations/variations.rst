@@ -166,18 +166,18 @@ Run it with:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
 ``--list_variations`` works with ``experiment_runner.py`` too, printing the variations catalogue for
 each run's environment:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --list_variations \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
 .. _available-variations:
 

@@ -32,7 +32,10 @@ Details below:
   or ``--presets``; overrides tune the selected backend. Added YAML placer overrides,
   graph asset parameters and initial poses (#1266, #1302, #1363).
 - **Evaluation and recording:** Added rollout timing and trajectory extraction. Run
-  exactly the requested number of evaluation episodes (#1198, #1254, #1371).
+  exactly the requested number of evaluation episodes. Added
+  ``uv run isaaclab arena evaluate`` and automatic Arena task discovery for Isaac Lab's
+  ``train``, ``play``, ``teleop record``, and ``teleop replay`` commands
+  (#1198, #1254, #1371).
 - **Embodiments and physics backends:** Enabled Newton-backed DROID control and
   backend hooks on embodiments. Added an embodiment-owned gripper interface and
   environment-specific spawn physics settings (#1189, #1284, #1293).

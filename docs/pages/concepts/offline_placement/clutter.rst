@@ -132,8 +132,8 @@ Load the same scene and the file just recorded:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
-       --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/clutter_replay_tools_experiment.yaml \
+   uv run isaaclab arena evaluate \
+      --experiment-config isaaclab_arena_environments/experiment_configs/placement_record_replay/clutter_replay_tools_experiment.yaml \
        --device cpu --viz kit \
        --output_base_dir outputs/clutter/tools_replay
 
@@ -254,8 +254,8 @@ Then replay the first layout using the bowl Experiment Definition:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
-       --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/clutter_replay_bowls_experiment.yaml \
+   uv run isaaclab arena evaluate \
+      --experiment-config isaaclab_arena_environments/experiment_configs/placement_record_replay/clutter_replay_bowls_experiment.yaml \
        --device cpu --viz kit \
        --output_base_dir outputs/clutter/bowls_replay
 

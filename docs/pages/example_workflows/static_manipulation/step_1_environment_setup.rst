@@ -152,12 +152,11 @@ Replay the downloaded dataset to verify the environment setup:
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/tools/replay_demos.py \
+   uv run isaaclab teleop replay \
      --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/arena_gr1_manipulation_dataset_generated.hdf5" \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task gr1_open_microwave \
      --embodiment gr1_pink
 

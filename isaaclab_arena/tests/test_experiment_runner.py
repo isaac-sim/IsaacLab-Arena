@@ -10,6 +10,7 @@ import subprocess
 import yaml
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 
@@ -40,6 +41,54 @@ def test_experiment_runner_parses_native_hydra_overrides():
         "runs.baseline.environment.enable_cameras=true",
         "runs.baseline.environment_builder.record_trajectories=true",
     ]
+
+
+def test_experiment_runner_accepts_hyphenated_experiment_config():
+    args_cli, experiment_overrides = parse_experiment_runner_args([
+        "--experiment-config",
+        "experiment.yaml",
+    ])
+
+    assert args_cli.experiment_config == "experiment.yaml"
+    assert experiment_overrides == []
+
+
+def test_arena_cli_dispatches_evaluate_arguments(monkeypatch):
+    from isaaclab_arena.cli.entrypoint import main
+    from isaaclab_arena.evaluation import experiment_runner
+
+    run_experiment = mock.Mock()
+    monkeypatch.setattr(experiment_runner, "main", run_experiment)
+
+    assert main(["evaluate", "--experiment-config", "experiment.yaml", "runs.baseline.seed=3"]) == 0
+    run_experiment.assert_called_once_with([
+        "--experiment-config",
+        "experiment.yaml",
+        "runs.baseline.seed=3",
+    ])
+
+
+def test_legacy_chunk_restarts_experiment_runner_module():
+    from isaaclab_arena.evaluation.legacy_experiment_runner import _run_legacy_json_chunk
+
+    runner_args = [
+        "--experiment-config",
+        "master.json",
+        "--chunk_size",
+        "2",
+        "--serve_evaluation_report",
+    ]
+    with mock.patch("subprocess.run", return_value=SimpleNamespace(returncode=0)) as run:
+        assert _run_legacy_json_chunk("chunk 1/1", [{"name": "example"}], runner_args) == 0
+
+    child_command = run.call_args.args[0]
+    assert child_command[:3] == [
+        TestConstants.python_path,
+        "-m",
+        "isaaclab_arena.evaluation.experiment_runner",
+    ]
+    assert "--serve_evaluation_report" not in child_command
+    assert child_command[-2] == "--experiment_config"
 
 
 def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp_path):

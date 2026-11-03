@@ -60,7 +60,7 @@ Step 1: Start Recording
    .. code-block:: bash
 
       export CLOUDXR_ENV=cloudxrjs  # Use "avp" for Apple Vision Pro.
-      python submodules/IsaacLab/scripts/tools/record_demos.py \
+      uv run isaaclab teleop record \
         --device cpu \
         --viz kit \
         --xr \
@@ -68,7 +68,6 @@ Step 1: Start Recording
         --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
         --num_demos 10 \
         --num_success_steps 2 \
-        --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
         --task gr1_open_microwave \
         --arena_teleop_device openxr
 
