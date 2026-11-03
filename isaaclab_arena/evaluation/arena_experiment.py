@@ -5,10 +5,11 @@
 
 """Represent Arena Experiment configurations."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.utils.string_checks import is_single_line_nonempty_string
+from isaaclab_arena_benchmarking.benchmarks.registry import assert_valid_kpi_exporter_names
 
 
 @dataclass
@@ -21,10 +22,17 @@ class ArenaExperimentCfg:
     name: str
     """Name of the Experiment, a non-empty single-line string."""
 
+    kpi_exporters: list[str] = field(default_factory=lambda: ["timing"])
+    """Names of the registered KPI exporters that write the Experiment's KPI records once every Run completed."""
+
     def __post_init__(self) -> None:
         assert is_single_line_nonempty_string(
             self.name
         ), f"Experiment name must be a non-empty single-line string, got {self.name!r}"
+        assert isinstance(self.kpi_exporters, list) and all(
+            isinstance(name, str) for name in self.kpi_exporters
+        ), f"Experiment kpi_exporters must be a list of names, got {self.kpi_exporters!r}"
+        assert_valid_kpi_exporter_names(self.kpi_exporters)
         assert isinstance(self.runs, dict) and self.runs, "Experiment Definition must contain at least one Run"
         for run_name, run_cfg in self.runs.items():
             assert isinstance(run_name, str) and run_name, "Experiment Definition Run names must be non-empty strings"

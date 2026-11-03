@@ -497,6 +497,22 @@ def test_embeds_effective_experiment_yaml():
     assert embedded_experiment["runs"]["baseline"]["environment_builder"]["num_envs"] == 1
 
 
+def test_embedded_experiment_of_every_run_exports_no_kpis():
+    """Embed an empty kpi_exporters in each single-Run Experiment; the collector task exports the KPIs."""
+    source_experiment_cfg = _pi0_experiment_cfg()
+    source_experiment_cfg.kpi_exporters = ["success_rate", "timing"]
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="exporters-experiment"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    run_groups = _workflow_groups(workflow.generate_workflow())[:-1]
+
+    assert run_groups
+    for group in run_groups:
+        assert _embedded_experiment(group["tasks"][0])["kpi_exporters"] == []
+
+
 def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
     """Embed the Experiment name in each single-Run Experiment so remote results keep it."""
     source_experiment_cfg = _pi0_experiment_cfg()
@@ -549,6 +565,75 @@ def test_collector_task_script_accepts_an_experiment_name_starting_with_a_dash(n
     assert _parse_arguments().experiment_name == name
 
 
+def _collector_command(workflow: dict) -> str:
+    experiment_output_task = _workflow_groups(workflow)[-1]["tasks"][0]
+    return _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
+
+
+def _collector_command_for_submission(overrides: list[str], experiment_cfg_path: Path) -> tuple[str, list[str]]:
+    submission_cfg = _compose_submission(overrides, experiment_cfg_path=experiment_cfg_path)
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=submission_cfg.osmo,
+        experiment_cfg=submission_cfg.experiment_cfg,
+        task_cfg=submission_cfg.experiment_runner,
+    )
+    return _collector_command(workflow.generate_workflow()), submission_cfg.experiment_cfg.kpi_exporters
+
+
+def test_collector_runs_the_kpi_exporters_of_the_experiment():
+    """Pass the Experiment's kpi_exporters to the collector script."""
+    collector_command, kpi_exporters = _collector_command_for_submission([], GETTING_STARTED_EXPERIMENT_CFG_PATH)
+
+    assert kpi_exporters == ["success_rate", "timing"]
+    assert "--kpi-exporters success_rate timing" in collector_command
+
+
+def test_kpi_exporters_override_narrows_the_collector_selection():
+    """Pass only the overridden exporter names to the collector script."""
+    collector_command, kpi_exporters = _collector_command_for_submission(
+        ["experiment_cfg.kpi_exporters=[timing]"], GETTING_STARTED_EXPERIMENT_CFG_PATH
+    )
+
+    assert kpi_exporters == ["timing"]
+    assert "--kpi-exporters timing" in collector_command
+    assert "success_rate" not in collector_command
+
+
+def test_empty_kpi_exporters_override_passes_a_bare_flag_to_the_collector():
+    """An empty kpi_exporters list gives the collector no names, so it exports no KPIs."""
+    collector_command, kpi_exporters = _collector_command_for_submission(
+        ["experiment_cfg.kpi_exporters=[]"], GETTING_STARTED_EXPERIMENT_CFG_PATH
+    )
+
+    assert kpi_exporters == []
+    command_tokens = shlex.split(collector_command.splitlines()[-1])
+    assert command_tokens[-1] == "--kpi-exporters"
+
+
+def test_unknown_kpi_exporter_fails_submission_with_the_valid_names():
+    """Reject an exporter name that is not in the registry, listing the valid names."""
+    with pytest.raises(AssertionError, match=r"Unknown KPI exporters \['latency'\].*\['success_rate', 'timing'\]"):
+        _compose_submission(
+            ["experiment_cfg.kpi_exporters=[success_rate,latency]"],
+            experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH,
+        )
+
+
+def test_duplicate_kpi_exporters_fail_submission():
+    """Reject a submission that selects the same KPI exporter twice."""
+    with pytest.raises(AssertionError, match=r"duplicate KPI exporters \['timing'\]"):
+        _compose_submission(
+            ["experiment_cfg.kpi_exporters=[timing,timing]"], experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH
+        )
+
+
+def test_osmo_workflow_cfg_has_no_kpi_exporters_field():
+    """KPI exporters belong to the Experiment, so the submission's osmo section does not accept them."""
+    assert not hasattr(WorkflowCfg(), "kpi_exporters")
+    with pytest.raises(Exception, match="osmo.kpi_exporters"):
+        _compose_submission(["osmo.kpi_exporters=[timing]"], experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH)
+
+
 def test_null_experiment_name_fails_submission():
     """Reject experiment_cfg.name=null, because an Experiment must have a name."""
     with pytest.raises(Exception, match="experiment_cfg.name=null"):
@@ -591,6 +676,20 @@ def test_result_wrapper_preserves_experiment_video_options():
     assert "--record_viewport_video" in experiment_runner_command
     assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
     assert experiment_runner_command.endswith("exit 0\n")
+
+
+def test_experiment_runner_task_does_not_pass_a_kpi_exporters_option():
+    """The Experiment Runner task has no KPI exporter option; its embedded Experiment selects none."""
+    experiment_runner_task = ExperimentRunnerTask(
+        task_cfg=ExperimentRunnerTaskCfg(),
+        experiment_cfg=_zero_action_experiment_cfg(),
+        lead=True,
+        task_name="experiment-runner",
+    )
+
+    experiment_runner_command = _task_file(experiment_runner_task.create_task_dict(), "/tmp/entry.sh")["contents"]
+
+    assert "--kpi_exporters" not in experiment_runner_command
 
 
 def test_experiment_runner_without_timeout_runs_unbounded():
