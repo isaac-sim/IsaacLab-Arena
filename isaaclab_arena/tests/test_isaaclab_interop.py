@@ -133,7 +133,7 @@ def _test_registration_callback_routes_variation_overrides(_simulation_app, monk
     variation = ObjectMassVariation(variation_host)
     # Asset names may match Lab's config roots, including assets without variations.
     variations = {"env": [], "agent": [], variation_host: [variation]}
-    arena_env = SimpleNamespace(scene=SimpleNamespace(get_asset_variations=lambda: variations), embodiment=None)
+    arena_env = SimpleNamespace(scene=SimpleNamespace(get_asset_variations=lambda: variations), embodiments=[])
     task_name = "arena_interop_variations_test"
     factory = object()
     monkeypatch.setitem(isaaclab_interop.EnvironmentRegistry()._components, task_name, factory)

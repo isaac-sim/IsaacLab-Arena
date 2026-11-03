@@ -835,7 +835,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     arena_env = SimpleNamespace(
         scene=Scene(),
         placer_params=placer_params,
-        embodiment=None,
+        embodiments=[],
         task=None,
         get_placement_assets=lambda: objects_with_relations,
     )
@@ -883,7 +883,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
     arena_env = SimpleNamespace(
         scene=Scene(),
         placer_params=None,
-        embodiment=None,
+        embodiments=[],
         task=None,
         get_placement_assets=lambda: [],
     )
@@ -925,7 +925,7 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
     embodiment = Embodiment()
     arena_env = SimpleNamespace(
         scene=Scene(),
-        embodiment=embodiment,
+        embodiments=[embodiment],
         placer_params=None,
         task=None,
         get_placement_assets=lambda: [embodiment],

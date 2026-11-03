@@ -108,7 +108,7 @@ def _test_keyed_robot_modes(simulation_app):
     lookup.assert_called_once_with(RetargeterRegistry().convert_tuple_to_str(("keyboard", "franka_joint_pos")))
 
     for mode in ("mimic", "teleop", "xr"):
-        definition = IsaacLabArenaEnvironment("keyed_robot_mode", Scene(assets=[]), embodiment=robot)
+        definition = IsaacLabArenaEnvironment("keyed_robot_mode", Scene(assets=[]), embodiments=[robot])
         definition.teleop_device = device if mode == "teleop" else None
         builder = ArenaEnvBuilder(definition, ArenaEnvBuilderCfg(mimic=mode == "mimic", solve_relations=False))
         with patch("isaaclab_arena.environments.arena_env_builder.get_settings_manager") as settings:
@@ -134,9 +134,9 @@ def _test_keyed_franka_steps(simulation_app):
     )
 
     definition = CubeGoalPoseEnvironment().build(CubeGoalPoseEnvironmentCfg())
-    definition.embodiment = FrankaIKEmbodiment(
-        instance_key="arm", initial_pose=definition.embodiment.get_initial_pose()
-    )
+    definition.embodiments = [
+        FrankaIKEmbodiment(instance_key="arm", initial_pose=definition.embodiments[0].get_initial_pose())
+    ]
     env = ArenaEnvBuilder(
         definition, ArenaEnvBuilderCfg(num_envs=1, solve_relations=False, record_trajectories=True)
     ).make_registered()

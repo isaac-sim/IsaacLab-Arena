@@ -123,7 +123,7 @@ that composes the custom task and custom embodiment.
 
            return IsaacLabArenaEnvironment(
                name=self.name,
-               embodiment=embodiment,
+               embodiments=[embodiment],
                scene=scene,
                task=task,
            )

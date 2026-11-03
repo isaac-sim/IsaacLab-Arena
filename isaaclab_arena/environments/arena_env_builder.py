@@ -25,6 +25,7 @@ from isaaclab_teleop import IsaacTeleopCfg
 
 import isaaclab_arena_curobo  # noqa: F401
 from isaaclab_arena.assets.registries import DeviceRegistry, PolicyRegistry
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg, CameraResolutionMode
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -133,12 +134,18 @@ class ArenaEnvBuilder:
         # relations or failed.
         self.placement_diagnostics: PlacementDiagnostics | None = None
 
+    def _get_embodiment(self) -> EmbodimentBase | None:
+        """Return the single robot while environment callers migrate to ordered lists."""
+        embodiments = self.arena_env.embodiments
+        assert len(embodiments) <= 1, "This builder accepts at most one embodiment"
+        return embodiments[0] if embodiments else None
+
     def _apply_camera_resolution_mode(self) -> None:
         """Resize the embodiment camera rig as selected by ``cfg.camera_resolution_mode``."""
         if self.cfg.camera_resolution_mode == CameraResolutionMode.EMBODIMENT_DEFAULT:
             return
         assert self.cfg.camera_resolution_mode == CameraResolutionMode.POLICY_DEFAULT
-        embodiment = self.arena_env.embodiment
+        embodiment = self._get_embodiment()
         assert embodiment is not None, "camera_resolution_mode 'policy_default' requires an environment embodiment"
         assert (
             embodiment.enable_cameras
@@ -197,7 +204,7 @@ class ArenaEnvBuilder:
         if self.arena_env.task is not None:
             self.arena_env.task.apply_reachability_constraints()
         placement_assets = self.arena_env.scene.get_objects_with_relations()
-        embodiment = self.arena_env.embodiment
+        embodiment = self._get_embodiment()
         if embodiment is not None and embodiment.get_relations():
             placement_assets.append(embodiment)
 
@@ -213,7 +220,7 @@ class ArenaEnvBuilder:
 
         # Delists itself unless the embodiment has a registered cuRobo config.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
-        placer_params.reachability_config.embodiment = self.arena_env.embodiment
+        placer_params.reachability_config.embodiment = self._get_embodiment()
         return prepare_live_relation_placement(
             placement_assets,
             num_envs=self.cfg.num_envs,
@@ -227,9 +234,9 @@ class ArenaEnvBuilder:
         Merges scene variations with the embodiment own variations.
         """
         scene_and_embodiment_variations = self.arena_env.scene.get_asset_variations()
-        if self.arena_env.embodiment is not None:
-            embodiment_variations = self.arena_env.embodiment.get_variations()
-            scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
+        if self._get_embodiment() is not None:
+            embodiment_variations = self._get_embodiment().get_variations()
+            scene_and_embodiment_variations[self._get_embodiment().name] = embodiment_variations
         return scene_and_embodiment_variations
 
     def get_variations_catalogue_as_string(self) -> str:
@@ -346,7 +353,7 @@ class ArenaEnvBuilder:
         """
         # A failed build reports no placement diagnostics, so they are set only once the build succeeds.
         self.placement_diagnostics = None
-        if self.arena_env.embodiment is not None and self.arena_env.embodiment.instance_key is not None:
+        if self._get_embodiment() is not None and self._get_embodiment().instance_key is not None:
             assert not (
                 self.cfg.mimic
                 or self.arena_env.teleop_device is not None
@@ -386,7 +393,7 @@ class ArenaEnvBuilder:
         resolved_physics_backend = self.resolved_physics_backend
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
-        embodiment = self.arena_env.embodiment or NoEmbodiment()
+        embodiment = self._get_embodiment() or NoEmbodiment()
         embodiment.configure_physics_backend(resolved_physics_backend)
         # Fit the cameras before embodiment.get_scene_cfg() and the observation cfgs read their dimensions.
         self._apply_camera_resolution_mode()
@@ -462,7 +469,7 @@ class ArenaEnvBuilder:
         teleop_devices_cfg = None
         if self.arena_env.teleop_device is not None:
             device_registry = DeviceRegistry()
-            device_cfg = device_registry.get_teleop_device_cfg(self.arena_env.teleop_device, self.arena_env.embodiment)
+            device_cfg = device_registry.get_teleop_device_cfg(self.arena_env.teleop_device, self._get_embodiment())
             if isinstance(device_cfg, IsaacTeleopCfg):
                 isaac_teleop_cfg = device_cfg
             elif isinstance(device_cfg, DeviceCfg):
@@ -546,7 +553,7 @@ class ArenaEnvBuilder:
         else:
             assert not isinstance(embodiment, NoEmbodiment), "Mimic mode requires an embodiment to be specified"
             assert not isinstance(task, NoTask), "Mimic mode requires a task to be specified"
-            task_mimic_env_cfg = task.get_mimic_env_cfg(arm_mode=self.arena_env.embodiment.arm_mode)
+            task_mimic_env_cfg = task.get_mimic_env_cfg(arm_mode=self._get_embodiment().arm_mode)
             mimic_recorder_config = task_mimic_env_cfg.mimic_recorder_config
             if mimic_recorder_config is None:
                 mimic_recorder_config = demo_recorder_config
@@ -613,7 +620,7 @@ class ArenaEnvBuilder:
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
         """Return the entry point of the environment."""
         if self.cfg.mimic:
-            embodiment = self.arena_env.embodiment
+            embodiment = self._get_embodiment()
             assert embodiment is not None and not isinstance(
                 embodiment, NoEmbodiment
             ), "Mimic mode requires an embodiment to be specified"

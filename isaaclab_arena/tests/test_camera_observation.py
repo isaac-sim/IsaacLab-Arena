@@ -45,7 +45,7 @@ def _test_camera_observation(simulation_app) -> bool:
     embodiment.camera_config.robot_pov_cam.data_types = ["rgb", "motion_vectors"]
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="camera_observation_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
     )
 

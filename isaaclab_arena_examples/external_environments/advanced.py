@@ -136,7 +136,7 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
 
         return IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=task,
         )

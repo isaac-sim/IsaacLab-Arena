@@ -71,7 +71,7 @@ def _build_env(presets: str | None, disable_fabric: bool = False):
     )
     arena_env = IsaacLabArenaEnvironment(
         name="test_camera_extrinsics_variation_render",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         env_cfg_callback=_disable_joint_randomization,
     )

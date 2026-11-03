@@ -27,7 +27,7 @@ In code, this looks like:
 
    environment = IsaacLabArenaEnvironment(
        name="manipulation_task",
-       embodiment=embodiment,
+       embodiments=[embodiment],
        scene=scene,
        task=task,
        teleop_device=teleop_device,  # optional

@@ -11,7 +11,7 @@ without touching anything else. The same pick-and-place task works with a Franka
 
    environment = IsaacLabArenaEnvironment(
        name="kitchen_pick_and_place",
-       embodiment=embodiment,
+       embodiments=[embodiment],
        scene=scene,
        task=task,
    )
@@ -167,7 +167,7 @@ friction to ``1.2`` for this environment:
 
          environment = IsaacLabArenaEnvironment(
              name="franka_contact_task",
-             embodiment=ContactFranka(contact_friction=1.2),
+             embodiments=[ContactFranka(contact_friction=1.2)],
              scene=scene,
              task=task,
          )

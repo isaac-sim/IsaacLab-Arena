@@ -58,7 +58,7 @@ class PressButtonEnvironment(ArenaEnvironmentFactory[PressButtonEnvironmentCfg])
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=PressButtonTask(press_object, reset_pressedness=0.8),
             teleop_device=teleop_device,

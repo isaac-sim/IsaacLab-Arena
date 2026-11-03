@@ -35,7 +35,7 @@ def get_test_environment(*, camera_intrinsics_variation_enabled: bool):
         )
         embodiment.get_variation(VARIATION_NAME).enable()
 
-    return IsaacLabArenaEnvironment(name="test_camera_intrinsics_variation", embodiment=embodiment, scene=Scene())
+    return IsaacLabArenaEnvironment(name="test_camera_intrinsics_variation", embodiments=[embodiment], scene=Scene())
 
 
 def _test_disabled_camera_intrinsics_variation_not_in_events_cfg(simulation_app):
@@ -80,7 +80,7 @@ def _test_disabled_camera_intrinsics_variation_keeps_tiled_camera(simulation_app
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).build_env_cfg()
 
-    rig = arena_env.embodiment.camera_config
+    rig = arena_env.embodiments[0].camera_config
     for name in rig.camera_names():
         assert getattr(env_cfg.scene, name).renderer_cfg.class_type == getattr(rig, name).renderer_cfg.class_type
     return True
@@ -91,7 +91,7 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     arena_env = get_test_environment(camera_intrinsics_variation_enabled=True)
-    rig = arena_env.embodiment.camera_config
+    rig = arena_env.embodiments[0].camera_config
     original_renderer = rig.wrist_camera.renderer_cfg.class_type
     # Use a nondefault value to verify renderer settings survive renderer selection.
     rig.wrist_camera.renderer_cfg.global_settings.samples_per_pixel = 4
@@ -100,7 +100,7 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
 
     from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import UnTiledIsaacRtxRenderer
 
-    for name in arena_env.embodiment.camera_config.camera_names():
+    for name in arena_env.embodiments[0].camera_config.camera_names():
         camera_cfg = getattr(env_cfg.scene, name)
         assert camera_cfg.renderer_cfg.class_type is UnTiledIsaacRtxRenderer
     camera_cfg = getattr(env_cfg.scene, CAMERA_NAME)
@@ -161,8 +161,8 @@ def _test_camera_intrinsics_variation_renders_independently_per_env(simulation_a
         PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=True, hdr="home_office_robolab")
     )
     # Keep robot poses and object placement repeatable so reset only changes the camera intrinsics.
-    arena_env.embodiment.event_config.randomize_franka_joint_state.params["std"] = 0.0
-    variation = arena_env.embodiment.get_variation(VARIATION_NAME)
+    arena_env.embodiments[0].event_config.randomize_franka_joint_state.params["std"] = 0.0
+    variation = arena_env.embodiments[0].get_variation(VARIATION_NAME)
     variation.apply_cfg(CameraIntrinsicsVariationCfg(sampler_cfg=UniformSamplerCfg(low=[-0.4], high=[0.6])))
     variation.enable()
     env = ArenaEnvBuilder(

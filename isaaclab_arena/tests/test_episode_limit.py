@@ -108,7 +108,7 @@ def _create_episode_limit_env(
         variation.enable()
         embodiment.add_variation(variation)
 
-    arena_environment = IsaacLabArenaEnvironment(name="episode_limit", scene=Scene(), embodiment=embodiment)
+    arena_environment = IsaacLabArenaEnvironment(name="episode_limit", scene=Scene(), embodiments=[embodiment])
     builder = ArenaEnvBuilder(
         arena_environment,
         ArenaEnvBuilderCfg(

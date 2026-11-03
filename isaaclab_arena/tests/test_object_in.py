@@ -57,7 +57,7 @@ def _test_apple_in_microwave(_simulation_app):
     arena_env = IsaacLabArenaEnvironment(
         name="apple_in_microwave_test",
         scene=Scene(assets=[microwave, apple]),
-        embodiment=FrankaJointPosEmbodiment(),
+        embodiments=[FrankaJointPosEmbodiment()],
         # Sim 6.2 leaves this round apple with a small residual spin after the drop.
         task=ObjectInTask(apple, microwave, angular_velocity_threshold=0.2, episode_length_s=30.0),
     )

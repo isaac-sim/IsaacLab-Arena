@@ -103,7 +103,7 @@ def _test_all_assets_in_registry(simulation_app, physics_backend: PhysicsBackend
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="dummy_task",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
     )
 
@@ -214,7 +214,7 @@ def _test_hdr_image_spawn(simulation_app):
     scene = Scene(assets=[light, ground_plane])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="hdr_spawn_test",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
     )
 
@@ -263,7 +263,7 @@ def _test_multi_light_in_scene(simulation_app):
     scene = Scene(assets=[light, light_duplicate, ground_plane, ground_plane_duplicate])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="dummy_task",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
     )
     # Compile the environment.

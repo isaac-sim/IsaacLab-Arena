@@ -132,7 +132,7 @@ def _test_auto_object_type(simulation_app):
         scene = Scene(assets=[background, cracker_box, microwave])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name="auto_object_type_test",
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             # NOTE(alexmillane, 2025-09-16): We use the pick and place task to ensure
             # that we can use an auto-detected ridid-object in a task.

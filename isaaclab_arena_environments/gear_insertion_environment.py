@@ -159,7 +159,7 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
         )
         return IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=task,
             teleop_device=teleop_device,

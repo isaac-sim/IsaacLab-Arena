@@ -45,7 +45,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="close_door",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
         task=CloseDoorTask(microwave),
     )

@@ -46,7 +46,7 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="turn_stand_mixer_knob",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
         task=TurnKnobTask(turnable_object=stand_mixer, target_level=RESET_TARGET_LEVEL, reset_level=-1),
     )
