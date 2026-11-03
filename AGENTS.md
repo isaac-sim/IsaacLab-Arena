@@ -30,7 +30,7 @@ Commands that touch Isaac Sim or Arena's package code (tests, training, evaluati
 
 Each clone gets its own container (shared image, per-clone name), so clones run in parallel. **Don't hardcode the container name** — use the `dev-container` skill to build, start, attach to, discover, or exec into the local clone's container.
 
-Run as the host user, not root. The container provides the user environment and repository working directory.
+Run as the host user, not root.
 
 ```bash
 docker exec --user "$(id -un)" "$ARENA_CONTAINER" <command> [args...]

@@ -62,8 +62,7 @@ cause. Preserve the launcher's automatic per-checkout suffix unless the user req
 
 ## Run a development command
 
-Run commands as the host user, not root. The container provides the user environment and
-repository working directory:
+Run commands as the host user, not root:
 
 ```bash
 docker exec --user "$(id -un)" "$ARENA_CONTAINER" <command> [args...]
