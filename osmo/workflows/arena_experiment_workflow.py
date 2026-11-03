@@ -79,6 +79,7 @@ class ArenaExperimentWorkflow(Workflow):
         single_run_experiment_config = ArenaExperimentCfg(
             runs={run_name: deepcopy(run_config)},
             name=self.experiment_cfg.name,
+            kpi_exporters=list(self.experiment_cfg.kpi_exporters),
         )
 
         policy_server_tasks: list[BaseTask] = []
@@ -134,7 +135,7 @@ class ArenaExperimentWorkflow(Workflow):
             image=self.task_cfg.image,
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
             experiment_name=self.experiment_cfg.name,
-            kpi_exporters=self.workflow_cfg.kpi_exporters,
+            kpi_exporters=self.experiment_cfg.kpi_exporters,
             lead=True,
             resource=self.experiment_output_resource_name,
             output_url=self.workflow_cfg.output_url,

@@ -104,15 +104,22 @@ def _write_arena_experiment_result(
     return experiment_result
 
 
-def _export_selected_kpis(experiment_output_directory: Path, kpi_exporter_names: list[str]) -> None:
+def _export_selected_kpis(
+    experiment_output_directory: Path,
+    experiment_cfg: ArenaExperimentCfg,
+    kpi_exporter_override: list[str] | None,
+) -> None:
     """Write the selected KPI records for InfluxDB, or skip KPI export when no exporter is selected.
 
     Nothing is written when a Run failed.
 
     Args:
         experiment_output_directory: Experiment output root holding the result file.
-        kpi_exporter_names: Names of the KPI exporters to run; empty to skip KPI export.
+        experiment_cfg: Experiment whose ``kpi_exporters`` select the exporters unless overridden.
+        kpi_exporter_override: Names of the KPI exporters to run instead of the Experiment's; None to use the
+            Experiment's, empty to skip KPI export.
     """
+    kpi_exporter_names = experiment_cfg.kpi_exporters if kpi_exporter_override is None else kpi_exporter_override
     if not kpi_exporter_names:
         print("[INFO] No KPI exporters selected; KPI export is skipped.")
         return
@@ -222,7 +229,7 @@ def main():
         # Write HTML report.
         report_path = build_report(experiment_output_directory)
 
-        _export_selected_kpis(experiment_output_directory, args_cli.kpi_exporters)
+        _export_selected_kpis(experiment_output_directory, experiment_cfg, args_cli.kpi_exporters)
 
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)

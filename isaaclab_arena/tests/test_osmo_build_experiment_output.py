@@ -610,6 +610,12 @@ def test_collector_parses_selected_kpi_exporters(monkeypatch):
     assert parsed_arguments.kpi_exporters == ["timing"]
 
 
+def test_collector_parses_a_bare_kpi_exporters_flag_as_no_exporters(monkeypatch):
+    parsed_arguments = _parse_collector_arguments(monkeypatch, ["--kpi-exporters"])
+
+    assert parsed_arguments.kpi_exporters == []
+
+
 def test_collector_rejects_unknown_kpi_exporter(monkeypatch, capsys):
     with pytest.raises(SystemExit):
         _parse_collector_arguments(monkeypatch, ["--kpi-exporters", "success_rate", "latency"])
@@ -638,3 +644,25 @@ def test_collector_writes_only_the_selected_kpi_records(tmp_path):
 
     assert (experiment_output_directory / "kpis_timing.json").is_file()
     assert not (experiment_output_directory / "kpis_success_rates.json").exists()
+
+
+def test_collector_writes_no_kpi_records_when_no_exporter_is_selected(tmp_path):
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(experiment_runner_output_directory / "run_a", "run_a", True)
+    _write_run_timings(experiment_runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        experiment_runner_output_directory,
+        RunStatus.COMPLETED,
+        0,
+        {"run_a": _run_metadata("environment", "pi05")},
+    )
+    experiment_output_directory = tmp_path / "experiment-output"
+
+    build_experiment_output(
+        {"run_a": experiment_runner_output_directory},
+        experiment_output_directory,
+        experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=[],
+    )
+
+    assert list(experiment_output_directory.glob("kpis_*.json")) == []

@@ -281,13 +281,14 @@ common ones are:
    * - ``osmo.storage``
      - ``200Gi``
      - Storage requested per Run.
-   * - ``osmo.kpi_exporters``
-     - ``[success_rate, timing]``
-     - KPI exporters the collector runs, for example ``osmo.kpi_exporters=[timing]``.
    * - ``osmo.output_url``
      - ``swift://pdx.s8k.io/...``
      - Swift path for collected results.
        Use ``{{workflow_id}}`` for a unique path per workflow.
+
+The collector writes the KPI records of the exporters named by the Experiment's ``kpi_exporters`` field.
+Change them for one submission with ``experiment_cfg.kpi_exporters=[timing]``; an empty list
+(``experiment_cfg.kpi_exporters=[]``) exports no KPIs.
 
 
 Preview before submitting

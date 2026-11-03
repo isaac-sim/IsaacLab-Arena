@@ -348,7 +348,7 @@ def test_serializer_round_trips_the_name(tmp_path):
 
     serialized_experiment = serialize_arena_experiment_to_yaml(experiment_cfg)
 
-    assert list(yaml.safe_load(serialized_experiment)) == ["name", "runs"]
+    assert list(yaml.safe_load(serialized_experiment)) == ["name", "kpi_exporters", "runs"]
     serialized_path = _write_experiment(tmp_path, serialized_experiment)
     assert _load_experiment(serialized_path) == experiment_cfg
 
@@ -363,6 +363,71 @@ def test_serializer_writes_the_name():
     experiment_cfg = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
 
     assert yaml.safe_load(serialize_arena_experiment_to_yaml(experiment_cfg))["name"] == experiment_cfg.name
+
+
+_MINIMAL_RUN_YAML = """runs:
+  baseline:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+"""
+
+
+def test_yaml_without_kpi_exporters_defaults_to_timing(tmp_path):
+    experiment_cfg = _load_experiment(_write_experiment(tmp_path, _MINIMAL_RUN_YAML))
+
+    assert experiment_cfg.kpi_exporters == ["timing"]
+
+
+def test_yaml_top_level_kpi_exporters_selects_the_exporters(tmp_path):
+    config_path = _write_experiment(tmp_path, "kpi_exporters: [success_rate, timing]\n" + _MINIMAL_RUN_YAML)
+
+    assert _load_experiment(config_path).kpi_exporters == ["success_rate", "timing"]
+
+
+def test_yaml_empty_kpi_exporters_exports_no_kpis(tmp_path):
+    config_path = _write_experiment(tmp_path, "kpi_exporters: []\n" + _MINIMAL_RUN_YAML)
+
+    assert _load_experiment(config_path).kpi_exporters == []
+
+
+def test_hydra_override_replaces_kpi_exporters(tmp_path):
+    config_path = _write_experiment(tmp_path, "kpi_exporters: [timing]\n" + _MINIMAL_RUN_YAML)
+
+    experiment_cfg = _load_experiment(config_path, overrides=["kpi_exporters=[success_rate,timing]"])
+
+    assert experiment_cfg.kpi_exporters == ["success_rate", "timing"]
+
+
+def test_hydra_override_can_clear_kpi_exporters(tmp_path):
+    experiment_cfg = _load_experiment(_write_experiment(tmp_path, _MINIMAL_RUN_YAML), overrides=["kpi_exporters=[]"])
+
+    assert experiment_cfg.kpi_exporters == []
+
+
+def test_unknown_kpi_exporter_in_yaml_is_rejected(tmp_path):
+    config_path = _write_experiment(tmp_path, "kpi_exporters: [latency]\n" + _MINIMAL_RUN_YAML)
+
+    with pytest.raises(AssertionError, match="Unknown KPI exporters"):
+        _load_experiment(config_path)
+
+
+def test_kpi_exporters_must_be_a_list(tmp_path):
+    config_path = _write_experiment(tmp_path, "kpi_exporters: timing\n" + _MINIMAL_RUN_YAML)
+
+    with pytest.raises(AssertionError, match="'kpi_exporters' must be a list"):
+        _load_experiment(config_path)
+
+
+def test_serializer_round_trips_the_kpi_exporters(tmp_path):
+    config_path = _write_experiment(tmp_path, "kpi_exporters: [success_rate, timing]\n" + _MINIMAL_RUN_YAML)
+    experiment_cfg = _load_experiment(config_path)
+
+    serialized_experiment = serialize_arena_experiment_to_yaml(experiment_cfg)
+
+    assert yaml.safe_load(serialized_experiment)["kpi_exporters"] == ["success_rate", "timing"]
+    assert _load_experiment(_write_experiment(tmp_path, serialized_experiment)) == experiment_cfg
 
 
 def test_replay_paths_round_trip_and_infer_rebuild_count(tmp_path):

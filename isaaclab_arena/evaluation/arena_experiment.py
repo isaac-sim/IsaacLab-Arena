@@ -5,10 +5,11 @@
 
 """Represent Arena Experiment configurations."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.single_line_string import is_single_line_nonempty_string
+from isaaclab_arena_benchmarking.benchmarks.registry import EXPORTERS_BY_NAME
 
 
 @dataclass
@@ -21,10 +22,21 @@ class ArenaExperimentCfg:
     name: str
     """Name of the Experiment, a non-empty single-line string."""
 
+    kpi_exporters: list[str] = field(default_factory=lambda: ["timing"])
+    """Names of the registered KPI exporters that write the Experiment's KPI records once every Run completed.
+    Each name appears once; an empty list exports no KPIs."""
+
     def __post_init__(self) -> None:
         assert is_single_line_nonempty_string(
             self.name
         ), f"Experiment name must be a non-empty single-line string, got {self.name!r}"
+        assert isinstance(self.kpi_exporters, list) and all(
+            isinstance(name, str) for name in self.kpi_exporters
+        ), f"Experiment kpi_exporters must be a list of names, got {self.kpi_exporters!r}"
+        unknown_names = [name for name in self.kpi_exporters if name not in EXPORTERS_BY_NAME]
+        assert not unknown_names, f"Unknown KPI exporters {unknown_names}; valid names are {sorted(EXPORTERS_BY_NAME)}"
+        duplicate_names = sorted({name for name in self.kpi_exporters if self.kpi_exporters.count(name) > 1})
+        assert not duplicate_names, f"Select each KPI exporter once; duplicate KPI exporters {duplicate_names}"
         assert isinstance(self.runs, dict) and self.runs, "Experiment Definition must contain at least one Run"
         for run_name, run_cfg in self.runs.items():
             assert isinstance(run_name, str) and run_name, "Experiment Definition Run names must be non-empty strings"

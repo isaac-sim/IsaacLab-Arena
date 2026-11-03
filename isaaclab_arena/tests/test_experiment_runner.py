@@ -20,7 +20,6 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
-from isaaclab_arena_benchmarking.benchmarks.registry import DEFAULT_EXPORTER_NAMES
 
 HEADLESS = True
 NUM_STEPS = 2
@@ -53,7 +52,7 @@ def test_experiment_runner_parses_kpi_exporters():
         "timing",
     ])
 
-    assert tuple(default_arguments.kpi_exporters) == DEFAULT_EXPORTER_NAMES
+    assert default_arguments.kpi_exporters is None
     assert selected_arguments.kpi_exporters == ["timing"]
 
 
@@ -63,7 +62,7 @@ def test_experiment_runner_parses_bare_kpi_exporters_flag_as_no_exporters():
     assert arguments.kpi_exporters == []
 
 
-def test_experiment_runner_skips_kpi_export_for_empty_selection(monkeypatch, tmp_path, capsys):
+def test_experiment_runner_selects_kpi_exporters_from_the_experiment_unless_overridden(monkeypatch, tmp_path, capsys):
     from isaaclab_arena.evaluation import experiment_runner
 
     exported_selections = []
@@ -72,13 +71,31 @@ def test_experiment_runner_skips_kpi_export_for_empty_selection(monkeypatch, tmp
         "export_kpis",
         lambda output_dir, names, **kwargs: exported_selections.append((output_dir, list(names), kwargs)),
     )
+    experiment_cfg = SimpleNamespace(kpi_exporters=["success_rate"])
 
-    experiment_runner._export_selected_kpis(tmp_path, [])
+    experiment_runner._export_selected_kpis(tmp_path, experiment_cfg, None)
+    assert exported_selections == [(tmp_path, ["success_rate"], {})]
+
+    exported_selections.clear()
+    experiment_runner._export_selected_kpis(tmp_path, experiment_cfg, ["timing"])
+    assert exported_selections == [(tmp_path, ["timing"], {})]
+
+    exported_selections.clear()
+    experiment_runner._export_selected_kpis(tmp_path, experiment_cfg, [])
     assert exported_selections == []
     assert "KPI export is skipped" in capsys.readouterr().out
 
-    experiment_runner._export_selected_kpis(tmp_path, ["timing"])
-    assert exported_selections == [(tmp_path, ["timing"], {})]
+
+def test_experiment_runner_skips_kpi_export_when_the_experiment_selects_none(monkeypatch, tmp_path, capsys):
+    from isaaclab_arena.evaluation import experiment_runner
+
+    exported_selections = []
+    monkeypatch.setattr(experiment_runner, "export_kpis", lambda *args, **kwargs: exported_selections.append(args))
+
+    experiment_runner._export_selected_kpis(tmp_path, SimpleNamespace(kpi_exporters=[]), None)
+
+    assert exported_selections == []
+    assert "KPI export is skipped" in capsys.readouterr().out
 
 
 @pytest.mark.with_subprocess
@@ -258,6 +275,7 @@ def test_experiment_runner_from_typed_yaml(tmp_path):
     experiment_config_path = tmp_path / "experiment.yaml"
     experiment_config_path.write_text(
         """
+kpi_exporters: [success_rate, timing]
 runs:
   yaml_baseline:
     environment:

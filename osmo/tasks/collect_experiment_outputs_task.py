@@ -34,7 +34,7 @@ class CollectExperimentOutputsTask(BaseTask):
     copies completed Run outputs to ``{{output}}/<run-name>/...``, preserves failed runner results without partial Run
     artifacts, and writes ``{{output}}/arena_experiment_result.json``, ``{{output}}/arena_experiment_timings.json``,
     plus ``{{output}}/index.html``. These list failed Run executions but exclude their partial episode artifacts.
-    The selected KPI exporters also write ``{{output}}/kpis_*.json`` records files, only when every Run completed.
+    The Experiment's KPI exporters, if any, also write ``{{output}}/kpis_*.json`` records files, only when every Run completed.
     Only this final task output is published to Swift; the Experiment Runner task outputs remain workflow-local.
     """
 
@@ -52,7 +52,6 @@ class CollectExperimentOutputsTask(BaseTask):
     ) -> None:
         assert experiment_runner_task_names_by_run_name, "Experiment output requires at least one Run task"
         assert experiment_name, "Experiment output requires an Experiment name"
-        assert kpi_exporters, "Experiment output requires at least one KPI exporter"
         super().__init__(task_name=task_name, lead=lead, resource=resource)
         self.experiment_name = experiment_name
         self.kpi_exporters = list(kpi_exporters)

@@ -192,7 +192,7 @@ def build_experiment_output(
         experiment_output_directory: Experiment output directory containing one subdirectory per Run and
             ``index.html``.
         experiment_name: Name of the Experiment, written into the Experiment result.
-        kpi_exporters: Names of the KPI exporters that write the Experiment's KPI records.
+        kpi_exporters: Names of the KPI exporters that write the Experiment's KPI records; empty to skip KPI export.
 
     Returns:
         Path to the generated Experiment report.
@@ -236,10 +236,10 @@ def _parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--kpi-exporters",
-        nargs="+",
+        nargs="*",
         choices=sorted(EXPORTERS_BY_NAME),
         default=list(DEFAULT_EXPORTER_NAMES),
-        help="KPI exporters that write the Experiment's KPI records",
+        help="KPI exporters that write the Experiment's KPI records; pass the flag with no names to skip KPI export",
     )
     return parser.parse_args()
 

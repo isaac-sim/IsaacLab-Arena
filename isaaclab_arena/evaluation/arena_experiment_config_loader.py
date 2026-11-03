@@ -85,7 +85,7 @@ def load_arena_experiment_from_config_file(
             environment_builder=environment_builder_with_process_device,
         )
         runs_with_process_device[run_name] = run_config_with_process_device
-    return ArenaExperimentCfg(runs=runs_with_process_device, name=experiment_cfg.name)
+    return replace(experiment_cfg, runs=runs_with_process_device)
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:

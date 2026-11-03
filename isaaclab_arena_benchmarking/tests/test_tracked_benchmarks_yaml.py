@@ -25,7 +25,7 @@ BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "overrides", "kpis"}
 
 REQUIRED_BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "kpis"}
 
-RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url", "experiment_cfg.name", "osmo.kpi_exporters")
+RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url", "experiment_cfg.name")
 """OSMO settings chosen per launch, which a benchmark entry must not fix."""
 
 
@@ -129,7 +129,7 @@ def test_benchmark_renders_an_osmo_workflow_dry_run(entry):
             "--dry_run",
             *entry.get("overrides", []),
             # The per-launch settings an internal launcher adds from the entry.
-            f"osmo.kpi_exporters=[{','.join(entry['kpis'])}]",
+            f"experiment_cfg.kpi_exporters=[{','.join(entry['kpis'])}]",
             f"experiment_cfg.name='{entry['name']}'",
         ],
         cwd=REPO_ROOT,

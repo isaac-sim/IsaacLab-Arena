@@ -47,7 +47,10 @@ The Experiment Definition
 
 The YAML has a required ``runs`` mapping. A ``shared`` mapping is optional. When present, its
 values are reused by every Run. An optional top-level ``name`` string names the Experiment; it
-defaults to the YAML file's stem when omitted, so every Experiment has a name. Each key below ``runs`` is a Run name:
+defaults to the YAML file's stem when omitted, so every Experiment has a name. An optional top-level
+``kpi_exporters`` list names the registered KPI exporters that write the Experiment's KPI records once every Run
+has completed, for example ``kpi_exporters: [success_rate, timing]``. It defaults to ``[timing]``, and an empty list
+exports no KPIs. KPIs are aggregated over all Runs of the Experiment. Each key below ``runs`` is a Run name:
 
 .. code-block:: yaml
 
@@ -145,6 +148,8 @@ The CLI override root depends on the execution path:
 
       * Use ``shared.<path>=<value>`` to change a shared value.
       * Use ``runs.<name>.<path>=<value>`` to change one Run.
+      * Use ``kpi_exporters=[<name>,<name>]`` to change the KPI exporters. The Experiment Runner option
+        ``--kpi_exporters <name> ...`` overrides them as well; passing it with no names skips KPI export.
 
       .. code-block:: bash
 
@@ -158,6 +163,7 @@ The CLI override root depends on the execution path:
 
       * Use ``experiment_cfg.shared.<path>=<value>`` to change a shared value.
       * Use ``experiment_cfg.runs.<name>.<path>=<value>`` to change one Run.
+      * Use ``experiment_cfg.kpi_exporters=[<name>,<name>]`` to change the KPI exporters of the collector task.
 
       .. code-block:: bash
 
@@ -208,7 +214,8 @@ Values are applied in this order, from lowest to highest priority:
 .. dropdown:: Configuration rules
    :animate: fade-in
 
-   * The only top-level fields are ``name``, ``shared``, and ``runs``.
+   * The only top-level fields are ``name``, ``kpi_exporters``, ``shared``, and ``runs``.
+   * Each ``kpi_exporters`` name must be a registered KPI exporter and appear once.
    * ``runs`` must contain at least one Run.
    * A Run name starts with a letter or underscore. It can then contain letters, numbers,
      underscores, or hyphens.
