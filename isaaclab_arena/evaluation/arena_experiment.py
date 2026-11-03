@@ -8,6 +8,7 @@
 from dataclasses import dataclass
 
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.utils.string_checks import is_single_line_nonempty_string
 
 
 @dataclass
@@ -17,7 +18,13 @@ class ArenaExperimentCfg:
     runs: dict[str, ArenaRunCfg]
     """Runs keyed by the names used for overrides, execution, and results."""
 
+    name: str
+    """Name of the Experiment, a non-empty single-line string."""
+
     def __post_init__(self) -> None:
+        assert is_single_line_nonempty_string(
+            self.name
+        ), f"Experiment name must be a non-empty single-line string, got {self.name!r}"
         assert isinstance(self.runs, dict) and self.runs, "Experiment Definition must contain at least one Run"
         for run_name, run_cfg in self.runs.items():
             assert isinstance(run_name, str) and run_name, "Experiment Definition Run names must be non-empty strings"

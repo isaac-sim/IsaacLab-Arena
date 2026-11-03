@@ -51,7 +51,7 @@ def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> st
             policy_selector = f"{policy_type.__module__}.{policy_type.__qualname__}"
         run_values["policy"] = {"type": policy_selector, **run_values["policy"]}
         run_values_by_name[run_name] = _to_yaml_values(run_values)
-    return yaml.safe_dump({"runs": run_values_by_name}, sort_keys=False)
+    return yaml.safe_dump({"name": experiment_cfg.name, "runs": run_values_by_name}, sort_keys=False)
 
 
 def _environment_yaml_values(

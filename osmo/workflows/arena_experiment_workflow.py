@@ -76,7 +76,9 @@ class ArenaExperimentWorkflow(Workflow):
         """Create one OSMO group that executes a single-Run Arena Experiment, plus its server if any."""
         experiment_runner_task_name = f"experiment-runner-{run_index}"
         # Snapshot this Run alone so the Experiment Runner task embeds a single-Run Experiment.
-        single_run_experiment_config = ArenaExperimentCfg(runs={run_name: deepcopy(run_config)})
+        single_run_experiment_config = ArenaExperimentCfg(
+            runs={run_name: deepcopy(run_config)}, name=self.experiment_cfg.name
+        )
 
         policy_server_tasks: list[BaseTask] = []
         run_policy_config = single_run_experiment_config.runs[run_name].policy

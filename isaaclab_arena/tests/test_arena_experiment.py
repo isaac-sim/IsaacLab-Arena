@@ -33,7 +33,7 @@ def test_experiment_cfg_preserves_named_run_order():
     second = _run("second")
     first = _run("first")
 
-    experiment_cfg = ArenaExperimentCfg(runs={"second": second, "first": first})
+    experiment_cfg = ArenaExperimentCfg(runs={"second": second, "first": first}, name="experiment")
 
     assert list(experiment_cfg.runs) == ["second", "first"]
     assert list(experiment_cfg.runs.values()) == [second, first]
@@ -50,4 +50,4 @@ def test_experiment_cfg_preserves_named_run_order():
 )
 def test_experiment_cfg_rejects_invalid_named_runs(runs, error):
     with pytest.raises(AssertionError, match=error):
-        ArenaExperimentCfg(runs=runs)
+        ArenaExperimentCfg(runs=runs, name="experiment")
