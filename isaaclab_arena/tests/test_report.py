@@ -622,3 +622,34 @@ def test_consecutive_step_summary_shows_streaks_and_satisfaction_steps(tmp_path)
     assert "sequence&lt;a&gt; / 2" in page
     assert "released&lt;script&gt;" in page
     assert "released<script>" not in page
+
+
+def test_run_page_shows_the_normalized_criteria_score_as_a_percentage(tmp_path):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        json.dumps({
+            "env_id": 0,
+            "episode_in_env": 0,
+            "success": False,
+            "progress": {
+                "criteria_by_name": {
+                    "reach": {
+                        "score": 0.5,
+                        "is_complete": False,
+                        "total_sequences": 2,
+                        "active_predicates": {"left": None, "right": "arrive"},
+                    }
+                },
+                "events": [],
+            },
+        })
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    build_report(tmp_path)
+
+    run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
+    assert '<span class="score">50%</span>' in run_page

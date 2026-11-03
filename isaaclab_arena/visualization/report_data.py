@@ -205,7 +205,7 @@ class CompletionCriteriaProgress:
     name: str
     family: str
     score: float
-    max_score: float
+    """Recorded progress in [0, 1], normalized within the criteria."""
     is_complete: bool
     signals: list[PredicateSignal]
     blocked_predicates: list[str] = field(default_factory=list)
@@ -339,13 +339,11 @@ class JobSummary:
                         blocked=blocked,
                     )
                 )
-            total_sequences = _as_float(detail.get("total_sequences")) if isinstance(detail, dict) else None
             results.append(
                 CompletionCriteriaProgress(
                     name=name,
                     family=family,
                     score=_as_float(detail.get("score")) or 0.0 if isinstance(detail, dict) else 0.0,
-                    max_score=total_sequences if total_sequences and total_sequences > 0 else 1.0,
                     is_complete=bool(detail.get("is_complete", False)) if isinstance(detail, dict) else False,
                     signals=signals,
                     blocked_predicates=[name for name in active_names if name not in matched_blocked],
