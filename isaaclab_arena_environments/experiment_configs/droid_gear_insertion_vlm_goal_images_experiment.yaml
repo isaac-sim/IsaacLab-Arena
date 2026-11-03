@@ -1,0 +1,33 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# VLMGoalPolicy on gear insertion from camera images and robot state, with the DROID default system prompt.
+# Run inside the Arena runtime with NV_API_KEY set, from the repository root so any prompt files are found:
+# python isaaclab_arena/evaluation/experiment_runner.py \
+#   --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml
+runs:
+  droid_gear_insertion_vlm_goal_images:
+    environment:
+      type: gear_insertion
+      enable_cameras: true
+      embodiment: droid_abs_ik
+    environment_builder:
+      num_envs: 1
+      language_instruction: >-
+        Pick up the loose gear on the table and insert it onto the middle peg of the gear base,
+        so the gear slides down the peg and sits flat on the base.
+    policy:
+      type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
+      endpoint: internal
+      vlm_embodiment_adapter: droid
+      observation_modality: image_state
+      # Send the DROID cameras' full 1280x720 images.
+      image_max_width_or_height: 1280
+      max_steps_per_goal: 30
+      # Match GearInsertionCriteria: 3.5 mm lateral error and 5 degrees from upright.
+      position_tolerance_m: 0.0035
+      rotation_tolerance_rad: 0.0873
+    rollout_limit:
+      num_episodes: 5
