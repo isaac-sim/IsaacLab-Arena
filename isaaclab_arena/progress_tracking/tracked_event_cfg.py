@@ -20,11 +20,15 @@ class TrackedEventCfg:
     predicate_sequence: list[Predicate]
     """Nonempty ordered predicates; use a one-element list for a single condition.
 
-    Earlier predicates need not remain true when the sequence completes. The final
-    predicate must become false before this event resets and can occur again.
+    Earlier predicates need not remain true when the sequence completes. For a
+    recurring event, the final predicate must become false before the event resets.
     """
 
+    latch: bool = False
+    """Keep the first completion until episode reset instead of re-arming the event."""
+
     def __post_init__(self):
+        assert isinstance(self.latch, bool), "latch must be a boolean."
         assert isinstance(self.name, str) and self.name.strip(), "Tracked events require a nonempty name."
         assert (
             isinstance(self.predicate_sequence, list) and self.predicate_sequence
