@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena_benchmarking.benchmarks.registry import EXPORTERS_BY_NAME
+from osmo.submit_arena_experiment import build_arena_experiment_submission_cfg
 
 REPO_ROOT = Path(TestConstants.repo_root).resolve()
 TRACKED_BENCHMARKS_PATH = REPO_ROOT / "isaaclab_arena_benchmarking" / "benchmark_lists" / "tracked_benchmarks.yaml"
@@ -21,9 +21,9 @@ TRACKED_BENCHMARKS_PATH = REPO_ROOT / "isaaclab_arena_benchmarking" / "benchmark
 BENCHMARK_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 """Benchmark names are used in OSMO workflow names and folder paths."""
 
-BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "overrides", "kpis"}
+BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "overrides"}
 
-REQUIRED_BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "kpis"}
+REQUIRED_BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg"}
 
 RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url", "experiment_cfg.name")
 """OSMO settings chosen per launch, which a benchmark entry must not fix."""
@@ -80,41 +80,27 @@ def test_benchmark_entry_is_well_formed(entry):
         ), f"benchmark {name!r} override {override!r} sets reserved key {override_key!r}"
 
 
-def _assert_kpis_are_valid(entry: dict) -> None:
-    """Check that a benchmark entry lists its KPIs as unique, known exporter names."""
-    name = entry.get("name")
-    assert "kpis" in entry, f"benchmark {name!r} must list its kpis"
-    kpis = entry["kpis"]
-    assert (
-        isinstance(kpis, list) and kpis and all(isinstance(kpi, str) for kpi in kpis)
-    ), f"benchmark {name!r} kpis must be a non-empty list of strings"
-    unknown_kpis = [kpi for kpi in kpis if kpi not in EXPORTERS_BY_NAME]
-    assert (
-        not unknown_kpis
-    ), f"benchmark {name!r} kpis {unknown_kpis} are not exporters; valid names are {sorted(EXPORTERS_BY_NAME)}"
-    assert len(kpis) == len(set(kpis)), f"benchmark {name!r} kpis {kpis} contain duplicates"
+def _compose_benchmark_submission(entry: dict):
+    return build_arena_experiment_submission_cfg(
+        REPO_ROOT / entry["experiment_cfg"],
+        [*entry.get("overrides", []), f"experiment_cfg.name='{entry['name']}'"],
+    )
 
 
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
-def test_benchmark_kpis_name_known_exporters(entry):
-    _assert_kpis_are_valid(entry)
+def test_benchmark_experiment_exports_kpis(entry):
+    """Every tracked experiment, after its overrides, selects at least one registered KPI exporter."""
+    experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
+
+    assert experiment_cfg.kpi_exporters, f"benchmark {entry['name']!r} has an experiment without kpi_exporters"
 
 
-@pytest.mark.parametrize(
-    "invalid_entry",
-    [
-        {"name": "no-kpis"},
-        {"name": "empty", "kpis": []},
-        {"name": "not-a-list", "kpis": "timing"},
-        {"name": "not-strings", "kpis": [1]},
-        {"name": "unknown", "kpis": ["latency"]},
-        {"name": "duplicate", "kpis": ["timing", "timing"]},
-    ],
-    ids=lambda entry: entry["name"],
-)
-def test_invalid_kpis_are_rejected(invalid_entry):
-    with pytest.raises(AssertionError):
-        _assert_kpis_are_valid(invalid_entry)
+def test_smoke_single_run_benchmark_keeps_only_the_baseline_run():
+    entry = next(entry for entry in BENCHMARK_ENTRIES if entry["name"] == "smoke-single-run")
+
+    experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
+
+    assert list(experiment_cfg.runs) == ["baseline"]
 
 
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
@@ -128,8 +114,7 @@ def test_benchmark_renders_an_osmo_workflow_dry_run(entry):
             entry["experiment_cfg"],
             "--dry_run",
             *entry.get("overrides", []),
-            # The per-launch settings an internal launcher adds from the entry.
-            f"experiment_cfg.kpi_exporters=[{','.join(entry['kpis'])}]",
+            # The per-launch setting an internal launcher adds from the entry.
             f"experiment_cfg.name='{entry['name']}'",
         ],
         cwd=REPO_ROOT,

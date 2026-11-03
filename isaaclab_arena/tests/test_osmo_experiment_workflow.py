@@ -561,9 +561,7 @@ def _collector_command_for_submission(overrides: list[str], experiment_cfg_path:
 
 def test_collector_runs_the_kpi_exporters_of_the_experiment():
     """Pass the Experiment's kpi_exporters to the collector script."""
-    collector_command, kpi_exporters = _collector_command_for_submission(
-        ["experiment_cfg.kpi_exporters=[success_rate,timing]"], GETTING_STARTED_EXPERIMENT_CFG_PATH
-    )
+    collector_command, kpi_exporters = _collector_command_for_submission([], GETTING_STARTED_EXPERIMENT_CFG_PATH)
 
     assert kpi_exporters == ["success_rate", "timing"]
     assert "--kpi-exporters success_rate timing" in collector_command
