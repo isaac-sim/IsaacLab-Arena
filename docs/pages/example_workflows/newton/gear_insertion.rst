@@ -281,6 +281,9 @@ gear and peg geometry and a grasp and insertion strategy, but no object position
 
 Add ``--viz kit`` to watch a rollout.
 
+The same layout under each experiment: images only (left), exact object poses (middle), and the
+task prompt (right).
+
 .. image:: ../../../images/gear_insertion_vlm_agent.gif
    :align: center
-   :height: 400px
+   :width: 100%

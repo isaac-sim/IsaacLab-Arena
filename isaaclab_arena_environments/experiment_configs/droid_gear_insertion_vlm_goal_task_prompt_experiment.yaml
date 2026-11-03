@@ -13,6 +13,8 @@ runs:
       embodiment: droid_abs_ik
     environment_builder:
       num_envs: 1
+      # The three gear insertion VLM experiments share this seed, so they run on the same layouts.
+      seed: 42
       language_instruction: >-
         Pick up the loose gear on the table and insert it onto the middle peg of the gear base,
         so the gear slides down the peg and sits flat on the base.
