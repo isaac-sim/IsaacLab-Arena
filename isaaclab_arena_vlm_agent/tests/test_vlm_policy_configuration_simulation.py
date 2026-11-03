@@ -25,7 +25,7 @@ def _test_vlm_experiment(simulation_app):
     from isaaclab_arena.assets.registries import PolicyRegistry
     from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
     from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
-    from isaaclab_arena.evaluation.arena_run import RunStatus
+    from isaaclab_arena.evaluation.run_status import RunStatus
     from isaaclab_arena.evaluation.run_execution import build_and_run
     from isaaclab_arena.tests.utils.constants import TestConstants
     from isaaclab_arena_vlm_agent import observation_adapter

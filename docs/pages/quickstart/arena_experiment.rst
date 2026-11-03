@@ -103,7 +103,7 @@ environment for every Run, then closes that environment before starting the next
 
 By default, Arena saves the result as
 ``outputs/YYYY-MM-DD_HH-MM-SS/arena_experiment_result.json`` and prints the exact path. The file
-records every Run, its status, and its episode results.
+records the Experiment name, every Run, its status, and its episode results.
 
 When episodes record string or boolean variation values, such as a selected asset, Arena also
 prints a table with one row for each completed Run, variation, and value. Each row shows the

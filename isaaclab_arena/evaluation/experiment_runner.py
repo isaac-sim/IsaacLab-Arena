@@ -96,7 +96,9 @@ def _write_arena_experiment_result(
         }
         for run_name, run_cfg in experiment_cfg.runs.items()
     }
-    experiment_result = ArenaExperimentResult(experiment_output_directory, run_metadata_by_name)
+    experiment_result = ArenaExperimentResult.from_run_outputs(
+        experiment_output_directory, run_metadata_by_name, experiment_name=experiment_cfg.name
+    )
     experiment_result.write()
     return experiment_result
 
@@ -153,8 +155,9 @@ def main():
 
     with SimulationAppContext(args_cli):
         from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-        from isaaclab_arena.evaluation.arena_run import RunStatus, build_runs_info_table
+        from isaaclab_arena.evaluation.arena_run import build_runs_info_table
         from isaaclab_arena.evaluation.run_execution import execute_experiment
+        from isaaclab_arena.evaluation.run_status import RunStatus
         from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
         from isaaclab_arena.metrics.metrics_logger import MetricsLogger
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
@@ -189,7 +192,7 @@ def main():
         metrics_logger.print_metrics()
 
         experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
-        variation_table = build_categorical_variation_table(experiment_result.to_dict())
+        variation_table = build_categorical_variation_table(experiment_result)
         if variation_table.rows:
             print(variation_table)
 
