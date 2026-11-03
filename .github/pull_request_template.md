@@ -70,9 +70,11 @@ After:
 ## Validation
 
 <!--
+Optional; omit this section when there is nothing beyond CI to report,
+such as for documentation-only or small, self-evident changes.
 State what was tested and the result.
 Separate passing checks from checks that failed or could not run.
-Do not report that automated tests pass; CI covers that. Describe manual checks,
+Do not report that automated tests or pre-commit hooks pass; CI covers that. Describe manual checks,
 such as running an example or inspecting a video, and anything CI does not cover.
 Mention any important behavior that remains unverified.
 -->
