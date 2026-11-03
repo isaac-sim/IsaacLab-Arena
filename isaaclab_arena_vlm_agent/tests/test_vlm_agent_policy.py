@@ -590,7 +590,7 @@ def test_response_rejection_sends_correction_message(backend, payload, message):
     with pytest.raises(InvalidAgentResponseError, match=message) as caught:
         policy.get_action(*inputs())
     correction = backend.client.chat.completions.create.call_args.kwargs["messages"][-1]["content"]
-    assert correction == f"Invalid actions: {caught.value}. Return a corrected prediction."
+    assert correction == f"Invalid actions: {caught.value.__cause__}. Return a corrected prediction."
     assert backend.client.chat.completions.create.call_count == 4  # Two attempts for each of two envs.
 
 
@@ -728,10 +728,12 @@ def test_concurrent_corrections_stay_per_environment_and_attempts_are_bounded(ba
     policy = make_policy(backend, max_attempts=2, max_concurrent_requests=4)
     policy.action_adapter.command_to_action = Mock()
     try:
-        with pytest.raises(InvalidAgentResponseError, match="Wrong command dimensions"):
+        with pytest.raises(InvalidAgentResponseError, match="env 1: Wrong command dimensions") as caught:
             policy.get_action(*inputs(num_envs=3))
     finally:
         policy.close()
+    assert "env 2: Wrong command dimensions" in str(caught.value)
+    assert "env 0" not in str(caught.value)
     # Envs 1 and 2 use both attempts; env 0 succeeds on its first.
     assert len(calls) == 5
     policy.action_adapter.command_to_action.assert_not_called()

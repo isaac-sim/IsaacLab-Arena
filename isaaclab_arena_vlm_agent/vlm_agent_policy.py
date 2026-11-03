@@ -339,7 +339,12 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 else:
                     del conversations[env_id]
         if conversations:
-            raise rejections[min(conversations)]
+            failures = []
+            for env_id in sorted(conversations):
+                failures.append(f"env {env_id}: {rejections[env_id]}")
+            raise InvalidAgentResponseError(
+                f"No valid response after {attempts} attempts; " + "; ".join(failures)
+            ) from rejections[min(conversations)]
         return commands
 
     def _get_model_outputs(self, conversations: dict[int, list[dict]]) -> dict[int, dict[str, Any]]:
@@ -361,6 +366,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                     retry_label=f"policy_action env {env_id}",
                 )
             )
+        # A concurrent burst needs no extra backoff here: the OpenAI client already retries 429 and 5xx
+        # responses with exponential backoff, honoring Retry-After, before InferenceBackend sees a failure.
         # map yields results in submission order and cancels requests not yet started if one fails.
         return dict(zip(conversations, self._request_executor.map(self._inference_backend.infer, requests)))
 
