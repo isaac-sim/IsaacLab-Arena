@@ -148,7 +148,7 @@ def _compute_no_overlap_loss_mesh_serial_for_test(
             obstacle_bbox_yaws = torch.where(
                 mesh_cache.pair_obstacle_bbox_includes_yaw,
                 torch.zeros(num_pairs, device=state.device),
-                obstacle_yaws,
+                obstacle_yaws - mesh_cache.pair_fixed_obstacle_yaw_tensor,
             )
             subject_bbox_min, subject_bbox_max = _rotate_bbox_extents(
                 subject_bbox_min, subject_bbox_max, subject_bbox_yaws
@@ -1039,19 +1039,35 @@ def test_mesh_broadphase_keeps_a_subject_inside_a_fixed_obstacle(
 
 
 @requires_warp
-def test_mesh_broadphase_follows_an_orientations_yaw_for_a_fixed_obstacle():
+@pytest.mark.parametrize(
+    "rotation_xyzw, orientation_yaw, child_xy",
+    [
+        # The bar turns from +X to +Y.
+        pytest.param(_YAW_0_XYZW, math.pi / 2, (0.0, 0.1), id="from_zero_yaw"),
+        # The bar turns from +Y to -X. Turning its bounds by the whole override, or the wrong way, misses the child.
+        pytest.param(_YAW_90_XYZW, math.pi, (-0.1, 0.0), id="from_a_quarter_turn"),
+    ],
+)
+def test_mesh_broadphase_follows_an_orientations_yaw_for_a_fixed_obstacle(rotation_xyzw, orientation_yaw, child_xy):
     """An orientations yaw for an anchor turns its broad-phase box along with its mesh."""
     table = _make_table()
-    target = _make_box_obj("target", sx=0.2, sy=0.02, sz=0.05)
-    target.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
+    # A bar running from its origin along its own +X, so its bounds are off-centre.
+    bar_mesh = trimesh.creation.box(extents=(0.2, 0.02, 0.05))
+    bar_mesh.apply_translation((0.1, 0.0, 0.0))
+    target = DummyObject(
+        "target",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        collision_mesh=bar_mesh,
+    )
+    target.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05), rotation_xyzw=rotation_xyzw))
     target.add_relation(IsAnchor())
     child = _make_cylinder("child", radius=0.015)
     child.add_relation(On(table))
-    # Beyond the culling margin of the unturned bar, but inside its mesh once it is turned 90°.
-    initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (0.0, 0.08, 0.05)}]
+    # Beyond the culling margin of the unturned bar, but inside its mesh once it is turned.
+    initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (*child_xy, 0.05)}]
 
     losses = []
-    for orientations in (None, [{target: math.pi / 2, child: 0.0}]):
+    for orientations in (None, [{target: orientation_yaw, child: 0.0}]):
         solver = RelationSolver(
             params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
         )
