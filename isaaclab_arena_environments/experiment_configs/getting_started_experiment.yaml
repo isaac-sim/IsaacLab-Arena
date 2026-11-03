@@ -10,6 +10,10 @@
 # - with experiment_runner.py, use shared.<path>=<value>
 # - with osmo/submit_arena_experiment.py, use experiment_cfg.shared.<path>=<value>
 # A value written directly in a Run still takes priority.
+
+# KPI exporters (see isaaclab_arena_benchmarking/benchmarks) that write this Experiment's KPI records.
+kpi_exporters: [success_rate, timing]
+
 shared:
   environment:
     type: pick_and_place_maple_table
