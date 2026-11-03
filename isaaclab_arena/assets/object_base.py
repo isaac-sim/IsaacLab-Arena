@@ -16,7 +16,7 @@ from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_objec
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
+from isaaclab_arena.terms.events import reset_articulation_joints, set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_disappear_variation import ObjectDisappearVariation
@@ -53,8 +53,11 @@ class ObjectBase(PlaceableAsset, ABC):
         ), f"Object '{self.name}' ({type(self).__name__}) did not initialize its object config."
         return self.name, self.object_cfg
 
-    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        return self.name, self._pose_event_cfg
+    def get_event_cfgs(self) -> list[tuple[str, EventTermCfg]]:
+        """Return this object's reset events, each paired with its event name."""
+        if self._pose_event_cfg is None:
+            return []
+        return [(self.name, self._pose_event_cfg)]
 
 
 class RootedObjectBase(ObjectBase):
@@ -113,6 +116,22 @@ class RootedObjectBase(ObjectBase):
             ObjectType.RIGID,
             ObjectType.ARTICULATION,
         )
+
+    def get_event_cfgs(self) -> list[tuple[str, EventTermCfg]]:
+        """Return this object's reset events, each paired with its event name.
+
+        An articulation also gets an event named ``<name>_joints`` that restores its default joint state, whether or
+        not it has a root-pose reset event.
+        """
+        event_cfgs = super().get_event_cfgs()
+        if self.object_type == ObjectType.ARTICULATION:
+            joint_reset_cfg = EventTermCfg(
+                func=reset_articulation_joints,
+                mode="reset",
+                params={"asset_cfg": SceneEntityCfg(self.name)},
+            )
+            event_cfgs.append((f"{self.name}_joints", joint_reset_cfg))
+        return event_cfgs
 
     def _build_reset_event(self) -> EventTermCfg | None:
         """Build the ``EventTermCfg`` for resetting this object's pose and velocity."""
