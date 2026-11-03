@@ -171,8 +171,9 @@ def main():
 
     with SimulationAppContext(args_cli):
         from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-        from isaaclab_arena.evaluation.arena_run import RunStatus, build_runs_info_table
+        from isaaclab_arena.evaluation.arena_run import build_runs_info_table
         from isaaclab_arena.evaluation.run_execution import execute_experiment
+        from isaaclab_arena.evaluation.run_status import RunStatus
         from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
         from isaaclab_arena.metrics.metrics_logger import MetricsLogger
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c

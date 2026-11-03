@@ -106,7 +106,7 @@ class TimingKpiExporter(InfluxdbKpiExporter):
         timings_path = output_dir / ARENA_AGGREGATED_TIMINGS_FILENAME
         if not timings_path.is_file():
             return []
-        result = ArenaExperimentResult.read(output_dir)
+        result = ArenaExperimentResult.from_experiment_output(output_dir)
         timings = json.loads(timings_path.read_text(encoding="utf-8"))
         # Timers that never ran have no statistics.
         records: list[InfluxdbKpiRecord] = [

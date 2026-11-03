@@ -16,8 +16,8 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
-from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import assert_influxdb_kpi_records_are_valid
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport

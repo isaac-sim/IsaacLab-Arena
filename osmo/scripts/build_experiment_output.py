@@ -23,8 +23,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
-from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis, get_exporters_by_name

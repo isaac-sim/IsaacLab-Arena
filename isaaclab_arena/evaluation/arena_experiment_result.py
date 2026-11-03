@@ -11,10 +11,11 @@ import json
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
-from isaaclab_arena.evaluation.single_line_string import is_single_line_nonempty_string
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
+from isaaclab_arena.utils.string_checks import is_single_line_nonempty_string
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
     parse_episode_results_filename,
@@ -58,7 +59,9 @@ class ArenaExperimentRunData(TypedDict):
     """Maps ``name`` and ``definition`` to the Run's environment name and definition."""
 
     policy_variant: str
-    status: Literal["completed", "failed"]
+    status: str
+    """Value of the Run's ``RunStatus``."""
+
     start_timestamp_ns: int
     end_timestamp_ns: int
     rebuilds: list[ArenaRebuildResultData]
@@ -129,7 +132,10 @@ class ArenaExperimentResult:
         git_stamp: GitStamp,
         runs: Mapping[str, ArenaExperimentRunData],
     ) -> None:
-        """Hold an already collected Experiment result.
+        """Construct a result from already collected Run data.
+
+        Intended for internal use; prefer ``from_experiment_output`` to load a written result or
+        ``from_run_outputs`` to collect the outputs of executed Runs.
 
         Args:
             experiment_output_directory: Experiment output root the result file is written to.
@@ -153,8 +159,8 @@ class ArenaExperimentResult:
         self.runs: dict[str, ArenaExperimentRunData] = dict(runs)
 
     @classmethod
-    def read(cls, output_dir: str | Path) -> ArenaExperimentResult:
-        """Load and check ``arena_experiment_result.json`` from an Experiment output directory.
+    def from_experiment_output(cls, output_dir: str | Path) -> ArenaExperimentResult:
+        """Load and check ``arena_experiment_result.json`` of an Experiment output directory.
 
         Args:
             output_dir: Experiment output root holding the result file.
@@ -208,7 +214,7 @@ class ArenaExperimentResult:
     @property
     def all_runs_completed(self) -> bool:
         """Whether every Run has the completed status."""
-        return all(run_data["status"] == "completed" for run_data in self.runs.values())
+        return all(run_data["status"] == RunStatus.COMPLETED.value for run_data in self.runs.values())
 
     @property
     def latest_run_end_timestamp_ns(self) -> int:
@@ -223,7 +229,8 @@ class ArenaExperimentResult:
         cls.assert_run_name_is_safe_path_component(run_name)
         environment = run_metadata["environment"]
         status = run_metadata["status"]
-        assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
+        valid_statuses = [run_status.value for run_status in RunStatus]
+        assert status in valid_statuses, f"status for Run {run_name!r} must be one of {valid_statuses}"
 
         start_timestamp_ns = run_metadata["start_timestamp_ns"]
         assert isinstance(start_timestamp_ns, int) and not isinstance(
@@ -235,7 +242,7 @@ class ArenaExperimentResult:
         ), f"end_timestamp_ns for Run {run_name!r} must be an int"
 
         run_output_directory = experiment_output_directory / run_name
-        if status == "completed":
+        if status == RunStatus.COMPLETED.value:
             assert (
                 run_output_directory.is_dir()
             ), f"completed Run {run_name!r} is missing its output directory: {run_output_directory}"

@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -310,48 +312,50 @@ def _run(status: str = "completed", end_timestamp_ns: int = END_TIMESTAMP_NS) ->
     return {**_metadata("env", status=status), "end_timestamp_ns": end_timestamp_ns, "rebuilds": []}
 
 
-def test_read_rejects_missing_end_timestamp(tmp_path):
+def test_from_experiment_output_rejects_missing_end_timestamp(tmp_path):
     run = _run()
     del run["end_timestamp_ns"]
     _write_result(tmp_path, {"run_a": run})
 
     with pytest.raises(AssertionError, match="no integer end_timestamp_ns"):
-        ArenaExperimentResult.read(tmp_path)
+        ArenaExperimentResult.from_experiment_output(tmp_path)
 
 
-def test_read_rejects_missing_git_stamp(tmp_path):
+def test_from_experiment_output_rejects_missing_git_stamp(tmp_path):
     result = {"experiment_name": EXPERIMENT_NAME, "runs": {"run_a": _run()}}
     (tmp_path / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(json.dumps(result), encoding="utf-8")
 
     with pytest.raises(AssertionError, match="no git stamp"):
-        ArenaExperimentResult.read(tmp_path)
+        ArenaExperimentResult.from_experiment_output(tmp_path)
 
 
-def test_read_rejects_no_runs(tmp_path):
+def test_from_experiment_output_rejects_no_runs(tmp_path):
     _write_result(tmp_path, {})
 
     with pytest.raises(AssertionError, match="runs must not be empty"):
-        ArenaExperimentResult.read(tmp_path)
+        ArenaExperimentResult.from_experiment_output(tmp_path)
 
 
 def test_latest_run_end_timestamp_ns_is_the_maximum(tmp_path):
     _write_result(tmp_path, {"run_a": _run(end_timestamp_ns=5), "run_b": _run(end_timestamp_ns=9)})
 
-    assert ArenaExperimentResult.read(tmp_path).latest_run_end_timestamp_ns == 9
+    assert ArenaExperimentResult.from_experiment_output(tmp_path).latest_run_end_timestamp_ns == 9
 
 
 def test_all_runs_completed_is_false_with_one_failed_run(tmp_path):
     _write_result(tmp_path, {"run_a": _run(), "run_b": _run(status="failed")})
-    assert not ArenaExperimentResult.read(tmp_path).all_runs_completed
+    assert not ArenaExperimentResult.from_experiment_output(tmp_path).all_runs_completed
 
     _write_result(tmp_path, {"run_a": _run()})
-    assert ArenaExperimentResult.read(tmp_path).all_runs_completed
+    assert ArenaExperimentResult.from_experiment_output(tmp_path).all_runs_completed
 
 
-def test_read_builds_git_stamp_from_result(tmp_path):
+def test_from_experiment_output_builds_git_stamp_from_result(tmp_path):
     _write_result(tmp_path, {"run_a": _run()})
 
-    assert ArenaExperimentResult.read(tmp_path).git_stamp == GitStamp(git_sha="abc1234", git_branch="main")
+    assert ArenaExperimentResult.from_experiment_output(tmp_path).git_stamp == GitStamp(
+        git_sha="abc1234", git_branch="main"
+    )
 
 
 def test_result_round_trip_keeps_experiment_name(tmp_path):
@@ -359,7 +363,7 @@ def test_result_round_trip_keeps_experiment_name(tmp_path):
         tmp_path, {"run": _metadata("task", status="failed")}, experiment_name=EXPERIMENT_NAME
     ).write()
 
-    result = ArenaExperimentResult.read(tmp_path)
+    result = ArenaExperimentResult.from_experiment_output(tmp_path)
 
     assert result.experiment_name == EXPERIMENT_NAME
     assert result.to_dict()["experiment_name"] == EXPERIMENT_NAME
@@ -374,24 +378,46 @@ def test_result_rejects_invalid_experiment_name(tmp_path, experiment_name):
 
 
 @pytest.mark.parametrize("experiment_name", ["", "a\nb", 3])
-def test_read_rejects_invalid_experiment_name(tmp_path, experiment_name):
+def test_from_experiment_output_rejects_invalid_experiment_name(tmp_path, experiment_name):
     _write_result(tmp_path, {"run_a": _run()}, experiment_name=experiment_name)
 
     with pytest.raises(AssertionError, match="experiment_name"):
-        ArenaExperimentResult.read(tmp_path)
+        ArenaExperimentResult.from_experiment_output(tmp_path)
 
 
-def test_read_rejects_missing_experiment_name(tmp_path):
+def test_from_experiment_output_rejects_missing_experiment_name(tmp_path):
     result = {"git_stamp": {"git_sha": "abc1234", "git_branch": "main"}, "runs": {"run_a": _run()}}
     (tmp_path / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(json.dumps(result), encoding="utf-8")
 
     with pytest.raises(AssertionError, match="no experiment_name"):
-        ArenaExperimentResult.read(tmp_path)
+        ArenaExperimentResult.from_experiment_output(tmp_path)
 
 
-def test_read_rejects_missing_runs(tmp_path):
+def test_from_experiment_output_rejects_missing_runs(tmp_path):
     result = {"git_stamp": {"git_sha": "abc1234", "git_branch": "main"}, "experiment_name": EXPERIMENT_NAME}
     (tmp_path / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(json.dumps(result), encoding="utf-8")
 
     with pytest.raises(AssertionError, match="has no runs"):
-        ArenaExperimentResult.read(tmp_path)
+        ArenaExperimentResult.from_experiment_output(tmp_path)
+
+
+def test_result_and_run_status_modules_import_without_torch_or_isaaclab():
+    """Import the modules the OSMO collector and KPI exporters use in a fresh process."""
+    code = (
+        "import sys\n"
+        "import isaaclab_arena.evaluation.arena_experiment_result\n"
+        "import isaaclab_arena.evaluation.run_status\n"
+        "import isaaclab_arena.utils.string_checks\n"
+        "print(sorted(name for name in ('torch', 'isaaclab', 'isaacsim') if name in sys.modules))\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=Path(__file__).resolve().parents[2],
+        timeout=120,
+    )
+
+    assert result.stdout.splitlines()[-1] == "[]"

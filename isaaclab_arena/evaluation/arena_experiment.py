@@ -8,7 +8,7 @@
 from dataclasses import dataclass, field
 
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
-from isaaclab_arena.evaluation.single_line_string import is_single_line_nonempty_string
+from isaaclab_arena.utils.string_checks import is_single_line_nonempty_string
 from isaaclab_arena_benchmarking.benchmarks.registry import assert_valid_kpi_exporter_names
 
 

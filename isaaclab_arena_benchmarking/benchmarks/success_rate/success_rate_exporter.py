@@ -116,7 +116,7 @@ class SuccessRateKpiExporter(InfluxdbKpiExporter):
             Experiment's git stamp and name, the latter as the benchmark id.
         """
         output_dir = Path(output_dir)
-        result = ArenaExperimentResult.read(output_dir)
+        result = ArenaExperimentResult.from_experiment_output(output_dir)
         runs = result.runs
 
         # Pool each Run's episodes into one report job, so success counts use the report's definitions.

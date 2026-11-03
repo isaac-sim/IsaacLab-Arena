@@ -181,8 +181,9 @@ def run_experiment_runner(
 
 def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monkeypatch, tmp_path):
     from isaaclab_arena.evaluation import arena_experiment_result
-    from isaaclab_arena.evaluation.arena_run import ArenaRunResult, RunStatus
+    from isaaclab_arena.evaluation.arena_run import ArenaRunResult
     from isaaclab_arena.evaluation.experiment_runner import _write_arena_experiment_result
+    from isaaclab_arena.evaluation.run_status import RunStatus
 
     monkeypatch.setattr(
         arena_experiment_result,

@@ -7,7 +7,7 @@
 
 import pytest
 
-from isaaclab_arena.evaluation.single_line_string import is_single_line_nonempty_string
+from isaaclab_arena.utils.string_checks import is_single_line_nonempty_string
 
 
 @pytest.mark.parametrize("value", ["benchmark", "my benchmark", " ", "1e3"])
