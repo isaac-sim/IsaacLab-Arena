@@ -161,12 +161,9 @@ The adapter rejects a response with the wrong number of values, non-finite value
 that is not unit length, or a gripper value other than open or closed. It sends the error back to
 the model and asks for a corrected response, up to ``max_attempts`` times.
 
-**Parallel environments.** When several environments need a new response on the same step,
-their requests are sent concurrently, up to ``max_concurrent_requests`` at a time (8 by
-default). Each environment keeps its own conversation, so a correction for one environment is
-never sent to another. Responses are validated on the main thread, so adapters can read the live
-world state safely. Set ``max_concurrent_requests: 1`` to send requests one at a time, for
-example if the endpoint rate-limits concurrent requests.
+**Parallel environments.** When several environments need a response on the same step, their
+requests are sent concurrently, up to ``max_concurrent_requests`` at a time (8 by default).
+Responses are still validated on the main thread, and each environment keeps its own conversation.
 
 **Execution, by the motion generator (goal policy only).** ``PoseTargetMotionGenerator`` in
 `pose_target_motion_generator.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/pose_target_motion_generator.py>`__

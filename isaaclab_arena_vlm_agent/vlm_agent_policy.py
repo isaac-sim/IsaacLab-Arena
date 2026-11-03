@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from abc import abstractmethod
 from collections import deque
-from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
@@ -220,17 +220,14 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 base_url=config.base_url,
             )
         )
-        self._request_executor = None
-        if config.max_concurrent_requests > 1:
-            self._request_executor = ThreadPoolExecutor(
-                max_workers=config.max_concurrent_requests, thread_name_prefix="vlm_inference"
-            )
+        self._request_executor = ThreadPoolExecutor(
+            max_workers=config.max_concurrent_requests, thread_name_prefix="vlm_inference"
+        )
 
     def close(self) -> None:
         """Close the inference client and request threads owned by this policy."""
-        if self._request_executor is not None:
-            # Requests still in flight after a failed step are never read, so do not wait for them.
-            self._request_executor.shutdown(wait=False, cancel_futures=True)
+        # Requests still in flight after a failed step are never read, so do not wait for them.
+        self._request_executor.shutdown(wait=False, cancel_futures=True)
         self._inference_backend.client.close()
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
@@ -328,13 +325,13 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         attempts = 0
         while conversations and attempts < self.config.max_attempts:
             attempts += 1
-            payloads = self._request_payloads(conversations)
-            for env_id, payload in payloads.items():
+            model_outputs = self._get_model_outputs(conversations)
+            for env_id, model_output in model_outputs.items():
                 try:
-                    commands[env_id] = self._decode_payload(payload, arena_world, env_id)
+                    commands[env_id] = self._model_output_to_command(model_output, arena_world, env_id)
                 except InvalidAgentResponseError as exc:
                     rejections[env_id] = exc
-                    conversations[env_id].append({"role": "assistant", "content": json.dumps(payload)})
+                    conversations[env_id].append({"role": "assistant", "content": json.dumps(model_output)})
                     conversations[env_id].append({
                         "role": "user",
                         "content": f"Invalid actions: {exc}. Return a corrected prediction.",
@@ -345,44 +342,35 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             raise rejections[min(conversations)]
         return commands
 
-    def _request_payloads(self, conversations: dict[int, list[dict]]) -> dict[int, dict[str, Any]]:
+    def _get_model_outputs(self, conversations: dict[int, list[dict]]) -> dict[int, dict[str, Any]]:
         """Send one structured-output request per conversation, up to max_concurrent_requests at a time.
-
-        The first failed request fails the call without waiting for the others.
 
         Args:
             conversations: Chat messages keyed by environment index.
 
         Returns:
-            Parsed response payloads keyed by environment index.
+            Parsed model outputs keyed by environment index.
         """
-        requests = {}
+        requests = []
         for env_id, messages in conversations.items():
-            requests[env_id] = InferenceRequest(
-                messages=messages,
-                response_schema=self._response_schema,
-                schema_name="agent_actions",
-                retry_label=f"policy_action env {env_id}",
+            requests.append(
+                InferenceRequest(
+                    messages=messages,
+                    response_schema=self._response_schema,
+                    schema_name="agent_actions",
+                    retry_label=f"policy_action env {env_id}",
+                )
             )
-        if self._request_executor is None or len(requests) == 1:
-            return {env_id: self._inference_backend.infer(request) for env_id, request in requests.items()}
-        futures = {}
-        for env_id, request in requests.items():
-            futures[env_id] = self._request_executor.submit(self._inference_backend.infer, request)
-        done, not_done = wait(futures.values(), return_when=FIRST_EXCEPTION)
-        for future in done:
-            if future.exception() is not None:
-                # Skip requests that have not started; results of running ones are never read.
-                for pending in not_done:
-                    pending.cancel()
-                raise future.exception()
-        return {env_id: future.result() for env_id, future in futures.items()}
+        # map yields results in submission order and cancels requests not yet started if one fails.
+        return dict(zip(conversations, self._request_executor.map(self._inference_backend.infer, requests)))
 
-    def _decode_payload(self, payload: dict[str, Any], arena_world: ArenaWorld, env_id: int) -> np.ndarray:
-        """Validate a response payload and decode it into a command for env_id.
+    def _model_output_to_command(
+        self, model_output: dict[str, Any], arena_world: ArenaWorld, env_id: int
+    ) -> np.ndarray:
+        """Validate a model output and decode it into a command for env_id.
 
         Args:
-            payload: Parsed response from the endpoint.
+            model_output: Parsed JSON output returned by the endpoint.
             arena_world: Live world state passed to the action adapter's decoder.
             env_id: Environment index within the batched world state.
 
@@ -390,7 +378,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             Command with the adapter's required shape.
         """
         try:
-            response = self.action_adapter.response_model.model_validate(payload)
+            response = self.action_adapter.response_model.model_validate(model_output)
         except ValidationError as exc:
             raise InvalidAgentResponseError(str(exc)) from exc
         command = np.asarray(self.action_adapter.decode_command(response, arena_world, env_id), dtype=np.float32)

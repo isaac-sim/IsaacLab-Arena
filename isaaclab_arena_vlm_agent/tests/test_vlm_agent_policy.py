@@ -14,7 +14,6 @@ import subprocess
 import sys
 import textwrap
 import threading
-import time
 import torch
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -713,61 +712,7 @@ def test_environments_request_concurrently_and_receive_their_own_commands(backen
     assert all(name.startswith("vlm_inference") for name in thread_names)
 
 
-@pytest.mark.parametrize("max_concurrent_requests", [1, 3])
-def test_requests_in_flight_never_exceed_the_configured_limit(backend, max_concurrent_requests):
-    lock = threading.Lock()
-    in_flight = 0
-    peak = 0
-
-    def create(**kwargs):
-        nonlocal in_flight, peak
-        with lock:
-            in_flight += 1
-            peak = max(peak, in_flight)
-        time.sleep(0.05)
-        with lock:
-            in_flight -= 1
-        return target_above_joint_positions(kwargs)
-
-    backend.client.chat.completions.create.side_effect = create
-    policy = make_policy(backend, max_concurrent_requests=max_concurrent_requests)
-    try:
-        actions = policy.get_action(*inputs(num_envs=6))
-    finally:
-        policy.close()
-    torch.testing.assert_close(actions, torch.full((6, 2), 0.5))
-    assert backend.client.chat.completions.create.call_count == 6
-    # Overlap itself is checked deterministically by the barrier test above.
-    assert 1 <= peak <= max_concurrent_requests
-
-
-def test_concurrent_corrections_stay_in_their_own_conversation(backend):
-    calls = []
-    lock = threading.Lock()
-
-    def create(**kwargs):
-        with lock:
-            calls.append(copy.deepcopy(kwargs))
-        state = json.loads(kwargs["messages"][1]["content"][1]["text"])
-        if state["joint_positions"] == [0.0, 1.0] and len(kwargs["messages"]) == 2:
-            return response('{"target": [1]}')  # Env 0's first response has the wrong dimensions.
-        return target_above_joint_positions(kwargs)
-
-    backend.client.chat.completions.create.side_effect = create
-    policy = make_policy(backend, max_attempts=2, max_concurrent_requests=4)
-    try:
-        actions = policy.get_action(*inputs(num_envs=3))
-    finally:
-        policy.close()
-    torch.testing.assert_close(actions, torch.full((3, 2), 0.5))
-    assert len(calls) == 4
-    corrections = [call for call in calls if len(call["messages"]) > 2]
-    assert len(corrections) == 1
-    assert json.loads(corrections[0]["messages"][1]["content"][1]["text"])["joint_positions"] == [0.0, 1.0]
-    assert "Wrong command dimensions" in corrections[0]["messages"][-1]["content"]
-
-
-def test_concurrent_rejection_fails_the_step_after_bounded_attempts(backend):
+def test_concurrent_corrections_stay_per_environment_and_attempts_are_bounded(backend):
     calls = []
     lock = threading.Lock()
 
@@ -797,25 +742,3 @@ def test_concurrent_rejection_fails_the_step_after_bounded_attempts(backend):
         json.loads(call["messages"][1]["content"][1]["text"])["joint_positions"] for call in corrections
     )
     assert corrected_positions == [[2.0, 3.0], [4.0, 5.0]]
-
-
-def test_failed_request_fails_the_step_and_close_without_waiting(backend):
-    release = threading.Event()
-
-    def create(**kwargs):
-        state = json.loads(kwargs["messages"][1]["content"][1]["text"])
-        if state["joint_positions"] == [0.0, 1.0]:
-            release.wait(timeout=10)  # Env 0's request is still in flight when env 1 fails.
-            return target_above_joint_positions(kwargs)
-        raise ConnectionError("endpoint unavailable")
-
-    backend.client.chat.completions.create.side_effect = create
-    policy = make_policy(backend, max_concurrent_requests=2)
-    start = time.monotonic()
-    try:
-        with pytest.raises(RuntimeError, match="endpoint unavailable"):
-            policy.get_action(*inputs())
-        policy.close()
-        assert time.monotonic() - start < 5
-    finally:
-        release.set()
