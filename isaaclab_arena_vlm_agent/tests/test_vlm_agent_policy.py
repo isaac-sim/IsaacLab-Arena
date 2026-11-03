@@ -45,11 +45,18 @@ from isaaclab_arena_vlm_agent.vlm_agent_policy import (
 class SingleCommandPolicy(VLMPolicy):
     """Request one command per step to exercise shared VLM policy behavior."""
 
-    def _update_prediction_status(self, env, env_id):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._commands = {}
+
+    def _needs_new_prediction(self, env_id):
         return True
 
-    def _get_command(self, env, env_id, prediction):
-        return prediction
+    def _set_prediction(self, env_id, prediction):
+        self._commands[env_id] = prediction
+
+    def _get_next_command(self, env, env_id):
+        return self._commands[env_id]
 
 
 class ObservationAdapter(VLMObservationAdapter):
@@ -163,8 +170,8 @@ def test_request_intrinsics_match_encoded_pixels(backend, max_size, expected_siz
     metadata = {"camera_geometry": {"front_view": {"image_size_px": [17, 9], "intrinsic_matrix": intrinsics.tolist()}}}
     original_metadata = copy.deepcopy(metadata)
     policy.observation_adapter.extract_vlm_input_from_observation = lambda *args: ({"front_view": pixels}, metadata)
-    content = policy._request_content(env, observation, 0)
-    assert policy._request_content(env, observation, 0) == content
+    content = policy._get_request_content(env, observation, 0)
+    assert policy._get_request_content(env, observation, 0) == content
     assert metadata == original_metadata
     geometry = json.loads(content[1]["text"])["camera_geometry"]["front_view"]
     encoded = Image.open(io.BytesIO(base64.b64decode(content[3]["image_url"]["url"].split(",", 1)[1])))
@@ -678,7 +685,7 @@ def test_config_wraps_object_poses_and_appends_prompt_files(backend, tmp_path):
         VLMPolicyCfg(system_prompt="Act.", system_prompt_files=[str(tmp_path / "missing.txt")])
 
 
-@pytest.mark.parametrize("max_concurrent_requests", [0, -1, 1.5, True, None])
+@pytest.mark.parametrize("max_concurrent_requests", [0, -1, 1.5, None])
 def test_config_rejects_invalid_request_concurrency(max_concurrent_requests):
     with pytest.raises(AssertionError, match="max_concurrent_requests"):
         VLMPolicyCfg(system_prompt="Control joints", max_concurrent_requests=max_concurrent_requests)

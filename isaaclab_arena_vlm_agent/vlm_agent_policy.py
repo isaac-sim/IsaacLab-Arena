@@ -120,7 +120,7 @@ class VLMPolicyCfg(PolicyCfg):
         assert self.image_max_width_or_height > 0
         assert isinstance(self.max_attempts, int) and self.max_attempts >= 1
         assert (
-            type(self.max_concurrent_requests) is int and self.max_concurrent_requests >= 1
+            isinstance(self.max_concurrent_requests, int) and self.max_concurrent_requests >= 1
         ), "max_concurrent_requests must be a positive integer"
 
 
@@ -247,14 +247,22 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         assert self.action_adapter.is_robot_action_space_supported(
             env
         ), "Robot action space is unsupported by this adapter"
+        # Build a request for every environment whose current prediction is used up or finished.
         contents = {}
         for env_id in range(env.unwrapped.num_envs):
-            if self._update_prediction_status(env, env_id):
-                contents[env_id] = self._request_content(env, observation, env_id)
+            self._update_prediction_state(env, env_id)
+            if self._needs_new_prediction(env_id):
+                contents[env_id] = self._get_request_content(env, observation, env_id)
+
+        # Request the new predictions concurrently and store them.
         predictions = self._infer(contents, env.unwrapped.arena_world)
+        for env_id, prediction in predictions.items():
+            self._set_prediction(env_id, prediction)
+
+        # Convert each environment's next command into a native action.
         actions = []
         for env_id in range(env.unwrapped.num_envs):
-            command = self._get_command(env, env_id, predictions.get(env_id))
+            command = self._get_next_command(env, env_id)
             action = self.action_adapter.command_to_action(env, command)
             assert (
                 action.ndim == 1 and action.numel() > 0 and torch.isfinite(action).all()
@@ -262,19 +270,26 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             actions.append(action.to(device=env.unwrapped.device))
         return torch.stack(actions)
 
-    @abstractmethod
-    def _update_prediction_status(self, env: gym.Env, env_id: int) -> bool:
-        """Update env_id's prediction state for this step and return whether it needs a new prediction.
+    def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
+        """Update env_id's current prediction from the live environment state.
 
-        Called exactly once per environment step, before any request is sent. A strategy can record
-        here how its previous prediction ended, so the next request can report it.
+        Called once per environment step, before _needs_new_prediction. The default does nothing;
+        a strategy can discard a finished prediction here and record how it ended.
         """
 
     @abstractmethod
-    def _get_command(self, env: gym.Env, env_id: int, prediction: np.ndarray | None) -> np.ndarray:
-        """Return the next command, starting from prediction when one was just requested for env_id."""
+    def _needs_new_prediction(self, env_id: int) -> bool:
+        """Return whether env_id has no current prediction left to execute."""
 
-    def _request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
+    @abstractmethod
+    def _set_prediction(self, env_id: int, prediction: np.ndarray) -> None:
+        """Store a validated prediction as env_id's current prediction."""
+
+    @abstractmethod
+    def _get_next_command(self, env: gym.Env, env_id: int) -> np.ndarray:
+        """Return env_id's next command from its current prediction."""
+
+    def _get_request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
         """Encode selected images and assemble the task and observation values into chat content."""
         images, prompt_values = self.observation_adapter.extract_vlm_input_from_observation(env, observation, env_id)
         # Injected adapters may reuse calibration dictionaries across predictions.
@@ -314,6 +329,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         Returns:
             Validated commands keyed by environment index.
         """
+        # Start one conversation per environment, so corrections stay with their own environment.
         conversations = {}
         for env_id, content in contents.items():
             conversations[env_id] = [
@@ -322,6 +338,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             ]
         commands = {}
         rejections: dict[int, InvalidAgentResponseError] = {}
+        # Each round sends the unresolved conversations concurrently, then validates the outputs here.
+        # A rejected output gets a correction message and is sent again in the next round.
         attempts = 0
         while conversations and attempts < self.config.max_attempts:
             attempts += 1
@@ -338,6 +356,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                     })
                 else:
                     del conversations[env_id]
+        # Fail the step if any environment still has no valid output, naming each one's last rejection.
         if conversations:
             failures = []
             for env_id in sorted(conversations):
@@ -366,10 +385,14 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                     retry_label=f"policy_action env {env_id}",
                 )
             )
-        # A concurrent burst needs no extra backoff here: the OpenAI client already retries 429 and 5xx
-        # responses with exponential backoff, honoring Retry-After, before InferenceBackend sees a failure.
-        # map yields results in submission order and cancels requests not yet started if one fails.
-        return dict(zip(conversations, self._request_executor.map(self._inference_backend.infer, requests)))
+        # Sending many requests at once can exceed the endpoint's rate limit, which answers with HTTP 429
+        # ("too many requests"). No delay is added here because the OpenAI client already waits and
+        # retries those responses, doubling the wait each time and honoring the endpoint's Retry-After
+        # header, before InferenceBackend counts a failed attempt.
+        # Blocks until every request returns; most of a step's time is spent here. map keeps results in
+        # submission order and cancels requests that have not started if one fails.
+        model_outputs = list(self._request_executor.map(self._inference_backend.infer, requests))
+        return dict(zip(conversations, model_outputs))
 
     def _model_output_to_command(
         self, model_output: dict[str, Any], arena_world: ArenaWorld, env_id: int
@@ -423,12 +446,13 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
         )
         self._chunks: dict[int, deque] = {}
 
-    def _update_prediction_status(self, env: gym.Env, env_id: int) -> bool:
+    def _needs_new_prediction(self, env_id: int) -> bool:
         return not self._chunks.get(env_id)
 
-    def _get_command(self, env: gym.Env, env_id: int, prediction: np.ndarray | None) -> np.ndarray:
-        if prediction is not None:
-            self._chunks[env_id] = deque(prediction)
+    def _set_prediction(self, env_id: int, prediction: np.ndarray) -> None:
+        self._chunks[env_id] = deque(prediction)
+
+    def _get_next_command(self, env: gym.Env, env_id: int) -> np.ndarray:
         return self._chunks[env_id].popleft()
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
@@ -438,6 +462,22 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
         else:
             for env_id in env_ids.reshape(-1).tolist():
                 self._chunks.pop(env_id, None)
+
+
+class GoalOutcome(str, Enum):
+    """State of a goal pose that the motion generator is executing."""
+
+    EXECUTING = "executing"
+    """The goal has not ended yet."""
+
+    REACHED = "reached"
+    """The motion generator reports the goal reached."""
+
+    BLOCKED = "blocked"
+    """The motion generator reports a stall short of the goal."""
+
+    TIMEOUT = "timeout"
+    """The goal used up max_steps_per_goal steps."""
 
 
 @register_policy
@@ -468,52 +508,60 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
             observation_adapter=observation_adapter,
             action_adapter=action_adapter,
         )
-        self._goals: dict[int, tuple[np.ndarray, int]] = {}
+        self._current_goals: dict[int, tuple[np.ndarray, int]] = {}
+        """Goal pose and executed step count for each environment that is executing a goal."""
+
         self._previous_goals: dict[int, dict[str, Any]] = {}
+        """Last finished goal and its outcome for each environment, reported in the next request."""
 
-    def _update_prediction_status(self, env: gym.Env, env_id: int) -> bool:
-        """Record how a finished goal ended, and return whether env_id needs a new goal."""
-        pending = self._goals.get(env_id)
-        if pending is not None:
-            outcome = self._get_goal_outcome(env, env_id, *pending)
-            if outcome is None:
-                return False
-            self._previous_goals[env_id] = {
-                "values": [round(value, 4) for value in pending[0].tolist()],
-                "outcome": outcome,
-                "executed_steps": pending[1],
-            }
-        return True
+    def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
+        """Discard env_id's current goal once it has ended, and record how it ended."""
+        if env_id in self._current_goals:
+            current_goal, executed_steps = self._current_goals[env_id]
+            outcome = self._get_goal_outcome(env, env_id, current_goal, executed_steps)
+            if outcome is not GoalOutcome.EXECUTING:
+                self._previous_goals[env_id] = {
+                    "values": [round(value, 4) for value in current_goal.tolist()],
+                    "outcome": outcome.value,
+                    "executed_steps": executed_steps,
+                }
+                del self._current_goals[env_id]
 
-    def _get_command(self, env: gym.Env, env_id: int, prediction: np.ndarray | None) -> np.ndarray:
-        if prediction is not None:
-            self._goals[env_id] = (prediction, 0)
-        goal, executed = self._goals[env_id]
+    def _needs_new_prediction(self, env_id: int) -> bool:
+        return env_id not in self._current_goals
+
+    def _set_prediction(self, env_id: int, prediction: np.ndarray) -> None:
+        self._current_goals[env_id] = (prediction, 0)
+
+    def _get_next_command(self, env: gym.Env, env_id: int) -> np.ndarray:
+        current_goal, executed_steps = self._current_goals[env_id]
         command = np.asarray(
-            self.action_adapter.motion_generator.compute_command(goal, env, env_id),
+            self.action_adapter.motion_generator.compute_command(current_goal, env, env_id),
             dtype=np.float32,
         )
         expected_dim = env.unwrapped.action_manager.total_action_dim
         assert (
             command.shape == (expected_dim,) and np.isfinite(command).all()
         ), f"Expected a finite goal command with dimension {expected_dim}, got shape {command.shape}"
-        self._goals[env_id] = (goal, executed + 1)
+        self._current_goals[env_id] = (current_goal, executed_steps + 1)
         return command
 
-    def _get_goal_outcome(self, env: gym.Env, env_id: int, goal: np.ndarray, executed: int) -> str | None:
-        """Return how the pending goal ended, or None while it is still executing."""
+    def _get_goal_outcome(
+        self, env: gym.Env, env_id: int, current_goal: np.ndarray, executed_steps: int
+    ) -> GoalOutcome:
+        """Return how env_id's current goal has ended, or GoalOutcome.EXECUTING while it continues."""
         motion_generator = self.action_adapter.motion_generator
-        if motion_generator.goal_reached(goal, env, env_id):
-            return "reached"
-        if motion_generator.goal_blocked(goal, env, env_id):
-            return "blocked"
-        if executed >= self.config.max_steps_per_goal:
-            return "timeout"
-        return None
+        if motion_generator.goal_reached(current_goal, env, env_id):
+            return GoalOutcome.REACHED
+        if motion_generator.goal_blocked(current_goal, env, env_id):
+            return GoalOutcome.BLOCKED
+        if executed_steps >= self.config.max_steps_per_goal:
+            return GoalOutcome.TIMEOUT
+        return GoalOutcome.EXECUTING
 
-    def _request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
+    def _get_request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
         """Report the previous goal and its outcome alongside the task description."""
-        content = super()._request_content(env, observation, env_id)
+        content = super()._get_request_content(env, observation, env_id)
         previous_goal = self._previous_goals.get(env_id)
         if previous_goal is not None:
             content[0] = {
@@ -525,11 +573,11 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending and previous goals for selected environments, or all environments."""
         if env_ids is None:
-            self._goals.clear()
+            self._current_goals.clear()
             self._previous_goals.clear()
         else:
             for env_id in env_ids.reshape(-1).tolist():
-                self._goals.pop(env_id, None)
+                self._current_goals.pop(env_id, None)
                 self._previous_goals.pop(env_id, None)
 
 

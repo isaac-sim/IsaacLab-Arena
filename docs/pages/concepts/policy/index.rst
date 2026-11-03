@@ -17,7 +17,7 @@ runners depend on.
 Built-in policies
 -----------------
 
-Arena ships with four policies:
+Arena ships with these policies:
 
 **ZeroActionPolicy** (``"zero_action"``)
    Returns a zero-filled action tensor. Useful for validating an environment
@@ -29,6 +29,10 @@ Arena ships with four policies:
 **RslRlActionPolicy** (``"rsl_rl"``)
    Runs inference with a trained RSL-RL checkpoint. Loads the checkpoint and
    its accompanying ``params/agent.yaml`` automatically.
+
+**VLMGoalPolicy** (``"vlm_goal"``) and **VLMChunkPolicy** (``"vlm_chunk"``)
+   Use a hosted vision-language model as the policy, without robot training.
+   See :ref:`vlm-agent-policies`.
 
 
 Writing a custom policy
@@ -129,7 +133,7 @@ Set ``policy.system_prompt`` to replace it.
 
 **Request, from the observation adapter.** The adapters in
 `observation_adapter.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/observation_adapter.py>`__ pick the
-images and state to send. ``VLMPolicy._request_content`` in
+images and state to send. ``VLMPolicy._get_request_content`` in
 `vlm_agent_policy.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/vlm_agent_policy.py>`__ encodes the images
 and builds the user message. It contains:
 
@@ -162,7 +166,7 @@ that is not unit length, or a gripper value other than open or closed. It sends 
 the model and asks for a corrected response, up to ``max_attempts`` times.
 
 **Parallel environments.** When several environments need a response on the same step, their
-requests are sent concurrently, up to ``max_concurrent_requests`` at a time (8 by default).
+requests are sent concurrently, up to ``max_concurrent_requests`` at a time.
 Responses are still validated on the main thread, and each environment keeps its own conversation.
 
 **Execution, by the motion generator (goal policy only).** ``PoseTargetMotionGenerator`` in
@@ -239,14 +243,18 @@ preset. Then select it in the YAML:
 
 **Add an execution strategy.** Subclass ``VLMPolicy`` with its own typed configuration and
 register it with ``@register_policy``, as in `Writing a custom policy`_. Then
-implement two methods:
+implement these methods:
 
-* ``_update_prediction_status(env, env_id)``: update the environment's prediction state and
-  return whether it needs a new prediction. It runs once per environment step, before any request
-  is sent, so it can record how the previous prediction ended for the next request to report.
-* ``_get_command(env, env_id, prediction)``: return the next command. ``prediction`` is the
-  validated response when one was just requested for this environment, and ``None`` otherwise.
-* ``reset(env_ids)``: discard pending predictions.
+* ``_needs_new_prediction(env_id)``: return whether the environment has no current prediction
+  left to execute.
+* ``_set_prediction(env_id, prediction)``: store a validated prediction as the environment's
+  current prediction.
+* ``_get_next_command(env, env_id)``: return the next command from the current prediction.
+* ``reset(env_ids)``: discard current predictions.
+
+Optionally override ``_update_prediction_state(env, env_id)``. It runs once per environment step,
+before ``_needs_new_prediction``, and can discard a finished prediction and record how it ended.
+``VLMGoalPolicy`` uses it to report the previous goal's outcome in the next request.
 
 ``VLMPolicy`` already handles request assembly, image encoding, concurrent requests, response
 validation, and the correction loop.
