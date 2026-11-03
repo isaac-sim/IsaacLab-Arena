@@ -13,6 +13,8 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
@@ -23,6 +25,20 @@ def get_initial_pose_or_assert_fail(obj: PlaceableAsset) -> Pose:
         initial_pose, Pose
     ), f"Object '{obj.name}' must have a fixed Pose before placement, got {type(initial_pose).__name__}."
     return initial_pose
+
+
+def get_placement_rotation_xyzw(obj: PlaceableAsset, orientations: Mapping[PlaceableAsset, float]) -> torch.Tensor:
+    """Return obj's xyzw rotation into world during placement, shape (4,).
+
+    Anchors keep their fixed initial rotation; other objects rotate by their yaw in orientations, defaulting to zero.
+    """
+    from isaaclab.utils.math import quat_from_euler_xyz
+
+    if obj.is_anchor:
+        return torch.tensor(get_initial_pose_or_assert_fail(obj).rotation_xyzw, dtype=torch.float32)
+    yaw = torch.tensor(orientations.get(obj, 0.0), dtype=torch.float32)
+    zero = torch.zeros_like(yaw)
+    return quat_from_euler_xyz(zero, zero, yaw)
 
 
 def get_world_bbox_at_initial_pose(

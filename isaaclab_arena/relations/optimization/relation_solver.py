@@ -135,6 +135,8 @@ class RelationSolver:
                         child_pos=child_pos,
                         child_bbox=child_bbox,
                         parent_world_bbox=parent_world_bbox,
+                        t_W_P=state.get_position(parent),
+                        q_W_P=state.get_rotation_xyzw(parent),
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
@@ -271,7 +273,7 @@ class RelationSolver:
                 yawed footprint and serve as its collision bounds unchanged; otherwise they are rotated
                 by orientations. Direct callers should leave this False unless they expanded the supplied bboxes.
             orientations: Optional per-env yaw angles (radians about Z) per object.
-                Used to orient collision boxes and MESH sphere centers.
+                Used to orient collision boxes, MESH sphere centers, and the parent rotations passed to relation losses.
             collision_objects: Optional fixed background obstacles included in the
                 no-overlap collision term only. They are not optimized and carry no
                 relation constraints.
@@ -297,6 +299,7 @@ class RelationSolver:
             env_bboxes=env_bboxes,
             collision_objects=collision_objects,
             collision_bboxes=collision_bboxes_with_defaults,
+            orientations=orientations,
         )
 
         if self.params.verbose:

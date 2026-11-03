@@ -16,6 +16,7 @@ from isaaclab.managers import EventTermCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.gripper import Gripper
+from isaaclab_arena.relations.arm_reach import ArmReach, ReachSphere
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -53,6 +54,8 @@ class EmbodimentBase(PlaceableAsset):
 
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
+    arm_reaches: tuple[ArmReach, ...] = ()
+    """Reach of each of the robot's arms, centred on a USD joint; empty when undeclared."""
     gripper: Gripper | None
     """Gripper attached to the robot body, when the embodiment defines one."""
     spawn_cfg_addon: dict[str, dict[str, Any]] = {}
@@ -119,6 +122,22 @@ class EmbodimentBase(PlaceableAsset):
         return compute_local_bounding_box_from_usd_at_joint_pos(
             source.usd_path, source.joint_pos, source.scale, prim_path=prim_path
         )
+
+    def get_reach_spheres(self) -> list[ReachSphere]:
+        """Return each arm's reach sphere in the robot root frame, centred on its joint at the configured joint positions."""
+        # Import locally because USD/pxr is available only after simulation initialization.
+        from isaaclab_arena.utils.usd.helpers import compute_joint_origin_from_usd_at_joint_pos
+
+        if not self.arm_reaches:
+            return []
+        source = self.get_placement_geometry_source()
+        reach_spheres = []
+        for arm_reach in self.arm_reaches:
+            center_xyz_R = compute_joint_origin_from_usd_at_joint_pos(
+                source.usd_path, arm_reach.center_joint_name, source.joint_pos, source.scale
+            )
+            reach_spheres.append(ReachSphere(center_xyz_R=center_xyz_R, reach_m=arm_reach.reach_m, name=arm_reach.name))
+        return reach_spheres
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the robot mesh from its USD default prim."""

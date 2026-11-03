@@ -45,7 +45,7 @@ from isaaclab_arena.embodiments.droid.observations import (
     newton_gripper_pos,
 )
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.embodiments.franka.franka import franka_stack_events
+from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ARM_REACH, franka_stack_events
 from isaaclab_arena.embodiments.gripper import RobotiqGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.relations.collision_mode import CollisionMode
@@ -114,6 +114,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     registry_name = "droid"
     default_arm_mode = ArmMode.SINGLE_ARM
+    arm_reaches = (FRANKA_PANDA_ARM_REACH,)
 
     def __init__(
         self,
