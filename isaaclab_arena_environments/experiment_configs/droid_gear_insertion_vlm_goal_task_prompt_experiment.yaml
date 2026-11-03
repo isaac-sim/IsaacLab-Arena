@@ -5,9 +5,6 @@
 
 # VLMGoalPolicy on gear insertion from camera images and robot state, with the gear geometry and an insertion
 # strategy added to the prompt.
-# Run inside the Arena runtime with NV_API_KEY set, from the repository root so any prompt files are found:
-# python isaaclab_arena/evaluation/experiment_runner.py \
-#   --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml
 runs:
   droid_gear_insertion_vlm_goal_task_prompt:
     environment:

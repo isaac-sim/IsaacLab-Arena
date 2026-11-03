@@ -5,9 +5,6 @@
 
 # VLMGoalPolicy on gear insertion from camera images and robot state, plus the exact gear and target poses as
 # privileged state.
-# Run inside the Arena runtime with NV_API_KEY set, from the repository root so any prompt files are found:
-# python isaaclab_arena/evaluation/experiment_runner.py \
-#   --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml
 runs:
   droid_gear_insertion_vlm_goal_object_poses:
     environment:

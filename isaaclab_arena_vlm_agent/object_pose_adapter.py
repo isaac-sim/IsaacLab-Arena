@@ -9,11 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from isaaclab_arena_vlm_agent.observation_adapter import (
-    VLMObservationAdapter,
-    poses_in_robot_roots,
-    read_robot_root_poses_w,
-)
+from isaaclab_arena_vlm_agent.observation_adapter import VLMObservationAdapter
+from isaaclab_arena_vlm_agent.pose_utils import poses_in_robot_roots, read_robot_root_poses_w
 
 
 class ObjectPoseObservationAdapter(VLMObservationAdapter):
