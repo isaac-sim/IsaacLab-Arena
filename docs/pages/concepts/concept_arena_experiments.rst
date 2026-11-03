@@ -19,6 +19,10 @@ for managed execution.
 
    Different Runs in the same Experiment can use different forms.
 
+   Registered environments need configuration classes to appear as typed selectors.
+   Unconfigured registrations do not block loading other typed environments.
+   Explicitly selecting an unconfigured environment in a typed experiment still raises an error.
+
    The Experiment Definition describes the evaluation. The Environment Definition describes the
    scene, embodiment, and task. Each Run builds a fresh runtime environment from that definition.
 
