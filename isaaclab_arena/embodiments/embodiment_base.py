@@ -304,17 +304,20 @@ class EmbodimentBase(PlaceableAsset):
         return scene_config
 
     def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
-        """Return this embodiment's recorder terms, or None if it defines none.
+        """Return this embodiment's own recorder terms, or None if it defines none.
+
+        The environment builder records the scene-wide trajectory terms once, so an embodiment
+        returns only the terms about itself.
 
         Args:
-            record_trajectories: Whether to also include the per-step trajectory recorder terms,
-                built with this embodiment's own frame transformers and scene key.
+            record_trajectories: Whether trajectories are recorded, in which case the embodiment
+                returns its end-effector pose terms, built with its own frame transformers and scene key.
         """
         if not record_trajectories:
             return None
-        from isaaclab_arena.terms.recorders import make_trajectory_recorder_terms_cfg
+        from isaaclab_arena.terms.recorders import make_end_effector_pose_recorder_terms_cfg
 
-        return make_trajectory_recorder_terms_cfg(
+        return make_end_effector_pose_recorder_terms_cfg(
             frame_transformer_names=self.get_ee_frame_transformer_names(),
             asset_name=self.get_scene_key(),
             term_name=self.get_instance_name,

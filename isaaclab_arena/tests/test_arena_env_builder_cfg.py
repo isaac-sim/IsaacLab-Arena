@@ -127,7 +127,9 @@ def _test_builder_applies_camera_resolution_mode(simulation_app):
             self.calls.append(("fit", max_height, max_width))
 
     def arena_environment(enable_cameras=True):
-        return SimpleNamespace(embodiment=SimpleNamespace(enable_cameras=enable_cameras, camera_config=FakeCameraRig()))
+        return SimpleNamespace(
+            embodiments=[SimpleNamespace(enable_cameras=enable_cameras, camera_config=FakeCameraRig())]
+        )
 
     class ImagePolicyCfg(PolicyCfg):
         pass
@@ -150,7 +152,7 @@ def _test_builder_applies_camera_resolution_mode(simulation_app):
     ArenaEnvBuilder(
         embodiment_default_environment, ArenaEnvBuilderCfg(camera_resolution_mode="embodiment_default")
     )._apply_camera_resolution_mode()
-    assert embodiment_default_environment.embodiment.camera_config.calls == []
+    assert embodiment_default_environment.embodiments[0].camera_config.calls == []
 
     with mock.patch.object(arena_env_builder, "PolicyRegistry", FakePolicyRegistry):
         policy_default_environment = arena_environment()
@@ -158,9 +160,20 @@ def _test_builder_applies_camera_resolution_mode(simulation_app):
             policy_default_environment, policy_default_cfg, policy_cfg=ImagePolicyCfg()
         )
         # The rig is fitted when the environment config is built, not when the builder is constructed.
-        assert policy_default_environment.embodiment.camera_config.calls == []
+        assert policy_default_environment.embodiments[0].camera_config.calls == []
         policy_default_builder._apply_camera_resolution_mode()
-        assert policy_default_environment.embodiment.camera_config.calls == [("fit", 224, 224)]
+        assert policy_default_environment.embodiments[0].camera_config.calls == [("fit", 224, 224)]
+
+        multiple_camera_environment = arena_environment()
+        multiple_camera_environment.embodiments.extend(arena_environment().embodiments)
+        disabled_robot = arena_environment(enable_cameras=False).embodiments[0]
+        multiple_camera_environment.embodiments.append(disabled_robot)
+        ArenaEnvBuilder(
+            multiple_camera_environment, policy_default_cfg, policy_cfg=ImagePolicyCfg()
+        )._apply_camera_resolution_mode()
+        for robot in multiple_camera_environment.embodiments[:2]:
+            assert robot.camera_config.calls == [("fit", 224, 224)]
+        assert disabled_robot.camera_config.calls == []
 
         with pytest.raises(AssertionError, match="requires embodiment cameras to be enabled"):
             ArenaEnvBuilder(

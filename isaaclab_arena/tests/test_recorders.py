@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.terms.recorders import make_trajectory_recorder_terms_cfg
+from isaaclab_arena.terms.recorders import make_end_effector_pose_recorder_terms_cfg
 
 TRAJECTORY_TERM_NAMES = (
     "record_initial_state",
@@ -15,15 +15,17 @@ TRAJECTORY_TERM_NAMES = (
 )
 
 
-def test_trajectory_terms_cfg_has_all_terms():
-    terms_cfg = make_trajectory_recorder_terms_cfg()
+def test_end_effector_terms_leave_scene_wide_terms_to_the_builder():
+    terms_cfg = make_end_effector_pose_recorder_terms_cfg()
 
     for term_name in TRAJECTORY_TERM_NAMES:
-        assert getattr(terms_cfg, term_name, None) is not None, f"missing trajectory term {term_name}"
+        assert not hasattr(terms_cfg, term_name), f"scene-wide trajectory term {term_name} is recorded per robot"
 
 
 def test_single_frame_transformer_adds_one_end_effector_poses_term():
-    terms_cfg = make_trajectory_recorder_terms_cfg(frame_transformer_names=("left_ee_frame",), asset_name="left_arm")
+    terms_cfg = make_end_effector_pose_recorder_terms_cfg(
+        frame_transformer_names=("left_ee_frame",), asset_name="left_arm"
+    )
 
     assert terms_cfg.record_end_effector_poses_0.frame_transformer_name == "left_ee_frame"
     assert terms_cfg.record_end_effector_poses_0.asset_name == "left_arm"
@@ -31,7 +33,7 @@ def test_single_frame_transformer_adds_one_end_effector_poses_term():
 
 
 def test_multiple_frame_transformers_add_one_end_effector_poses_term_each():
-    terms_cfg = make_trajectory_recorder_terms_cfg(
+    terms_cfg = make_end_effector_pose_recorder_terms_cfg(
         frame_transformer_names=("left_ee_frame", "right_ee_frame"), asset_name="robot"
     )
 
