@@ -7,7 +7,7 @@
 
 The records file is ``kpis_success_rates.json``. It holds one ``per_experiment`` record with the episode-weighted
 success rate over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA, branch
-and benchmark id.
+and benchmark id (the Experiment name).
 """
 
 from __future__ import annotations
@@ -16,12 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import ClassVar
 
-from isaaclab_arena.evaluation.arena_experiment_result import (
-    get_benchmark_id,
-    get_git_stamp,
-    get_latest_run_end_timestamp_ns,
-    read_experiment_result,
-)
+from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report_data import EpisodeSummary, JobSummary, build_experiment_summary
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
@@ -116,14 +111,11 @@ class SuccessRateKpiExporter(InfluxdbKpiExporter):
 
         Returns:
             One per-Experiment record over every Run, timestamped with the latest Run end and tagged with the
-            Experiment's git stamp and benchmark id.
+            Experiment's git stamp and name, the latter as the benchmark id.
         """
         output_dir = Path(output_dir)
-        result = read_experiment_result(output_dir)
-        runs = result["runs"]
-        git_stamp = get_git_stamp(result)
-        benchmark_id = get_benchmark_id(result)
-        timestamp_ns = get_latest_run_end_timestamp_ns(result)
+        result = ArenaExperimentResult.read(output_dir)
+        runs = result.runs
 
         # Pool each Run's episodes into one report job, so success counts use the report's definitions.
         episodes_by_run_name = _episodes_by_run_name(output_dir, set(runs))
@@ -139,7 +131,11 @@ class SuccessRateKpiExporter(InfluxdbKpiExporter):
         ]
         records: list[InfluxdbKpiRecord] = [
             build_per_experiment_record(
-                len(runs), jobs, timestamp_ns=timestamp_ns, git_stamp=git_stamp, benchmark_id=benchmark_id
+                len(runs),
+                jobs,
+                timestamp_ns=result.latest_run_end_timestamp_ns,
+                git_stamp=result.git_stamp,
+                benchmark_id=result.experiment_name,
             )
         ]
         return records

@@ -21,7 +21,7 @@ END_TIMESTAMP_NS = 1792800000000000000
 
 GIT_STAMP = {"git_sha": "1a2b3c4", "git_branch": "main"}
 
-BENCHMARK_ID = "pnp_benchmark"
+EXPERIMENT_NAME = "pnp_benchmark"
 
 
 def _timing(name: str, count: int, total_ms: float, run_name: str | None = None) -> dict:
@@ -34,7 +34,7 @@ def _timing(name: str, count: int, total_ms: float, run_name: str | None = None)
 def _write_result(output_dir: Path) -> None:
     result = {
         "git_stamp": GIT_STAMP,
-        "benchmark_id": BENCHMARK_ID,
+        "experiment_name": EXPERIMENT_NAME,
         "runs": {
             "run_a": {"status": "completed", "end_timestamp_ns": END_TIMESTAMP_NS - 1},
             "run_b": {"status": "completed", "end_timestamp_ns": END_TIMESTAMP_NS},
@@ -61,7 +61,7 @@ def test_timing_exporter_writes_totals_only(tmp_path: Path):
         "timestamp_ns": END_TIMESTAMP_NS,
         "git_sha": "1a2b3c4",
         "git_branch": "main",
-        "benchmark_id": BENCHMARK_ID,
+        "benchmark_id": EXPERIMENT_NAME,
         "name": "rollout/step",
         "mean_ms": 10.0,
         "total_ms": 40.0,

@@ -98,8 +98,8 @@ def _write_arena_experiment_result(
         }
         for run_name, run_cfg in experiment_cfg.runs.items()
     }
-    experiment_result = ArenaExperimentResult(
-        experiment_output_directory, run_metadata_by_name, benchmark_id=experiment_cfg.name
+    experiment_result = ArenaExperimentResult.from_run_outputs(
+        experiment_output_directory, run_metadata_by_name, experiment_name=experiment_cfg.name
     )
     experiment_result.write()
     return experiment_result
@@ -208,7 +208,7 @@ def main():
         metrics_logger.print_metrics()
 
         experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
-        variation_table = build_categorical_variation_table(experiment_result.to_dict())
+        variation_table = build_categorical_variation_table(experiment_result)
         if variation_table.rows:
             print(variation_table)
 

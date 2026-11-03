@@ -7,7 +7,7 @@
 
 The records file is ``kpis_timing.json``. It holds one ``timing`` record per timer that ran, with the statistics
 totalled over every Run, timestamped with the latest Run end and tagged with the Arena git commit SHA, branch and
-benchmark id.
+benchmark id (the Experiment name).
 """
 
 from __future__ import annotations
@@ -17,13 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
-from isaaclab_arena.evaluation.arena_experiment_result import (
-    ARENA_AGGREGATED_TIMINGS_FILENAME,
-    get_benchmark_id,
-    get_git_stamp,
-    get_latest_run_end_timestamp_ns,
-    read_experiment_result,
-)
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_AGGREGATED_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
 
@@ -97,7 +91,7 @@ class TimingKpiExporter(InfluxdbKpiExporter):
     def build_records_from_output_dir(self, output_dir: Path) -> list[InfluxdbKpiRecord]:
         """Build the timing records of a finished Experiment output directory.
 
-        Reads ``arena_experiment_result.json`` for the timestamp, git stamp and benchmark id and
+        Reads ``arena_experiment_result.json`` for the timestamp, git stamp and Experiment name and
         ``arena_experiment_timings.json`` for the timers.
 
         Args:
@@ -110,14 +104,16 @@ class TimingKpiExporter(InfluxdbKpiExporter):
         timings_path = output_dir / ARENA_AGGREGATED_TIMINGS_FILENAME
         if not timings_path.is_file():
             return []
-        result = read_experiment_result(output_dir)
-        timestamp_ns = get_latest_run_end_timestamp_ns(result)
-        git_stamp = get_git_stamp(result)
-        benchmark_id = get_benchmark_id(result)
+        result = ArenaExperimentResult.read(output_dir)
         timings = json.loads(timings_path.read_text(encoding="utf-8"))
         # Timers that never ran have no statistics.
         records: list[InfluxdbKpiRecord] = [
-            build_timing_record(timing, timestamp_ns=timestamp_ns, git_stamp=git_stamp, benchmark_id=benchmark_id)
+            build_timing_record(
+                timing,
+                timestamp_ns=result.latest_run_end_timestamp_ns,
+                git_stamp=result.git_stamp,
+                benchmark_id=result.experiment_name,
+            )
             for timing in timings["totals"]
             if timing["count"] > 0
         ]

@@ -30,9 +30,9 @@ END_TIMESTAMP_NS = 1792800000000000000
 
 GIT_STAMP = {"git_sha": "1a2b3c4", "git_branch": "main"}
 
-BENCHMARK_ID = "pnp_benchmark"
+EXPERIMENT_NAME = "pnp_benchmark"
 
-SHARED_VALUES = {"timestamp_ns": END_TIMESTAMP_NS, **GIT_STAMP, "benchmark_id": BENCHMARK_ID}
+SHARED_VALUES = {"timestamp_ns": END_TIMESTAMP_NS, **GIT_STAMP, "benchmark_id": EXPERIMENT_NAME}
 """Values every record built from a default ``_write_experiment`` output carries."""
 
 
@@ -74,7 +74,7 @@ def _write_experiment(experiment_output_directory: Path, runs: dict[str, dict]) 
         }
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
     (experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(
-        json.dumps({"git_stamp": GIT_STAMP, "benchmark_id": BENCHMARK_ID, "runs": result_runs}), encoding="utf-8"
+        json.dumps({"git_stamp": GIT_STAMP, "experiment_name": EXPERIMENT_NAME, "runs": result_runs}), encoding="utf-8"
     )
     return experiment_output_directory
 

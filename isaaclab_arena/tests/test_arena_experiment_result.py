@@ -18,18 +18,13 @@ from isaaclab_arena.environment_spec import arena_env_graph_yaml_loader
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
     ArenaExperimentResult,
-    all_runs_completed,
     build_arena_run_result_metadata,
-    get_benchmark_id,
-    get_git_stamp,
-    get_latest_run_end_timestamp_ns,
-    read_experiment_result,
 )
 from isaaclab_arena.utils.git_stamp import GitStamp
 
 START_TIMESTAMP_NS = 1792799000000000000
 END_TIMESTAMP_NS = 1792800000000000000
-BENCHMARK_ID = "pnp_benchmark"
+EXPERIMENT_NAME = "pnp_benchmark"
 
 
 def _metadata(
@@ -75,18 +70,18 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
 
     monkeypatch.delenv("ARENA_GIT_SHA", raising=False)
     monkeypatch.delenv("ARENA_GIT_BRANCH", raising=False)
-    result = ArenaExperimentResult(
+    result = ArenaExperimentResult.from_run_outputs(
         tmp_path,
         {
             "completed": _metadata("completed_task"),
             "failed": _metadata("failed_task", status="failed"),
         },
-        benchmark_id=BENCHMARK_ID,
+        experiment_name=EXPERIMENT_NAME,
     )
 
     assert result.to_dict() == {
         "git_stamp": {"git_sha": "unknown", "git_branch": "unknown"},
-        "benchmark_id": BENCHMARK_ID,
+        "experiment_name": EXPERIMENT_NAME,
         "runs": {
             "completed": {
                 "environment": {
@@ -126,7 +121,9 @@ def test_result_records_git_stamp_from_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("ARENA_GIT_SHA", "abc123")
     monkeypatch.setenv("ARENA_GIT_BRANCH", "main")
 
-    result = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="failed")}, benchmark_id=BENCHMARK_ID)
+    result = ArenaExperimentResult.from_run_outputs(
+        tmp_path, {"run": _metadata("task", status="failed")}, experiment_name=EXPERIMENT_NAME
+    )
 
     assert result.to_dict()["git_stamp"] == {"git_sha": "abc123", "git_branch": "main"}
 
@@ -139,7 +136,9 @@ def test_git_stamp_is_unknown_when_unset_or_empty(tmp_path, monkeypatch, value):
         else:
             monkeypatch.setenv(variable, value)
 
-    result = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="failed")}, benchmark_id=BENCHMARK_ID)
+    result = ArenaExperimentResult.from_run_outputs(
+        tmp_path, {"run": _metadata("task", status="failed")}, experiment_name=EXPERIMENT_NAME
+    )
 
     assert result.to_dict()["git_stamp"] == {"git_sha": "unknown", "git_branch": "unknown"}
 
@@ -147,8 +146,8 @@ def test_git_stamp_is_unknown_when_unset_or_empty(tmp_path, monkeypatch, value):
 def test_result_records_given_git_stamp(tmp_path):
     git_stamp = GitStamp(git_sha="abc123-dirty", git_branch="feature")
 
-    result = ArenaExperimentResult(
-        tmp_path, {"run": _metadata("task", status="failed")}, git_stamp, benchmark_id=BENCHMARK_ID
+    result = ArenaExperimentResult.from_run_outputs(
+        tmp_path, {"run": _metadata("task", status="failed")}, git_stamp, experiment_name=EXPERIMENT_NAME
     )
 
     assert result.to_dict()["git_stamp"] == {"git_sha": "abc123-dirty", "git_branch": "feature"}
@@ -172,7 +171,7 @@ def test_run_metadata_requires_integer_start_timestamp(tmp_path):
     metadata["start_timestamp_ns"] = "1792799000000000000"
 
     with pytest.raises(AssertionError, match="start_timestamp_ns for Run 'run' must be an int"):
-        ArenaExperimentResult(tmp_path, {"run": metadata}, benchmark_id=BENCHMARK_ID)
+        ArenaExperimentResult.from_run_outputs(tmp_path, {"run": metadata}, experiment_name=EXPERIMENT_NAME)
 
 
 def test_run_metadata_requires_integer_end_timestamp(tmp_path):
@@ -180,19 +179,19 @@ def test_run_metadata_requires_integer_end_timestamp(tmp_path):
     metadata["end_timestamp_ns"] = "1792800000000000000"
 
     with pytest.raises(AssertionError, match="end_timestamp_ns for Run 'run' must be an int"):
-        ArenaExperimentResult(tmp_path, {"run": metadata}, benchmark_id=BENCHMARK_ID)
+        ArenaExperimentResult.from_run_outputs(tmp_path, {"run": metadata}, experiment_name=EXPERIMENT_NAME)
 
 
 def test_failed_runs_may_have_empty_or_missing_output_directories(tmp_path):
     (tmp_path / "empty").mkdir()
 
-    result = ArenaExperimentResult(
+    result = ArenaExperimentResult.from_run_outputs(
         tmp_path,
         {
             "empty": _metadata("task", status="failed"),
             "missing": _metadata("task", status="failed"),
         },
-        benchmark_id=BENCHMARK_ID,
+        experiment_name=EXPERIMENT_NAME,
     )
 
     assert result.to_dict()["runs"]["empty"]["rebuilds"] == []
@@ -201,7 +200,9 @@ def test_failed_runs_may_have_empty_or_missing_output_directories(tmp_path):
 
 def test_completed_run_requires_an_output_directory(tmp_path):
     with pytest.raises(AssertionError, match="completed Run 'missing' is missing its output directory"):
-        ArenaExperimentResult(tmp_path, {"missing": _metadata("task")}, benchmark_id=BENCHMARK_ID)
+        ArenaExperimentResult.from_run_outputs(
+            tmp_path, {"missing": _metadata("task")}, experiment_name=EXPERIMENT_NAME
+        )
 
 
 def test_malformed_and_nonobject_jsonl_records_fail_collection(tmp_path):
@@ -213,7 +214,7 @@ def test_malformed_and_nonobject_jsonl_records_fail_collection(tmp_path):
     )
 
     with pytest.raises(AssertionError) as error:
-        ArenaExperimentResult(tmp_path, {"run": _metadata("task")}, benchmark_id=BENCHMARK_ID)
+        ArenaExperimentResult.from_run_outputs(tmp_path, {"run": _metadata("task")}, experiment_name=EXPERIMENT_NAME)
 
     assert "run/episode_results.jsonl: line 2: invalid JSON" in str(error.value)
     assert "run/episode_results.jsonl: line 3: expected a JSON object" in str(error.value)
@@ -222,7 +223,9 @@ def test_malformed_and_nonobject_jsonl_records_fail_collection(tmp_path):
 @pytest.mark.parametrize("run_name", ["", " ", "../outside", "nested/run", "nested\\run", ".", "C:run"])
 def test_rejects_unsafe_run_paths(tmp_path, run_name):
     with pytest.raises(AssertionError):
-        ArenaExperimentResult(tmp_path, {run_name: _metadata("task", status="failed")}, benchmark_id=BENCHMARK_ID)
+        ArenaExperimentResult.from_run_outputs(
+            tmp_path, {run_name: _metadata("task", status="failed")}, experiment_name=EXPERIMENT_NAME
+        )
 
 
 @dataclass
@@ -296,7 +299,7 @@ def test_builds_registered_environment_and_policy_metadata(monkeypatch):
 def _write_result(output_dir: Path, runs: dict, **extra) -> None:
     result = {
         "git_stamp": {"git_sha": "abc1234", "git_branch": "main"},
-        "benchmark_id": BENCHMARK_ID,
+        "experiment_name": EXPERIMENT_NAME,
         "runs": runs,
         **extra,
     }
@@ -307,67 +310,80 @@ def _run(status: str = "completed", end_timestamp_ns: int = END_TIMESTAMP_NS) ->
     return {**_metadata("env", status=status), "end_timestamp_ns": end_timestamp_ns, "rebuilds": []}
 
 
-def test_read_experiment_result_rejects_missing_end_timestamp(tmp_path):
+def test_read_rejects_missing_end_timestamp(tmp_path):
     run = _run()
     del run["end_timestamp_ns"]
     _write_result(tmp_path, {"run_a": run})
 
     with pytest.raises(AssertionError, match="no integer end_timestamp_ns"):
-        read_experiment_result(tmp_path)
+        ArenaExperimentResult.read(tmp_path)
 
 
-def test_get_latest_run_end_timestamp_ns_is_the_maximum(tmp_path):
+def test_read_rejects_missing_git_stamp(tmp_path):
+    result = {"experiment_name": EXPERIMENT_NAME, "runs": {"run_a": _run()}}
+    (tmp_path / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(json.dumps(result), encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="no git stamp"):
+        ArenaExperimentResult.read(tmp_path)
+
+
+def test_read_rejects_no_runs(tmp_path):
+    _write_result(tmp_path, {})
+
+    with pytest.raises(AssertionError, match="runs must not be empty"):
+        ArenaExperimentResult.read(tmp_path)
+
+
+def test_latest_run_end_timestamp_ns_is_the_maximum(tmp_path):
     _write_result(tmp_path, {"run_a": _run(end_timestamp_ns=5), "run_b": _run(end_timestamp_ns=9)})
 
-    assert get_latest_run_end_timestamp_ns(read_experiment_result(tmp_path)) == 9
+    assert ArenaExperimentResult.read(tmp_path).latest_run_end_timestamp_ns == 9
 
 
 def test_all_runs_completed_is_false_with_one_failed_run(tmp_path):
     _write_result(tmp_path, {"run_a": _run(), "run_b": _run(status="failed")})
-    assert not all_runs_completed(read_experiment_result(tmp_path))
+    assert not ArenaExperimentResult.read(tmp_path).all_runs_completed
 
     _write_result(tmp_path, {"run_a": _run()})
-    assert all_runs_completed(read_experiment_result(tmp_path))
+    assert ArenaExperimentResult.read(tmp_path).all_runs_completed
 
 
-def test_get_git_stamp_builds_stamp_from_result(tmp_path):
+def test_read_builds_git_stamp_from_result(tmp_path):
     _write_result(tmp_path, {"run_a": _run()})
 
-    assert get_git_stamp(read_experiment_result(tmp_path)) == GitStamp(git_sha="abc1234", git_branch="main")
+    assert ArenaExperimentResult.read(tmp_path).git_stamp == GitStamp(git_sha="abc1234", git_branch="main")
 
 
-def test_get_benchmark_id_reads_id_from_result(tmp_path):
-    _write_result(tmp_path, {"run_a": _run()})
+def test_result_round_trip_keeps_experiment_name(tmp_path):
+    ArenaExperimentResult.from_run_outputs(
+        tmp_path, {"run": _metadata("task", status="failed")}, experiment_name=EXPERIMENT_NAME
+    ).write()
 
-    assert get_benchmark_id(read_experiment_result(tmp_path)) == BENCHMARK_ID
+    result = ArenaExperimentResult.read(tmp_path)
 
-
-def test_result_round_trip_keeps_benchmark_id(tmp_path):
-    ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="failed")}, benchmark_id=BENCHMARK_ID).write()
-
-    result = read_experiment_result(tmp_path)
-
-    assert result["benchmark_id"] == BENCHMARK_ID
-    assert get_benchmark_id(result) == BENCHMARK_ID
+    assert result.experiment_name == EXPERIMENT_NAME
+    assert result.to_dict()["experiment_name"] == EXPERIMENT_NAME
 
 
-@pytest.mark.parametrize("benchmark_id", ["", "a\nb", None, 3])
-def test_result_rejects_invalid_benchmark_id(tmp_path, benchmark_id):
-    with pytest.raises(AssertionError, match="benchmark_id"):
-        ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="failed")}, benchmark_id=benchmark_id)
+@pytest.mark.parametrize("experiment_name", ["", "a\nb", None, 3])
+def test_result_rejects_invalid_experiment_name(tmp_path, experiment_name):
+    with pytest.raises(AssertionError, match="experiment_name"):
+        ArenaExperimentResult.from_run_outputs(
+            tmp_path, {"run": _metadata("task", status="failed")}, experiment_name=experiment_name
+        )
 
 
-@pytest.mark.parametrize("benchmark_id", ["", "a\nb", 3])
-def test_read_experiment_result_rejects_invalid_benchmark_id(tmp_path, benchmark_id):
-    _write_result(tmp_path, {"run_a": _run()}, benchmark_id=benchmark_id)
+@pytest.mark.parametrize("experiment_name", ["", "a\nb", 3])
+def test_read_rejects_invalid_experiment_name(tmp_path, experiment_name):
+    _write_result(tmp_path, {"run_a": _run()}, experiment_name=experiment_name)
 
-    with pytest.raises(AssertionError, match="benchmark_id"):
-        read_experiment_result(tmp_path)
+    with pytest.raises(AssertionError, match="experiment_name"):
+        ArenaExperimentResult.read(tmp_path)
 
 
-def test_read_experiment_result_rejects_missing_benchmark_id(tmp_path):
+def test_read_rejects_missing_experiment_name(tmp_path):
     result = {"git_stamp": {"git_sha": "abc1234", "git_branch": "main"}, "runs": {"run_a": _run()}}
     (tmp_path / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(json.dumps(result), encoding="utf-8")
 
-    with pytest.raises(AssertionError, match="no benchmark_id"):
-        read_experiment_result(tmp_path)
+    with pytest.raises(AssertionError, match="no experiment_name"):
+        ArenaExperimentResult.read(tmp_path)

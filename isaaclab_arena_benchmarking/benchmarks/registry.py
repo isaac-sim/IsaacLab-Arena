@@ -11,7 +11,7 @@ import traceback
 from collections.abc import Sequence
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment_result import all_runs_completed, read_experiment_result
+from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
 from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import SuccessRateKpiExporter
 from isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter import TimingKpiExporter
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter
@@ -60,10 +60,10 @@ def export_kpis(
             exporter_name_by_record_type[record_type] = name
 
     output_dir = Path(output_dir)
-    result = read_experiment_result(output_dir)
-    if not all_runs_completed(result):
+    result = ArenaExperimentResult.read(output_dir)
+    if not result.all_runs_completed:
         failed_run_names = [
-            run_name for run_name, run_result in result["runs"].items() if run_result["status"] != "completed"
+            run_name for run_name, run_result in result.runs.items() if run_result["status"] != "completed"
         ]
         print(f"Skipping KPI export because these Runs did not complete: {', '.join(failed_run_names)}")
         return []

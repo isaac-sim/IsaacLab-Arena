@@ -137,7 +137,7 @@ class ArenaExperimentWorkflow(Workflow):
             task_name="collect-experiment-outputs",
             image=self.task_cfg.image,
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
-            benchmark_id=self.experiment_cfg.name,
+            experiment_name=self.experiment_cfg.name,
             kpi_exporters=self.workflow_cfg.kpi_exporters,
             lead=True,
             resource=self.experiment_output_resource_name,

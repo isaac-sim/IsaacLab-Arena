@@ -321,7 +321,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
         in experiment_output_command
     )
     assert "--experiment-output-directory" in experiment_output_command
-    assert f"--benchmark-id {EXPERIMENT_NAME}" in experiment_output_command
+    assert f"--experiment-name {EXPERIMENT_NAME}" in experiment_output_command
     assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
 
@@ -513,7 +513,7 @@ def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
         assert _embedded_experiment(group["tasks"][0])["name"] == "my-benchmark"
 
 
-def test_collector_task_script_passes_the_experiment_name_as_benchmark_id():
+def test_collector_task_script_passes_the_experiment_name_to_the_collector():
     """The collector writes the Experiment name into the result, so it needs it on its command line."""
     source_experiment_cfg = _zero_action_experiment_cfg()
     source_experiment_cfg.name = "my benchmark"
@@ -525,7 +525,7 @@ def test_collector_task_script_passes_the_experiment_name_as_benchmark_id():
     experiment_output_task = _workflow_groups(workflow.generate_workflow())[-1]["tasks"][0]
 
     experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
-    assert "--benchmark-id 'my benchmark'" in experiment_output_command
+    assert "--experiment-name 'my benchmark'" in experiment_output_command
 
 
 def _collector_command(workflow: dict) -> str:

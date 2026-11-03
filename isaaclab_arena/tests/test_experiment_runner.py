@@ -244,7 +244,7 @@ def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monke
 
     experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, tmp_path)
 
-    assert experiment_result.to_dict()["benchmark_id"] == "pnp_benchmark"
+    assert experiment_result.to_dict()["experiment_name"] == "pnp_benchmark"
     runs = experiment_result.to_dict()["runs"]
     assert runs["passing"]["start_timestamp_ns"] == 1792799000000000000
     assert runs["passing"]["end_timestamp_ns"] == 1792800000000000000

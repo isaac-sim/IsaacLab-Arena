@@ -181,7 +181,7 @@ def collect_run_outputs_into_experiment_output(
 def build_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
-    benchmark_id: str,
+    experiment_name: str,
     kpi_exporters: Sequence[str] = DEFAULT_EXPORTER_NAMES,
 ) -> Path:
     """Build one complete Experiment output from Experiment Runner task outputs.
@@ -191,7 +191,7 @@ def build_experiment_output(
             directories.
         experiment_output_directory: Experiment output directory containing one subdirectory per Run and
             ``index.html``.
-        benchmark_id: Benchmark the Experiment belongs to, written into the Experiment result.
+        experiment_name: Name of the Experiment, written into the Experiment result.
         kpi_exporters: Names of the KPI exporters that write the Experiment's KPI records.
 
     Returns:
@@ -201,8 +201,8 @@ def build_experiment_output(
         experiment_runner_output_directories_by_run_name,
         experiment_output_directory,
     )
-    ArenaExperimentResult(
-        experiment_output_directory, run_metadata_by_name, git_stamp, benchmark_id=benchmark_id
+    ArenaExperimentResult.from_run_outputs(
+        experiment_output_directory, run_metadata_by_name, git_stamp, experiment_name=experiment_name
     ).write()
     experiment_timings_path = aggregate_experiment_timings(
         experiment_output_directory,
@@ -230,9 +230,9 @@ def _parse_arguments() -> argparse.Namespace:
         help="Arena Experiment output containing one directory per Run and index.html",
     )
     parser.add_argument(
-        "--benchmark-id",
+        "--experiment-name",
         required=True,
-        help="Benchmark the Experiment belongs to, recorded in the Experiment result and its KPI records",
+        help="Name of the Experiment, recorded in the Experiment result",
     )
     parser.add_argument(
         "--kpi-exporters",
@@ -253,7 +253,7 @@ def main() -> None:
     build_experiment_output(
         experiment_runner_output_directories_by_run_name,
         parsed_arguments.experiment_output_directory,
-        parsed_arguments.benchmark_id,
+        parsed_arguments.experiment_name,
         parsed_arguments.kpi_exporters,
     )
 

@@ -42,7 +42,7 @@ class CollectExperimentOutputsTask(BaseTask):
         self,
         image: str,
         experiment_runner_task_names_by_run_name: Mapping[str, str],
-        benchmark_id: str,
+        experiment_name: str,
         kpi_exporters: Sequence[str],
         lead: bool | None = None,
         resource: str | None = None,
@@ -51,10 +51,10 @@ class CollectExperimentOutputsTask(BaseTask):
         task_name: str,
     ) -> None:
         assert experiment_runner_task_names_by_run_name, "Experiment output requires at least one Run task"
-        assert benchmark_id, "Experiment output requires a benchmark id"
+        assert experiment_name, "Experiment output requires an Experiment name"
         assert kpi_exporters, "Experiment output requires at least one KPI exporter"
         super().__init__(task_name=task_name, lead=lead, resource=resource)
-        self.benchmark_id = benchmark_id
+        self.experiment_name = experiment_name
         self.kpi_exporters = list(kpi_exporters)
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
@@ -102,8 +102,8 @@ class CollectExperimentOutputsTask(BaseTask):
             _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
             "--experiment-output-directory",
             OSMO_TASK_OUTPUT_DIR,
-            "--benchmark-id",
-            self.benchmark_id,
+            "--experiment-name",
+            self.experiment_name,
             "--kpi-exporters",
             *self.kpi_exporters,
         ])
