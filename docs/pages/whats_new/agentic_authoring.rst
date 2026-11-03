@@ -12,9 +12,9 @@ Each card below links to the results for one environment.
       :link: agentic_authoring_workbench
       :link-type: doc
 
-      .. image:: ../../images/whats_new/agentic_authoring_workbench.gif
+      .. image:: ../../images/whats_new/workbench_cleanup_10_reset_layouts.gif
          :width: 100%
-         :alt: A robot arm at an industrial workbench carrying out an agent-authored task
+         :alt: Ten reset layouts of the Arena workbench cleanup environment
 
       An agent authors a workbench environment and extends it with new layouts and tasks.
 
