@@ -92,8 +92,8 @@ VLM agent policies
 ------------------
 
 ``VLMGoalPolicy`` and ``VLMChunkPolicy`` use a hosted vision-language model as the policy. See
-:doc:`vlm_agent_policies` for how they work, how to give the model object poses or pixel
-measurement, and the DROID gear insertion example.
+:doc:`vlm_agent_policies` for how they work, how to give the model exact object poses, and the
+DROID gear insertion example.
 
 .. toctree::
    :hidden:

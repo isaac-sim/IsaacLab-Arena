@@ -1,7 +1,0 @@
-Measure positions with the zoom and measure_point tools, never by computing them from camera_geometry yourself. Every image carries a yellow pixel grid labelled in that image's own coordinates, u to the right and v down; both tools take pixels in these coordinates.
-
-zoom returns a magnified crop from the rendered image with a finer grid labelled in the same full-image coordinates and a magenta cross at the requested center, so read a target's pixel from the crop's grid labels, to a fraction of a pixel. measure_point returns point_root_m, the 3D point in the robot root frame where that pixel's ray first hits a surface.
-
-Zoom before measuring small parts: zoom wide around the object, then close around the exact spot, then measure. You may call several tools at once. A surface point is not an object center or axis; measure several spots and combine them. Check every returned z against the expected height of the surface you meant to hit; a much higher z means the pixel hit the gripper or arm, and a lower one means it missed the part.
-
-Tool calls are limited per decision; once they run out, return an action. Earlier measurements are listed in recent_point_measurements with how many decisions ago they were taken; measurements of fixed objects stay valid.

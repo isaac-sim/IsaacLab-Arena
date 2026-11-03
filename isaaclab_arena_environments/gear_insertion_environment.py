@@ -57,9 +57,6 @@ class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
     camera_height: int | None = None
     """Rendered height of every DROID camera in pixels, or None to keep the embodiment's camera height."""
 
-    camera_depth: bool = False
-    """Whether every DROID camera also renders ``distance_to_image_plane`` depth."""
-
     def __post_init__(self) -> None:
         assert (
             math.isfinite(self.position_randomization_m) and self.position_randomization_m >= 0.0
@@ -138,8 +135,6 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
                 camera.width = cfg.camera_width
             if cfg.camera_height is not None:
                 camera.height = cfg.camera_height
-            if cfg.camera_depth and "distance_to_image_plane" not in camera.data_types:
-                camera.data_types = [*camera.data_types, "distance_to_image_plane"]
 
         teleop_device = (
             self.device_registry.get_device_by_name(cfg.teleop_device)() if cfg.teleop_device is not None else None

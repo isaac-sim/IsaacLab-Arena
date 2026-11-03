@@ -102,39 +102,6 @@ class InferenceRequest:
     response_schema: dict[str, Any]
     schema_name: str = "agent_command"
     retry_label: str = "inference"
-    tools: tuple[dict[str, Any], ...] = ()
-    """OpenAI function tool definitions the model may call instead of answering."""
-
-    allow_tool_calls: bool = True
-    """Whether the model may call tools in this turn; False requires an answer."""
-
-
-@dataclass(frozen=True)
-class ToolCall:
-    """One function call the model requested instead of answering."""
-
-    call_id: str
-    """Identifier that the tool result message must reference."""
-
-    name: str
-    """Name of the called tool."""
-
-    arguments: str
-    """Raw JSON text of the call arguments."""
-
-
-@dataclass(frozen=True)
-class InferenceTurn:
-    """One model turn: parsed structured output, or the tool calls the model made instead."""
-
-    output: Any
-    """Parsed JSON output, or None when the model called tools."""
-
-    tool_calls: tuple[ToolCall, ...]
-    """Tool calls to answer before asking the model again."""
-
-    assistant_message: dict[str, Any]
-    """The model's message, to append to the conversation before any tool results."""
 
 
 @dataclass(frozen=True)
@@ -251,24 +218,7 @@ class InferenceBackend:
         Returns:
             Parsed JSON output for schema and semantic validation by the caller.
         """
-        assert not request.tools, "Use infer_turn for requests that offer tools"
-        return self.infer_turn(request).output
-
-    def infer_turn(self, request: InferenceRequest) -> InferenceTurn:
-        """Request one model turn, which may call the request's tools instead of answering.
-
-        Args:
-            request: Conversation messages, JSON schema, offered tools, and retry log label.
-
-        Returns:
-            Parsed JSON output, or the tool calls to answer, with the message to append to the conversation.
-        """
         messages = copy.deepcopy(request.messages)
-        tool_options: dict[str, Any] = {}
-        if request.tools:
-            tool_options["tools"] = list(request.tools)
-            if not request.allow_tool_calls:
-                tool_options["tool_choice"] = "none"
         last_exc: Exception | None = None
         for attempt in range(1 + self._max_retries):
             if attempt > 0:
@@ -284,7 +234,6 @@ class InferenceBackend:
                             "schema": request.response_schema,
                         },
                     },
-                    **tool_options,
                     **_completion_options(self._endpoint, self._max_tokens, self._temperature),
                 )
                 choices = getattr(resp, "choices", None) or []
@@ -292,11 +241,7 @@ class InferenceBackend:
                     f"Model {self._model!r} returned HTTP 200 with no choices "
                     "(content filter / guardrail / rate-limit response with empty body)."
                 )
-                message = choices[0].message
-                tool_calls = getattr(message, "tool_calls", None)
-                if request.tools and tool_calls:
-                    return _tool_call_turn(message.content, tool_calls)
-                text = _extract_response_text(message)
+                text = _extract_response_text(choices[0].message)
                 assert text, (
                     f"Model {self._model!r} returned an empty structured-outputs envelope. "
                     "Verify the endpoint/model supports response_format=json_schema."
@@ -307,30 +252,13 @@ class InferenceBackend:
                 # Model response is wrapped in a single-key dictionary, e.g. {"input": {<answer>}} to <answer>.
                 # Seen on the default azure/anthropic/claude-opus-4-8, but not DeepSeek.
                 # TODO(xinjieyao): check if other models also wrap the response in a single-key dictionary.
-                output = _unwrap_provider_envelope(json.loads(text, strict=False), request.response_schema)
-                return InferenceTurn(
-                    output=output, tool_calls=(), assistant_message={"role": "assistant", "content": text}
-                )
+                return _unwrap_provider_envelope(json.loads(text, strict=False), request.response_schema)
             except Exception as exc:
                 last_exc = exc
         raise RuntimeError(
             f"Model {self._model!r} failed {request.retry_label} after "
             f"{1 + self._max_retries} attempts. Last error: {last_exc}"
         ) from last_exc
-
-
-def _tool_call_turn(content: str | None, tool_calls: list[Any]) -> InferenceTurn:
-    """Return a turn holding the model's tool calls and the assistant message that carries them."""
-    calls = tuple(ToolCall(call.id, call.function.name, call.function.arguments) for call in tool_calls)
-    message = {
-        "role": "assistant",
-        "content": content,
-        "tool_calls": [
-            {"id": call.call_id, "type": "function", "function": {"name": call.name, "arguments": call.arguments}}
-            for call in calls
-        ],
-    }
-    return InferenceTurn(output=None, tool_calls=calls, assistant_message=message)
 
 
 def _unwrap_provider_envelope(data: Any, schema: dict[str, Any]) -> Any:

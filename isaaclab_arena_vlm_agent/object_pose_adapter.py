@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from isaaclab_arena_vlm_agent.camera_view import CameraView
 from isaaclab_arena_vlm_agent.observation_adapter import (
     VLMObservationAdapter,
     poses_in_robot_roots,
@@ -45,7 +44,3 @@ class ObjectPoseObservationAdapter(VLMObservationAdapter):
             T_W_O = base.arena_world.get_pose_w(scene_key)[env_id].detach().cpu().numpy()
             object_poses[scene_key] = {"poses_in_robot_roots": poses_in_robot_roots(roots, T_W_O[:3], T_W_O[3:])}
         return images, {**prompt_values, "object_poses": object_poses}
-
-    def read_camera_views(self, env, observation, env_id: int) -> dict[str, CameraView]:
-        """Return the wrapped adapter's camera views."""
-        return self.observation_adapter.read_camera_views(env, observation, env_id)

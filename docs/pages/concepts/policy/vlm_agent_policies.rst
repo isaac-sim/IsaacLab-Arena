@@ -91,46 +91,11 @@ object's pose in the robot root frame to the request as ``object_poses``. A real
 observe these poses, so use them as a reference: they show what the policy achieves once it knows
 where the objects are.
 
-Pixel measurement
------------------
-
-Vision-language models judge where things are in an image only roughly, to a few centimeters.
-That is enough to pick up a cube, but not to fit a gear onto a peg within a few millimeters. Set
-``pixel_measurement: true`` to let the model measure positions instead of estimating them. The
-policy then offers the model two tools from ``PixelMeasurementToolSet``, in
-`pixel_measurement_tools.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/pixel_measurement_tools.py>`__,
-through the endpoint's tool calling:
-
-* ``zoom`` takes a camera, a center pixel, and a half size. It returns a magnified crop of the
-  rendered image, with a finer grid labelled in the same full-image pixels;
-* ``measure_point`` takes a camera and a pixel. It returns the 3D point in the robot root frame
-  where that pixel's ray hits a surface, read from the camera's depth image and calibration.
-
-Every image carries a yellow pixel grid, labelled in the pixels the tools take. The model may call
-tools for up to five rounds per decision before it must return an action. The last 12
-measurements are repeated in later requests, so a part measured while visible stays usable after
-the gripper hides it.
-
-Every camera must also render ``distance_to_image_plane``.
-
 Gear insertion example
 ----------------------
 
-The DROID gear insertion experiment runs the goal policy three ways, one Run each:
-
-* ``images``: camera images and robot state only;
-* ``object_poses``: also the exact gear and target poses;
-* ``pixel_measurement``: the model measures the gear and pegs from camera depth.
-
-The cameras render at 1280x720 with depth, and the policy sends the full images. Every Run appends the gear
-and peg geometry and a grasp and insertion strategy from
-``experiment_configs/prompts/droid_gear_insertion.txt``, and the last two Runs add a short note on
-their extra inputs. Run it from the repository root, adding ``~runs.<name>`` to skip a Run:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/experiment_runner.py --viz none \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_experiment.yaml
+:ref:`gear-insertion-vlm-agent` runs the goal policy on Newton gear insertion with the default
+prompt, with exact object poses, and with an added task prompt.
 
 Add your own implementation
 ---------------------------
@@ -155,16 +120,7 @@ The rows follow the order of the stages above.
      - Observation adapter
      - Subclass ``VLMObservationAdapter`` and implement
        ``extract_vlm_input_from_observation(env, observation, env_id)``. It returns the images by
-       camera name and the JSON-serializable values to send. Adapters that send images also implement
-       ``read_camera_views``, which returns each image's ``CameraView``: its calibration and any
-       rendered depth.
-   * - Tools
-     - Tool set
-     - Subclass ``VLMToolSet`` and implement ``get_tool_definitions`` and
-       ``call_tool(name, arguments, env_id)``. Optionally implement ``prepare_request`` to change
-       the images and prompt values of each decision, and ``get_system_prompt_addition`` to explain
-       the tools. Pass the tool set to the policy as ``tool_set``; ``PixelMeasurementToolSet`` is the
-       reference.
+       camera name and the JSON-serializable values to send.
    * - Response
      - Action adapter
      - Subclass ``ChunkActionAdapter`` or ``GoalActionAdapter``. Set ``response_model``, a

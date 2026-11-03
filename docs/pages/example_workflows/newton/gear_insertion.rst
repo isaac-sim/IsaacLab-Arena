@@ -3,7 +3,7 @@ Gear Insertion
 
 Use a keyboard or SpaceMouse to teleoperate and pick up a gear with the DROID robot and insert it onto the
 peg board. This walkthrough covers previewing the environment, recording demonstrations,
-and replaying the saved dataset.
+replaying the saved dataset, and evaluating a vision-language model (VLM) agent as the policy.
 
 Task Overview
 -------------
@@ -237,3 +237,31 @@ With the Kit window focused, press ``B`` to pause the replayed actions and ``N``
 .. image:: ../../../images/gear_insertion_env_replay.gif
    :align: center
    :height: 400px
+
+
+.. _gear-insertion-vlm-agent:
+
+Step 4: Evaluate a VLM Agent Policy
+-----------------------------------
+
+A hosted VLM can also act as the policy, through ``VLMGoalPolicy``. Gear insertion needs the gear
+within 3.5 mm of the peg, a precise test of how well the model locates parts from camera images.
+The gear insertion experiment runs the policy three ways, one Run each:
+
+* ``images``: the DROID default system prompt only;
+* ``object_poses``: also the exact gear and target poses, as privileged state, for reference;
+* ``task_prompt``: the default prompt plus the gear and peg geometry and a grasp and insertion
+  strategy, from ``experiment_configs/prompts/droid_gear_insertion.txt``.
+
+The experiment uses the ``droid_abs_ik`` embodiment. Its cameras render at 1280x720, and the policy
+sends the full images.
+
+Set up an inference API key as in :doc:`../../quickstart/running_a_real_policy/vlm_agent`. Then run
+the experiment from the repository root, adding ``~runs.<name>`` to skip a Run:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py --viz none \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_experiment.yaml
+
+See :doc:`../../concepts/policy/vlm_agent_policies` for how the policy and the object poses work.

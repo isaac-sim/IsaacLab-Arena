@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# VLMGoalPolicy on gear insertion, with three ways for the model to locate the gear and the pegs:
-# - images: camera images and robot state only.
-# - object_poses: also the exact gear and target poses, as privileged state.
-# - pixel_measurement: the model zooms into images and measures 3D points from camera depth.
+# VLMGoalPolicy on gear insertion, from camera images and robot state, in three Runs:
+# - images: the DROID default system prompt only.
+# - object_poses: the default prompt, plus the exact gear and target poses as privileged state.
+# - task_prompt: the default prompt, plus the gear geometry and an insertion strategy.
 # Run inside the Arena runtime with NV_API_KEY set, from the repository root so the prompt files are found:
 # python isaaclab_arena/evaluation/experiment_runner.py --viz none \
 #   --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_experiment.yaml
@@ -16,7 +16,6 @@ shared:
     type: gear_insertion
     enable_cameras: true
     embodiment: droid_abs_ik
-    camera_depth: true
   environment_builder:
     num_envs: 1
     language_instruction: >-
@@ -33,8 +32,6 @@ shared:
     # Match GearInsertionCriteria: 3.5 mm lateral error and 5 degrees from upright.
     position_tolerance_m: 0.0035
     rotation_tolerance_rad: 0.0873
-    system_prompt_files:
-      - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion.txt
   rollout_limit:
     num_episodes: 5
 
@@ -44,13 +41,11 @@ runs:
   object_poses:
     policy:
       object_poses: [gear_insertion_medium_gear, medium_gear_target]
+      # Name the two poses; the scene keys alone do not say which is the target.
       system_prompt_files:
-        - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion.txt
         - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion_object_poses.txt
 
-  pixel_measurement:
+  task_prompt:
     policy:
-      pixel_measurement: true
       system_prompt_files:
         - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion.txt
-        - isaaclab_arena_environments/experiment_configs/prompts/droid_gear_insertion_pixel_measurement.txt

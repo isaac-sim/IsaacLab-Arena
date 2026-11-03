@@ -13,7 +13,6 @@ from abc import ABC, abstractmethod
 from scipy.spatial.transform import Rotation
 from typing import Any
 
-from isaaclab_arena_vlm_agent.camera_view import DEPTH_DATA_TYPE, CameraView
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 
 POLICY_OBSERVATION_GROUP = "policy"
@@ -25,10 +24,6 @@ CAMERA_OBSERVATION_GROUP = "camera_obs"
 
 class VLMObservationAdapter(ABC):
     """Extract camera images and prompt values from environment observations."""
-
-    def read_camera_views(self, env, observation, env_id: int) -> dict[str, CameraView]:
-        """Return the rendered camera views behind this adapter's images, or none when it sends no images."""
-        return {}
 
     @abstractmethod
     def extract_vlm_input_from_observation(
@@ -100,12 +95,6 @@ class ImageObservationAdapter(VLMObservationAdapter):
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
         """Return RGB views and optical-frame camera calibration for one environment."""
-        views = self.read_camera_views(env, observation, env_id)
-        images = {name: view.rgb for name, view in views.items()}
-        return images, {"camera_geometry": {name: view.to_camera_geometry() for name, view in views.items()}}
-
-    def read_camera_views(self, env, observation, env_id: int) -> dict[str, CameraView]:
-        """Return each configured RGB view with its calibration and any rendered depth."""
         base = env.unwrapped
         camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP, None)
         assert camera_cfg is not None, "RGB modality requires camera observations; enable the embodiment's cameras"
@@ -116,7 +105,7 @@ class ImageObservationAdapter(VLMObservationAdapter):
         )
         assert camera_keys, "RGB modality requires at least one configured RGB observation"
         images = extract_rgb_images_from_camera_observations(observation[CAMERA_OBSERVATION_GROUP], camera_keys, env_id)
-        return _read_camera_views(env, images, env_id)
+        return images, {"camera_geometry": _extract_camera_geometry(env, images, env_id)}
 
 
 class ImageStateObservationAdapter(VLMObservationAdapter):
@@ -132,43 +121,37 @@ class ImageStateObservationAdapter(VLMObservationAdapter):
         images, geometry = self.image_adapter.extract_vlm_input_from_observation(env, observation, env_id)
         return images, {**state, **geometry}
 
-    def read_camera_views(self, env, observation, env_id: int) -> dict[str, CameraView]:
-        """Return the image adapter's camera views."""
-        return self.image_adapter.read_camera_views(env, observation, env_id)
 
-
-def _read_camera_views(env, images: dict[str, np.ndarray], env_id: int) -> dict[str, CameraView]:
-    """Pair each RGB image with its camera's calibration and any rendered depth.
+def _extract_camera_geometry(env, images: dict[str, np.ndarray], env_id: int) -> dict[str, dict[str, Any]]:
+    """Read camera intrinsics and optical-frame poses for the selected RGB views.
 
     Args:
         env: Arena environment, optionally gym-wrapped, with live camera sensors.
         images: HWC RGB images indexed by their observation term names.
-        env_id: Environment index whose cameras are read.
+        env_id: Environment index whose camera calibration is requested.
 
     Returns:
-        Camera views indexed by observation term name.
+        Calibration by observation term, with world and robot-root poses using XYZW quaternions.
     """
     base = env.unwrapped
     camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP)
     roots = read_robot_root_poses_w(base, env_id)
-    views = {}
+    geometry = {}
     for key, image in images.items():
         term = getattr(camera_cfg, key)
         sensor = base.scene[term.params["sensor_cfg"].name]
+        # C is the optical frame (+X right, +Y down, +Z forward).
         t_W_C, q_W_C = _read_mounted_camera_pose_w(base, sensor.cfg, env_id)
-        depth = None
-        if DEPTH_DATA_TYPE in sensor.data.output:
-            depth = sensor.data.output[DEPTH_DATA_TYPE]
-            depth = getattr(depth, "torch", depth)[env_id].detach().cpu().numpy().reshape(image.shape[:2])
-        views[key] = CameraView(
-            rgb=image,
-            intrinsic_matrix=sensor.data.intrinsic_matrices.torch[env_id].detach().cpu().numpy(),
-            t_W_C=t_W_C,
-            q_W_C=q_W_C,
-            poses_in_robot_roots=poses_in_robot_roots(roots, t_W_C, q_W_C),
-            depth=depth,
-        )
-    return views
+        intrinsics = sensor.data.intrinsic_matrices.torch[env_id]
+        geometry[key] = {
+            "image_size_px": [image.shape[1], image.shape[0]],
+            "intrinsic_matrix": intrinsics.detach().cpu().tolist(),
+            "optical_frame": "x_right_y_down_z_forward",
+            "position_world_m": t_W_C.tolist(),
+            "quaternion_world_xyzw": q_W_C.tolist(),
+            "poses_in_robot_roots": poses_in_robot_roots(roots, t_W_C, q_W_C),
+        }
+    return geometry
 
 
 def read_robot_root_poses_w(base, env_id: int) -> dict[str, np.ndarray]:
