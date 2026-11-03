@@ -5,24 +5,35 @@ Arena environments can run on the Newton physics backend as well as PhysX. The u
 Newton support for objects and robots, so contact-rich and deformable tasks can be previewed,
 teleoperated, recorded, and evaluated with the same Arena workflows.
 
-What's included
----------------
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-- **Newton-backed robot control:** DROID control runs on Newton, and embodiments expose backend
-  hooks.
-- **Contact-rich and deformable tasks:** Example workflows cover gear insertion (rigid bodies) and
-  deformable pick and place, which can be compared between Newton and PhysX.
-- **Backend selection in YAML:** Select the backend with ``default_physics_backend`` or
-  ``--presets``, and tune it with ``env_cfg_override`` (simulation timestep, control decimation,
-  solver, and collision settings).
+   .. grid-item-card:: Deformables
+      :link: ../example_workflows/newton/deformable_pick_and_place
+      :link-type: doc
 
-Try it
-------
+      .. video:: ../../images/whats_new/arena_v04_newton_deformables.mp4
+         :width: 100%
+         :alt: DROID placing a deformable block on a plate, shown as the rendered scene and the Newton deformable mesh
+         :autoplay:
+         :loop:
+         :muted:
+         :playsinline:
+         :nocontrols:
 
-- :doc:`../example_workflows/newton/gear_insertion`: preview and teleoperate a rigid-body task,
-  record demonstrations, and replay the saved dataset.
-- :doc:`../example_workflows/newton/deformable_pick_and_place`: compare Newton and PhysX
-  deformable-body execution, including closed-loop OpenPI evaluation.
-- :doc:`../concepts/environment/physics_backend_selection`: how Arena selects the physics backend.
+      Build evaluation environments with objects that deform during interaction.
 
-For the full list of changes in each release, see :doc:`../references/release_notes`.
+   .. grid-item-card:: Contact-Rich Insertion
+      :link: ../example_workflows/newton/gear_insertion
+      :link-type: doc
+
+      .. video:: ../../images/whats_new/arena_v04_newton_rigid_gear_insertion.mp4
+         :width: 100%
+         :alt: DROID inserting a gear onto a peg, shown as the rendered scene and the Newton collision geometry
+         :autoplay:
+         :loop:
+         :muted:
+         :playsinline:
+         :nocontrols:
+
+      Build evaluation environments for tasks requiring tight-tolerance insertions.

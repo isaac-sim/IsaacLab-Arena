@@ -89,7 +89,7 @@ table.arena-value-table thead th {
     color: var(--arena-value-header-ink);
 }
 
-table.arena-value-table td:first-child {
+table.arena-value-table td:first-child:not(:only-child) {
     font-weight: 600;
 }
 

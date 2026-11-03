@@ -12,9 +12,9 @@ details page.
       :link: agentic_authoring
       :link-type: doc
 
-      .. image:: ../../images/whats_new/agentic_authoring_env_gen_as_skills.gif
+      .. image:: ../../images/whats_new/peninsula_kitchen_10_reset_layouts_arena_agent_authored.gif
          :width: 100%
-         :alt: An agent generating an Arena evaluation environment using skills
+         :alt: Ten reset layouts of the Arena agent-authored peninsula kitchen environment
 
       Improvements to agentic benchmark authoring. Agents are now fluent in Arena's placement and
       tasking system. In an authoring study, authoring an evaluation in Arena cost 85% less and was
@@ -47,8 +47,6 @@ details page.
 
       Use a multimodal vision-language model (for example, Astra) as a policy. Astra achieves
       state-of-the-art performance.
-
-For the full list of changes in each release, see :doc:`../references/release_notes`.
 
 .. toctree::
    :maxdepth: 1

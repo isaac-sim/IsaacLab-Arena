@@ -95,7 +95,7 @@ the whole group somewhere new.
    * - Decision factor
      - Isaac Lab (agent writes custom code)
      - Isaac Lab - Arena (agent writes YAML)
-     - Evidence
+     - Details
    * - Authoring time
      - 34 min
      - 8 min
@@ -128,13 +128,9 @@ the whole group somewhere new.
      - Reuses Arena's existing task and its success condition.
    * - Asset placement
      - Robot fixed; bounding boxes around the clutter
-     - Robot moves about 0.9 m along the island; the kitchen's mesh
+     - Asset placement expressed relative to one another and solved.
      - Arena places objects relative to the counter and each other, avoids the kitchen's built-in
        objects using their actual geometry, and checks IK reachability on every layout.
-   * - Parallel environments
-     - One
-     - Many
-     - The Isaac Lab script hard-codes coordinates for this one kitchen and runs one environment.
 
 Going further
 ^^^^^^^^^^^^^
