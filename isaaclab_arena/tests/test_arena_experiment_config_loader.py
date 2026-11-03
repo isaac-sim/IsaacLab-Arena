@@ -44,7 +44,7 @@ def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
         environment=PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=enable_cameras),
         policy=ZeroActionPolicyCfg(),
     )
-    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg}, name="experiment")
 
 
 def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
@@ -166,15 +166,21 @@ def test_quoted_boolean_like_name_override_keeps_its_text(monkeypatch):
     assert experiment_cfg.name == "true"
 
 
-def test_null_name_override_is_not_replaced_by_the_stem(monkeypatch):
-    """An explicit null leaves the Experiment unnamed; the workflow and KPI export reject an unnamed Experiment."""
+def test_null_name_override_is_rejected(monkeypatch):
     _patch_typed_loader_registries(monkeypatch)
 
-    experiment_cfg = load_arena_experiment_from_config_file(
-        GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name=null"]
-    )
+    with pytest.raises(AssertionError, match="an Experiment must have a name"):
+        load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name=null"])
 
-    assert experiment_cfg.name is None
+
+def test_experiment_cfg_without_name_is_rejected():
+    run_cfg = _experiment_cfg().runs["baseline"]
+
+    with pytest.raises(TypeError, match="name"):
+        ArenaExperimentCfg(runs={"baseline": run_cfg})
+
+    with pytest.raises(AssertionError, match="name"):
+        ArenaExperimentCfg(runs={"baseline": run_cfg}, name=None)
 
 
 @pytest.mark.parametrize("name", ["", "two\nlines"])
@@ -276,7 +282,7 @@ def test_typed_graph_camera_run_requires_prelaunch_camera_flag():
         ),
         policy=ZeroActionPolicyCfg(),
     )
-    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg}, name="experiment")
 
     with pytest.raises(AssertionError, match="enable environment cameras"):
         _assert_camera_support_enabled(experiment_cfg, enable_cameras=False)

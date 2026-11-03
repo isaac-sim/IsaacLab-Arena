@@ -51,10 +51,7 @@ def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> st
             policy_selector = f"{policy_type.__module__}.{policy_type.__qualname__}"
         run_values["policy"] = {"type": policy_selector, **run_values["policy"]}
         run_values_by_name[run_name] = _to_yaml_values(run_values)
-    experiment_values: dict[str, Any] = {}
-    if experiment_cfg.name is not None:
-        experiment_values["name"] = experiment_cfg.name
-    experiment_values["runs"] = run_values_by_name
+    experiment_values: dict[str, Any] = {"name": experiment_cfg.name, "runs": run_values_by_name}
     return yaml.safe_dump(experiment_values, sort_keys=False)
 
 

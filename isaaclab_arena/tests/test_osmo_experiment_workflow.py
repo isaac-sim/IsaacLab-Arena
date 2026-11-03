@@ -585,19 +585,6 @@ def test_duplicate_kpi_exporters_fail_submission():
         )
 
 
-def test_unnamed_experiment_cannot_build_a_workflow():
-    """Reject an Experiment without a name, because its KPI records need a benchmark id."""
-    unnamed_experiment_cfg = _zero_action_experiment_cfg()
-    unnamed_experiment_cfg.name = None
-
-    with pytest.raises(AssertionError, match="needs a name"):
-        workflow = ArenaExperimentWorkflow(
-            workflow_cfg=WorkflowCfg(workflow_name="unnamed"),
-            experiment_cfg=unnamed_experiment_cfg,
-        )
-        workflow.generate_workflow()
-
-
 def test_experiment_name_can_be_overridden_at_submission():
     """Route experiment_cfg.name=<x> to the Experiment name of the submission."""
     submission_cfg = _compose_submission(["experiment_cfg.name=my-benchmark"])

@@ -359,11 +359,10 @@ def test_yaml_without_a_name_defaults_to_the_file_stem():
     assert experiment_cfg.name == GETTING_STARTED_EXPERIMENT_PATH.stem
 
 
-def test_serializer_omits_an_unset_name():
-    experiment_cfg = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH, overrides=["name=null"])
-    assert experiment_cfg.name is None
+def test_serializer_writes_the_name():
+    experiment_cfg = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
 
-    assert "name" not in yaml.safe_load(serialize_arena_experiment_to_yaml(experiment_cfg))
+    assert yaml.safe_load(serialize_arena_experiment_to_yaml(experiment_cfg))["name"] == experiment_cfg.name
 
 
 def test_replay_paths_round_trip_and_infer_rebuild_count(tmp_path):

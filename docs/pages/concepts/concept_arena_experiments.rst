@@ -46,8 +46,8 @@ The Experiment Definition
 -------------------------
 
 The YAML has a required ``runs`` mapping. A ``shared`` mapping is optional. When present, its
-values are reused by every Run. An optional top-level ``name`` string names the Experiment and
-defaults to the YAML file's stem if none given. Each key below ``runs`` is a Run name:
+values are reused by every Run. An optional top-level ``name`` string names the Experiment; it
+defaults to the YAML file's stem when omitted, so every Experiment has a name. Each key below ``runs`` is a Run name:
 
 .. code-block:: yaml
 

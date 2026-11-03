@@ -90,7 +90,7 @@ def _run(**overrides):
 
 
 def _experiment(*run_cfgs: ArenaRunCfg) -> ArenaExperimentCfg:
-    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs})
+    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs}, name="experiment")
 
 
 def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):

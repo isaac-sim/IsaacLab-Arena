@@ -82,7 +82,6 @@ def _write_arena_experiment_result(
     """Combine every Run's metadata and episode results into one Experiment JSON file and return the result."""
     from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
 
-    assert experiment_cfg.name is not None, "The Experiment must have a name"
     run_results_by_name = {run_result.run_name: run_result for run_result in run_results}
     assert len(run_results_by_name) == len(run_results), "Experiment results must contain each Run exactly once"
     assert set(run_results_by_name) == set(

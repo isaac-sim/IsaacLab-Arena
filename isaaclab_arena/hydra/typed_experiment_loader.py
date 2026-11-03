@@ -58,7 +58,7 @@ def load_arena_experiment_from_yaml(
     Hydra overrides can update shared Run defaults, the Experiment name, or
     fields on Runs declared in YAML, but cannot add Runs. Shared defaults are applied before Run overrides.
     The Experiment name is the file's top-level ``name`` or, when it has none, the file stem; an override
-    ``name=<x>`` replaces it, and ``name=null`` leaves the Experiment unnamed.
+    ``name=<x>`` replaces it.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
@@ -67,8 +67,7 @@ def load_arena_experiment_from_yaml(
         overrides: Hydra field overrides for shared Run defaults or Runs already declared in YAML.
 
     Returns:
-        The typed Experiment Definition, preserving YAML mapping declaration order. Its name is None only when
-        an override set it to null.
+        The typed Experiment Definition, preserving YAML mapping declaration order.
     """
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 
@@ -77,6 +76,11 @@ def load_arena_experiment_from_yaml(
         yaml_path,
         shared_default_overrides=shared_default_overrides,
     )
+    for override in run_overrides:
+        override_key, _, override_value = override.partition("=")
+        assert not (
+            override_key == "name" and override_value.strip().lower() in ("null", "none", "~")
+        ), f"Experiment override '{override}' is not allowed: an Experiment must have a name"
     default_experiment_name = _read_experiment_name_from_yaml_or_stem(yaml_path)
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
