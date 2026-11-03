@@ -470,7 +470,7 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
 class GoalOutcome(str, Enum):
     """State of a goal pose that the motion generator is executing."""
 
-    EXECUTING = "executing"
+    STILL_EXECUTING = "still_executing"
     """The goal has not ended yet."""
 
     REACHED = "reached"
@@ -522,7 +522,7 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
         if env_id in self._current_goals:
             current_goal, executed_steps = self._current_goals[env_id]
             outcome = self._get_goal_outcome(env, env_id, current_goal, executed_steps)
-            if outcome is not GoalOutcome.EXECUTING:
+            if outcome is not GoalOutcome.STILL_EXECUTING:
                 self._previous_goals[env_id] = {
                     "values": [round(value, 4) for value in current_goal.tolist()],
                     "outcome": outcome.value,
@@ -552,7 +552,7 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
     def _get_goal_outcome(
         self, env: gym.Env, env_id: int, current_goal: np.ndarray, executed_steps: int
     ) -> GoalOutcome:
-        """Return how env_id's current goal has ended, or GoalOutcome.EXECUTING while it continues."""
+        """Return how env_id's current goal has ended, or GoalOutcome.STILL_EXECUTING while it continues."""
         motion_generator = self.action_adapter.motion_generator
         if motion_generator.goal_reached(current_goal, env, env_id):
             return GoalOutcome.REACHED
@@ -560,7 +560,7 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
             return GoalOutcome.BLOCKED
         if executed_steps >= self.config.max_steps_per_goal:
             return GoalOutcome.TIMEOUT
-        return GoalOutcome.EXECUTING
+        return GoalOutcome.STILL_EXECUTING
 
     def _get_request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
         """Report the previous goal and its outcome alongside the task description."""
