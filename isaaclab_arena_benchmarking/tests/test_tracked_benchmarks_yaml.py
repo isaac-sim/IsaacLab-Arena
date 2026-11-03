@@ -89,10 +89,10 @@ def _compose_benchmark_submission(entry: dict):
 
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
 def test_benchmark_experiment_exports_kpis(entry):
-    """Every tracked experiment, after its overrides, selects at least one registered KPI exporter."""
+    """Every tracked Experiment selects the success rate and timing exporters, not the config default."""
     experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
 
-    assert experiment_cfg.kpi_exporters, f"benchmark {entry['name']!r} has an experiment without kpi_exporters"
+    assert experiment_cfg.kpi_exporters == ["success_rate", "timing"], f"benchmark {entry['name']!r}"
 
 
 def test_smoke_single_run_benchmark_keeps_only_the_baseline_run():

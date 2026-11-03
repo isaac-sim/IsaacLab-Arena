@@ -37,6 +37,7 @@ END_TIMESTAMP_NS = 1792800000000000000
 GIT_SHA = "0123456789abcdef0123456789abcdef01234567"
 GIT_BRANCH = "feature/provenance"
 EXPERIMENT_NAME = "pnp_benchmark"
+KPI_EXPORTERS = ["success_rate", "timing"]
 
 
 def _run_metadata(environment_name: str, policy_variant: str) -> dict[str, object]:
@@ -289,6 +290,7 @@ def test_rejects_runs_executed_at_different_commits(tmp_path):
             {"first": first_runner_output_directory, "second": second_runner_output_directory},
             tmp_path / "experiment-output",
             experiment_name=EXPERIMENT_NAME,
+            kpi_exporters=KPI_EXPORTERS,
         )
 
 
@@ -332,6 +334,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
         },
         experiment_output_directory,
         experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=KPI_EXPORTERS,
     )
 
     assert report_path == experiment_output_directory / "index.html"
@@ -452,6 +455,7 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
         },
         experiment_output_directory,
         experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=KPI_EXPORTERS,
     )
 
     assert (experiment_output_directory / "completed-run/episode_results_rebuild0.jsonl").is_file()
@@ -526,6 +530,7 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
         },
         experiment_output_directory,
         experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=KPI_EXPORTERS,
     )
 
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
@@ -570,7 +575,10 @@ def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch,
     monkeypatch.setitem(registry.EXPORTERS_BY_NAME, "success_rate", _FailingSuccessRateExporter)
 
     build_experiment_output(
-        {"run_a": experiment_runner_output_directory}, experiment_output_directory, experiment_name=EXPERIMENT_NAME
+        {"run_a": experiment_runner_output_directory},
+        experiment_output_directory,
+        experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=KPI_EXPORTERS,
     )
 
     assert (experiment_output_directory / "index.html").is_file()
@@ -598,10 +606,10 @@ def _parse_collector_arguments(monkeypatch, extra_arguments: list[str]):
     return _parse_arguments()
 
 
-def test_collector_runs_every_kpi_exporter_by_default(monkeypatch):
+def test_collector_exports_no_kpis_when_the_flag_is_omitted(monkeypatch):
     parsed_arguments = _parse_collector_arguments(monkeypatch, [])
 
-    assert tuple(parsed_arguments.kpi_exporters) == registry.DEFAULT_EXPORTER_NAMES
+    assert parsed_arguments.kpi_exporters == []
 
 
 def test_collector_parses_selected_kpi_exporters(monkeypatch):

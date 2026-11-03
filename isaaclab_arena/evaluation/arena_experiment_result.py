@@ -169,6 +169,7 @@ class ArenaExperimentResult:
         )
         assert "git_stamp" in data, f"Experiment result in '{output_dir}' has no git stamp"
         assert "experiment_name" in data, f"Experiment result in '{output_dir}' has no experiment_name"
+        assert "runs" in data, f"Experiment result in '{output_dir}' has no runs"
         return cls(output_dir, data["experiment_name"], GitStamp.from_dict(data["git_stamp"]), data["runs"])
 
     @classmethod

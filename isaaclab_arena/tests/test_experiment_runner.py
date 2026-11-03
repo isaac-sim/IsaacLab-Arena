@@ -86,6 +86,20 @@ def test_experiment_runner_selects_kpi_exporters_from_the_experiment_unless_over
     assert "KPI export is skipped" in capsys.readouterr().out
 
 
+def test_experiment_runner_rejects_duplicate_kpi_exporter_override(monkeypatch, tmp_path):
+    from isaaclab_arena.evaluation import experiment_runner
+
+    exported_selections = []
+    monkeypatch.setattr(experiment_runner, "export_kpis", lambda *args, **kwargs: exported_selections.append(args))
+
+    with pytest.raises(AssertionError, match=r"duplicate KPI exporters \['timing'\]"):
+        experiment_runner._export_selected_kpis(
+            tmp_path, SimpleNamespace(kpi_exporters=["timing"]), ["timing", "timing"]
+        )
+
+    assert exported_selections == []
+
+
 def test_experiment_runner_skips_kpi_export_when_the_experiment_selects_none(monkeypatch, tmp_path, capsys):
     from isaaclab_arena.evaluation import experiment_runner
 

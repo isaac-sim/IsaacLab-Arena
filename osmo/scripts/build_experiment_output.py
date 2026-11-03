@@ -27,7 +27,7 @@ from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
-from isaaclab_arena_benchmarking.benchmarks.registry import DEFAULT_EXPORTER_NAMES, EXPORTERS_BY_NAME, export_kpis
+from isaaclab_arena_benchmarking.benchmarks.registry import EXPORTERS_BY_NAME, export_kpis
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 
@@ -182,7 +182,7 @@ def build_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
     experiment_name: str,
-    kpi_exporters: Sequence[str] = DEFAULT_EXPORTER_NAMES,
+    kpi_exporters: Sequence[str],
 ) -> Path:
     """Build one complete Experiment output from Experiment Runner task outputs.
 
@@ -238,8 +238,8 @@ def _parse_arguments() -> argparse.Namespace:
         "--kpi-exporters",
         nargs="*",
         choices=sorted(EXPORTERS_BY_NAME),
-        default=list(DEFAULT_EXPORTER_NAMES),
-        help="KPI exporters that write the Experiment's KPI records; pass the flag with no names to skip KPI export",
+        default=[],
+        help="KPI exporters that write the Experiment's KPI records; omit the flag or pass no names to skip KPI export",
     )
     return parser.parse_args()
 

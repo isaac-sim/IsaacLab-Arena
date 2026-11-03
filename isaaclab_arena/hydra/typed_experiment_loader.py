@@ -65,7 +65,8 @@ def load_arena_experiment_from_yaml(
         yaml_path: Path to the Arena Experiment YAML file.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        overrides: Hydra field overrides for shared Run defaults or Runs already declared in YAML.
+        overrides: Hydra field overrides for shared Run defaults, the Experiment name, the KPI exporters, or Runs already
+            declared in YAML.
 
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
@@ -77,11 +78,6 @@ def load_arena_experiment_from_yaml(
         yaml_path,
         shared_default_overrides=shared_default_overrides,
     )
-    for override in run_overrides:
-        override_key, _, override_value = override.partition("=")
-        assert not (
-            override_key == "name" and override_value.strip().lower() in ("null", "none", "~")
-        ), f"Experiment override '{override}' is not allowed: an Experiment must have a name"
     default_experiment_name = _read_experiment_name_from_yaml_or_stem(yaml_path)
     yaml_kpi_exporters = _read_kpi_exporters_from_yaml(yaml_path)
     # A file without kpi_exporters keeps the ArenaExperimentCfg default.

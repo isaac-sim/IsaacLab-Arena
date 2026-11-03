@@ -26,11 +26,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (  # noqa: E402
 from isaaclab_arena.tests.utils.influxdb_kpi_records_validation import (  # noqa: E402
     assert_influxdb_kpi_records_are_valid,
 )
-from isaaclab_arena_benchmarking.benchmarks.registry import (  # noqa: E402
-    DEFAULT_EXPORTER_NAMES,
-    EXPORTERS_BY_NAME,
-    export_kpis,
-)
+from isaaclab_arena_benchmarking.benchmarks.registry import EXPORTERS_BY_NAME, export_kpis  # noqa: E402
 from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import PerExperimentRecord  # noqa: E402
 from isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter import TimingRecord  # noqa: E402
 from isaaclab_arena_benchmarking.utils import kpi_exporter_registry  # noqa: E402
@@ -49,6 +45,8 @@ EXPERIMENT_NAME = "pnp_benchmark"
 SHARED_VALUES = {"timestamp_ns": END_TIMESTAMP_NS, **GIT_STAMP, "benchmark_id": EXPERIMENT_NAME}
 
 KPI_FILENAMES = {"kpis_success_rates.json", "kpis_timing.json"}
+
+ALL_EXPORTER_NAMES = ["success_rate", "timing"]
 
 
 def _write_experiment(output_dir: Path, run_statuses: dict[str, str]) -> Path:
@@ -98,13 +96,12 @@ class _SecondFailingExporter(_FailingExporter):
 
 def test_registry_lists_the_default_exporters():
     assert set(EXPORTERS_BY_NAME) == {"success_rate", "timing"}
-    assert DEFAULT_EXPORTER_NAMES == ("success_rate", "timing")
 
 
 def test_completed_experiment_writes_every_default_file(tmp_path: Path):
     output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed", "run_b": "completed"})
 
-    written_paths = export_kpis(output_dir)
+    written_paths = export_kpis(output_dir, ALL_EXPORTER_NAMES)
 
     assert {path.name for path in written_paths} == KPI_FILENAMES
     assert _kpi_filenames(output_dir) == KPI_FILENAMES
@@ -119,7 +116,7 @@ def test_completed_experiment_writes_every_default_file(tmp_path: Path):
 def test_every_record_has_benchmark_id_tag_from_the_experiment_name(tmp_path: Path):
     output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
 
-    written_paths = export_kpis(output_dir)
+    written_paths = export_kpis(output_dir, ALL_EXPORTER_NAMES)
 
     kpis = [record for path in written_paths for record in json.loads(path.read_text(encoding="utf-8"))]
     assert {record["type"] for record in kpis} == {"per_experiment", "timing"}
@@ -134,7 +131,7 @@ def test_result_without_experiment_name_fails_kpi_export(tmp_path: Path):
     result_path.write_text(json.dumps(result), encoding="utf-8")
 
     with pytest.raises(AssertionError, match="experiment_name"):
-        export_kpis(output_dir)
+        export_kpis(output_dir, ALL_EXPORTER_NAMES)
 
     assert _kpi_filenames(output_dir) == set()
 
@@ -143,7 +140,7 @@ def test_experiment_without_timings_file_writes_only_the_success_rate_file(tmp_p
     output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
     (output_dir / ARENA_AGGREGATED_TIMINGS_FILENAME).unlink()
 
-    written_paths = export_kpis(output_dir)
+    written_paths = export_kpis(output_dir, ALL_EXPORTER_NAMES)
 
     assert [path.name for path in written_paths] == ["kpis_success_rates.json"]
     assert _kpi_filenames(output_dir) == {"kpis_success_rates.json"}
@@ -152,7 +149,7 @@ def test_experiment_without_timings_file_writes_only_the_success_rate_file(tmp_p
 def test_failed_run_writes_no_files(tmp_path: Path, capsys):
     output_dir = _write_experiment(tmp_path / "experiment", {"good_run": "completed", "bad_run": "failed"})
 
-    assert export_kpis(output_dir) == []
+    assert export_kpis(output_dir, ALL_EXPORTER_NAMES) == []
 
     assert _kpi_filenames(output_dir) == set()
     printed = capsys.readouterr().out
@@ -221,6 +218,24 @@ def test_unknown_exporter_name_is_rejected(tmp_path: Path):
 
     assert "success_rate" in str(error_info.value) and "timing" in str(error_info.value)
     assert _kpi_filenames(output_dir) == set()
+
+
+def test_duplicate_exporter_name_is_rejected(tmp_path: Path):
+    output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
+
+    with pytest.raises(AssertionError, match=r"duplicate KPI exporters \['timing'\]"):
+        export_kpis(output_dir, ["timing", "timing"])
+
+    assert _kpi_filenames(output_dir) == set()
+
+
+def test_no_exporters_returns_without_reading_the_result_or_reporting_failed_runs(tmp_path: Path, capsys):
+    output_dir = _write_experiment(tmp_path / "experiment", {"good_run": "completed", "bad_run": "failed"})
+    (output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).unlink()
+
+    assert export_kpis(output_dir, []) == []
+
+    assert capsys.readouterr().out == ""
 
 
 def test_exporters_with_the_same_type_are_rejected(tmp_path: Path, monkeypatch):

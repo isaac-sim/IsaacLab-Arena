@@ -3,8 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Benchmarks used for KPI tracking. KPIs are always aggregated over all Runs of an experiment, so a benchmark that
-# tracks one Run removes the other Runs with overrides. An experiment's kpi_exporters field selects which registered KPI
+# Benchmarks used for KPI tracking. KPIs are always aggregated over all Runs of an Experiment, so a benchmark that
+# tracks one Run removes the other Runs with overrides. An Experiment's kpi_exporters field selects which registered KPI
 # exporters (under isaaclab_arena_benchmarking/benchmarks) export its KPIs.
 benchmarks:
   # getting_started_experiment.yaml has four Runs; keep baseline only. Video recording is

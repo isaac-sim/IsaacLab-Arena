@@ -169,8 +169,19 @@ def test_quoted_boolean_like_name_override_keeps_its_text(monkeypatch):
 def test_null_name_override_is_rejected(monkeypatch):
     _patch_typed_loader_registries(monkeypatch)
 
-    with pytest.raises(AssertionError, match="an Experiment must have a name"):
+    with pytest.raises(Exception, match="name=null"):
         load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name=null"])
+
+
+@pytest.mark.parametrize("name", ["None", "none"])
+def test_none_like_name_override_is_an_ordinary_string(monkeypatch, name):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=[f"name={name}"]
+    )
+
+    assert experiment_cfg.name == name
 
 
 def test_experiment_cfg_without_name_is_rejected():

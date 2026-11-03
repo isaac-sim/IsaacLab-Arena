@@ -18,32 +18,43 @@ from isaaclab_arena_benchmarking.benchmarks.success_rate import success_rate_exp
 from isaaclab_arena_benchmarking.benchmarks.timing import timing_exporter  # noqa: F401
 from isaaclab_arena_benchmarking.utils.kpi_exporter_registry import EXPORTERS_BY_NAME
 
-DEFAULT_EXPORTER_NAMES: tuple[str, ...] = ("success_rate", "timing")
-"""Names of the exporters that run when no selection is given."""
+
+def assert_valid_kpi_exporter_names(exporter_names: Sequence[str]) -> None:
+    """Assert that every name is a registered KPI exporter and that no name appears twice.
+
+    Args:
+        exporter_names: Names from ``EXPORTERS_BY_NAME`` selecting KPI exporters.
+    """
+    unknown_names = [name for name in exporter_names if name not in EXPORTERS_BY_NAME]
+    assert not unknown_names, f"Unknown KPI exporters {unknown_names}; valid names are {sorted(EXPORTERS_BY_NAME)}"
+    duplicate_names = sorted({name for name in exporter_names if list(exporter_names).count(name) > 1})
+    assert not duplicate_names, f"Select each KPI exporter once; duplicate KPI exporters {duplicate_names}"
 
 
 def export_kpis(
     output_dir: Path,
-    exporter_names: Sequence[str] = DEFAULT_EXPORTER_NAMES,
+    exporter_names: Sequence[str],
     *,
     raise_on_exporter_failure: bool = True,
 ) -> list[Path]:
     """Write the KPI records files of a finished Experiment, unless a Run failed.
 
     Every selected exporter runs even if an earlier one raises. When any Run failed, the reason is printed and no
-    file is written.
+    file is written. With no exporter selected, nothing is read or written.
 
     Args:
         output_dir: Experiment output root holding ``arena_experiment_result.json``.
-        exporter_names: Names from ``EXPORTERS_BY_NAME`` of the exporters to run; no two may share a record type.
+        exporter_names: Names from ``EXPORTERS_BY_NAME`` of the exporters to run, each at most once; no two may share
+            a record type. Empty to export nothing.
         raise_on_exporter_failure: Whether to re-raise the first exporter exception after every exporter ran. When
             False, each failure is printed with its exporter name instead.
 
     Returns:
         Paths of the records files actually written; empty when a Run failed. An exporter with no records writes none.
     """
-    unknown_names = [name for name in exporter_names if name not in EXPORTERS_BY_NAME]
-    assert not unknown_names, f"Unknown KPI exporters {unknown_names}; valid names are {sorted(EXPORTERS_BY_NAME)}"
+    assert_valid_kpi_exporter_names(exporter_names)
+    if not exporter_names:
+        return []
     exporters = {name: EXPORTERS_BY_NAME[name]() for name in exporter_names}
 
     exporter_name_by_record_type: dict[str, str] = {}

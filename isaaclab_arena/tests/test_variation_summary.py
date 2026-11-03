@@ -91,3 +91,15 @@ def test_omits_continuous_variations_and_handles_empty_results(tmp_path):
     )
 
     assert build_categorical_variation_table(result).rows == []
+
+    result_without_episodes = _result_with_runs(
+        tmp_path, {"run": {"status": "completed", "rebuilds": [{"index": 0, "episodes": []}]}}
+    )
+
+    assert build_categorical_variation_table(result_without_episodes).rows == []
+    assert (
+        build_categorical_variation_table(
+            _result_with_runs(tmp_path, {"run": {"status": "completed", "rebuilds": []}})
+        ).rows
+        == []
+    )

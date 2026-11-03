@@ -21,7 +21,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
-from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
+from isaaclab_arena_benchmarking.benchmarks.registry import assert_valid_kpi_exporter_names, export_kpis
 
 if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -120,6 +120,7 @@ def _export_selected_kpis(
             Experiment's, empty to skip KPI export.
     """
     kpi_exporter_names = experiment_cfg.kpi_exporters if kpi_exporter_override is None else kpi_exporter_override
+    assert_valid_kpi_exporter_names(kpi_exporter_names)
     if not kpi_exporter_names:
         print("[INFO] No KPI exporters selected; KPI export is skipped.")
         return

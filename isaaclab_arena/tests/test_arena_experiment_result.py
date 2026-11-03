@@ -387,3 +387,11 @@ def test_read_rejects_missing_experiment_name(tmp_path):
 
     with pytest.raises(AssertionError, match="no experiment_name"):
         ArenaExperimentResult.read(tmp_path)
+
+
+def test_read_rejects_missing_runs(tmp_path):
+    result = {"git_stamp": {"git_sha": "abc1234", "git_branch": "main"}, "experiment_name": EXPERIMENT_NAME}
+    (tmp_path / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(json.dumps(result), encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="has no runs"):
+        ArenaExperimentResult.read(tmp_path)

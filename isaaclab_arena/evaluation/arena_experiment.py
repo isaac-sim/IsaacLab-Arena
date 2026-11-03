@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.single_line_string import is_single_line_nonempty_string
-from isaaclab_arena_benchmarking.benchmarks.registry import EXPORTERS_BY_NAME
+from isaaclab_arena_benchmarking.benchmarks.registry import assert_valid_kpi_exporter_names
 
 
 @dataclass
@@ -33,10 +33,7 @@ class ArenaExperimentCfg:
         assert isinstance(self.kpi_exporters, list) and all(
             isinstance(name, str) for name in self.kpi_exporters
         ), f"Experiment kpi_exporters must be a list of names, got {self.kpi_exporters!r}"
-        unknown_names = [name for name in self.kpi_exporters if name not in EXPORTERS_BY_NAME]
-        assert not unknown_names, f"Unknown KPI exporters {unknown_names}; valid names are {sorted(EXPORTERS_BY_NAME)}"
-        duplicate_names = sorted({name for name in self.kpi_exporters if self.kpi_exporters.count(name) > 1})
-        assert not duplicate_names, f"Select each KPI exporter once; duplicate KPI exporters {duplicate_names}"
+        assert_valid_kpi_exporter_names(self.kpi_exporters)
         assert isinstance(self.runs, dict) and self.runs, "Experiment Definition must contain at least one Run"
         for run_name, run_cfg in self.runs.items():
             assert isinstance(run_name, str) and run_name, "Experiment Definition Run names must be non-empty strings"

@@ -609,6 +609,20 @@ def test_duplicate_kpi_exporters_fail_submission():
 def test_osmo_workflow_cfg_has_no_kpi_exporters_field():
     """KPI exporters belong to the Experiment, so the submission's osmo section does not accept them."""
     assert not hasattr(WorkflowCfg(), "kpi_exporters")
+    with pytest.raises(Exception, match="osmo.kpi_exporters"):
+        _compose_submission(["osmo.kpi_exporters=[timing]"], experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH)
+
+
+def test_null_experiment_name_fails_submission():
+    """Reject experiment_cfg.name=null, because an Experiment must have a name."""
+    with pytest.raises(Exception, match="experiment_cfg.name=null"):
+        _compose_submission(["experiment_cfg.name=null"])
+
+
+@pytest.mark.parametrize("name", ["None", "none"])
+def test_none_like_experiment_name_is_an_ordinary_string_at_submission(name):
+    """Hydra parses only null as None, so experiment_cfg.name=None names the Experiment 'None'."""
+    assert _compose_submission([f"experiment_cfg.name={name}"]).experiment_cfg.name == name
 
 
 def test_experiment_name_can_be_overridden_at_submission():
