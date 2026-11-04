@@ -9,14 +9,13 @@ Workbench Environment
 Faster authoring. Evaluation infrastructure included.
 -----------------------------------------------------
 
-Coding agents are now the predominant way that developers interact with code.
-Agents are quickly becoming the predominant way to interact with 3D environments.
-Arena ``v0.4`` includes improvements to agentic environment authoring.
+Coding agents are now the predominant way developers interact with code.
+Arena v0.4 embraces this shift, treating coding agents as a primary entry
+point to the framework and significantly improving support for agentic environment authoring.
 
 Study
 -----
-
-On this page we describe a study that aims to show the efficacy of Arena's evaluation building system for agentic environment authoring.
+We compare how a coding agent authors the same workbench cleanup evaluation environment with and without Arena.
 As a baseline, we compared against Isaac Lab alone, without the Arena extension,
 which lacks the evaluation-oriented building blocks that Arena provides.
 
@@ -24,20 +23,19 @@ which lacks the evaluation-oriented building blocks that Arena provides.
  * reached a validated environment **5.25× faster**,
  * spent **72% less** on model cost,
  * wrote **no custom Python code**,
- * and used Arena's batched placement solver to get **physically stable layout variations** with no additional setup.
+ * and used Arena's batched placement solver to get **physically stable, collision-free layout variations** with no additional setup.
 
 The agent's task
 ^^^^^^^^^^^^^^^^
 
-The agent gets a single prompt describing a workbench cleanup evaluation environment:
-the cabinet's top drawer must be opened, five tools on the workbench put into it one by one, and
-the drawer then closed.
+The agent receives a single natural-language prompt describing a workbench cleanup evaluation environment:
+open the cabinet’s top drawer, place five tools from the workbench into it one by one, and close the drawer.
 
 .. dropdown:: The prompt given to the agent
 
-   Setup an environment for a workbench clean up task evaluation using physx simulation.
+   Set up an environment for evaluation of a workbench cleanup task using PhysX simulation.
 
-   Use following SimReady Central assets from hugging face
+   Use the following SimReady Central assets from Hugging Face:
 
    - ``furniture_workbench_standard_e01``
    - ``fixture_cabinet_b01``
@@ -47,21 +45,20 @@ the drawer then closed.
    - ``handTool_screwdriver_phillips_ph2_a01``
    - ``handTool_wrench_combination_a01``
 
-   On the surface of the workbench, there are an cluttered of 5 tools like wrench and screwdriver
-   at the center, an oscilloscope on the left. An open toolbox sits on the cabinet to the left of
-   the workbench.
+   Five tools, such as wrenches and screwdrivers, are scattered across the center of the workbench,
+   with an oscilloscope on the left. An open toolbox sits on the cabinet to the left of the workbench.
 
    Task: open the top drawer of the cabinet, put the tools into the drawer one by one, then close
    the drawer.
 
-   Validate task success correctly with a force based demo script.
+   Validate task success correctly with a force-based demo script.
 
 The agent's process
 ^^^^^^^^^^^^^^^^^^^
 
 .. video:: ../../images/whats_new/agentic_authoring_workbench_walkthrough.mp4
    :width: 100%
-   :caption: A coding agent authors a workbench cleanup environment, evaluates a VLM policy on it, and adds variations.
+   :caption: A coding agent authors a workbench cleanup environment, evaluates a VLM-based policy on it, and adds variations.
    :alt: Walkthrough of a coding agent authoring a workbench cleanup evaluation in Isaac Lab-Arena
    :muted:
    :playsinline:
