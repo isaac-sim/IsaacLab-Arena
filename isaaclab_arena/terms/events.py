@@ -7,12 +7,14 @@ import torch
 from dataclasses import dataclass
 from typing import Any
 
+import isaaclab.sim as sim_utils
 import warp as wp
 from isaaclab.assets import ArticulationCfg, BaseArticulation, BaseRigidObject, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import math as math_utils
+from pxr import UsdShade
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
@@ -278,6 +280,75 @@ class ResetBackgroundPhysics(ManagerTermBase):
             reset.restore(env_ids, env.scene.env_origins)
         for reset in self._articulation_resets:
             reset.restore(env_ids, env.scene.env_origins)
+
+
+class JointTriggeredMaterialToggle(ManagerTermBase):
+    """Toggle a per-environment material binding once on each joint press."""
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset = env.scene[cfg.params["asset_name"]]
+        self.joint_id = self.asset.data.joint_names.index(cfg.params["joint_name"])
+        self.alternate_active = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        self.held = torch.zeros_like(self.alternate_active)
+        self.bindings = []
+        self.materials = []
+        stage = sim_utils.get_current_stage()
+        for env_path in env.scene.env_prim_paths:
+            root = self.asset.cfg.prim_path.replace(env.scene.env_regex_ns, env_path)
+            target = stage.GetPrimAtPath(f"{root}/{cfg.params['target_prim_path']}")
+            assert target and not target.IsInstanceProxy(), f"Material target must be editable: {target.GetPath()}"
+            default = UsdShade.Material.Get(stage, f"{root}/{cfg.params['default_material_path']}")
+            alternate = UsdShade.Material.Get(stage, f"{root}/{cfg.params['alternate_material_path']}")
+            assert default and alternate, f"Missing toggle material beneath {root}"
+            self.bindings.append(UsdShade.MaterialBindingAPI.Apply(target))
+            self.materials.append((default, alternate))
+        self.reset()
+
+    def reset(self, env_ids=None):
+        """Restore the default material and release the press latch for the reset environments."""
+        if env_ids is None or isinstance(env_ids, slice):
+            env_ids = torch.arange(len(self.bindings), device=self.alternate_active.device)[env_ids or slice(None)]
+        env_ids = torch.as_tensor(env_ids, device=self.alternate_active.device)
+        self.alternate_active[env_ids] = False
+        self.held[env_ids] = False
+        self._bind(env_ids)
+
+    def __call__(
+        self,
+        env,
+        env_ids,
+        asset_name,
+        joint_name,
+        target_prim_path,
+        default_material_path,
+        alternate_material_path,
+        pressedness_threshold=0.8,
+        release_threshold=0.2,
+    ):
+        """Toggle at the press threshold and rearm only after joint release."""
+        if env_ids is None:
+            env_ids = torch.arange(env.num_envs, device=env.device)
+        limits = self.asset.data.joint_pos_limits.torch[env_ids, self.joint_id]
+        q = self.asset.data.joint_pos.torch[env_ids, self.joint_id]
+        pressedness = (limits[:, 1] - q) / (limits[:, 1] - limits[:, 0])
+        pressed = pressedness > pressedness_threshold
+        changed = env_ids[pressed & ~self.held[env_ids]]
+        self.alternate_active[changed] = ~self.alternate_active[changed]
+        self.held[env_ids[pressed]] = True
+        self.held[env_ids[pressedness < release_threshold]] = False
+        self._bind(changed)
+        # Interval events run after the control step's render. Let the RTX pipeline
+        # consume a changed material binding without advancing physics, including
+        # on the final step of a rollout that keeps its terminal state.
+        if len(changed) and env.sim.is_rendering:
+            for _ in range(3):
+                env.sim.render()
+
+    def _bind(self, env_ids):
+        for index in env_ids.tolist():
+            material = self.materials[index][int(self.alternate_active[index].item())]
+            self.bindings[index].Bind(material)
 
 
 def write_root_velocity_to_sim(
