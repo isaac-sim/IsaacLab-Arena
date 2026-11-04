@@ -1,0 +1,70 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+asset:
+  id: socket_set_open
+  usd_path: hf://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/ratchet_socket_set/simready_usd/ratchet_socket_set.usda
+  variants:
+    Physics: physics
+    PhysX: Enabled
+output: socket_set_open.usdc
+operations:
+- kind: edit_prims
+  params:
+    select:
+      type: PhysicsScene
+    active: false
+- kind: edit_prims
+  params:
+    select:
+      paths:
+      - Geometry/Ratchet_body
+      - Geometry/Socket_*
+      - Geometry/Extension_*
+      - Physics/Joints/drive
+      - Physics/Joints/release
+      - Physics/Joints/direction
+    active: false
+- kind: configure_articulation
+  params:
+    root: .
+- kind: edit_prims
+  params:
+    select:
+      schema: PhysicsRigidBodyAPI
+    apply_apis:
+    - PhysxRigidBodyAPI
+    - PhysxContactReportAPI
+    attributes:
+      physxContactReport:threshold:
+        type: float
+        value: 0.0
+      physxRigidBody:sleepThreshold:
+        type: float
+        value: 0.0
+- kind: edit_prims
+  params:
+    select:
+      paths:
+      - Physics/Joints/case_lid
+    apply_apis:
+    - PhysicsDriveAPI:angular
+    attributes:
+      drive:angular:physics:targetPosition:
+        type: float
+        value: 105.0
+      drive:angular:physics:stiffness:
+        type: float
+        value: 0.3490658503988659
+      drive:angular:physics:damping:
+        type: float
+        value: 0.017453292519943295
+      drive:angular:physics:maxForce:
+        type: float
+        value: 3.0
+validation:
+  required_prims:
+  - Geometry/Case_base/Case_lid
+  - Physics/Joints/case_lid

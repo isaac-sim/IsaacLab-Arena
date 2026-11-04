@@ -1,0 +1,13 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+asset:
+  id: blue_bin
+  usd_path: hf://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/69a87329036cec0440403351c12230970c4e67d8/D00814/simready_usd/D00814.usd
+  variants: {}
+output: D00814.usd
+operations: []
+validation:
+  required_prims: []

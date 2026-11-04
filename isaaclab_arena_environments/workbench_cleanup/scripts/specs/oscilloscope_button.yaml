@@ -1,0 +1,116 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+asset:
+  id: oscilloscope_button
+  usd_path: hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/testingTool_oscilloscope_a01/simready_usd/sm_testingTool_oscilloscope_a01_01.usd
+  variants:
+    Physics: physics
+    PhysX: Enabled
+output: oscilloscope_button.usdc
+operations:
+- kind: configure_articulation
+  params:
+    root: .
+    fixed_base_body: Geometry/body_01_obj_00
+    movable_joints:
+    - Joints/joint_button_01_joint_00
+- kind: edit_prims
+  params:
+    select:
+      schema: PhysicsRigidBodyAPI
+    apply_apis:
+    - PhysxRigidBodyAPI
+    - PhysxContactReportAPI
+    attributes:
+      physxContactReport:threshold:
+        type: float
+        value: 0.0
+      physxRigidBody:sleepThreshold:
+        type: float
+        value: 0.0
+- kind: edit_prims
+  params:
+    select:
+      paths:
+      - Geometry/body_01_obj_00/*
+      - Geometry/button_01_obj_00/*
+      schema: PhysicsCollisionAPI
+    apply_apis:
+    - PhysxCollisionAPI
+    attributes:
+      physxCollision:contactOffset:
+        type: float
+        value: 0.001
+      physxCollision:restOffset:
+        type: float
+        value: 0.0
+- kind: edit_prims
+  params:
+    select:
+      paths:
+      - Geometry/button_01_obj_00
+    apply_apis:
+    - PhysicsMassAPI
+    attributes:
+      physics:mass:
+        type: float
+        value: 0.001
+- kind: edit_prims
+  params:
+    select:
+      paths:
+      - Joints/joint_button_01_joint_00
+    apply_apis:
+    - PhysicsDriveAPI:linear
+    attributes:
+      drive:linear:physics:type:
+        type: token
+        value: force
+      drive:linear:physics:targetPosition:
+        type: float
+        value: 0.0
+      drive:linear:physics:stiffness:
+        type: float
+        value: 800.0
+      drive:linear:physics:damping:
+        type: float
+        value: 0.5
+      drive:linear:physics:maxForce:
+        type: float
+        value: 3.0
+- kind: preview_material
+  params:
+    prim_path: ArenaMaterials/ScreenOff
+    inputs:
+      diffuseColor:
+        type: color3f
+        value:
+        - 0.0
+        - 0.0
+        - 0.0
+      emissiveColor:
+        type: color3f
+        value:
+        - 0.0
+        - 0.0
+        - 0.0
+      roughness:
+        type: float
+        value: 0.8
+      specularColor:
+        type: color3f
+        value:
+        - 0.0
+        - 0.0
+        - 0.0
+      useSpecularWorkflow:
+        type: int
+        value: 1
+validation:
+  required_prims:
+  - Geometry/body_01_obj_00/body_01_mesh_00/m_opaque__paper__oscilloscope_a01
+  - Joints/joint_button_01_joint_00
+  - ArenaMaterials/ScreenOff
