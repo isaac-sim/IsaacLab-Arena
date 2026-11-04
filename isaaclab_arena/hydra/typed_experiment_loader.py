@@ -55,16 +55,15 @@ def load_arena_experiment_from_yaml(
     Each entry in the runs mapping declares one Run using its key as the Run
     name. The environment.type selector chooses from the supplied mapping, or
     names a graph-spec YAML path; policy.type is resolved when its Run is built.
-    Hydra overrides can update shared Run defaults, the Experiment name, or
-    fields on Runs declared in YAML, but cannot add Runs. Shared defaults are applied before Run overrides.
-    The Experiment name is the file's top-level ``name`` or, when it has none, the file stem; an override
-    ``name=<x>`` replaces it.
+    Hydra overrides can update shared Run defaults or fields on Runs declared in YAML, but cannot add Runs.
+    Shared defaults are applied before Run overrides. The Experiment name is the file's top-level ``name`` or,
+    when it has none, the file stem.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        overrides: Hydra field overrides for shared Run defaults, the Experiment name, or Runs already declared in YAML.
+        overrides: Hydra field overrides for shared Run defaults or Runs already declared in YAML.
 
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
