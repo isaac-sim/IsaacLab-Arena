@@ -268,7 +268,6 @@ jobs:
       - name: Restore Isaac Sim caches
         uses: ./.github/actions/setup-isaac-sim-caches
         with:
-          mode: restore
           name: tests
 
       # FIXME(before merge): PR-only probe of the cache effect. One kitchen bring-up is
@@ -329,13 +328,6 @@ jobs:
           MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
             isaaclab_arena_curobo/tests/
 
-      - name: Save Isaac Sim caches
-        if: ${{ !cancelled() && steps.restore_isaac_sim_caches.outcome == 'success' }}
-        uses: ./.github/actions/setup-isaac-sim-caches
-        with:
-          mode: save
-          name: tests
-
 
   tests_with_subprocess:
     name: Run tests with subprocess
@@ -363,7 +355,6 @@ jobs:
       - name: Restore Isaac Sim caches
         uses: ./.github/actions/setup-isaac-sim-caches
         with:
-          mode: restore
           name: subprocess
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
@@ -380,13 +371,6 @@ jobs:
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
             isaaclab_arena/tests/
-
-      - name: Save Isaac Sim caches
-        if: ${{ !cancelled() }}
-        uses: ./.github/actions/setup-isaac-sim-caches
-        with:
-          mode: save
-          name: subprocess
 
 
   test_gr00t_closedloop_e2e:
@@ -469,7 +453,6 @@ jobs:
         if: steps.gr00t_cuda.outputs.enabled == 'true'
         uses: ./.github/actions/setup-isaac-sim-caches
         with:
-          mode: restore
           name: gr00t
 
       # The GR00T server post-trains a tiny checkpoint before loading it. Its
