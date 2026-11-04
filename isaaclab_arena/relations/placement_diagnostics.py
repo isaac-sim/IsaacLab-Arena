@@ -56,8 +56,8 @@ class BatchValidationDiagnostics:
 
 @dataclass
 class PlacementDiagnostics:
-    """How one fill of a placement pool went: every batch it validated, in order, and the environments it filled
-    with best-loss layouts because none of their candidates was valid."""
+    """How one fill of a placement pool went: every batch it validated, in order, and the environments whose
+    remaining slots it filled with best-loss layouts because too few of their candidates were valid."""
 
     num_envs: int
     """Number of environments the pool fills."""
