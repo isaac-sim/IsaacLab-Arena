@@ -329,7 +329,7 @@ jobs:
             isaaclab_arena_curobo/tests/
 
       - name: Save Isaac Sim caches
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.restore_isaac_sim_caches.outcome == 'success' }}
         uses: ./.github/actions/setup-isaac-sim-caches
         with:
           mode: save
