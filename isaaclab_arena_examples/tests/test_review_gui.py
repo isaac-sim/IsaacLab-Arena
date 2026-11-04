@@ -609,6 +609,7 @@ class TestSimAppClient:
 
 
 class TestSimAppSimPreview:
+    @pytest.mark.with_display
     @pytest.mark.with_subprocess
     def test_run_sim_preview_via_simapp_subprocess(self, tmp_path: Path) -> None:
         yaml_text = _VALID_SPEC_YAML_PATH.read_text(encoding="utf-8")
