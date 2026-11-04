@@ -355,7 +355,7 @@ jobs:
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         with:
-          cache-name: subprocess
+          cache-name: tests_with_subprocess
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
