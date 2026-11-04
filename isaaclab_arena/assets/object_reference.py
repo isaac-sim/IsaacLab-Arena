@@ -51,7 +51,12 @@ class ArticulationBodyReferenceCfg(AssetBaseCfg):
 class ObjectReference(RootedObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
-    def __init__(self, parent_asset: Object | ObjectReference, **kwargs):
+    def __init__(
+        self,
+        parent_asset: Object | ObjectReference,
+        initial_joint_positions: dict[str, float] | None = None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         if isinstance(parent_asset, ObjectReference):
             assert parent_asset.object_type == ObjectType.ARTICULATION, (
@@ -68,6 +73,12 @@ class ObjectReference(RootedObjectBase):
             self.initial_pose_relative_to_parent,
         ) = self._get_referenced_prim_path_and_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
+        if initial_joint_positions is not None:
+            assert (
+                self.object_type == ObjectType.ARTICULATION
+            ), "initial_joint_positions requires an articulation object reference"
+            assert isinstance(self.object_cfg, ArticulationCfg)
+            self.object_cfg.init_state.joint_pos = dict(initial_joint_positions)
         self._pose_event_cfg = self._build_reset_event()
         self._bounding_box: AxisAlignedBoundingBox | None = None
         self._collision_mesh: trimesh.Trimesh | None = None

@@ -283,6 +283,35 @@ def test_nested_reference_uses_articulation_parent_pose(tmp_path: pathlib.Path):
     )
 
 
+def _test_articulation_reference_accepts_initial_joint_positions(simulation_app, tmp_path: pathlib.Path) -> bool:
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import OpenableObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
+
+    usd_path = tmp_path / "reference_initial_joints.usda"
+    _write_scaled_drawer_articulation(usd_path, "prismatic")
+    workbench = Object(name="workbench", usd_path=str(usd_path), object_type=ObjectType.BASE)
+    drawer = OpenableObjectReference(
+        name="drawer",
+        prim_path="{ENV_REGEX_NS}/workbench/Cabinet",
+        parent_asset=workbench,
+        openable_joint_name="drawer_joint",
+        initial_joint_positions={"drawer_joint": 0.3},
+    )
+
+    assert drawer.object_cfg.init_state.joint_pos == {"drawer_joint": 0.3}
+    assert [name for name, _ in drawer.get_event_cfgs()] == ["drawer", "drawer_joints"]
+    return True
+
+
+def test_articulation_reference_accepts_initial_joint_positions(tmp_path: pathlib.Path):
+    assert run_function_with_persistent_simulation_app(
+        _test_articulation_reference_accepts_initial_joint_positions,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+    )
+
+
 def _test_articulation_link_reference_follows_initial_prismatic_joint_position(
     simulation_app, tmp_path: pathlib.Path, spawn_scale: float, expected_x: float, expected_min_W, expected_max_W
 ) -> bool:
