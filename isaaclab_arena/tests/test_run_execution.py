@@ -15,10 +15,17 @@ from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
+    ARENA_SINGLE_RUN_TIMINGS_FILENAME,
+)
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
-from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
+from isaaclab_arena.relations.placement_diagnostics import (
+    AggregatedPlacementDiagnostics,
+    BatchValidationDiagnostics,
+    PlacementDiagnostics,
+)
 from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.utils.timer import Timer
 
@@ -531,21 +538,23 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
 
 
-def test_execute_experiment_writes_the_placement_diagnostics_that_built_each_rebuild_of_a_completed_run(
+def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebuilds_of_a_completed_run(
     monkeypatch, tmp_path
 ):
-    """A completed Run writes the diagnostics of the fill that built each rebuild, although its rollout can refill the
-    pool. A failed Run writes none."""
-    built_diagnostics = PlacementDiagnostics(num_envs=2, fallback_envs=[1])
+    """A completed Run writes the diagnostics of the fills that built its rebuilds, summed into one file, although its
+    rollouts can refill the pool. A failed Run writes none."""
+    first_build = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 3, {})], fallback_envs=[1])
+    second_build = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 4, {})])
     # Rebuild 0 of the passing Run solves no relations.
-    diagnostics_per_build = {("passing", 1): built_diagnostics, ("failing", 0): built_diagnostics}
+    diagnostics_per_build = {("passing", 1): first_build, ("passing", 2): second_build, ("failing", 0): first_build}
 
     def build_environment(cfg, render_mode, output_dir, rebuild_index):
         return _environment(diagnostics_per_build.get((cfg.name, rebuild_index)))
 
     def roll_out(env, policy, num_steps, num_episodes):
         # A reset that refills the pool replaces its diagnostics.
-        env.unwrapped.event_manager.placement_diagnostics = PlacementDiagnostics(num_envs=2)
+        refill = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 0, {})])
+        env.unwrapped.event_manager.placement_diagnostics = refill
         if env.unwrapped.episode_recorder.name == "failing":
             raise RuntimeError("rollout failed")
 
@@ -556,11 +565,13 @@ def test_execute_experiment_writes_the_placement_diagnostics_that_built_each_reb
     monkeypatch.setattr(run_execution, "rollout_policy", roll_out)
 
     run_execution.execute_experiment(
-        _experiment(_run(name="passing"), _run(name="failing", num_rebuilds=1)),
+        _experiment(_run(name="passing", num_rebuilds=3), _run(name="failing", num_rebuilds=1)),
         output_dir=tmp_path,
         continue_on_error=True,
     )
 
-    written_paths = [str(path.relative_to(tmp_path)) for path in tmp_path.glob("*/placement_diagnostics_rebuild*.json")]
-    assert written_paths == ["passing/placement_diagnostics_rebuild1.json"]
-    assert PlacementDiagnostics.load(tmp_path / written_paths[0]) == built_diagnostics
+    written_paths = list(tmp_path.glob(f"*/{ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME}"))
+    assert written_paths == [tmp_path / "passing" / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME]
+    assert AggregatedPlacementDiagnostics.load(written_paths[0]) == AggregatedPlacementDiagnostics(
+        num_builds=2, num_envs=4, num_fallback_envs=1, num_batches=2, batches=[BatchValidationDiagnostics(8, 7, {})]
+    )

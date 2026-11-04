@@ -29,15 +29,15 @@ lowest loss. This best-loss fallback is on by default. When the last batch gives
 some valid candidates but too few, or none while fallback is off, the build
 fails.
 
-When a Run completes, the experiment runner writes the placement diagnostics of
-each build that solved relation placement to
-``placement_diagnostics_rebuild<i>.json`` in the Run directory, whatever the
-Run's policy. The file holds the number of environments, the environments that
-fell back, and for each batch the number of candidates, the number of valid
-ones, and how many candidates each check ran on and passed, which shows which
-check rejects candidates. A failed Run writes none, and neither does a build
-that replays recorded layouts. From these files the benchmark reports for each
-Run:
+When a Run completes, the experiment runner sums the placement diagnostics of
+its builds that solved relation placement and writes them to
+``arena_run_placement_diagnostics.json`` in the Run directory, whatever the
+Run's policy. The file holds the number of builds, environments and batches, the
+number of environments that fell back, and for each batch position the number of
+candidates, the number of valid ones, and how many candidates each check ran on
+and passed, which shows which check rejects candidates. A build that replays
+recorded layouts adds nothing, and a failed Run writes no file. From these files
+the benchmark reports for each Run:
 
 * **Valid candidates** (``valid_candidate_rate_first_batch``): the share of
   candidates in the first batch that pass every required check. The first batch
