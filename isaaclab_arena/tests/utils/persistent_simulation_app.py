@@ -13,7 +13,7 @@ from isaaclab.app import AppLauncher
 from isaacsim import SimulationApp
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.tests.conftest import PYTEST_SESSION
+from isaaclab_arena.tests.utils import pytest_session
 from isaaclab_arena.tests.utils import subprocess as subprocess_utils
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
 
@@ -49,9 +49,8 @@ class _IsolatedArgv:
 def _close_persistent():
     global _PERSISTENT_SIM_APP_LAUNCHER
     if _PERSISTENT_SIM_APP_LAUNCHER is not None:
-        tests_failed = (
-            PYTEST_SESSION.tests_failed if PYTEST_SESSION is not None else subprocess_utils._AT_LEAST_ONE_TEST_FAILED
-        )
+        session = pytest_session.PYTEST_SESSION
+        tests_failed = session.tests_failed if session is not None else subprocess_utils._AT_LEAST_ONE_TEST_FAILED
         print(f"Closing persistent simulation app. Tests failed: {tests_failed}")
         if os.environ.get("ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE") == "1":
             # Avoid Kit's unreliable native shutdown path and preserve the test result.

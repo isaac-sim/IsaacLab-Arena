@@ -10,20 +10,21 @@
 # when a test fails. This flag is checked in
 # isaaclab_arena.tests.utils.persistent_simulation_app.py
 # prior to closing the simulation app, in order to generate the correct exit code.
+#
+# This conftest.py lives at the repo root so that it applies to the tests of every package.
 
 from __future__ import annotations
 
+from isaaclab_arena.tests.utils import pytest_session
+
 # Expose agentic LLM test fixtures (``stub_openai``, etc.) to the suite.
 pytest_plugins = ["isaaclab_arena.tests.utils.agentic_environment_generation"]
-
-PYTEST_SESSION = None
 
 
 def pytest_sessionstart(session):
     # This function is called before the first test is run.
     # We stash the session object so we can access later to determine if any tests failed.
-    global PYTEST_SESSION
-    PYTEST_SESSION = session
+    pytest_session.PYTEST_SESSION = session
     session.tests_failed = False
 
 
@@ -31,4 +32,4 @@ def pytest_runtest_logreport(report):
     # This function is called after each test is run.
     # We set the tests_failed flag to True if the test failed.
     if report.when == "call" and report.failed:
-        PYTEST_SESSION.tests_failed = True
+        pytest_session.PYTEST_SESSION.tests_failed = True

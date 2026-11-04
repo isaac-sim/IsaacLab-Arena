@@ -269,7 +269,7 @@ jobs:
         name: Setup Isaac Sim kit cache (shader warmup on miss)
         uses: ./.github/actions/setup-isaac-sim-kit-cache
 
-      # Run the tests.
+      # Run the tests. Tests directories are stored in pytest.ini
       #
       # Note(alexmillane): We have to run the tests in a specific way. To achieve a reasonable test speed,
       # we don't close the SimulationApp between tests, where this is possible. We need, however, to restart the
@@ -286,26 +286,19 @@ jobs:
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
       - name: Run in-process Newton tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
-            isaaclab_arena/tests/
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess"
 
       - name: Run in-process Newton tests with cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
-            isaaclab_arena/tests/
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess"
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/ \
-            isaaclab_arena_benchmarking/tests/test_placement_success.py \
-            isaaclab_arena_vlm_agent/tests/
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton"
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/ \
-            isaaclab_arena_vlm_agent/tests/
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton"
 
       - name: Run GR00T policy client & data tests (lightweight gr00t deps only)
         run: |
@@ -349,14 +342,14 @@ jobs:
       - name: Run subprocess-spawning Newton tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_subprocess" \
-            isaaclab_arena/tests/
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_subprocess"
 
       - name: Run subprocess-spawning PhysX tests
         run: |
+          # The review GUI sim-preview test opens a Kit viewport window and stalls without a display.
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+            --deselect isaaclab_arena_examples/tests/test_review_gui.py::TestSimAppSimPreview::test_run_sim_preview_via_simapp_subprocess
 
 
   test_gr00t_closedloop_e2e:
