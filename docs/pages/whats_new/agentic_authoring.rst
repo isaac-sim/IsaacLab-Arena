@@ -1,5 +1,5 @@
-Agentic Evaluation Authoring Improvements
-=========================================
+Agentic Evaluation Authoring
+============================
 
 Agents are now fluent in Arena's placement and tasking system.
 We provide two demonstrations of agentic evaluation environment authoring

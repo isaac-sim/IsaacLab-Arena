@@ -8,21 +8,33 @@ Workbench Environment
 
 .. container:: arena-value-eyebrow
 
-   Arena vs. Isaac Lab · Authoring study · 2 Nov 2026
+   Isaac Lab - Arena · Agentic Authoring · Workbench Task
 
 Faster authoring. Evaluation infrastructure included.
 -----------------------------------------------------
 
-We asked the same coding agent to build the same workbench cleanup evaluation twice: once as Arena
-YAML, and once as a standalone Isaac Lab Python script. With Arena, initial setup was faster and
-cheaper, required no Python, and connected the task to reusable placement, variation, validation,
-and distributed evaluation workflows.
+Coding agents are now the predominant way that developers interact with code.
+Agents are quickly becoming the predominant way to interact with 3D environments.
+Arena ``v0.4`` includes improvements to agentic environment authoring.
 
-The problem
-^^^^^^^^^^^
+Study
+-----
 
-The agent gets a single prompt: arrange a varied workbench scene, define a cleanup task that ends
-by closing an articulated drawer, and validate success correctly.
+On this page we describe a study that aims to show the efficacy of Arena's evaluation building system for agentic environment authoring.
+As a baseline, we compared against Isaac Lab alone, without the Arena extension,
+which lacks the evaluation-oriented building blocks that Arena provides.
+
+**TL;DR:** With Arena, the agent:
+ * completed the initial setup **5.25× faster**,
+ * spent **65% less** on tokens,
+ * wrote **no custom code**,
+ * and used Arena's batched placement solver to get **physically stable layout variations** with no additional setup.
+
+The agent's task
+^^^^^^^^^^^^^^^^
+
+The agent gets a single prompt describing a workbench cleanup evaluation environment:
+five tools must be moved from a bin into an open drawer, and the drawer must then be closed.
 
 .. dropdown:: The prompt given to the agent
 
@@ -32,6 +44,16 @@ by closing an articulated drawer, and validate success correctly.
    The top-left drawer of the workbench is open.
 
    Task: put all the tools into the drawer, then close the drawer. Validate task success correctly.
+
+The agent's process
+^^^^^^^^^^^^^^^^^^^
+
+.. video:: ../../images/whats_new/agentic_authoring_workbench_walkthrough.mp4
+   :width: 100%
+   :caption: A coding agent authors, validates, and runs a workbench cleanup evaluation with Arena.
+   :alt: Walkthrough of a coding agent authoring a workbench cleanup evaluation in Isaac Lab-Arena
+   :muted:
+   :playsinline:
 
 The agent's solution
 ^^^^^^^^^^^^^^^^^^^^
@@ -62,6 +84,11 @@ articulated drawer as placement and task targets without modifying the source wo
 The task has one placement milestone for each tool followed by drawer closure. Success checks use
 the live drawer body pose and require the tools to remain contained, supported, and settled.
 
+Analysis
+^^^^^^^^
+
+Let's compare the solution above to the baseline solution written without Arena's evaluation building blocks.
+
 .. container:: arena-value-stats
 
    .. container:: arena-value-stat
@@ -84,28 +111,41 @@ the live drawer body pose and require the tools to remain contained, supported, 
 
 .. list-table::
    :header-rows: 1
-   :widths: 36 30 34
+   :widths: 22 22 22 34
    :class: arena-value-table
 
-   * - Decision factor
-     - Isaac Lab (agent writes custom code)
-     - Isaac Lab - Arena (agent writes YAML)
+   * - Measurement
+     - Without Arena
+     - With Arena
+     - Details
    * - Initial setup time
      - 21 min
      - 4 min
 
        :gain:`5.25× faster setup`
-   * - Initial authoring code
-     - 302 lines of Python
-     - 0 lines of Python + 172 lines of YAML
-   * - Authoring and validation token cost
+     - Time for the agent's initial environment setup.
+   * - Model cost
      - $11.30
      - $3.95
 
        :gain:`65% lower token cost`
-   * - Add ten physically stable layout variations
-     - 19.4 min + $11.1 + 301 lines of Python
-     - 0 additional setup; Arena's native batched placement solver handles the variations
+     - Token cost of authoring and validation with GPT-6 Astra.
+   * - Environment code
+     - 302 lines of custom Python code
+     - 0 lines of Python + 172 lines of environment YAML
+
+       :gain:`no new code to maintain`
+     - Environment is a composition of Arena placement relations, object references, and tasks.
+   * - Ten physically stable layout variations
+     - 19.4 min + $11.1 + 301 lines of custom Python code
+     - 0 additional setup
+     - Arena's native batched placement solver handles the variations.
+
+In summary, with Arena, the agent:
+ * completed the initial setup **5.25× faster**,
+ * spent **65% less** on tokens,
+ * wrote **no custom code**,
+ * and used Arena's batched placement solver to get **physically stable layout variations** with no additional setup.
 
 Beyond initial setup
 ^^^^^^^^^^^^^^^^^^^^
@@ -114,7 +154,7 @@ Arena provides more than a shorter environment definition:
 
 * **Collision-free batched placement.** The placement solver samples the full layout together,
   rejects object collisions, and supports batched collision and robot-reachability validation.
-  The workbench environment gets four physically stable layout variations without another custom
+  The workbench environment gets ten physically stable layout variations without another custom
   placement script.
 * **Composable environment changes.** Swapping the workbench takes a 16-line environment YAML;
   adding two tasks takes a 35-line environment YAML. Neither requires Python.
@@ -125,6 +165,14 @@ Arena provides more than a shorter environment definition:
 Going further
 ^^^^^^^^^^^^^
 
-The environment's scene, task, and validation recipe are reusable independently. The same
-registered assets and object references can support robot-policy evaluations or additional
-workbench tasks without embedding environment-specific success logic in the runner.
+The environment YAML plugs straight into an Arena Experiment runner and can be used in all Arena
+evaluation workflows. For example,
+
+* **Parallel evaluation:** The above environment can be run across many parallel environments.
+  See :doc:`../example_workflows/analysis/recorded_variations`.
+* **Multi-node evaluation:** The same environment can be evaluated across a multi-node cluster with OSMO.
+  See :doc:`../example_workflows/multi_node_evaluation/multi_node_evaluation`.
+* **Variations:** Expose the policy to controlled perturbations through Arena's variation system.
+  See :doc:`../example_workflows/analysis/variations`.
+* **Metrics:** By default, Arena collects evaluation-oriented metrics which can be viewed after an experiment run.
+  See :doc:`../example_workflows/sensitivity_analysis/sensitivity_analysis`.
