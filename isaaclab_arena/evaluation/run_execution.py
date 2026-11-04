@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
@@ -27,6 +28,8 @@ from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
+from isaaclab_arena.relations.placement_diagnostics import aggregate_placement_diagnostics
+from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
@@ -37,6 +40,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+    from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 
 def execute_experiment(
@@ -91,9 +95,16 @@ def execute_experiment(
             continue
 
         print_timer_stats()
-        write_run_timings(run_output_dir)
+        _write_run_outputs(run_output_dir, result)
         results.append(result)
     return results
+
+
+def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult) -> None:
+    """Write a completed Run's timings and, when it has any, its placement diagnostics to its output directory."""
+    write_run_timings(run_output_dir)
+    if result.placement_diagnostics is not None:
+        result.placement_diagnostics.save(run_output_dir / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME)
 
 
 def build_and_run(
@@ -104,6 +115,7 @@ def build_and_run(
     """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
     start_timestamp_ns = time.time_ns()
     metrics_per_rebuild: list[MetricsDataCollection] = []
+    placement_diagnostics_per_rebuild: list[PlacementDiagnostics] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _episodes_per_rebuild(cfg)
@@ -124,6 +136,10 @@ def build_and_run(
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
             )
+            # Read before the rollout, whose resets can refill the placement pool and replace its diagnostics.
+            placement_diagnostics = get_placement_diagnostics(env)
+            if placement_diagnostics is not None:
+                placement_diagnostics_per_rebuild.append(placement_diagnostics)
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
@@ -147,6 +163,11 @@ def build_and_run(
         start_timestamp_ns=start_timestamp_ns,
         end_timestamp_ns=time.time_ns(),
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
+        placement_diagnostics=(
+            aggregate_placement_diagnostics(placement_diagnostics_per_rebuild)
+            if placement_diagnostics_per_rebuild
+            else None
+        ),
     )
 
 
