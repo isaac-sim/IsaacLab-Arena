@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import time
 from copy import deepcopy
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -14,9 +15,18 @@ from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
+    ARENA_SINGLE_RUN_TIMINGS_FILENAME,
+)
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.relations.placement_diagnostics import (
+    AggregatedPlacementDiagnostics,
+    BatchValidationDiagnostics,
+    PlacementDiagnostics,
+)
+from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.utils.timer import Timer
 
 
@@ -48,8 +58,26 @@ class _EpisodeRecorder:
         self.path = path
 
 
-def _environment():
-    return SimpleNamespace(unwrapped=SimpleNamespace(episode_recorder=_EpisodeRecorder()))
+class _EventManager:
+    """Has a placement reset event, whose live pool reports placement_diagnostics, unless they are None."""
+
+    def __init__(self, placement_diagnostics):
+        self.placement_diagnostics = placement_diagnostics
+
+    def get_term_cfg(self, term_name):
+        if term_name != PLACEMENT_RESET_EVENT_NAME or self.placement_diagnostics is None:
+            raise ValueError(f"Event term '{term_name}' not found.")
+        pool = SimpleNamespace(last_fill_diagnostics=self.placement_diagnostics)
+        return SimpleNamespace(params={"placement_sampler": SimpleNamespace(pool=pool)})
+
+
+def _environment(placement_diagnostics=None):
+    return SimpleNamespace(
+        unwrapped=SimpleNamespace(
+            episode_recorder=_EpisodeRecorder(),
+            event_manager=_EventManager(placement_diagnostics),
+        )
+    )
 
 
 @dataclass
@@ -111,10 +139,12 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
     monkeypatch.setattr(run_execution, "rollout_policy", record_rollout)
 
+    before_run_ns = time.time_ns()
     result = run_execution.build_and_run(
         run,
         output_dir=tmp_path,
     )
+    after_run_ns = time.time_ns()
 
     base_seed = run.environment_builder.seed
     run_seed_0 = deepcopy(run)  # Rebuild 0 keeps the configured seed.
@@ -123,6 +153,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
     assert result.run_name == "test_run"
     assert result.status is RunStatus.COMPLETED
+    assert before_run_ns <= result.start_timestamp_ns <= result.end_timestamp_ns <= after_run_ns
     assert rollout_limits == [(None, 3), (None, 2)]
     # Runs are the same except for their seeds.
     assert received_run_cfgs == [run_seed_0, run_seed_1]
@@ -340,7 +371,12 @@ def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
 
     def build_and_run(run_cfg, output_dir, video_cfg):
         received.append((run_cfg.name, output_dir, video_cfg.video_base_dir))
-        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+        return ArenaRunResult(
+            run_name=run_cfg.name,
+            status=RunStatus.COMPLETED,
+            start_timestamp_ns=time.time_ns(),
+            end_timestamp_ns=time.time_ns(),
+        )
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
@@ -363,21 +399,33 @@ def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path)
         attempted.append(run_cfg.name)
         if run_cfg.name == "failing":
             raise RuntimeError("rollout failed")
-        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+        return ArenaRunResult(
+            run_name=run_cfg.name,
+            status=RunStatus.COMPLETED,
+            start_timestamp_ns=time.time_ns(),
+            end_timestamp_ns=time.time_ns(),
+        )
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
+    before_experiment_ns = time.time_ns()
     results = run_execution.execute_experiment(
         _experiment(_run(name="failing"), _run(name="passing")),
         output_dir=tmp_path,
         continue_on_error=True,
     )
+    after_experiment_ns = time.time_ns()
 
     assert attempted == ["failing", "passing"]
     assert [(result.run_name, result.status) for result in results] == [
         ("failing", RunStatus.FAILED),
         ("passing", RunStatus.COMPLETED),
     ]
+    start_timestamps_ns = [result.start_timestamp_ns for result in results]
+    end_timestamps_ns = [result.end_timestamp_ns for result in results]
+    assert before_experiment_ns <= start_timestamps_ns[0] <= end_timestamps_ns[0] <= after_experiment_ns
+    assert start_timestamps_ns[1] <= end_timestamps_ns[1] <= after_experiment_ns
+    assert end_timestamps_ns[0] <= end_timestamps_ns[1]
 
 
 def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):
@@ -443,7 +491,12 @@ def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_pat
     def build_and_run(run_cfg, output_dir, video_cfg):
         with Timer(run_cfg.name):
             pass
-        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+        return ArenaRunResult(
+            run_name=run_cfg.name,
+            status=RunStatus.COMPLETED,
+            start_timestamp_ns=time.time_ns(),
+            end_timestamp_ns=time.time_ns(),
+        )
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
@@ -466,7 +519,12 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
             raise RuntimeError("rollout failed")
         with Timer("step"):
             pass
-        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+        return ArenaRunResult(
+            run_name=run_cfg.name,
+            status=RunStatus.COMPLETED,
+            start_timestamp_ns=time.time_ns(),
+            end_timestamp_ns=time.time_ns(),
+        )
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
@@ -478,3 +536,42 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
     assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+
+
+def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebuilds_of_a_completed_run(
+    monkeypatch, tmp_path
+):
+    """A completed Run writes the diagnostics of the fills that built its rebuilds, summed into one file, although its
+    rollouts can refill the pool. A failed Run writes none."""
+    first_build = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 3, {})], fallback_envs=[1])
+    second_build = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 4, {})])
+    # Rebuild 0 of the passing Run solves no relations.
+    diagnostics_per_build = {("passing", 1): first_build, ("passing", 2): second_build, ("failing", 0): first_build}
+
+    def build_environment(cfg, render_mode, output_dir, rebuild_index):
+        return _environment(diagnostics_per_build.get((cfg.name, rebuild_index)))
+
+    def roll_out(env, policy, num_steps, num_episodes):
+        # A reset that refills the pool replaces its diagnostics.
+        refill = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 0, {})])
+        env.unwrapped.event_manager.placement_diagnostics = refill
+        if env.unwrapped.episode_recorder.name == "failing":
+            raise RuntimeError("rollout failed")
+
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", build_environment)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
+    monkeypatch.setattr(run_execution, "rollout_policy", roll_out)
+
+    run_execution.execute_experiment(
+        _experiment(_run(name="passing", num_rebuilds=3), _run(name="failing", num_rebuilds=1)),
+        output_dir=tmp_path,
+        continue_on_error=True,
+    )
+
+    written_paths = list(tmp_path.glob(f"*/{ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME}"))
+    assert written_paths == [tmp_path / "passing" / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME]
+    assert AggregatedPlacementDiagnostics.load(written_paths[0]) == AggregatedPlacementDiagnostics(
+        num_builds=2, num_envs=4, num_fallback_envs=1, num_batches=2, batches=[BatchValidationDiagnostics(8, 7, {})]
+    )

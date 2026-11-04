@@ -16,9 +16,12 @@ from isaaclab_arena.relations.runtime.placement_sampler import (
 )
 
 if TYPE_CHECKING:
+    import gymnasium as gym
+
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
@@ -82,6 +85,23 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
     assert handle is not None, f"'{PLACEMENT_RESET_EVENT_NAME}' event is missing its placement_sampler parameter."
     assert handle.pool is not None, "Relation placement is using recorded replay, not a live placement pool."
     return handle.pool
+
+
+def get_placement_diagnostics(env: gym.Env) -> PlacementDiagnostics | None:
+    """Return the diagnostics of the most recent fill of the env's placement pool, or None when it has no live pool.
+
+    An env that solves no relations, or that replays recorded layouts, has no live pool. A reset that refills the pool
+    replaces its diagnostics.
+
+    Args:
+        env: The gym-wrapped Isaac Lab env; the base env is reached via ``env.unwrapped``.
+    """
+    try:
+        term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
+    except ValueError:
+        return None
+    pool = term_cfg.params["placement_sampler"].pool
+    return pool.last_fill_diagnostics if pool is not None else None
 
 
 def get_reset_placement_results(env: ManagerBasedEnv) -> dict[int, PlacementResult]:

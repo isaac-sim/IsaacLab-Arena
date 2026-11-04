@@ -14,7 +14,7 @@ from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.utils.random import get_rngs
+from isaaclab_arena.utils.random import derive_seed, get_rngs
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.geometry.collision_object import CollisionObject
@@ -91,10 +91,10 @@ class PooledObjectPlacer:
         self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
         self._pool_size = pool_size
         self._had_fallbacks = False
-        self._last_fill_diagnostics = PlacementDiagnostics()
+        self._last_fill_diagnostics = PlacementDiagnostics(self._num_envs)
         self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks
         self._base_placement_seed = placer_params.placement_seed
-        self._next_seed_offset = 0
+        self._num_seeded_solves = 0
         # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
         # and independent of other envs.
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
@@ -125,12 +125,21 @@ class PooledObjectPlacer:
         for pool in self._env_pools:
             pool.discard_consumed()
 
-    def _prepare_seeded_solve(self, num_candidates: int) -> None:
-        """Avoid replaying the same candidate sequence on seeded refills."""
+    def _prepare_seeded_solve(self) -> None:
+        """Give each seeded refill its own placement seed, so it neither replays this pool nor another seed's pool.
+
+        The first solve keeps the base seed. Later solves derive the seed from (base seed, solve index) rather than
+        offsetting it, which would reuse the first batch of a nearby base seed.
+        """
         if self._base_placement_seed is None:
             return
-        self._placer.params.placement_seed = self._base_placement_seed + self._next_seed_offset
-        self._next_seed_offset += num_candidates
+        if self._num_seeded_solves == 0:
+            self._placer.params.placement_seed = self._base_placement_seed
+        else:
+            self._placer.params.placement_seed = derive_seed(
+                self._base_placement_seed, "pool_refill", self._num_seeded_solves
+            )
+        self._num_seeded_solves += 1
 
     def _solve_and_store(self, num_layouts: int) -> None:
         """Solve and store layouts until every env has target_num_layouts_per_env unread layouts.
@@ -138,7 +147,7 @@ class PooledObjectPlacer:
         Bounded by max_placement_attempts; raises if the target cannot be met.
         """
         self._discard_consumed_layouts()
-        self._last_fill_diagnostics = PlacementDiagnostics()
+        self._last_fill_diagnostics = PlacementDiagnostics(self._num_envs)
         target_num_layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         max_solve_batches = max(1, self._placer.params.max_placement_attempts)
 
@@ -175,10 +184,7 @@ class PooledObjectPlacer:
         environments.
         """
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
-        # ObjectPlacer seeds each candidate as placement_seed + candidate_idx.
-        # Keep this count aligned with place_ranked_per_env's candidate layout.
-        num_candidates = self._num_envs * layouts_per_env * self._placer.params.max_placement_attempts
-        self._prepare_seeded_solve(num_candidates)
+        self._prepare_seeded_solve()
 
         with torch.inference_mode(False):
             ranked_results_per_env = self._placer.place_ranked_per_env(

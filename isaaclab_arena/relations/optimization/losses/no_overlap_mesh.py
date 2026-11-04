@@ -80,10 +80,12 @@ def compute_no_overlap_loss_mesh(
             torch.zeros_like(subject_yaws),
             subject_yaws,
         )
+        # An obstacle bbox that doesn't include the current yaw is at the obstacle's fixed yaw, so it turns by the
+        # difference: zero for a fixed obstacle, unless orientations overrides its yaw.
         obstacle_bbox_yaws = torch.where(
             mesh_cache.pair_obstacle_bbox_includes_yaw.unsqueeze(0),
             torch.zeros_like(obstacle_yaws),
-            obstacle_yaws,
+            obstacle_yaws - mesh_cache.pair_fixed_obstacle_yaw_tensor.unsqueeze(0),
         )
         s_bbox_min, s_bbox_max = _rotate_bbox_extents_batched(s_bbox_min, s_bbox_max, subject_bbox_yaws)
         o_bbox_min, o_bbox_max = _rotate_bbox_extents_batched(o_bbox_min, o_bbox_max, obstacle_bbox_yaws)
@@ -275,13 +277,16 @@ def _collect_mesh_pairs(
             )
             if child_spheres is None:
                 continue
-            obstacle_bbox = obstacle.get_bounding_box().to(device)
+            fixed_obstacle_pos = torch.tensor(pose.position_xyz, dtype=torch.float32, device=device)
+            # BBOX mode's world bounds, which are already at the pose yaw. get_bounding_box() may hold part of that yaw
+            # (an ObjectReference's bounds include its prim's own yaw), so rotating it by the pose yaw would be wrong.
+            obstacle_bbox = state.get_fixed_obstacle_world_bbox(obstacle).translated(-fixed_obstacle_pos)
             pairs.append(
                 MeshPairEntry(
                     subject=child,
                     obstacle=obstacle,
                     obstacle_is_fixed=True,
-                    fixed_obstacle_pos=torch.tensor(pose.position_xyz, dtype=torch.float32, device=device),
+                    fixed_obstacle_pos=fixed_obstacle_pos,
                     fixed_obstacle_yaw=yaw_from_quat_xyzw(pose.rotation_xyzw),
                     centers_local=child_spheres[:, :3],
                     subject_applies_yaw=child_applies_yaw,

@@ -236,7 +236,7 @@ def _test_gear_insertion_cameras_survive_episode_reset(simulation_app):
                     env.step(torch.zeros(env.action_space.shape, device=base.device))
                 for name in CAMERA_NAMES:
                     rgb = base.scene[name].data.output["rgb"].torch
-                    assert rgb.shape[:3] == (2, 360, 640)
+                    assert rgb.shape[:3] == (2, 720, 1280)
                     assert rgb.shape[-1] in (3, 4)
                     assert torch.isfinite(rgb).all()
                     for frame in rgb:

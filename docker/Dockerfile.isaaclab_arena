@@ -78,6 +78,7 @@ COPY *.* ${WORKDIR}/
 # Preserve package directory names when copying multiple sources into one layer.
 COPY --parents \
     isaaclab_arena \
+    isaaclab_arena_benchmarking \
     isaaclab_arena_cosmos \
     isaaclab_arena_curobo \
     isaaclab_arena_dreamzero \
@@ -87,6 +88,7 @@ COPY --parents \
     isaaclab_arena_vlm_agent \
     isaaclab_arena_environments \
     isaaclab_arena_examples \
+    osmo \
     ${WORKDIR}/
 RUN --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
     uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}" && \
@@ -97,5 +99,10 @@ RUN --mount=type=bind,source=docker/setup/configure_shell.sh,target=/tmp/configu
 COPY docs ${WORKDIR}/docs
 COPY docker/setup/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
+# Arena git commit and branch, typically set by CI when it builds the image. Local builds should leave them
+# "unknown" since values would turn stale if the mounted checkout changes.
+ARG GIT_SHA=unknown
+ARG GIT_BRANCH=unknown
+ENV ARENA_GIT_SHA=${GIT_SHA} ARENA_GIT_BRANCH=${GIT_BRANCH}
 
 FROM dev AS default

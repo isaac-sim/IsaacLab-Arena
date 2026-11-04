@@ -39,6 +39,9 @@ DROID_GEAR_APPROACH_JOINT_POSITIONS = {
 class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Newton DROID gear insertion environment."""
 
+    embodiment: str = "droid_differential_ik"
+    """DROID differential-IK embodiment: ``droid_differential_ik`` or ``droid_abs_ik``."""
+
     hdr: str | None = "empty_warehouse_robolab"
     """Registered HDR background, or None for uniform dome lighting."""
 
@@ -48,10 +51,22 @@ class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
     position_randomization_m: float = 0.05
     """Maximum initial X/Y offset for each gear asset; zero keeps the nominal positions."""
 
+    camera_width: int | None = None
+    """Rendered width of every DROID camera in pixels, or None to keep the embodiment's camera width."""
+
+    camera_height: int | None = None
+    """Rendered height of every DROID camera in pixels, or None to keep the embodiment's camera height."""
+
     def __post_init__(self) -> None:
         assert (
             math.isfinite(self.position_randomization_m) and self.position_randomization_m >= 0.0
         ), "position_randomization_m must be finite and non-negative"
+        assert self.embodiment in {
+            "droid_abs_ik",
+            "droid_differential_ik",
+        }, "Gear insertion supports the droid_abs_ik and droid_differential_ik embodiments"
+        for size in (self.camera_width, self.camera_height):
+            assert size is None or size > 0, "camera_width and camera_height must be positive"
 
 
 @register_environment
@@ -112,12 +127,14 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
             light.add_hdr(self.hdr_registry.get_hdr_by_name(cfg.hdr)())
         directional_light = self.asset_registry.get_asset_by_name("directional_light")()
 
-        embodiment = self.asset_registry.get_asset_by_name("droid_differential_ik")(enable_cameras=cfg.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.set_joint_initial_pos(DROID_GEAR_APPROACH_JOINT_POSITIONS)
         for camera_name in embodiment.camera_config.camera_names():
             camera = getattr(embodiment.camera_config, camera_name)
-            camera.width = 640
-            camera.height = 360
+            if cfg.camera_width is not None:
+                camera.width = cfg.camera_width
+            if cfg.camera_height is not None:
+                camera.height = cfg.camera_height
 
         teleop_device = (
             self.device_registry.get_device_by_name(cfg.teleop_device)() if cfg.teleop_device is not None else None
