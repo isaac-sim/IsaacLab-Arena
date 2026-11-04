@@ -44,7 +44,7 @@ Arena implements several of these approaches.
    +                +--------------------------------------------------------------------------------------------+
    |                | **Chunk** (``VLMChunkPolicy``): a fixed number of poses per call, set by ``chunk_size``.   |
    +                +--------------------------------------------------------------------------------------------+
-   |                | **Step** (``VLMStepPolicy``): a chunk of one pose per call.                                |
+   |                | **Step** (``VLMChunkPolicy`` with ``chunk_size: 1``): a chunk of one pose per call.        |
    +----------------+--------------------------------------------------------------------------------------------+
    | Observations   | Camera images, robot state, or both.                                                       |
    +----------------+--------------------------------------------------------------------------------------------+

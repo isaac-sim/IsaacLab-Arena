@@ -6,10 +6,6 @@ Workbench Environment
 .. role:: gain
    :class: arena-value-gain
 
-.. container:: arena-value-eyebrow
-
-   Isaac Lab - Arena · Agentic Authoring · Workbench Task
-
 Faster authoring. Evaluation infrastructure included.
 -----------------------------------------------------
 
@@ -25,42 +21,67 @@ As a baseline, we compared against Isaac Lab alone, without the Arena extension,
 which lacks the evaluation-oriented building blocks that Arena provides.
 
 **TL;DR:** With Arena, the agent:
- * completed the initial setup **5.25× faster**,
- * spent **65% less** on tokens,
- * wrote **no custom code**,
+ * reached a validated environment **5.25× faster**,
+ * spent **72% less** on model cost,
+ * wrote **no custom Python code**,
  * and used Arena's batched placement solver to get **physically stable layout variations** with no additional setup.
 
 The agent's task
 ^^^^^^^^^^^^^^^^
 
 The agent gets a single prompt describing a workbench cleanup evaluation environment:
-five tools must be moved from a bin into an open drawer, and the drawer must then be closed.
+the cabinet's top drawer must be opened, five tools on the workbench put into it one by one, and
+the drawer then closed.
 
 .. dropdown:: The prompt given to the agent
 
-   Set up an environment for a workbench cleanup task evaluation. Use assets in
-   ``~/datasets/workbench/assets``. On the tabletop of the workbench, there is a bin containing a
-   clutter of five tools, such as a wrench and screwdriver, an oscilloscope, and an open toolbox.
-   The top-left drawer of the workbench is open.
+   Setup an environment for a workbench clean up task evaluation using physx simulation.
 
-   Task: put all the tools into the drawer, then close the drawer. Validate task success correctly.
+   Use following SimReady Central assets from hugging face
+
+   - ``furniture_workbench_standard_e01``
+   - ``fixture_cabinet_b01``
+   - ``testingTool_oscilloscope_a01``
+   - ``handTool_screwdriver_slotted_55mm_a01``
+   - ``handTool_screwdriver_torx_t10_a01``
+   - ``handTool_screwdriver_phillips_ph2_a01``
+   - ``handTool_wrench_combination_a01``
+
+   On the surface of the workbench, there are an cluttered of 5 tools like wrench and screwdriver
+   at the center, an oscilloscope on the left. An open toolbox sits on the cabinet to the left of
+   the workbench.
+
+   Task: open the top drawer of the cabinet, put the tools into the drawer one by one, then close
+   the drawer.
+
+   Validate task success correctly with a force based demo script.
 
 The agent's process
 ^^^^^^^^^^^^^^^^^^^
 
 .. video:: ../../images/whats_new/agentic_authoring_workbench_walkthrough.mp4
    :width: 100%
-   :caption: A coding agent authors, validates, and runs a workbench cleanup evaluation with Arena.
+   :caption: A coding agent authors a workbench cleanup environment, evaluates a VLM policy on it, and adds variations.
    :alt: Walkthrough of a coding agent authoring a workbench cleanup evaluation in Isaac Lab-Arena
    :muted:
    :playsinline:
 
+The video follows the agent through three requests:
+
+#. **Author the environment.** The agent loads SimReady assets, exposes the workbench's tabletop,
+   top drawer, and overhead shelf, places collision-checked clutter on the tabletop, defines a
+   six-step task, and validates each step with physical forces.
+#. **Evaluate a policy.** The agent adds a DROID robot and runs a local experiment with a VLM
+   (Astra) policy, which shows task progress step by step, including a failed step.
+#. **Add variations.** The agent adds placement, bin swap, overhead distractor container, and
+   background HDR variations to the experiment YAML.
+
 The agent's solution
 ^^^^^^^^^^^^^^^^^^^^
 
-The agent wrote a 172-line environment YAML. The scene places five tools as clutter inside a bin
-and varies the tabletop layout between resets. Object references expose the tabletop and nested
-articulated drawer as placement and task targets without modifying the source workbench USD.
+The agent wrote a 172-line environment YAML. The scene places five tools as clutter on the
+workbench and varies the tabletop layout between resets. Object references expose the tabletop and
+nested articulated drawer as placement and task targets without modifying the source workbench USD.
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -93,15 +114,15 @@ Let's compare the solution above to the baseline solution written without Arena'
 
    .. container:: arena-value-stat
 
-      **5.25× faster setup**
+      **5.25× faster**
 
-      initial setup took 4 min instead of 21 min
+      to a validated environment (4 min vs. 21 min)
 
    .. container:: arena-value-stat
 
-      **65% lower token cost**
+      **72% lower model cost**
 
-      authoring and validation cost $3.95 instead of $11.30
+      $1.88 instead of about $6.72
 
    .. container:: arena-value-stat
 
@@ -118,33 +139,49 @@ Let's compare the solution above to the baseline solution written without Arena'
      - Without Arena
      - With Arena
      - Details
-   * - Initial setup time
+   * - Authoring time
      - 21 min
      - 4 min
 
-       :gain:`5.25× faster setup`
-     - Time for the agent's initial environment setup.
+       :gain:`5.25× faster`
+     - Time until the agent reached a validated environment, excluding the force-based demo.
+   * - Tokens
+     - 4.4M
+     - About 1.2M
+     - Authoring only. The Arena figure is estimated from the 2.5M total, split by the authoring
+       share of the Arena cost ($1.88 of $3.95).
    * - Model cost
-     - $11.30
-     - $3.95
+     - About $6.72
+     - $1.88
 
-       :gain:`65% lower token cost`
-     - Token cost of authoring and validation with GPT-6 Astra.
+       :gain:`72% lower cost`
+     - GPT-6 Astra, authoring only. The Isaac Lab figure is estimated from the $11.30 total, split
+       by the authoring share of the Isaac Lab tokens (4.4M of 7.4M).
    * - Environment code
      - 302 lines of custom Python code
      - 0 lines of Python + 172 lines of environment YAML
 
        :gain:`no new code to maintain`
      - Environment is a composition of Arena placement relations, object references, and tasks.
-   * - Ten physically stable layout variations
-     - 19.4 min + $11.1 + 301 lines of custom Python code
-     - 0 additional setup
-     - Arena's native batched placement solver handles the variations.
+   * - Debug code
+     - 358 lines of throwaway code
+     - 184 lines of throwaway code
+     - Code written only to debug the environment.
+   * - Task success
+     - Hand-written environment-specific code
+     - Sequential composite task: one placement subtask per tool, then drawer closure
+     - Reuses Arena's existing tasks and their success conditions. Checks use the live drawer pose
+       and require the tools to remain contained, supported, and settled.
+   * - Asset placement
+     - Hand-written placement code
+     - Spatial relation graph solved to produce collision-free varied placements.
+     - Arena places objects relative to the tabletop and each other through object references,
+       rejects collisions across the whole layout, and validates robot reachability.
 
 In summary, with Arena, the agent:
- * completed the initial setup **5.25× faster**,
- * spent **65% less** on tokens,
- * wrote **no custom code**,
+ * reached a validated environment **5.25× faster**,
+ * spent **72% less** on model cost,
+ * wrote **no custom Python code**,
  * and used Arena's batched placement solver to get **physically stable layout variations** with no additional setup.
 
 Beyond initial setup

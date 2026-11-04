@@ -9,9 +9,8 @@ Welcome to Isaac Lab-Arena!
 .. tip::
 
    **Coming in the next release (scheduled for 8 December 2026):** faster agentic evaluation
-   authoring (85% lower cost and 10.5× faster than generating a custom environment), Newton-based
-   evaluation workflows, and multimodal VLMs as policies. You can try them now on the ``main``
-   branch. :doc:`See what's new <pages/whats_new/whats_new>`.
+   authoring, Newton-based evaluation workflows, and multimodal VLMs as policies. You can try them
+   now on the ``main`` branch. :doc:`See what's new <pages/whats_new/whats_new>`.
 
 .. _overview:
 

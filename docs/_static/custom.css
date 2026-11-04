@@ -51,15 +51,6 @@ html[data-theme="dark"] {
     --arena-value-muted: #a3ad9f;
 }
 
-.arena-value-eyebrow p {
-    margin: 0;
-    color: var(--arena-value-muted);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
 .arena-value-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));

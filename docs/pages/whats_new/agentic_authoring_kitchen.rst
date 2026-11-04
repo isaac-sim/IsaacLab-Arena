@@ -6,10 +6,6 @@ Kitchen Environment
 .. role:: gain
    :class: arena-value-gain
 
-.. container:: arena-value-eyebrow
-
-   Isaac Lab - Arena · Agentic Authoring · Kitchen Task
-
 Faster authoring. Evaluation infrastructure included.
 -----------------------------------------------------
 
