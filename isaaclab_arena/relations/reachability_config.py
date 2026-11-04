@@ -43,5 +43,7 @@ class ReachabilityConfig:
     background_voxel_size_m: float = 0.05
     """Voxel edge length (m) the background mesh is covered at; coarser means fewer cuboids and more inflation."""
 
+    # NOTE(xinjieyao): For DROID, 1.2 m covers the arm unless it is raised high; its full reach is about 1.36 m.
+    # A larger radius can exceed the 500 obstacle slots in a kitchen, and top-down grasps rarely raise the arm that high.
     background_obstacle_radius_m: float = 1.2
     """Distance (m) from the robot base within which a background piece is loaded as an obstacle."""
