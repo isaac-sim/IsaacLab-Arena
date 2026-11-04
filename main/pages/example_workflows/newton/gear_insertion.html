@@ -833,6 +833,15 @@ demonstrations in the dataset and exits when finished.</p>
 <p>With the Kit window focused, press <code class="docutils literal notranslate"><span class="pre">B</span></code> to pause the replayed actions and <code class="docutils literal notranslate"><span class="pre">N</span></code> to resume.</p>
 <a class="reference internal image-reference" href="../../../_images/gear_insertion_env_replay.gif"><img alt="../../../_images/gear_insertion_env_replay.gif" class="align-center" src="../../../_images/gear_insertion_env_replay.gif" style="height: 400px;" />
 </a>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Non-determinism may be observed when replaying demonstrations with Newton because
+physics in Isaac Lab is not deterministically reproducible across <code class="docutils literal notranslate"><span class="pre">env.reset()</span></code>
+calls. A demonstration may therefore fail during replay even though it succeeded
+during recording. Demonstrations with more aggressive actions and borderline grasps
+are more susceptible to this issue. All recorded demonstrations in the HDF5 remain
+valid with respect to the task’s success condition.</p>
+</div>
 </section>
 <section id="step-4-evaluate-a-vlm-agent-policy">
 <span id="gear-insertion-vlm-agent"></span><h2>Step 4: Evaluate a VLM Agent Policy<a class="headerlink" href="#step-4-evaluate-a-vlm-agent-policy" title="Link to this heading">#</a></h2>
