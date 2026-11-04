@@ -49,8 +49,8 @@ Verdicts land in each candidate's ``PlacementValidationResults``. A
 does not invalidate the layout. ``PooledObjectPlacer``
 (:doc:`./pooled_placement`) uses these results to rank candidates and to
 reject-and-refill until each environment has enough valid layouts. By default,
-if the final refill batch still has no valid candidate, Arena can store a
-best-loss layout that failed required checks
+if the final refill batch leaves an environment without enough valid layouts,
+Arena can fill the rest with best-loss layouts that failed required checks
 (``allow_best_loss_fallbacks=True``); see :doc:`./pooled_placement`.
 
 Pre-physics and offline post-physics validators share the ``PlacementValidator``

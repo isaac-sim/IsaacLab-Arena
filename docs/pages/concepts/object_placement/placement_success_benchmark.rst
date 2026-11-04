@@ -22,12 +22,11 @@ valid candidates in its own empty slots. Another batch runs only while some
 environment still has empty slots, up to ``max_placement_attempts`` batches; see
 :doc:`./pooled_placement`.
 
-When the last batch gives an environment no valid candidate, its empty slots get
-that batch's highest-ranked candidates, which fail at least one check. Candidates
-rank by fewest failed required checks, then fewest failed optional checks, then
-lowest loss. This best-loss fallback is on by default. When the last batch gives an environment
-some valid candidates but too few, or none while fallback is off, the build
-fails.
+When the last batch leaves an environment with empty slots, they get that batch's
+highest-ranked candidates that fail at least one required check. Candidates rank
+by fewest failed required checks, then fewest failed optional checks, then lowest
+loss. This best-loss fallback is on by default. When fallback is off, an
+environment with empty slots after the last batch fails the build.
 
 When a Run completes, the experiment runner sums the placement diagnostics of
 its builds that solved relation placement and writes them to
@@ -46,9 +45,9 @@ the benchmark reports for each Run:
   slots are still empty, so later batches are left out to keep the sample the
   same for every scene. This rate moves when the solver gets better or worse.
 * **Valid environments** (``valid_env_rate_after_retries``): the share of
-  environments that needed no best-loss fallback once the last batch ran. It
-  drops below 100% only when the last batch gives an environment no valid
-  candidate.
+  environments whose slots were all filled with valid layouts, without best-loss
+  fallback. It drops below 100% when the last batch leaves an environment with
+  empty slots.
 * **Batches per build** (``batches_per_build``): the mean number of batches a
   build solved.
 
