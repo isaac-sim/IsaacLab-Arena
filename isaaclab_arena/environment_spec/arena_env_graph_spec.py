@@ -21,6 +21,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     TaskSpec,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
+from isaaclab_arena.environment_spec.event_spec import EventSpec
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
@@ -50,6 +51,7 @@ class ArenaEnvGraphSpec(BaseModel):
         default_factory=list, description="Spatial layout relations across all assets."
     )
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
+    events: dict[str, EventSpec] = Field(default_factory=dict, description="Additional Isaac Lab event terms.")
     # TODO(qianl, 2026-09-22): [env-spec-refactor] Add tags for fields excluded from agentic inference.
     placer_params: dict[str, Any] | None = Field(
         default=None,

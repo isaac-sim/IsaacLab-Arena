@@ -185,3 +185,14 @@ placer_params:
 env_cfg_override:
   sim:
     render_interval: 8
+events:
+  oscilloscope_power:
+    func: isaaclab_arena.terms.events:JointTriggeredMaterialToggle
+    mode: interval
+    interval_range_s: [0.0, 0.0]
+    params:
+      asset_name: oscilloscope
+      joint_name: joint_button_01_joint_00
+      target_prim_path: Geometry/body_01_obj_00/body_01_mesh_00/m_opaque__paper__oscilloscope_a01
+      default_material_path: Geometry/body_01_obj_00/VisualMaterials/m_opaque__paper__oscilloscope_a01
+      alternate_material_path: ArenaMaterials/ScreenOff

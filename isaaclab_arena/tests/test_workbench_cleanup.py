@@ -6,6 +6,7 @@
 """Validate the workbench cleanup scene and tasks."""
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -31,6 +32,75 @@ def test_workbench_task_definitions_build():
     assert run_function_with_persistent_simulation_app(_test_workbench_task_definitions_build)
 
 
+def _test_joint_triggered_material_toggle(simulation_app):
+    import torch
+
+    import isaaclab.sim as sim_utils
+    from isaaclab.managers import EventTermCfg
+    from pxr import Usd, UsdGeom, UsdShade
+
+    from isaaclab_arena.terms.events import JointTriggeredMaterialToggle
+
+    stage = Usd.Stage.CreateInMemory()
+    roots = [f"/World/envs/env_{index}/device" for index in range(2)]
+    for root in roots:
+        UsdGeom.Subset.Define(stage, f"{root}/Visuals/Indicator")
+        UsdShade.Material.Define(stage, f"{root}/Materials/Default")
+        UsdShade.Material.Define(stage, f"{root}/Materials/Alternate")
+
+    class Scene(dict):
+        env_prim_paths = [root.rsplit("/", 1)[0] for root in roots]
+        env_regex_ns = "/World/envs/env_[^/]+"
+
+    q = torch.zeros(2, 1)
+    asset = SimpleNamespace(
+        cfg=SimpleNamespace(prim_path="/World/envs/env_[^/]+/device"),
+        data=SimpleNamespace(
+            joint_names=["power"],
+            joint_pos=SimpleNamespace(torch=q),
+            joint_pos_limits=SimpleNamespace(torch=torch.tensor([[[-0.00235, 0]]] * 2)),
+        ),
+    )
+    env = SimpleNamespace(
+        scene=Scene(device=asset),
+        sim=SimpleNamespace(is_rendering=False),
+        num_envs=2,
+        device="cpu",
+    )
+    params = {
+        "asset_name": "device",
+        "joint_name": "power",
+        "target_prim_path": "Visuals/Indicator",
+        "default_material_path": "Materials/Default",
+        "alternate_material_path": "Materials/Alternate",
+    }
+    with sim_utils.use_stage(stage):
+        event = JointTriggeredMaterialToggle(
+            EventTermCfg(func=JointTriggeredMaterialToggle, mode="interval", params=params), env
+        )
+    q[0] = -0.00235
+    event(env, None, **params)
+    assert event.alternate_active.tolist() == [True, False]
+    event(env, None, **params)
+    assert event.alternate_active.tolist() == [True, False]
+    q[0] = 0
+    event(env, None, **params)
+    q[:] = -0.00235
+    event(env, None, **params)
+    assert event.alternate_active.tolist() == [False, True]
+    event.reset(torch.tensor([0]))
+    assert event.alternate_active.tolist() == [False, True]
+    event.reset(slice(None))
+    assert event.alternate_active.tolist() == [False, False]
+    return True
+
+
+def test_joint_triggered_material_toggle():
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    assert run_function_with_persistent_simulation_app(_test_joint_triggered_material_toggle)
+
+
 @pytest.mark.parametrize(
     "filename,task_kind",
     [
@@ -47,6 +117,7 @@ def test_workbench_task_uses_shared_scene(filename, task_kind):
     assert "usd_path" not in spec.background.params
     assert spec.background.params["collision_mode"] == "mesh"
     assert spec.task.subtasks[0].kind == task_kind
+    assert spec.events["oscilloscope_power"].mode == "interval"
     socket_set = next(obj for obj in spec.objects if obj.id == "socket_set")
     assert socket_set.registry_name == "simready_central_socket_set"
     for obj in spec.objects:
