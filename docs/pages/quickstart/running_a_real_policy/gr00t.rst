@@ -81,9 +81,9 @@ Then start the rollout with the Experiment Runner:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_gr00t_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_gr00t_experiment.yaml
 
 The Kit window shows the DROID arm acting on GR00T commands. After every episode, Arena
 reports whether the pick-and-place task succeeded.
@@ -92,9 +92,9 @@ If the server runs on another host or port, override the declared policy value. 
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_gr00t_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_gr00t_experiment.yaml \
      runs.droid_pnp_gr00t.policy.remote_port=5556
 
 Evaluate several object variations
@@ -114,9 +114,9 @@ Start all nine Runs with one command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml
 
 The runner executes the nine Runs in YAML order. It keeps one SimulationApp open, but builds a
 fresh environment for every Run.
@@ -194,9 +194,9 @@ record one video per camera and episode, then use
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml \
      --output_base_dir ./output \
      --record_camera_video \
      --serve_evaluation_report

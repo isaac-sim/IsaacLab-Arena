@@ -147,8 +147,8 @@ The CLI override root depends on the execution path:
 
       .. code-block:: bash
 
-         python isaaclab_arena/evaluation/experiment_runner.py \
-           --experiment_config path/to/experiment.yaml \
+         uv run isaaclab arena evaluate \
+           --experiment-config path/to/experiment.yaml \
            shared.rollout_limit.num_steps=100
 
    .. tab-item:: Preview an OSMO workflow

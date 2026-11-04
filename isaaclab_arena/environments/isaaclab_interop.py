@@ -11,10 +11,11 @@ from isaaclab_arena_environments.cli import (
     add_environment_cli_args,
     build_environment_from_cli,
     ensure_environments_registered,
-    parse_and_return_external_environment_from_string,
+    register_external_environment_from_class_path,
 )
 
 _RL_DISCOVERY_PLACEHOLDER_KEY = "_arena_rl_discovery_placeholder"
+_ARENA_REGISTRATION_CALLBACK = "isaaclab_arena.environments.isaaclab_interop.environment_registration_callback"
 
 
 def register_rl_discovery_placeholder(environment_name: str) -> None:
@@ -29,6 +30,8 @@ def register_rl_discovery_placeholder(environment_name: str) -> None:
     """
     import gymnasium as gym
 
+    from isaaclab_tasks.utils.task_registration import TASK_REGISTRATION_CALLBACK_KEY
+
     if environment_name in gym.registry:
         return
     gym.register(
@@ -36,10 +39,20 @@ def register_rl_discovery_placeholder(environment_name: str) -> None:
         entry_point="isaaclab_arena.environments.isaaclab_arena_manager_based_env:IsaacLabArenaManagerBasedRLEnv",
         kwargs={
             _RL_DISCOVERY_PLACEHOLDER_KEY: True,
+            TASK_REGISTRATION_CALLBACK_KEY: _ARENA_REGISTRATION_CALLBACK,
+            "default_agent": "rsl_rl",
             "rsl_rl_cfg_entry_point": "isaaclab_arena_examples.policy.base_rsl_rl_policy:RLPolicyCfg",
         },
         disable_env_checker=True,
     )
+
+
+def register_arena_tasks_for_discovery() -> None:
+    """Register lightweight Gym placeholders for every installed Arena environment."""
+    ensure_environments_registered()
+    environment_registry = EnvironmentRegistry()
+    for environment_name in environment_registry.get_all_keys():
+        register_rl_discovery_placeholder(environment_name)
 
 
 def _remove_rl_discovery_placeholder(environment_name: str) -> None:
@@ -120,10 +133,9 @@ def environment_registration_callback() -> list[str]:
     ensure_environments_registered()
     environment_registry = EnvironmentRegistry()
     if initial_args.external_environment_class_path is not None:
-        external_environment_name, external_environment_factory_type = (
-            parse_and_return_external_environment_from_string(initial_args.external_environment_class_path)
+        register_external_environment_from_class_path(
+            initial_args.external_environment_class_path,
         )
-        environment_registry.register(external_environment_factory_type, external_environment_name)
     environment_factory_type = environment_registry.get_component_by_name(environment_name)
     # Get the full list of environment-specific CLI args.
     AppLauncher.add_app_launcher_args(parser)

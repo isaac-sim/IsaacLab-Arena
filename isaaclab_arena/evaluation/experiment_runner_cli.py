@@ -18,6 +18,7 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Remove the --eval_jobs_config alias
     # when legacy JSON Experiments are retired. Both flags currently populate experiment_config.
     parser.add_argument(
+        "--experiment-config",
         "--experiment_config",
         "--eval_jobs_config",
         dest="experiment_config",

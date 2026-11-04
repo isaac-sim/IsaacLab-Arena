@@ -107,9 +107,9 @@ Run the goal policy:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml
 
 The runner prints the endpoint and model it connects to, then steps the episode. Each request
 takes several seconds, and the simulation waits while a request is in flight. Run the chunk
@@ -133,9 +133,9 @@ For example, to run the step policy:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   uv run isaaclab arena evaluate \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_chunk_experiment.yaml \
+     --experiment-config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_chunk_experiment.yaml \
      runs.droid_pnp_vlm_chunk.policy.chunk_size=1
 
 Add ``--output_base_dir ./output --record_camera_video`` to save one video per camera, and add

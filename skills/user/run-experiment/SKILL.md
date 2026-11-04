@@ -1,7 +1,7 @@
 ---
 name: run-experiment
-description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), direct Policy Runner workflows, or OSMO preview, submission, or management.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id -un) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *)
+description: Runs existing Isaac Lab-Arena Experiment Definitions locally through `isaaclab arena evaluate` in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), direct Policy Runner workflows, or OSMO preview, submission, or management.
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id -un) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y uv run isaaclab arena evaluate *) Bash(docker ps *) Bash(docker exec *)
 ---
 
 # Run Experiment
@@ -74,15 +74,15 @@ zero-action policy and requires no model or policy server.
 
 ## Build the local command
 
-Always pass `--experiment_config` explicitly. Keep runner flags separate from trailing Hydra
+Always pass `--experiment-config` explicitly. Keep runner flags separate from trailing Hydra
 overrides.
 
 For native uv, run from the repository root and accept the Isaac Sim EULA non-interactively:
 
 ```bash
 env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config <experiment.yaml> \
+  uv run isaaclab arena evaluate \
+  --experiment-config <experiment.yaml> \
   --viz none \
   <override>...
 ```

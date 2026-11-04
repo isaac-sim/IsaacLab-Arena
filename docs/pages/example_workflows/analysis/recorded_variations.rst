@@ -83,8 +83,8 @@ Run the Experiment:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config \
+   uv run isaaclab arena evaluate \
+     --experiment-config \
        isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml \
      --viz none \
      --experiment_output_directory \
@@ -117,8 +117,8 @@ Run the replay:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config \
+   uv run isaaclab arena evaluate \
+     --experiment-config \
        isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml \
      --viz none \
      --experiment_output_directory \

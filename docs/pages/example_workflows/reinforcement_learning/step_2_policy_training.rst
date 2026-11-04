@@ -8,15 +8,13 @@ Policy Training
 Training Command
 ^^^^^^^^^^^^^^^^
 
-Training uses Arena's bridge to Isaac Lab's unified training script. The ``--external_callback``
-argument points to an Arena function that reads the ``--task`` argument, builds the environment,
-and registers it with gym before training starts.
+Arena environments register task-owned setup metadata with Isaac Lab. The unified training command
+therefore discovers and builds the selected Arena ``--task`` without an explicit callback.
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/train.py \
+   uv run isaaclab train \
      --rl_library rsl_rl \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
      --num_envs 4096 \
@@ -52,9 +50,8 @@ For example, to train with relu activation and a higher learning rate:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/train.py \
+   uv run isaaclab train \
      --rl_library rsl_rl \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
      --num_envs 4096 \
@@ -73,9 +70,8 @@ are used automatically.
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/train.py \
+   uv run isaaclab train \
      --rl_library rsl_rl \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
      --num_envs 4096 \
@@ -140,9 +136,8 @@ Add ``--distributed`` to spread environments across all available GPUs:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/train.py \
+   uv run isaaclab train \
      --rl_library rsl_rl \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
      --num_envs 4096 \
