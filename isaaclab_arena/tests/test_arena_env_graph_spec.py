@@ -487,6 +487,21 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     assert spec.object_references[0].prim_path is None
 
 
+def test_graph_spec_accepts_reference_to_earlier_reference():
+    data = _minimal_env_graph_data()
+    data["object_references"][0]["object_type"] = "articulation"
+    data["object_references"].append({
+        "id": "table_body",
+        "parent_id": "table",
+        "prim_path": "body",
+        "object_type": "base",
+    })
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+
+    assert spec.object_references[1].parent_id == "table"
+
+
 @pytest.mark.parametrize("empty_reference", ["", "   "])
 def test_graph_spec_normalizes_empty_unary_relation_reference(empty_reference):
     data = _minimal_env_graph_data()
