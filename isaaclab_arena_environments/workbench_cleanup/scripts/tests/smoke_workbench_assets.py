@@ -36,11 +36,18 @@ def run(args):
             scale = (1.35,) * 3 if name == "workbench" else (1.0,) * 3
             spawn = sim_utils.UsdFileCfg(usd_path=str(manifest_path.parent / manifest["output"]), scale=scale)
             spawn.func(root, spawn, translation=(index * 5.0, 0, 0))
+        assert set(roots) == {
+            "workbench",
+            "socket_set_open",
+            "oscilloscope_button",
+            "white_bin",
+            "slotted_screwdriver",
+            "small_wrench",
+        }
         paths = {
             "drawer": roots["workbench"] + "/Articulations/DrawerCabinet",
             "door": roots["workbench"] + "/Articulations/DoorCabinet",
             "button": roots["oscilloscope_button"],
-            "case": roots["socket_set"],
             "open_case": roots["socket_set_open"],
         }
         articulations = {}
@@ -54,7 +61,6 @@ def run(args):
         assert articulations["drawer"].num_joints == 4
         assert articulations["door"].num_joints == 1
         assert articulations["button"].num_joints == 1
-        assert articulations["case"].num_joints == 1
         assert articulations["open_case"].num_joints == 1
         assert all(articulations[name].is_fixed_base for name in ("drawer", "door", "button"))
 
@@ -78,7 +84,6 @@ def run(args):
         assert abs(displacement - 0.20) < 0.002, report["drawer"]
         set_joint("button", "joint_button_01_joint_00", -0.002)
         set_joint("open_case", "case_lid", 1.5)
-        set_joint("case", "case_lid", 1.65)
         set_joint("door", "joint_door_01_joint_00", 0.4)
         for _ in range(480):
             sim.step(render=False)

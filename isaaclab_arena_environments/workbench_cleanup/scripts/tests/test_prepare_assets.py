@@ -5,18 +5,23 @@
 
 """Regression tests for immutable sources, relocatable packages and ordered YAML edits."""
 
-import json
 import numpy as np
 import shutil
 import subprocess
 import sys
 import yaml
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
 
-from isaaclab_arena_environments.workbench_cleanup.scripts.asset_io import bounds_m, open_asset, validate_package
+from isaaclab_arena_environments.workbench_cleanup.scripts.asset_io import (
+    bounds_m,
+    open_asset,
+    source_file,
+    validate_package,
+)
 from isaaclab_arena_environments.workbench_cleanup.scripts.asset_operations import (
     apply_operations,
     bake_scale,
@@ -24,7 +29,6 @@ from isaaclab_arena_environments.workbench_cleanup.scripts.asset_operations impo
     edit_prims,
 )
 from isaaclab_arena_environments.workbench_cleanup.scripts.prepare_assets import build_asset
-from isaaclab_arena_environments.workbench_cleanup.scripts.validate_assets import check_scene
 
 
 @pytest.fixture
@@ -56,6 +60,17 @@ def _recipe(source, tmp_path, operations=()):
         })
     )
     return path
+
+
+def test_central_source_uses_shared_package_downloader(tmp_path):
+    revision = "a" * 40
+    url = f"hf://huggingface.co/datasets/nvidia/simready-assets/resolve/{revision}/asset/simready_usd/asset.usd"
+    with patch(
+        "isaaclab_arena_environments.workbench_cleanup.scripts.asset_io.download_central_asset_package",
+        return_value="/cache/asset/simready_usd/asset.usd",
+    ) as download:
+        assert source_file(url, tmp_path) == Path("/cache/asset/simready_usd/asset.usd")
+    download.assert_called_once_with(url)
 
 
 def test_deactivate_matching_parent_and_children(source):
@@ -121,7 +136,7 @@ def test_articulation_welds_only_unselected_joints(source):
     assert list(fixed.GetBody1Rel().GetTargets()) == [Sdf.Path("/Asset/Body")]
 
 
-def test_cli_build_and_inspect(source, tmp_path):
+def test_cli_build(source, tmp_path):
     recipe = _recipe(source, tmp_path)
     scripts = Path(__file__).parents[1]
     subprocess.run(
@@ -136,20 +151,6 @@ def test_cli_build_and_inspect(source, tmp_path):
         check=True,
         timeout=60,
     )
-    report = tmp_path / "inspection.json"
-    subprocess.run(
-        [
-            sys.executable,
-            str(scripts / "inspect_asset.py"),
-            "--spec",
-            str(recipe),
-            "--output",
-            str(report),
-        ],
-        check=True,
-        timeout=60,
-    )
-    assert json.loads(report.read_text())["prims"]
     validate_package(tmp_path / "cli/example/example.usdc")
 
 
@@ -167,31 +168,3 @@ def test_edit_typed_vectors_and_reject_empty_selector(source):
         edit_prims(stage, select={"paths": ["DoesNotExist"]})
     with pytest.raises(AssertionError, match="Unknown selector fields"):
         apply_operations(stage, [{"kind": "edit_prims", "params": {"select": {"path": "Body"}}}])
-
-
-def test_scene_validation_follows_nested_references_without_editing_input(source):
-    scene = {
-        "background": {"id": "asset", "params": {"usd_path": "/old/source.usda"}},
-        "object_references": [
-            {"id": "cube", "parent_id": "body", "prim_path": "Cube", "object_type": "base"},
-            {"id": "body", "parent_id": "asset", "prim_path": "Body", "object_type": "rigid"},
-        ],
-    }
-    updated, count = check_scene(scene, {"source.usda": source})
-    assert count == 3
-    assert updated["background"]["params"]["usd_path"] == str(source)
-    assert scene["background"]["params"]["usd_path"] == "/old/source.usda"
-    scene["object_references"][0]["prim_path"] = "Missing"
-    with pytest.raises(AssertionError, match="Missing scene reference"):
-        check_scene(scene, {"source.usda": source})
-
-
-def test_scene_validation_rejects_cyclic_references():
-    scene = {
-        "object_references": [
-            {"id": "a", "parent_id": "b", "prim_path": "Body", "object_type": "base"},
-            {"id": "b", "parent_id": "a", "prim_path": "Body", "object_type": "base"},
-        ]
-    }
-    with pytest.raises(AssertionError, match="cyclic"):
-        check_scene(scene, {})

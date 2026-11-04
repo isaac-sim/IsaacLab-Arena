@@ -14,11 +14,7 @@ from pathlib import Path
 
 from pxr import Ar, Sdf, Usd, UsdGeom, UsdUtils
 
-from isaaclab_arena.assets.simready_central_asset_loader import (
-    _download_central_asset_package_to_cache,
-    _parse_central_asset_url,
-    is_central_asset_url,
-)
+from isaaclab_arena.assets.simready_central_asset_loader import download_central_asset_package, is_central_asset_url
 from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 
 
@@ -32,16 +28,9 @@ def file_sha256(path: Path) -> str:
 
 
 def source_file(usd_path: str, relative_to: Path) -> Path:
-    """Find a pinned Central package in the HF cache, downloading it if absent, or read a local USD."""
+    """Download a pinned Central package or return an existing local USD."""
     if is_central_asset_url(usd_path):
-        from huggingface_hub import try_to_load_from_cache
-
-        repository, revision, filename, _ = _parse_central_asset_url(usd_path)
-        cached = try_to_load_from_cache(repository, filename, repo_type="dataset", revision=revision)
-        if isinstance(cached, str):
-            # Keep the snapshot path: resolving its symlink would break relative USD references.
-            return Path(cached)
-        return Path(_download_central_asset_package_to_cache(usd_path))
+        return Path(download_central_asset_package(usd_path))
     assert "://" not in usd_path, "Use a pinned Central URL or a local USD package."
     path = Path(usd_path).expanduser()
     if not path.is_absolute():
@@ -87,7 +76,9 @@ def bounds_m(stage: Usd.Stage) -> list[list[float]]:
 
 def copy_dependencies(layer: Sdf.Layer, output_dir: Path) -> list[str]:
     """Copy flattened asset dependencies, including sibling MDL imports, and author relative paths."""
-    copied = set()
+    copied: set[str] = set()
+    copied_files: set[Path] = set()
+    copied_mdl_directories: set[Path] = set()
 
     def copy_asset(asset_path):
         if not asset_path:
@@ -102,13 +93,16 @@ def copy_dependencies(layer: Sdf.Layer, output_dir: Path) -> list[str]:
         destination = folder / source.name
         assert source.resolve() != destination.resolve(), "Cannot replace a source dependency."
         if source.suffix.lower() == ".mdl":
-            for sibling in source.parent.iterdir():
-                if sibling.is_file():
-                    shutil.copy2(sibling, folder / sibling.name)
-                elif sibling.is_dir():
-                    shutil.copytree(sibling, folder / sibling.name, dirs_exist_ok=True)
-        else:
+            if source.parent not in copied_mdl_directories:
+                for sibling in source.parent.iterdir():
+                    if sibling.is_file():
+                        shutil.copy2(sibling, folder / sibling.name)
+                    elif sibling.is_dir():
+                        shutil.copytree(sibling, folder / sibling.name, dirs_exist_ok=True)
+                copied_mdl_directories.add(source.parent)
+        elif source not in copied_files:
             shutil.copy2(source, destination)
+            copied_files.add(source)
         relative = destination.relative_to(output_dir).as_posix()
         copied.add(relative)
         return "./" + relative

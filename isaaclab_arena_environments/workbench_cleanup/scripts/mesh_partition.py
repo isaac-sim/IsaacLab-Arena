@@ -319,14 +319,11 @@ def open_mesh_partition_stage(usd_path: str, variants: dict[str, str] | None = N
     """Open an editable reference wrapper for a local or revision-pinned Central USD."""
     from pxr import Usd, UsdGeom
 
-    from isaaclab_arena.assets.simready_central_asset_loader import (
-        _download_central_asset_package_to_cache,
-        is_central_asset_url,
-    )
+    from isaaclab_arena.assets.simready_central_asset_loader import download_central_asset_package, is_central_asset_url
     from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 
     if is_central_asset_url(usd_path):
-        usd_path = _download_central_asset_package_to_cache(usd_path)
+        usd_path = download_central_asset_package(usd_path)
     source_path = Path(usd_path).expanduser().absolute()
     assert source_path.is_file(), f"USD source file does not exist: {source_path}."
     source = Usd.Stage.Open(str(source_path))
