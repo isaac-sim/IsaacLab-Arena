@@ -16,7 +16,7 @@ for industrial and kitchen tasks.
          :width: 100%
          :alt: Ten reset layouts of the Arena workbench cleanup environment
 
-      An agent authors a workbench environment and extends it with new layouts and tasks.
+      An agent authors a workbench cleanup evaluation environment.
 
    .. grid-item-card:: Kitchen
       :link: agentic_authoring_kitchen
@@ -26,7 +26,7 @@ for industrial and kitchen tasks.
          :width: 100%
          :alt: Ten reset layouts of the Arena agent-authored peninsula kitchen environment
 
-      An agent authors a kitchen pick-and-place environment with varied layouts and success checks.
+      An agent authors a kitchen composite pick-and-place evaluation environment.
 
 .. toctree::
    :maxdepth: 1
