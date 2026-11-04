@@ -69,8 +69,8 @@ def _patch_curobo(monkeypatch, feasible_fn):
     """Replace the cuRobo solver build and the batched IK solve; return the captured fake solver.
 
     ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility. The fake solver records the
-    cuboids passed to ``update_world``, and each solve records the world it ran against, so a test can
-    assert which objects were obstacles to which grasp.
+    cuboids passed to ``update_world`` and which of them are switched off, and each solve records the enabled
+    world it ran against, so a test can assert which objects were obstacles to which grasp.
     """
     import isaaclab_arena_curobo.ik_reachability_validator as mod
 
@@ -78,10 +78,18 @@ def _patch_curobo(monkeypatch, feasible_fn):
         def __init__(self, *args, **kwargs):
             self.device = torch.device("cpu")
             self.world_cuboids = None
+            self.disabled_names = set()
 
         def update_world(self, cuboids, base_pos, base_quat):
             self.world_cuboids = cuboids
+            self.disabled_names = set()
             captured.setdefault("base_poses_per_world_update", []).append((tuple(base_pos), tuple(base_quat)))
+
+        def set_obstacle_enabled(self, name, enabled):
+            if enabled:
+                self.disabled_names.discard(name)
+            else:
+                self.disabled_names.add(name)
 
     captured = {}
 
@@ -98,7 +106,8 @@ def _patch_curobo(monkeypatch, feasible_fn):
         captured["total_grasps"] = captured.get("total_grasps", 0) + num
         captured["ik_kwargs"] = kwargs
         # The world in force at solve time, one entry per solve: what this grasp was checked against.
-        captured.setdefault("worlds_per_solve", []).append([cuboid.name for cuboid in solver.world_cuboids])
+        enabled_names = [cuboid.name for cuboid in solver.world_cuboids if cuboid.name not in solver.disabled_names]
+        captured.setdefault("worlds_per_solve", []).append(enabled_names)
         return IKFeasibility(feasible, torch.zeros(num), torch.zeros(num), torch.zeros(num, DOF))
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
@@ -256,9 +265,13 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
 
 
 def test_reachability_layer_records_to_rrd(tmp_path):
-    """The layer's grasps and verdicts reach a recording without a viewer or cuRobo."""
+    """The layer's grasps, verdicts and background reach a recording without a viewer or cuRobo."""
+    import rerun as rr
+
     from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.reachability_visualizer import LOADED_BACKGROUND_ENTITY, ReachabilityRerunLayer
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
 
     rrd_path = tmp_path / "placement.rrd"
     visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(rrd_path))
@@ -275,10 +288,52 @@ def test_reachability_layer_records_to_rrd(tmp_path):
         rotation_error=torch.tensor([0.1]),
         robot_spheres=torch.tensor([[[0.1, 0.0, 0.2, 0.05], [0.2, 0.0, 0.3, 0.04]]]),
         muted_sphere_mask=torch.tensor([False, True]),
+        background_cuboids=[AABBCollisionCuboid("wall", (0.1, 0.1, 0.1), Pose(position_xyz=(0.1, 0.0, 0.2)))],
     )
     visualizer.close()
 
     assert rrd_path.is_file() and rrd_path.stat().st_size > 0
+    entity_paths = {str(chunk.entity_path) for chunk in rr.recording.load_recording(str(rrd_path)).chunks()}
+    assert {f"/{LOADED_BACKGROUND_ENTITY}/surface", f"/{LOADED_BACKGROUND_ENTITY}/hit"} <= entity_paths
+
+
+def test_background_cuboids_are_outlined_by_their_gap_to_the_checked_spheres():
+    """In a turned robot base frame, a penetrated cuboid is a hit, one a few cm off is near, and muted spheres do not count."""
+    import math
+
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.reachability_visualizer import (
+        NEAR_BACKGROUND_MARGIN_M,
+        _checked_spheres_in_world,
+        _cuboid_sphere_gaps,
+    )
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
+
+    # The base sits at x = 1 turned 90 degrees about z, so base-frame +x points along world +y.
+    t_W_B = (1.0, 0.0, 0.0)
+    q_W_B_xyzw = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
+    # Checked sphere at world (1, 0.1, 0.2), radius 0.05; muted sphere at world (1, 0.2, 0.3), radius 0.04.
+    robot_spheres = torch.tensor([[[0.1, 0.0, 0.2, 0.05], [0.2, 0.0, 0.3, 0.04], [0.0, 0.0, 0.0, -1.0]]])
+    spheres_W = _checked_spheres_in_world(robot_spheres, torch.tensor([False, True, False]), t_W_B, q_W_B_xyzw)
+    assert spheres_W.shape == (1, 4)
+
+    def cube(name, center):
+        return AABBCollisionCuboid(name, (0.1, 0.1, 0.1), Pose(position_xyz=center))
+
+    gaps = _cuboid_sphere_gaps(
+        [
+            cube("hit", (1.0, 0.1, 0.2)),
+            # Face at y = 0.17: 0.02 m past the checked sphere's surface.
+            cube("near", (1.0, 0.22, 0.2)),
+            # Penetrated only by the muted sphere.
+            cube("muted_only", (1.0, 0.2, 0.37)),
+            cube("far", (3.0, 3.0, 3.0)),
+        ],
+        spheres_W,
+    )
+    assert gaps[0] < 0.0
+    assert gaps[1] == pytest.approx(0.02)
+    assert gaps[2] >= NEAR_BACKGROUND_MARGIN_M and gaps[3] >= NEAR_BACKGROUND_MARGIN_M
 
 
 @pytest.mark.curobo_deps
@@ -290,7 +345,7 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), []) == [True]
     # One collision cuboid per non-target object (the desk); one grasp per target (the box).
-    assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
+    assert captured["worlds_per_solve"] == [["desk"]]
     assert captured["total_grasps"] == 1
 
 
@@ -378,7 +433,33 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
     layout = _make_two_box_pool().layouts_per_env()[0][0]
     validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), [])
 
-    assert sorted(cuboid.name for cuboid in captured["solver"].world_cuboids) == ["box_b", "desk"]
+    assert [sorted(names) for names in captured["worlds_per_solve"]] == [["box_b", "desk"]]
+
+
+@pytest.mark.curobo_deps
+def test_background_near_the_robot_obstructs_grasps_by_default(monkeypatch):
+    """A fixed background mesh joins the collision world, but only the part within reach of the robot base."""
+    import trimesh
+
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
+
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    # Two wall slabs around the base at the origin: one 0.6 m away, one 3 m away.
+    near_wall = trimesh.creation.box(extents=(0.1, 0.5, 0.5))
+    near_wall.apply_translation((0.6, 0.0, 0.25))
+    far_wall = trimesh.creation.box(extents=(0.1, 0.5, 0.5))
+    far_wall.apply_translation((3.0, 0.0, 0.25))
+    background = FixedCollisionObject(trimesh.util.concatenate([near_wall, far_wall]))
+
+    layout = _make_desk_box_pool().layouts_per_env()[0][0]
+    validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), [background])
+
+    (world,) = captured["worlds_per_solve"]
+    background_cuboids = [captured["solver"].world_cuboids[world.index(name)] for name in world if name != "desk"]
+    assert "desk" in world and background_cuboids
+    assert all(cuboid.pose_W_O.position_xyz[0] < 1.0 for cuboid in background_cuboids)
 
 
 @pytest.mark.curobo_deps
