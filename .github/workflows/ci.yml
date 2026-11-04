@@ -445,6 +445,13 @@ jobs:
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
+      # Restores the cache of the Run tests job; only that job saves it.
+      - name: Setup Isaac Sim caches
+        if: steps.gr00t_cuda.outputs.enabled == 'true'
+        uses: ./.github/actions/setup-isaac-sim-caches
+        with:
+          cache-job: test
+
       # The GR00T server post-trains a tiny checkpoint before loading it. Its
       # entrypoint waits for the LFS-backed dataset media fetched above before
       # starting training.
