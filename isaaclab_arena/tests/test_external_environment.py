@@ -25,9 +25,7 @@ def _test_external_environment_registration_callback(_) -> bool:
     """Verify the Isaac Lab callback registers an externally defined Arena environment."""
     import gymnasium as gym
 
-    from isaaclab_arena.assets.registries import EnvironmentRegistry
     from isaaclab_arena.environments.isaaclab_interop import environment_registration_callback
-    from isaaclab_arena_environments.cli import ensure_environments_registered
 
     callback_args = [
         "external_environment_interop_test",
@@ -38,9 +36,7 @@ def _test_external_environment_registration_callback(_) -> bool:
         "--object",
         "cracker_box",
     ]
-    # Register the built-in environments first, so restoring the registry removes only the external one.
-    ensure_environments_registered()
-    with patch.object(sys, "argv", callback_args), patch.dict(EnvironmentRegistry()._components):
+    with patch.object(sys, "argv", callback_args):
         remaining_args = environment_registration_callback()
 
     assert remaining_args == []

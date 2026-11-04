@@ -20,7 +20,7 @@ from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
-    from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
+    from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 
 @dataclass
@@ -154,9 +154,9 @@ class ArenaRunResult:
     metrics: MetricsDataCollection | None = None
     """Metrics aggregated over all successful rebuilds, when provided by the task."""
 
-    placement_diagnostics: AggregatedPlacementDiagnostics | None = None
-    """Diagnostics of the placement pool fills that built the rebuilds' environments, summed. Rebuilds that solve no
-    relations, or that replay recorded layouts, are left out, and the field is None when every rebuild is."""
+    placement_diagnostics_per_rebuild: dict[int, PlacementDiagnostics] = field(default_factory=dict)
+    """Diagnostics of the placement pool fill that built each rebuild's environment, keyed by rebuild index. Rebuilds
+    that solve no relations, or that replay recorded layouts, have no entry."""
 
 
 def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[ArenaRunResult]) -> PrettyTable:

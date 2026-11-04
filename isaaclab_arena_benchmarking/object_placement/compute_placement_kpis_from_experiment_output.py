@@ -20,14 +20,14 @@ from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
-    ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
+    ARENA_PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE,
 )
-from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
+from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 
 @dataclass
 class RunPlacementCounts:
-    """Placement counts of one Run, from the placement diagnostics that it wrote."""
+    """Placement counts of one Run, summed over the builds that wrote placement diagnostics."""
 
     run_name: str
     """Name of the Run in its Experiment."""
@@ -35,34 +35,57 @@ class RunPlacementCounts:
     failed: bool = False
     """Whether the Run failed, for example because its placement pool could not fill every environment."""
 
-    placement_diagnostics: AggregatedPlacementDiagnostics | None = None
-    """Placement diagnostics summed over the Run's builds, or None for a Run that wrote none."""
+    num_builds: int = 0
+    """Builds whose placement diagnostics are summed; 0 for a Run that wrote none."""
+
+    num_first_batch_candidates: int = 0
+    """Candidates in the first pool batch of every build."""
+
+    num_first_batch_valid_candidates: int = 0
+    """Candidates in those first batches that passed every required check."""
+
+    num_envs: int = 0
+    """Sum of num_envs over the builds."""
+
+    num_fallback_envs: int = 0
+    """Environments given best-loss layouts because the last batch gave them no valid candidate."""
+
+    num_batches: int = 0
+    """Pool batches solved over all builds; a build needs more than one when an environment lacks valid layouts."""
 
     @property
     def is_scored(self) -> bool:
         """Whether the Run wrote placement diagnostics, which only a completed Run does."""
-        return self.placement_diagnostics is not None
+        return self.num_builds > 0
 
     @property
     def valid_candidate_rate_first_batch(self) -> float:
-        """Share of first-batch candidates that are valid.
-
-        The first batch has the same size in every build with the same num_envs. A later batch runs only while some
-        environment still has empty slots, and its size depends on how many are missing, so counting it would give
-        scenes that need more batches a larger sample.
-        """
-        first_batch = self.placement_diagnostics.batches[0]
-        return first_batch.num_valid / first_batch.num_candidates
+        """Share of first-batch candidates that are valid."""
+        return self.num_first_batch_valid_candidates / self.num_first_batch_candidates
 
     @property
     def valid_env_rate_after_retries(self) -> float:
         """Share of environments whose pool holds only valid layouts, without a best-loss fallback."""
-        return 1 - self.placement_diagnostics.num_fallback_envs / self.placement_diagnostics.num_envs
+        return 1 - self.num_fallback_envs / self.num_envs
 
     @property
     def batches_per_build(self) -> float:
         """Mean number of pool batches a build solved."""
-        return self.placement_diagnostics.num_batches / self.placement_diagnostics.num_builds
+        return self.num_batches / self.num_builds
+
+    def add_build(self, diagnostics: PlacementDiagnostics) -> None:
+        """Add one build's placement diagnostics to the counts.
+
+        Candidate counts come from the pool's first batch, which has the same size in every build with the same
+        num_envs. A later batch runs only while some environment still has empty slots, and its size depends on how
+        many are missing, so counting it would give scenes that need more batches a larger sample.
+        """
+        self.num_builds += 1
+        self.num_envs += diagnostics.num_envs
+        self.num_batches += len(diagnostics.batches)
+        self.num_fallback_envs += len(diagnostics.fallback_envs)
+        self.num_first_batch_candidates += diagnostics.batches[0].num_candidates
+        self.num_first_batch_valid_candidates += diagnostics.batches[0].num_valid
 
 
 @dataclass
@@ -96,11 +119,10 @@ def read_run_placement_counts(experiment_output_directory: str | Path) -> list[R
     experiment_result = json.loads(result_path.read_text(encoding="utf-8"))
     counts_per_run = []
     for run_name, run in experiment_result["runs"].items():
-        diagnostics_path = experiment_output_directory / run_name / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
-        placement_diagnostics = (
-            AggregatedPlacementDiagnostics.load(diagnostics_path) if diagnostics_path.is_file() else None
-        )
-        counts_per_run.append(RunPlacementCounts(run_name, run["status"] == "failed", placement_diagnostics))
+        run_counts = RunPlacementCounts(run_name, failed=run["status"] == "failed")
+        for diagnostics in _load_placement_diagnostics(experiment_output_directory / run_name):
+            run_counts.add_build(diagnostics)
+        counts_per_run.append(run_counts)
     return counts_per_run
 
 
@@ -159,6 +181,15 @@ def main() -> None:
     args_cli = parser.parse_args()
     counts_per_run = read_run_placement_counts(args_cli.experiment_output_directory)
     print(format_placement_success(counts_per_run))
+
+
+def _load_placement_diagnostics(run_output_directory: Path) -> list[PlacementDiagnostics]:
+    """Return the placement diagnostics of every rebuild of a Run that wrote them.
+
+    A rebuild that replays recorded layouts writes none, so the rebuilds with diagnostics need not be consecutive.
+    """
+    paths = sorted(run_output_directory.glob(ARENA_PLACEMENT_DIAGNOSTICS_FILENAME_TEMPLATE.format(rebuild_index="*")))
+    return [PlacementDiagnostics.load(path) for path in paths]
 
 
 def _mean(values: list[float]) -> float | None:
