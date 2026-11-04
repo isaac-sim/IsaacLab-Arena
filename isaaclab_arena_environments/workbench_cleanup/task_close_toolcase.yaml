@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: workbench_close_toolcase
+external_yaml: scene_tool_bin_scope.yaml
+task:
+  composition: atomic
+  description: Close the open socket toolcase lid.
+  subtasks:
+  - kind: CloseDoorTask
+    params:
+      openable_object: socket_set
+      closedness_threshold: 0.05
+      reset_openness: 0.9545454548532418
+      episode_length_s: 60.0
