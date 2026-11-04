@@ -77,7 +77,8 @@ def _target(x=0.6):
 
 def _policy(mode, inputs, infer):
     embodiment, _, _, gripper = inputs
-    config = VLMPolicyCfg(system_prompt="Return absolute robot-root targets.")
+    # Serial requests keep the mocked replies in environment order.
+    config = VLMPolicyCfg(system_prompt="Return absolute robot-root targets.", max_concurrent_requests=1)
     if mode == "step":
         policy_type, adapter = VLMChunkPolicy, AbsoluteChunkActionAdapter(1)
     elif mode == "chunk":
@@ -85,7 +86,9 @@ def _policy(mode, inputs, infer):
     else:
         policy_type = VLMGoalPolicy
         adapter = AbsoluteGoalActionAdapter(PoseTargetMotionGenerator(gripper))
-        config = VLMGoalPolicyCfg(system_prompt="Return absolute robot-root targets.", max_steps_per_goal=2)
+        config = VLMGoalPolicyCfg(
+            system_prompt="Return absolute robot-root targets.", max_steps_per_goal=2, max_concurrent_requests=1
+        )
     policy = policy_type(
         config,
         inference_backend=SimpleNamespace(infer=infer),
@@ -139,7 +142,8 @@ def test_invalid_commands_request_specific_corrections(inputs, mode, values, mes
     actions = _policy(mode, inputs, infer).get_action(env, observation)
     assert torch.isfinite(actions).all()
     assert infer.call_count == 3
-    correction = infer.call_args_list[1].args[0].messages[-1]["content"]
+    # Both envs request first; env 0's correction follows.
+    correction = infer.call_args_list[2].args[0].messages[-1]["content"]
     assert message in correction
 
 
