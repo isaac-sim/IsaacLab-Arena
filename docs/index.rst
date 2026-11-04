@@ -246,48 +246,21 @@ Author benchmarks
 
             .. container:: arena-feature-heading
 
-               .. rubric:: :doc:`Agentic environment generation <pages/concepts/agentic_environment_generation/index>`
+               .. rubric:: :doc:`Agentic evaluation authoring <pages/whats_new/agentic_authoring>`
 
-               .. raw:: html
-
-                  <span class="arena-experimental-chip" tabindex="0" aria-describedby="arena-agentic-experimental-note">
-                    <i aria-hidden="true"></i>Experimental<b aria-hidden="true">?</b>
-                    <span id="arena-agentic-experimental-note" role="tooltip">The underlying agents and architecture may change in future versions.</span>
-                  </span>
-
-            Describe the benchmark you want in natural language. The agent infers constraints,
-            produces an editable spec, fetches existing SimReady USDs, and builds the Arena
-            environment(s).
+            Describe the evaluation environment you want in natural language. A coding agent finds
+            SimReady USD assets and uses Arena's features to build environments and configure
+            evaluation workflows.
 
       .. grid-item::
          :columns: 12 12 7 7
 
-         .. container:: arena-agentic-proof arena-agentic-giggles
-
-            .. container:: arena-agentic-demo
-
-               .. container:: arena-agentic-prompt
-
-                  .. rubric:: Input prompt
-
-                  Using a DROID robot and maple table, pick up one fruit, one bottle, and one
-                  utensil in any order, then place all three into a bin. Generate each environment
-                  with a different fruit, bottle, utensil, and bin. Add distractor kitchen objects,
-                  such as a mug and a SPAM can, to the table; the distractors are not part of the
-                  task.
-
-               .. container:: arena-agentic-connector
-
-                  →
-
-               .. container:: arena-agentic-output arena-agentic-output-heterogeneous
-
-                  .. rubric:: Output: Ready-to-evaluate Arena environments
-
-                  .. image:: images/landing/droid-heterogeneous-fruit-bottle-utensil-pnp.gif
-                     :width: 100%
-                     :alt: Four generated Arena environments in which DROID places a fruit, bottle, and utensil into different bins among distractor objects
-                     :loading: lazy
+         .. video:: images/whats_new/agentic_authoring_workbench_walkthrough.mp4
+            :width: 100%
+            :alt: A coding agent authors a workbench cleanup evaluation environment, evaluates a VLM policy, and adds variations
+            :muted:
+            :playsinline:
+            :preload: none
 
 .. _home-variation-system:
 
