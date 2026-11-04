@@ -1,9 +1,9 @@
 Agentic Evaluation Authoring Improvements
 =========================================
 
-Agents are now fluent in Arena's placement and tasking system. We compared a coding agent
-authoring the same evaluation environment with Arena and with Isaac Lab alone, in two settings.
-Each card below links to the results for one environment.
+Agents are now fluent in Arena's placement and tasking system.
+We provide two demonstrations of agentic evaluation environment authoring
+for industrial and kitchen tasks.
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -22,14 +22,11 @@ Each card below links to the results for one environment.
       :link: agentic_authoring_kitchen
       :link-type: doc
 
-      .. image:: ../../images/whats_new/peninsula_kitchen_10_reset_layouts_arena_agent_authored.gif
+      .. image:: ../../images/whats_new/peninsula_kitchen_10_reset_layouts_arena_agent_authored_16x9.gif
          :width: 100%
          :alt: Ten reset layouts of the Arena agent-authored peninsula kitchen environment
 
       An agent authors a kitchen pick-and-place environment with varied layouts and success checks.
-
-To try agentic authoring yourself, see :doc:`../concepts/agentic_environment_generation/index`.
-For the full list of changes in each release, see :doc:`../references/release_notes`.
 
 .. toctree::
    :maxdepth: 1

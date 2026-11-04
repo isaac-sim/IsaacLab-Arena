@@ -1,9 +1,8 @@
 What's New
 ==========
 
-The upcoming release of Isaac Lab-Arena, currently scheduled for 8 December 2026, adds three
-capabilities, which you can already try on the ``main`` branch. Each summary below links to a
-details page.
+The upcoming release of Isaac Lab-Arena ``v0.4`` adds three exciting new capabilities
+to the evaluation framework. Try out the early versions on the ``main`` branch!
 
 .. grid:: 1 1 3 3
    :gutter: 2
@@ -17,8 +16,7 @@ details page.
          :alt: Ten reset layouts of the Arena agent-authored peninsula kitchen environment
 
       Improvements to agentic benchmark authoring. Agents are now fluent in Arena's placement and
-      tasking system. In an authoring study, authoring an evaluation in Arena cost 85% less and was
-      10.5× faster than generating a custom environment, with zero lines of Python.
+      tasking system.
 
    .. grid-item-card:: Newton-based Workflows
       :link: newton_evaluation
@@ -34,8 +32,7 @@ details page.
          :nocontrols:
 
       Connect the Newton physics engine to Arena's evaluation tools to move beyond pick-and-place
-      tasks to insertion, contact-rich assembly, and deformable tasks. Example workflows use
-      Newton-backed DROID robot control.
+      tasks to insertion, contact-rich assembly, and deformable tasks.
 
    .. grid-item-card:: Multimodal VLM as a Policy
       :link: vlm_policy
@@ -50,8 +47,8 @@ details page.
          :playsinline:
          :nocontrols:
 
-      Use a multimodal vision-language model (for example, Astra) as a policy. Astra achieves
-      state-of-the-art performance.
+      Use a multimodal vision-language model (for example, Astra) as a policy. Arena exposes
+      several options for connecting VLM policies to robots.
 
 .. toctree::
    :maxdepth: 1

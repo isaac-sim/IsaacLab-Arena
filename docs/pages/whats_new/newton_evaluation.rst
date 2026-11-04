@@ -1,9 +1,8 @@
 Newton-Based Evaluation Workflows
 =================================
 
-Arena environments can run on the Newton physics backend as well as PhysX. The upcoming release expands
-Newton support for objects and robots, so contact-rich and deformable tasks can be previewed,
-teleoperated, recorded, and evaluated with the same Arena workflows.
+Arena environments can now use the Newton physics backend.
+The upcoming release expands example workflows to include contact-rich and deformable tasks.
 
 .. grid:: 1 1 2 2
    :gutter: 2

@@ -1,16 +1,10 @@
 Multimodal VLM as a Policy
 ==========================
 
-Recent work [1]_ has shown that multimodal vision-language models (VLMs), for example Astra [2]_,
-can act as a robot policy.
-At each request, the VLM is fed model inputs including the task, the robot state, the robot geometry, and the
-current camera images.
-The model then returns an action to be executed on the robot.
-NVIDIA has conducted an in-depth study of the VLMs as robot policies in [1]_.
-
+Recent work [1]_ has shown that multimodal vision-language models (VLMs), for example Astra,
+can act as a robot policy by connecting the model output to a robot controller.
 Arena users can now adopt and benchmark this new approach to robot control.
-The Arena ``v0.4`` release implements VLM-as-a-policy and
-Arena environments can now be configured to use this approach with various VLM models.
+The Arena ``v0.4`` release implements VLM-as-a-policy, which can be configured to use various VLM models.
 
 Try it! Run a :doc:`../quickstart/running_a_real_policy/vlm_agent` in Arena!
 
@@ -28,8 +22,12 @@ Try it! Run a :doc:`../quickstart/running_a_real_policy/vlm_agent` in Arena!
 How Arena connects a VLM to the robot
 -------------------------------------
 
-The Astranomy study [1]_ compares several ways to use VLM models as robot policies:
-Arena implements the several of these approaches.
+To use a VLM as a policy, Arena connects the model output to a robot controller.
+At each request, the VLM is fed model inputs including the task description,
+the robot state, the robot geometry, and the current camera images.
+The model then returns an action to be executed on the robot.
+The Astranomy study [1]_ compares several ways to use VLMs as robot policies:
+Arena implements several of these approaches.
 
 .. table::
    :class: arena-value-table
@@ -38,23 +36,24 @@ Arena implements the several of these approaches.
    +----------------+--------------------------------------------------------------------------------------------+
    | Design choice  | Arena                                                                                      |
    +================+============================================================================================+
-   | Policy form    | Direct Policy: observation-to-action API calls, with no persistent conversation.           |
+   | Policy form    | **Direct Policy**: observation-to-action API calls, with no persistent conversation.       |
    +----------------+--------------------------------------------------------------------------------------------+
-   | Actions        | Absolute end-effector poses, plus a gripper open or close command.                         |
+   | Actions        | **Absolute end-effector poses**, plus a gripper open or close command.                     |
    +----------------+--------------------------------------------------------------------------------------------+
    | Action horizon | **Goal** (``VLMGoalPolicy``): one end-effector goal per call, tracked until it is reached. |
    +                +--------------------------------------------------------------------------------------------+
    |                | **Chunk** (``VLMChunkPolicy``): a fixed number of poses per call, set by ``chunk_size``.   |
    +                +--------------------------------------------------------------------------------------------+
-   |                | **Step**: a chunk of one pose per call.                                                    |
+   |                | **Step** (``VLMStepPolicy``): a chunk of one pose per call.                                |
    +----------------+--------------------------------------------------------------------------------------------+
    | Observations   | Camera images, robot state, or both.                                                       |
    +----------------+--------------------------------------------------------------------------------------------+
    | History        | Current observation only. The goal policy also reports the outcome of the previous goal.   |
    +----------------+--------------------------------------------------------------------------------------------+
 
-The video below compares several of these options in Arena, varying the between
-goal, chunk, and step action strategies on a DROID pick-and-place task showing three trials.
+The video below compares several of these options in Arena, varying between the
+``goal``, ``chunk``, and ``step`` action strategies on a DROID pick-and-place task showing three trials.
+Try this on your own in Arena in our :doc:`../quickstart/running_a_real_policy/vlm_agent` workflow.
 
 .. video:: ../../images/whats_new/arena_v04_astra_pnp_eval_mosaic_3trials.mp4
    :width: 100%

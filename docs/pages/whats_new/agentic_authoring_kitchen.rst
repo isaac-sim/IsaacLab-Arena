@@ -8,24 +8,35 @@ Kitchen Environment
 
 .. container:: arena-value-eyebrow
 
-   Arena vs. Isaac Lab · Authoring study · 3 Nov 2026
+   Isaac Lab - Arena · Agentic Authoring · Kitchen Task
 
 Faster authoring. Evaluation infrastructure included.
 -----------------------------------------------------
 
-We asked the same coding agent to build the same kitchen evaluation environment twice: once as
-Arena YAML, and once as a standalone Isaac Lab Python script. With Arena, the agent reached a
-working environment faster, wrote no Python, and reused Arena's placement, validation, and task
-checks instead of writing its own.
+Coding agents are now the predominant way that developers interact with code.
+Agents are quickly becoming the predominant way to interact with 3D environments.
+Arena ``v0.4`` includes improvements to agentic environment authoring.
 
-The problem
-^^^^^^^^^^^
+Study
+-----
 
-The agent gets a single prompt: build a kitchen pick-and-place evaluation with a DROID robot, two
-bowls and two pieces of fruit, whose layout varies as much as possible between resets, and which
-succeeds only when both fruits are in their bowls.
+On this page we describe a study that aims to show the efficacy of Arena's evaluation building system for agentic environment authoring.
+As a baseline, we compared against Isaac Lab alone, without the Arena extension,
+which lacks the evaluation-oriented building blocks that Arena provides.
 
-.. dropdown:: The prompt given to the agent (Arena version, without asset paths and reporting instructions)
+**TL;DR:** With Arena, the agent:
+ * reached a working environment **4× faster**,
+ * wrote **no custom code**,
+ * used Arena's relational placement system to achieve **highly-varied layouts**,
+ * and used Arena's battle-tested tasking system to describe **complex composite tasks**.
+
+The agent's task
+^^^^^^^^^^^^^^^^
+
+The agent gets a single prompt describing a kitchen pick-and-place evaluation environment:
+two pieces of fruit must be placed in two bowls on a cluttered kitchen countertop.
+
+.. dropdown:: The prompt given to the agent
 
    Can you build a new evaluation environment in a kitchen? The evaluation will require an agent
    to perform a composite pick and place task. Write it at
@@ -67,6 +78,11 @@ the whole group somewhere new.
 
          The spatial relations the agent wrote in the environment YAML.
 
+Analysis
+^^^^^^^^
+
+Let's compare the solution above to the baseline solution written without Arena's evaluation building blocks.
+
 .. container:: arena-value-stats
 
    .. container:: arena-value-stat
@@ -92,48 +108,63 @@ the whole group somewhere new.
    :widths: 22 22 22 34
    :class: arena-value-table
 
-   * - Decision factor
-     - Isaac Lab (agent writes custom code)
-     - Isaac Lab - Arena (agent writes YAML)
+   * - Measurement
+     - Without Arena
+     - With Arena
      - Details
    * - Authoring time
      - 34 min
      - 8 min
 
        :gain:`4× faster`
-     - Time until every check passed. About 20 minutes of the Isaac Lab time went into a DROID
-       physics instability that Arena's DROID configuration already avoids.
+     - Time until agent reached an environment that passes task success checks.
    * - Tokens
-     - 15.3M (99% cached)
-     - 4.4M (97% cached)
+     - 15.3M
+     - 4.4M
      - Input and output tokens over all model calls (115 vs. 49).
    * - Model cost
      - $20.97
      - $6.83
 
        :gain:`3× cheaper`
-     - GPT-6 Astra through Codex, at standard API rates: $10 per million input tokens, $1 per
-       million cached input tokens, $50 per million output tokens.
+     - GPT-6 Astra through Codex, at standard API rates.
    * - Environment code
-     - 388 lines of Python
-     - 0 lines of Python + 140 lines of YAML
-     - Fully declarative; the YAML selects existing Arena tasks and placement relations.
-   * - Throwaway debug code
-     - About 950 lines
+     - 388 lines of custom Python code
+     - 0 lines of Python + 140 lines of environment YAML
+
+       :gain:`no new code to maintain`
+     - Environment is a composition of existing Arena tasks and spatial relations.
+   * - Debug code
+     - About 950 lines of custom throwaway Python code
      - 0
-     - Arena's two validation commands replace one-off checking scripts.
-   * - Task success check
+     - Arena's validation commands replace one-off checking scripts.
+   * - Task success
      - Hand-written environment-specific code
-     - 2 × ``PickAndPlaceTask``
+     - ``CompositeTask`` with two ``PickAndPlaceTask`` sub-tasks
      - Reuses Arena's existing task and its success condition.
    * - Asset placement
-     - Robot fixed; bounding boxes around the clutter
-     - Asset placement expressed relative to one another and solved.
+     - Robot fixed; objects have hand-coded collision-free uniform ranges.
+     - Spatial relation graph solved to produce collision-free highly-varied placements.
      - Arena places objects relative to the counter and each other, avoids the kitchen's built-in
-       objects using their actual geometry, and checks IK reachability on every layout.
+       objects using their actual (mesh) geometry, and checks IK reachability on every layout.
+
+In summary, with Arena, the agent:
+ * reached a working environment **4× faster**,
+ * wrote **no custom code**,
+ * used Arena's relational placement system to achieve **highly-varied layouts**,
+ * and used Arena's battle-tested tasking system to describe **complex composite tasks**.
 
 Going further
 ^^^^^^^^^^^^^
 
-The environment YAML plugs straight into an Arena Experiment, so the same file that runs locally
-can be evaluated across a multi-node cluster with OSMO. See :doc:`../example_workflows/multi_node_evaluation/multi_node_evaluation`.
+The environment YAML plugs straight into an Arena Experiment runner and can be used in all Arena
+evaluation workflows. For example,
+
+* **Parallel evaluation:** The above environment can be run across many parallel environments.
+  See :doc:`../example_workflows/analysis/recorded_variations`.
+* **Multi-node evaluation:** The same environment can be evaluated across a multi-node cluster with OSMO.
+  See :doc:`../example_workflows/multi_node_evaluation/multi_node_evaluation`.
+* **Variations:** Expose the policy to controlled perturbations through Arena's variation system.
+  See :doc:`../example_workflows/analysis/variations`.
+* **Metrics:** By default, Arena collects evaluation-oriented metrics which can be viewed after an experiment run.
+  See :doc:`../example_workflows/sensitivity_analysis/sensitivity_analysis`.
