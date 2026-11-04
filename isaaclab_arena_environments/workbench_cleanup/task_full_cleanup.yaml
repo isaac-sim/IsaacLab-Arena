@@ -1,0 +1,39 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: workbench_full_cleanup
+external_yaml: scene_tool_bin_scope.yaml
+task:
+  composition: sequential
+  description: Close the drawer and socket toolcase, place the white bin on the
+    overhead shelf, then turn off the oscilloscope.
+  subtasks:
+  - kind: CloseDoorTask
+    params:
+      openable_object: top_drawer
+      closedness_threshold: 0.05
+      reset_openness: 1.0
+      episode_length_s: 90.0
+  - kind: CloseDoorTask
+    params:
+      openable_object: socket_set
+      closedness_threshold: 0.05
+      reset_openness: 0.9545454548532418
+      episode_length_s: 60.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: white_bin
+      destination_location: overhead_shelf
+      background_scene: workbench
+      episode_length_s: 90.0
+      force_threshold: 0.1
+      velocity_threshold: 0.02
+      placement_consecutive_steps: 10
+  - kind: PressButtonTask
+    params:
+      pressable_object: oscilloscope
+      pressedness_threshold: 0.8
+      reset_pressedness: 1.0
+      episode_length_s: 60.0

@@ -1,0 +1,222 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  # VLM goals use unscaled robot-root XYZ/XYZW poses and a 0=open, 1=closed gripper command.
+  registry_name: droid_abs_ik
+  params:
+    concatenate_observation_terms: false
+    initial_pose:
+      position_xyz:
+      - 0.78
+      - 0.0
+      - 0.668312669
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 1.0
+      - 0.0
+    stand_height_m: 0.668312669
+    stand_footprint_xy_m:
+    - 0.8
+    - 0.8
+    placement_bbox_stand_only: true
+background:
+  id: workbench
+  registry_name: workbench_cleanup_workbench
+objects:
+- id: light
+  registry_name: light
+  params:
+    hdr: aerodynamics_workshop_robolab
+- id: socket_set
+  registry_name: workbench_cleanup_socket_set
+  params:
+    initial_joint_positions:
+      case_lid: 1.832595715
+- id: oscilloscope
+  registry_name: workbench_cleanup_oscilloscope
+- id: white_bin
+  registry_name: workbench_cleanup_white_bin
+- id: slotted_screwdriver
+  registry_name: workbench_cleanup_slotted_screwdriver
+- id: small_wrench
+  registry_name: workbench_cleanup_small_wrench
+cli_override_specs:
+- arg: robot_control
+  target_node_id: droid
+object_references:
+- id: oscilloscope_power_button
+  parent_id: oscilloscope
+  prim_path: Geometry/button_01_obj_00
+  object_type: base
+  params: {}
+- id: socket_set_lid
+  parent_id: socket_set
+  prim_path: Geometry/Case_base/Case_lid
+  object_type: base
+  params: {}
+- id: tabletop
+  parent_id: workbench
+  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Tabletop
+  object_type: base
+  params: {}
+- id: overhead_shelf
+  parent_id: workbench
+  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf
+  object_type: rigid
+  params: {}
+- id: blue_container_01
+  parent_id: workbench
+  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer01
+  object_type: rigid
+  params: {}
+- id: blue_container_02
+  parent_id: workbench
+  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer02
+  object_type: rigid
+  params: {}
+- id: blue_container_03
+  parent_id: workbench
+  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer03
+  object_type: rigid
+  params: {}
+- id: blue_container_04
+  parent_id: workbench
+  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer04
+  object_type: rigid
+  params: {}
+- id: top_drawer
+  parent_id: workbench
+  prim_path: Articulations/DrawerCabinet
+  object_type: articulation
+  params:
+    initial_joint_positions:
+      joint_drawersA_01_joint_00: 0.251816005
+    openable_joint_name: joint_drawersA_01_joint_00
+- id: top_drawer_body
+  parent_id: top_drawer
+  prim_path: drawersA_01_obj_01
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: tabletop
+- kind: is_anchor
+  subject: droid
+- kind: is_anchor
+  subject: top_drawer_body
+- kind: 'on'
+  subject: white_bin
+  reference: tabletop
+  params:
+    clearance_m: 0.003
+    edge_margin_m: 0.03
+- kind: align_with
+  subject: white_bin
+  reference: droid
+  params:
+    axis: y
+    tolerance_m: 0.01
+- kind: 'on'
+  subject: oscilloscope
+  reference: tabletop
+  params:
+    clearance_m: 0.0005
+    edge_margin_m: 0.04
+- kind: 'on'
+  subject: socket_set
+  reference: tabletop
+  params:
+    clearance_m: 0.003
+    edge_margin_m: 0.05
+- kind: rotate_around_solution
+  subject: socket_set
+  params:
+    yaw_rad: 1.57079633
+- kind: clutter_on
+  subject: slotted_screwdriver
+  reference: top_drawer_body
+  params:
+    clearance_m: 0.003
+    spread: 0.7
+- kind: clutter_on
+  subject: small_wrench
+  reference: top_drawer_body
+  params:
+    clearance_m: 0.003
+    spread: 0.7
+- kind: position_limits_box
+  subject: oscilloscope
+  params:
+    x_limits:
+    - -0.15
+    - 0.3
+    y_limits:
+    - -0.75
+    - 0.75
+- kind: position_limits_box
+  subject: socket_set
+  params:
+    x_limits:
+    - -0.15
+    - 0.3
+    y_limits:
+    - -0.75
+    - 0.75
+- kind: position_limits_cylindrical
+  subject: oscilloscope
+  params:
+    center_x: 0.78
+    center_y: 0.0
+    radius_max: 0.85
+- kind: position_limits_cylindrical
+  subject: socket_set
+  params:
+    center_x: 0.78
+    center_y: 0.0
+    radius_max: 0.85
+- kind: position_limits_cylindrical
+  subject: white_bin
+  params:
+    center_x: 0.78
+    center_y: 0.0
+    radius_max: 0.85
+placer_params:
+  random_yaw_init: false
+  min_unique_layouts_per_env: 3
+  resolve_on_reset: true
+  max_placement_attempts: 10
+  solver_params:
+    clearance_m: 0.002
+    max_iters: 1000
+    save_position_history: false
+  allow_best_loss_fallbacks: false
+env_cfg_override:
+  viewer:
+    eye:
+    - 2.05
+    - 1.6
+    - 2.0
+    lookat:
+    - -0.05
+    - 0.15
+    - 0.95
+  sim:
+    render_interval: 8
+events:
+  oscilloscope_power:
+    func: isaaclab_arena.terms.events:JointTriggeredMaterialToggle
+    mode: interval
+    interval_range_s:
+    - 0.0
+    - 0.0
+    params:
+      asset_name: oscilloscope
+      joint_name: joint_button_01_joint_00
+      target_prim_path: Geometry/body_01_obj_00/body_01_mesh_00/m_opaque__paper__oscilloscope_a01
+      default_material_path: Geometry/body_01_obj_00/VisualMaterials/m_opaque__paper__oscilloscope_a01
+      alternate_material_path: ArenaMaterials/ScreenOff
