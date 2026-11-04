@@ -25,7 +25,12 @@ from isaaclab_arena.inference.backend import InferenceBackend, build_strict_sche
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 from isaaclab_arena_vlm_agent.motion_generator import MotionGenerator
-from isaaclab_arena_vlm_agent.observation_adapter import CAMERA_OBSERVATION_GROUP, VLMObservationAdapter
+from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
+from isaaclab_arena_vlm_agent.observation_adapter import (
+    CAMERA_OBSERVATION_GROUP,
+    ImageStateObservationAdapter,
+    VLMObservationAdapter,
+)
 from isaaclab_arena_vlm_agent.response_errors import InvalidAgentResponseError
 from isaaclab_arena_vlm_agent.vlm_agent_policy import (
     VLMChunkPolicy,
@@ -641,3 +646,19 @@ def test_missing_camera_keys_fail_before_inference(backend):
     with pytest.raises(AssertionError, match="camera observation key"):
         policy.get_action(*inputs())
     backend.client.chat.completions.create.assert_not_called()
+
+
+def test_config_wraps_object_poses_and_appends_prompt_files(backend, tmp_path):
+    prompt_path = tmp_path / "task.txt"
+    prompt_path.write_text("The peg is 0.1 m tall.\n")
+    config = VLMPolicyCfg(system_prompt="Act.", object_poses=["gear"], system_prompt_files=[str(prompt_path)])
+    policy = SingleCommandPolicy(config, inference_backend=backend, action_adapter=ActionAdapter())
+    try:
+        assert isinstance(policy.observation_adapter, ObjectPoseObservationAdapter)
+        assert policy.observation_adapter.scene_keys == ("gear",)
+        assert isinstance(policy.observation_adapter.observation_adapter, ImageStateObservationAdapter)
+        assert policy._system_prompt == "Act.\n\nThe peg is 0.1 m tall."
+    finally:
+        policy.close()
+    with pytest.raises(AssertionError, match="System prompt file does not exist"):
+        VLMPolicyCfg(system_prompt="Act.", system_prompt_files=[str(tmp_path / "missing.txt")])

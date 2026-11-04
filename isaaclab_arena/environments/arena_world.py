@@ -20,6 +20,7 @@ from isaaclab.scene import InteractiveScene
 from isaaclab.utils.math import quat_apply, subtract_frame_transforms
 
 import isaaclab_arena.environments.arena_world_scene_access as scene_access
+from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.joint_utils import get_joint_position_from_articulation
 
@@ -39,12 +40,14 @@ class ArenaWorld:
     def get_pose_w(self, scene_key: str) -> torch.Tensor:
         """Return the world-frame pose of a rigid-object root link, articulation root link, or scene extra.
 
+        A scene extra configured by ArticulationBodyReferenceCfg returns its articulation body's link pose.
         The tensor has shape (num_envs, 7), with each pose ordered as
         (x, y, z, qx, qy, qz, qw).
         """
         scene = self._scene
-        # Rigid objects and articulations expose their live root-link poses directly. Scene
-        # extras are plain cloned prims, so their live post-clone poses require a FrameView-backed reader.
+        # Rigid objects and articulations expose their live root-link poses directly. An articulation
+        # body reference reads its body's live link pose. Other scene extras are plain cloned prims, so
+        # their live post-clone poses require a FrameView-backed reader.
         if scene_key in scene.rigid_objects:
             T_W_F = scene.rigid_objects[scene_key].data.root_pose_w.torch
         elif scene_key in scene.articulations:
@@ -55,8 +58,12 @@ class ArenaWorld:
                 "InteractiveScene.articulations, or InteractiveScene.extras; "
                 f"'{scene_key}' is registered in none of them."
             )
-            pose_reader = self._get_scene_extra_pose_reader(scene, scene_key)
-            T_W_F = pose_reader.get_pose_w()
+            scene_extra_cfg = getattr(scene.cfg, scene_key)
+            if isinstance(scene_extra_cfg, ArticulationBodyReferenceCfg):
+                T_W_F = self.get_body_pose_w(scene_extra_cfg.articulation_name, scene_extra_cfg.body_name)
+            else:
+                pose_reader = self._get_scene_extra_pose_reader(scene, scene_key)
+                T_W_F = pose_reader.get_pose_w()
 
         assert T_W_F.shape == (
             scene.num_envs,

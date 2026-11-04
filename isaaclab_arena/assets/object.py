@@ -12,6 +12,7 @@ from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
+from pxr import Usd
 
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
@@ -99,6 +100,14 @@ class Object(RootedObjectBase):
     def get_spawned_asset(self) -> Object:
         """Return the asset whose spawn configuration and simulation check this object uses."""
         return self._selected_asset if self._selected_asset is not None else self
+
+    def open_spawned_usd_stage(self) -> Usd.Stage:
+        """Open this object's USD spawn configuration for inspection.
+
+        The new in-memory stage references the USD file at /Asset with the spawn configuration's variants selected, so
+        it shows the geometry and physics schemas Isaac Lab spawns. The source file is never edited.
+        """
+        return self._get_spawn_cfg_geometry(self.object_cfg.spawn).open_usd_stage()
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin).
