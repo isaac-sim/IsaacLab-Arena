@@ -125,6 +125,8 @@ Override settings for one Run on the command line. Each line below is one exampl
    runs.droid_pnp_vlm_chunk.policy.chunk_size=15
    # Another cube and bowl layout
    runs.droid_pnp_vlm_chunk.environment_builder.placement_seed=2
+   # Four parallel environments, whose requests are sent concurrently
+   runs.droid_pnp_vlm_chunk.environment_builder.num_envs=4
    # Another endpoint and model
    runs.droid_pnp_vlm_goal.policy.endpoint=openai
    runs.droid_pnp_vlm_goal.policy.model=<model>
