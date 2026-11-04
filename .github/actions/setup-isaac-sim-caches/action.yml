@@ -8,77 +8,58 @@ description: |
   Restore or save the Isaac Sim kit cache (/isaac-sim/kit/cache: RTX shaders and
   the PhysX mesh cooking cache in DerivedDataCache) and the Warp kernel cache
   (~/.cache/warp) via the GitHub Actions cache. Call once with mode "restore"
-  before the tests and, in jobs that should refresh the cache, once with mode
-  "save" after them. Saves only happen on main (push, nightly, manual dispatch).
+  before the tests and, in jobs that refresh the cache, once with mode "save"
+  after them.
+
+  Only the nightly run on main (and manual dispatches on main) saves. It starts
+  without a restored cache, so the saved cache holds only what that run used.
+  Every other run restores the newest saved cache.
 
 inputs:
   mode:
     description: '"restore" to restore the caches, "save" to save them.'
     required: true
   name:
-    description: |
-      Cache name, one per job type, because the jobs warm different caches.
-      Included in the cache key.
+    description: Cache name, one per job type, because the jobs warm different caches.
     required: true
-
-outputs:
-  cache-hit:
-    description: Whether any cache matched, including by prefix (true/false). Only set in mode "restore".
-    value: ${{ steps.restore.outputs.cache-matched-key != '' && 'true' || 'false' }}
-  isaac-sim-version:
-    description: Isaac Sim version string read from /isaac-sim/VERSION.
-    value: ${{ steps.read_version.outputs.isaac_sim_version }}
 
 runs:
   using: composite
   steps:
-    - id: read_version
+    - id: read_isaac_sim_version
       name: Read Isaac Sim version
       shell: bash
-      run: |
-        ISAAC_SIM_VERSION="$(cat /isaac-sim/VERSION)"
-        echo "ISAAC_SIM_VERSION=${ISAAC_SIM_VERSION}" >> "${GITHUB_ENV}"
-        echo "isaac_sim_version=${ISAAC_SIM_VERSION}" >> "${GITHUB_OUTPUT}"
-        # FIXME(before merge): the "-prtest" suffix keeps PR runs from reading or
-        # overwriting the caches that main uses; remove it so PRs restore main's caches.
-        PREFIX="isaac-caches-${ISAAC_SIM_VERSION}-${{ inputs.name }}"
-        if [ "${{ github.event_name }}" = "pull_request" ]; then PREFIX="${PREFIX}-prtest"; fi
-        echo "key_prefix=${PREFIX}" >> "${GITHUB_OUTPUT}"
+      run: echo "isaac_sim_version=$(cat /isaac-sim/VERSION)" >> "${GITHUB_OUTPUT}"
 
-    - id: restore
-      name: Restore Isaac Sim caches
-      if: inputs.mode == 'restore'
+    # Restore the newest cache with this prefix. The run id in the key makes each
+    # nightly save a new entry, since cache entries cannot be overwritten.
+    # FIXME(before merge): the "-prtest" suffix keeps PR runs from reading or
+    # overwriting the caches that main uses; remove it so PRs restore main's caches.
+    - name: Restore Isaac Sim caches
+      if: >-
+        inputs.mode == 'restore' &&
+        !(github.ref == 'refs/heads/main' &&
+          contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event_name))
       uses: actions/cache/restore@v4
       with:
         path: |
           /isaac-sim/kit/cache
           ~/.cache/warp
-        # The key is unique per commit so each saving run refreshes the cache;
-        # restore-keys picks the newest cache with the same prefix.
-        key: ${{ steps.read_version.outputs.key_prefix }}-${{ github.sha }}
+        key: isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.name }}${{ github.event_name == 'pull_request' && '-prtest' || '' }}-${{ github.run_id }}
         restore-keys: |
-          ${{ steps.read_version.outputs.key_prefix }}-
+          isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.name }}${{ github.event_name == 'pull_request' && '-prtest' || '' }}-
 
-    - name: Report Isaac Sim cache contents
-      if: inputs.mode == 'restore'
-      shell: bash
-      run: |
-        {
-          echo "### Isaac Sim caches (${{ inputs.name }}), restored from: \`${{ steps.restore.outputs.cache-matched-key || 'nothing (cold)' }}\`"
-          echo '```'
-          du -sm /isaac-sim/kit/cache/* ~/.cache/warp 2>/dev/null || true
-          echo '```'
-        } | tee -a "${GITHUB_STEP_SUMMARY}"
-
-    # Saves only from main. FIXME(before merge): drop the pull_request clause, which
-    # lets a PR populate its own "-prtest" caches so the restore path can be tested.
+    # FIXME(before merge): drop the pull_request clause, which lets a PR populate its
+    # own "-prtest" caches so the restore path can be tested before the first nightly.
     - name: Save Isaac Sim caches
       if: >-
         inputs.mode == 'save' &&
-        (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
+        ((github.ref == 'refs/heads/main' &&
+          contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event_name)) ||
+         github.event_name == 'pull_request')
       uses: actions/cache/save@v4
       with:
         path: |
           /isaac-sim/kit/cache
           ~/.cache/warp
-        key: ${{ steps.read_version.outputs.key_prefix }}-${{ github.sha }}
+        key: isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.name }}${{ github.event_name == 'pull_request' && '-prtest' || '' }}-${{ github.run_id }}
