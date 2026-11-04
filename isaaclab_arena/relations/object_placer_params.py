@@ -55,7 +55,8 @@ class ObjectPlacerParams:
     environment has many distinct configurations to draw from."""
 
     allow_best_loss_fallbacks: bool = True
-    """Whether pooled placement may use best-loss layouts when no valid layout is found."""
+    """Whether pooled placement may fill an environment's remaining slots with best-loss layouts when its last
+    batch leaves it without enough valid layouts."""
 
     enabled_checks: set[str] | None = None
     """Check names to evaluate during placement. None runs every registered build-time check.

@@ -665,6 +665,42 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     assert pool._env_pools[1].layouts[0] is fallback_results[1][0]
 
 
+@pytest.mark.parametrize("allow_fallback", [True, False])
+def test_pooled_placer_env_specific_fallback_fills_slots_left_by_too_few_valid_results(capsys, allow_fallback):
+    """Final-batch fallback should fill the slots that the batch's valid layouts leave empty, after storing them.
+    Without fallback, only the valid layouts are stored."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
+    pool._had_fallbacks = False
+
+    # Env 0 gets one valid and one invalid result, ranked valid first; env 1 gets two valid results.
+    ranked_results = [
+        [
+            PlacementResult(
+                validation_results=_checklist(cur_env == 1 or candidate_idx == 0),
+                positions={hetero: (float(cur_env), float(candidate_idx), 0.0)},
+                final_loss=float(candidate_idx),
+                attempts=1,
+            )
+            for candidate_idx in range(2)
+        ]
+        for cur_env in range(2)
+    ]
+
+    pool._store_env_matched_results(
+        ranked_results, layouts_per_env=2, target_num_layouts_per_env=2, allow_fallback=allow_fallback
+    )
+    captured = capsys.readouterr()
+
+    assert pool.had_fallbacks == allow_fallback
+    assert ("envs: [0]" in captured.out) == allow_fallback
+    assert pool._env_pools[0].layouts == (ranked_results[0] if allow_fallback else ranked_results[0][:1])
+    assert pool._env_pools[1].layouts == ranked_results[1]
+
+
 def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
     """Refills should not grow env pools that already met the target."""
     desk, hetero, placer_params = _make_hetero_pool_objects()

@@ -35,11 +35,12 @@ need to place each environment separately.
 
 .. note::
 
-   Arena prefers layouts that pass every required check. If an environment
-   still has unfilled pool slots and its final refill batch produces no valid
-   layout, the default ``allow_best_loss_fallbacks=True`` allows Arena to store
-   the batch's highest-ranked candidates for those slots. Arena reports when it
-   uses this fallback. Set the option to ``False`` to fail placement instead.
+   Arena prefers layouts that pass every required check. If the final refill
+   batch leaves an environment without enough valid layouts, the default
+   ``allow_best_loss_fallbacks=True`` allows Arena to fill its remaining slots
+   with the batch's highest-ranked candidates that failed a check. Arena reports
+   when it uses this fallback. Set the option to ``False`` to fail placement
+   instead.
 
 Layouts and Object Identity
 ---------------------------
