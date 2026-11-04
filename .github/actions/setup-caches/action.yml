@@ -16,8 +16,9 @@ description: |
 inputs:
   cache-name:
     description: |
-      Name of the cache. Use one name per job type, because the jobs warm different
-      caches and a restore picks the newest cache with the same name.
+      Name of the cache. Use one name per job type. The jobs run different tests, so
+      each warms different shaders, meshes and kernels. A restore picks the newest cache
+      with the same name, so jobs sharing a name would restore whichever job saved last.
     required: true
 
 runs:
