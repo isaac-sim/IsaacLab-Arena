@@ -449,7 +449,6 @@ jobs:
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      # Restores the cache of the Run tests job; only that job saves it.
       - name: Setup caches
         if: steps.gr00t_cuda.outputs.enabled == 'true'
         uses: ./.github/actions/setup-caches
