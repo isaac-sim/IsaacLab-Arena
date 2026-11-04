@@ -8,9 +8,8 @@
 from __future__ import annotations
 
 import fnmatch
-import numpy as np
 
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
+from pxr import Sdf, Usd, UsdPhysics, UsdShade
 
 from isaaclab_arena_environments.workbench_cleanup.scripts.fixed_articulations import create_fixed_articulations
 from isaaclab_arena_environments.workbench_cleanup.scripts.mesh_partition import inspect_mesh_components, partition_mesh
@@ -142,32 +141,12 @@ def preview_material(stage, *, prim_path, inputs, bind_to=()):
     return {"material": str(path)}
 
 
-def bake_scale(stage, *, scale):
-    """Put a positive scale below the root so later spawn-time root transforms cannot erase it."""
-    scale = np.asarray(scale, dtype=float)
-    assert scale.shape == (3,) and np.isfinite(scale).all() and (scale > 0).all(), "Expected three positive scales"
-    root = stage.GetDefaultPrim().GetPath()
-    snapshot = stage.Flatten()
-    replacement = Usd.Stage.CreateInMemory()
-    replacement.GetRootLayer().TransferContent(snapshot)
-    replacement.RemovePrim(root)
-    prim = UsdGeom.Xform.Define(replacement, root).GetPrim()
-    replacement.SetDefaultPrim(prim)
-    child = UsdGeom.Xform.Define(replacement, root.AppendChild("BakedScale"))
-    child.GetPrim().GetReferences().AddReference(snapshot.identifier, root)
-    # An extra scale op preserves any transform authored on the original default prim.
-    child.AddScaleOp(opSuffix="assetScale").Set(Gf.Vec3f(*scale))
-    stage.GetRootLayer().TransferContent(replacement.Flatten())
-    return {"reference_prefix": "BakedScale", "scale": scale.tolist()}
-
-
 OPERATIONS = {
     "edit_prims": edit_prims,
     "partition_mesh": partition,
     "fixed_articulations": create_fixed_articulations,
     "configure_articulation": configure_articulation,
     "preview_material": preview_material,
-    "bake_scale": bake_scale,
 }
 
 

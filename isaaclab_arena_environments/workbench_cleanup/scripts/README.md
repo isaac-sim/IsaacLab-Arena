@@ -1,7 +1,7 @@
 # Prepare workbench USD assets
 
 These commands rebuild the assets used by the example checkout's
-`scene_bin_shelf.yaml`. They edit an anonymous copy of each source USD,
+`scene_tool_bin_scope.yaml`. They edit an anonymous copy of each source USD,
 then export a flattened package with local material/texture dependencies.
 The source assets and existing output packages are never overwritten.
 
@@ -88,7 +88,6 @@ Supported ordered operations:
 | `fixed_articulations` | `groups: {name: {frame_mesh: path, joints: [paths]}}`. Move a partitioned frame and its attached bodies into separate fixed-base articulations while preserving geometry and joint frames. |
 | `configure_articulation` | Optional `root`, `fixed_base_body`, `movable_joints`, `self_collisions`. Omitting `movable_joints` keeps all joints; supplying it welds every other joint under the root. |
 | `preview_material` | `prim_path`, typed `inputs`, optional `bind_to: [paths]`. Create a UsdPreviewSurface material; bindings override descendant materials. |
-| `bake_scale` | `scale: [x, y, z]`. Put scale below the spawn root under `BakedScale`, preserving it when the scene replaces root transforms. Descendant reference paths gain that prefix. |
 
 Attribute/input values use `{type: USD_type_name, value: YAML_value}`. Vectors,
 matrices and arrays are supported; quaternions use `[w, x, y, z]`. Values use

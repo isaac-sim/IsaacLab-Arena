@@ -5,7 +5,6 @@
 
 """Regression tests for immutable sources, relocatable packages and ordered YAML edits."""
 
-import numpy as np
 import shutil
 import subprocess
 import sys
@@ -14,17 +13,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
+from pxr import Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
 
 from isaaclab_arena_environments.workbench_cleanup.scripts.asset_io import (
-    bounds_m,
     open_asset,
     source_file,
     validate_package,
 )
 from isaaclab_arena_environments.workbench_cleanup.scripts.asset_operations import (
     apply_operations,
-    bake_scale,
     configure_articulation,
     edit_prims,
 )
@@ -106,15 +103,6 @@ def test_failed_recipe_never_publishes_output(source, tmp_path):
     with pytest.raises(AssertionError, match="Unknown USD operation"):
         build_asset(recipe, tmp_path / "output")
     assert not (tmp_path / "output" / "example").exists()
-
-
-def test_scale_survives_replacing_spawn_root_transform(source):
-    stage, _ = open_asset(source, {})
-    bake_scale(stage, scale=[0.75, 0.75, 0.75])
-    root = UsdGeom.Xformable(stage.GetDefaultPrim())
-    root.ClearXformOpOrder()
-    root.AddTranslateOp().Set(Gf.Vec3d(10, 0, 0))
-    np.testing.assert_allclose(bounds_m(stage), [[9.25, -0.75, -0.75], [10.75, 0.75, 0.75]])
 
 
 def test_articulation_welds_only_unselected_joints(source):

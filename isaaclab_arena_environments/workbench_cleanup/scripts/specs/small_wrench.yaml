@@ -47,11 +47,5 @@ operations:
       physics:approximation:
         type: token
         value: convexHull
-- kind: bake_scale
-  params:
-    scale:
-    - 0.75
-    - 0.75
-    - 0.75
 validation:
   required_prims: []
