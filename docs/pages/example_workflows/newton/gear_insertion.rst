@@ -3,7 +3,7 @@ Gear Insertion
 
 Use a keyboard or SpaceMouse to teleoperate and pick up a gear with the DROID robot and insert it onto the
 peg board. This walkthrough covers previewing the environment, recording demonstrations,
-and replaying the saved dataset.
+replaying the saved dataset, and evaluating a vision-language model (VLM) agent as the policy.
 
 Task Overview
 -------------
@@ -31,27 +31,51 @@ Task Overview
 Prerequisites
 -------------
 
-Complete the :doc:`Arena installation <../../quickstart/installation>` and start your
-Arena runtime. Run the commands below from the repository root in the activated native
-environment or inside the Base Docker container (``/workspaces/isaaclab_arena``).
-The commands open the Kit GUI and use the GPU at ``cuda:0``.
+Complete the :doc:`Arena installation <../../quickstart/installation>`.
+Then open a **host terminal at the Arena repository root**.
 
-Create a directory for your demonstrations:
+.. _spacemouse_setup:
+
+SpaceMouse Setup (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Skip this section if using keyboard input. **Stop the Arena container if it is running**,
+then copy and paste the entire block below into a terminal on the Linux host:
+
+.. code-block:: bash
+
+   sudo groupadd -f plugdev
+   sudo usermod -aG plugdev "$USER"
+   sudo tee /etc/udev/rules.d/70-arena-spacemouse.rules <<'EOF'
+   SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="256f", GROUP="plugdev", MODE="0660", TAG+="uaccess"
+   SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="046d", ATTR{idProduct}=="c626|c628", GROUP="plugdev", MODE="0660", TAG+="uaccess"
+   EOF
+   sudo udevadm control --reload-rules
+
+Unplug and reconnect the SpaceMouse, then log out and back in.
+
+Open the Arena Runtime
+^^^^^^^^^^^^^^^^^^^^^^
+
+If using Docker, start the container from the repository root on the host:
+
+.. code-block:: bash
+
+   mkdir -p "$HOME/datasets"
+   ./docker/run_docker.sh
+
+Run the remaining commands from the repository root in the activated native
+environment or inside the Docker container (``/workspaces/isaaclab_arena``).
+
+Create a directory for your demonstrations. For native installations, replace
+``/datasets/gear_insertion`` with ``$HOME/datasets/gear_insertion``:
 
 .. code-block:: bash
 
    export DATASET_DIR=/datasets/gear_insertion
    mkdir -p "${DATASET_DIR}"
 
-In Docker, use the ``/datasets`` host mount described in the installation guide so your data
-persists outside the container. For a native installation, set ``DATASET_DIR`` to a writable
-directory such as ``$HOME/datasets/gear_insertion``. Keep using the same terminal for the
-commands below, or set ``DATASET_DIR`` again in each new terminal.
-
-For SpaceMouse input, connect the device and ensure the runtime can access it. See the
-`Isaac Lab SpaceMouse setup instructions
-<https://isaac-sim.github.io/IsaacLab/main/source/features/imitation-learning/teleop_imitation.html#teleoperation>`_
-for USB permissions and container access.
+Keep using this terminal so ``DATASET_DIR`` remains set.
 
 
 Step 1: Launch the Environment
@@ -213,3 +237,53 @@ With the Kit window focused, press ``B`` to pause the replayed actions and ``N``
 .. image:: ../../../images/gear_insertion_env_replay.gif
    :align: center
    :height: 400px
+
+
+.. _gear-insertion-vlm-agent:
+
+Step 4: Evaluate a VLM Agent Policy
+-----------------------------------
+
+A hosted VLM can also act as the policy, through ``VLMGoalPolicy``. Gear insertion needs the gear
+within 3.5 mm of the peg, a precise test of how well the model locates parts from camera images.
+See :ref:`vlm-agent-policies` for how the policy works, and set up an inference API key as in
+:doc:`../../quickstart/running_a_real_policy/vlm_agent`.
+
+Three experiment configurations run the policy on the ``droid_abs_ik`` embodiment with the full
+1280x720 camera images. They differ only in what the model is given. Run them from the repository
+root, so the prompt files they reference are found.
+
+**Images only.** The model gets the camera images, the robot state, and the DROID default system
+prompt, and must locate the gear and the pegs in the images:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml
+
+**Images with exact object poses.** ``object_poses`` adds the gear's exact pose and its seated
+target pose to each request. A real robot does not observe these, so this run is a reference for
+what the policy achieves once it knows where the parts are:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml
+
+**Images with a task prompt.** ``system_prompt_files`` appends
+``experiment_configs/prompts/droid_gear_insertion.txt`` to the default prompt. It describes the
+gear and peg geometry and a grasp and insertion strategy, but no object positions:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml
+
+Add ``--viz kit`` to watch a rollout.
+
+The same layout under each experiment: images only (left), exact object poses (middle), and the
+task prompt (right).
+
+.. image:: ../../../images/gear_insertion_vlm_agent.gif
+   :align: center
+   :width: 100%

@@ -12,6 +12,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
 from isaaclab_arena_vlm_agent.observation_adapter import (
     ImageObservationAdapter,
     ImageStateObservationAdapter,
@@ -226,3 +227,22 @@ def test_camera_selection_follows_live_configuration_changes():
     observation["camera_obs"] = {"new_color": observation["camera_obs"]["head_color"]}
     images, values = adapter.extract_vlm_input_from_observation(env, observation, 0)
     assert set(images) == set(values["camera_geometry"]) == {"new_color"}
+
+
+def test_object_poses_are_added_in_each_robot_root_frame():
+    _, env, observation = _inputs()
+    T_W_O = torch.tensor([[0.0, 0.0, 0.0, 0, 0, 0, 1], [10.0, 3.0, 1.0, 0, 0, 2**-0.5, 2**-0.5]])
+    world_poses = {"gear": T_W_O}
+    root_pose_w = env.unwrapped.arena_world.get_pose_w.return_value
+    env.unwrapped.arena_world.get_pose_w = Mock(side_effect=lambda key: world_poses.get(key, root_pose_w))
+    inner = ImageStateObservationAdapter()
+    adapter = ObjectPoseObservationAdapter(inner, ["gear"])
+    images, values = adapter.extract_vlm_input_from_observation(env, observation, 1)
+    _, inner_values = inner.extract_vlm_input_from_observation(env, observation, 1)
+    assert list(images) == ["head_color", "hand_color"]
+    assert {key: value for key, value in values.items() if key != "object_poses"} == inner_values
+    poses = values["object_poses"]["gear"]["poses_in_robot_roots"]
+    assert set(poses) == {"left_robot", "right_robot", "torso"}
+    # Root 1 sits at (10, 0, 0) yawed 90 degrees, so a world +Y offset of 3 is a root +X offset of 3.
+    np.testing.assert_allclose(poses["left_robot"]["position_root_m"], [3, 0, 1], atol=1e-6)
+    np.testing.assert_allclose(poses["left_robot"]["quaternion_root_xyzw"], [0, 0, 0, 1], atol=1e-6)

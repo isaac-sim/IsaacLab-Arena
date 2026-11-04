@@ -1,0 +1,16 @@
+Gear insertion. All positions are in the robot root frame; the table top is at z = 0.071 m.
+
+Scene: the gear lies flat on the table. Its toothed ring is 0.063 m across with its top at z = 0.088 m, and its smooth hub is 0.045 m across with its top at z = 0.110 m. A 0.016 m hole runs through the center. The gear base is a fixed cyan plate with three cyan pegs, tops at about z = 0.108 m, in one row along +X at the same y: the near peg, the target middle peg 0.075 m farther in +X, and the far peg 0.047 m beyond the middle one.
+
+The fingers start pointing straight down. Keep that orientation in every goal by copying the current quaternion from command_body_poses.arm_action; a tilted gear does not slide onto the peg.
+
+Steps, one goal each:
+1. Open the gripper (0) and move base_link to z = 0.30 m above the gear hole.
+2. Keep the gripper open and descend until the grasp point is 0.007 m below the hub top (base_link near z = 0.234 m), so the fingers straddle the hub above the teeth. If the descent is blocked within 0.008 m of that height, go to step 3. If it is blocked higher, the fingers hit the gear: lift, re-center, and descend again, at most twice.
+3. Close the gripper (1) at the current pose. Never close in the same goal as a descent.
+4. Keep the gripper closed from here on. Lift base_link to z = 0.30 m and check that the gear rose level between the fingers; if not, set it down, open, and regrasp.
+5. Move base_link horizontally by the middle peg's xy minus the held gear hole's xy until the hole is above the peg, then lower base_link to z = 0.28 m. In both external cameras, the peg must be hidden under the hub center.
+6. Lower in steps of at most 0.01 m. Seated, base_link is near z = 0.2405 m. A descent blocked above z = 0.25 m missed the peg: lift 0.01 m, shift a few millimeters toward the peg, and lower again.
+7. Open the gripper within 0.005 m of the seated height, then lift to z = 0.30 m.
+
+If the gear tilts in the fingers, set it down, open, and regrasp. Every regrasp is open, descend open, then close in a separate goal. The gear must end within 3.5 mm of the peg axis and level.

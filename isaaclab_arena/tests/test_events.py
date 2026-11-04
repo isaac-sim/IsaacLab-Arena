@@ -23,6 +23,9 @@ PLACEMENT_EPS = 0.02
 # For object initial velocity test: min displacement in velocity direction
 OBJECT_VELOCITY_MIN_DISPLACEMENT = 0.05  # minimum movement in meters
 
+# Microwave door angle configured as the initial joint state, in radians. The door opens toward -pi/2.
+INITIAL_DOOR_ANGLE = -0.5
+
 
 def _test_set_object_pose_per_env_event(simulation_app):
     """Returns a scene which we use for these tests."""
@@ -287,6 +290,76 @@ def _test_pose_writes_skip_kinematic_velocities(simulation_app, backend, path_ex
 def test_pose_writes_skip_kinematic_velocities(backend, path_expression):
     assert run_function_with_persistent_simulation_app(
         _test_pose_writes_skip_kinematic_velocities, backend=backend, path_expression=path_expression
+    )
+
+
+def _test_articulation_reset_restores_initial_joint_positions(simulation_app):
+    """Check that resets restore configured joints whether or not the articulation owns its root reset."""
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+
+    microwave_type = AssetRegistry().get_asset_by_name("microwave")
+    # Each kind of initial pose selects its own root reset; without one, no event resets the root.
+    fixed_pose_microwave = microwave_type(name="fixed_pose_microwave", initial_pose=Pose(position_xyz=(1.0, 0.0, 0.0)))
+    per_env_pose_microwave = microwave_type(name="per_env_pose_microwave")
+    per_env_pose_microwave.set_initial_pose(PosePerEnv(poses=[Pose(position_xyz=(2.0, 0.0, 0.0))] * 2))
+    pose_range_microwave = microwave_type(name="pose_range_microwave")
+    pose_range_microwave.set_initial_pose(PoseRange(position_xyz_min=(3.0, 0.0, 0.0), position_xyz_max=(3.0, 0.5, 0.0)))
+    unposed_microwave = microwave_type(name="unposed_microwave")
+    microwaves = (fixed_pose_microwave, per_env_pose_microwave, pose_range_microwave, unposed_microwave)
+    for microwave in microwaves:
+        microwave.object_cfg.init_state.joint_pos = {"microjoint": INITIAL_DOOR_ANGLE}
+    # Bounds on each reset root's position in its environment frame E.
+    t_E_O_bounds_per_microwave = {
+        fixed_pose_microwave.name: ((1.0, 0.0, 0.0), (1.0, 0.0, 0.0)),
+        per_env_pose_microwave.name: ((2.0, 0.0, 0.0), (2.0, 0.0, 0.0)),
+        pose_range_microwave.name: ((3.0, 0.0, 0.0), (3.0, 0.5, 0.0)),
+    }
+
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "2"])
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(
+        name="articulation_joint_reset", scene=Scene(assets=list(microwaves))
+    )
+    env = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
+    try:
+        world = env.unwrapped.arena_world
+        t_W_E = env.unwrapped.scene.env_origins
+
+        def assert_reset_state():
+            for microwave in microwaves:
+                door_angle = world.get_joint_position(microwave.name, "microjoint")
+                torch.testing.assert_close(door_angle, torch.full_like(door_angle, INITIAL_DOOR_ANGLE))
+            for name, (t_E_O_min, t_E_O_max) in t_E_O_bounds_per_microwave.items():
+                t_E_O = world.get_pose_w(name)[:, :3] - t_W_E
+                assert torch.all(t_E_O >= torch.tensor(t_E_O_min, device=t_E_O.device) - PLACEMENT_EPS) and torch.all(
+                    t_E_O <= torch.tensor(t_E_O_max, device=t_E_O.device) + PLACEMENT_EPS
+                ), f"{name} root is at {t_E_O.tolist()}, outside {t_E_O_min} to {t_E_O_max}."
+
+        env.reset()
+        assert_reset_state()
+        # Close every door and lift every root, so the next reset must write both back.
+        for microwave in microwaves:
+            articulation = env.unwrapped.scene[microwave.name]
+            articulation.write_joint_position_to_sim_index(position=torch.zeros_like(articulation.data.joint_pos.torch))
+            T_W_O = articulation.data.root_pose_w.torch.clone()
+            T_W_O[:, 2] += 1.0
+            articulation.write_root_pose_to_sim_index(root_pose=T_W_O)
+
+        env.reset()
+        assert_reset_state()
+    finally:
+        env.close()
+    return True
+
+
+def test_articulation_reset_restores_initial_joint_positions():
+    assert run_function_with_persistent_simulation_app(
+        _test_articulation_reset_restores_initial_joint_positions,
+        headless=HEADLESS,
     )
 
 

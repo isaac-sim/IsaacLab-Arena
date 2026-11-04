@@ -229,6 +229,7 @@ requires-dist = [
 where = ["."]
 include = [
     "isaaclab_arena*",
+    "isaaclab_arena_benchmarking*",
     "isaaclab_arena_cosmos*",
     "isaaclab_arena_curobo*",
     "isaaclab_arena_dreamzero*",

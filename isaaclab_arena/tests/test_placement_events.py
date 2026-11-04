@@ -318,6 +318,30 @@ def test_get_placement_pool_returns_runtime_pool():
     assert get_placement_pool(env) is pool
 
 
+def test_get_placement_diagnostics_returns_them_only_for_a_live_pool():
+    """An env without a placement event, or one that replays recorded layouts, has no placement diagnostics."""
+    from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
+    from isaaclab_arena.relations.runtime.placement_events import PlacementSamplerHandle, get_placement_diagnostics
+    from isaaclab_arena.relations.runtime.placement_sampler import RecordedPlacementSampler
+
+    class Pool:
+        objects = []
+        last_fill_diagnostics = PlacementDiagnostics(num_envs=1)
+
+    live_env = MagicMock()
+    live_env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_sampler": _placement_handle(Pool())}
+    replay_env = MagicMock()
+    replay_env.unwrapped.event_manager.get_term_cfg.return_value.params = {
+        "placement_sampler": PlacementSamplerHandle(MagicMock(spec=RecordedPlacementSampler))
+    }
+    env_without_placement = MagicMock()
+    env_without_placement.unwrapped.event_manager.get_term_cfg.side_effect = ValueError
+
+    assert get_placement_diagnostics(live_env) is Pool.last_fill_diagnostics
+    assert get_placement_diagnostics(replay_env) is None
+    assert get_placement_diagnostics(env_without_placement) is None
+
+
 def test_solve_and_place_objects_applies_random_yaw():
     """With random_yaw_init enabled the runtime path should write yawed (non-identity) poses."""
 

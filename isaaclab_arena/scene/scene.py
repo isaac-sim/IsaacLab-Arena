@@ -121,8 +121,7 @@ class Scene:
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
         for asset in self.assets.values():
-            event_cfg_name, event_cfg = asset.get_event_cfg()
-            if event_cfg is not None:
+            for event_cfg_name, event_cfg in asset.get_event_cfgs():
                 fields.append((event_cfg_name, type(event_cfg), event_cfg))
         EventCfg = make_configclass("EventCfg", fields)
         event_cfg = EventCfg()
