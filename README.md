@@ -264,8 +264,8 @@ The ecosystem extends beyond pick-and-place to contact-rich, dexterous, and defo
 
 ### Coming Soon
 
-Coming soon: support for the full RoboTwin and RoboDojo task suites, plus benchmark integrations
-from ecosystem partners including RLWRLD (DexBench), UC Berkeley, X Square, Sharpa, and NVIDIA
+Coming soon: support for the full RoboTwin task suite, plus benchmark integrations
+from ecosystem partners including X Square, Sharpa, and NVIDIA
 GEAR (G1 Factory), with more partner benchmarks to follow.
 
 ### Publishing Your Own Benchmark
