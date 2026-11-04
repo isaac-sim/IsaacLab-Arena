@@ -45,9 +45,10 @@ runs:
         restore-keys: |
           ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
 
-    # The key is new on every run, so this step always misses and saves at the end of a
-    # successful job. FIXME(before merge): drop the pull_request clause, which lets a PR
-    # save its own "-prtest" cache so a re-run of the same PR run tests the restore.
+    # actions/cache automatically saves the paths in a step at the end of a successful job
+    # when its key was not found. The key is new on every run, so it always saves.
+    # FIXME(before merge): drop the pull_request clause, which lets a PR save its own
+    # "-prtest" cache so a re-run of the same PR run tests the restore.
     - name: Save caches at the end of the job
       if: >-
         (github.ref == 'refs/heads/main' &&
