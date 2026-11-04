@@ -499,6 +499,7 @@
 <li class="toctree-l2"><a class="reference internal" href="validation.html">Placement Validation</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Pooled Placement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="placement_success_benchmark.html">Placement Success Benchmark</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../policy/index.html">Policy</a></li>
@@ -679,9 +680,10 @@ environments fell back to best-loss layouts.</p>
 <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder.placement_diagnostics</span></code> holds the record of the fill made
 during that build. It is <code class="docutils literal notranslate"><span class="pre">None</span></code> when the build solved no relations or
 failed.</p></li>
-<li><p>From a running environment, <code class="docutils literal notranslate"><span class="pre">get_placement_pool(env).last_fill_diagnostics</span></code>
-holds the pool’s most recent fill, including one made during a reset.
-<code class="docutils literal notranslate"><span class="pre">get_placement_pool</span></code> is in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.runtime.placement_events</span></code>.</p></li>
+<li><p>From a running environment, <code class="docutils literal notranslate"><span class="pre">get_placement_diagnostics(env)</span></code> returns the
+record of the pool’s most recent fill, including one made during a reset, or
+<code class="docutils literal notranslate"><span class="pre">None</span></code> when the environment has no live pool. It is in
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.runtime.placement_events</span></code>.</p></li>
 <li><p>When a fill fails, its error message lists the same counts, one line per
 batch. For a box wider than the table it is placed on, for example:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>batch 0: 0/4 valid; passed per check: on_relation=0/4, clutter_on_relation=4/4, ..., no_overlap=4/4
