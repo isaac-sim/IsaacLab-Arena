@@ -647,8 +647,8 @@ pass steps physics.</p>
 does not invalidate the layout. <code class="docutils literal notranslate"><span class="pre">PooledObjectPlacer</span></code>
 (<a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a>) uses these results to rank candidates and to
 reject-and-refill until each environment has enough valid layouts. By default,
-if the final refill batch still has no valid candidate, Arena can store a
-best-loss layout that failed required checks
+if the final refill batch leaves an environment without enough valid layouts,
+Arena can fill the rest with best-loss layouts that failed required checks
 (<code class="docutils literal notranslate"><span class="pre">allow_best_loss_fallbacks=True</span></code>); see <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a>.</p>
 <p>Pre-physics and offline post-physics validators share the <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code>
 base for check names and stages. They have separate inputs: solved candidate

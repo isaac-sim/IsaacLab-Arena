@@ -635,11 +635,12 @@ partition.</span><a class="headerlink" href="#id1" title="Link to this image">#<
 </figure>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Arena prefers layouts that pass every required check. If an environment
-still has unfilled pool slots and its final refill batch produces no valid
-layout, the default <code class="docutils literal notranslate"><span class="pre">allow_best_loss_fallbacks=True</span></code> allows Arena to store
-the batch’s highest-ranked candidates for those slots. Arena reports when it
-uses this fallback. Set the option to <code class="docutils literal notranslate"><span class="pre">False</span></code> to fail placement instead.</p>
+<p>Arena prefers layouts that pass every required check. If the final refill
+batch leaves an environment without enough valid layouts, the default
+<code class="docutils literal notranslate"><span class="pre">allow_best_loss_fallbacks=True</span></code> allows Arena to fill its remaining slots
+with the batch’s highest-ranked candidates that failed at least one required
+check. Arena reports when it uses this fallback. Set the option to <code class="docutils literal notranslate"><span class="pre">False</span></code>
+to fail placement instead.</p>
 </div>
 </section>
 <section id="layouts-and-object-identity">

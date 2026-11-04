@@ -623,12 +623,11 @@ A batch solves candidate layouts for every environment, runs the
 valid candidates in its own empty slots. Another batch runs only while some
 environment still has empty slots, up to <code class="docutils literal notranslate"><span class="pre">max_placement_attempts</span></code> batches; see
 <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a>.</p>
-<p>When the last batch gives an environment no valid candidate, its empty slots get
-that batch’s highest-ranked candidates, which fail at least one check. Candidates
-rank by fewest failed required checks, then fewest failed optional checks, then
-lowest loss. This best-loss fallback is on by default. When the last batch gives an environment
-some valid candidates but too few, or none while fallback is off, the build
-fails.</p>
+<p>When the last batch leaves an environment with empty slots, they get that batch’s
+highest-ranked candidates that fail at least one required check. Candidates rank
+by fewest failed required checks, then fewest failed optional checks, then lowest
+loss. This best-loss fallback is on by default. When fallback is off, an
+environment with empty slots after the last batch fails the build.</p>
 <p>When a Run completes, the experiment runner sums the placement diagnostics of
 its builds that solved relation placement and writes them to
 <code class="docutils literal notranslate"><span class="pre">arena_run_placement_diagnostics.json</span></code> in the Run directory, whatever the
@@ -646,9 +645,9 @@ always holds <code class="docutils literal notranslate"><span class="pre">num_en
 slots are still empty, so later batches are left out to keep the sample the
 same for every scene. This rate moves when the solver gets better or worse.</p></li>
 <li><p><strong>Valid environments</strong> (<code class="docutils literal notranslate"><span class="pre">valid_env_rate_after_retries</span></code>): the share of
-environments that needed no best-loss fallback once the last batch ran. It
-drops below 100% only when the last batch gives an environment no valid
-candidate.</p></li>
+environments whose slots were all filled with valid layouts, without best-loss
+fallback. It drops below 100% when the last batch leaves an environment with
+empty slots.</p></li>
 <li><p><strong>Batches per build</strong> (<code class="docutils literal notranslate"><span class="pre">batches_per_build</span></code>): the mean number of batches a
 build solved.</p></li>
 </ul>
