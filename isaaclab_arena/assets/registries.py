@@ -380,6 +380,7 @@ def ensure_assets_registered():
         import isaaclab_arena.assets.object_library  # noqa: F401
         import isaaclab_arena.assets.retargeter_library  # noqa: F401
         import isaaclab_arena.assets.simready_object_library  # noqa: F401
+        import isaaclab_arena.assets.turnable_appliance  # noqa: F401
         import isaaclab_arena.embodiments  # noqa: F401
         import isaaclab_arena.policy  # noqa: F401
         import isaaclab_arena.relations.relations  # noqa: F401

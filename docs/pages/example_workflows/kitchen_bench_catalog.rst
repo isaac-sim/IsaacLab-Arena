@@ -1,11 +1,12 @@
 Kitchen Benchmark Catalog
 =========================
 
-The kitchen benchmark contains 42 DROID tasks defined as environment graph
+The kitchen benchmark contains 50 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
-environment on October 28, 2026.
+environment: the original 42 environments on October 28, 2026, and the eight
+additional appliance environments on October 29–30, 2026.
 
 .. list-table:: Task categories
    :header-rows: 1
@@ -24,8 +25,8 @@ environment on October 28, 2026.
      - 10.0%
 
    * - Turn knob
-     - 3
-     - 34.7%
+     - 11
+     - 37.6%
 
    * - Single-object pick-and-place (container)
      - 18
@@ -48,7 +49,7 @@ environment on October 28, 2026.
      - 42.0%
 
    * - **Total**
-     - **42**
+     - **50**
      - **38.8%**
 
 Each row links to the source YAML and shows a Pi policy execution recorded from
@@ -150,6 +151,70 @@ the maintained DROID external camera. Rows are grouped by task category.
      - 39%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian_pi05.gif
           :alt: Pi0.5 policy turning the toaster oven timer in the Scandinavian kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Turn knob
+     - `kitchen_bench_turn_palatial_blender_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_blender_one_wall_coastal.yaml>`_
+     - 33%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_palatial_blender_one_wall_coastal_pi05.gif
+          :alt: Pi0.5 policy turning the palatial blender knob
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Turn knob
+     - `kitchen_bench_turn_palatial_food_processor_galley_industrial.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_food_processor_galley_industrial.yaml>`_
+     - 13%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_palatial_food_processor_galley_industrial_pi05.gif
+          :alt: Pi0.5 policy turning the palatial food processor knob
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Turn knob
+     - `kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml>`_
+     - 23%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_palatial_toaster_u_shaped_modern1_pi05.gif
+          :alt: Pi0.5 policy turning the palatial toaster knob
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Turn knob
+     - `kitchen_bench_turn_nvidia_toaster_g_shaped_rustic.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_nvidia_toaster_g_shaped_rustic.yaml>`_
+     - 51%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_nvidia_toaster_g_shaped_rustic_pi05.gif
+          :alt: Pi0.5 policy turning the nvidia toaster knob
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Turn knob
+     - `kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml>`_
+     - 38%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2_pi05.gif
+          :alt: Pi0.5 policy turning the toaster oven001 knob
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Turn knob
+     - `kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml>`_
+     - 36%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_blender003_l_shaped_scandinavian_pi05.gif
+          :alt: Pi0.5 policy turning the blender003 knob
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Turn knob
+     - `kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml>`_
+     - 32%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian_pi05.gif
+          :alt: Pi0.5 policy turning the stand mixer003 knob
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - Turn knob
+     - `kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml>`_
+     - 84%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1_pi05.gif
+          :alt: Pi0.5 turning the Toaster002 dial in a farmhouse kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
