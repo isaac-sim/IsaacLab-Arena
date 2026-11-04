@@ -7,16 +7,12 @@ name: Setup Isaac Sim caches
 description: |
   Restore the Isaac Sim kit cache (/isaac-sim/kit/cache: RTX shaders and the PhysX
   mesh cooking cache in DerivedDataCache) and the Warp kernel cache (~/.cache/warp)
-  from the GitHub Actions cache. Call once before the tests.
+  from the GitHub Actions cache. Call once before the tests. Each workflow job keeps
+  its own cache, because the jobs warm different caches.
 
   The nightly run on main (and manual dispatches on main) starts without a restored
   cache and saves one at the end of a successful job, so the saved cache holds only
   what that run used. Every other run restores the newest saved cache.
-
-inputs:
-  name:
-    description: Cache name, one per job type, because the jobs warm different caches.
-    required: true
 
 runs:
   using: composite
@@ -39,9 +35,9 @@ runs:
         path: |
           /isaac-sim/kit/cache
           ~/.cache/warp
-        key: isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.name }}-${{ github.run_id }}
+        key: isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ github.job }}-${{ github.run_id }}
         restore-keys: |
-          isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.name }}-
+          isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ github.job }}-
 
     # The key is new on every run, so this step always misses and saves at the end of a
     # successful job. FIXME(before merge): drop the pull_request clause, which lets a PR
@@ -56,4 +52,4 @@ runs:
         path: |
           /isaac-sim/kit/cache
           ~/.cache/warp
-        key: isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.name }}${{ github.event_name == 'pull_request' && '-prtest' || '' }}-${{ github.run_id }}
+        key: isaac-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ github.job }}${{ github.event_name == 'pull_request' && '-prtest' || '' }}-${{ github.run_id }}
