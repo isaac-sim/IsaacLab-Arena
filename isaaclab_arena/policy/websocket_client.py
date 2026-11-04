@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import time
 
+import websockets.exceptions
 import websockets.sync.client
 from openpi_client import msgpack_numpy, websocket_client_policy
 from typing_extensions import override
@@ -16,9 +17,9 @@ from typing_extensions import override
 class WebsocketClientPolicy(websocket_client_policy.WebsocketClientPolicy):
     """openpi WebsocketClientPolicy with configurable keepalive ping and handshake timeout.
 
-    The connection is retried while the server refuses it (not started yet) or does not answer the
-    websocket handshake in time, which happens while a single-threaded server compiles the model for
-    its first request and other threads open their connections.
+    The connection is retried while the server refuses it (not started yet) or fails the websocket
+    handshake, which happens while a single-threaded server compiles the model for its first request
+    and other threads open their connections.
     """
 
     def __init__(
@@ -58,5 +59,6 @@ class WebsocketClientPolicy(websocket_client_policy.WebsocketClientPolicy):
             except ConnectionRefusedError:
                 logging.info("Still waiting for server...")
                 time.sleep(5)
-            except TimeoutError:
-                logging.info("Server did not complete the websocket handshake in time, retrying...")
+            except (TimeoutError, websockets.exceptions.InvalidHandshake) as exc:
+                logging.info(f"Websocket handshake with the server failed ({exc}), retrying...")
+                time.sleep(1)
