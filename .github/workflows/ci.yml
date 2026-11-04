@@ -265,14 +265,14 @@ jobs:
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - name: Setup Isaac Sim caches
-        uses: ./.github/actions/setup-isaac-sim-caches
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
         with:
           cache-name: tests
 
       # FIXME(before merge): PR-only probe of the cache effect. One kitchen bring-up is
       # cold on a PR's first run and warm on a re-run; compare the step times. Delete.
-      - name: Probe Isaac Sim cache effect (one kitchen env)
+      - name: Probe cache effect (one kitchen env)
         if: github.event_name == 'pull_request'
         run: |
           START=$(date +%s)
@@ -352,8 +352,8 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
-      - name: Setup Isaac Sim caches
-        uses: ./.github/actions/setup-isaac-sim-caches
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
         with:
           cache-name: subprocess
 
@@ -450,9 +450,9 @@ jobs:
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
       # Restores the cache of the Run tests job; only that job saves it.
-      - name: Setup Isaac Sim caches
+      - name: Setup caches
         if: steps.gr00t_cuda.outputs.enabled == 'true'
-        uses: ./.github/actions/setup-isaac-sim-caches
+        uses: ./.github/actions/setup-caches
         with:
           cache-name: gr00t
 
