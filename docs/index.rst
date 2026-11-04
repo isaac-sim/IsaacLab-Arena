@@ -6,6 +6,12 @@ Welcome to Isaac Lab-Arena!
    be fully tested yet. For the tested version, please refer to the `release/0.3.0 branch
    <https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html>`_.
 
+.. tip::
+
+   **Coming in the next release (scheduled for 8 December 2026):** faster agentic evaluation
+   authoring, Newton-based evaluation workflows, and multimodal VLMs as policies. You can try them
+   now on the ``main`` branch. :doc:`See what's new <pages/whats_new/whats_new>`.
+
 .. _overview:
 
 .. raw:: html
@@ -1056,6 +1062,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    :caption: Isaac Lab-Arena
 
    Overview <self>
+   What's New <pages/whats_new/whats_new>
    Why Isaac Lab-Arena <pages/motivation/motivation>
 
 .. toctree::
