@@ -265,9 +265,10 @@ jobs:
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - &setup_isaac_sim_caches_step
-        name: Setup Isaac Sim caches
+      - name: Setup Isaac Sim caches
         uses: ./.github/actions/setup-isaac-sim-caches
+        with:
+          cache-name: tests
 
       # FIXME(before merge): PR-only probe of the cache effect. One kitchen bring-up is
       # cold on a PR's first run and warm on a re-run; compare the step times. Delete.
@@ -351,7 +352,10 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
-      - *setup_isaac_sim_caches_step
+      - name: Setup Isaac Sim caches
+        uses: ./.github/actions/setup-isaac-sim-caches
+        with:
+          cache-name: subprocess
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
@@ -450,7 +454,7 @@ jobs:
         if: steps.gr00t_cuda.outputs.enabled == 'true'
         uses: ./.github/actions/setup-isaac-sim-caches
         with:
-          cache-job: test
+          cache-name: gr00t
 
       # The GR00T server post-trains a tiny checkpoint before loading it. Its
       # entrypoint waits for the LFS-backed dataset media fetched above before
