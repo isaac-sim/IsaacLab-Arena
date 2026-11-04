@@ -160,6 +160,7 @@ constraint-dependencies = [
     "pyglet<3",
     "tinyobjloader==2.0.0rc13",
     "mujoco-usd-converter==0.6.1",
+    "typer<0.26",
 ]
 # Use a uv-managed CPython 3.12 rather than whatever happens to be on PATH.
 python-preference = "only-managed"
