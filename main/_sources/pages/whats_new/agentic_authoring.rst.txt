@@ -1,9 +1,9 @@
 Agentic Evaluation Authoring
 ============================
 
-Agents are now fluent in Arena's placement and tasking system.
-We provide two demonstrations of agentic evaluation environment authoring
-for industrial and kitchen tasks.
+Arena ``v0.4`` treats coding agents as a primary entry point for authoring evaluation environments.
+These two examples show agents using Arena's placement relations and composite tasks to build
+workbench cleanup and kitchen pick-and-place evaluations.
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -26,7 +26,7 @@ for industrial and kitchen tasks.
          :width: 100%
          :alt: Ten reset layouts of the Arena agent-authored peninsula kitchen environment
 
-      An agent authors a kitchen composite pick-and-place evaluation environment.
+      An agent authors a kitchen evaluation environment with a composite pick-and-place task.
 
 .. toctree::
    :maxdepth: 1

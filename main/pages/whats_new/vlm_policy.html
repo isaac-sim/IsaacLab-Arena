@@ -605,19 +605,18 @@
                   
   <section id="multimodal-vlm-as-a-policy">
 <h1>Multimodal VLM as a Policy<a class="headerlink" href="#multimodal-vlm-as-a-policy" title="Link to this heading">#</a></h1>
-<p>Recent work <a class="footnote-reference brackets" href="#id3" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> has shown that multimodal vision-language models (VLMs), for example Astra,
-can act as a robot policy by connecting the model output to a robot controller.
-Arena users can now adopt and benchmark this new approach to robot control.
-The Arena <code class="docutils literal notranslate"><span class="pre">v0.4</span></code> release implements VLM-as-a-policy, which can be configured to use various VLM models.</p>
-<p>Try it! Run a <a class="reference internal" href="../quickstart/running_a_real_policy/vlm_agent.html"><span class="doc">VLM Agent</span></a> in Arena!</p>
+<p>Recent work <a class="footnote-reference brackets" href="#id3" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> has shown that multimodal vision-language models (VLMs), such as Astra, can act as robot policies.
+Arena <code class="docutils literal notranslate"><span class="pre">v0.4</span></code> adds support for VLM policies, allowing users to configure different models and
+benchmark their action strategies using Arena’s evaluation tools.</p>
+<p>Try it with the <a class="reference internal" href="../quickstart/running_a_real_policy/vlm_agent.html"><span class="doc">VLM policy quickstart</span></a>.</p>
 <figure  class="sphinx-contrib-video-container align-center"><video autoplay="True" loop="True" muted="True" preload="auto" width="60%" playsinline="True"><source src="../../_images/vlm_policy_astra_rollout.mp4" type="video/mp4">Real-robot rollout of GPT-6 Astra stacking colored blocks, shown from the wrist camera</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">GPT-6 Astra controlling a robot to stack colored blocks, seen from the wrist camera.</span></p></figcaption></figure><section id="how-arena-connects-a-vlm-to-the-robot">
 <h2>How Arena connects a VLM to the robot<a class="headerlink" href="#how-arena-connects-a-vlm-to-the-robot" title="Link to this heading">#</a></h2>
 <p>To use a VLM as a policy, Arena connects the model output to a robot controller.
-At each request, the VLM is fed model inputs including the task description,
-the robot state, the robot geometry, and the current camera images.
+Each request includes the task description and configured observations, such as camera images
+and robot state, along with robot geometry.
 The model then returns an action to be executed on the robot.
-The Astranomy study <a class="footnote-reference brackets" href="#id3" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> compares several ways to use VLMs as robot policies:
-Arena implements several of these approaches.</p>
+The Astranomy study <a class="footnote-reference brackets" href="#id3" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> compares several approaches to using VLMs as robot policies.
+Arena supports the following configuration options:</p>
 <div class="pst-scrollable-table-container"><table class="arena-value-table table">
 <colgroup>
 <col style="width: 25.0%" />
@@ -633,14 +632,14 @@ Arena implements several of these approaches.</p>
 <td><p><strong>Direct Policy</strong>: observation-to-action API calls, with no persistent conversation.</p></td>
 </tr>
 <tr class="row-odd"><td><p>Actions</p></td>
-<td><p><strong>Absolute end-effector poses</strong>, plus a gripper open or close command.</p></td>
+<td><p><strong>Absolute end-effector poses</strong>, plus a command to open or close the gripper.</p></td>
 </tr>
 <tr class="row-even"><td rowspan="3"><p>Action horizon</p></td>
 <td><p><strong>Goal</strong> (<code class="docutils literal notranslate"><span class="pre">VLMGoalPolicy</span></code>): one end-effector goal per call, tracked until it is reached.</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Chunk</strong> (<code class="docutils literal notranslate"><span class="pre">VLMChunkPolicy</span></code>): a fixed number of poses per call, set by <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><strong>Step</strong> (<code class="docutils literal notranslate"><span class="pre">VLMChunkPolicy</span></code> with <code class="docutils literal notranslate"><span class="pre">chunk_size:</span> <span class="pre">1</span></code>): a chunk of one pose per call.</p></td>
+<tr class="row-even"><td><p><strong>Step</strong> (<code class="docutils literal notranslate"><span class="pre">VLMChunkPolicy</span></code> with <code class="docutils literal notranslate"><span class="pre">chunk_size:</span> <span class="pre">1</span></code>): one pose per call.</p></td>
 </tr>
 <tr class="row-odd"><td><p>Observations</p></td>
 <td><p>Camera images, robot state, or both.</p></td>
@@ -651,9 +650,9 @@ Arena implements several of these approaches.</p>
 </tbody>
 </table>
 </div>
-<p>The video below compares several of these options in Arena, varying between the
-<code class="docutils literal notranslate"><span class="pre">goal</span></code>, <code class="docutils literal notranslate"><span class="pre">chunk</span></code>, and <code class="docutils literal notranslate"><span class="pre">step</span></code> action strategies on a DROID pick-and-place task showing three trials.
-Try this on your own in Arena in our <a class="reference internal" href="../quickstart/running_a_real_policy/vlm_agent.html"><span class="doc">VLM Agent</span></a> workflow.</p>
+<p>The action strategies determine how often the model receives updated observations and issues new actions.
+The video below compares the <code class="docutils literal notranslate"><span class="pre">goal</span></code>, <code class="docutils literal notranslate"><span class="pre">chunk</span></code>, and <code class="docutils literal notranslate"><span class="pre">step</span></code> action strategies on a DROID
+pick-and-place task, with three trials on each of three layouts.</p>
 <div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../_images/arena_v04_astra_pnp_eval_mosaic_3trials.mp4" type="video/mp4">Grid of DROID pick-and-place rollouts with the goal, chunk, and step VLM policies, three trials on each of three layouts</video></div></section>
 <section id="references">
 <h2>References<a class="headerlink" href="#references" title="Link to this heading">#</a></h2>

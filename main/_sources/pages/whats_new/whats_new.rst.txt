@@ -1,7 +1,7 @@
 What's New
 ==========
 
-The upcoming release of Isaac Lab-Arena ``v0.4`` adds three exciting new capabilities
+The upcoming release of Isaac Lab-Arena ``v0.4`` adds three new capabilities
 to the evaluation framework. Try out the early versions on the ``main`` branch!
 
 .. grid:: 1 1 3 3
@@ -15,10 +15,10 @@ to the evaluation framework. Try out the early versions on the ``main`` branch!
          :width: 100%
          :alt: Ten reset layouts of the Arena agent-authored peninsula kitchen environment
 
-      Improvements to agentic benchmark authoring. Agents are now fluent in Arena's placement and
-      tasking system.
+      Use coding agents to author evaluation environments with Arena's placement relations and
+      composite tasks.
 
-   .. grid-item-card:: Newton-based Workflows
+   .. grid-item-card:: Newton-Based Workflows
       :link: newton_evaluation
       :link-type: doc
 
@@ -31,8 +31,8 @@ to the evaluation framework. Try out the early versions on the ``main`` branch!
          :playsinline:
          :nocontrols:
 
-      Connect the Newton physics engine to Arena's evaluation tools to move beyond pick-and-place
-      tasks to insertion, contact-rich assembly, and deformable tasks.
+      Evaluate policies on insertion, contact-rich assembly, and deformable-object tasks using
+      the Newton physics backend and Arena's evaluation tools.
 
    .. grid-item-card:: Multimodal VLM as a Policy
       :link: vlm_policy
@@ -47,8 +47,8 @@ to the evaluation framework. Try out the early versions on the ``main`` branch!
          :playsinline:
          :nocontrols:
 
-      Use a multimodal vision-language model (for example, Astra) as a policy. Arena exposes
-      several options for connecting VLM policies to robots.
+      Use a multimodal vision-language model such as Astra as a robot policy, and compare action strategies
+      using Arena's evaluation tools.
 
 .. toctree::
    :maxdepth: 1

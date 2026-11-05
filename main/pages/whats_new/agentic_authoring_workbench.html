@@ -610,13 +610,13 @@
 <h1>Workbench Environment<a class="headerlink" href="#workbench-environment" title="Link to this heading">#</a></h1>
 <section id="faster-authoring-evaluation-infrastructure-included">
 <span id="whats-new-workbench-authoring"></span><h2>Faster authoring. Evaluation infrastructure included.<a class="headerlink" href="#faster-authoring-evaluation-infrastructure-included" title="Link to this heading">#</a></h2>
-<p>Coding agents are now the predominant way that developers interact with code.
-Agents are quickly becoming the predominant way to interact with 3D environments.
-Arena <code class="docutils literal notranslate"><span class="pre">v0.4</span></code> includes improvements to agentic environment authoring.</p>
+<p>Coding agents are now the predominant way developers interact with code.
+Arena v0.4 embraces this shift, treating coding agents as a primary entry
+point to the framework and significantly improving support for agentic environment authoring.</p>
 </section>
 <section id="study">
 <h2>Study<a class="headerlink" href="#study" title="Link to this heading">#</a></h2>
-<p>On this page we describe a study that aims to show the efficacy of Arena’s evaluation building system for agentic environment authoring.
+<p>We compare how a coding agent authors the same workbench cleanup evaluation environment with and without Arena.
 As a baseline, we compared against Isaac Lab alone, without the Arena extension,
 which lacks the evaluation-oriented building blocks that Arena provides.</p>
 <dl class="simple">
@@ -624,20 +624,19 @@ which lacks the evaluation-oriented building blocks that Arena provides.</p>
 <li><p>reached a validated environment <strong>5.25× faster</strong>,</p></li>
 <li><p>spent <strong>72% less</strong> on model cost,</p></li>
 <li><p>wrote <strong>no custom Python code</strong>,</p></li>
-<li><p>and used Arena’s batched placement solver to get <strong>physically stable layout variations</strong> with no additional setup.</p></li>
+<li><p>and used Arena’s batched placement solver to get <strong>physically stable, collision-free layout variations</strong> with no additional setup.</p></li>
 </ul>
 </dd>
 </dl>
 <section id="the-agent-s-task">
 <h3>The agent’s task<a class="headerlink" href="#the-agent-s-task" title="Link to this heading">#</a></h3>
-<p>The agent gets a single prompt describing a workbench cleanup evaluation environment:
-the cabinet’s top drawer must be opened, five tools on the workbench put into it one by one, and
-the drawer then closed.</p>
+<p>The agent receives a single natural-language prompt describing a workbench cleanup evaluation environment:
+open the cabinet’s top drawer, place five tools from the workbench into it one by one, and close the drawer.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">The prompt given to the agent</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">Setup an environment for a workbench clean up task evaluation using physx simulation.</p>
-<p class="sd-card-text">Use following SimReady Central assets from hugging face</p>
+<p class="sd-card-text">Set up an environment for evaluation of a workbench cleanup task using PhysX simulation.</p>
+<p class="sd-card-text">Use the following SimReady Central assets from Hugging Face:</p>
 <ul class="simple">
 <li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">furniture_workbench_standard_e01</span></code></p></li>
 <li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">fixture_cabinet_b01</span></code></p></li>
@@ -647,17 +646,16 @@ the drawer then closed.</p>
 <li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">handTool_screwdriver_phillips_ph2_a01</span></code></p></li>
 <li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">handTool_wrench_combination_a01</span></code></p></li>
 </ul>
-<p class="sd-card-text">On the surface of the workbench, there are an cluttered of 5 tools like wrench and screwdriver
-at the center, an oscilloscope on the left. An open toolbox sits on the cabinet to the left of
-the workbench.</p>
+<p class="sd-card-text">Five tools, such as wrenches and screwdrivers, are scattered across the center of the workbench,
+with an oscilloscope on the left. An open toolbox sits on the cabinet to the left of the workbench.</p>
 <p class="sd-card-text">Task: open the top drawer of the cabinet, put the tools into the drawer one by one, then close
 the drawer.</p>
-<p class="sd-card-text">Validate task success correctly with a force based demo script.</p>
+<p class="sd-card-text">Validate task success correctly with a force-based demo script.</p>
 </div>
 </details></section>
 <section id="the-agent-s-process">
 <h3>The agent’s process<a class="headerlink" href="#the-agent-s-process" title="Link to this heading">#</a></h3>
-<figure  class="sphinx-contrib-video-container align-left"><video controls="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../_images/agentic_authoring_workbench_walkthrough.mp4" type="video/mp4">Walkthrough of a coding agent authoring a workbench cleanup evaluation in Isaac Lab-Arena</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">A coding agent authors a workbench cleanup environment, evaluates a VLM policy on it, and adds variations.</span></p></figcaption></figure><p>The video follows the agent through three requests:</p>
+<figure  class="sphinx-contrib-video-container align-left"><video controls="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../_images/agentic_authoring_workbench_walkthrough.mp4" type="video/mp4">Walkthrough of a coding agent authoring a workbench cleanup evaluation in Isaac Lab-Arena</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">A coding agent authors a workbench cleanup environment, evaluates a VLM-based policy on it, and adds variations.</span></p></figcaption></figure><p>The video follows the agent through three requests:</p>
 <ol class="arabic simple">
 <li><p><strong>Author the environment.</strong> The agent loads SimReady assets, exposes the workbench’s tabletop,
 top drawer, and overhead shelf, places collision-checked clutter on the tabletop, defines a

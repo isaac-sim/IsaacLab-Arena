@@ -610,51 +610,49 @@
 <h1>Kitchen Environment<a class="headerlink" href="#kitchen-environment" title="Link to this heading">#</a></h1>
 <section id="faster-authoring-evaluation-infrastructure-included">
 <span id="whats-new-framework-value"></span><h2>Faster authoring. Evaluation infrastructure included.<a class="headerlink" href="#faster-authoring-evaluation-infrastructure-included" title="Link to this heading">#</a></h2>
-<p>Coding agents are now the predominant way that developers interact with code.
-Agents are quickly becoming the predominant way to interact with 3D environments.
-Arena <code class="docutils literal notranslate"><span class="pre">v0.4</span></code> includes improvements to agentic environment authoring.</p>
+<p>Coding agents are now the predominant way developers interact with code.
+Arena <code class="docutils literal notranslate"><span class="pre">v0.4</span></code> embraces this shift, treating coding agents as a primary entry
+point to the framework and significantly improving support for agentic environment authoring.</p>
 </section>
 <section id="study">
 <h2>Study<a class="headerlink" href="#study" title="Link to this heading">#</a></h2>
-<p>On this page we describe a study that aims to show the efficacy of Arena’s evaluation building system for agentic environment authoring.
-As a baseline, we compared against Isaac Lab alone, without the Arena extension,
-which lacks the evaluation-oriented building blocks that Arena provides.</p>
-<dl class="simple">
-<dt><strong>TL;DR:</strong> With Arena, the agent:</dt><dd><ul class="simple">
-<li><p>reached a working environment <strong>4× faster</strong>,</p></li>
-<li><p>wrote <strong>no custom code</strong>,</p></li>
-<li><p>used Arena’s relational placement system to achieve <strong>highly-varied layouts</strong>,</p></li>
-<li><p>and used Arena’s battle-tested tasking system to describe <strong>complex composite tasks</strong>.</p></li>
+<p>We compare how a coding agent authors the same kitchen pick-and-place evaluation environment
+with and without Arena. The baseline uses Isaac Lab without Arena’s evaluation-oriented building blocks.</p>
+<p><strong>TL;DR:</strong> With Arena, the agent:</p>
+<ul class="simple">
+<li><p>reached a working environment <strong>approximately 4× faster</strong>,</p></li>
+<li><p>wrote <strong>no custom Python code</strong>,</p></li>
+<li><p>used Arena’s relational placement system to achieve <strong>highly varied layouts</strong>,</p></li>
+<li><p>and reused Arena’s existing task definitions and success conditions to define <strong>composite tasks</strong>.</p></li>
 </ul>
-</dd>
-</dl>
 <section id="the-agent-s-task">
 <h3>The agent’s task<a class="headerlink" href="#the-agent-s-task" title="Link to this heading">#</a></h3>
-<p>The agent gets a single prompt describing a kitchen pick-and-place evaluation environment:
+<p>The agent receives a single natural-language prompt describing a kitchen pick-and-place evaluation environment:
 two pieces of fruit must be placed in two bowls on a cluttered kitchen countertop.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">The prompt given to the agent</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<span class="sd-summary-text">Prompt given to the agent</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <p class="sd-card-text">Can you build a new evaluation environment in a kitchen? The evaluation will require an agent
-to perform a composite pick and place task. Write it at
+to perform a composite pick-and-place task. Save the environment definition to
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/kitchen_bench/kitchen_bench_round2_peninsula_banana_and_orange_in_bowls.yaml</span></code>.
-Use the Replicator peninsula kitchen with the DROID robot on its stand, standing on the floor
-at the long side of the island and facing it. Set the stand to 0.8 m. Put two bowls on the
+Use the Replicator peninsula kitchen with the DROID robot mounted on a stand positioned on the floor
+along the island’s long side, with the robot facing the island. Set the stand height to 0.8 m. Put two bowls on the
 countertop, one behind the other from the robot’s view: a wooden bowl closer to the robot and a
 red YCB bowl farther away. Put a banana next to the wooden bowl and an orange next to the red
 bowl, both on the countertop. The layout should vary as much as possible between resets while
-keeping this arrangement: the robot should be able to stand anywhere along the island’s long
-side, with the bowls and fruit moving along the counter with it, on either side of the things
-already on the counter. The task is to put the banana in the wooden bowl and the orange in the
+keeping this arrangement: the robot should be placed anywhere along the island’s long
+side, with the bowls and fruit repositioned along the counter to match. The group of bowls and
+fruit can be placed on either side of the existing countertop objects.
+The task is to put the banana in the wooden bowl and the orange in the
 red bowl, and it only succeeds when both are in their bowls. Don’t look at the remote repo or
 GitHub.</p>
 </div>
 </details></section>
 <section id="the-agent-s-solution">
 <h3>The agent’s solution<a class="headerlink" href="#the-agent-s-solution" title="Link to this heading">#</a></h3>
-<p>The agent wrote a 140-line environment YAML that combines Arena’s placement relations with two
-existing pick-and-place tasks. The robot follows the bowls along the counter, so each reset puts
-the whole group somewhere new.</p>
+<p>The agent wrote a 140-line YAML environment definition that combines Arena’s placement relations
+with two existing pick-and-place tasks. The robot, bowls, and fruit are repositioned together
+along the counter between resets, preserving their relative arrangement.</p>
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
 <div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
 <div class="sd-col sd-d-flex-column docutils">
@@ -715,7 +713,7 @@ the whole group somewhere new.</p>
 <td><p>8 min</p>
 <p><span class="arena-value-gain">4× faster</span></p>
 </td>
-<td><p>Time until agent reached an environment that passes task success checks.</p></td>
+<td><p>Time until the agent reached an environment that passes task success checks.</p></td>
 </tr>
 <tr class="row-odd"><td><p>Tokens</p></td>
 <td><p>15.3M</p></td>
@@ -732,7 +730,7 @@ the whole group somewhere new.</p>
 <tr class="row-odd"><td><p>Environment code</p></td>
 <td><p>388 lines of custom Python code</p></td>
 <td><p>0 lines of Python + 140 lines of environment YAML</p>
-<p><span class="arena-value-gain">no new code to maintain</span></p>
+<p><span class="arena-value-gain">no custom code to maintain</span></p>
 </td>
 <td><p>Environment is a composition of existing Arena tasks and spatial relations.</p></td>
 </tr>
@@ -744,31 +742,22 @@ the whole group somewhere new.</p>
 <tr class="row-odd"><td><p>Task success</p></td>
 <td><p>Hand-written environment-specific code</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">CompositeTask</span></code> with two <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> sub-tasks</p></td>
-<td><p>Reuses Arena’s existing task and its success condition.</p></td>
+<td><p>Reuses Arena’s existing tasks and their success conditions.</p></td>
 </tr>
 <tr class="row-even"><td><p>Asset placement</p></td>
 <td><p>Robot fixed; objects have hand-coded collision-free uniform ranges.</p></td>
-<td><p>Spatial relation graph solved to produce collision-free highly-varied placements.</p></td>
+<td><p>Spatial relation graph solved to produce collision-free, highly varied placements.</p></td>
 <td><p>Arena places objects relative to the counter and each other, avoids the kitchen’s built-in
 objects using their actual (mesh) geometry, and checks IK reachability on every layout.</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<dl class="simple">
-<dt>In summary, with Arena, the agent:</dt><dd><ul class="simple">
-<li><p>reached a working environment <strong>4× faster</strong>,</p></li>
-<li><p>wrote <strong>no custom code</strong>,</p></li>
-<li><p>used Arena’s relational placement system to achieve <strong>highly-varied layouts</strong>,</p></li>
-<li><p>and used Arena’s battle-tested tasking system to describe <strong>complex composite tasks</strong>.</p></li>
-</ul>
-</dd>
-</dl>
 </section>
 <section id="going-further">
 <h3>Going further<a class="headerlink" href="#going-further" title="Link to this heading">#</a></h3>
 <p>The environment YAML plugs straight into an Arena Experiment runner and can be used in all Arena
-evaluation workflows. For example,</p>
+evaluation workflows. For example:</p>
 <ul class="simple">
 <li><p><strong>Parallel evaluation:</strong> The above environment can be run across many parallel environments.
 See <a class="reference internal" href="../example_workflows/analysis/recorded_variations.html"><span class="doc">Run an Evaluation with Recorded Variations</span></a>.</p></li>
