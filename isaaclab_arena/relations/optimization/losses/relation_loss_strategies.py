@@ -239,7 +239,7 @@ class NextToLossStrategy(RelationLossStrategy):
     Computes loss based on:
     1. Half-plane constraint to ensure child is on correct side of parent
     2. Band constraint to keep child aligned with parent's extent
-    3. Distance constraint to position child at target distance from parent
+    3. Distance constraint to keep the gap within the relation's tolerance of the target distance
     """
 
     def __init__(self, slope: float = 10.0, debug: bool = False):
@@ -283,7 +283,7 @@ class NextToLossStrategy(RelationLossStrategy):
         # 1. & 3. Side (half-plane) and distance share their geometry with the placement validator.
         half_plane_raw, distance_raw = next_to_violations(cfg, child_pos, child_bbox, parent_world_bbox, distance)
         half_plane_loss = self.slope * half_plane_raw
-        distance_loss = self.slope * distance_raw
+        distance_loss = self.slope * torch.clamp(distance_raw - relation.tolerance_m, min=0.0)
 
         # 2. Keep the footprint within the perpendicular extent; prefer a point only when requested.
         parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis.index]

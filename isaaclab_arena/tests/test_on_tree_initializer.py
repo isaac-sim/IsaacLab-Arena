@@ -16,7 +16,23 @@ from isaaclab_arena.relations.optimization.initializers.on_tree_initializer impo
     _bounding_box_from_partial_limits,
     _order_objects_for_sampling,
 )
-from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLimitsBox, Relation, Side
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
+    SIDE_CONFIGS,
+    Direction,
+    next_to_violations,
+)
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relations import (
+    AlignWith,
+    NextTo,
+    NotNextTo,
+    On,
+    PositionLimitsBox,
+    Relation,
+    Side,
+    get_relation,
+)
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.tests.test_object_placer_init import _assert_footprint_within, _make_box, _make_desk, _seed
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -160,7 +176,7 @@ def test_ontree_init_ignores_relations_that_do_not_narrow():
     desk = _make_desk()
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.0))
-    box.add_relation(NextTo(desk, side=Side.POSITIVE_X, distance_m=0.05))
+    box.add_relation(NotNextTo(desk, side=Side.POSITIVE_X))
     generator = torch.Generator().manual_seed(0)
 
     samples = [_seed(OnTreeInitializer(), [desk, box], {desk}, generator=generator)[box] for _ in range(50)]
@@ -168,7 +184,117 @@ def test_ontree_init_ignores_relations_that_do_not_narrow():
     desk_world = desk.get_world_bounding_box()
     for position in samples:
         _assert_footprint_within(position, box.get_bounding_box(), desk_world)
-    assert len({round(x, 4) for x, _, _ in samples}) > 1, "NextTo must not pin the seed to one point"
+    assert len({round(x, 4) for x, _, _ in samples}) > 1, "NotNextTo must not pin the seed to one point"
+
+
+def _make_next_to_scene(side, distance_m=0.05, tolerance_m=0.02, subject_size=0.1):
+    """Return a desk, a reference confined near its centre, and a subject NextTo the reference."""
+    desk = _make_desk()
+    reference = _make_box("reference", size=0.2)
+    reference.add_relation(On(desk, clearance_m=0.0))
+    reference.add_relation(PositionLimitsBox(x_limits=(0.35, 0.45), y_limits=(0.35, 0.45)))
+    subject = _make_box("subject", size=subject_size, height=0.1)
+    subject.add_relation(On(desk, clearance_m=0.0))
+    subject.add_relation(NextTo(reference, side=side, distance_m=distance_m, tolerance_m=tolerance_m))
+    return desk, reference, subject
+
+
+@pytest.mark.parametrize("side", list(Side))
+def test_ontree_seeds_next_to_on_requested_side_within_tolerance(side):
+    """Every NextTo seed starts on the requested side, inside the gap tolerance the validator accepts."""
+    desk, reference, subject = _make_next_to_scene(side)
+    relation = get_relation(subject, NextTo)
+    cfg = SIDE_CONFIGS[side]
+    generator = torch.Generator().manual_seed(0)
+    band_positions = []
+
+    for _ in range(50):
+        positions = _seed(OnTreeInitializer(), [subject, desk, reference], {desk}, generator=generator)
+        reference_world = reference.get_bounding_box().translated(positions[reference])
+        half_plane, distance = next_to_violations(
+            cfg,
+            torch.tensor([positions[subject]]),
+            subject.get_bounding_box(),
+            reference_world,
+            relation.distance_m,
+        )
+        assert half_plane.item() <= 1e-6, f"Seed on the wrong side of the reference: {positions[subject]}"
+        assert distance.item() <= relation.tolerance_m + 1e-6, f"Seed outside the gap tolerance: {distance.item()}"
+        _assert_footprint_within(positions[subject], subject.get_bounding_box(), desk.get_world_bounding_box())
+        band_index = cfg.band_axis.index
+        subject_world = subject.get_bounding_box().translated(positions[subject])
+        assert subject_world.min_point[0, band_index] >= reference_world.min_point[0, band_index] - 1e-6
+        assert subject_world.max_point[0, band_index] <= reference_world.max_point[0, band_index] + 1e-6
+        band_positions.append(positions[subject][band_index] - positions[reference][band_index])
+
+    # The cross axis spans the reference's extent rather than collapsing to one point.
+    assert max(band_positions) - min(band_positions) > 0.05
+
+
+@pytest.mark.parametrize("side", list(Side))
+def test_ontree_keeps_next_to_seed_outside_reference_when_tolerance_exceeds_distance(side):
+    """A gap tolerance wider than the gap still seeds the subject outside the reference, never inside it."""
+    distance_m, tolerance_m = 0.02, 0.05
+    desk, reference, subject = _make_next_to_scene(side, distance_m=distance_m, tolerance_m=tolerance_m)
+    cfg = SIDE_CONFIGS[side]
+    side_index = cfg.primary_axis.index
+    generator = torch.Generator().manual_seed(0)
+    gaps = []
+
+    for _ in range(50):
+        positions = _seed(OnTreeInitializer(), [subject, desk, reference], {desk}, generator=generator)
+        reference_world = reference.get_bounding_box().translated(positions[reference])
+        subject_world = subject.get_bounding_box().translated(positions[subject])
+        if cfg.direction == Direction.POSITIVE:
+            gap = (subject_world.min_point[0, side_index] - reference_world.max_point[0, side_index]).item()
+        else:
+            gap = (reference_world.min_point[0, side_index] - subject_world.max_point[0, side_index]).item()
+        gaps.append(gap)
+
+    assert min(gaps) >= -1e-6, f"Seed inside the reference, gap {min(gaps):.4f} m"
+    assert max(gaps) <= distance_m + tolerance_m + 1e-6
+    # The seeds still use the part of the tolerance below distance_m.
+    assert min(gaps) < distance_m
+
+
+def test_ontree_centres_next_to_seed_when_subject_is_wider_than_reference():
+    """A subject wider than its reference has no fitting cross interval, so it is centred like the loss."""
+    desk, reference, subject = _make_next_to_scene(Side.POSITIVE_X, subject_size=0.3)
+    generator = torch.Generator().manual_seed(0)
+
+    for _ in range(20):
+        positions = _seed(OnTreeInitializer(), [desk, reference, subject], {desk}, generator=generator)
+        subject_center_y = positions[subject][1] + float(subject.get_bounding_box().center[0, 1])
+        reference_center_y = positions[reference][1] + float(reference.get_bounding_box().center[0, 1])
+        assert subject_center_y == pytest.approx(reference_center_y, abs=1e-6)
+
+
+def test_solver_places_next_to_between_movable_objects_from_ontree_seeds():
+    """Seeds on the requested side let the solver meet a tight NextTo gap despite collision costs.
+
+    Without NextTo-aware seeding, roughly half the subject seeds start on the wrong side of the
+    reference, where the collision cost blocks the solver from crossing to the requested side.
+    """
+    desk, reference, subject = _make_next_to_scene(Side.NEGATIVE_Y, distance_m=0.04, tolerance_m=0.02)
+    relation = get_relation(subject, NextTo)
+    objects = [desk, reference, subject]
+    generator = torch.Generator().manual_seed(0)
+    initial_positions = [_seed(OnTreeInitializer(), objects, {desk}, generator=generator) for _ in range(20)]
+
+    solver = RelationSolver(params=RelationSolverParams(verbose=False, save_position_history=False))
+    solved = solver.solve(objects=objects, initial_positions=initial_positions)
+
+    for positions in solved:
+        reference_world = reference.get_bounding_box().translated(positions[reference])
+        half_plane, distance = next_to_violations(
+            SIDE_CONFIGS[Side.NEGATIVE_Y],
+            torch.tensor([positions[subject]]),
+            subject.get_bounding_box(),
+            reference_world,
+            relation.distance_m,
+        )
+        assert half_plane.item() <= relation.tolerance_m
+        assert distance.item() <= relation.tolerance_m
 
 
 def test_ontree_init_keeps_reachable_axes_when_another_axis_is_unreachable():
@@ -325,7 +451,7 @@ def test_ontree_orders_registered_dependencies_across_levels_and_cycles(monkeypa
         obj.add_relation(_MatchReferenceX(child))
     distracting.add_relation(AlignWith(middle, "x"))
     distracting.add_relation(AlignWith(subject, "y"))
-    child.add_relation(NextTo(extra, side=Side.POSITIVE_X))  # No sampling strategy: must not block child.
+    child.add_relation(NotNextTo(extra, side=Side.POSITIVE_X))  # No sampling strategy: must not block child.
     objects = [distracting, middle, subject, extra, child, tray, desk]
 
     # All eligible objects initially wait for references. Distracting has two missing

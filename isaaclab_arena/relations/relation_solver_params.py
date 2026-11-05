@@ -35,7 +35,7 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
     """Factory for default loss strategies."""
     return {
         AlignWith: AlignWithLossStrategy(slope=100.0),
-        NextTo: NextToLossStrategy(slope=10.0),
+        NextTo: NextToLossStrategy(slope=100.0),
         On: OnLossStrategy(slope=100.0),
         ClutterOn: ClutterOnLossStrategy(slope=100.0),
         NotNextTo: NotNextToLossStrategy(slope=10.0, margin_m=0.1),

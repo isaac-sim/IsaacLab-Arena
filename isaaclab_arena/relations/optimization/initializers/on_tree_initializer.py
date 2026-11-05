@@ -17,7 +17,8 @@ from isaaclab_arena.relations.optimization.initializers.sampling import (
     get_world_bbox_at_initial_pose,
     sample_position_in_bbox,
 )
-from isaaclab_arena.relations.relations import AlignWith, On, PositionLimitsBox, RelationBase, get_relation
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import SIDE_CONFIGS, Direction
+from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLimitsBox, RelationBase, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -238,9 +239,25 @@ class AlignWithToAABBStrategy(RelationToAABBStrategy):
         return _bounds_from_align_with(relation, subject_bbox, sampled_world_bboxes[relation.parent])
 
 
+class NextToToAABBStrategy(RelationToAABBStrategy):
+    """Narrow origins to the requested side and gap after the reference has been sampled."""
+
+    def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
+        return (relation.parent,)
+
+    def get_bounds(
+        self,
+        relation: RelationBase,
+        subject_bbox: AxisAlignedBoundingBox,
+        sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> AxisAlignedBoundingBox:
+        return _bounds_from_next_to(relation, subject_bbox, sampled_world_bboxes[relation.parent])
+
+
 RELATION_TO_AABB_STRATEGIES: dict[type[RelationBase], RelationToAABBStrategy] = {
     PositionLimitsBox: PositionLimitsBoxToAABBStrategy(),
     AlignWith: AlignWithToAABBStrategy(),
+    NextTo: NextToToAABBStrategy(),
 }
 
 
@@ -303,4 +320,53 @@ def _bounds_from_align_with(
     upper = [None, None, None]
     lower[axis_index] = target_origin_W - relation.tolerance_m
     upper[axis_index] = target_origin_W + relation.tolerance_m
+    return _bounding_box_from_partial_limits(tuple(lower), tuple(upper))
+
+
+def _bounds_from_next_to(
+    relation: NextTo,
+    child_bbox: AxisAlignedBoundingBox,
+    parent_world_bbox: AxisAlignedBoundingBox,
+) -> AxisAlignedBoundingBox:
+    """Return origin bounds that put the subject on the requested side at the requested gap.
+
+    Matches the geometry of the NextTo loss and validator: along the side axis, the subject's facing
+    edge lies within ``tolerance_m`` of ``distance_m`` from the parent's edge, but never inside the
+    parent, even when ``tolerance_m`` exceeds ``distance_m``; along the cross axis, the subject's
+    footprint lies within the parent's extent, collapsing to the centred position when the subject is
+    wider than the parent.
+
+    Args:
+        relation: Side, gap and tolerance of the NextTo relation.
+        child_bbox: Subject bounds relative to its origin, expressed along world axes.
+        parent_world_bbox: Parent bounds at its sampled world position.
+
+    Returns:
+        Bounds on the subject origin, unbounded along Z.
+    """
+    cfg = SIDE_CONFIGS[relation.side]
+    side_index = cfg.primary_axis.index
+    band_index = cfg.band_axis.index
+    if cfg.direction == Direction.POSITIVE:
+        parent_edge_W = parent_world_bbox.max_point[0, side_index].item()
+        child_offset = child_bbox.min_point[0, side_index].item()
+    else:
+        parent_edge_W = parent_world_bbox.min_point[0, side_index].item()
+        child_offset = child_bbox.max_point[0, side_index].item()
+    # A negative gap would put the subject inside the parent, so the nearest gap is at least zero.
+    min_gap_m = max(0.0, relation.distance_m - relation.tolerance_m)
+    max_gap_m = relation.distance_m + relation.tolerance_m
+    nearest_origin_W = parent_edge_W + cfg.direction * min_gap_m - child_offset
+    farthest_origin_W = parent_edge_W + cfg.direction * max_gap_m - child_offset
+
+    band_min_W = parent_world_bbox.min_point[0, band_index].item() - child_bbox.min_point[0, band_index].item()
+    band_max_W = parent_world_bbox.max_point[0, band_index].item() - child_bbox.max_point[0, band_index].item()
+    band_centre_W = 0.5 * (band_min_W + band_max_W)
+
+    lower = [None, None, None]
+    upper = [None, None, None]
+    lower[side_index] = min(nearest_origin_W, farthest_origin_W)
+    upper[side_index] = max(nearest_origin_W, farthest_origin_W)
+    lower[band_index] = min(band_min_W, band_centre_W)
+    upper[band_index] = max(band_max_W, band_centre_W)
     return _bounding_box_from_partial_limits(tuple(lower), tuple(upper))

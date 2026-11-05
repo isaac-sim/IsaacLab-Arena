@@ -310,6 +310,26 @@ def test_next_to_loss_strategy_penalizes_wrong_distance():
     assert loss > 0.0
 
 
+def test_next_to_loss_strategy_is_zero_within_gap_tolerance():
+    """Gaps within tolerance_m of distance_m cost nothing, so the solver keeps the sampled gap."""
+
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05, tolerance_m=0.03)
+    strategy = NextToLossStrategy(slope=10.0)
+
+    # The parent's +X edge is at 1.0 and the box's origin is its min corner, so the gap is x - 1.0.
+    for gap in (0.025, 0.05, 0.075):
+        loss = strategy.compute_loss(
+            relation, torch.tensor([1.0 + gap, 0.4, 0.0]), child_obj.bounding_box, parent_obj.bounding_box
+        )
+        assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6), f"gap {gap}: {loss}"
+    loss = strategy.compute_loss(
+        relation, torch.tensor([1.1, 0.4, 0.0]), child_obj.bounding_box, parent_obj.bounding_box
+    )
+    assert torch.isclose(loss, torch.tensor(10.0 * 0.02), atol=1e-5)
+
+
 def test_next_to_loss_strategy_respects_relation_weight():
     """Test that NextTo loss is scaled by relation_loss_weight."""
 
