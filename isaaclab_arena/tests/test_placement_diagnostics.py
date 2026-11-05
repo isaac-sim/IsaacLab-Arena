@@ -232,6 +232,46 @@ def test_on_validator_records_an_edge_margin_wider_than_the_free_space():
     ]
 
 
+def test_a_fill_that_falls_back_prints_its_rejection_causes(capsys):
+    """A fill that falls back to best-loss layouts prints its rejection causes, which it raises no error to show."""
+    PooledObjectPlacer(_desk_and_box(box_width_m=1.5), _placer_params(), pool_size=2, num_envs=2)
+
+    printed = capsys.readouterr().out
+    assert "Falling back to best-loss layouts for envs: [0, 1]" in printed
+    assert "on_relation: 'box' on(desk): edge margin wider than the free space x" in printed
+
+
+def test_verbose_prints_at_most_the_configured_rejections_per_cause(capsys):
+    """Verbose prints the first rejections of each cause and counts the rest, while the diagnostics keep them all."""
+    from isaaclab_arena.relations.validation.placement_validation_runner import PlacementValidationRunner
+    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
+    from isaaclab_arena.tests.dummy_object import make_candidate_batch
+
+    class ManyRejections(PrePhysicsPlacementValidator):
+        check = "many_rejections"
+
+        def _validate_batch(self, batch, collision_objects, rejections):
+            rejections.extend(Rejection("'box' too high", detail=f"z {index} m") for index in range(5))
+            rejections.append(Rejection("'box' too wide"))
+            return [False] * len(batch)
+
+    desk, box = _desk_and_box(box_width_m=0.2)
+    bounds = {obj: obj.get_bounding_box() for obj in (desk, box)}
+    batch = make_candidate_batch([{desk: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.1)}], [{}], [bounds])
+    params = ObjectPlacerParams(verbose=True, max_printed_rejections_per_cause=2)
+
+    batch_diagnostics = PlacementValidationRunner(params, [ManyRejections(params)]).validate_candidates(batch, [])
+
+    printed = [line for line in capsys.readouterr().out.splitlines() if line.startswith("  [many_rejections]")]
+    assert printed == [
+        "  [many_rejections] 'box' too high (z 0 m)",
+        "  [many_rejections] 'box' too high (z 1 m)",
+        "  [many_rejections] 'box' too high: 3 more",
+        "  [many_rejections] 'box' too wide",
+    ]
+    assert len(batch_diagnostics.checks["many_rejections"].rejections) == 6
+
+
 def _desk_and_box(box_width_m: float) -> list[DummyObject]:
     desk = DummyObject(name="desk", bounding_box=AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 0.1)))
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))

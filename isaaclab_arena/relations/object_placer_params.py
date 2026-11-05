@@ -36,7 +36,11 @@ class ObjectPlacerParams:
     """If True, automatically set solved positions on objects after placement."""
 
     verbose: bool = False
-    """If True, print progress information."""
+    """If True, print progress information and each check's rejections after it runs on a batch."""
+
+    max_printed_rejections_per_cause: int | None = 3
+    """With verbose, the most rejections printed for each cause of each check on a batch; the remaining ones are
+    counted on one line. None prints every rejection. The placement diagnostics keep every rejection either way."""
 
     placement_seed: int | None = None
     """Random seed for reproducible placement. If None, uses current RNG state."""
@@ -89,6 +93,9 @@ class ObjectPlacerParams:
         assert (
             math.isfinite(self.on_relation_z_tolerance_m) and self.on_relation_z_tolerance_m >= 0
         ), "on_relation_z_tolerance_m must be finite and non-negative"
+        assert (
+            self.max_printed_rejections_per_cause is None or self.max_printed_rejections_per_cause >= 0
+        ), "max_printed_rejections_per_cause must be None or non-negative"
         if self.enabled_checks is not None and self.required_checks is not None:
             extra = self.required_checks - self.enabled_checks
             assert not extra, f"required_checks must be a subset of enabled_checks; unexpected: {sorted(extra)}"

@@ -242,7 +242,10 @@ class PooledObjectPlacer:
         self._last_fill_diagnostics.fallback_envs.extend(fallback_envs)
 
         if fallback_envs:
-            print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
+            print(
+                f"Falling back to best-loss layouts for envs: {fallback_envs}. Placement diagnostics of this fill:\n"
+                f"{self._last_fill_diagnostics.format_summary()}"
+            )
 
     # ------------------------------------------------------------------
     # Public API

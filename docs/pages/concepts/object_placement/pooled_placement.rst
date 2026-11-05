@@ -90,7 +90,9 @@ rejection names its cause, such as
 ``'plate' next_to(box, positive_x): on the wrong side``, and the measured
 violation, such as ``by 0.250 m``. The fill also records which environments
 fell back to best-loss layouts. With ``ObjectPlacerParams.verbose`` set, each
-rejection is printed as it is recorded.
+check prints its rejections after it runs on a batch, grouped by cause and at
+most ``max_printed_rejections_per_cause`` (3 by default) for each cause; one
+more line counts the rest.
 
 - After ``build_env_cfg()`` or ``make_registered()``,
   ``ArenaEnvBuilder.placement_diagnostics`` holds the record of the fill made
@@ -100,6 +102,8 @@ rejection is printed as it is recorded.
   record of the pool's most recent fill, including one made during a reset, or
   ``None`` when the environment has no live pool. It is in
   ``isaaclab_arena.relations.runtime.placement_events``.
+- When a fill falls back to best-loss layouts, it prints the same summary as
+  a failed fill, below the fallback message.
 - When a fill fails, it raises a ``PlacementPoolFillError`` whose
   ``diagnostics`` hold the fill's record. Its message lists the counts, one
   line per batch, then each check's most frequent rejection causes. For a box

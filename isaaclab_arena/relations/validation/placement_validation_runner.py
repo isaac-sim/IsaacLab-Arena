@@ -156,11 +156,25 @@ class PlacementValidationRunner:
                 self._print_rejections(validator.check, rejections)
 
     def _print_rejections(self, check: str, rejections: list[Rejection]) -> None:
-        """Print each of a check's rejections on its own line when verbose, such as
-        "  [next_to] 'bowl' next_to(plate, positive_x): on the wrong side (by 0.150 m)"."""
-        if self.params.verbose:
-            for rejection in rejections:
+        """Print a check's rejections, grouped by cause, when verbose.
+
+        Each printed rejection has its own line, such as
+        "  [next_to] 'bowl' next_to(plate, positive_x): on the wrong side (by 0.150 m)". At most
+        max_printed_rejections_per_cause are printed for each cause, and one more line counts the rest.
+        """
+        if not self.params.verbose:
+            return
+        rejections_by_cause: dict[str, list[Rejection]] = {}
+        for rejection in rejections:
+            rejections_by_cause.setdefault(rejection.cause, []).append(rejection)
+        max_printed = self.params.max_printed_rejections_per_cause
+        for cause, cause_rejections in rejections_by_cause.items():
+            printed_rejections = cause_rejections if max_printed is None else cause_rejections[:max_printed]
+            for rejection in printed_rejections:
                 print(f"  [{check}] {rejection.format()}")
+            num_unprinted = len(cause_rejections) - len(printed_rejections)
+            if num_unprinted > 0:
+                print(f"  [{check}] {cause}: {num_unprinted} more")
 
     @staticmethod
     def _build_batch_validation_diagnostics(
