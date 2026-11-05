@@ -102,6 +102,7 @@ class PlacementValidationRunner:
                 f"[placement] Validated {num_candidates} candidate layout(s); passed per check:"
                 f" {batch_diagnostics.format_passed_per_check()}"
             )
+            self._print_rejection_causes(batch_diagnostics)
         return batch_diagnostics
 
     def _run_inexpensive_checks(
@@ -154,6 +155,19 @@ class PlacementValidationRunner:
                 layout_pass_verdicts_by_check[validator.check] = verdicts
                 evaluated_layout_indices_by_check[validator.check] = passed_layout_indices
                 self._print_rejections(validator.check, rejections)
+
+    @staticmethod
+    def _print_rejection_causes(batch_diagnostics: BatchValidationDiagnostics) -> None:
+        """Print one line per rejection cause of each check, with its count and the first rejection's measured
+        violation, such as "  next_to: 'bowl' next_to(plate, positive_x): on the wrong side x12 (e.g. by 0.150 m)"."""
+        for check, check_diagnostics in batch_diagnostics.checks.items():
+            first_rejection_by_cause: dict[str, Rejection] = {}
+            for rejection in check_diagnostics.rejections:
+                first_rejection_by_cause.setdefault(rejection.cause, rejection)
+            for cause, count in check_diagnostics.get_num_rejected_by_cause().items():
+                detail = first_rejection_by_cause[cause].detail
+                example = f" (e.g. {detail})" if detail else ""
+                print(f"  {check}: {cause} x{count}{example}")
 
     def _print_rejections(self, check: str, rejections: list[Rejection]) -> None:
         """Print a check's rejections, grouped by cause, when verbose.

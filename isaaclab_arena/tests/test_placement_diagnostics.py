@@ -238,7 +238,21 @@ def test_a_fill_that_falls_back_prints_its_rejection_causes(capsys):
 
     printed = capsys.readouterr().out
     assert "Falling back to best-loss layouts for envs: [0, 1]" in printed
-    assert "on_relation: 'box' on(desk): edge margin wider than the free space x" in printed
+    printed_after_fallback = printed.split("Falling back to best-loss layouts")[1]
+    assert "on_relation: 'box' on(desk): edge margin wider than the free space x" in printed_after_fallback
+
+
+def test_each_batch_prints_its_rejection_causes_without_verbose(capsys):
+    """Each batch prints one line per rejection cause, with its count and the first measured violation."""
+    PooledObjectPlacer(_desk_and_box(box_width_m=1.5), _placer_params(), pool_size=2, num_envs=2)
+
+    printed = capsys.readouterr().out.splitlines()
+    validated_index = next(i for i, line in enumerate(printed) if line.startswith("[placement] Validated"))
+    assert (
+        printed[validated_index + 1]
+        == "  on_relation: 'box' on(desk): edge margin wider than the free space x4"
+        " (e.g. edge_margin_m 0.050 m, feasible margin 0.000 m)"
+    )
 
 
 def test_verbose_prints_at_most_the_configured_rejections_per_cause(capsys):

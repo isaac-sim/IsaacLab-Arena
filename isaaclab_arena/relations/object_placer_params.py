@@ -36,7 +36,8 @@ class ObjectPlacerParams:
     """If True, automatically set solved positions on objects after placement."""
 
     verbose: bool = False
-    """If True, print progress information and each check's rejections after it runs on a batch."""
+    """If True, print progress information and, after each check runs on a batch, its rejections with their measured
+    violations. Each batch prints its rejection causes with their counts either way."""
 
     max_printed_rejections_per_cause: int | None = 3
     """With verbose, the most rejections printed for each cause of each check on a batch; the remaining ones are

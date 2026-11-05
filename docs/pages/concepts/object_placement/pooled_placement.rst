@@ -89,10 +89,19 @@ candidates the check ran on, how many passed, and every rejection it made. A
 rejection names its cause, such as
 ``'plate' next_to(box, positive_x): on the wrong side``, and the measured
 violation, such as ``by 0.250 m``. The fill also records which environments
-fell back to best-loss layouts. With ``ObjectPlacerParams.verbose`` set, each
-check prints its rejections after it runs on a batch, grouped by cause and at
-most ``max_printed_rejections_per_cause`` (3 by default) for each cause; one
-more line counts the rest.
+fell back to best-loss layouts. After each batch, Arena prints how many
+candidates passed each check, then one line per rejection cause with its count
+and one measured violation:
+
+.. code-block:: text
+
+   [placement] Validated 1500 candidate layout(s); passed per check: on_relation=1304/1500, ...
+     on_relation: 'far_bowl' on(island_top): bottom outside the contact band x192 (e.g. bottom z 0.973 m, support top z 0.880 m)
+
+With ``ObjectPlacerParams.verbose`` set, each check also prints its rejections
+after it runs on a batch, grouped by cause and at most
+``max_printed_rejections_per_cause`` (3 by default) for each cause; one more
+line counts the rest.
 
 - After ``build_env_cfg()`` or ``make_registered()``,
   ``ArenaEnvBuilder.placement_diagnostics`` holds the record of the fill made
