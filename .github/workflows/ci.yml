@@ -479,6 +479,94 @@ jobs:
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
+  # FIXME(before merge): temporary job that measures how much the saved caches overlap.
+  cache_overlap_probe:
+    name: Cache overlap probe
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 40
+    needs: [build_and_push_image]
+    if: github.event_name == 'pull_request'
+    container:
+      image: ${{ needs.build_and_push_image.outputs.image }}
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+    env:
+      CACHE_KEY_BASE: ci-caches-6.2.0-rc.14+release.52805.02189a84.gl
+      CACHE_RUN_ID: "42006087025"
+    steps:
+      - name: Restore the tests cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /isaac-sim/kit/cache
+            ~/.cache/warp
+          key: ${{ env.CACHE_KEY_BASE }}-tests-prtest-${{ env.CACHE_RUN_ID }}
+          fail-on-cache-miss: true
+      - name: Hash the tests cache
+        run: mkdir -p /tmp/h && (find /isaac-sim/kit/cache "$HOME/.cache/warp" -type f -print0 | xargs -0 -P 8 sha1sum > /tmp/h/tests.txt; find /isaac-sim/kit/cache "$HOME/.cache/warp" -type f -printf '%s %p\n' > /tmp/h/tests.sizes; rm -rf /isaac-sim/kit/cache "$HOME/.cache/warp")
+
+      - name: Restore the subprocess cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /isaac-sim/kit/cache
+            ~/.cache/warp
+          key: ${{ env.CACHE_KEY_BASE }}-tests_with_subprocess-prtest-${{ env.CACHE_RUN_ID }}
+          fail-on-cache-miss: true
+      - name: Hash the subprocess cache
+        run: (find /isaac-sim/kit/cache "$HOME/.cache/warp" -type f -print0 | xargs -0 -P 8 sha1sum > /tmp/h/subprocess.txt; find /isaac-sim/kit/cache "$HOME/.cache/warp" -type f -printf '%s %p\n' > /tmp/h/subprocess.sizes; rm -rf /isaac-sim/kit/cache "$HOME/.cache/warp")
+
+      - name: Restore the gr00t cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /isaac-sim/kit/cache
+            ~/.cache/warp
+          key: ${{ env.CACHE_KEY_BASE }}-gr00t-prtest-${{ env.CACHE_RUN_ID }}
+          fail-on-cache-miss: true
+      - name: Hash the gr00t cache
+        run: (find /isaac-sim/kit/cache "$HOME/.cache/warp" -type f -print0 | xargs -0 -P 8 sha1sum > /tmp/h/gr00t.txt; find /isaac-sim/kit/cache "$HOME/.cache/warp" -type f -printf '%s %p\n' > /tmp/h/gr00t.sizes)
+
+      - name: Report the overlap
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import os
+          def load(n):
+              size = {}
+              for l in open(f"/tmp/h/{n}.sizes"):
+                  s, p = l.rstrip("\n").split(" ", 1)
+                  size[p] = int(s)
+              items = {}
+              for l in open(f"/tmp/h/{n}.txt"):
+                  d, p = l.rstrip("\n").split("  ", 1)
+                  items[(p, d)] = size.get(p, 0)
+              return items
+          c = {n: load(n) for n in ("tests", "subprocess", "gr00t")}
+          mb = lambda b: b / 1e6
+          print("| cache | files | MB |")
+          print("|---|---:|---:|")
+          for n, it in c.items():
+              print(f"| {n} | {len(it)} | {mb(sum(it.values())):.0f} |")
+          print()
+          print("| A | B | shared files | shared MB | % of A | % of B |")
+          print("|---|---|---:|---:|---:|---:|")
+          names = list(c)
+          for i, a in enumerate(names):
+              for b in names[i + 1:]:
+                  sh = set(c[a]) & set(c[b])
+                  sm = sum(c[a][k] for k in sh)
+                  ta, tb = sum(c[a].values()), sum(c[b].values())
+                  print(f"| {a} | {b} | {len(sh)} | {mb(sm):.0f} | {100*sm/ta:.0f} | {100*sm/tb:.0f} |")
+          allsets = [set(v) for v in c.values()]
+          union = set().union(*allsets)
+          size_of = {}
+          for it in c.values():
+              size_of.update(it)
+          print()
+          print(f"union of all three: {mb(sum(size_of[k] for k in union)):.0f} MB; in all three: {mb(sum(size_of[k] for k in set.intersection(*allsets))):.0f} MB")
+          PY
+
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]
