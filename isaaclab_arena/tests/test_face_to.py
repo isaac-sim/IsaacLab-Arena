@@ -345,7 +345,9 @@ def test_mesh_validation_receives_final_face_to_yaw(monkeypatch):
     placer = ObjectPlacer(params)
     received = {}
 
-    def _capture_orientations(candidate_positions, env_bboxes, candidate_orientations=None, collision_objects=None):
+    def _capture_orientations(
+        candidate_positions, env_bboxes, rejections, candidate_orientations=None, collision_objects=None
+    ):
         received.update(candidate_orientations or {})
         return True
 

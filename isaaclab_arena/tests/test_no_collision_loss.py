@@ -18,6 +18,7 @@ from isaaclab_arena.relations.optimization.placement_candidate_batch import Plac
 from isaaclab_arena.relations.optimization.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
+from isaaclab_arena.relations.placement_diagnostics import RejectionLog
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
@@ -341,7 +342,7 @@ def test_validation_accepts_on_parent_overlap():
 
     validator = NoOverlapValidator(ObjectPlacerParams())
     batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, env_bboxes)])
-    assert validator.validate_batch(batch, []) == [True]
+    assert validator.validate_batch(batch, [], rejections=RejectionLog("test")) == [True]
 
 
 def test_validation_rejects_non_anchor_overlap():
@@ -363,7 +364,7 @@ def test_validation_rejects_non_anchor_overlap():
 
     validator = NoOverlapValidator(ObjectPlacerParams())
     batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, env_bboxes)])
-    assert validator.validate_batch(batch, []) == [False]
+    assert validator.validate_batch(batch, [], rejections=RejectionLog("test")) == [False]
 
 
 def test_relation_solver_no_collision_same_inputs_reproducible():
@@ -719,7 +720,7 @@ def test_solve_candidates_preserves_assigned_oriented_bounds_and_candidate_order
     assert batch.candidates[1].loss == 0
     assert batch.candidates[2].loss > 0
     validator = NoOverlapValidator(ObjectPlacerParams(solver_params=solver.params))
-    assert validator.validate_batch(batch, [obstacle]) == [False, True, False]
+    assert validator.validate_batch(batch, [obstacle], rejections=RejectionLog("test")) == [False, True, False]
     assert all(obstacle not in candidate.positions for candidate in batch.candidates)
     assert obstacle.get_initial_pose().position_xyz == (0.15, -0.15, 1.0)
 
@@ -949,7 +950,7 @@ def test_oriented_collision_loss_and_validator_apply_clearance(clearance_m, expe
     else:
         assert batch.candidates[0].loss > 0.0
     validator = NoOverlapValidator(ObjectPlacerParams(solver_params=params, verbose=False))
-    assert validator.validate_batch(batch, []) == [expected_valid]
+    assert validator.validate_batch(batch, [], rejections=RejectionLog("test")) == [expected_valid]
 
     # A fixed cube 5 mm from the first rod's long face is held to the same clearance.
     cube_distance = 0.02 + 0.02 * math.sqrt(2) + 0.005
@@ -963,7 +964,7 @@ def test_oriented_collision_loss_and_validator_apply_clearance(clearance_m, expe
         PlacementCandidate(0, 0, {table: positions[table], first: positions[first]}, {first: math.pi / 4}, first_boxes)
     ])
     update_candidate_bounds(alone, [first_boxes])
-    assert validator.validate_batch(alone, [obstacle]) == [expected_valid]
+    assert validator.validate_batch(alone, [obstacle], rejections=RejectionLog("test")) == [expected_valid]
 
 
 def test_oriented_loss_pushes_out_a_bar_whose_smaller_face_axis_volume_is_flat():
@@ -1022,7 +1023,9 @@ def test_oriented_loss_pushes_zero_thickness_panel_out_of_fixed_block():
         update_candidate_bounds(batch, [boxes])
         params.max_iters = max_iters
         RelationSolver(params).solve_candidates(objects, batch, [block])
-        results.append((batch.candidates[0].loss, validator.validate_batch(batch, [block])))
+        results.append(
+            (batch.candidates[0].loss, validator.validate_batch(batch, [block], rejections=RejectionLog("test")))
+        )
 
     (start_loss, start_valid), (final_loss, final_valid) = results
     assert start_loss > 0.0 and start_valid == [False]
@@ -1055,7 +1058,7 @@ def test_oriented_collision_uses_off_origin_quarter_turned_anchor_world_bounds()
     assert batch.candidates[0].loss > 0.0
     assert batch.candidates[1].loss == 0.0
     validator = NoOverlapValidator(ObjectPlacerParams(solver_params=params, verbose=False))
-    assert validator.validate_batch(batch, []) == [False, True]
+    assert validator.validate_batch(batch, [], rejections=RejectionLog("test")) == [False, True]
 
 
 def test_oriented_collision_cache_uses_current_positions_on_repeated_backward():

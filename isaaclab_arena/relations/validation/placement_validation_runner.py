@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.placement_diagnostics import (
     BatchValidationDiagnostics,
-    CheckFailureDiagnostics,
+    RejectionLog,
     ValidationCheckDiagnostics,
 )
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
@@ -57,6 +57,9 @@ class PlacementValidationRunner:
         # Per check, which layouts of this batch (each refill) it actually ran on
         evaluated_layout_indices_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
+        rejections_by_check = {
+            validator.check: RejectionLog(validator.check, self.params.verbose) for validator in self._validators
+        }
 
         if self._visualizer is not None:
             self._visualizer.start_new_batch(
@@ -65,14 +68,12 @@ class PlacementValidationRunner:
                 [candidate.bboxes for candidate in batch.candidates],
             )
 
-        # Drop rejections recorded outside a batch, such as by direct validate_batch calls.
-        for validator in self._validators:
-            validator.pop_failures()
         self._run_inexpensive_checks(
             batch,
             collision_objects,
             layout_pass_verdicts_by_check,
             evaluated_layout_indices_by_check,
+            rejections_by_check,
         )
         self._run_expensive_checks(
             batch,
@@ -80,6 +81,7 @@ class PlacementValidationRunner:
             required,
             layout_pass_verdicts_by_check,
             evaluated_layout_indices_by_check,
+            rejections_by_check,
         )
         if self._visualizer is not None:
             self._visualizer.log_batch_verdicts(
@@ -94,9 +96,8 @@ class PlacementValidationRunner:
                 },
                 required_checks=set(required) if required is not None else None,
             )
-        failures_by_check = {validator.check: validator.pop_failures() for validator in self._validators}
         batch_diagnostics = self._build_batch_validation_diagnostics(
-            batch, required, layout_pass_verdicts_by_check, evaluated_layout_indices_by_check, failures_by_check
+            batch, required, layout_pass_verdicts_by_check, evaluated_layout_indices_by_check, rejections_by_check
         )
         if batch_diagnostics.checks:
             print(
@@ -111,12 +112,15 @@ class PlacementValidationRunner:
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
+        rejections_by_check: dict[str, RejectionLog],
     ) -> None:
-        """Run every inexpensive validator on all candidates, recording verdicts and evaluated layouts."""
+        """Run every inexpensive validator on all candidates, recording verdicts, evaluated layouts, and rejections."""
         num_candidates = len(batch)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
-                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(batch, collision_objects)
+                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
+                    batch, collision_objects, rejections_by_check[validator.check]
+                )
                 evaluated_layout_indices_by_check[validator.check] = list(range(num_candidates))
 
     def _run_expensive_checks(
@@ -126,6 +130,7 @@ class PlacementValidationRunner:
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
+        rejections_by_check: dict[str, RejectionLog],
     ) -> None:
         """Run each expensive validator only on candidates that passed the required inexpensive checks."""
         num_candidates = len(batch)
@@ -142,6 +147,7 @@ class PlacementValidationRunner:
                 verdicts_over_passed_layout = validator.validate_batch(
                     batch.select(passed_layout_indices),
                     collision_objects,
+                    rejections_by_check[validator.check],
                 )
                 verdicts = [False] * num_candidates
                 for layout_index_within_batch, verdict in zip(
@@ -157,7 +163,7 @@ class PlacementValidationRunner:
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
-        failures_by_check: dict[str, dict[str, CheckFailureDiagnostics]],
+        rejections_by_check: dict[str, RejectionLog],
     ) -> BatchValidationDiagnostics:
         """Return the batch's validation diagnostics from each check's verdicts, evaluated layouts, and rejections.
 
@@ -170,7 +176,7 @@ class PlacementValidationRunner:
                 num_evaluated=len(evaluated_layout_indices_by_check[check]),
                 num_passed=sum(verdicts),
                 required=required is None or check in required,
-                failures=failures_by_check.get(check, {}),
+                failures=rejections_by_check[check].failures,
             )
         return BatchValidationDiagnostics(
             num_candidates=len(batch),

@@ -26,6 +26,37 @@ class CheckFailureDiagnostics:
 
 
 @dataclass
+class RejectionLog:
+    """Rejections one check made on one batch of candidate layouts, keyed by cause."""
+
+    check: str
+    """Name of the check whose rejections this log holds."""
+
+    verbose: bool = False
+    """Whether to print each rejection as it is added."""
+
+    failures: dict[str, CheckFailureDiagnostics] = field(default_factory=dict)
+    """Rejections keyed by cause, such as "'red_bowl' next_to(wooden_bowl, -y)"."""
+
+    def add(self, cause: str, example: str = "", count: int = 1) -> None:
+        """Add candidates rejected for cause to its count, and print it when verbose.
+
+        Args:
+            cause: What failed, naming the objects and relation, such as "'bowl' next_to(plate, +x)". Rejections
+                with the same cause are counted together.
+            example: Measured violation, kept from the first rejection with this cause.
+            count: Candidates rejected for this cause.
+        """
+        if cause in self.failures:
+            self.failures[cause].count += count
+        else:
+            self.failures[cause] = CheckFailureDiagnostics(count, example)
+        if self.verbose:
+            detail = f": {example}" if example else ""
+            print(f"  [{self.check}] {cause} x{count}{detail}")
+
+
+@dataclass
 class ValidationCheckDiagnostics:
     """How one pre-physics check did on a batch of candidate layouts."""
 

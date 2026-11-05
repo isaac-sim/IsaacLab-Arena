@@ -13,6 +13,7 @@ import pytest
 from isaaclab_arena.relations.geometry.bounding_box_helpers import rotate_candidate_bboxes
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_diagnostics import RejectionLog
 from isaaclab_arena.relations.relations import NextTo, NotNextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.relations.validation.pre_physics import NextToValidator, NotNextToValidator, OnRelationValidator
 from isaaclab_arena.relations.validation.types import PlacementCheck
@@ -251,9 +252,11 @@ def test_on_relation_containment_uses_rotated_bbox():
     positions = {desk: (0.0, 0.0, 0.0), child: (0.0, 0.44, 0.105)}
 
     axis_aligned = {desk: desk.get_bounding_box(), child: child.get_bounding_box()}
-    assert OnRelationValidator(placer.params)._validate(positions, axis_aligned) is True
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, axis_aligned, rejections=RejectionLog("test")) is True
+    )
     rotated = {desk: desk.get_bounding_box(), child: child.get_bounding_box().rotated_around_z(math.pi / 2)}
-    assert OnRelationValidator(placer.params)._validate(positions, rotated) is False
+    assert OnRelationValidator(placer.params)._validate(positions, rotated, rejections=RejectionLog("test")) is False
 
 
 def test_on_relation_check_no_relation_returns_true():
@@ -262,7 +265,10 @@ def test_on_relation_check_no_relation_returns_true():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (1.0, 0.0, 0.0)}
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 def test_on_relation_check_child_inside_xy_z_in_band_passes():
@@ -274,7 +280,10 @@ def test_on_relation_check_child_inside_xy_z_in_band_passes():
     box.add_relation(On(desk))  # clearance_m=0.01; desk top 0.05
     # Child bottom 0.06 (at upper bound); box half-height 0.1 → center z = 0.16.
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.16)}
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 def test_validate_on_relations_child_z_above_clearance_fails():
@@ -286,7 +295,10 @@ def test_validate_on_relations_child_z_above_clearance_fails():
     box.add_relation(On(desk))  # clearance_m=0.01; desk top 0.05
     # Child bottom 1.0 is above band.
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 1.1)}
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is False
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is False
+    )
 
 
 def test_validate_on_relations_child_z_within_tolerance_above_clearance_passes():
@@ -298,7 +310,10 @@ def test_validate_on_relations_child_z_within_tolerance_above_clearance_passes()
     box.add_relation(On(desk))
     # Child bottom 0.063 → box center z = 0.063 + 0.1 = 0.163.
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.163)}
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 def test_validate_on_relations_child_z_at_or_below_parent_top_fails():
@@ -309,7 +324,10 @@ def test_validate_on_relations_child_z_at_or_below_parent_top_fails():
     box = _make_box("box", size=0.2)
     box.add_relation(On(desk))  # clearance_m=0.01; desk top 0.05
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.15)}
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is False
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is False
+    )
 
 
 def test_on_relation_check_child_outside_xy_returns_false():
@@ -319,7 +337,10 @@ def test_on_relation_check_child_outside_xy_returns_false():
     box = _make_box("box", size=0.2)
     box.add_relation(On(desk))
     positions = {desk: (0.0, 0.0, 0.0), box: (10.0, 10.0, 0.1)}
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is False
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is False
+    )
 
 
 def _validate_box_on_desk(edge_margin_m: float, box_x: float) -> bool:
@@ -329,7 +350,9 @@ def _validate_box_on_desk(edge_margin_m: float, box_x: float) -> bool:
     box = _make_box("box", size=0.2)
     box.add_relation(On(desk, edge_margin_m=edge_margin_m))
     positions = {desk: (0.0, 0.0, 0.0), box: (box_x, 0.0, 0.16)}
-    return OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions))
+    return OnRelationValidator(placer.params)._validate(
+        positions, _env_bboxes(positions), rejections=RejectionLog("test")
+    )
 
 
 def test_on_relation_edge_margin_within_inset_band_passes():
@@ -362,9 +385,15 @@ def test_on_relation_overlap_accepts_oversized_child_but_rejects_separation():
     )
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.65)}
 
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
     positions[box] = (1.2, 0.0, 0.65)
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is False
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is False
+    )
 
 
 @pytest.mark.parametrize("edge_margin_m", [0.0, 0.05, 0.6])
@@ -379,10 +408,10 @@ def test_on_relation_overlap_ignores_margin(edge_margin_m):
 
     for valid_pose in ((0.59, 0.0, 0.15), (0.0, -0.59, 0.15), (0.59, -0.59, 0.15)):
         positions[box] = valid_pose
-        assert validator._validate(positions, _env_bboxes(positions)) is True
+        assert validator._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test")) is True
     for invalid_pose in ((0.61, 0.0, 0.15), (0.0, -0.61, 0.15), (0.0, 0.0, 0.3), (0.0, 0.0, 0.0)):
         positions[box] = invalid_pose
-        assert validator._validate(positions, _env_bboxes(positions)) is False
+        assert validator._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test")) is False
 
 
 def test_on_relation_overlap_accepts_exact_edge_contact():
@@ -393,7 +422,10 @@ def test_on_relation_overlap_accepts_exact_edge_contact():
     box.add_relation(On(desk, clearance_m=0.0, overlap=True))
     positions = {desk: (0.0, 0.0, 0.0), box: (0.75, -0.75, 0.3)}
 
-    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 # --- NextTo validation (parent box XY in [-0.2, 0.2], child box half-extent 0.1) ---
@@ -407,7 +439,10 @@ def test_next_to_satisfied_passes():
     child = _make_box("child", size=0.2)
     child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, cross_position_ratio=0.0))
     positions = {parent: (0.0, 0.0, 0.0), child: (0.35, 0.0, 0.0)}
-    assert NextToValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        NextToValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 def test_next_to_wrong_offset_fails():
@@ -417,7 +452,10 @@ def test_next_to_wrong_offset_fails():
     child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, cross_position_ratio=0.0))
     # x=0.45 → distance off by 0.10, well past the default 0.01 tolerance.
     positions = {parent: (0.0, 0.0, 0.0), child: (0.45, 0.0, 0.0)}
-    assert NextToValidator(placer.params)._validate(positions, _env_bboxes(positions)) is False
+    assert (
+        NextToValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is False
+    )
 
 
 def test_next_to_tolerance_is_per_relation():
@@ -428,7 +466,10 @@ def test_next_to_tolerance_is_per_relation():
     child = _make_box("child", size=0.2)
     child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, tolerance_m=0.2))
     positions = {parent: (0.0, 0.0, 0.0), child: (0.45, 0.0, 0.0)}
-    assert NextToValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        NextToValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 def test_next_to_cross_position_not_gated_passes():
@@ -438,7 +479,10 @@ def test_next_to_cross_position_not_gated_passes():
     child = _make_box("child", size=0.2)
     child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, cross_position_ratio=0.0))
     positions = {parent: (0.0, 0.0, 0.0), child: (0.35, 0.2, 0.0)}
-    assert NextToValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        NextToValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 # --- NotNextTo validation (parent box XY in [-0.2, 0.2]; default keep-out margin_m = 0.1) ---
@@ -451,7 +495,10 @@ def test_not_next_to_inside_zone_fails():
     child = _make_box("child", size=0.2)
     child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X))
     positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.0, 0.0)}
-    assert NotNextToValidator(placer.params)._validate(positions, _env_bboxes(positions)) is False
+    assert (
+        NotNextToValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is False
+    )
 
 
 def test_not_next_to_crossed_back_over_edge_passes():
@@ -461,7 +508,10 @@ def test_not_next_to_crossed_back_over_edge_passes():
     child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X))
     # Far on the -X side: cleared the keep-out via the edge route.
     positions = {parent: (0.0, 0.0, 0.0), child: (-0.5, 0.0, 0.0)}
-    assert NotNextToValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        NotNextToValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 def test_not_next_to_slid_off_footprint_passes():
@@ -471,7 +521,10 @@ def test_not_next_to_slid_off_footprint_passes():
     child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X))
     # Past the +X edge but slid well past the +Y footprint end: cleared via the cross route.
     positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.5, 0.0)}
-    assert NotNextToValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        NotNextToValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 def test_not_next_to_tolerance_is_per_relation():
@@ -481,7 +534,10 @@ def test_not_next_to_tolerance_is_per_relation():
     child = _make_box("child", size=0.2)
     child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X, tolerance_m=0.2))
     positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.0, 0.0)}
-    assert NotNextToValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    assert (
+        NotNextToValidator(placer.params)._validate(positions, _env_bboxes(positions), rejections=RejectionLog("test"))
+        is True
+    )
 
 
 def test_validate_placement_rejects_not_next_to_violation():

@@ -15,6 +15,7 @@ from isaaclab_arena.relations.geometry.bounding_box_helpers import update_candid
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
+from isaaclab_arena.relations.placement_diagnostics import RejectionLog
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, NextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
@@ -48,12 +49,12 @@ def test_validator_preserves_oriented_geometry_and_candidate_environment_rows():
     validator = _validator()
 
     enclosing_only = PlacementCandidateBatch([batch.candidates[1]])
-    assert validator.validate_batch(enclosing_only, []) == [False]
-    assert validator.validate_batch(batch, []) == [False, True, False]
+    assert validator.validate_batch(enclosing_only, [], rejections=RejectionLog("test")) == [False]
+    assert validator.validate_batch(batch, [], rejections=RejectionLog("test")) == [False, True, False]
     selected = batch.select([1, 0])
     assert selected.collision_bboxes[second].half_extents.equal(batch.collision_bboxes[second].half_extents[[1, 0]])
-    assert validator.validate_batch(selected, []) == [True, False]
-    assert validator.validate_batch(batch.select([]), []) == []
+    assert validator.validate_batch(selected, [], rejections=RejectionLog("test")) == [True, False]
+    assert validator.validate_batch(batch.select([]), [], rejections=RejectionLog("test")) == []
 
 
 def test_validator_rotates_off_origin_centers_with_tilted_markers():
@@ -72,7 +73,7 @@ def test_validator_rotates_off_origin_centers_with_tilted_markers():
     batch = PlacementCandidateBatch(candidates)
     update_candidate_bounds(batch, [base_boxes])
 
-    assert _validator().validate_batch(batch, []) == [True, False]
+    assert _validator().validate_batch(batch, [], rejections=RejectionLog("test")) == [True, False]
 
 
 def test_validator_without_collision_bounds_falls_back_to_enclosing_bounds():
@@ -90,9 +91,9 @@ def test_validator_without_collision_bounds_falls_back_to_enclosing_bounds():
     update_candidate_bounds(batch, [{rod: bounds}])
     validator = _validator()
 
-    assert validator.validate_batch(batch, [obstacle]) == [True]
+    assert validator.validate_batch(batch, [obstacle], rejections=RejectionLog("test")) == [True]
     batch.collision_bboxes = None
-    assert validator.validate_batch(batch.select([0]), [obstacle]) == [False]
+    assert validator.validate_batch(batch.select([0]), [obstacle], rejections=RejectionLog("test")) == [False]
 
 
 @pytest.mark.parametrize(
@@ -110,7 +111,7 @@ def test_validator_exempts_only_on_and_clutter_on_parent_pairs(make_relation, ex
     batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, boxes)])
     update_candidate_bounds(batch, [boxes])
 
-    assert _validator().validate_batch(batch, []) == [exempt]
+    assert _validator().validate_batch(batch, [], rejections=RejectionLog("test")) == [exempt]
 
 
 def test_validator_exempts_fixed_fixed_pairs():
@@ -124,7 +125,7 @@ def test_validator_exempts_fixed_fixed_pairs():
     batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, boxes)])
     update_candidate_bounds(batch, [boxes])
 
-    assert _validator().validate_batch(batch, [passive]) == [True]
+    assert _validator().validate_batch(batch, [passive], rejections=RejectionLog("test")) == [True]
 
 
 def test_validator_missing_mesh_uses_oriented_box_fallback():
@@ -141,7 +142,7 @@ def test_validator_missing_mesh_uses_oriented_box_fallback():
     ])
     update_candidate_bounds(batch, [base_boxes])
 
-    assert _validator().validate_batch(batch, []) == [True, False]
+    assert _validator().validate_batch(batch, [], rejections=RejectionLog("test")) == [True, False]
 
 
 def test_validator_keeps_mesh_pairs_on_mesh_path():
@@ -158,7 +159,7 @@ def test_validator_keeps_mesh_pairs_on_mesh_path():
     ])
     update_candidate_bounds(batch, [boxes])
 
-    assert _validator().validate_batch(batch, []) == [True, False]
+    assert _validator().validate_batch(batch, [], rejections=RejectionLog("test")) == [True, False]
 
 
 @pytest.mark.parametrize("fixed_obstacle", [True, False])
@@ -201,13 +202,13 @@ def test_mixed_mesh_fallback_penalizes_layouts_rejected_by_enclosing_box_proxy(f
         directed_pairs * solver._no_collision_strategy.slope * 0.12 * 0.12 * 0.1, rel=1e-5
     )
     validator = NoOverlapValidator(ObjectPlacerParams(solver_params=params, verbose=False))
-    assert validator.validate_batch(batch, collision_objects) == [True, False]
+    assert validator.validate_batch(batch, collision_objects, rejections=RejectionLog("test")) == [True, False]
 
     # Pure box mode can use the tighter oriented rod geometry for the same candidates.
     obstacle.collision_mode = CollisionMode.BBOX
     solver.solve_candidates(objects, batch, collision_objects)
     assert [candidate.loss for candidate in batch.candidates] == [0.0, 0.0]
-    assert validator.validate_batch(batch, collision_objects) == [True, True]
+    assert validator.validate_batch(batch, collision_objects, rejections=RejectionLog("test")) == [True, True]
 
 
 def test_meshed_movable_uses_oriented_boxes_against_meshless_passive_obstacle():
@@ -246,8 +247,8 @@ def test_meshed_movable_uses_oriented_boxes_against_meshless_passive_obstacle():
     mesh_losses = [candidate.loss for candidate in batch.candidates]
     assert mesh_losses[0] == 0.0
     assert mesh_losses[1] > 0.0
-    assert validator.validate_batch(batch, [obstacle]) == [True, False]
+    assert validator.validate_batch(batch, [obstacle], rejections=RejectionLog("test")) == [True, False]
     rod.collision_mode = CollisionMode.BBOX
     solver.solve_candidates(objects, batch, [obstacle])
     assert [candidate.loss for candidate in batch.candidates] == pytest.approx(mesh_losses)
-    assert validator.validate_batch(batch, [obstacle]) == [True, False]
+    assert validator.validate_batch(batch, [obstacle], rejections=RejectionLog("test")) == [True, False]

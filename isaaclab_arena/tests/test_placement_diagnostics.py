@@ -14,6 +14,7 @@ from isaaclab_arena.relations.placement_diagnostics import (
     AggregatedPlacementDiagnostics,
     BatchValidationDiagnostics,
     PlacementDiagnostics,
+    RejectionLog,
     ValidationCheckDiagnostics,
     aggregate_placement_diagnostics,
 )
@@ -190,15 +191,16 @@ def test_next_to_validator_records_the_relation_and_its_violation():
     on_side = {desk: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.1), plate: (0.65, 0.4, 0.1)}
     wrong_side = {desk: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.1), plate: (0.1, 0.4, 0.1)}
     validator = NextToValidator(_placer_params())
+    rejections = RejectionLog(validator.check)
 
-    verdicts = validator.validate_batch(make_candidate_batch([on_side, wrong_side], [{}, {}], [bounds, bounds]), [])
+    verdicts = validator.validate_batch(
+        make_candidate_batch([on_side, wrong_side], [{}, {}], [bounds, bounds]), [], rejections=rejections
+    )
 
     assert verdicts == [True, False]
-    failures = validator.pop_failures()
-    assert list(failures) == ["'plate' next_to(box, positive_x)"]
-    assert failures["'plate' next_to(box, positive_x)"].count == 1
-    assert "wrong side" in failures["'plate' next_to(box, positive_x)"].example
-    assert validator.pop_failures() == {}
+    assert list(rejections.failures) == ["'plate' next_to(box, positive_x)"]
+    assert rejections.failures["'plate' next_to(box, positive_x)"].count == 1
+    assert "wrong side" in rejections.failures["'plate' next_to(box, positive_x)"].example
 
 
 def _desk_and_box(box_width_m: float) -> list[DummyObject]:
