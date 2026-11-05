@@ -310,21 +310,6 @@ def _collider_info(prim, stage, root_prim, UsdPhysics, meters_per_unit: float) -
     )
 
 
-def _traverse_composed_stage(stage):
-    """Traverse loaded prims, including prims beneath instance proxies."""
-    from pxr import Usd
-
-    stage.Load()
-    return Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies())
-
-
-def _traverse_composed_subtree(root_prim):
-    """Traverse a composed subtree, including prims beneath instance proxies."""
-    from pxr import Usd
-
-    return Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies())
-
-
 def find_nested_physics_roots(root_prim) -> dict[str, ObjectType]:
     """Return absolute paths of independently resettable physics roots.
 
@@ -462,7 +447,7 @@ def load_stage_prim_tree(stage, root_prim, *, include_physical_root: bool = Fals
     Returns:
         Sorted list of :class:`UsdPrimRecord` entries keyed by relative_path suffix.
     """
-    from pxr import Usd, UsdGeom, UsdPhysics
+    from pxr import Sdf, Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.utils.usd.helpers import (
         articulation_joint_names,
@@ -472,16 +457,17 @@ def load_stage_prim_tree(stage, root_prim, *, include_physical_root: bool = Fals
 
     records: list[UsdPrimRecord] = []
     assert root_prim and root_prim.IsValid(), "Inspection root prim must exist."
-    prims = tuple(_traverse_composed_subtree(root_prim))
+    prims = tuple(Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()))
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), UsdGeom.Imageable.GetOrderedPurposeTokens())
     meters_per_unit = UsdGeom.GetStageMetersPerUnit(stage)
-    included_paths: set[str] = set()
+    root_path = root_prim.GetPath()
+    included_paths: set[Sdf.Path] = set()
     for prim in prims:
         if not has_physics_or_collision(prim) and not prim.IsA(UsdPhysics.Joint):
             continue
         ancestor = prim
-        while ancestor and ancestor.GetPath().HasPrefix(root_prim.GetPath()):
-            path = str(ancestor.GetPath())
+        while ancestor and ancestor.GetPath().HasPrefix(root_path):
+            path = ancestor.GetPath()
             if path in included_paths:
                 break
             included_paths.add(path)
@@ -489,16 +475,15 @@ def load_stage_prim_tree(stage, root_prim, *, include_physical_root: bool = Fals
                 break
             ancestor = ancestor.GetParent()
 
-    root_path = str(root_prim.GetPath()).rstrip("/")
     for prim in prims:
-        prim_path = str(prim.GetPath())
+        prim_path = prim.GetPath()
         if prim_path not in included_paths:
             continue
         if prim == root_prim and (
             not include_physical_root or (not has_physics_or_collision(prim) and not prim.IsA(UsdPhysics.Joint))
         ):
             continue
-        relative_path = prim_path[len(root_path) :].lstrip("/") or "."
+        relative_path = str(prim_path.MakeRelativePath(root_path))
         object_type = object_type_for_prim(prim)
         joint_names: tuple[str, ...] = ()
         if object_type == ObjectType.ARTICULATION:
