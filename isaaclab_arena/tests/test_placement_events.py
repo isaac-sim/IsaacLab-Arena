@@ -828,7 +828,7 @@ class _StubReachabilityValidator(PrePhysicsPlacementValidator):
     def is_available(cls, params) -> bool:
         return cls.predicate is not None
 
-    def validate_batch(self, batch, collision_objects, rejections):
+    def _validate_batch(self, batch, collision_objects, rejections):
         from isaaclab_arena.relations.placement_result import PlacementResult
         from isaaclab_arena.relations.validation.types import PlacementValidationResults
 

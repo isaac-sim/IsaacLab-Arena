@@ -412,7 +412,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         boxes = build_per_env_bounding_boxes(pool.objects, 2).get_bounding_boxes_for_all_envs()
         validator = OnRelationValidator(arena_env.placer_params)
         batch = make_candidate_batch([queue[0].positions for queue in queues], [{}, {}], boxes)
-        assert validator.validate_batch(batch, [], rejections=[]) == [True, True]
+        assert validator.validate_batch(batch, []) == [True, True]
         # The second reset rejects a stable but excessive drop and a solver failure.
         queues[0][1].positions[cube] = (0.0, 0.0, 0.575)
         queues[1][1].validation_results.validation_results[PlacementCheck.NO_OVERLAP] = False

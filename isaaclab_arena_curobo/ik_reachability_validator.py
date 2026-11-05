@@ -113,7 +113,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             return False
         return True
 
-    def validate_batch(
+    def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
         return [

@@ -75,8 +75,23 @@ class PrePhysicsPlacementValidator(base.PlacementValidator):
         """
         return True
 
-    @abstractmethod
     def validate_batch(
+        self,
+        batch: PlacementCandidateBatch,
+        collision_objects: list[CollisionObject],
+        rejections: list[Rejection] | None = None,
+    ) -> list[bool]:
+        """Return one verdict per candidate in batch order.
+
+        Args:
+            batch: Candidate layouts to check.
+            collision_objects: Fixed background obstacles in the scene.
+            rejections: List each rejection, with its cause, is appended to. None discards the rejections.
+        """
+        return self._validate_batch(batch, collision_objects, rejections if rejections is not None else [])
+
+    @abstractmethod
+    def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
         """Return one verdict per candidate in batch order, appending each rejection, with its cause, to rejections."""
@@ -123,7 +138,7 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.ON_RELATION
 
-    def validate_batch(
+    def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
         return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
@@ -249,7 +264,7 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.ALIGN_WITH
 
-    def validate_batch(
+    def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
         return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
@@ -296,7 +311,7 @@ class NextToValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.NEXT_TO
 
-    def validate_batch(
+    def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
         return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
@@ -359,7 +374,7 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.NOT_NEXT_TO
 
-    def validate_batch(
+    def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
         return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
@@ -430,7 +445,7 @@ class FaceToValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.FACE_TO
 
-    def validate_batch(
+    def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
         return [
@@ -479,7 +494,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         super().__init__(params, visualizer)
         self._cpu_mesh_manager: WarpMeshAndSphereCache | None = None
 
-    def validate_batch(
+    def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
         if not batch.candidates:

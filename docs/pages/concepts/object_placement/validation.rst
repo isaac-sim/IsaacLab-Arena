@@ -395,12 +395,16 @@ Pre-Physics Validators
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Pre-physics validators check the solver's proposed layout before physics is advanced. Subclass
-``PrePhysicsPlacementValidator`` and register a unique ``check`` name which should be included in
-``ObjectPlacerParams.enabled_checks``. Return one boolean per candidate, in batch order. For
-example, reject layouts with any object origin above 1.5 metres:
+``PrePhysicsPlacementValidator``, register a unique ``check`` name which should be included in
+``ObjectPlacerParams.enabled_checks``, and implement ``_validate_batch``. Return one boolean per
+candidate, in batch order, and append a ``Rejection`` to ``rejections`` for each candidate you
+reject. Its ``cause`` names what failed without measured values, so rejections of the same kind
+are counted together, and its ``detail`` holds the measured violation. For example, reject
+layouts with any object origin above 1.5 metres:
 
 .. code-block:: python
 
+   from isaaclab_arena.relations.placement_diagnostics import Rejection
    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
    from isaaclab_arena.relations.validation.registry import register_validator
 
@@ -408,12 +412,20 @@ example, reject layouts with any object origin above 1.5 metres:
    class MaxOriginHeightValidator(PrePhysicsPlacementValidator):
        check = "max_origin_height"
 
-       def validate_batch(self, batch, collision_objects):
+       def _validate_batch(self, batch, collision_objects, rejections):
            verdicts = []
            for candidate in batch.candidates:
-               below_limit = all(
-                   position[2] <= 1.5 for position in candidate.positions.values()
+               highest_obj, highest_position = max(
+                   candidate.positions.items(), key=lambda item: item[1][2]
                )
+               below_limit = highest_position[2] <= 1.5
+               if not below_limit:
+                   rejections.append(
+                       Rejection(
+                           f"'{highest_obj.name}': origin above 1.5 m",
+                           detail=f"origin z {highest_position[2]:.3f} m",
+                       )
+                   )
                verdicts.append(below_limit)
            return verdicts
 

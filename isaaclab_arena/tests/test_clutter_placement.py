@@ -208,7 +208,7 @@ def test_clutter_validators_receive_complete_original_layouts_and_environment_id
     class OriginalLayoutValidator(PrePhysicsPlacementValidator):
         check = "original_layout"
 
-        def validate_batch(self, batch, collision_objects, rejections):
+        def _validate_batch(self, batch, collision_objects, rejections):
             inspected[self.check] = {candidate.env_id for candidate in batch.candidates}
             for candidate in batch.candidates:
                 assert set(candidate.positions) == set(candidate.bboxes) == set(objects)
@@ -222,8 +222,8 @@ def test_clutter_validators_receive_complete_original_layouts_and_environment_id
         check = "per_environment"
         run_after_inexpensive_checks = True
 
-        def validate_batch(self, batch, collision_objects, rejections):
-            super().validate_batch(batch, collision_objects, rejections)
+        def _validate_batch(self, batch, collision_objects, rejections):
+            super()._validate_batch(batch, collision_objects, rejections)
             return [candidate.env_id == 0 for candidate in batch.candidates]
 
     params = _params()

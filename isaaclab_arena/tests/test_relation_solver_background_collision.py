@@ -552,7 +552,7 @@ def test_validate_no_overlap_rejects_background_overlap():
         PlacementCandidate(0, 0, overlapping, {}, env_bboxes),
         PlacementCandidate(1, 0, clear, {}, env_bboxes),
     ])
-    assert validator.validate_batch(batch, [background], rejections=[]) == [False, True]
+    assert validator.validate_batch(batch, [background]) == [False, True]
 
 
 def _test_discover_passive_assets_filters(simulation_app) -> bool:
