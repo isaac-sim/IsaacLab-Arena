@@ -47,11 +47,13 @@ Read only the references relevant to the requested behavior:
 - **Placement diagnostics:** when placement rejects many candidates or a fill fails, read its
   diagnostics before changing relations or writing a diagnostic script; "Diagnosing Placement" in
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst) explains
-  them. Each solved batch prints how many candidates passed each check. A failed fill's error adds
-  each check's most frequent rejection causes, such as `'box' on(desk): edge margin wider than the
-  free space`. Set `verbose: true` under `placer_params` to print every rejection with its measured
-  violation. A Run of an Experiment writes every rejection to `arena_run_placement_diagnostics.json`
-  in its Run directory, also when the Run fails.
+  them. After each solved batch, the console shows how many candidates passed each check, then one
+  line per rejection cause with its count and one measured violation, such as
+  `on_relation: 'box' on(desk): edge margin wider than the free space x4 (e.g. ...)`. A fill that
+  falls back to best-loss layouts, or fails, also prints each check's most frequent causes over the
+  fill. For more measured violations per cause, set `verbose: true` under `placer_params`, or
+  `ObjectPlacerParams(verbose=True)` in Python. A Run of an Experiment writes every rejection to
+  `arena_run_placement_diagnostics.json` in its Run directory, also when the Run fails.
 - **Task semantics:** read [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
   and [predicates and progress](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst)
   for ordered milestones, current final conditions, simultaneous truth, temporal holds, and reporting.
