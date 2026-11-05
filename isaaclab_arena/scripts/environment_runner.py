@@ -136,7 +136,9 @@ def run_environment(
 def main() -> None:
     """Launch and continuously run one interactive Arena environment."""
     args_parser = get_isaaclab_arena_cli_parser()
-    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=True)
+    # Keep Fabric enabled: CPU PhysX scenes with complex articulations can become unstable when Kit renders
+    # directly from USD state. Mouse grabbing still operates through PhysX scene queries and D6 joints.
+    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=False)
     args_parser.allow_abbrev = False
     # AppLauncher may append Kit flags to sys.argv.
     original_cli_args = sys.argv[1:]
