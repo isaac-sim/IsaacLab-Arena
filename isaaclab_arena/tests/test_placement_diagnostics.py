@@ -110,9 +110,9 @@ def test_pool_diagnostics_record_fallbacks_and_explain_fill_failures():
 
 def test_aggregated_diagnostics_sum_fills_by_batch_position():
     """Fills sum batch by batch and check by check; a later batch sums only the fills that validated one."""
-    overlap = Rejection("'a' and 'b': bounding boxes intersect", count=30)
+    overlap = Rejection("'a' and 'b': bounding boxes intersect")
     first_batch = BatchValidationDiagnostics(
-        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, rejections=[overlap])}
+        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, rejections=[overlap] * 30)}
     )
     later_batch = BatchValidationDiagnostics(
         20,
@@ -132,7 +132,7 @@ def test_aggregated_diagnostics_sum_fills_by_batch_position():
     summed_first_batch = BatchValidationDiagnostics(
         300,
         180,
-        {"no_overlap": ValidationCheckDiagnostics(300, 210, required=True, rejections=[overlap] * 3)},
+        {"no_overlap": ValidationCheckDiagnostics(300, 210, required=True, rejections=[overlap] * 90)},
     )
     assert (aggregated.num_builds, aggregated.num_envs, aggregated.num_fallback_envs, aggregated.num_batches) == (
         3,
@@ -144,7 +144,7 @@ def test_aggregated_diagnostics_sum_fills_by_batch_position():
     assert summed_first_batch.checks["no_overlap"].get_num_rejected_by_cause() == {overlap.cause: 90}
     # The fills' own diagnostics are left unchanged.
     assert first_batch == BatchValidationDiagnostics(
-        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, rejections=[overlap])}
+        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, rejections=[overlap] * 30)}
     )
 
 

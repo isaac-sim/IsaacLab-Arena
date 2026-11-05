@@ -15,24 +15,21 @@ from pathlib import Path
 
 @dataclass
 class Rejection:
-    """Candidates one check rejected for one cause, with the measured violation."""
+    """One candidate a check rejected, with the cause and the measured violation."""
 
     cause: str
     """What failed and how, naming the objects and relation, such as
     "'bowl' next_to(plate, positive_x): on the wrong side". Holds no measured values, so every rejection of the same
     kind has the same cause and can be counted together."""
 
-    count: int = 1
-    """Candidates rejected for this cause."""
-
     detail: str = ""
     """Measured violation, such as "by 0.150 m". Empty when the cause says everything."""
 
     def format(self) -> str:
-        """Return the rejection on one line, such as "'bowl' next_to(plate, positive_x): on the wrong side x1 (by
+        """Return the rejection on one line, such as "'bowl' next_to(plate, positive_x): on the wrong side (by
         0.150 m)"."""
         suffix = f" ({self.detail})" if self.detail else ""
-        return f"{self.cause} x{self.count}{suffix}"
+        return f"{self.cause}{suffix}"
 
 
 @dataclass
@@ -61,7 +58,7 @@ class ValidationCheckDiagnostics:
         """Return the check's rejections counted by cause, in the order each cause first occurred."""
         num_rejected_by_cause: dict[str, int] = {}
         for rejection in self.rejections:
-            num_rejected_by_cause[rejection.cause] = num_rejected_by_cause.get(rejection.cause, 0) + rejection.count
+            num_rejected_by_cause[rejection.cause] = num_rejected_by_cause.get(rejection.cause, 0) + 1
         return num_rejected_by_cause
 
 

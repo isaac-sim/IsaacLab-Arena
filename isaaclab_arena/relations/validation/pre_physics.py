@@ -543,17 +543,19 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
     def _record_box_overlap(
         rejections: list[Rejection], first: PlaceableAsset, second: PlaceableAsset, num_candidates: int
     ) -> None:
-        """Record candidates rejected because two placed objects' bounding boxes intersect."""
-        rejections.append(Rejection(f"'{first.name}' and '{second.name}': bounding boxes intersect", num_candidates))
+        """Record one rejection for each of num_candidates candidates whose two placed objects' bounding boxes
+        intersect."""
+        cause = f"'{first.name}' and '{second.name}': bounding boxes intersect"
+        rejections.extend(Rejection(cause) for _ in range(num_candidates))
 
     @staticmethod
     def _record_background_overlap(
         rejections: list[Rejection], obj: PlaceableAsset, background: CollisionObject, num_candidates: int
     ) -> None:
-        """Record candidates rejected because a placed object's bounding box intersects a background object's."""
-        rejections.append(
-            Rejection(f"'{obj.name}' and background '{background.name}': bounding boxes intersect", num_candidates)
-        )
+        """Record one rejection for each of num_candidates candidates whose placed object's bounding box intersects a
+        background object's."""
+        cause = f"'{obj.name}' and background '{background.name}': bounding boxes intersect"
+        rejections.extend(Rejection(cause) for _ in range(num_candidates))
 
     def _should_validate_mesh(
         self,

@@ -157,7 +157,7 @@ class PlacementValidationRunner:
 
     def _print_rejections(self, check: str, rejections: list[Rejection]) -> None:
         """Print each of a check's rejections on its own line when verbose, such as
-        "  [next_to] 'bowl' next_to(plate, positive_x): on the wrong side x1 (by 0.150 m)"."""
+        "  [next_to] 'bowl' next_to(plate, positive_x): on the wrong side (by 0.150 m)"."""
         if self.params.verbose:
             for rejection in rejections:
                 print(f"  [{check}] {rejection.format()}")
