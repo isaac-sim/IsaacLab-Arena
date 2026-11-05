@@ -115,6 +115,33 @@ class StructuredOutputRequest:
     retry_label: str
 
 
+@dataclass
+class TokenUsage:
+    """Running totals of the tokens an endpoint reported for chat completions."""
+
+    prompt_tokens: int = 0
+    """Prompt tokens across responses that reported usage."""
+
+    completion_tokens: int = 0
+    """Completion tokens, including any reasoning tokens, across responses that reported usage."""
+
+    responses: int = 0
+    """Completion responses received."""
+
+    responses_without_usage: int = 0
+    """Responses that reported no usage, so their tokens are missing from the totals."""
+
+    def add_response(self, resp: Any) -> None:
+        """Add the usage reported by one chat completion response."""
+        self.responses += 1
+        usage = getattr(resp, "usage", None)
+        if usage is None:
+            self.responses_without_usage += 1
+            return
+        self.prompt_tokens += usage.prompt_tokens or 0
+        self.completion_tokens += usage.completion_tokens or 0
+
+
 class InferenceBackend:
     """Shared LLM JSON-schema runner with retry and tolerant JSON parsing."""
 
@@ -167,6 +194,8 @@ class InferenceBackend:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
+        self.token_usage = TokenUsage()
+        """Tokens reported for every structured-output request, including retried ones; excludes the ping."""
         try:
             _ping(client, inference_endpoint, resolved_model)
         except Exception:
@@ -236,6 +265,7 @@ class InferenceBackend:
                     },
                     **_completion_options(self._endpoint, self._max_tokens, self._temperature),
                 )
+                self.token_usage.add_response(resp)
                 choices = getattr(resp, "choices", None) or []
                 assert choices, (
                     f"Model {self._model!r} returned HTTP 200 with no choices "

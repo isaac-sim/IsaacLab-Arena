@@ -26,7 +26,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.inference.backend import InferenceBackend
+from isaaclab_arena.inference.backend import InferenceBackend, TokenUsage
 
 _logger = logging.getLogger(__name__)
 
@@ -78,6 +78,7 @@ class EnvironmentGenerationAgent:
             max_retries=max_retries,
             endpoint=endpoint,
         )
+        self._inference_backend = inference_backend
         self.spec_inference = SpecInference(inference_backend)
         self.missing_object_inference = MissingObjectInference(inference_backend)
         self.prim_path_inference = PrimPathInference(inference_backend)
@@ -106,6 +107,11 @@ class EnvironmentGenerationAgent:
         them.
         """
         return tuple(self._unavailable_objects)
+
+    @property
+    def token_usage(self) -> TokenUsage:
+        """Running token totals the endpoint reported for every request this agent has made."""
+        return self._inference_backend.token_usage
 
     def generate_spec(
         self,
