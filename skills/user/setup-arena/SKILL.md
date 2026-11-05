@@ -1,7 +1,7 @@
 ---
 name: setup-arena
 description: Sets up and verifies a runnable Isaac Lab-Arena checkout using the supported native uv or Docker route. Use when installing Arena, preparing a fresh checkout to run examples or evaluations, choosing between uv and Docker, starting or attaching to the Arena container, mounting datasets/models/evaluation outputs, enabling cuRobo, or checking whether an installation is ready. Do not use for contributor hooks, forced image rebuilds, pytest regression testing, or experiment configuration.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *) Bash(docker stop isaaclab_arena-*)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id --user --name) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *) Bash(docker stop isaaclab_arena-*)
 ---
 
 # Setup Arena
@@ -114,9 +114,8 @@ arbitrary first match because containers with different suffixes can coexist for
 Verify the editable source mount as the host user:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su $(id -un) -c \
-  "cd /workspaces/isaaclab_arena && \
-   isaaclab.sh -p -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'"
+docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" \
+  isaaclab.sh -p -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'
 ```
 
 Require a path under `/workspaces/isaaclab_arena/`. Then run the short zero-action validation from

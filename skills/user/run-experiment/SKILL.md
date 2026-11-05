@@ -1,7 +1,7 @@
 ---
 name: run-experiment
 description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), direct Policy Runner workflows, or OSMO preview, submission, or management.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id -un) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id --user --name) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *)
 ---
 
 # Run Experiment
@@ -88,16 +88,15 @@ env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
 ```
 
 For Docker, first use `docker ps` to select the single running container that mounts the absolute
-repository root. Resolve the host username separately with `id -un`, then substitute both literal
+repository root. Resolve the host username separately with `id --user --name`, then substitute both literal
 values below rather than hardcoding a container name:
 
 ```bash
-docker exec <container> su <host-user> -c \
-  "cd /workspaces/isaaclab_arena && \
-   isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
-   --experiment_config <experiment.yaml> \
-   --viz none \
-   <override>..."
+docker exec --user <host-user> <container> \
+  isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config <experiment.yaml> \
+  --viz none \
+  <override>...
 ```
 
 Use the local override namespace:
