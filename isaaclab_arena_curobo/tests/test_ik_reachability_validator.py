@@ -19,7 +19,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from isaaclab_arena.relations.placement_diagnostics import RejectionLog
 from isaaclab_arena.tests.dummy_object import make_candidate_batch
 
 DOF = 7
@@ -246,7 +245,7 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
             [layout.positions, layout.positions], [layout.orientations, layout.orientations], [{}, {}]
         ),
         [],
-        rejections=RejectionLog("test"),
+        rejections=[],
     ) == [False, False]
 
     assert [entry["layout_index_across_batch"] for entry in drawn] == [7, 9]
@@ -291,7 +290,7 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(
-        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=RejectionLog("test")
+        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=[]
     ) == [True]
     # One collision cuboid per non-target object (the desk); one grasp per target (the box).
     assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
@@ -336,9 +335,9 @@ def test_validator_uses_relation_placed_robot_pose(monkeypatch):
     }
     orientations = {desk: 0.0, target: 0.0, robot: 0.0}
 
-    assert validator.validate_batch(
-        make_candidate_batch([positions], [orientations], [{}]), [], rejections=RejectionLog("test")
-    ) == [True]
+    assert validator.validate_batch(make_candidate_batch([positions], [orientations], [{}]), [], rejections=[]) == [
+        True
+    ]
     base_position, base_orientation = captured["base_poses_per_world_update"][0]
     assert base_position == solved_robot_position
     assert base_position != configured_robot_pose.position_xyz
@@ -352,12 +351,12 @@ def test_validator_collision_checks_grasps_by_default(monkeypatch):
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
 
     _make_reachability_validator(_fake_embodiment()).validate_batch(
-        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=RejectionLog("test")
+        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=[]
     )
     assert captured["ik_kwargs"]["require_collision_free"] is True
 
     _make_reachability_validator(_fake_embodiment(), require_collision_free=False).validate_batch(
-        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=RejectionLog("test")
+        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=[]
     )
     assert captured["ik_kwargs"]["require_collision_free"] is False
 
@@ -370,7 +369,7 @@ def test_validator_rejects_when_any_grasp_infeasible(monkeypatch):
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(
-        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=RejectionLog("test")
+        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=[]
     ) == [False]
 
 
@@ -382,9 +381,7 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
 
     # Of the three objects, only box_a is a target; the desk and the unstamped box_b stay obstacles.
     layout = _make_two_box_pool().layouts_per_env()[0][0]
-    validator.validate_batch(
-        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=RejectionLog("test")
-    )
+    validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=[])
 
     assert sorted(cuboid.name for cuboid in captured["solver"].world_cuboids) == ["box_b", "desk"]
 
@@ -398,7 +395,7 @@ def test_sibling_targets_obstruct_each_others_grasps(monkeypatch):
     # Both boxes are targets, so each is solved in turn against a world that still holds the other.
     layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
     assert validator.validate_batch(
-        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=RejectionLog("test")
+        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=[]
     ) == [True]
 
     assert [sorted(names) for names in captured["worlds_per_solve"]] == [["box_b", "desk"], ["box_a", "desk"]]
@@ -414,7 +411,7 @@ def test_validator_rejects_when_one_sibling_target_is_infeasible(monkeypatch):
 
     layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
     assert validator.validate_batch(
-        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=RejectionLog("test")
+        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=[]
     ) == [False]
 
 
@@ -426,7 +423,7 @@ def test_validator_checks_only_stamped_objects(monkeypatch):
 
     layout = _make_two_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(
-        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=RejectionLog("test")
+        make_candidate_batch([layout.positions], [layout.orientations], [{}]), [], rejections=[]
     ) == [True]
     # Two movable boxes exist, but only the stamped one (box_a) contributes a grasp.
     assert captured["total_grasps"] == 1
@@ -445,7 +442,7 @@ def test_validator_passes_trivially_and_warns_when_no_targets(monkeypatch, capsy
             [layout.positions, layout.positions], [layout.orientations, layout.orientations], [{}, {}]
         ),
         [],
-        rejections=RejectionLog("test"),
+        rejections=[],
     ) == [True, True]
 
     # No grasp was ever solved (the IK path is skipped entirely when there are no targets).

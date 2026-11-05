@@ -15,7 +15,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import ClutterOnLossStrategy
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.optimization.placement_candidate_generator import PlacementCandidateGenerator
-from isaaclab_arena.relations.placement_diagnostics import RejectionLog, ValidationCheckDiagnostics
+from isaaclab_arena.relations.placement_diagnostics import ValidationCheckDiagnostics
 from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On, RotateAroundSolution
 from isaaclab_arena.relations.validation.placement_validation_runner import PlacementValidationRunner
 from isaaclab_arena.relations.validation.pre_physics import (
@@ -42,9 +42,7 @@ def test_release_loss_and_validation_use_centered_spread():
     validator = ClutterOnRelationValidator(ObjectPlacerParams())
     bounds = {support: support.bounding_box, child: child.bounding_box}
     layouts = [{support: (0, 0, 0), child: tuple(position.tolist())} for position in positions]
-    assert validator.validate_batch(
-        make_candidate_batch(layouts, [{}] * 4, [bounds] * 4), [], rejections=RejectionLog("test")
-    ) == [
+    assert validator.validate_batch(make_candidate_batch(layouts, [{}] * 4, [bounds] * 4), [], rejections=[]) == [
         True,
         False,
         False,
@@ -52,9 +50,7 @@ def test_release_loss_and_validation_use_centered_spread():
     ]
     child.relations = [On(support)]
     validator = OnRelationValidator(ObjectPlacerParams())
-    assert validator.validate_batch(
-        make_candidate_batch(layouts[:1], [{}], [bounds]), [], rejections=RejectionLog("test")
-    ) == [False]
+    assert validator.validate_batch(make_candidate_batch(layouts[:1], [{}], [bounds]), [], rejections=[]) == [False]
 
 
 def test_clutter_cannot_combine_spatial_relations():
@@ -139,8 +135,8 @@ def test_generated_clutter_bounds_and_release_height_include_rotation():
         bottom = candidate.positions[rod][2] + float(expected.min_point[0, 2])
         top = candidate.positions[obstacle][2] + float(bounds[obstacle].max_point[0, 2])
         assert bottom >= top + params.solver_params.clearance_m - 1e-6
-    assert ClutterOnRelationValidator(params).validate_batch(batch, [], rejections=RejectionLog("test")) == [True, True]
-    assert NoOverlapValidator(params).validate_batch(batch, [], rejections=RejectionLog("test")) == [True, True]
+    assert ClutterOnRelationValidator(params).validate_batch(batch, [], rejections=[]) == [True, True]
+    assert NoOverlapValidator(params).validate_batch(batch, [], rejections=[]) == [True, True]
 
 
 @pytest.mark.parametrize("placement_seed", [17, None])
@@ -193,10 +189,8 @@ def test_clutter_release_height_order_varies_reproducibly_per_candidate(placemen
             upper_bottom = candidate.positions[upper][2] + float(bounds[upper].min_point[0, 2])
             assert upper_bottom - lower_top >= 0.05 - 1e-6
     assert all(len(orders) > 1 for orders in orders_per_env)
-    assert ClutterOnRelationValidator(params).validate_batch(batch, [], rejections=RejectionLog("test")) == [
-        True
-    ] * len(batch)
-    assert NoOverlapValidator(params).validate_batch(batch, [], rejections=RejectionLog("test")) == [True] * len(batch)
+    assert ClutterOnRelationValidator(params).validate_batch(batch, [], rejections=[]) == [True] * len(batch)
+    assert NoOverlapValidator(params).validate_batch(batch, [], rejections=[]) == [True] * len(batch)
 
 
 def test_release_validation_rejects_support_penetration_and_clearance_shortfall():

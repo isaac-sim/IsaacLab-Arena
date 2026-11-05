@@ -15,7 +15,6 @@ from isaaclab_arena.relations.placement_diagnostics import (
     BatchValidationDiagnostics,
     PlacementDiagnostics,
     Rejection,
-    RejectionLog,
     ValidationCheckDiagnostics,
 )
 from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError, PooledObjectPlacer
@@ -200,16 +199,14 @@ def test_next_to_validator_records_the_relation_and_its_violation():
     on_side = {desk: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.1), plate: (0.65, 0.4, 0.1)}
     wrong_side = {desk: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.1), plate: (0.1, 0.4, 0.1)}
     validator = NextToValidator(_placer_params())
-    rejections = RejectionLog(validator.check)
+    rejections: list[Rejection] = []
 
     verdicts = validator.validate_batch(
         make_candidate_batch([on_side, wrong_side], [{}, {}], [bounds, bounds]), [], rejections=rejections
     )
 
     assert verdicts == [True, False]
-    assert rejections.rejections == [
-        Rejection("'plate' next_to(box, positive_x): on the wrong side", detail="by 0.500 m")
-    ]
+    assert rejections == [Rejection("'plate' next_to(box, positive_x): on the wrong side", detail="by 0.500 m")]
 
 
 def test_on_validator_records_an_edge_margin_wider_than_the_free_space():
@@ -223,12 +220,12 @@ def test_on_validator_records_an_edge_margin_wider_than_the_free_space():
     bounds = {obj: obj.get_bounding_box() for obj in (desk, box)}
     layout = {desk: (0.0, 0.0, 0.0), box: (0.05, 0.05, 0.1)}
     validator = OnRelationValidator(_placer_params())
-    rejections = RejectionLog(validator.check)
+    rejections: list[Rejection] = []
 
     verdicts = validator.validate_batch(make_candidate_batch([layout], [{}], [bounds]), [], rejections=rejections)
 
     assert verdicts == [False]
-    assert rejections.rejections == [
+    assert rejections == [
         Rejection(
             "'box' on(desk): edge margin wider than the free space",
             detail="edge_margin_m 0.100 m, feasible margin 0.050 m",

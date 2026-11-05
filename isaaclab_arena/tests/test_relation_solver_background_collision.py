@@ -9,7 +9,6 @@ Background obstacles carry no relations (so they are absent from the relation gr
 but should still be avoided by placed objects.
 """
 
-from isaaclab_arena.relations.placement_diagnostics import RejectionLog
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
@@ -553,7 +552,7 @@ def test_validate_no_overlap_rejects_background_overlap():
         PlacementCandidate(0, 0, overlapping, {}, env_bboxes),
         PlacementCandidate(1, 0, clear, {}, env_bboxes),
     ])
-    assert validator.validate_batch(batch, [background], rejections=RejectionLog("test")) == [False, True]
+    assert validator.validate_batch(batch, [background], rejections=[]) == [False, True]
 
 
 def _test_discover_passive_assets_filters(simulation_app) -> bool:

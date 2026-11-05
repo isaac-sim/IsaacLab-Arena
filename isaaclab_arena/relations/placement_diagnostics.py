@@ -36,35 +36,6 @@ class Rejection:
 
 
 @dataclass
-class RejectionLog:
-    """Rejections one check made on one batch of candidate layouts, in the order the check made them."""
-
-    check: str
-    """Name of the check whose rejections this log holds."""
-
-    verbose: bool = False
-    """Whether to print each rejection as it is added."""
-
-    rejections: list[Rejection] = field(default_factory=list)
-    """Every rejection added, in order. A check that inspects every object pair, such as no_overlap, can reject one
-    candidate for several causes."""
-
-    def add(self, cause: str, count: int = 1, detail: str = "") -> None:
-        """Add candidates rejected for cause, and print the rejection when verbose.
-
-        Args:
-            cause: What failed and how, naming the objects and relation, such as
-                "'bowl' next_to(plate, positive_x): on the wrong side". Holds no measured values.
-            count: Candidates rejected for this cause.
-            detail: Measured violation, such as "by 0.150 m".
-        """
-        rejection = Rejection(cause, count, detail)
-        self.rejections.append(rejection)
-        if self.verbose:
-            print(f"  [{self.check}] {rejection.format()}")
-
-
-@dataclass
 class ValidationCheckDiagnostics:
     """How one pre-physics check did on a batch of candidate layouts."""
 

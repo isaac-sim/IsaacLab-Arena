@@ -16,7 +16,6 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.optimization.initializers.on_tree_initializer import _bounds_from_align_with
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import AlignWithLossStrategy
 from isaaclab_arena.relations.optimization.placement_candidate_generator import PlacementCandidateGenerator
-from isaaclab_arena.relations.placement_diagnostics import RejectionLog
 from isaaclab_arena.relations.relations import AlignWith, FaceTo, IsAnchor, On, PositionLimitsBox, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import AlignWithValidator, OnRelationValidator, build_validators
 from isaaclab_arena.relations.validation.types import PlacementCheck
@@ -77,7 +76,7 @@ def test_alignment_validator_checks_tolerance():
     positions = [{subject: (x, 9.0, 10.0), reference: (0.0, 0.0, 0.0)} for x in (1.7, 1.72, 1.74)]
     batch = make_candidate_batch(positions, [{}] * 3, [bboxes] * 3)
     params = ObjectPlacerParams(verbose=False)
-    assert AlignWithValidator(params).validate_batch(batch, [], rejections=RejectionLog("test")) == [True, True, False]
+    assert AlignWithValidator(params).validate_batch(batch, [], rejections=[]) == [True, True, False]
     assert PlacementCheck.ALIGN_WITH in {validator.check for validator in build_validators(params)}
 
 
@@ -121,8 +120,8 @@ def test_candidate_alignment_seeds_use_rotated_centres(subject_yaw, reference_ya
     candidate_generator = PlacementCandidateGenerator(params)
     batch = candidate_generator.generate_candidates(objects, {table}, bounds, 8, torch.Generator(), [])
     repeated = candidate_generator.generate_candidates(objects, {table}, bounds, 8, torch.Generator(), [])
-    assert AlignWithValidator(params).validate_batch(batch, [], rejections=RejectionLog("test")) == [True] * 8
-    assert OnRelationValidator(params).validate_batch(batch, [], rejections=RejectionLog("test")) == [True] * 8
+    assert AlignWithValidator(params).validate_batch(batch, [], rejections=[]) == [True] * 8
+    assert OnRelationValidator(params).validate_batch(batch, [], rejections=[]) == [True] * 8
     for candidate, repeat in zip(batch.candidates, repeated.candidates, strict=True):
         assert candidate.positions == repeat.positions
         assert candidate.orientations == repeat.orientations

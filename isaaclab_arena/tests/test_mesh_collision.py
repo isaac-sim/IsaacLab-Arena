@@ -17,7 +17,6 @@ import pytest
 from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache, greedy_sphere_decomposition
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
-from isaaclab_arena.relations.placement_diagnostics import RejectionLog
 from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
@@ -546,15 +545,11 @@ def test_validate_no_overlap_mesh_catches_overlap():
 
     # Overlapping positions
     positions = {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.0, 0.0, 0.05)}
-    assert not validator._validate_no_overlap_mesh(
-        positions, _env_bboxes_for(positions), rejections=RejectionLog("test")
-    )
+    assert not validator._validate_no_overlap_mesh(positions, _env_bboxes_for(positions), rejections=[])
 
     # Separated positions
     positions_sep = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
-    assert validator._validate_no_overlap_mesh(
-        positions_sep, _env_bboxes_for(positions_sep), rejections=RejectionLog("test")
-    )
+    assert validator._validate_no_overlap_mesh(positions_sep, _env_bboxes_for(positions_sep), rejections=[])
 
 
 @requires_warp
@@ -612,7 +607,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     validator = NoOverlapValidator(params)
     positions = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
     env_bboxes = _env_bboxes_for(positions)
-    assert validator._validate_no_overlap_mesh(positions, env_bboxes, rejections=RejectionLog("test"))
+    assert validator._validate_no_overlap_mesh(positions, env_bboxes, rejections=[])
 
     # Force every query to hit the sentinel; the same separated layout must now fail.
     from isaaclab_arena.relations.validation import pre_physics as _pv_mod
@@ -624,7 +619,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
 
     monkeypatch.setattr(warp_sdf_kernels, "mesh_sdf", fake_sdf)
     monkeypatch.setattr(_pv_mod, "mesh_sdf", fake_sdf)
-    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, rejections=RejectionLog("test"))
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, rejections=[])
 
 
 @requires_warp
@@ -659,7 +654,7 @@ def test_validate_no_overlap_mesh_respects_anchor_yaw():
     # but inside rotated anchor (half-length=0.1 now spans Y).
     positions = {table: (0.0, 0.0, 0.0), anchor: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}
     assert not validator._validate_no_overlap_mesh(
-        positions, _env_bboxes_for(positions), rejections=RejectionLog("test")
+        positions, _env_bboxes_for(positions), rejections=[]
     ), "Validator should detect overlap with yawed anchor"
 
 
@@ -879,7 +874,7 @@ def test_yawed_aabb_proxy_validation_is_not_double_rotated():
     )
 
     assert not validator._validate_no_overlap_mesh(
-        positions, env_bboxes, orientations={source: math.pi / 2}, rejections=RejectionLog("test")
+        positions, env_bboxes, orientations={source: math.pi / 2}, rejections=[]
     )
 
 
@@ -955,9 +950,7 @@ def test_validate_no_overlap_mesh_respects_yawed_collision_object():
         ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
     )
 
-    assert not validator._validate_no_overlap_mesh(
-        positions, env_bboxes, collision_objects=[obstacle], rejections=RejectionLog("test")
-    )
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, collision_objects=[obstacle], rejections=[])
 
 
 @requires_warp
@@ -1252,18 +1245,18 @@ def test_aabb_gate_does_not_reject_diagonal_cylinders():
     # Sanity: AABB check without skip_mesh_pairs REJECTS this layout
     env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
     batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, env_bboxes)])
-    assert validator._validate_no_overlap(batch, [], skip_mesh_pairs=False, rejections=RejectionLog("test")) == [
+    assert validator._validate_no_overlap(batch, [], skip_mesh_pairs=False, rejections=[]) == [
         False
     ], "Sanity check failed: AABB should reject diagonal cylinders"
 
     # With skip_mesh_pairs=True (MESH mode), AABB validator skips this pair
-    assert validator._validate_no_overlap(batch, [], skip_mesh_pairs=True, rejections=RejectionLog("test")) == [
+    assert validator._validate_no_overlap(batch, [], skip_mesh_pairs=True, rejections=[]) == [
         True
     ], "AABB validator with skip_mesh_pairs should accept this pair"
 
     # Mesh validator accepts (cylinders don't actually overlap)
     assert validator._validate_no_overlap_mesh(
-        positions, env_bboxes, rejections=RejectionLog("test")
+        positions, env_bboxes, rejections=[]
     ), "Mesh validator should accept diagonal cylinders that don't geometrically overlap"
 
 
