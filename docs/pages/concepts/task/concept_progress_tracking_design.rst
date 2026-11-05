@@ -197,6 +197,116 @@ one combined condition; remembering each gear's earlier placement would allow a 
 before the task completes.
 
 
+.. _customize_existing_task_success:
+
+Customize success conditions in an existing task
+------------------------------------------------
+
+A task constructor need not expose every predicate argument. A subclass can replace
+``TaskTerminationCfg.success`` with its own explicit ``CompletionCriteria`` while reusing the
+parent's sensors, failures, and timeout. Do not depend on the positions of predicates in the
+parent's sequence to change their arguments or wrap their behavior.
+
+By default, this example requires a lift of more than 6 cm above the object's recorded resting height and
+placement within an X interval, in meters in each environment's frame. The interval checks the
+object's origin. ``object_on_destination`` still checks the destination footprint, upward support,
+and low speed. All placement conditions must hold together for the configured number of steps.
+
+.. code-block:: python
+
+   import torch
+   from functools import partial
+
+   from isaaclab.managers import SceneEntityCfg
+
+   from isaaclab_arena.assets.asset import Asset
+   from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+   from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+   from isaaclab_arena.tasks.predicates.object_settling import objects_settled
+   from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
+   from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+   from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+
+   class PlaceInXBoundsTask(PickAndPlaceTask):
+       """Lift an object and place it within an X interval on the destination."""
+
+       def __init__(
+           self,
+           pick_up_object: Asset,
+           destination_location: Asset,
+           background_scene: Asset,
+           min_x_m: float,
+           max_x_m: float,
+           minimum_lift_height_m: float = 0.06,
+           placement_consecutive_steps: int = 10,
+           episode_length_s: float = 30.0,
+       ):
+           super().__init__(
+               pick_up_object=pick_up_object,
+               destination_location=destination_location,
+               background_scene=background_scene,
+               placement_consecutive_steps=placement_consecutive_steps,
+               episode_length_s=episode_length_s,
+           )
+           assert min_x_m < max_x_m
+           assert minimum_lift_height_m > 0.0
+           self.min_x_m = min_x_m
+           self.max_x_m = max_x_m
+           self.minimum_lift_height_m = minimum_lift_height_m
+
+       def get_termination_cfg(self) -> TaskTerminationCfg:
+           termination_cfg = super().get_termination_cfg()
+           termination_cfg.success = [
+               CompletionCriteria(
+                   name="pick_and_place",
+                   predicate_sequence=[
+                       partial(objects_settled, object_names=[self.pick_up_object.name]),
+                       partial(
+                           object_is_above_height,
+                           object_name=self.pick_up_object.name,
+                           use_settled_state=True,
+                           distance=self.minimum_lift_height_m,
+                       ),
+                       TrueForConsecutiveStepsCfg(
+                           predicate=self._placed_inside_x_bounds,
+                           required_steps=self.placement_consecutive_steps,
+                       ),
+                   ],
+               ),
+           ]
+           return termination_cfg
+
+       def _placed_inside_x_bounds(self, env) -> torch.Tensor:
+           supported_placement = object_on_destination(
+               env,
+               object_cfg=SceneEntityCfg(self.pick_up_object.name),
+               destination_cfg=SceneEntityCfg(self.destination_location.name),
+               contact_sensor_cfg=self.contact_sensor_cfg,
+               force_threshold=self.force_threshold,
+               velocity_threshold=self.velocity_threshold,
+               support_cone_half_angle_rad=self.support_cone_half_angle_rad,
+           )
+           object_x_e = env.arena_world.get_pose_e(self.pick_up_object.name)[:, 0]
+           inside_x_bounds = (object_x_e >= self.min_x_m) & (object_x_e <= self.max_x_m)
+           return supported_placement & inside_x_bounds
+
+Pass the pickup object, destination, and background assets from the environment factory, just as
+for ``PickAndPlaceTask``. Choose ``min_x_m`` and ``max_x_m`` within the destination's footprint.
+The subclass calls the parent's constructor and inherits ``get_scene_cfg()``, keeping its contact
+sensor configuration. Calling the parent's ``get_termination_cfg()`` preserves ``object_dropped``
+and ``timeout_s``; assigning ``success`` replaces only the completion criteria.
+
+The subclass owns its sequence, including settling before the lift check. Arena still owns
+progress advancement, consecutive-step counters, and per-environment reset. Repeating this
+configuration does not duplicate those implementations.
+
+Validate the behavior the task promises, including ways to complete the milestones without the
+requested action. If an object must remain at its source until an earlier subtask finishes, test
+moving it away early. If placement requires release, test leaving it gripped at the destination.
+Those requirements need explicit conditions; ordering the lift and placement predicates does not
+establish either one. This example does not add a source-position or release requirement.
+
+
 Conditions that must remain true
 --------------------------------
 
