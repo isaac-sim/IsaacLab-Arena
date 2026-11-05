@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
@@ -25,18 +24,74 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 
 
-@dataclass
-class _CheckRun:
-    """What one check did on one batch of candidate layouts."""
+class _BatchCheckResults:
+    """Verdicts, evaluated layouts, and rejections of every check run on one batch of candidate layouts."""
 
-    verdicts: list[bool]
-    """Verdict per candidate in batch order. Candidates the check skipped are marked failed."""
+    def __init__(self, required_checks: set[str] | None) -> None:
+        """Start with no checks run.
 
-    evaluated_layout_indices: list[int]
-    """Batch positions of the candidates the check ran on."""
+        Args:
+            required_checks: Checks a candidate must pass to be valid. None requires every check; an empty set
+                requires none.
+        """
+        self._required_checks = required_checks
+        self._verdicts_by_check: dict[str, list[bool]] = {}
+        self._evaluated_layout_indices_by_check: dict[str, list[int]] = {}
+        self._rejections_by_check: dict[str, RejectionLog] = {}
 
-    rejections: RejectionLog
-    """Causes of the check's rejections."""
+    def add(
+        self, check: str, verdicts: list[bool], evaluated_layout_indices: list[int], rejections: RejectionLog
+    ) -> None:
+        """Add one check's results.
+
+        Args:
+            check: Name of the check.
+            verdicts: Verdict per candidate in batch order. Candidates the check skipped are marked failed.
+            evaluated_layout_indices: Batch positions of the candidates the check ran on.
+            rejections: Causes of the check's rejections.
+        """
+        assert check not in self._verdicts_by_check, f"Check '{check}' already has results for this batch."
+        self._verdicts_by_check[check] = verdicts
+        self._evaluated_layout_indices_by_check[check] = evaluated_layout_indices
+        self._rejections_by_check[check] = rejections
+
+    def is_required(self, check: str) -> bool:
+        """Whether a candidate must pass check to be valid."""
+        return self._required_checks is None or check in self._required_checks
+
+    def passes_required_checks(self, candidate_idx: int) -> bool:
+        """Whether the candidate at batch position candidate_idx passes every required check added so far."""
+        return all(
+            verdicts[candidate_idx] for check, verdicts in self._verdicts_by_check.items() if self.is_required(check)
+        )
+
+    def get_validation_results(self, candidate_idx: int) -> PlacementValidationResults:
+        """Return the verdict of every check for the candidate at batch position candidate_idx."""
+        return PlacementValidationResults(
+            validation_results={check: verdicts[candidate_idx] for check, verdicts in self._verdicts_by_check.items()},
+            required_checks=set(self._required_checks) if self._required_checks is not None else None,
+        )
+
+    def get_verdicts_by_check(self) -> dict[str, list[bool]]:
+        """Return each check's verdict per candidate, in the order the checks ran."""
+        return dict(self._verdicts_by_check)
+
+    def get_evaluated_layout_indices_by_check(self) -> dict[str, list[int]]:
+        """Return the batch positions each check ran on, in the order the checks ran."""
+        return dict(self._evaluated_layout_indices_by_check)
+
+    def get_check_diagnostics(self) -> dict[str, ValidationCheckDiagnostics]:
+        """Return each check's evaluated, passed, and rejection counts, in the order the checks ran."""
+        check_diagnostics = {}
+        for check, verdicts in self._verdicts_by_check.items():
+            # A check marks the candidates it skipped as failed, so its passes all come from candidates it ran on.
+            check_diagnostics[check] = ValidationCheckDiagnostics(
+                num_evaluated=len(self._evaluated_layout_indices_by_check[check]),
+                num_passed=sum(verdicts),
+                required=self.is_required(check),
+                num_rejected_by_cause=self._rejections_by_check[check].num_rejected_by_cause,
+            )
+        return check_diagnostics
 
 
 class PlacementValidationRunner:
@@ -66,8 +121,6 @@ class PlacementValidationRunner:
         Returns:
             The batch's validation diagnostics.
         """
-        # required_checks=None means "every enabled check is required"; an empty set means no checks are required.
-        required = self.params.required_checks
         num_candidates = len(batch)
 
         if self._visualizer is not None:
@@ -77,20 +130,24 @@ class PlacementValidationRunner:
                 [candidate.bboxes for candidate in batch.candidates],
             )
 
-        runs_by_check = self._run_inexpensive_checks(batch, collision_objects)
-        runs_by_check = self._run_expensive_checks(batch, collision_objects, required, runs_by_check)
+        results = _BatchCheckResults(self.params.required_checks)
+        self._run_inexpensive_checks(batch, collision_objects, results)
+        self._run_expensive_checks(batch, collision_objects, results)
         if self._visualizer is not None:
             self._visualizer.log_batch_verdicts(
-                {check: run.verdicts for check, run in runs_by_check.items()},
-                {check: run.evaluated_layout_indices for check, run in runs_by_check.items()},
+                results.get_verdicts_by_check(),
+                results.get_evaluated_layout_indices_by_check(),
                 self.params.required_checks,
             )
         for candidate_idx, candidate in enumerate(batch.candidates):
-            candidate.validation = PlacementValidationResults(
-                validation_results={check: run.verdicts[candidate_idx] for check, run in runs_by_check.items()},
-                required_checks=set(required) if required is not None else None,
-            )
-        batch_diagnostics = self._build_batch_validation_diagnostics(batch, required, runs_by_check)
+            candidate.validation = results.get_validation_results(candidate_idx)
+        batch_diagnostics = BatchValidationDiagnostics(
+            num_candidates=num_candidates,
+            num_valid=sum(
+                candidate.validation.do_all_required_validation_checks_pass() for candidate in batch.candidates
+            ),
+            checks=results.get_check_diagnostics(),
+        )
         if batch_diagnostics.checks:
             print(
                 f"[placement] Validated {num_candidates} candidate layout(s); passed per check:"
@@ -99,35 +156,24 @@ class PlacementValidationRunner:
         return batch_diagnostics
 
     def _run_inexpensive_checks(
-        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]
-    ) -> dict[str, _CheckRun]:
-        """Return each inexpensive validator's run on all candidates, keyed by check."""
-        runs_by_check = {}
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], results: _BatchCheckResults
+    ) -> None:
+        """Run every inexpensive validator on all candidates and add its results to results."""
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
                 rejections = RejectionLog(validator.check, self.params.verbose)
                 verdicts = validator.validate_batch(batch, collision_objects, rejections)
-                runs_by_check[validator.check] = _CheckRun(verdicts, list(range(len(batch))), rejections)
-        return runs_by_check
+                results.add(validator.check, verdicts, list(range(len(batch))), rejections)
 
     def _run_expensive_checks(
-        self,
-        batch: PlacementCandidateBatch,
-        collision_objects: list[CollisionObject],
-        required: set[str] | None,
-        runs_by_check: dict[str, _CheckRun],
-    ) -> dict[str, _CheckRun]:
-        """Return runs_by_check with each expensive validator's run added, keyed by check.
-
-        Each expensive validator runs only on candidates that passed every required check run before it.
-        """
-        runs_by_check = dict(runs_by_check)
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], results: _BatchCheckResults
+    ) -> None:
+        """Run each expensive validator on the candidates that pass every required check in results, and add its
+        results to results."""
         num_candidates = len(batch)
         for validator in self._validators:
             if validator.run_after_inexpensive_checks:
-                passed_layout_indices = [
-                    i for i in range(num_candidates) if self._passes_required_checks(runs_by_check, required, i)
-                ]
+                passed_layout_indices = [i for i in range(num_candidates) if results.passes_required_checks(i)]
                 if self._visualizer is not None:
                     self._visualizer.set_active_layouts(passed_layout_indices)
                 rejections = RejectionLog(validator.check, self.params.verbose)
@@ -140,48 +186,4 @@ class PlacementValidationRunner:
                     passed_layout_indices, verdicts_over_passed_layout, strict=True
                 ):
                     verdicts[layout_index_within_batch] = verdict
-                runs_by_check[validator.check] = _CheckRun(verdicts, passed_layout_indices, rejections)
-        return runs_by_check
-
-    @staticmethod
-    def _build_batch_validation_diagnostics(
-        batch: PlacementCandidateBatch,
-        required: set[str] | None,
-        runs_by_check: dict[str, _CheckRun],
-    ) -> BatchValidationDiagnostics:
-        """Return the batch's validation diagnostics from each check's run.
-
-        Call it after every candidate's validation results are set, since the valid count reads them.
-        """
-        checks = {}
-        for check, run in runs_by_check.items():
-            # A check marks the candidates it skipped as failed, so its passes all come from candidates it ran on.
-            checks[check] = ValidationCheckDiagnostics(
-                num_evaluated=len(run.evaluated_layout_indices),
-                num_passed=sum(run.verdicts),
-                required=required is None or check in required,
-                num_rejected_by_cause=run.rejections.num_rejected_by_cause,
-            )
-        return BatchValidationDiagnostics(
-            num_candidates=len(batch),
-            num_valid=sum(
-                candidate.validation.do_all_required_validation_checks_pass() for candidate in batch.candidates
-            ),
-            checks=checks,
-        )
-
-    @staticmethod
-    def _passes_required_checks(
-        runs_by_check: dict[str, _CheckRun],
-        required_checks: set[str] | None,
-        candidate_idx: int,
-    ) -> bool:
-        """Whether a candidate passes every required check in runs_by_check.
-
-        required_checks=None means every check run is required; an explicit set gates only its members.
-        """
-        for check, run in runs_by_check.items():
-            is_required = required_checks is None or check in required_checks
-            if is_required and not run.verdicts[candidate_idx]:
-                return False
-        return True
+                results.add(validator.check, verdicts, passed_layout_indices, rejections)
