@@ -53,6 +53,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.variations.gripper_material_variation import GripperMaterialVariation
 
 if TYPE_CHECKING:
     import trimesh
@@ -94,6 +95,10 @@ _DROID_NEWTON_GRIPPER_MIMIC_SIGNS = {
     "right_inner_finger_joint": 1.0,
     "right_inner_finger_knuckle_joint": -1.0,
 }
+_DROID_GRIPPER_PAD_COLLIDER_PATHS = (
+    "Gripper/Robotiq_2F_85/left_inner_finger/Defeatured_2F_85_PAD_OPEN_fingertipsstep_01",
+    "Gripper/Robotiq_2F_85/right_inner_finger/Defeatured_2F_85_PAD_OPEN_fingertipsstep_01",
+)
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -159,6 +164,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
+        self.add_variation(GripperMaterialVariation(self, collider_paths=_DROID_GRIPPER_PAD_COLLIDER_PATHS))
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply Newton spawn and gripper overrides shared by all DROID embodiments."""
