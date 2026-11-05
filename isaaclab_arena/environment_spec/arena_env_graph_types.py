@@ -259,6 +259,14 @@ class SpatialRelationSpec(BaseModel):
         description="Optional kind-specific parameters; leave empty by default.",
     )
 
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _reject_yaml_boolean_kind(cls, value: Any) -> Any:
+        """Explain the YAML 1.1 boolean that an unquoted ``on`` becomes."""
+        if isinstance(value, bool):
+            raise ValueError(f"YAML reads an unquoted 'on' as {value}; quote it: kind: 'on'")
+        return value
+
     @field_validator("reference", mode="before")
     @classmethod
     def _none_if_empty_reference(cls, value: Any) -> Any:
