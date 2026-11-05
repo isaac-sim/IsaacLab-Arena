@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -18,6 +19,7 @@ class UsdBoundingBox:
     """Axis-aligned bounds in the inspected root's frame, expressed in meters."""
 
     center_m: tuple[float, float, float]
+    """Bounding-box center, not the body origin or pose."""
     size_m: tuple[float, float, float]
 
 
@@ -86,74 +88,15 @@ class UsdPrimRecord:
     instance: UsdInstanceInfo | None = None
 
 
-def _format_tuple(values: tuple[float, ...]) -> str:
-    return "[" + ",".join(f"{value:.6g}" for value in values) + "]"
-
-
 def format_usd_prim_record_metadata(record: UsdPrimRecord) -> str:
-    """Return compact physics and spatial metadata for a prim-tree record."""
+    """Return short physics labels for hierarchy browsing."""
     fields: list[str] = []
     if record.joint_names:
         fields.append(f"joints=[{','.join(record.joint_names)}]")
-    if record.bounding_box_root is not None:
-        bounds = record.bounding_box_root
-        fields.extend((
-            f"bbox_center_m={_format_tuple(bounds.center_m)}",
-            f"bbox_size_m={_format_tuple(bounds.size_m)}",
-        ))
     if record.joint is not None:
-        joint = record.joint
-        joint_fields = [
-            f"type={joint.type_name}",
-            f"enabled={str(joint.enabled).lower()}",
-            f"body_0={joint.body_0_path or 'world'}",
-            f"body_1={joint.body_1_path or 'world'}",
-        ]
-        if joint.axis is not None:
-            joint_fields.append(f"axis={joint.axis}")
-        if joint.lower_limit is not None or joint.upper_limit is not None:
-            joint_fields.append(f"limits=[{joint.lower_limit},{joint.upper_limit}]")
-            joint_fields.append(f"limit_unit={joint.limit_unit}")
-        fields.append(f"joint({','.join(joint_fields)})")
+        fields.append(f"joint(type={record.joint.type_name})")
     if record.collider is not None:
-        collider = record.collider
-        collider_fields = [
-            f"type={collider.type_name}",
-            f"enabled={str(collider.enabled).lower()}",
-            f"rigid_body_owner={collider.rigid_body_owner_path or 'world'}",
-            f"approximation={collider.approximation}",
-            f"contact_offset_m={collider.contact_offset_m}",
-            f"rest_offset_m={collider.rest_offset_m}",
-        ]
-        fields.append(f"collider({','.join(collider_fields)})")
-    if record.rigid_body is not None:
-        rigid_body = record.rigid_body
-        rigid_body_fields = [
-            f"enabled={str(rigid_body.enabled).lower()}",
-            f"kinematic={str(rigid_body.kinematic).lower()}",
-            f"mass_kg={rigid_body.mass_kg}",
-            f"density_kg_m3={rigid_body.density_kg_m3}",
-            f"disable_gravity={rigid_body.disable_gravity}",
-            f"linear_damping={rigid_body.linear_damping}",
-            f"angular_damping={rigid_body.angular_damping}",
-        ]
-        if rigid_body.center_of_mass is not None:
-            rigid_body_fields.append(f"center_of_mass={_format_tuple(rigid_body.center_of_mass)}")
-        if rigid_body.diagonal_inertia is not None:
-            rigid_body_fields.append(f"diagonal_inertia={_format_tuple(rigid_body.diagonal_inertia)}")
-        fields.append(f"rigid_body({','.join(rigid_body_fields)})")
-    if record.instance is not None and (
-        record.instance.instance or record.instance.instance_proxy or record.instance.instanceable
-    ):
-        instance = record.instance
-        fields.append(
-            "instance("
-            f"instance={str(instance.instance).lower()},"
-            f"proxy={str(instance.instance_proxy).lower()},"
-            f"instanceable={str(instance.instanceable).lower()},"
-            f"prototype={instance.prototype_path}"
-            ")"
-        )
+        fields.append(f"collider(type={record.collider.type_name},approximation={record.collider.approximation})")
     return " ".join(fields)
 
 
@@ -179,13 +122,24 @@ def format_usd_prim_tree(prim_tree: list[UsdPrimRecord], *, heading: str = "USD 
 
 
 def usd_prim_records_to_dicts(prim_tree: list[UsdPrimRecord]) -> list[dict[str, Any]]:
-    """Return JSON-serializable dictionaries for prim-tree records."""
+    """Return complete records for strict JSON, encoding non-finite floats as "inf", "-inf", or "nan"."""
     records = []
     for record in prim_tree:
         data = asdict(record)
         data["object_type"] = record.object_type.value
-        records.append(data)
+        records.append(_json_value(data))
     return records
+
+
+def _json_value(value: Any) -> Any:
+    """Convert nested metadata to JSON values without non-finite numeric tokens."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    return value
 
 
 def _attribute_value(attribute, default=None):

@@ -104,19 +104,3 @@ USD prims exist.
 
 For an already constructed object, update ``object_cfg.spawn``; changing only
 ``spawn_cfg_addon`` after construction does not rebuild that config.
-
-Inspecting authored physics
----------------------------
-
-Use ``scene_inspector.py prim-tree --usd ...`` to inspect the authored USD without
-starting SimulationApp. Add ``--prim`` to select a subtree and ``--format json`` for
-machine-readable output. The report includes composed joints, colliders, rigid-body
-properties, bounds, and instancing metadata.
-
-Bounds and contact/rest offsets are converted to meters using the stage's
-``metersPerUnit``. Bounds use the selected root's frame and include default, guide,
-proxy, and render purposes. Collider owners and joint bodies inside the selected
-subtree use root-relative paths (``.`` for the root); bodies outside it retain
-absolute stage paths.
-
-Authored inspection does not include Arena or Isaac Lab spawn-time overrides.

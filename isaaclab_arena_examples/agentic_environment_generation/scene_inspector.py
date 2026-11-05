@@ -22,7 +22,7 @@ from typing import Any
 
 
 def _json_stdout(payload: dict[str, Any]) -> None:
-    print(json.dumps(payload, sort_keys=True), flush=True)
+    print(json.dumps(payload, sort_keys=True, allow_nan=False), flush=True)
 
 
 def _dump_prim_tree(args: argparse.Namespace) -> int:
@@ -33,7 +33,7 @@ def _dump_prim_tree(args: argparse.Namespace) -> int:
     output_path = args.output.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if args.format == "json":
-        output_text = json.dumps(usd_prim_records_to_dicts(records), indent=2) + "\n"
+        output_text = json.dumps(usd_prim_records_to_dicts(records), indent=2, allow_nan=False) + "\n"
     else:
         output_text = format_usd_prim_tree(records) + "\n"
     output_path.write_text(output_text, encoding="utf-8")
@@ -52,7 +52,7 @@ def _dump_prim_tree(args: argparse.Namespace) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    prim_tree = commands.add_parser("prim-tree", help="Dump the USD physics/collision prim tree.")
+    prim_tree = commands.add_parser("prim-tree", help="Report the USD physics hierarchy as compact text or full JSON.")
     prim_tree.add_argument("--usd", required=True, help="Local path or supported remote URL of the USD scene.")
     prim_tree.add_argument(
         "--prim",
@@ -62,9 +62,9 @@ def _parser() -> argparse.ArgumentParser:
         "--format",
         choices=("text", "json"),
         default="text",
-        help="Report format (default: text).",
+        help="text: compact hierarchy (default); json: complete structured metadata.",
     )
-    prim_tree.add_argument("--output", type=Path, required=True, help="Destination text or JSON file.")
+    prim_tree.add_argument("--output", type=Path, required=True, help="Destination report file.")
     prim_tree.set_defaults(handler=_dump_prim_tree)
     return parser
 

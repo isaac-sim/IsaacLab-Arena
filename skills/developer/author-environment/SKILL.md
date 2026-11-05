@@ -26,35 +26,17 @@ inheritance chains before adding capabilities. If reuse cannot express a require
 missing capability and add the smallest extension. Do not duplicate solvers, predicates, temporal
 counters, reset loops, progress tracking, or variation systems that Arena already provides.
 
-### Inspect USD scene physics
+### Inspect USD assets
 
 Before selecting an `object_reference.prim_path`, support surface, openable articulation, or
-collision geometry from a USD scene, dump its composed physics prim tree without starting
-SimulationApp:
+collision geometry from a USD scene, dump its composed physics prim tree using
+`python scene_inspector.py prim-tree --usd ...`. Skim the text hierarchy to locate relevant rigid
+bodies, articulations, joints, and colliders. Only after identifying a relevant subtree, rerun with
+`--prim <path> --format json` to inspect its complete bounds, mass, damping, joint, collider, and
+instancing metadata. Do not dump a whole scene as JSON or infer physics from prim names.
 
-```bash
-uv run --no-sync python \
-  isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
-  prim-tree --usd <scene.usd> --output /tmp/scene_prim_tree.txt
-
-# Restrict inspection to one subtree and produce machine-readable output.
-uv run --no-sync python \
-  isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
-  prim-tree --usd <scene.usd> --prim <default-prim-relative/path> \
-  --format json --output /tmp/scene_prim_tree.json
-```
-
-Read the generated text file to inspect the hierarchy and object types. Physics records include
-root-frame bounding-box center and size, joint type/axis/limits/connected bodies, collider type and
-approximation, and authored rigid-body properties such as mass and density. Use these fields to
-confirm a candidate rather than inferring physics from prim names alone. Mass and inertia are
-authored USD values; they do not include values computed later by PhysX or Newton.
-Bounds and contact/rest offsets use meters, accounting for the stage's `metersPerUnit`.
-Bounds include default, guide, proxy, and render purposes in the selected root's frame.
-Collider-owner and joint-body paths are root-relative inside the selected subtree (`.` for
-the root) and absolute for bodies outside it.
-The report also identifies instances, instance proxies, and prototypes. This command inspects
-the authored USD only; it cannot show Arena or Isaac Lab spawn-time overrides.
+The output describes authored USD physics only; it does not include Arena or Isaac Lab spawn-time
+overrides.
 
 ## Assemble from maintained sources
 

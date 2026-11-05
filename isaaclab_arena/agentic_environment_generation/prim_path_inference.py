@@ -54,7 +54,7 @@ class PrimPathInference:
 
         spec = _enforce_object_reference_types(spec)
         usd_path = spec.background.resolve_usd_path()
-        prim_tree = load_usd_prim_tree(usd_path)
+        prim_tree = [record for record in load_usd_prim_tree(usd_path) if record.joint is None]
         data = self._inference_backend.run_json(
             StructuredOutputRequest(
                 schema_name="ResolvedObjectReferences",
@@ -94,7 +94,6 @@ GUIDANCE:
   BACKGROUND PRIM TREE matches it exactly. Do not change object_type.
 - When the input object_type is base, the prim tree object_type may be base, rigid, or articulation;
   pick the prim that semantically represents the referenced static fixture or surface.
-- Never use a line tagged with joint(...) as prim_path; it describes a joint rather than an object or surface.
 - When the input object_type is articulation, pick the articulation root prim (the line that
   lists joint names), not a rigid child mesh or collision prim under it.
 - When the input object_type is base, pick an anchor-surface prim (counter top, shelf, etc.).
@@ -197,9 +196,6 @@ def _validate_against_prim_tree(
         assert (
             record is not None
         ), f"Object reference '{ref.id}' prim_path {prim_path!r} is not in the background prim tree"
-        assert (
-            record.joint is None
-        ), f"Object reference '{ref.id}' prim_path {prim_path!r} identifies a joint, not an object or surface"
         if ref.object_type != ObjectType.BASE:
             assert ref.object_type == record.object_type, (
                 f"Object reference '{ref.id}' object_type {ref.object_type!r} does not match prim tree "
