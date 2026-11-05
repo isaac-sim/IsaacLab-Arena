@@ -17,8 +17,8 @@ from pathlib import Path, PurePosixPath
 from typing import ClassVar
 
 from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
+from isaaclab_arena.evaluation.report_data import EpisodeSummary, JobSummary, build_experiment_summary
 from isaaclab_arena.utils.git_stamp import GitStamp
-from isaaclab_arena.visualization.report_data import EpisodeSummary, JobSummary, build_experiment_summary
 from isaaclab_arena_benchmarking.benchmarks.registry import register_kpi_exporter
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
 

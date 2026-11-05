@@ -19,7 +19,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
-from isaaclab_arena.visualization.episode_results_files import (
+from isaaclab_arena.evaluation.episode_results_files import (
     DataIssue,
     find_episode_results_files,
     find_episode_video_files,
