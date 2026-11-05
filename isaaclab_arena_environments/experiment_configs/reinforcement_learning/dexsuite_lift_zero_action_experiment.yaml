@@ -1,0 +1,16 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Checks that the dexsuite_lift environment loads by stepping it with zero actions.
+# The environment uses Newton physics by default. To use PhysX instead, add
+# runs.dexsuite_lift_zero_action.environment_builder.presets=PHYSX to the command.
+runs:
+  dexsuite_lift_zero_action:
+    environment:
+      type: dexsuite_lift
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 100

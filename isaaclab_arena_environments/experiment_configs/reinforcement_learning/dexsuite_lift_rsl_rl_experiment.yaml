@@ -1,0 +1,19 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Evaluates an Isaac-Lift-KukaAllegro RSL-RL checkpoint in the dexsuite_lift environment.
+# The policy reads its runner config from params/agent.yaml next to the checkpoint.
+# To evaluate another checkpoint, add
+# runs.dexsuite_lift_rsl_rl.policy.checkpoint_path=<path> to the command.
+runs:
+  dexsuite_lift_rsl_rl:
+    environment:
+      type: dexsuite_lift
+    policy:
+      type: rsl_rl
+      # Download location used by the Dexsuite Lift evaluation tutorial.
+      checkpoint_path: /models/isaaclab_arena/dexsuite_lift/Isaac-Lift-KukaAllegro.pt
+    rollout_limit:
+      num_episodes: 20

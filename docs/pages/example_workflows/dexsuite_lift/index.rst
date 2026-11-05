@@ -16,8 +16,9 @@ modelling during dexterous manipulation.
    **Newton Physics — Experimental**
 
    The ``dexsuite_lift`` environment defaults to Newton physics. Newton can
-   also be selected explicitly for other Arena environments by passing
-   ``--presets newton``. However, **Newton support is experimental** — only
+   also be selected explicitly for other Arena environments by setting
+   ``environment_builder.presets`` to ``NEWTON`` in an Experiment Run.
+   However, **Newton support is experimental** — only
    this example has been verified to work with Newton under the current
    simulation settings. Other
    environments may require additional tuning of solver parameters and physics parameters
@@ -57,7 +58,7 @@ body states, object point cloud, and 5-step observation history.
    * - **Training Method**
      - Reinforcement Learning (on-policy PPO) — trained in **Isaac Lab**
    * - **Physics Backend**
-     - Newton (default) or PhysX (``--presets physx``)
+     - Newton (default) or PhysX (``environment_builder.presets: PHYSX``)
    * - **Simulation Rate**
      - 120 Hz physics, 30 Hz control (decimation = 4)
    * - **Episode Length**
@@ -69,9 +70,10 @@ body states, object point cloud, and 5-step observation history.
 
 .. note::
 
-   Arena evaluation defaults to **Newton** for this environment. Pass
-   ``--presets physx`` to ``policy_runner.py`` to use PhysX instead. Isaac Lab
-   training selects Newton separately with ``physics=newton_mjwarp``.
+   Arena evaluation defaults to **Newton** for this environment. Set
+   ``environment_builder.presets`` to ``PHYSX`` in the Experiment Run to use
+   PhysX instead. Isaac Lab training selects Newton separately with
+   ``physics=newton_mjwarp``.
 
 
 Workflow

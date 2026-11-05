@@ -11,8 +11,8 @@ Environment Description
 
 The ``dexsuite_lift`` Arena environment wraps the Isaac Lab
 ``Isaac-Lift-KukaAllegro`` MDP for evaluation.
-The physics backend defaults to Newton. Pass ``--presets physx`` to override
-that environment default.
+The physics backend defaults to Newton. Set ``environment_builder.presets`` in an
+Experiment Run to override that environment default.
 
 The environment is defined in
 ``isaaclab_arena_environments/dexsuite_lift_environment.py``:
@@ -60,8 +60,9 @@ The environment is defined in
 
 .. note::
 
-   The environment declares Newton as its default backend. The common
-   ``--presets`` CLI flag can override that default.
+   The environment declares Newton as its default backend. The
+   ``environment_builder.presets`` field of an Experiment Run can override that
+   default.
 
 
 Step-by-Step Breakdown
@@ -107,8 +108,12 @@ commanded target.
 
 The physics backend is selected by ``ArenaEnvBuilder``:
 
-- **Default (Newton)**: no extra flag needed.
-- **PhysX override**: pass ``--presets physx`` to ``policy_runner.py``.
+- **Default (Newton)**: no extra setting needed.
+- **PhysX override**: set ``environment_builder.presets`` to ``PHYSX`` in the
+  Run, or pass ``runs.<name>.environment_builder.presets=PHYSX`` to
+  ``experiment_runner.py``.
+
+In an Experiment, write the backend name in upper case: ``PHYSX`` or ``NEWTON``.
 
 When Newton is resolved, the environment callback:
 
@@ -120,24 +125,28 @@ When Newton is resolved, the environment callback:
 Validation: Run Zero-Action Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Verify the environment loads correctly with a zero-action policy:
+Verify the environment loads correctly with a zero-action policy. This
+Experiment YAML runs the ``dexsuite_lift`` environment with the ``zero_action``
+policy for 100 steps:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/reinforcement_learning/dexsuite_lift_zero_action_experiment.yaml
+   :language: yaml
+   :start-at: runs:
+
+Run it with the Experiment Runner:
 
 .. code-block:: bash
 
    # PhysX override:
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --presets physx \
-     --policy_type zero_action \
-     --num_steps 100 \
-     dexsuite_lift
+     --experiment_config isaaclab_arena_environments/experiment_configs/reinforcement_learning/dexsuite_lift_zero_action_experiment.yaml \
+     runs.dexsuite_lift_zero_action.environment_builder.presets=PHYSX
 
    # Newton (environment default):
-   PYOPENGL_PLATFORM=glx python isaaclab_arena/evaluation/policy_runner.py \
+   PYOPENGL_PLATFORM=glx python isaaclab_arena/evaluation/experiment_runner.py \
      --viz newton_gl \
-     --policy_type zero_action \
-     --num_steps 100 \
-     dexsuite_lift
+     --experiment_config isaaclab_arena_environments/experiment_configs/reinforcement_learning/dexsuite_lift_zero_action_experiment.yaml
 
 You should see the Kuka Allegro hand with Arena's procedural cuboid.
 
@@ -145,8 +154,9 @@ You should see the Kuka Allegro hand with Arena's procedural cuboid.
 
    ``--viz newton_gl`` uses the MuJoCo viewer; ``--viz kit`` uses
    the Kit viewer. The visualizer setting is independent of the physics backend.
-   For example, ``--viz kit --presets newton`` runs Newton physics with
-   the Kit viewer.
+   For example, ``--viz kit`` with the
+   ``runs.<name>.environment_builder.presets=NEWTON`` override runs Newton
+   physics with the Kit viewer.
 
    On Linux, set ``PYOPENGL_PLATFORM=glx`` before starting Python with the
    interactive Newton viewer. This avoids a PyOpenGL context initialization
