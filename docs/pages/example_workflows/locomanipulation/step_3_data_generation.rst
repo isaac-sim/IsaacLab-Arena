@@ -108,11 +108,9 @@ You can pause with ``B``, mark with ``S``, then resume with ``N``.
 Mark **two boundaries per arm and three for the body**. Let each replay finish
 after marking them. The final subtask ends with the episode and needs no mark.
 
-Each press prints ``Marked a subtask signal at action index: <index>``. Press
-``S`` only after playback has started, and not twice while paused: marks must
-be at strictly increasing frames for Step 2. If you mistime a mark, press ``S``
-once more before the replay ends; the wrong count makes the script replay the
-pass. To drop the episode instead, press ``Q``.
+Each press prints ``Marked a subtask signal at action index: <index>``. If you
+mistime a mark, press ``S`` once more before the replay ends; the wrong count
+makes the script replay the pass. To drop the episode instead, press ``Q``.
 
 **Check the result**
 
@@ -133,12 +131,9 @@ recorded episodes in which one replay failed prints:
    Exported 4 (out of 5) annotated episodes.
    Successful task completions: 4
 
-Annotation succeeds when at least one episode is exported; Step 2 can use the
-exported subset. Some episodes can be skipped, and the count can differ between
-runs on the same recording, because replay is not fully repeatable. These
-messages confirm task completion and mark counts, not boundary timing; use the
-table above to time your marks. Judge the run by this summary, not by the
-process exit code.
+Annotation succeeds when at least one episode is exported. Some episodes may be
+skipped if PhysX non-determinism causes borderline successful trajectories to
+fail the task during replay.
 
 .. important::
 
