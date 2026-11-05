@@ -113,11 +113,8 @@ if [ "$(docker ps -a --quiet --filter status=exited --filter "name=^${DOCKER_IMA
     docker rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX > /dev/null
 fi
 
-add_volume_if_it_exists() {
-    local src="$1"
-    local dst="$2"
-    [ -d "$src" ] && echo "-v $src:$dst"
-}
+# Create the host directories that are mounted into the container home.
+mkdir -p "$DATASETS_HOST_MOUNT_DIRECTORY" "$MODELS_HOST_MOUNT_DIRECTORY" "$EVAL_HOST_MOUNT_DIRECTORY"
 
 # Forward host SSH auth into the container when available.
 SSH_DOCKER_ARGS=()
@@ -141,9 +138,9 @@ else
                     "--runtime=nvidia"
                     "--gpus=all"
                     "-v" "$(cd "$SCRIPT_DIR/.." && pwd):${WORKDIR}"
-                    $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
-                    $(add_volume_if_it_exists $MODELS_HOST_MOUNT_DIRECTORY /models)
-                    $(add_volume_if_it_exists $EVAL_HOST_MOUNT_DIRECTORY /eval)
+                    "-v" "$DATASETS_HOST_MOUNT_DIRECTORY:/home/$(id -un)/datasets"
+                    "-v" "$MODELS_HOST_MOUNT_DIRECTORY:/home/$(id -un)/models"
+                    "-v" "$EVAL_HOST_MOUNT_DIRECTORY:/home/$(id -un)/eval"
                     "-v" "$HOME/.bash_history:/home/$(id -un)/.bash_history"
                     "-v" "$HOME/.config/osmo:/home/$(id -un)/.config/osmo"
                     "-v" "$HOME/.config/gh:/home/$(id -un)/.config/gh"
