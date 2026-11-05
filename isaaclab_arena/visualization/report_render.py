@@ -13,8 +13,8 @@ import re
 import string
 from urllib.parse import quote
 
-from isaaclab_arena.visualization.episode_results_files import REPORT_DIRNAME, DataIssue
-from isaaclab_arena.visualization.report_data import (
+from isaaclab_arena.evaluation.episode_results_files import REPORT_DIRNAME, DataIssue
+from isaaclab_arena.evaluation.report_data import (
     CompletionCriteriaFunnel,
     ExperimentSummary,
     JobSummary,

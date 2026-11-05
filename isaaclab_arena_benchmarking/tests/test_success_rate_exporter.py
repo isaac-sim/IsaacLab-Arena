@@ -16,7 +16,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME  # noqa: E402
-from isaaclab_arena.visualization.report_data import build_experiment_summary  # noqa: E402
+from isaaclab_arena.evaluation.report_data import build_experiment_summary  # noqa: E402
 from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import (  # noqa: E402
     PerExperimentRecord,
     SuccessRateKpiExporter,
