@@ -169,6 +169,7 @@ def _test_prim_tree_spatial_metadata(_, meters_per_unit: float | None) -> bool:
         stage = Usd.Stage.CreateNew(str(path))
         if meters_per_unit is not None:
             UsdGeom.SetStageMetersPerUnit(stage, meters_per_unit)
+        UsdPhysics.SetStageKilogramsPerUnit(stage, 0.001)
         root = UsdGeom.Xform.Define(stage, "/Asset")
         stage.SetDefaultPrim(root.GetPrim())
 
@@ -178,6 +179,9 @@ def _test_prim_tree_spatial_metadata(_, meters_per_unit: float | None) -> bool:
         moving_body = UsdGeom.Xform.Define(stage, "/Asset/MovingBody")
         moving_body.AddTranslateOp().Set(Gf.Vec3d(1.0, 2.0, 3.0))
         UsdPhysics.RigidBodyAPI.Apply(moving_body.GetPrim())
+        mass = UsdPhysics.MassAPI.Apply(moving_body.GetPrim())
+        mass.CreateMassAttr(1000.0)
+        mass.CreateDensityAttr(2.0)
         collider = UsdGeom.Cube.Define(stage, "/Asset/MovingBody/Collider")
         collider.AddScaleOp().Set(Gf.Vec3f(0.5, 1.0, 1.5))
         UsdPhysics.CollisionAPI.Apply(collider.GetPrim())
@@ -197,6 +201,8 @@ def _test_prim_tree_spatial_metadata(_, meters_per_unit: float | None) -> bool:
     expected_bounds_m = (distance_scale, 2.0 * distance_scale, 3.0 * distance_scale)
     assert moving_record.bounding_box_root.center_m == pytest.approx(expected_bounds_m)
     assert moving_record.bounding_box_root.size_m == pytest.approx(expected_bounds_m)
+    assert moving_record.rigid_body.mass_kg == pytest.approx(1.0)
+    assert moving_record.rigid_body.density_kg_m3 == pytest.approx(2.0 * 0.001 / distance_scale**3)
 
     collider_record = records["MovingBody/Collider"]
     assert collider_record.collider is not None
@@ -327,3 +333,29 @@ def _test_prim_tree_subtree_preserves_body_paths(_) -> bool:
 
 def test_prim_tree_subtree_preserves_body_paths():
     assert run_function_with_persistent_simulation_app(_test_prim_tree_subtree_preserves_body_paths)
+
+
+def _test_absolute_subtree_without_default_prim(_) -> bool:
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "no_default_prim.usda"
+        stage = Usd.Stage.CreateNew(str(path))
+        body = UsdGeom.Xform.Define(stage, "/World/Body").GetPrim()
+        UsdPhysics.RigidBodyAPI.Apply(body)
+        stage.GetRootLayer().Save()
+
+        records = load_usd_prim_tree(str(path), prim_path="/World/Body")
+        assert len(records) == 1
+        assert records[0].relative_path == "."
+        assert records[0].object_type == ObjectType.RIGID
+
+        with pytest.raises(AssertionError, match="no valid default prim"):
+            load_usd_prim_tree(str(path))
+        with pytest.raises(AssertionError, match="no valid default prim"):
+            load_usd_prim_tree(str(path), prim_path="World/Body")
+    return True
+
+
+def test_absolute_subtree_without_default_prim():
+    assert run_function_with_persistent_simulation_app(_test_absolute_subtree_without_default_prim)

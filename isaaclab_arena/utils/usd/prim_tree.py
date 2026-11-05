@@ -182,14 +182,23 @@ def _distance_in_meters(value, meters_per_unit: float) -> float | None:
     return None if value is None else float(value) * meters_per_unit
 
 
-def _rigid_body_info(prim, UsdPhysics) -> UsdRigidBodyInfo:
+def _rigid_body_info(
+    prim,
+    UsdPhysics,
+    kilograms_per_unit: float,
+    meters_per_unit: float,
+) -> UsdRigidBodyInfo:
     rigid_body = UsdPhysics.RigidBodyAPI(prim)
     mass = UsdPhysics.MassAPI(prim)
+    mass_value = _authored_attribute_value(mass.GetMassAttr())
+    density_value = _authored_attribute_value(mass.GetDensityAttr())
     return UsdRigidBodyInfo(
         enabled=bool(_attribute_value(rigid_body.GetRigidBodyEnabledAttr(), True)),
         kinematic=bool(_attribute_value(rigid_body.GetKinematicEnabledAttr(), False)),
-        mass_kg=_optional_float(_authored_attribute_value(mass.GetMassAttr())),
-        density_kg_m3=_optional_float(_authored_attribute_value(mass.GetDensityAttr())),
+        mass_kg=None if mass_value is None else float(mass_value) * kilograms_per_unit,
+        density_kg_m3=(
+            None if density_value is None else float(density_value) * kilograms_per_unit / meters_per_unit**3
+        ),
         center_of_mass=_optional_tuple(_authored_attribute_value(mass.GetCenterOfMassAttr())),
         diagonal_inertia=_optional_tuple(_authored_attribute_value(mass.GetDiagonalInertiaAttr())),
         disable_gravity=_authored_named_attribute_value(prim, "physxRigidBody:disableGravity"),
@@ -414,6 +423,7 @@ def load_stage_prim_tree(stage, root_prim, *, include_physical_root: bool = Fals
     prims = tuple(Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()))
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), UsdGeom.Imageable.GetOrderedPurposeTokens())
     meters_per_unit = UsdGeom.GetStageMetersPerUnit(stage)
+    kilograms_per_unit = UsdPhysics.GetStageKilogramsPerUnit(stage)
     root_path = root_prim.GetPath()
     included_paths: set[Sdf.Path] = set()
     for prim in prims:
@@ -460,7 +470,11 @@ def load_stage_prim_tree(stage, root_prim, *, include_physical_root: bool = Fals
                     if prim.HasAPI(UsdPhysics.CollisionAPI)
                     else None
                 ),
-                rigid_body=_rigid_body_info(prim, UsdPhysics) if prim.HasAPI(UsdPhysics.RigidBodyAPI) else None,
+                rigid_body=(
+                    _rigid_body_info(prim, UsdPhysics, kilograms_per_unit, meters_per_unit)
+                    if prim.HasAPI(UsdPhysics.RigidBodyAPI)
+                    else None
+                ),
                 instance=UsdInstanceInfo(
                     instance=prim.IsInstance(),
                     instance_proxy=prim.IsInstanceProxy(),
@@ -490,12 +504,16 @@ def load_usd_prim_tree(usd_path: str, prim_path: str | None = None) -> list[UsdP
     local_usd_path = retrieve_file_path(usd_path)
     with open_stage(local_usd_path) as stage:
         stage.Load()
-        default_prim = stage.GetDefaultPrim()
-        assert default_prim and default_prim.IsValid(), f"USD has no valid default prim: {usd_path}"
-        if prim_path:
-            absolute_path = prim_path if prim_path.startswith("/") else f"{default_prim.GetPath()}/{prim_path}"
+        if prim_path and prim_path.startswith("/"):
+            absolute_path = prim_path
             root_prim = stage.GetPrimAtPath(absolute_path)
             assert root_prim and root_prim.IsValid(), f"USD prim does not exist: {prim_path}"
         else:
-            root_prim = default_prim
+            default_prim = stage.GetDefaultPrim()
+            assert default_prim and default_prim.IsValid(), f"USD has no valid default prim: {usd_path}"
+            if prim_path:
+                root_prim = stage.GetPrimAtPath(f"{default_prim.GetPath()}/{prim_path}")
+                assert root_prim and root_prim.IsValid(), f"USD prim does not exist: {prim_path}"
+            else:
+                root_prim = default_prim
         return load_stage_prim_tree(stage, root_prim, include_physical_root=bool(prim_path))
