@@ -56,7 +56,7 @@ To start manual annotation, run:
      env.actions.g1_action.use_p_control=false
 
 The final override keeps the recorded navigation commands during annotation.
-Step 2 uses the navigation controller to generate new demonstrations.
+Step 2 below uses the navigation controller to generate new demonstrations.
 
 **Mark the subtask boundaries**
 
@@ -103,10 +103,16 @@ You can pause with ``B``, mark with ``S``, then resume with ``N``.
      - When the robot finishes turning toward the bin after picking up the box.
    * - Body
      - ``navigate_to_bin``
-     - When the robot reaches the bin, before placing the box.
+     - When the robot stops walking at the bin, before it squats to place the box.
 
 Mark **two boundaries per arm and three for the body**. Let each replay finish
 after marking them. The final subtask ends with the episode and needs no mark.
+
+Each press prints ``Marked a subtask signal at action index: <index>``. Press
+``S`` only after playback has started, and not twice while paused: marks must
+be at strictly increasing frames for Step 2. If you mistime a mark, press ``S``
+once more before the replay ends; the wrong count makes the script replay the
+pass. To drop the episode instead, press ``Q``.
 
 **Check the result**
 
@@ -119,8 +125,8 @@ For each exported episode, the output includes:
    All 3 subtask signals for eef "body" were annotated.
    Exported the annotated episode.
 
-The run ends with a summary. For example, a run on five recorded episodes in
-which one replay failed ends with:
+After the last episode, the script prints a summary. For example, a run on five
+recorded episodes in which one replay failed prints:
 
 .. code-block:: text
 
@@ -131,15 +137,17 @@ Annotation succeeds when at least one episode is exported; Step 2 can use the
 exported subset. Some episodes can be skipped, and the count can differ between
 runs on the same recording, because replay is not fully repeatable. These
 messages confirm task completion and mark counts, not boundary timing; use the
-table above to time your marks. The script returns the exported count as its
-exit code, so use the summary to judge success rather than expecting exit code 0.
+table above to time your marks. Judge the run by this summary, not by the
+process exit code.
 
 .. important::
 
-   **Do not start Step 2 with zero exported episodes.** An HDF5 file can still
-   be created when every episode fails; its existence or size does not mean it
-   contains annotated demonstrations. Recover the failed annotations below or
-   use the pre-annotated download above.
+   **Do not start Step 2 with zero exported episodes.** The script creates the
+   output file when it starts, replacing any existing file at
+   ``--output_file``, so the file exists even when every episode fails. Its
+   existence or size does not mean it contains annotated demonstrations.
+   Recover the failed annotations below or use the pre-annotated download
+   above.
 
 **Recover from an unsuccessful annotation**
 
@@ -162,11 +170,13 @@ exit code, so use the summary to judge success rather than expecting exit code 0
        that the command includes ``env.actions.g1_action.use_p_control=false``
        and matches the recording's task and ``--device``. To retry skipped
        episodes, rerun annotation, which annotates every episode again, or
-       use the pre-annotated dataset. To keep an earlier output, choose a new
-       output filename and use it as ``--input_file`` in Step 2.
+       use the pre-annotated dataset. A rerun replaces ``--output_file``; to
+       keep an earlier output, pass a different filename and use that file in
+       Step 2.
 
 ``Skipped exporting the episode due to incomplete subtask annotations`` also
-appears after a failed task replay; read the preceding message for the cause.
+appears after a failed task replay or after ``Q``; read the preceding message
+for the cause.
 Skipped episodes remain in the original recorded file.
 
 
