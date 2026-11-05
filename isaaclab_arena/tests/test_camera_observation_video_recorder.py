@@ -247,6 +247,20 @@ def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
     assert writers[0].filename.endswith("-exterior_color-episode-0.mp4")
 
 
+def test_record_camera_video_requires_an_rgb_camera_observation(tmp_path):
+    env = _make_env()
+    for observation_term in vars(env.cfg.observations.camera_obs).values():
+        observation_term.params["data_type"] = "normals"
+
+    with pytest.raises(AssertionError, match=r"record_camera_video.*RGB.*camera_obs"):
+        wrap_env_for_video(
+            env,
+            VideoRecordingCfg(record_camera_video=True, video_base_dir=str(tmp_path)),
+            num_steps=1,
+            num_episodes=None,
+        )
+
+
 def test_malformed_rgb_observation_is_rejected(tmp_path):
     """An observation configured as RGB must still contain three-channel frames."""
     env = _make_env()

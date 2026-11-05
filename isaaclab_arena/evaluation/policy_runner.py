@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import os
 import tqdm
+from collections.abc import Mapping
 from importlib import import_module
 from typing import TYPE_CHECKING
 
@@ -79,6 +80,12 @@ def rollout_policy(
         if num_episodes is not None:
             env.unwrapped.configure_episode_limit(num_episodes)
         obs, _ = env.reset()
+        camera_obs = obs.get("camera_obs") if isinstance(obs, Mapping) else None
+        if policy.requires_camera_observations and not camera_obs:
+            raise RuntimeError(
+                f"Policy {type(policy).__name__} requires camera observations, but env.reset() returned no"
+                " non-empty 'camera_obs' group. Enable cameras and configure the required camera observation terms."
+            )
         policy.reset()
         policy.set_task_description(env.unwrapped.get_language_instruction())
 

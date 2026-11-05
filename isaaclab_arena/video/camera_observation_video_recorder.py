@@ -93,7 +93,9 @@ def _sanitize_cam_key(camera_name: str) -> str:
 
 def _get_rgb_camera_observation_names(env: gym.Env) -> set[str]:
     """Return camera observation term names configured with the RGB data type."""
-    camera_obs_cfg = getattr(env.unwrapped.cfg.observations, CAMERA_OBS_GROUP_KEY)
+    camera_obs_cfg = getattr(env.unwrapped.cfg.observations, CAMERA_OBS_GROUP_KEY, None)
+    if camera_obs_cfg is None:
+        return set()
     return {
         field.name
         for field in fields(camera_obs_cfg)
@@ -131,11 +133,15 @@ class CameraObsVideoRecorder(gym.Wrapper):
         fps: int | None = None,
     ):
         super().__init__(env)
+        self._rgb_camera_observation_names = _get_rgb_camera_observation_names(env)
+        assert self._rgb_camera_observation_names, (
+            "record_camera_video requires at least one RGB term in the 'camera_obs' observation group."
+            " Enable cameras and configure an RGB camera observation term."
+        )
         os.makedirs(video_folder, exist_ok=True)
         self.video_folder = video_folder
         self.name_prefix = name_prefix
         self.fps = fps if fps is not None else int(env.metadata.get("render_fps", 30))
-        self._rgb_camera_observation_names = _get_rgb_camera_observation_names(env)
 
         # camera_name -> one entry per env, holding that env's open encoder for its current
         # episode, or None while no episode is in progress.
