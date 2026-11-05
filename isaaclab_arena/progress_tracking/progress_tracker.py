@@ -515,7 +515,8 @@ class ProgressTracker:
         self._events: list[list[PredicateEvent]] = [[] for _ in range(num_envs)]
         self._last_processed_step = torch.full((num_envs,), -1, dtype=torch.long, device=device)
         self._requires_step_index = any(runner._consecutive_step_requirements for runner in self.runners)
-        tracked_event_names = [event_cfg.name for event_cfg in tracked_events or []]
+        self._tracked_event_cfgs = list(tracked_events or [])
+        tracked_event_names = [event_cfg.name for event_cfg in self._tracked_event_cfgs]
         assert len(set(tracked_event_names)) == len(tracked_event_names), "Tracked event names must be unique."
         self._tracked_event_runners = [
             CompletionCriteriaRunner(
@@ -524,7 +525,7 @@ class ProgressTracker:
                 device,
                 env=env,
             )
-            for event_cfg in tracked_events or []
+            for event_cfg in self._tracked_event_cfgs
         ]
         self._tracked_event_occurrences: list[list[TrackedEventOccurrence]] = [[] for _ in range(num_envs)]
 
@@ -612,17 +613,28 @@ class ProgressTracker:
         step_index: torch.Tensor | None,
         predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]],
     ) -> None:
-        """Record completed event sequences and reset them after their final condition clears."""
+        """Record completed observations and re-arm recurring events after their final condition clears."""
         all_envs = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
-        for runner in self._tracked_event_runners:
+        for event_cfg, runner in zip(self._tracked_event_cfgs, self._tracked_event_runners):
             was_complete = runner.is_complete()
-            runner.step(env, step_index, all_envs, predicate_results_this_step, check_final_conditions=True)
+            runner.step(
+                env, step_index, all_envs, predicate_results_this_step, check_final_conditions=not event_cfg.latch
+            )
             is_complete = runner.is_complete()
             newly_complete = is_complete & ~was_complete
             for env_idx in newly_complete.nonzero(as_tuple=False).flatten().tolist():
+                details = event_cfg.event_details(env, env_idx) if event_cfg.event_details is not None else {}
+                assert isinstance(details, dict), "event_details must return a dictionary."
                 self._tracked_event_occurrences[env_idx].append(
-                    TrackedEventOccurrence(env_idx, runner.completion_criteria.name, int(step_index[env_idx].item()))
+                    TrackedEventOccurrence(
+                        env_idx,
+                        runner.completion_criteria.name,
+                        int(step_index[env_idx].item()),
+                        copy.deepcopy(details),
+                    )
                 )
+            if event_cfg.latch:
+                continue
             # Keep evaluating completed sequences so a persistent condition records only
             # once. Reset this runner alone; the full sequence starts on the next step.
             final_condition = runner.final_conditions_met(env, predicate_results_this_step)
@@ -776,8 +788,8 @@ class ProgressTracker:
         return [runner.completion_criteria.name for runner in self._tracked_event_runners]
 
     def get_tracked_event_occurrences(self) -> list[list[TrackedEventOccurrence]]:
-        """Return recorded event occurrences per environment without advancing predicates."""
-        return [list(events) for events in self._tracked_event_occurrences]
+        """Return independent snapshots of occurrences without advancing predicates."""
+        return copy.deepcopy(self._tracked_event_occurrences)
 
 
 class ProgressTrackingRecorder(RecorderTerm):
