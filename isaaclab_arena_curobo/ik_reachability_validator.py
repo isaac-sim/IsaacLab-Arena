@@ -208,9 +208,11 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         for target_index, target in enumerate(targets):
             if not ik.feasible[target_index].item():
                 rejections.add(
-                    f"'{target.name}' top-down grasp unreachable",
-                    f"IK position error {ik.position_error[target_index].item():.3f} m,"
-                    f" rotation error {ik.rotation_error[target_index].item():.3f} rad",
+                    f"'{target.name}': top-down grasp unreachable",
+                    detail=(
+                        f"IK position error {ik.position_error[target_index].item():.3f} m,"
+                        f" rotation error {ik.rotation_error[target_index].item():.3f} rad"
+                    ),
                 )
 
     def _solve_grasp_per_target(

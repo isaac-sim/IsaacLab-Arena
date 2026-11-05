@@ -111,8 +111,9 @@ def test_pool_diagnostics_record_fallbacks_and_explain_fill_failures():
 
 def test_aggregated_diagnostics_sum_fills_by_batch_position():
     """Fills sum batch by batch and check by check; a later batch sums only the fills that validated one."""
+    overlap = "'a' and 'b': bounding boxes intersect"
     first_batch = BatchValidationDiagnostics(
-        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True)}
+        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, num_rejected_by_cause={overlap: 30})}
     )
     later_batch = BatchValidationDiagnostics(
         20,
@@ -130,14 +131,16 @@ def test_aggregated_diagnostics_sum_fills_by_batch_position():
     ])
 
     summed_first_batch = BatchValidationDiagnostics(
-        300, 180, {"no_overlap": ValidationCheckDiagnostics(300, 210, required=True)}
+        300,
+        180,
+        {"no_overlap": ValidationCheckDiagnostics(300, 210, required=True, num_rejected_by_cause={overlap: 90})},
     )
     assert aggregated == AggregatedPlacementDiagnostics(
         num_builds=3, num_envs=25, num_fallback_envs=1, num_batches=4, batches=[summed_first_batch, later_batch]
     )
     # The fills' own diagnostics are left unchanged.
     assert first_batch == BatchValidationDiagnostics(
-        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True)}
+        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, num_rejected_by_cause={overlap: 30})}
     )
 
 
@@ -152,7 +155,7 @@ def test_aggregated_pool_diagnostics_file_round_trips(tmp_path):
     assert AggregatedPlacementDiagnostics.load(path) == aggregated
     assert aggregated.num_envs == 2
     assert aggregated.num_fallback_envs > 0
-    assert aggregated.batches[0].checks
+    assert aggregated.batches[0].checks["on_relation"].num_rejected_by_cause
 
 
 def test_fill_failure_names_the_failing_relation_and_object_bounds():
@@ -160,11 +163,9 @@ def test_fill_failure_names_the_failing_relation_and_object_bounds():
     objects = _desk_and_box(box_width_m=1.5)
     pool = PooledObjectPlacer(objects, _placer_params(), pool_size=2, num_envs=2)
 
-    failures = pool.last_fill_diagnostics.get_failures_per_check()["on_relation"]
+    num_rejected_by_cause = pool.last_fill_diagnostics.get_num_rejected_by_cause_per_check()["on_relation"]
     num_candidates = sum(batch.num_candidates for batch in pool.last_fill_diagnostics.batches)
-    assert list(failures) == ["'box' on(desk)"]
-    assert failures["'box' on(desk)"].count == num_candidates
-    assert "footprint" in failures["'box' on(desk)"].example
+    assert num_rejected_by_cause == {"'box' on(desk): footprint outside the support": num_candidates}
 
     with pytest.raises(RuntimeError) as error:
         PooledObjectPlacer(
@@ -174,7 +175,7 @@ def test_fill_failure_names_the_failing_relation_and_object_bounds():
             num_envs=2,
         )
     message = str(error.value)
-    assert "on_relation: 'box' on(desk) x" in message
+    assert "on_relation: 'box' on(desk): footprint outside the support x" in message
     assert "'box': size (1.500, 1.500, 0.200); centre (+0.750, +0.750, +0.100)" in message
 
 
@@ -198,9 +199,7 @@ def test_next_to_validator_records_the_relation_and_its_violation():
     )
 
     assert verdicts == [True, False]
-    assert list(rejections.failures) == ["'plate' next_to(box, positive_x)"]
-    assert rejections.failures["'plate' next_to(box, positive_x)"].count == 1
-    assert "wrong side" in rejections.failures["'plate' next_to(box, positive_x)"].example
+    assert rejections.num_rejected_by_cause == {"'plate' next_to(box, positive_x): on the wrong side": 1}
 
 
 def _desk_and_box(box_width_m: float) -> list[DummyObject]:

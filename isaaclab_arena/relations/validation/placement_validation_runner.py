@@ -176,7 +176,7 @@ class PlacementValidationRunner:
                 num_evaluated=len(evaluated_layout_indices_by_check[check]),
                 num_passed=sum(verdicts),
                 required=required is None or check in required,
-                failures=rejections_by_check[check].failures,
+                num_rejected_by_cause=rejections_by_check[check].num_rejected_by_cause,
             )
         return BatchValidationDiagnostics(
             num_candidates=len(batch),

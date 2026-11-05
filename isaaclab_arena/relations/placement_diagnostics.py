@@ -14,46 +14,33 @@ from pathlib import Path
 
 
 @dataclass
-class CheckFailureDiagnostics:
-    """How often one relation, object, or object pair caused a check to reject candidates."""
-
-    count: int
-    """Rejections attributed to this cause. A check that inspects every object pair, such as no_overlap, can
-    attribute one candidate to several causes."""
-
-    example: str = ""
-    """Measured violation from the first rejection, such as "gap error 0.021 m > tolerance 0.02 m"."""
-
-
-@dataclass
 class RejectionLog:
-    """Rejections one check made on one batch of candidate layouts, keyed by cause."""
+    """Rejections one check made on one batch of candidate layouts, counted by cause."""
 
     check: str
     """Name of the check whose rejections this log holds."""
 
     verbose: bool = False
-    """Whether to print each rejection as it is added."""
+    """Whether to print each rejection, with its measured detail, as it is added."""
 
-    failures: dict[str, CheckFailureDiagnostics] = field(default_factory=dict)
-    """Rejections keyed by cause, such as "'red_bowl' next_to(wooden_bowl, -y)"."""
+    num_rejected_by_cause: dict[str, int] = field(default_factory=dict)
+    """Rejections counted by cause, such as "'red_bowl' next_to(wooden_bowl, negative_y): on the wrong side". A
+    check that inspects every object pair, such as no_overlap, can attribute one candidate to several causes."""
 
-    def add(self, cause: str, example: str = "", count: int = 1) -> None:
-        """Add candidates rejected for cause to its count, and print it when verbose.
+    def add(self, cause: str, count: int = 1, detail: str = "") -> None:
+        """Add candidates rejected for cause to its count, and print it with detail when verbose.
 
         Args:
-            cause: What failed, naming the objects and relation, such as "'bowl' next_to(plate, +x)". Rejections
-                with the same cause are counted together.
-            example: Measured violation, kept from the first rejection with this cause.
+            cause: What failed and how, naming the objects and relation, such as
+                "'bowl' next_to(plate, positive_x): on the wrong side". Holds no measured values, so every
+                rejection of the same kind has the same cause and is counted together.
             count: Candidates rejected for this cause.
+            detail: Measured violation, such as "by 0.150 m". Printed when verbose but not kept.
         """
-        if cause in self.failures:
-            self.failures[cause].count += count
-        else:
-            self.failures[cause] = CheckFailureDiagnostics(count, example)
+        self.num_rejected_by_cause[cause] = self.num_rejected_by_cause.get(cause, 0) + count
         if self.verbose:
-            detail = f": {example}" if example else ""
-            print(f"  [{self.check}] {cause} x{count}{detail}")
+            suffix = f" ({detail})" if detail else ""
+            print(f"  [{self.check}] {cause} x{count}{suffix}")
 
 
 @dataclass
@@ -70,8 +57,8 @@ class ValidationCheckDiagnostics:
     required: bool
     """Whether a candidate must pass this check to be valid."""
 
-    failures: dict[str, CheckFailureDiagnostics] = field(default_factory=dict)
-    """Rejections keyed by cause, such as "'red_bowl' next_to(wooden_bowl, -y)"."""
+    num_rejected_by_cause: dict[str, int] = field(default_factory=dict)
+    """Rejections counted by cause, such as "'red_bowl' next_to(wooden_bowl, negative_y): on the wrong side"."""
 
     @property
     def num_rejected(self) -> int:
@@ -115,21 +102,18 @@ class PlacementDiagnostics:
     fallback_envs: list[int] = field(default_factory=list)
     """Environments given best-loss layouts, which fail at least one required check."""
 
-    def get_failures_per_check(self) -> dict[str, dict[str, CheckFailureDiagnostics]]:
-        """Return each check's rejections summed over every batch, keyed by cause, most frequent first."""
-        failures_per_check: dict[str, dict[str, CheckFailureDiagnostics]] = {}
+    def get_num_rejected_by_cause_per_check(self) -> dict[str, dict[str, int]]:
+        """Return each check's rejections summed over every batch, counted by cause, most frequent first."""
+        num_rejected_by_cause_per_check: dict[str, dict[str, int]] = {}
         for batch in self.batches:
             for check, check_diagnostics in batch.checks.items():
-                check_failures = failures_per_check.setdefault(check, {})
-                for cause, failure in check_diagnostics.failures.items():
-                    if cause in check_failures:
-                        check_failures[cause].count += failure.count
-                    else:
-                        check_failures[cause] = CheckFailureDiagnostics(failure.count, failure.example)
+                check_totals = num_rejected_by_cause_per_check.setdefault(check, {})
+                for cause, count in check_diagnostics.num_rejected_by_cause.items():
+                    check_totals[cause] = check_totals.get(cause, 0) + count
         return {
-            check: dict(sorted(failures.items(), key=lambda item: item[1].count, reverse=True))
-            for check, failures in failures_per_check.items()
-            if failures
+            check: dict(sorted(counts.items(), key=lambda item: item[1], reverse=True))
+            for check, counts in num_rejected_by_cause_per_check.items()
+            if counts
         }
 
     def format_summary(self, max_causes_per_check: int | None = 5) -> str:
@@ -145,15 +129,14 @@ class PlacementDiagnostics:
                 f"batch {index}: {batch.num_valid}/{batch.num_candidates} valid; passed per check:"
                 f" {batch.format_passed_per_check()}"
             )
-        failures_per_check = self.get_failures_per_check()
-        if failures_per_check:
+        num_rejected_by_cause_per_check = self.get_num_rejected_by_cause_per_check()
+        if num_rejected_by_cause_per_check:
             lines.append("rejections by cause over all batches:")
-        for check, failures in failures_per_check.items():
-            for cause, failure in list(failures.items())[:max_causes_per_check]:
-                example = f" (e.g. {failure.example})" if failure.example else ""
-                lines.append(f"  {check}: {cause} x{failure.count}{example}")
-            if max_causes_per_check is not None and len(failures) > max_causes_per_check:
-                lines.append(f"  {check}: {len(failures) - max_causes_per_check} more cause(s)")
+        for check, counts in num_rejected_by_cause_per_check.items():
+            for cause, count in list(counts.items())[:max_causes_per_check]:
+                lines.append(f"  {check}: {cause} x{count}")
+            if max_causes_per_check is not None and len(counts) > max_causes_per_check:
+                lines.append(f"  {check}: {len(counts) - max_causes_per_check} more cause(s)")
         if self.fallback_envs:
             lines.append(f"best-loss fallback for envs: {self.fallback_envs}")
         return "\n".join(lines)
@@ -238,3 +221,5 @@ def _add_batch_counts(total: BatchValidationDiagnostics, batch: BatchValidationD
         assert total_check.required == check_diagnostics.required, f"Check '{check}' is required in only some batches."
         total_check.num_evaluated += check_diagnostics.num_evaluated
         total_check.num_passed += check_diagnostics.num_passed
+        for cause, count in check_diagnostics.num_rejected_by_cause.items():
+            total_check.num_rejected_by_cause[cause] = total_check.num_rejected_by_cause.get(cause, 0) + count

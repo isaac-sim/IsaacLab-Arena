@@ -167,16 +167,14 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
     ) -> None:
         """Record a rejection for a child bottom outside the contact band above the support top."""
         rejections.add(
-            f"'{obj.name}' {relation.name}({relation.parent.name})",
-            f"bottom z {bottom_z:.3f} m outside the band above support top z {top_z:.3f} m",
+            f"'{obj.name}' {relation.name}({relation.parent.name}): bottom outside the contact band",
+            detail=f"bottom z {bottom_z:.3f} m, support top z {top_z:.3f} m",
         )
 
     @staticmethod
     def _record_footprint_failure(rejections: RejectionLog, obj: PlaceableAsset, relation: On) -> None:
         """Record a rejection for a child footprint outside the support footprint."""
-        rejections.add(
-            f"'{obj.name}' {relation.name}({relation.parent.name})", "footprint outside the support footprint"
-        )
+        rejections.add(f"'{obj.name}' {relation.name}({relation.parent.name}): footprint outside the support")
 
     @staticmethod
     def _matches_relation(relation: RelationBase) -> bool:
@@ -269,8 +267,8 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
     ) -> None:
         """Record a rejection for a bounding-box centre outside the alignment tolerance."""
         rejections.add(
-            f"'{obj.name}' align_with({relation.parent.name}, {relation.axis.value})",
-            f"centre error {center_error_m:+.3f} m, tolerance {relation.tolerance_m} m",
+            f"'{obj.name}' align_with({relation.parent.name}, {relation.axis.value}): centre outside tolerance",
+            detail=f"centre error {center_error_m:+.3f} m, tolerance {relation.tolerance_m} m",
         )
 
 
@@ -323,13 +321,14 @@ class NextToValidator(PrePhysicsPlacementValidator):
         rejections: RejectionLog, obj: PlaceableAsset, relation: NextTo, half_plane_m: float, distance_m: float
     ) -> None:
         """Record a NextTo rejection, reporting the wrong side before the gap error."""
+        cause = f"'{obj.name}' next_to({relation.parent.name}, {relation.side.value})"
         if half_plane_m > relation.tolerance_m:
-            example = f"on the wrong side by {half_plane_m:.3f} m"
+            rejections.add(f"{cause}: on the wrong side", detail=f"by {half_plane_m:.3f} m")
         else:
-            example = (
-                f"gap off target {relation.distance_m} m by {distance_m:.3f} m, tolerance {relation.tolerance_m} m"
+            rejections.add(
+                f"{cause}: gap outside tolerance",
+                detail=f"off target {relation.distance_m} m by {distance_m:.3f} m, tolerance {relation.tolerance_m} m",
             )
-        rejections.add(f"'{obj.name}' next_to({relation.parent.name}, {relation.side.value})", example)
 
 
 @register_validator
@@ -389,9 +388,8 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
     ) -> None:
         """Record a rejection for a child inside the keep-out zone, with the distance left on each route out."""
         rejections.add(
-            f"'{obj.name}' not_next_to({relation.parent.name}, {relation.side.value})",
-            f"inside the keep-out zone; {remaining_side_m:.3f} m to clear over the edge,"
-            f" {remaining_cross_m:.3f} m past the footprint end",
+            f"'{obj.name}' not_next_to({relation.parent.name}, {relation.side.value}): inside the keep-out zone",
+            detail=f"{remaining_side_m:.3f} m to clear over the edge, {remaining_cross_m:.3f} m past the footprint end",
         )
 
     def _not_next_to_margin(self, relation: NotNextTo) -> float:
@@ -438,7 +436,7 @@ class FaceToValidator(PrePhysicsPlacementValidator):
     @staticmethod
     def _record_failure(rejections: RejectionLog, obj: PlaceableAsset, relation: FaceTo, reason: str) -> None:
         """Record a FaceTo rejection with the reason the facing yaw is missing."""
-        rejections.add(f"'{obj.name}' face_to({relation.parent.name})", reason)
+        rejections.add(f"'{obj.name}' face_to({relation.parent.name}): {reason}")
 
 
 @register_validator
@@ -520,16 +518,14 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         rejections: RejectionLog, first: PlaceableAsset, second: PlaceableAsset, num_candidates: int
     ) -> None:
         """Record candidates rejected because two placed objects' bounding boxes intersect."""
-        rejections.add(f"'{first.name}' overlaps '{second.name}'", "bounding boxes intersect", num_candidates)
+        rejections.add(f"'{first.name}' and '{second.name}': bounding boxes intersect", num_candidates)
 
     @staticmethod
     def _record_background_overlap(
         rejections: RejectionLog, obj: PlaceableAsset, background: CollisionObject, num_candidates: int
     ) -> None:
         """Record candidates rejected because a placed object's bounding box intersects a background object's."""
-        rejections.add(
-            f"'{obj.name}' overlaps background '{background.name}'", "bounding boxes intersect", num_candidates
-        )
+        rejections.add(f"'{obj.name}' and background '{background.name}': bounding boxes intersect", num_candidates)
 
     def _should_validate_mesh(
         self,
@@ -767,15 +763,12 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         sdf = mesh_sdf(centers, warp_mesh)
         mesh_manager.warn_sdf_sentinel(sdf)
         if has_sdf_sentinel(sdf):
-            self._record_mesh_overlap(rejections, source, target, "SDF query found no mesh face")
+            self._record_mesh_overlap(rejections, source, target, max_penetration_m=None, clearance_m=tolerance)
             return True
         penetration = spheres[:, 3] + tolerance - sdf
         if (penetration > 0).any():
             self._record_mesh_overlap(
-                rejections,
-                source,
-                target,
-                f"intrudes by up to {float(penetration.max()):.3f} m, including {tolerance:.3f} m clearance",
+                rejections, source, target, max_penetration_m=float(penetration.max()), clearance_m=tolerance
             )
             return True
         return False
@@ -785,10 +778,22 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         rejections: RejectionLog,
         source: PlaceableAsset | CollisionObject,
         target: PlaceableAsset | CollisionObject,
-        example: str,
+        max_penetration_m: float | None,
+        clearance_m: float,
     ) -> None:
-        """Record a rejection because source's collision spheres penetrate target's mesh."""
-        rejections.add(f"'{source.name}' mesh overlaps '{target.name}'", example)
+        """Record a rejection because source's collision spheres penetrate target's mesh.
+
+        Args:
+            max_penetration_m: Deepest sphere intrusion, including clearance_m. None when the SDF query found no
+                mesh face, which is rejected too.
+        """
+        if max_penetration_m is None:
+            rejections.add(f"'{source.name}' and '{target.name}': SDF query found no mesh face")
+        else:
+            rejections.add(
+                f"'{source.name}' and '{target.name}': meshes intersect",
+                detail=f"by up to {max_penetration_m:.3f} m, including {clearance_m:.3f} m clearance",
+            )
 
     @staticmethod
     def _effective_yaw(
