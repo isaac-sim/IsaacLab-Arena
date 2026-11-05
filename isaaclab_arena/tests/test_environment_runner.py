@@ -255,7 +255,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
         visualizer=None,
         visualizer_explicit=False,
         device="cuda:0",
-        example_environment="gr1_open_microwave",
+        example_environment="pick_and_place_maple_table",
     )
 
     class FakeArgumentParser:
@@ -343,7 +343,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     assert args_cli.visualizer == ["kit"]
     assert args_cli.device == "cpu"
     assert args_cli.disable_fabric
-    assert args_cli.example_environment == "gr1_open_microwave"
+    assert args_cli.example_environment == "pick_and_place_maple_table"
     assert lifecycle_events == ["make_environment", "enable_mouse_interaction", "run_environment"]
     assert env.close_count == 1
 

@@ -22,23 +22,16 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 
 args_parser = get_isaaclab_arena_environments_cli_parser()
 
-# GR1 Open Microwave
+# Pick and Place
 args_cli = args_parser.parse_args([
-    "gr1_open_microwave",
+    "kitchen_pick_and_place",
     "--object",
     "cracker_box",
+    "--background",
+    "kitchen",
+    "--embodiment",
+    "franka_ik",
 ])
-
-# Pick and Place
-# args_cli = args_parser.parse_args([
-#     "kitchen_pick_and_place",
-#     "--object",
-#     "cracker_box",
-#     "--background",
-#     "kitchen",
-#     "--embodiment",
-#     "franka_ik",
-# ])
 
 arena_builder = get_arena_builder_from_cli(args_cli)
 env = arena_builder.make_registered()
