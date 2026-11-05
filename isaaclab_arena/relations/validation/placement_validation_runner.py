@@ -116,11 +116,11 @@ class PlacementValidationRunner:
         num_candidates = len(batch)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
-                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
-                    batch, collision_objects, rejections_by_check[validator.check]
-                )
+                rejections = rejections_by_check[validator.check]
+                verdicts = validator.validate_batch(batch, collision_objects, rejections)
+                layout_pass_verdicts_by_check[validator.check] = verdicts
                 evaluated_layout_indices_by_check[validator.check] = list(range(num_candidates))
-                self._print_rejections(validator.check, rejections_by_check[validator.check])
+                self._print_rejections(validator.check, rejections)
 
     def _run_expensive_checks(
         self,
@@ -143,11 +143,9 @@ class PlacementValidationRunner:
                 if self._visualizer is not None:
                     self._visualizer.set_active_layouts(passed_layout_indices)
                 # only passed layouts are validated
-                verdicts_over_passed_layout = validator.validate_batch(
-                    batch.select(passed_layout_indices),
-                    collision_objects,
-                    rejections_by_check[validator.check],
-                )
+                rejections = rejections_by_check[validator.check]
+                passed_layouts = batch.select(passed_layout_indices)
+                verdicts_over_passed_layout = validator.validate_batch(passed_layouts, collision_objects, rejections)
                 verdicts = [False] * num_candidates
                 for layout_index_within_batch, verdict in zip(
                     passed_layout_indices, verdicts_over_passed_layout, strict=True
@@ -155,7 +153,7 @@ class PlacementValidationRunner:
                     verdicts[layout_index_within_batch] = verdict
                 layout_pass_verdicts_by_check[validator.check] = verdicts
                 evaluated_layout_indices_by_check[validator.check] = passed_layout_indices
-                self._print_rejections(validator.check, rejections_by_check[validator.check])
+                self._print_rejections(validator.check, rejections)
 
     def _print_rejections(self, check: str, rejections: list[Rejection]) -> None:
         """Print each of a check's rejections on its own line when verbose, such as

@@ -107,13 +107,12 @@ class PlacementDiagnostics:
         for batch in self.batches:
             for check, check_diagnostics in batch.checks.items():
                 check_totals = num_rejected_by_cause_per_check.setdefault(check, {})
-                for cause, count in check_diagnostics.get_num_rejected_by_cause().items():
-                    check_totals[cause] = check_totals.get(cause, 0) + count
-        return {
-            check: dict(sorted(counts.items(), key=lambda item: item[1], reverse=True))
-            for check, counts in num_rejected_by_cause_per_check.items()
-            if counts
-        }
+                _add_counts(check_totals, check_diagnostics.get_num_rejected_by_cause())
+        sorted_num_rejected_by_cause_per_check = {}
+        for check, counts in num_rejected_by_cause_per_check.items():
+            if counts:
+                sorted_num_rejected_by_cause_per_check[check] = _sort_by_count_descending(counts)
+        return sorted_num_rejected_by_cause_per_check
 
     def format_summary(self, max_causes_per_check: int | None = 5) -> str:
         """Return one line per batch with its valid and per-check counts, then the most frequent rejection causes
@@ -187,28 +186,43 @@ class AggregatedPlacementDiagnostics:
     def load(cls, path: str | Path) -> AggregatedPlacementDiagnostics:
         """Return the diagnostics that save() wrote to path."""
         content = json.loads(Path(path).read_text(encoding="utf-8"))
-        fills = []
-        for fill in content["fills"]:
-            batches = []
-            for batch in fill["batches"]:
-                checks = {}
-                for check, check_content in batch["checks"].items():
-                    rejections = [Rejection(**rejection) for rejection in check_content["rejections"]]
-                    checks[check] = ValidationCheckDiagnostics(
-                        num_evaluated=check_content["num_evaluated"],
-                        num_passed=check_content["num_passed"],
-                        required=check_content["required"],
-                        rejections=rejections,
-                    )
-                batches.append(
-                    BatchValidationDiagnostics(
-                        num_candidates=batch["num_candidates"], num_valid=batch["num_valid"], checks=checks
-                    )
-                )
-            fills.append(
-                PlacementDiagnostics(num_envs=fill["num_envs"], batches=batches, fallback_envs=fill["fallback_envs"])
-            )
+        fills = [_json_to_placement_diagnostics(fill) for fill in content["fills"]]
         return cls(fills=fills)
+
+
+def _json_to_placement_diagnostics(content: dict) -> PlacementDiagnostics:
+    """Return the fill diagnostics that asdict() turned into content."""
+    batches = [_json_to_batch_diagnostics(batch) for batch in content["batches"]]
+    return PlacementDiagnostics(num_envs=content["num_envs"], batches=batches, fallback_envs=content["fallback_envs"])
+
+
+def _json_to_batch_diagnostics(content: dict) -> BatchValidationDiagnostics:
+    """Return the batch diagnostics that asdict() turned into content."""
+    checks = {check: _json_to_check_diagnostics(check_content) for check, check_content in content["checks"].items()}
+    return BatchValidationDiagnostics(
+        num_candidates=content["num_candidates"], num_valid=content["num_valid"], checks=checks
+    )
+
+
+def _json_to_check_diagnostics(content: dict) -> ValidationCheckDiagnostics:
+    """Return the check diagnostics that asdict() turned into content."""
+    return ValidationCheckDiagnostics(
+        num_evaluated=content["num_evaluated"],
+        num_passed=content["num_passed"],
+        required=content["required"],
+        rejections=[Rejection(**rejection) for rejection in content["rejections"]],
+    )
+
+
+def _add_counts(total: dict[str, int], counts: dict[str, int]) -> None:
+    """Add each key's count in counts to its count in total, in place."""
+    for key, count in counts.items():
+        total[key] = total.get(key, 0) + count
+
+
+def _sort_by_count_descending(counts: dict[str, int]) -> dict[str, int]:
+    """Return counts ordered from the largest count to the smallest."""
+    return dict(sorted(counts.items(), key=lambda item: item[1], reverse=True))
 
 
 def _add_batch_counts(total: BatchValidationDiagnostics, batch: BatchValidationDiagnostics) -> None:

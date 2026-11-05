@@ -111,11 +111,7 @@ def build_and_run(
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
 ) -> ArenaRunResult:
-    """Build and execute one typed Arena run, then return its result stamped with its start and end times.
-
-    Writes the diagnostics of the placement pool fills that built the rebuilds' environments to output_dir, whether
-    the run completes or fails. When a fill fails, its diagnostics are written too.
-    """
+    """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
     start_timestamp_ns = time.time_ns()
     metrics_per_rebuild: list[MetricsDataCollection] = []
     placement_diagnostics_per_rebuild: list[PlacementDiagnostics] = []
@@ -161,19 +157,12 @@ def build_and_run(
             # A failed fill leaves no pool to read its diagnostics from, so they are taken from its error.
             if isinstance(error, PlacementPoolFillError):
                 placement_diagnostics_per_rebuild.append(error.diagnostics)
-            if placement_diagnostics_per_rebuild:
-                _write_placement_diagnostics(
-                    AggregatedPlacementDiagnostics(placement_diagnostics_per_rebuild), output_dir
-                )
+            _aggregate_and_write_placement_diagnostics(placement_diagnostics_per_rebuild, output_dir)
             raise
         finally:
             close_run_resources(policy, env)
 
-    placement_diagnostics = (
-        AggregatedPlacementDiagnostics(placement_diagnostics_per_rebuild) if placement_diagnostics_per_rebuild else None
-    )
-    if placement_diagnostics is not None:
-        _write_placement_diagnostics(placement_diagnostics, output_dir)
+    placement_diagnostics = _aggregate_and_write_placement_diagnostics(placement_diagnostics_per_rebuild, output_dir)
     return ArenaRunResult(
         run_name=cfg.name,
         status=RunStatus.COMPLETED,
@@ -184,10 +173,22 @@ def build_and_run(
     )
 
 
-def _write_placement_diagnostics(placement_diagnostics: AggregatedPlacementDiagnostics, output_dir: str | Path) -> None:
-    """Write a run's placement diagnostics to its placement diagnostics file, creating output_dir if needed."""
+def _aggregate_and_write_placement_diagnostics(
+    placement_diagnostics_per_fill: list[PlacementDiagnostics], output_dir: str | Path
+) -> AggregatedPlacementDiagnostics | None:
+    """Return the fills' diagnostics as a run's placement diagnostics, written to its placement diagnostics file in
+    output_dir, or None without writing a file when there are no fills.
+
+    Args:
+        placement_diagnostics_per_fill: Diagnostics of each placement pool fill of the run, in order.
+        output_dir: Run output directory, created if needed.
+    """
+    if not placement_diagnostics_per_fill:
+        return None
+    placement_diagnostics = AggregatedPlacementDiagnostics(placement_diagnostics_per_fill)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     placement_diagnostics.save(Path(output_dir) / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME)
+    return placement_diagnostics
 
 
 def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
