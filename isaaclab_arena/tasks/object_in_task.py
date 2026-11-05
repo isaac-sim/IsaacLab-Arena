@@ -15,7 +15,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.tasks.predicates.spatial import object_in_target_aabb, object_settled_in_target_aabb
+from isaaclab_arena.tasks.predicates.spatial import object_in_target, object_settled_in_target
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -38,7 +38,7 @@ class ObjectInTask(TaskBase):
         contact_force_threshold: float = 0.01,
         minimum_contained_fraction: float = 1.0,
     ):
-        """Configure one object and target with settled AABB containment.
+        """Configure one object and target with settled mesh-point containment.
 
         Args:
             object: Object to deposit.
@@ -49,7 +49,7 @@ class ObjectInTask(TaskBase):
             episode_length_s: Episode timeout in seconds; None uses the standard task default.
             task_description: Optional task description.
             contact_force_threshold: Minimum destination contact force in newtons.
-            minimum_contained_fraction: Required object AABB volume fraction inside the target, in (0, 1].
+            minimum_contained_fraction: Required object mesh-point fraction inside the target, in (0, 1].
         """
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         assert 0 < minimum_contained_fraction <= 1
@@ -77,14 +77,14 @@ class ObjectInTask(TaskBase):
                         # Record entering the target as a separate progress milestone.
                         # The settling step rechecks containment throughout its consecutive-step window.
                         partial(
-                            object_in_target_aabb,
+                            object_in_target,
                             object_name=self.object.name,
                             target_name=self.target.name,
                             minimum_contained_fraction=self.minimum_contained_fraction,
                         ),
                         TrueForConsecutiveStepsCfg(
                             predicate=partial(
-                                object_settled_in_target_aabb,
+                                object_settled_in_target,
                                 object_name=self.object.name,
                                 target_name=self.target.name,
                                 contact_sensor_cfg=self.contact_sensor_cfg,

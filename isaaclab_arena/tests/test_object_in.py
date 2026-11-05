@@ -28,6 +28,88 @@ def get_pose_at_midpoint(env, object_name: str, target_name: str):
     return T_W_O
 
 
+def test_object_in_accepts_rotated_mesh_inside_target():
+    """ObjectIn uses object geometry rather than conservative world AABB corners."""
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab_arena.tasks.object_in_task import ObjectInTask
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    class ArenaWorld:
+        def get_aabb_w(self, scene_key):
+            if scene_key == "tool":
+                return AxisAlignedBoundingBox((-1.2, -0.6, -0.1), (1.2, 0.6, 0.1))
+            return AxisAlignedBoundingBox((-1.0, -0.5, -0.1), (1.0, 0.5, 0.1))
+
+        def get_mesh_points_w(self, scene_key):
+            from isaaclab.utils.math import quat_apply
+
+            assert scene_key == "tool"
+            points_O = torch.tensor([[
+                [-0.8, -0.05, 0.0],
+                [0.8, -0.05, 0.0],
+                [-0.8, 0.05, 0.0],
+                [0.8, 0.05, 0.0],
+            ]])
+            q_W_O = torch.tensor([[0.0, 0.0, 0.25881905, 0.96592583]]).expand(4, -1)
+            points_W = quat_apply(q_W_O, points_O[0]).unsqueeze(0)
+            return points_W, torch.ones((1, 4), dtype=torch.bool)
+
+        def get_pose_w(self, scene_key):
+            assert scene_key == "drawer"
+            return torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+
+        def get_aabb_in_local_frame(self, scene_key):
+            assert scene_key == "drawer"
+            return AxisAlignedBoundingBox((-1.0, -0.5, -0.1), (1.0, 0.5, 0.1))
+
+    task = ObjectInTask(
+        object=SimpleNamespace(name="tool"),
+        target=SimpleNamespace(name="drawer"),
+        minimum_contained_fraction=1.0,
+    )
+    object_in_predicate = task.get_termination_cfg().success[0].predicate_sequence[0]
+
+    result = object_in_predicate(SimpleNamespace(arena_world=ArenaWorld()))
+
+    assert result.tolist() == [True]
+
+
+def test_mesh_point_fraction_uses_target_local_frame():
+    import torch
+
+    from isaaclab.utils.math import quat_apply
+
+    from isaaclab_arena.tasks.predicates.spatial import mesh_point_fraction_in_target
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    half_sqrt_two = 2**-0.5
+    T_W_T = torch.tensor([
+        [2.0, -1.0, 0.5, 0.0, 0.0, half_sqrt_two, half_sqrt_two],
+        [-3.0, 4.0, 1.0, 0.0, 0.0, -half_sqrt_two, half_sqrt_two],
+    ])
+    object_points_T = torch.tensor([
+        [-0.9, -0.1, 0.0],
+        [0.9, 0.1, 0.0],
+        [0.0, 0.0, 0.05],
+        [1.2, 0.0, 0.0],
+    ]).expand(2, -1, -1)
+    q_W_T = T_W_T[:, None, 3:].expand(-1, object_points_T.shape[1], -1)
+    object_points_W = quat_apply(q_W_T, object_points_T) + T_W_T[:, None, :3]
+    valid_points = torch.tensor([[True, True, True, False], [True, True, True, True]])
+    target_bounds_T = AxisAlignedBoundingBox((-1.0, -0.2, -0.1), (1.0, 0.2, 0.1))
+
+    contained_fraction = mesh_point_fraction_in_target(
+        object_points_W,
+        valid_points,
+        T_W_T,
+        target_bounds_T,
+    )
+
+    torch.testing.assert_close(contained_fraction, torch.tensor([1.0, 0.75]))
+
+
 def _test_apple_in_microwave(_simulation_app):
     import torch
 
@@ -40,7 +122,7 @@ def _test_apple_in_microwave(_simulation_app):
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.object_in_task import ObjectInTask
-    from isaaclab_arena.tasks.predicates.spatial import object_in_contact_with_target, object_in_target_aabb
+    from isaaclab_arena.tasks.predicates.spatial import object_in_contact_with_target, object_in_target
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
     from isaaclab_arena.utils.pose import Pose
 
@@ -70,7 +152,7 @@ def _test_apple_in_microwave(_simulation_app):
         with torch.inference_mode():
 
             def check_outside(env, terminated):
-                assert not object_in_target_aabb(env.unwrapped, apple.name, microwave.name).any()
+                assert not object_in_target(env.unwrapped, apple.name, microwave.name).any()
                 assert not env.unwrapped.termination_manager.get_term("success").any()
                 assert not terminated.any()
 
@@ -79,7 +161,7 @@ def _test_apple_in_microwave(_simulation_app):
             body = base.scene[apple.name]
             body.write_root_pose_to_sim(T_W_A)
             body.write_root_velocity_to_sim(torch.zeros((base.num_envs, 6), device=base.device))
-            assert object_in_target_aabb(base, apple.name, microwave.name).all()
+            assert object_in_target(base, apple.name, microwave.name).all()
             initial_height = T_W_A[:, 2].clone()
             fell = False
             made_contact = False
