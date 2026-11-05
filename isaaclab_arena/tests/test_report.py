@@ -10,10 +10,7 @@ import re
 import subprocess
 import sys
 
-from isaaclab_arena.visualization.episode_results_files import (
-    format_episode_video_filename,
-    parse_episode_video_filename,
-)
+from isaaclab_arena.evaluation.episode_results_files import format_episode_video_filename, parse_episode_video_filename
 from isaaclab_arena.visualization.report import RunExecutionReport, _resolve_results_dir, build_report
 from isaaclab_arena.visualization.report_render import unique_slugs
 
