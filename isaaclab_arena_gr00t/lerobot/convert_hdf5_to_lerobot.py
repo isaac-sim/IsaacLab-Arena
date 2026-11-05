@@ -536,8 +536,11 @@ def convert_hdf5_to_lerobot(config: Gr00tDatasetConfig):
         assert config.pov_cam_name_sim in trajectory["camera_obs"]
 
         frames = np.array(trajectory["camera_obs"][config.pov_cam_name_sim])
-        # remove last frame due to how Lab reports observations
-        frames = frames[:-1]
+
+        # The HDF5 dataset can include the previous episode's last render as the
+        # first frame of the current episode because camera_obs is captured in pre-step before finishing reset.
+        # Drop that first frame to align the episode length.
+        frames = frames[1:]
         assert len(frames) == length
         queue.put((new_video_path, frames, config.fps, "image"))
 
