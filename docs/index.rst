@@ -9,8 +9,12 @@ Welcome to Isaac Lab-Arena!
 .. raw:: html
 
    <aside class="arena-release-banner" aria-label="What's new in Isaac Lab-Arena">
-     <span class="arena-release-badge">New on main</span>
-     <p class="arena-release-copy">The <strong>v0.4 Developer Preview</strong> is available now on main. The Qualified Release is coming soon, around <time datetime="2026-12-08">8 December</time>. <a class="arena-release-action" href="pages/whats_new/whats_new.html">See what’s new <span aria-hidden="true">→</span></a></p>
+     <div class="arena-release-copy">
+       <p class="arena-release-lead">The <strong>v0.4 Developer Preview</strong> is available now on main.</p>
+       <p class="arena-release-features">Includes faster agentic evaluation authoring, Newton-based evaluation workflows, and multimodal VLMs as policies.</p>
+       <p class="arena-release-schedule">The Qualified Release is coming soon, around <time datetime="2026-12-08">8 December</time>.</p>
+     </div>
+     <a class="arena-release-action" href="pages/whats_new/whats_new.html">See what’s new on main <span aria-hidden="true">→</span></a>
    </aside>
 
 .. _overview:

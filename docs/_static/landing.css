@@ -6193,79 +6193,103 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     }
 }
 
-/* Keep release news beside the development note, above the page title. */
+/* Highlight release news in a compact announcement above the page title. */
 #welcome-to-isaac-lab-arena > .admonition.note {
     margin-bottom: 0.6rem !important;
 }
 
 .arena-release-banner {
     display: grid;
-    grid-template-columns: 4.8rem minmax(0, 1fr);
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.4rem;
     order: -2;
     margin: 0 0 1.3rem;
-    padding: 0;
-    overflow: hidden;
-    border: 1px solid #dae2d5;
-    border-left: 2px solid #76b900;
+    padding: 0.9rem 1rem;
+    border: 1px solid #bdd698;
+    border-left: 4px solid #76b900;
     border-radius: 6px;
-    background: #fbfcfa;
-    box-shadow: 0 5px 16px rgba(42, 56, 35, 0.035);
+    background: #f3f8eb;
     font-family: var(--arena-page-font);
 }
 
-.arena-release-badge {
-    display: flex;
-    align-items: center;
-    padding: 0.58rem 0.65rem;
-    border-right: 1px solid #dce5d5;
-    background: #f0f6e9;
-    color: #384633;
-    font-size: 0.65rem;
-    font-weight: 670;
-    line-height: 1.2;
+.arena-release-copy {
+    min-width: 0;
 }
 
-.arena-release-banner > p.arena-release-copy {
-    align-self: center;
+.arena-release-copy > p {
     margin: 0;
-    padding: 0.56rem 0.78rem;
-    color: #606b5e;
-    font-size: 0.7rem;
-    font-weight: 410;
-    letter-spacing: -0.004em;
-    line-height: 1.46;
+    padding: 0;
 }
 
-.arena-release-copy > strong {
-    color: #384633;
-    font-weight: 620;
+.arena-release-copy > .arena-release-lead {
+    color: #34442a;
+    font-size: 0.85rem;
+    font-weight: 450;
+    letter-spacing: -0.004em;
+    line-height: 1.45;
+}
+
+.arena-release-lead > strong {
+    color: #203218;
+    font-weight: 700;
+}
+
+.arena-release-copy > .arena-release-features {
+    margin-top: 0.3rem;
+    color: #34442a;
+    font-size: 0.76rem;
+    font-weight: 410;
+    line-height: 1.5;
+}
+
+.arena-release-copy > .arena-release-schedule {
+    margin-top: 0.35rem;
+    color: #58664f;
+    font-size: 0.72rem;
+    font-weight: 410;
+    line-height: 1.5;
 }
 
 .arena-release-action {
-    color: #30402c !important;
-    font-size: inherit !important;
-    text-underline-offset: 0.15em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid #6eab00;
+    border-radius: 5px;
+    background: #76b900;
+    color: #17260a !important;
+    box-shadow: 0 1px 2px rgba(35, 56, 15, 0.12);
+    font-size: 0.76rem !important;
+    font-weight: 700;
+    line-height: 1.3;
+    text-decoration: none !important;
     white-space: nowrap;
 }
 
 .arena-release-action:hover {
-    color: #568d08 !important;
+    border-color: #79b60b;
+    background: #83c716;
+    color: #17260a !important;
 }
 
 .arena-release-action:focus-visible {
-    outline: 2px solid #568d08;
+    outline: 2px solid #355a0d;
     outline-offset: 3px;
 }
 
 @media (max-width: 767px) {
     .arena-release-banner {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.65rem;
+        padding: 0.8rem;
     }
 
-    .arena-release-badge {
-        border-right: 0;
-        border-bottom: 1px solid #dce5d5;
+    .arena-release-action {
+        justify-self: start;
     }
 }
 
