@@ -64,8 +64,8 @@ There are three ideas to notice:
 * ``baseline: {}`` uses the shared values as written. The other Runs list only what they change.
 
 The shared ``episode_length_s: 1.5`` value is a short timeout in simulated time. Together with
-the one-episode rollout limit, it lets this zero-action example finish quickly and produce episode
-results.
+the rollout limit of one episode, or three in ``swap_objects``, it lets this zero-action example
+finish quickly and produce episode results.
 
 
 Run the Experiment locally
@@ -94,7 +94,8 @@ Then run the Experiment:
      --experiment_config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
 
 The Experiment Runner loads the Runs in YAML order and reuses one SimulationApp. It builds a fresh
-environment for every Run, then closes that environment before starting the next one.
+environment for every Run, and in ``swap_objects`` one for each pick-up object. It closes each
+environment before building the next one.
 
 .. note::
 

@@ -81,13 +81,13 @@ def test_openpi_experiment_loads_all_typed_runs():
     assert list(experiment_cfg.runs) == list(expected_run_values)
     for run_name, expected_values in expected_run_values.items():
         run_cfg = experiment_cfg.runs[run_name]
-        pick_up_object, destination_location, hdr, language_instruction = expected_values
+        pick_up_object, destination_object, hdr, language_instruction = expected_values
         assert run_cfg.name == run_name
         assert isinstance(run_cfg.environment, PickAndPlaceMapleTableEnvironmentCfg)
         assert run_cfg.environment.enable_cameras is True
         assert run_cfg.environment.embodiment == "droid_abs_joint_pos"
         assert run_cfg.environment.pick_up_object == pick_up_object
-        assert run_cfg.environment.destination_location == destination_location
+        assert run_cfg.environment.destination_object == destination_object
         assert run_cfg.environment.hdr == hdr
         assert run_cfg.environment_builder.language_instruction == language_instruction
         assert isinstance(run_cfg.policy, Pi0RemotePolicyCfg)
