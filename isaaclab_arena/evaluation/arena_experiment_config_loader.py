@@ -65,7 +65,7 @@ def load_arena_experiment_from_config_file(
         with path.open(encoding="utf-8") as experiment_config_file:
             legacy_experiment_config = json.load(experiment_config_file)
         run_cfgs = run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
-        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs})
+        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs}, name=path.stem)
 
     experiment_cfg = load_arena_experiment_from_yaml(
         path,
@@ -85,7 +85,7 @@ def load_arena_experiment_from_config_file(
             environment_builder=environment_builder_with_process_device,
         )
         runs_with_process_device[run_name] = run_config_with_process_device
-    return ArenaExperimentCfg(runs=runs_with_process_device)
+    return replace(experiment_cfg, runs=runs_with_process_device)
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:

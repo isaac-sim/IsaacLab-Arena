@@ -70,6 +70,7 @@ FAKE_OSMO_SUBMIT_STDOUT = """Workflow submit successful.
     Workflow ID        - arena-kpi-run-7
     Workflow Overview  - https://osmo.example.com/workflows/arena-kpi-run-7
 """
+EXPERIMENT_NAME = "pnp_benchmark"
 GR00T_CONFIG_YAML_PATH = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
 
 
@@ -96,7 +97,8 @@ def _pi0_experiment_cfg(first_variant: str = "pi05") -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             ),
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -118,7 +120,8 @@ def _mixed_experiment_cfg() -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             ),
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -130,7 +133,8 @@ def _zero_action_experiment_cfg() -> ArenaExperimentCfg:
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=ZeroActionPolicyCfg(),
             )
-        }
+        },
+        name=EXPERIMENT_NAME,
     )
 
 
@@ -488,6 +492,50 @@ def test_embeds_effective_experiment_yaml():
     assert embedded_experiment["runs"]["baseline"]["environment"]["type"] == "pick_and_place_maple_table"
     assert embedded_experiment["runs"]["baseline"]["policy"]["type"] == "zero_action"
     assert embedded_experiment["runs"]["baseline"]["environment_builder"]["num_envs"] == 1
+
+
+def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
+    """Embed the Experiment name in each single-Run Experiment so remote results keep it."""
+    source_experiment_cfg = _pi0_experiment_cfg()
+    source_experiment_cfg.name = "my-benchmark"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="named-experiment"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+
+    run_groups = groups[:-1]
+    assert run_groups
+    for group in run_groups:
+        assert _embedded_experiment(group["tasks"][0])["name"] == "my-benchmark"
+
+
+def test_null_experiment_name_fails_submission():
+    """Reject experiment_cfg.name=null, because an Experiment must have a name."""
+    with pytest.raises(Exception, match="experiment_cfg.name=null"):
+        _compose_submission(["experiment_cfg.name=null"])
+
+
+@pytest.mark.parametrize("name", ["None", "none"])
+def test_none_like_experiment_name_is_an_ordinary_string_at_submission(name):
+    """Hydra parses only null as None, so experiment_cfg.name=None names the Experiment 'None'."""
+    assert _compose_submission([f"experiment_cfg.name={name}"]).experiment_cfg.name == name
+
+
+def test_experiment_name_can_be_overridden_at_submission():
+    """Route experiment_cfg.name=<x> to the Experiment name of the submission."""
+    submission_cfg = _compose_submission(["experiment_cfg.name=my-benchmark"])
+
+    assert submission_cfg.experiment_cfg.name == "my-benchmark"
+
+
+@pytest.mark.parametrize("quoted_name", ["true", "1e3"])
+def test_quoted_boolean_or_number_like_experiment_name_keeps_its_text(quoted_name):
+    """Quote experiment_cfg.name=<x> so Hydra keeps the text instead of converting it to a boolean or number."""
+    submission_cfg = _compose_submission([f"experiment_cfg.name='{quoted_name}'"])
+
+    assert submission_cfg.experiment_cfg.name == quoted_name
 
 
 def test_result_wrapper_preserves_experiment_video_options():
