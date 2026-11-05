@@ -283,7 +283,6 @@ class NextToLossStrategy(RelationLossStrategy):
         # 1. & 3. Side (half-plane) and distance share their geometry with the placement validator.
         half_plane_raw, distance_raw = next_to_violations(cfg, child_pos, child_bbox, parent_world_bbox, distance)
         half_plane_loss = self.slope * half_plane_raw
-        # Any gap within tolerance_m of distance_m is free, so layouts keep the gap they were initialized with.
         distance_loss = self.slope * torch.clamp(distance_raw - relation.tolerance_m, min=0.0)
 
         # 2. Keep the footprint within the perpendicular extent; prefer a point only when requested.

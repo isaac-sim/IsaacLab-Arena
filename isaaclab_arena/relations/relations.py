@@ -160,9 +160,7 @@ class NextTo(Relation):
 
     This relation specifies that a child object should be placed adjacent to
     the parent object on a specified side, at a given distance. The gap may be anywhere within
-    ``tolerance_m`` of ``distance_m``: the default initializer samples it in that range and the solver
-    only pulls it back when it leaves the range, so a wider ``tolerance_m`` gives more variation
-    between layouts.
+    ``tolerance_m`` of ``distance_m``.
 
     Note: Loss computation is handled by NextToLossStrategy in optimization/losses/relation_loss_strategies.py.
     """
