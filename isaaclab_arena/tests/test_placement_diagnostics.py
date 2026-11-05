@@ -162,8 +162,8 @@ def test_aggregated_pool_diagnostics_file_round_trips(tmp_path):
     assert AggregatedPlacementDiagnostics.load(path).fills[0].batches[0].checks["on_relation"].rejections
 
 
-def test_fill_failure_names_the_failing_relation_and_object_bounds():
-    """A fill failure names the relation and object that rejected candidates and lists each object's bounds."""
+def test_fill_failure_names_the_failing_relation_and_object():
+    """A fill failure names the relation and object that rejected candidates, and carries the fill's diagnostics."""
     objects = _desk_and_box(box_width_m=1.5)
     pool = PooledObjectPlacer(objects, _placer_params(), pool_size=2, num_envs=2)
 
@@ -183,7 +183,6 @@ def test_fill_failure_names_the_failing_relation_and_object_bounds():
         "on_relation": {"'box' on(desk): edge margin wider than the free space": num_candidates}
     }
     assert "on_relation: 'box' on(desk): edge margin wider than the free space x" in message
-    assert "'box': size (1.500, 1.500, 0.200); centre (+0.750, +0.750, +0.100)" in message
 
 
 def test_next_to_validator_records_the_relation_and_its_violation():

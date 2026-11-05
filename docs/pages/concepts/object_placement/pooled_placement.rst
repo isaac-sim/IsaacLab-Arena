@@ -102,9 +102,8 @@ rejection is printed as it is recorded.
   ``isaaclab_arena.relations.runtime.placement_events``.
 - When a fill fails, it raises a ``PlacementPoolFillError`` whose
   ``diagnostics`` hold the fill's record. Its message lists the counts, one
-  line per batch, then each check's most frequent rejection causes, then the
-  bounds placement uses for each object. For a box wider than the table it is
-  placed on, for example:
+  line per batch, then each check's most frequent rejection causes. For a box
+  wider than the table it is placed on, for example:
 
   .. code-block:: text
 
