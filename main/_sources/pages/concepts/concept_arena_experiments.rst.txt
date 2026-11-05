@@ -46,10 +46,12 @@ The Experiment Definition
 -------------------------
 
 The YAML has a required ``runs`` mapping. A ``shared`` mapping is optional. When present, its
-values are reused by every Run. Each key below ``runs`` is a Run name:
+values are reused by every Run. An optional top-level ``name`` string names the Experiment; if it is not
+given, the name is taken from the YAML file name (without extension). Each key below ``runs`` is a Run name:
 
 .. code-block:: yaml
 
+   name: my_experiment
    shared:
      environment:
        type: pick_and_place_maple_table
@@ -207,7 +209,7 @@ Values are applied in this order, from lowest to highest priority:
 .. dropdown:: Configuration rules
    :animate: fade-in
 
-   * The only top-level fields are ``shared`` and ``runs``.
+   * The only top-level fields are ``name``, ``shared``, and ``runs``.
    * ``runs`` must contain at least one Run.
    * A Run name starts with a letter or underscore. It can then contain letters, numbers,
      underscores, or hyphens.
