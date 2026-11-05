@@ -1,0 +1,43 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: bluefield_g1_fixed_base_pick_and_place
+    embodiment: g1_fixed_base_upper_body_joint
+    enable_cameras: true
+  environment_builder:
+    num_envs: 16
+    env_spacing: 8.0
+  policy:
+    type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+    # Use the client configuration matching the checkpoint served on this endpoint.
+    policy_config_yaml_path: isaaclab_arena_gr00t/policy/config/bluefield_g1_apple_gr00t_closedloop_config.yaml
+    policy_device: cuda:0
+  rollout_limit:
+    num_episodes: 512
+
+runs:
+  baseline:
+    rollout_limit:
+      num_episodes: 64
+  mass:
+    variations:
+      apple_01_objaverse_robolab.mass.enabled: true
+      apple_01_objaverse_robolab.mass.sampler_cfg.low: [0.075]
+      apple_01_objaverse_robolab.mass.sampler_cfg.high: [1.2]
+      apple_01_objaverse_robolab.mass.recompute_inertia: true
+  camera:
+    variations:
+      g1_fixed_base_upper_body_joint.ego_camera_offset_torso.enabled: true
+      g1_fixed_base_upper_body_joint.ego_camera_offset_torso.sampler_cfg.low: [-0.03, -0.03, -0.03]
+      g1_fixed_base_upper_body_joint.ego_camera_offset_torso.sampler_cfg.high: [0.03, 0.03, 0.03]
+  dome:
+    # 512 episodes in total: 32 independent global-light builds, 16 episodes each.
+    num_rebuilds: 32
+    variations:
+      light.intensity.enabled: true
+      light.intensity.sampler_cfg.low: [10.0]
+      light.intensity.sampler_cfg.high: [6000.0]

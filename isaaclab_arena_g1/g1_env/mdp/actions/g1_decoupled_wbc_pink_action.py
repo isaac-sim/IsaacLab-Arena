@@ -45,7 +45,7 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.p_controller im
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
+    from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 
 
 # Below this 2-norm we treat an xyzw quaternion as the all-zeros sentinel produced by
@@ -109,6 +109,7 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
             robot_model=self.robot_model,
             body_active_joint_groups=list(self.cfg.upperbody_active_joint_groups),
             extra_active_joints=list(self.cfg.upperbody_extra_active_joints),
+            posture_rest_pose=self.cfg.posture_rest_pose,
         )
 
         # Map any extra (non-"upper_body"-group) IK-active joints to their sim-side joint
