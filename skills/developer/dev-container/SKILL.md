@@ -1,7 +1,7 @@
 ---
 name: dev-container
 description: Bootstraps and maintains the Docker environment used when contributing to Isaac Lab-Arena. Use when preparing a checkout for development, installing contributor hooks, rebuilding the Arena image with or without cache, inspecting the clone-specific container, or running development commands inside it. For installing or using Arena without contribution work, use setup-arena instead.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(pre-commit install) Bash(test -x *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id --user --name) Bash(pre-commit install) Bash(test -x *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *)
 ---
 
 # Dev Container
@@ -65,7 +65,7 @@ cause. Preserve the launcher's automatic per-checkout suffix unless the user req
 Run commands as the host user, not root:
 
 ```bash
-docker exec --user "$(id -un)" "$ARENA_CONTAINER" <command> [args...]
+docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" <command> [args...]
 ```
 
 Use `isaaclab.sh -p` for non-interactive Python commands; do not rely on the

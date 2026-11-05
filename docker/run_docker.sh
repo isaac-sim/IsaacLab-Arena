@@ -129,7 +129,7 @@ fi
 # If container is running, attach to it, otherwise start
 if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG$CONTAINER_SUFFIX 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
-  docker exec -it --user "$(id -un)" \
+  docker exec -it --user "$(id --user --name)" \
     "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX" bash
 else
     DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX"

@@ -27,7 +27,7 @@ Run the phase commands below in that same shell so `$ARENA_CONTAINER` stays set 
 The fastest of the three. Useful on its own when iterating on changes that don't touch rendering or subprocess paths.
 
 ```bash
-docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
+docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" \
   isaaclab.sh -p -m pytest -sv \
   -m 'not with_cameras and not with_subprocess' isaaclab_arena/tests
 ```
@@ -35,7 +35,7 @@ docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
 ## Phase 2 — with cameras
 
 ```bash
-docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
+docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" \
   isaaclab.sh -p -m pytest -sv \
   -m 'with_cameras and not with_subprocess' isaaclab_arena/tests
 ```
@@ -43,7 +43,7 @@ docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
 ## Phase 3 — with subprocess
 
 ```bash
-docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
+docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" \
   isaaclab.sh -p -m pytest -sv \
   -m 'with_subprocess' isaaclab_arena/tests
 ```
@@ -52,11 +52,11 @@ docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
 
 ```bash
 # single file
-docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
+docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" \
   isaaclab.sh -p -m pytest isaaclab_arena/tests/test_asset_registry.py
 
 # single function
-docker exec --user "$(id -un)" "$ARENA_CONTAINER" \
+docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" \
   isaaclab.sh -p -m pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered
 ```
 
