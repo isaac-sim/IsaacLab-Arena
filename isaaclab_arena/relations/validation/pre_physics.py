@@ -808,12 +808,12 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         sdf = mesh_sdf(centers, warp_mesh)
         mesh_manager.warn_sdf_sentinel(sdf)
         if has_sdf_sentinel(sdf):
-            self._record_mesh_overlap(rejections, source, target, max_penetration_m=None, clearance_m=tolerance)
+            self._record_mesh_overlap(rejections, source, target, max_clearance_shortfall_m=None, clearance_m=tolerance)
             return True
         penetration = spheres[:, 3] + tolerance - sdf
         if (penetration > 0).any():
             self._record_mesh_overlap(
-                rejections, source, target, max_penetration_m=float(penetration.max()), clearance_m=tolerance
+                rejections, source, target, max_clearance_shortfall_m=float(penetration.max()), clearance_m=tolerance
             )
             return True
         return False
@@ -823,22 +823,24 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         rejections: list[Rejection],
         source: PlaceableAsset | CollisionObject,
         target: PlaceableAsset | CollisionObject,
-        max_penetration_m: float | None,
+        max_clearance_shortfall_m: float | None,
         clearance_m: float,
     ) -> None:
-        """Record a rejection because source's collision spheres penetrate target's mesh.
+        """Record a rejection because source's collision spheres come closer to target's mesh than clearance_m.
 
         Args:
-            max_penetration_m: Deepest sphere intrusion, including clearance_m. None when the SDF query found no
-                mesh face, which is rejected too.
+            max_clearance_shortfall_m: Largest amount by which the gap between a sphere and the mesh falls short of
+                clearance_m; more than clearance_m when they intersect. None when the SDF query found no mesh face,
+                which is rejected too.
+            clearance_m: Gap required between the meshes.
         """
-        if max_penetration_m is None:
+        if max_clearance_shortfall_m is None:
             rejections.append(Rejection(f"'{source.name}' and '{target.name}': SDF query found no mesh face"))
         else:
             rejections.append(
                 Rejection(
-                    f"'{source.name}' and '{target.name}': meshes intersect",
-                    detail=f"by up to {max_penetration_m:.3f} m, including {clearance_m:.3f} m clearance",
+                    f"'{source.name}' and '{target.name}': meshes closer than the clearance",
+                    detail=f"gap short of the {clearance_m:.3f} m clearance by up to {max_clearance_shortfall_m:.3f} m",
                 )
             )
 
