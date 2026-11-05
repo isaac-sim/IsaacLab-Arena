@@ -16,7 +16,11 @@ from isaaclab_arena.relations.optimization.initializers.on_tree_initializer impo
     _bounding_box_from_partial_limits,
     _order_objects_for_sampling,
 )
-from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import SIDE_CONFIGS, next_to_violations
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
+    SIDE_CONFIGS,
+    Direction,
+    next_to_violations,
+)
 from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import (
@@ -225,6 +229,32 @@ def test_ontree_seeds_next_to_on_requested_side_within_tolerance(side):
 
     # The cross axis spans the reference's extent rather than collapsing to one point.
     assert max(band_positions) - min(band_positions) > 0.05
+
+
+@pytest.mark.parametrize("side", list(Side))
+def test_ontree_keeps_next_to_seed_outside_reference_when_tolerance_exceeds_distance(side):
+    """A gap tolerance wider than the gap still seeds the subject outside the reference, never inside it."""
+    distance_m, tolerance_m = 0.02, 0.05
+    desk, reference, subject = _make_next_to_scene(side, distance_m=distance_m, tolerance_m=tolerance_m)
+    cfg = SIDE_CONFIGS[side]
+    side_index = cfg.primary_axis.index
+    generator = torch.Generator().manual_seed(0)
+    gaps = []
+
+    for _ in range(50):
+        positions = _seed(OnTreeInitializer(), [subject, desk, reference], {desk}, generator=generator)
+        reference_world = reference.get_bounding_box().translated(positions[reference])
+        subject_world = subject.get_bounding_box().translated(positions[subject])
+        if cfg.direction == Direction.POSITIVE:
+            gap = (subject_world.min_point[0, side_index] - reference_world.max_point[0, side_index]).item()
+        else:
+            gap = (reference_world.min_point[0, side_index] - subject_world.max_point[0, side_index]).item()
+        gaps.append(gap)
+
+    assert min(gaps) >= -1e-6, f"Seed inside the reference, gap {min(gaps):.4f} m"
+    assert max(gaps) <= distance_m + tolerance_m + 1e-6
+    # The seeds still use the part of the tolerance below distance_m.
+    assert min(gaps) < distance_m
 
 
 def test_ontree_centres_next_to_seed_when_subject_is_wider_than_reference():

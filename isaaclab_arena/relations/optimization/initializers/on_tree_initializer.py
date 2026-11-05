@@ -331,9 +331,10 @@ def _bounds_from_next_to(
     """Return origin bounds that put the subject on the requested side at the requested gap.
 
     Matches the geometry of the NextTo loss and validator: along the side axis, the subject's facing
-    edge lies within ``tolerance_m`` of ``distance_m`` from the parent's edge; along the cross axis,
-    the subject's footprint lies within the parent's extent, collapsing to the centred position when
-    the subject is wider than the parent.
+    edge lies within ``tolerance_m`` of ``distance_m`` from the parent's edge, but never inside the
+    parent, even when ``tolerance_m`` exceeds ``distance_m``; along the cross axis, the subject's
+    footprint lies within the parent's extent, collapsing to the centred position when the subject is
+    wider than the parent.
 
     Args:
         relation: Side, gap and tolerance of the NextTo relation.
@@ -352,7 +353,11 @@ def _bounds_from_next_to(
     else:
         parent_edge_W = parent_world_bbox.min_point[0, side_index].item()
         child_offset = child_bbox.max_point[0, side_index].item()
-    target_origin_W = parent_edge_W + cfg.direction * relation.distance_m - child_offset
+    # A negative gap would put the subject inside the parent, so the nearest gap is at least zero.
+    min_gap_m = max(0.0, relation.distance_m - relation.tolerance_m)
+    max_gap_m = relation.distance_m + relation.tolerance_m
+    nearest_origin_W = parent_edge_W + cfg.direction * min_gap_m - child_offset
+    farthest_origin_W = parent_edge_W + cfg.direction * max_gap_m - child_offset
 
     band_min_W = parent_world_bbox.min_point[0, band_index].item() - child_bbox.min_point[0, band_index].item()
     band_max_W = parent_world_bbox.max_point[0, band_index].item() - child_bbox.max_point[0, band_index].item()
@@ -360,8 +365,8 @@ def _bounds_from_next_to(
 
     lower = [None, None, None]
     upper = [None, None, None]
-    lower[side_index] = target_origin_W - relation.tolerance_m
-    upper[side_index] = target_origin_W + relation.tolerance_m
+    lower[side_index] = min(nearest_origin_W, farthest_origin_W)
+    upper[side_index] = max(nearest_origin_W, farthest_origin_W)
     lower[band_index] = min(band_min_W, band_centre_W)
     upper[band_index] = max(band_max_W, band_centre_W)
     return _bounding_box_from_partial_limits(tuple(lower), tuple(upper))
