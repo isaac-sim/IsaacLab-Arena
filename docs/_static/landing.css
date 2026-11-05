@@ -6193,6 +6193,230 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     }
 }
 
+/* Keep release news beside the development note, above the page title. */
+#welcome-to-isaac-lab-arena > .admonition.note {
+    margin-bottom: 0.6rem !important;
+}
+
+.arena-release-banner {
+    display: grid;
+    grid-template-columns: 4.8rem minmax(0, 1fr);
+    align-items: stretch;
+    order: -2;
+    margin: 0 0 1.3rem;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #dae2d5;
+    border-left: 2px solid #76b900;
+    border-radius: 6px;
+    background: #fbfcfa;
+    box-shadow: 0 5px 16px rgba(42, 56, 35, 0.035);
+    font-family: var(--arena-page-font);
+}
+
+.arena-release-badge {
+    display: flex;
+    align-items: center;
+    padding: 0.58rem 0.65rem;
+    border-right: 1px solid #dce5d5;
+    background: #f0f6e9;
+    color: #384633;
+    font-size: 0.65rem;
+    font-weight: 670;
+    line-height: 1.2;
+}
+
+.arena-release-banner > p.arena-release-copy {
+    align-self: center;
+    margin: 0;
+    padding: 0.56rem 0.78rem;
+    color: #606b5e;
+    font-size: 0.7rem;
+    font-weight: 410;
+    letter-spacing: -0.004em;
+    line-height: 1.46;
+}
+
+.arena-release-copy > strong {
+    color: #384633;
+    font-weight: 620;
+}
+
+.arena-release-action {
+    color: #30402c !important;
+    font-size: inherit !important;
+    text-underline-offset: 0.15em;
+    white-space: nowrap;
+}
+
+.arena-release-action:hover {
+    color: #568d08 !important;
+}
+
+.arena-release-action:focus-visible {
+    outline: 2px solid #568d08;
+    outline-offset: 3px;
+}
+
+@media (max-width: 767px) {
+    .arena-release-banner {
+        grid-template-columns: 1fr;
+    }
+
+    .arena-release-badge {
+        border-right: 0;
+        border-bottom: 1px solid #dce5d5;
+    }
+}
+
+/* Introduce the existing authoring features beneath agentic evaluation authoring. */
+.arena-agentic-lead .arena-feature-copy > p.rubric,
+.arena-agentic-lead .arena-feature-copy > p.rubric a {
+    font-size: 1.05rem !important;
+    font-weight: 620 !important;
+}
+
+.arena-agentic-walkthrough.docutils.container {
+    width: 100%;
+    min-width: 0;
+    margin: 1rem 0 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    border: 1px solid #d8dfd3;
+    border-radius: 10px;
+    background: #fbfcfa;
+}
+
+.arena-agentic-walkthrough-toolbar.docutils.container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem 1rem;
+    margin: 0 !important;
+    padding: 0.7rem 0.9rem !important;
+    border-bottom: 1px solid #e1e7dc;
+    color: #657062;
+    font-size: 0.72rem;
+    line-height: 1.5;
+}
+
+.arena-agentic-walkthrough > .sphinx-contrib-video-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 64 / 31;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.arena-agentic-walkthrough video {
+    /* Hide the artwork's 150px title band; keep the workflow and player controls. */
+    position: absolute;
+    inset: auto 0 0;
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    background: #fff;
+}
+
+.arena-authoring-foundation.docutils.container {
+    margin: 1.5rem 0 0.35rem !important;
+    padding: 0 !important;
+}
+
+.arena-authoring-foundation > p.rubric {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    color: #34402f;
+    font-size: 1rem;
+    font-weight: 620;
+    line-height: 1.4;
+}
+
+.arena-authoring-foundation > p:not(.rubric) {
+    max-width: 58rem;
+    margin: 0.45rem 0 0 !important;
+    color: #657062;
+    font-size: 0.77rem;
+    line-height: 1.55;
+}
+
+.arena-feature-copy > p.arena-policy-vlm-note {
+    margin-top: 0.45rem !important;
+}
+
+/* Newton environment feature visuals. */
+#home-newton-environments {
+    scroll-margin-top: 5rem;
+}
+
+.arena-newton-proof.docutils.container {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 !important;
+    padding: 12px !important;
+    border: 1px solid #d8dfd3;
+    border-radius: 15px;
+    background: linear-gradient(145deg, #f8faf6, #f1f5ed);
+}
+
+.arena-newton-proof.docutils.container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.arena-newton-example.docutils.container {
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    border: 1px solid #d7dfd3;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.arena-newton-example > p.rubric {
+    margin: 0 !important;
+    padding: 11px 14px;
+    font-size: 0.76rem;
+    font-weight: 650;
+}
+
+.arena-newton-example > p.rubric a {
+    color: #395d18 !important;
+    text-decoration: none;
+}
+
+.arena-newton-example > p.rubric a:hover {
+    text-decoration: underline;
+}
+
+.arena-newton-example video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 0;
+}
+
+.arena-newton-example > p:last-child {
+    margin: 0 !important;
+    padding: 10px 14px;
+    color: #657062;
+    font-size: 0.67rem;
+    line-height: 1.45;
+}
+
+@media (max-width: 767px) {
+    .arena-newton-proof.docutils.container {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* The branded Overview and Why pages are intentionally light-only. */
 body:has(#welcome-to-isaac-lab-arena) .theme-switch-container,
 body:has(#why-isaac-lab-arena) .theme-switch-container {

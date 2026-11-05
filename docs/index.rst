@@ -6,11 +6,12 @@ Welcome to Isaac Lab-Arena!
    be fully tested yet. For the tested version, please refer to the `release/0.3.0 branch
    <https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html>`_.
 
-.. tip::
+.. raw:: html
 
-   **Coming in the next release (scheduled for 8 December 2026):** faster agentic evaluation
-   authoring, Newton-based evaluation workflows, and multimodal VLMs as policies. You can try them
-   now on the ``main`` branch. :doc:`See what's new <pages/whats_new/whats_new>`.
+   <aside class="arena-release-banner" aria-label="What's new in Isaac Lab-Arena">
+     <span class="arena-release-badge">New on main</span>
+     <p class="arena-release-copy">The <strong>v0.4 Developer Preview</strong> is available now on main. The Qualified Release is coming soon, around <time datetime="2026-12-08">8 December</time>. <a class="arena-release-action" href="pages/whats_new/whats_new.html">See what’s new <span aria-hidden="true">→</span></a></p>
+   </aside>
 
 .. _overview:
 
@@ -62,6 +63,47 @@ Features
 
 Author benchmarks
 ^^^^^^^^^^^^^^^^^
+
+.. _home-agentic-environment-generation:
+
+.. container:: arena-feature-row arena-feature-rich arena-agentic-lead
+
+   .. container:: arena-feature-copy
+
+      .. rubric:: :doc:`Agentic evaluation authoring <pages/whats_new/agentic_authoring>`
+
+      Describe the evaluation environment you want in natural language. A coding agent finds
+      SimReady USD assets and uses Arena's features to build environments and configure
+      evaluation workflows.
+
+   .. container:: arena-agentic-walkthrough
+
+      .. container:: arena-agentic-walkthrough-toolbar
+
+         .. raw:: html
+
+            <span>Workbench cleanup walkthrough</span>
+
+      .. video:: images/whats_new/agentic_authoring_workbench_walkthrough.mp4
+         :width: 100%
+         :alt: A coding agent authors a workbench cleanup evaluation environment, evaluates a VLM policy, and adds variations
+         :muted:
+         :playsinline:
+         :preload: metadata
+         :poster: _images/agentic-authoring-walkthrough.webp
+
+   .. container:: arena-video-poster-sources
+
+      .. image:: images/landing/agentic-authoring-walkthrough.webp
+         :alt: Agentic workbench evaluation authoring walkthrough preview
+         :loading: lazy
+
+.. container:: arena-authoring-foundation
+
+   .. rubric:: The building blocks behind agentic authoring
+
+   The features below give coding agents the building blocks to author evaluations.
+   Use the same tools directly to compose environments, place objects, and add variations.
 
 .. _home-modular-environment-composition:
 
@@ -231,37 +273,6 @@ Author benchmarks
 
                      **Environment ready for evaluation**
 
-.. _home-agentic-environment-generation:
-
-.. container:: arena-feature-row arena-feature-rich
-
-   .. grid:: 1 1 2 2
-      :gutter: 4
-      :class-container: arena-feature-grid
-
-      .. grid-item::
-         :columns: 12 12 5 5
-
-         .. container:: arena-feature-copy
-
-            .. container:: arena-feature-heading
-
-               .. rubric:: :doc:`Agentic evaluation authoring <pages/whats_new/agentic_authoring>`
-
-            Describe the evaluation environment you want in natural language. A coding agent finds
-            SimReady USD assets and uses Arena's features to build environments and configure
-            evaluation workflows.
-
-      .. grid-item::
-         :columns: 12 12 7 7
-
-         .. video:: images/whats_new/agentic_authoring_workbench_walkthrough.mp4
-            :width: 100%
-            :alt: A coding agent authors a workbench cleanup evaluation environment, evaluates a VLM policy, and adds variations
-            :muted:
-            :playsinline:
-            :preload: none
-
 .. _home-variation-system:
 
 .. container:: arena-feature-row arena-feature-rich
@@ -399,6 +410,62 @@ Author benchmarks
                    <div><small>Isaac Lab-Arena</small><strong>Evaluate policy</strong></div>
                  </article>
                </div>
+
+.. _home-newton-environments:
+
+.. container:: arena-feature-row arena-feature-rich arena-newton-feature
+
+   .. container:: arena-feature-copy
+
+      .. rubric:: :doc:`Contact-rich and deformable environments with Newton <pages/whats_new/newton_evaluation>`
+
+      Build evaluation environments for tight-tolerance insertion and deformable-object
+      manipulation with the Newton physics backend. Run these tasks through Arena's evaluation
+      workflows.
+
+   .. container:: arena-newton-proof
+
+      .. container:: arena-newton-example
+
+         .. rubric:: :doc:`Gear insertion <pages/example_workflows/newton/gear_insertion>`
+
+         .. video:: images/whats_new/arena_v04_newton_rigid_gear_insertion.mp4
+            :width: 100%
+            :alt: DROID inserts a gear onto a peg, with the rendered scene beside the Newton collision geometry
+            :loop:
+            :muted:
+            :playsinline:
+            :nocontrols:
+            :preload: none
+            :poster: _images/newton-gear-overview.webp
+
+         Tight-tolerance contact between a gear and a peg.
+
+      .. container:: arena-newton-example
+
+         .. rubric:: :doc:`Deformable pick and place <pages/example_workflows/newton/deformable_pick_and_place>`
+
+         .. video:: images/whats_new/arena_v04_newton_deformables.mp4
+            :width: 100%
+            :alt: DROID places a deformable block on a plate, with the rendered scene beside the Newton deformable mesh
+            :loop:
+            :muted:
+            :playsinline:
+            :nocontrols:
+            :preload: none
+            :poster: _images/newton-deformable-overview.webp
+
+         Objects deform as the robot grasps and moves them.
+
+   .. container:: arena-video-poster-sources
+
+      .. image:: images/landing/newton-gear-overview.webp
+         :alt: Newton gear insertion preview
+         :loading: lazy
+
+      .. image:: images/landing/newton-deformable-overview.webp
+         :alt: Newton deformable pick-and-place preview
+         :loading: lazy
 
 .. _home-execute-evaluations:
 
@@ -657,6 +724,10 @@ Execute large-scale parallel policy evaluations
             Arena exchanges observations and actions through one client contract across processes,
             GPUs, or machines.
 
+            .. rst-class:: arena-policy-vlm-note
+
+            Now also supports multimodal VLMs as policies. :doc:`See an example <pages/whats_new/vlm_policy>`.
+
       .. grid-item::
          :columns: 12 12 7 7
 
@@ -668,12 +739,13 @@ Execute large-scale parallel policy evaluations
 
             .. raw:: html
 
-               <div class="arena-policy-runtime-flow" aria-label="Three policy servers exchange observations and actions with Isaac Lab-Arena through a shared client contract.">
+               <div class="arena-policy-runtime-flow" aria-label="Four policy servers exchange observations and actions with Isaac Lab-Arena through a shared client contract.">
                  <section class="arena-policy-runtime arena-policy-external">
                    <header><strong>Policy servers</strong><small>Separate process</small></header>
                    <div class="arena-policy-models">
                      <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>GR00T</strong></span></article>
                      <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>π0.5</strong></span></article>
+                     <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>Multimodal VLM</strong></span></article>
                      <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>Your policy</strong></span></article>
                    </div>
                  </section>
