@@ -1,0 +1,32 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Evaluate the GR00T policy from the sequential static manipulation workflow on an unseen jug and
+# on the ranch dressing bottle it was trained on. Both Runs use the language instruction from the
+# policy config, so only the object differs.
+shared:
+  environment:
+    type: put_item_in_fridge_and_close_door
+    enable_cameras: true
+    embodiment: gr1_joint
+  environment_builder:
+    num_envs: 10
+  policy:
+    type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+    policy_config_yaml_path: isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml
+    policy_device: cuda:0
+    remote_host: 127.0.0.1
+    remote_port: 5555
+  rollout_limit:
+    num_steps: 500
+
+runs:
+  gr1_put_jug_in_fridge_and_close_door:
+    environment:
+      object: jug
+
+  gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
+    environment:
+      object: ranch_dressing_hope_robolab

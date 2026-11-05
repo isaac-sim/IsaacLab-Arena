@@ -1,6 +1,6 @@
 # Run Experiment Evaluations
 
-## Scenario 1: Built-In Local Smoke Evaluation
+## Scenario 1: Built-In Local Example Evaluation
 
 Query: "Run the getting-started Experiment locally and tell me where the report is."
 
@@ -14,7 +14,7 @@ Expected behavior:
 
 Known failure modes:
 
-- Runs the legacy default configuration because no explicit path was supplied.
+- Runs the default smoke-test configuration because no explicit path was supplied.
 - Claims success from process exit alone or requires a nonzero policy success rate.
 - Reports a guessed output directory without checking the artifacts.
 

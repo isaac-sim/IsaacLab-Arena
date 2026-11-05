@@ -9,7 +9,7 @@ from pathlib import Path
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 
-_DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
+_DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/experiment_configs/smoke_test_experiment.yaml"
 _DEFAULT_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "outputs"
 
 

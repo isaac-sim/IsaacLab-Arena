@@ -27,7 +27,8 @@ path; do not create new legacy configurations or apply Hydra overrides to them.
 ## Preflight the run
 
 1. Confirm the repository root with `git rev-parse --show-toplevel`.
-2. Resolve an explicit Experiment path. Never rely on the runner's legacy default configuration.
+2. Resolve an explicit Experiment path. Never rely on the runner's default configuration, which is
+   only an installation smoke test.
 3. Inspect the Experiment's Runs, policies, rollout limits, rebuild counts, environment counts,
    cameras, variations, and referenced files. Summarize unexpectedly large work before starting it.
 4. Preserve a native or Docker route already selected by the user. If both are ready and the
@@ -51,7 +52,7 @@ path; do not create new legacy configurations or apply Hydra overrides to them.
    local server skill, require an already-running and reachable endpoint. Do not replace a
    deliberately remote endpoint with a local server or submit it to managed compute.
 
-For a built-in smoke evaluation, use
+For a built-in example evaluation, use
 `isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml`. It uses the local
 zero-action policy and requires no model or policy server.
 

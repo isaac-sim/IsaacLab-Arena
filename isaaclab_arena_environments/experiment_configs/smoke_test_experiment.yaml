@@ -1,0 +1,16 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# A short Experiment that checks an installation: the cube goal pose environment with the zero-action policy.
+# experiment_runner.py runs this Experiment when --experiment_config is not set.
+# To watch it for longer in the GUI, add: --viz kit runs.smoke_test.rollout_limit.num_steps=200
+runs:
+  smoke_test:
+    environment:
+      type: cube_goal_pose
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 20
