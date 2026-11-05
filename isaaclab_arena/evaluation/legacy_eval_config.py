@@ -13,9 +13,9 @@ from typing import Any
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+from isaaclab_arena.evaluation.arena_experiment_config_loader import resolve_policy_type_from_name_or_class_path
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutLimitCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
-from isaaclab_arena.evaluation.policy_runner import get_policy_cls
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
@@ -171,6 +171,6 @@ def _policy_cfg_from_legacy_job(job_config: dict[str, Any]) -> PolicyCfg:
     policy_values = job_config.get("policy_config_dict", job_config.get("policy_args", {}))
     assert isinstance(policy_values, dict), "policy_config_dict must be a mapping"
 
-    policy_type = get_policy_cls(job_config["policy_type"])
+    policy_type = resolve_policy_type_from_name_or_class_path(job_config["policy_type"])
     policy_cfg_type = PolicyRegistry().get_policy_cfg_type(policy_type)
     return policy_cfg_type(**policy_values)
