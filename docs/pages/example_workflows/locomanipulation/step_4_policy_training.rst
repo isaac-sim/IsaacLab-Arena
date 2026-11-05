@@ -4,20 +4,18 @@ Policy Post-Training
 This workflow covers post-training an example policy using the generated dataset,
 here we use `GR00T N1.6 <https://research.nvidia.com/labs/gear/gr00t-n1_6/>`_ as the base model.
 
-Use the Arena **Base** container for dataset download and LeRobot conversion. Run GR00T
+Use the Arena runtime for dataset download and LeRobot conversion. Run GR00T
 finetuning from the native Isaac-GR00T ``uv`` environment in ``submodules/Isaac-GR00T``,
-not from the Arena container.
+not from the Arena runtime.
 
-**Docker Container for conversion**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:
 
-:docker_run_default:
+Once the runtime is ready, set the dataset and models directories.
 
-Once inside the container, set the dataset and models directories.
+.. code-block:: bash
 
-.. code:: bash
-
-    export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/locomanipulation_tutorial"
+   export MODELS_DIR="$HOME/models/isaaclab_arena/locomanipulation_tutorial"
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Data Generation) <step_3_data_generation>` or downloaded the pre-generated dataset.
@@ -84,7 +82,7 @@ The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/c
    .. code-block:: yaml
 
       # Input/Output paths
-      data_root: /datasets/isaaclab_arena/locomanipulation_tutorial
+      data_root: ~/datasets/isaaclab_arena/locomanipulation_tutorial
       hdf5_name: "arena_g1_loco_manipulation_dataset_generated.hdf5"
 
       # Task description

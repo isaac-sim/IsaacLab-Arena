@@ -13,9 +13,7 @@ workflow then uses the same results to show which camera offsets were associated
 For deterministic comparisons across different parallel environment counts, follow
 :doc:`Run an Evaluation with Recorded Variations <recorded_variations>`.
 
-Start or enter the Base Docker container from the repository root:
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 In another terminal on the host, start the OpenPI server from the repository root:
 
@@ -28,15 +26,14 @@ starting Sensitivity Analysis, which reads the saved episode results directly. F
 model variants, and server options, see
 :doc:`../../quickstart/running_a_real_policy/openpi`.
 
-In the Base Docker container, create the output directory used throughout this walkthrough:
+Create the output directory used throughout this walkthrough:
 
 .. code-block:: bash
 
-   export CAMERA_SENSITIVITY_OUTPUT_DIR="/eval/camera_sensitivity_workflow"
+   export CAMERA_SENSITIVITY_OUTPUT_DIR="$HOME/eval/camera_sensitivity_workflow"
    mkdir -p "${CAMERA_SENSITIVITY_OUTPUT_DIR}"
 
-The ``/eval`` directory is mounted from ``$HOME/eval`` on the host by default. Arena requires the
-workflow directory to be empty.
+Arena requires the workflow directory to be empty.
 
 .. toctree::
    :maxdepth: 1

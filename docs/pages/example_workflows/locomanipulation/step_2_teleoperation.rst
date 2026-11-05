@@ -28,9 +28,7 @@ ports depend on the client type:
 Step 1: Start Arena Teleop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#. Start the Arena Docker container:
-
-   :docker_run_default:
+#. :runtime_setup_tabs:
 
 #. Run Isaac Lab's teleop script with Arena's environment registration callback. The script
    launches the CloudXR runtime automatically:
@@ -93,12 +91,14 @@ Once you have verified the teleoperation pipeline, exit VR from the Quest 3 head
 Step 3: Record with Quest 3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#. Run the recording script from the Arena container:
+#. Run the recording script from the Arena runtime:
+
+   Record the demonstrations:
 
    .. code-block:: bash
 
-      export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
       mkdir -p $DATASET_DIR
+      export DATASET_DIR="$HOME/datasets/isaaclab_arena/locomanipulation_tutorial"
 
       # Record demonstrations with OpenXR teleop
       python submodules/IsaacLab/scripts/tools/record_demos.py \

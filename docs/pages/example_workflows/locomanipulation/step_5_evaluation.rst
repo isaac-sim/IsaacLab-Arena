@@ -5,16 +5,14 @@ This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena G1 Loco Manipulation Task environment.
 
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:
 
-:docker_run_default:
+Once the runtime is ready, set the dataset and models directories.
 
-Once inside the container, set the dataset and models directories.
+.. code-block:: bash
 
-.. code:: bash
-
-    export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/locomanipulation_tutorial"
+   export MODELS_DIR="$HOME/models/isaaclab_arena/locomanipulation_tutorial"
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the

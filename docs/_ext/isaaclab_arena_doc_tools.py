@@ -86,9 +86,53 @@ def docker_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
     source[0] = re.sub(r":docker_run_default:", default_replacer, source[0])
 
 
+def runtime_setup_tabs_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
+    """Replaces the :runtime_setup_tabs: directive with a lead-in sentence and a Native uv / Docker Container tab set.
+
+    The tab set shows how to prepare the Arena runtime for either installation method. The directive keeps the
+    indentation of the line it is on, so it can be used inside directives. Placed after a ``#. `` list marker,
+    the lead-in sentence becomes the list item's text and the tab set is indented under it. It must be processed
+    before the uv_run_source and docker_run_default replacers, which expand the directives it emits.
+    """
+
+    template = (
+        "Prepare the Arena runtime from the repository root, using either a native ``uv`` environment or the\n"
+        "base Docker container (see :doc:`/pages/quickstart/installation` for the full setup):\n"
+        "\n"
+        ".. tab-set::\n"
+        "\n"
+        "   .. tab-item:: Native uv\n"
+        "      :selected:\n"
+        "\n"
+        "      :uv_run_source:\n"
+        "\n"
+        "   .. tab-item:: Docker Container\n"
+        "\n"
+        "      :docker_run_default:"
+    )
+
+    def replacer(match: re.Match) -> str:
+        indent = match.group("indent")
+        marker = match.group("marker") or ""
+        body_indent = indent + " " * len(marker)
+        lines = template.split("\n")
+        out = []
+        for i, line in enumerate(lines):
+            if not line:
+                out.append(line)
+            elif i == 0:
+                out.append(indent + marker + line)
+            else:
+                out.append(body_indent + line)
+        return "\n".join(out)
+
+    source[0] = re.sub(r"^(?P<indent> *)(?P<marker>#\. )?:runtime_setup_tabs:", replacer, source[0], flags=re.MULTILINE)
+
+
 def setup(app: Sphinx) -> None:
     app.connect("source-read", isaaclab_arena_git_clone_code_block)
     app.connect("source-read", isaaclab_arena_code_link)
+    app.connect("source-read", runtime_setup_tabs_replacer)
     app.connect("source-read", uv_run_command_replacer)
     app.connect("source-read", docker_run_command_replacer)
     app.add_config_value("isaaclab_arena_docs_config", {}, "env")

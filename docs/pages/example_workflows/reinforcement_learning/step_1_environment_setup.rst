@@ -1,12 +1,12 @@
 Environment Setup and Validation
 --------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+**Runtime**: native ``uv`` or the Base Docker container (see :doc:`../../quickstart/installation` for more details)
 
 On this page we briefly describe the RL environment used in this example workflow
 and validate that we can load it in Isaac Lab.
 
-:docker_run_default:
+:runtime_setup_tabs:
 
 
 Environment Description

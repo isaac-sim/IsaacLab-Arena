@@ -38,14 +38,14 @@ Known failure modes:
 
 ## Scenario 3: Per-Run Override And An Exact Output Directory
 
-Query: "For the `parallel_envs` Run, use 8 environments and save the Experiment exactly in `/eval/smoke`."
+Query: "For the `parallel_envs` Run, use 8 environments and save the Experiment exactly in `$HOME/eval/smoke`."
 
 Expected behavior:
 
-- Checks whether `/eval/smoke` is missing or empty before execution.
+- Checks whether `$HOME/eval/smoke` is missing or empty before execution.
 - Uses `runs.parallel_envs.environment_builder.num_envs=8` and an appropriate configuration that
   contains that Run.
-- Uses `--experiment_output_directory /eval/smoke` and verifies the artifacts at that exact path.
+- Uses `--experiment_output_directory $HOME/eval/smoke` and verifies the artifacts at that exact path.
 - Does not clear or overwrite an existing nonempty directory.
 
 Known failure modes:

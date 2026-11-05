@@ -29,11 +29,30 @@ concept page <../../concepts/concept_sensitivity_analysis>`.
 Estimate the success-conditioned posterior
 ------------------------------------------
 
-In the Base Docker container, set the paths used by the download and analysis commands:
+Prepare the Arena runtime from the repository root, using either a native ``uv`` environment or the
+Base Docker container (see :doc:`../../quickstart/installation`), then set the
+paths used by the download and analysis commands:
+
+.. tab-set::
+
+   .. tab-item:: Native uv
+      :selected:
+
+      .. code-block:: bash
+
+         uv sync --extra dev
+         source .venv/bin/activate
+         export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
+
+   .. tab-item:: Docker Container
+
+      .. code-block:: bash
+
+         ./docker/run_docker.sh
 
 .. code-block:: bash
 
-   export CAMERA_SENSITIVITY_OUTPUT_DIR="/eval/camera_sensitivity_workflow"
+   export CAMERA_SENSITIVITY_OUTPUT_DIR="$HOME/eval/camera_sensitivity_workflow"
    RUN_OUTPUT_DIRECTORY="${CAMERA_SENSITIVITY_OUTPUT_DIR}/droid_pnp_camera_sensitivity_openpi"
    EPISODE_RESULTS_PATH="${RUN_OUTPUT_DIRECTORY}/episode_results_rebuild0.jsonl"
    POSTERIOR_FIGURE_PATH="${RUN_OUTPUT_DIRECTORY}/camera_sensitivity_posterior.png"
@@ -81,16 +100,28 @@ For the downloaded sample, the terminal output includes:
 
    [INFO] SensitivityAnalyzer: fitting NPE_C on 10 episodes (theta dim=3, x dim=1).
    ...
-   [INFO] Wrote report → /eval/camera_sensitivity_workflow/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png
+   [INFO] Wrote report → ${CAMERA_SENSITIVITY_OUTPUT_DIR}/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png
 
 Read the posterior marginals
 ----------------------------
 
-Still in the Base Docker container, open the generated image:
+Open the generated image. In the Docker container, use ``pqiv``; on a native host, use your
+desktop image viewer:
 
-.. code-block:: bash
+.. tab-set::
 
-   NO_AT_BRIDGE=1 pqiv "${POSTERIOR_FIGURE_PATH}"
+   .. tab-item:: Native uv
+      :selected:
+
+      .. code-block:: bash
+
+         xdg-open "${POSTERIOR_FIGURE_PATH}"
+
+   .. tab-item:: Docker Container
+
+      .. code-block:: bash
+
+         NO_AT_BRIDGE=1 pqiv "${POSTERIOR_FIGURE_PATH}"
 
 .. figure:: ../../../images/droid_camera_sensitivity_posterior.png
    :width: 100%

@@ -4,16 +4,14 @@ Closed-Loop Policy Inference and Evaluation
 This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:
 
-:docker_run_default:
+Once the runtime is ready, set the dataset and models directories.
 
-Once inside the container, set the dataset and models directories.
+.. code-block:: bash
 
-.. code:: bash
-
-    export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/static_manipulation_tutorial
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/static_manipulation_tutorial"
+   export MODELS_DIR="$HOME/models/isaaclab_arena/static_manipulation_tutorial"
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
