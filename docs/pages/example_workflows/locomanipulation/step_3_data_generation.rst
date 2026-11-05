@@ -119,18 +119,20 @@ For each exported episode, the output includes:
    All 3 subtask signals for eef "body" were annotated.
    Exported the annotated episode.
 
-For example, a run that annotates all five input episodes ends with:
+The run ends with a summary. For example, a run on five recorded episodes in
+which one replay failed ends with:
 
 .. code-block:: text
 
-   Exported 5 (out of 5) annotated episodes.
-   Successful task completions: 5
+   Exported 4 (out of 5) annotated episodes.
+   Successful task completions: 4
 
-These messages confirm task completion and mark counts, not boundary timing;
-use the table above to time your marks. Counts depend on your dataset. Step 2
-can use the exported subset if at least one episode was saved. The script
-returns the exported count as its exit code, so use the summary to judge
-success rather than expecting exit code 0.
+Annotation succeeds when at least one episode is exported; Step 2 can use the
+exported subset. Some episodes can be skipped, and the count can differ between
+runs on the same recording, because replay is not fully repeatable. These
+messages confirm task completion and mark counts, not boundary timing; use the
+table above to time your marks. The script returns the exported count as its
+exit code, so use the summary to judge success rather than expecting exit code 0.
 
 .. important::
 
@@ -155,10 +157,13 @@ success rather than expecting exit code 0.
    * - ``The final task was not completed.``
      - The replay failed the task's success check. The entire episode is
        skipped without retrying, even if an earlier pass succeeded. Replaying
-       the same recorded actions can produce different outcomes. Confirm the
-       recording settings match, then rerun annotation or use the pre-annotated
-       dataset. To keep an earlier output, choose a new output filename and
-       use it as ``--input_file`` in Step 2.
+       the same recorded actions can produce different outcomes, so a few
+       episodes can fail this way at random. If every episode fails, check
+       that the command includes ``env.actions.g1_action.use_p_control=false``
+       and matches the recording's task and ``--device``. To retry skipped
+       episodes, rerun annotation, which annotates every episode again, or
+       use the pre-annotated dataset. To keep an earlier output, choose a new
+       output filename and use it as ``--input_file`` in Step 2.
 
 ``Skipped exporting the episode due to incomplete subtask annotations`` also
 appears after a failed task replay; read the preceding message for the cause.
