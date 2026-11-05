@@ -61,8 +61,6 @@ class ArenaExperimentRunData(TypedDict):
 
     policy_variant: str
     status: str
-    """Value of the Run's ``RunStatus``."""
-
     start_timestamp_ns: int
     end_timestamp_ns: int
     rebuilds: list[ArenaRebuildResultData]
