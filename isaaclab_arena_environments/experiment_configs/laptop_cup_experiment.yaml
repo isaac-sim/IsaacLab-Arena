@@ -1,0 +1,36 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: laptop_cup
+    embodiment: franka_ik
+    enable_cameras: false
+    episode_length_s: 18.0
+    laptop_open_angle_deg: 90.0
+    cup_destination_offset_xyz: [-0.02, -0.28, 0.0]
+    placement_tolerance_m: 0.055
+    minimum_lift_height_m: 0.06
+  environment_builder:
+    num_envs: 1
+    env_spacing: 2.5
+    seed: 42
+  rollout_limit:
+    num_episodes: 1
+
+runs:
+  # A negative control: no robot motion should never complete either subtask.
+  stationary_franka:
+    policy:
+      type: zero_action
+    environment:
+      episode_length_s: 2.0
+
+  # Direct object-state replay demonstrates the reference sequence and task reporting.
+  # It does not demonstrate a robot policy opening or grasping the objects.
+  reference_scene_replay:
+    policy:
+      type: laptop_cup_scripted_replay
+      goal_offset_xyz: [-0.02, -0.28, 0.0]
