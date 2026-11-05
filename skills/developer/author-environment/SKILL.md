@@ -36,6 +36,12 @@ SimulationApp:
 uv run --no-sync python \
   isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
   prim-tree --usd <scene.usd> --output /tmp/scene_prim_tree.txt
+
+# Restrict inspection to one subtree and produce machine-readable output.
+uv run --no-sync python \
+  isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+  prim-tree --usd <scene.usd> --prim <default-prim-relative/path> \
+  --format json --output /tmp/scene_prim_tree.json
 ```
 
 Read the generated text file to inspect the hierarchy and object types. Physics records include
@@ -43,6 +49,12 @@ root-frame bounding-box center and size, joint type/axis/limits/connected bodies
 approximation, and authored rigid-body properties such as mass and density. Use these fields to
 confirm a candidate rather than inferring physics from prim names alone. Mass and inertia are
 authored USD values; they do not include values computed later by PhysX or Newton.
+Bounds and contact/rest offsets use meters, accounting for the stage's `metersPerUnit`.
+Bounds include default, guide, proxy, and render purposes in the selected root's frame.
+Collider-owner and joint-body paths are root-relative inside the selected subtree (`.` for
+the root) and absolute for bodies outside it.
+The report also identifies instances, instance proxies, and prototypes. This command inspects
+the authored USD only; it cannot show Arena or Isaac Lab spawn-time overrides.
 
 ## Assemble from maintained sources
 

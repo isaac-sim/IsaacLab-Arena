@@ -26,17 +26,22 @@ def _json_stdout(payload: dict[str, Any]) -> None:
 
 
 def _dump_prim_tree(args: argparse.Namespace) -> int:
-    from isaaclab_arena.utils.usd.prim_tree import format_usd_prim_tree, load_usd_prim_tree
+    from isaaclab_arena.utils.usd.prim_tree import format_usd_prim_tree, load_usd_prim_tree, usd_prim_records_to_dicts
 
     started_at = time.monotonic()
-    records = load_usd_prim_tree(args.usd)
+    records = load_usd_prim_tree(args.usd, prim_path=args.prim)
     output_path = args.output.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(format_usd_prim_tree(records) + "\n", encoding="utf-8")
+    if args.format == "json":
+        output_text = json.dumps(usd_prim_records_to_dicts(records), indent=2) + "\n"
+    else:
+        output_text = format_usd_prim_tree(records) + "\n"
+    output_path.write_text(output_text, encoding="utf-8")
     _json_stdout({
         "command": "prim-tree",
         "status": "completed",
-        "inputs": {"usd": args.usd},
+        "inputs": {"usd": args.usd, "prim": args.prim},
+        "format": args.format,
         "output": str(output_path),
         "record_count": len(records),
         "timings_s": {"total": time.monotonic() - started_at},
@@ -49,7 +54,17 @@ def _parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     prim_tree = commands.add_parser("prim-tree", help="Dump the USD physics/collision prim tree.")
     prim_tree.add_argument("--usd", required=True, help="Local path or supported remote URL of the USD scene.")
-    prim_tree.add_argument("--output", type=Path, required=True, help="Destination text file.")
+    prim_tree.add_argument(
+        "--prim",
+        help="Optional absolute or default-prim-relative subtree to inspect.",
+    )
+    prim_tree.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Report format (default: text).",
+    )
+    prim_tree.add_argument("--output", type=Path, required=True, help="Destination text or JSON file.")
     prim_tree.set_defaults(handler=_dump_prim_tree)
     return parser
 
