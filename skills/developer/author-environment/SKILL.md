@@ -82,6 +82,32 @@ environment, then use bounded direct steps for inspection. Use existing focused 
 changed success logic, temporal interruptions, and reset isolation across parallel environments.
 Parsing or passive stepping alone does not establish task solvability.
 
+Use the generic [Force Control Runner](../../../isaaclab_arena_examples/agentic_environment_generation/force_control_runner.py)
+with a checked-in JSONL recipe to validate physical interactions and native task predicates. For
+example, inside the Arena container (one environment, PhysX):
+
+```bash
+isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/force_control_runner.py \
+  --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.yaml \
+  --commands isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2_force_control.jsonl \
+  --output artifacts/force_control/open_cabinet \
+  --visualizer kit
+```
+
+The cabinet recipe demonstrates joint setup and effort control. The kitchen examples also include
+[a two-banana placement recipe](../../../isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_force_control.jsonl)
+for the adjacent YAML scene. The runner applies forces and torques directly to objects and joints.
+Use `--follow_commands` to execute commands
+appended to a recipe, or `--no_record` to skip video and marker images. Outputs include `demo.mp4`,
+`validation.json`, `progress.json`, and state snapshots at subtask boundaries.
+
+When a `check` command reaches `timeout_steps`, the runner raises and writes
+`failure_check_timeout_subtask_<NN>_step_<step>.json` in `--output` (plus a PNG when a viewport is
+available). The JSON captures live poses, linear/angular velocities, joint positions/velocities,
+configured contact-sensor forces, predicate/completion state, and controller wrench records.
+Inspect this artifact before adding sleeps or hard-coded sensor names; contact sensors are
+discovered from the environment configuration.
+
 For variation inspection, use the `--list_variations` path through
 [run-experiment](../../user/run-experiment/SKILL.md). Check the
 [Environment Runner](../../../isaaclab_arena/scripts/environment_runner.py) requirements before
