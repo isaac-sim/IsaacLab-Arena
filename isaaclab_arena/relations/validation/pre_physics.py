@@ -156,7 +156,13 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
                 if not height_fits:
                     self._record_height_failure(rejections, obj, relation, bottom, top)
                     return False
-                if not self._validate_footprint(relation, child_world, parent_world):
+                support = self._get_support_footprint(relation, parent_world)
+                margin = 0.0 if relation.overlap else relation.edge_margin_m
+                feasible_margin = self._get_feasible_margin(child_world, support)
+                if margin > 0 and feasible_margin < margin:
+                    self._record_margin_failure(rejections, obj, relation, margin, feasible_margin)
+                    return False
+                if not self._footprint_fits(relation, child_world, support, margin):
                     self._record_footprint_failure(rejections, obj, relation)
                     return False
         return True
@@ -172,6 +178,16 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
         )
 
     @staticmethod
+    def _record_margin_failure(
+        rejections: RejectionLog, obj: PlaceableAsset, relation: On, margin: float, feasible_margin: float
+    ) -> None:
+        """Record a rejection for an edge margin wider than the support leaves around the child."""
+        rejections.add(
+            f"'{obj.name}' {relation.name}({relation.parent.name}): edge margin wider than the free space",
+            detail=f"edge_margin_m {margin:.3f} m, feasible margin {max(0.0, feasible_margin):.3f} m",
+        )
+
+    @staticmethod
     def _record_footprint_failure(rejections: RejectionLog, obj: PlaceableAsset, relation: On) -> None:
         """Record a rejection for a child footprint outside the support footprint."""
         rejections.add(f"'{obj.name}' {relation.name}({relation.parent.name}): footprint outside the support")
@@ -180,22 +196,16 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
     def _matches_relation(relation: RelationBase) -> bool:
         return isinstance(relation, On) and not isinstance(relation, ClutterOn)
 
-    def _validate_footprint(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
-        """Check feasible margins and containment or overlap within the support footprint."""
-        margin = 0.0 if relation.overlap else relation.edge_margin_m
-        return self._margin_fits(child, parent, margin) and self._footprint_fits(relation, child, parent, margin)
+    @staticmethod
+    def _get_support_footprint(relation: On, parent: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        """Return the bounds the child's footprint must fit within: the parent's own bounds."""
+        return parent
 
-    def _margin_fits(self, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox, margin: float) -> bool:
-        """Whether the child fits inside the inset support footprint."""
-        if margin == 0:
-            return True
-        free_space = (parent.size - child.size)[0, :2]
-        if torch.any(free_space < 2 * margin):
-            if self._params.verbose:
-                feasible_margin = max(0.0, float(free_space.min()) / 2.0)
-                print(f"Support relation: edge_margin_m={margin} exceeds feasible margin {feasible_margin:.3f} m")
-            return False
-        return True
+    @staticmethod
+    def _get_feasible_margin(child: AxisAlignedBoundingBox, support: AxisAlignedBoundingBox) -> float:
+        """Return the widest edge margin that leaves room for the child on the support, negative when it is wider."""
+        free_space = (support.size - child.size)[0, :2]
+        return float(free_space.min()) / 2.0
 
     @staticmethod
     def _footprint_fits(
@@ -221,10 +231,10 @@ class ClutterOnRelationValidator(OnRelationValidator):
     def _matches_relation(relation: RelationBase) -> bool:
         return isinstance(relation, ClutterOn)
 
-    def _validate_footprint(
-        self, relation: ClutterOn, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox
-    ) -> bool:
-        return super()._validate_footprint(relation, child, relation.get_release_region_bbox(parent))
+    @staticmethod
+    def _get_support_footprint(relation: ClutterOn, parent: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        """Return the bounds the child's footprint must fit within: the relation's release region on the parent."""
+        return relation.get_release_region_bbox(parent)
 
 
 @register_validator

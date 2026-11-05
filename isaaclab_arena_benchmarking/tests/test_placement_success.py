@@ -18,9 +18,9 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_diagnostics import (
+    AggregatedPlacementDiagnostics,
     BatchValidationDiagnostics,
     PlacementDiagnostics,
-    aggregate_placement_diagnostics,
 )
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
@@ -101,7 +101,7 @@ def test_run_rates_count_candidates_from_the_first_pool_batch_only():
     """The valid-candidate rate uses each build's first pool batch; later batches add only to the batch count."""
     first_batch = BatchValidationDiagnostics(num_candidates=100, num_valid=60, checks={})
     later_batch = BatchValidationDiagnostics(num_candidates=20, num_valid=5, checks={})
-    placement_diagnostics = aggregate_placement_diagnostics([
+    placement_diagnostics = AggregatedPlacementDiagnostics([
         PlacementDiagnostics(10, [first_batch, later_batch], fallback_envs=[3]),
         PlacementDiagnostics(10, [first_batch]),
     ])
@@ -124,8 +124,12 @@ def test_experiment_placement_success_weights_runs_equally_and_needs_every_run_t
         "pick_banana": [_diagnostics(25, 250, 250, 0, 1)],
     }
     _write_experiment(tmp_path / "completed", runs, diagnostics_per_run)
-    # A failed Run writes no diagnostics, so only its status tells it apart from a Run that solved no relations.
-    _write_experiment(tmp_path / "with_failure", {**runs, "place_lime": "failed"}, diagnostics_per_run)
+    # A failed Run writes the diagnostics of the fills it made, but they are not scored.
+    _write_experiment(
+        tmp_path / "with_failure",
+        {**runs, "place_lime": "failed"},
+        {**diagnostics_per_run, "place_lime": [_diagnostics(25, 0, 250, 0, 2)]},
+    )
 
     counts_per_run = read_run_placement_counts(tmp_path / "completed")
 
@@ -158,13 +162,13 @@ def _write_experiment(
     diagnostics_per_run: dict[str, list[PlacementDiagnostics]],
 ) -> None:
     """Write the parts of an Experiment output directory that placement success reads: Run statuses and the
-    diagnostics of each Run's builds, summed as the experiment runner writes them."""
+    diagnostics of each Run's builds, as the experiment runner writes them."""
     experiment_output_directory.mkdir()
     result = {"runs": {run_name: {"status": status} for run_name, status in runs.items()}}
     (experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(json.dumps(result))
     for run_name, diagnostics_per_build in diagnostics_per_run.items():
         (experiment_output_directory / run_name).mkdir()
-        aggregate_placement_diagnostics(diagnostics_per_build).save(
+        AggregatedPlacementDiagnostics(diagnostics_per_build).save(
             experiment_output_directory / run_name / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
         )
 

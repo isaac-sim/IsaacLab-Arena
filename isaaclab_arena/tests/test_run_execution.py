@@ -26,6 +26,7 @@ from isaaclab_arena.relations.placement_diagnostics import (
     BatchValidationDiagnostics,
     PlacementDiagnostics,
 )
+from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.utils.timer import Timer
 
@@ -538,24 +539,30 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
 
 
-def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebuilds_of_a_completed_run(
-    monkeypatch, tmp_path
-):
-    """A completed Run writes the diagnostics of the fills that built its rebuilds, summed into one file, although its
-    rollouts can refill the pool. A failed Run writes none."""
+def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebuilds_of_each_run(monkeypatch, tmp_path):
+    """Each Run writes the diagnostics of the fills that built its rebuilds, although its rollouts can refill the
+    pool. A Run whose rollout fails writes the fills it built, and a Run whose fill fails writes that fill too."""
     first_build = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 3, {})], fallback_envs=[1])
     second_build = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 4, {})])
+    failed_fill = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 0, {})] * 2)
     # Rebuild 0 of the passing Run solves no relations.
-    diagnostics_per_build = {("passing", 1): first_build, ("passing", 2): second_build, ("failing", 0): first_build}
+    diagnostics_per_build = {
+        ("passing", 1): first_build,
+        ("passing", 2): second_build,
+        ("failing_rollout", 0): first_build,
+        ("failing_fill", 0): second_build,
+    }
 
     def build_environment(cfg, render_mode, output_dir, rebuild_index):
+        if (cfg.name, rebuild_index) == ("failing_fill", 1):
+            raise PlacementPoolFillError("pool could not fill", failed_fill)
         return _environment(diagnostics_per_build.get((cfg.name, rebuild_index)))
 
     def roll_out(env, policy, num_steps, num_episodes):
         # A reset that refills the pool replaces its diagnostics.
         refill = PlacementDiagnostics(2, [BatchValidationDiagnostics(4, 0, {})])
         env.unwrapped.event_manager.placement_diagnostics = refill
-        if env.unwrapped.episode_recorder.name == "failing":
+        if env.unwrapped.episode_recorder.name == "failing_rollout":
             raise RuntimeError("rollout failed")
 
     monkeypatch.setattr(run_execution, "_build_environment_from_cfg", build_environment)
@@ -564,14 +571,22 @@ def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebu
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
     monkeypatch.setattr(run_execution, "rollout_policy", roll_out)
 
-    run_execution.execute_experiment(
-        _experiment(_run(name="passing", num_rebuilds=3), _run(name="failing", num_rebuilds=1)),
+    results = run_execution.execute_experiment(
+        _experiment(
+            _run(name="passing", num_rebuilds=3),
+            _run(name="failing_rollout", num_rebuilds=1),
+            _run(name="failing_fill", num_rebuilds=2),
+        ),
         output_dir=tmp_path,
         continue_on_error=True,
     )
 
-    written_paths = list(tmp_path.glob(f"*/{ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME}"))
-    assert written_paths == [tmp_path / "passing" / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME]
-    assert AggregatedPlacementDiagnostics.load(written_paths[0]) == AggregatedPlacementDiagnostics(
-        num_builds=2, num_envs=4, num_fallback_envs=1, num_batches=2, batches=[BatchValidationDiagnostics(8, 7, {})]
-    )
+    assert [result.status for result in results] == [RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.FAILED]
+    expected_fills_per_run = {
+        "passing": [first_build, second_build],
+        "failing_rollout": [first_build],
+        "failing_fill": [second_build, failed_fill],
+    }
+    for run_name, expected_fills in expected_fills_per_run.items():
+        path = tmp_path / run_name / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
+        assert AggregatedPlacementDiagnostics.load(path) == AggregatedPlacementDiagnostics(expected_fills)

@@ -155,7 +155,7 @@ class ArenaRunResult:
     """Metrics aggregated over all successful rebuilds, when provided by the task."""
 
     placement_diagnostics: AggregatedPlacementDiagnostics | None = None
-    """Diagnostics of the placement pool fills that built the rebuilds' environments, summed. Rebuilds that solve no
+    """Diagnostics of the placement pool fills that built the rebuilds' environments. Rebuilds that solve no
     relations, or that replay recorded layouts, are left out, and the field is None when every rebuild is."""
 
 

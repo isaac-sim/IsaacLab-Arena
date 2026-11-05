@@ -14,11 +14,11 @@ from isaaclab_arena.relations.placement_diagnostics import (
     AggregatedPlacementDiagnostics,
     BatchValidationDiagnostics,
     PlacementDiagnostics,
+    Rejection,
     RejectionLog,
     ValidationCheckDiagnostics,
-    aggregate_placement_diagnostics,
 )
-from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError, PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -111,9 +111,9 @@ def test_pool_diagnostics_record_fallbacks_and_explain_fill_failures():
 
 def test_aggregated_diagnostics_sum_fills_by_batch_position():
     """Fills sum batch by batch and check by check; a later batch sums only the fills that validated one."""
-    overlap = "'a' and 'b': bounding boxes intersect"
+    overlap = Rejection("'a' and 'b': bounding boxes intersect", count=30)
     first_batch = BatchValidationDiagnostics(
-        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, num_rejected_by_cause={overlap: 30})}
+        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, rejections=[overlap])}
     )
     later_batch = BatchValidationDiagnostics(
         20,
@@ -124,7 +124,7 @@ def test_aggregated_diagnostics_sum_fills_by_batch_position():
         },
     )
 
-    aggregated = aggregate_placement_diagnostics([
+    aggregated = AggregatedPlacementDiagnostics([
         PlacementDiagnostics(10, [first_batch, later_batch], fallback_envs=[3]),
         PlacementDiagnostics(10, [first_batch]),
         PlacementDiagnostics(5, [first_batch]),
@@ -133,21 +133,26 @@ def test_aggregated_diagnostics_sum_fills_by_batch_position():
     summed_first_batch = BatchValidationDiagnostics(
         300,
         180,
-        {"no_overlap": ValidationCheckDiagnostics(300, 210, required=True, num_rejected_by_cause={overlap: 90})},
+        {"no_overlap": ValidationCheckDiagnostics(300, 210, required=True, rejections=[overlap] * 3)},
     )
-    assert aggregated == AggregatedPlacementDiagnostics(
-        num_builds=3, num_envs=25, num_fallback_envs=1, num_batches=4, batches=[summed_first_batch, later_batch]
+    assert (aggregated.num_builds, aggregated.num_envs, aggregated.num_fallback_envs, aggregated.num_batches) == (
+        3,
+        25,
+        1,
+        4,
     )
+    assert aggregated.batches == [summed_first_batch, later_batch]
+    assert summed_first_batch.checks["no_overlap"].get_num_rejected_by_cause() == {overlap.cause: 90}
     # The fills' own diagnostics are left unchanged.
     assert first_batch == BatchValidationDiagnostics(
-        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, num_rejected_by_cause={overlap: 30})}
+        100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, rejections=[overlap])}
     )
 
 
 def test_aggregated_pool_diagnostics_file_round_trips(tmp_path):
-    """A fill's summed diagnostics, with its batches, checks and fallback count, load back from their file unchanged."""
+    """A fill's diagnostics, with its batches, checks, rejections and fallbacks, load back from their file unchanged."""
     pool = PooledObjectPlacer(_desk_and_box(box_width_m=1.5), _placer_params(), pool_size=2, num_envs=2)
-    aggregated = aggregate_placement_diagnostics([pool.last_fill_diagnostics])
+    aggregated = AggregatedPlacementDiagnostics([pool.last_fill_diagnostics])
     path = tmp_path / "placement_diagnostics.json"
 
     aggregated.save(path)
@@ -155,7 +160,7 @@ def test_aggregated_pool_diagnostics_file_round_trips(tmp_path):
     assert AggregatedPlacementDiagnostics.load(path) == aggregated
     assert aggregated.num_envs == 2
     assert aggregated.num_fallback_envs > 0
-    assert aggregated.batches[0].checks["on_relation"].num_rejected_by_cause
+    assert AggregatedPlacementDiagnostics.load(path).fills[0].batches[0].checks["on_relation"].rejections
 
 
 def test_fill_failure_names_the_failing_relation_and_object_bounds():
@@ -165,9 +170,9 @@ def test_fill_failure_names_the_failing_relation_and_object_bounds():
 
     num_rejected_by_cause = pool.last_fill_diagnostics.get_num_rejected_by_cause_per_check()["on_relation"]
     num_candidates = sum(batch.num_candidates for batch in pool.last_fill_diagnostics.batches)
-    assert num_rejected_by_cause == {"'box' on(desk): footprint outside the support": num_candidates}
+    assert num_rejected_by_cause == {"'box' on(desk): edge margin wider than the free space": num_candidates}
 
-    with pytest.raises(RuntimeError) as error:
+    with pytest.raises(PlacementPoolFillError) as error:
         PooledObjectPlacer(
             _desk_and_box(box_width_m=1.5),
             _placer_params(allow_best_loss_fallbacks=False),
@@ -175,7 +180,10 @@ def test_fill_failure_names_the_failing_relation_and_object_bounds():
             num_envs=2,
         )
     message = str(error.value)
-    assert "on_relation: 'box' on(desk): footprint outside the support x" in message
+    assert error.value.diagnostics.get_num_rejected_by_cause_per_check() == {
+        "on_relation": {"'box' on(desk): edge margin wider than the free space": num_candidates}
+    }
+    assert "on_relation: 'box' on(desk): edge margin wider than the free space x" in message
     assert "'box': size (1.500, 1.500, 0.200); centre (+0.750, +0.750, +0.100)" in message
 
 
@@ -199,7 +207,33 @@ def test_next_to_validator_records_the_relation_and_its_violation():
     )
 
     assert verdicts == [True, False]
-    assert rejections.num_rejected_by_cause == {"'plate' next_to(box, positive_x): on the wrong side": 1}
+    assert rejections.rejections == [
+        Rejection("'plate' next_to(box, positive_x): on the wrong side", detail="by 0.500 m")
+    ]
+
+
+def test_on_validator_records_an_edge_margin_wider_than_the_free_space():
+    """An On edge margin wider than the support leaves around the child is a rejection of its own, with both margins."""
+    from isaaclab_arena.relations.validation.pre_physics import OnRelationValidator
+    from isaaclab_arena.tests.dummy_object import make_candidate_batch
+
+    desk, _ = _desk_and_box(box_width_m=0.9)
+    box = DummyObject(name="box", bounding_box=AxisAlignedBoundingBox((0.0, 0.0, 0.0), (0.9, 0.9, 0.2)))
+    box.add_relation(On(desk, edge_margin_m=0.1))
+    bounds = {obj: obj.get_bounding_box() for obj in (desk, box)}
+    layout = {desk: (0.0, 0.0, 0.0), box: (0.05, 0.05, 0.1)}
+    validator = OnRelationValidator(_placer_params())
+    rejections = RejectionLog(validator.check)
+
+    verdicts = validator.validate_batch(make_candidate_batch([layout], [{}], [bounds]), [], rejections=rejections)
+
+    assert verdicts == [False]
+    assert rejections.rejections == [
+        Rejection(
+            "'box' on(desk): edge margin wider than the free space",
+            detail="edge_margin_m 0.100 m, feasible margin 0.050 m",
+        )
+    ]
 
 
 def _desk_and_box(box_width_m: float) -> list[DummyObject]:

@@ -36,12 +36,12 @@ class RunPlacementCounts:
     """Whether the Run failed, for example because its placement pool could not fill every environment."""
 
     placement_diagnostics: AggregatedPlacementDiagnostics | None = None
-    """Placement diagnostics summed over the Run's builds, or None for a Run that wrote none."""
+    """Placement diagnostics of the Run's builds, or None for a Run that wrote none."""
 
     @property
     def is_scored(self) -> bool:
-        """Whether the Run wrote placement diagnostics, which only a completed Run does."""
-        return self.placement_diagnostics is not None
+        """Whether the Run completed and wrote placement diagnostics. A failed Run's diagnostics are not scored."""
+        return not self.failed and self.placement_diagnostics is not None
 
     @property
     def valid_candidate_rate_first_batch(self) -> float:
