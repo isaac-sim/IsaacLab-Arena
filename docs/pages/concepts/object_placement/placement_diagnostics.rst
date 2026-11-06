@@ -6,8 +6,7 @@ poses. It solves batches of candidate layouts, then runs the
 :doc:`pre-physics checks <./validation>` on each candidate: its relations,
 collision clearance (``no_overlap``) and, when enabled, IK reachability
 (``ik_reachable``). Placement diagnostics record how those checks went and why
-they rejected candidates. Read them before changing relations or writing a
-diagnostic script.
+they rejected candidates. Read them before changing relations.
 
 What Is Recorded
 ----------------
