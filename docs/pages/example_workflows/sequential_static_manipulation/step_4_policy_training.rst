@@ -158,12 +158,11 @@ We provide two post-training options:
       - **Global Batch Size:** 96 (adjust based on GPU memory)
       - **Training Steps:** 20,000
 
-      To post-train the policy, open another terminal **outside** the Arena Base Docker container
+      To post-train the policy, open another terminal, separate from the Arena runtime,
       and ``cd`` to ``submodules/Isaac-GR00T``. Set up GR00T's native ``uv`` environment by
       following the `GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_,
-      then run the finetuning command below. The paths assume the default Arena Docker mounts
-      (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with
-      custom mount directories.
+      then run the finetuning command below. The paths assume the default ``$HOME/datasets`` and ``$HOME/models``
+      locations; adjust them if you use other directories.
 
       .. code-block:: bash
 
@@ -199,12 +198,11 @@ We provide two post-training options:
       - **Training Steps:** 30,000
       - **GPUs:** 1 (single-GPU training)
 
-      To post-train the policy, open another terminal **outside** the Arena Base Docker container
+      To post-train the policy, open another terminal, separate from the Arena runtime,
       and ``cd`` to ``submodules/Isaac-GR00T``. Set up GR00T's native ``uv`` environment by
       following the `GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_,
-      then run the finetuning command below. The paths assume the default Arena Docker mounts
-      (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with
-      custom mount directories.
+      then run the finetuning command below. The paths assume the default ``$HOME/datasets`` and ``$HOME/models``
+      locations; adjust them if you use other directories.
 
       .. code-block:: bash
 
