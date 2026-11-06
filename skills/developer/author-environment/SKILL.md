@@ -49,7 +49,7 @@ Read only the references relevant to the requested behavior:
   clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
   records diagnostics that show how well placement went and why candidates were rejected. When
   placement rejects many candidates or a fill fails, read them before changing relations, collision
-  settings or reachability, or writing a diagnostic script.
+  settings or reachability.
   [Placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst)
   explains them and what to change for each rejection cause. After each solved batch, the console
   shows how many candidates passed each check, then one line per rejection cause with its count and
