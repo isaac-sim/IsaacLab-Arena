@@ -79,7 +79,20 @@ Read only the references relevant to the requested behavior:
 - **Reset variation:** prefer relative relations (`next_to`, `align_with`, `on`) with loose
   tolerances over absolute positions, and make the bounds as loose as the arrangement allows, so
   layouts vary as much as possible between resets. An object varies along a relation's axis by
-  about that relation's `tolerance_m`, so widen it on `next_to` and `align_with` for more variation.
+  about that relation's `tolerance_m`. For large variation:
+  - Place objects that belong together relative to each other, such as the robot relative to the
+    task objects, so the group moves as one, rather than pinning each to the support separately.
+  - Give the group's anchor a wide band along the support. Do not fit the bounds to a clear strip
+    found in the prim tree; let `no_overlap` reject layouts that hit the scene's own objects, and
+    `ik_reachable` reject layouts the robot cannot reach.
+  - When the side does not matter, use `align_with` on both axes rather than `next_to` with a
+    fixed side.
+
+  Wide bounds lower the share of candidates that pass, so the pool fills more slowly; the placement
+  diagnostics' per-check pass counts show which relation or check rejects them. Keep the pool
+  settings (`min_unique_layouts_per_env`, `max_placement_attempts`) at their defaults: every extra
+  layout adds solving time to each build. Do not run episodes to see how resets vary; a zero-action
+  episode only resets at its timeout, which takes minutes.
 - **Task semantics:** read [tasks in graph YAML](tasks.md) to choose and compose tasks, including
   how to require every subtask to hold when the task ends. For the full design, read
   [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
