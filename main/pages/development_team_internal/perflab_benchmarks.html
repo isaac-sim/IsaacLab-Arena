@@ -1,0 +1,1185 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>PerfLab Benchmarks &#8212; isaaclab_arena</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=bed50f1e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
+
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/development_team_internal/perflab_benchmarks';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="prev" title="DreamZero" href="dreamzero.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a></div>
+    
+      <div class="navbar-item"><div class="version-switcher__container dropdown">
+  <button type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-label="Version switcher list">
+    main
+    <span class="caret"></span>
+  </button>
+  <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
+    <a class="list-group-item list-group-item-action py-1 active"
+       href="perflab_benchmarks.html" role="option" aria-current="true">main</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.1/index.html" role="option">0.3.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.0/index.html" role="option">0.3.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.0-prerelease/index.html" role="option">0.3.0-prerelease</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.2.1/index.html" role="option">0.2.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.2.0/index.html" role="option">0.2.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.1.1/index.html" role="option">0.1.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.1.0/index.html" role="option">0.1.0</a>
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Isaac Lab-Arena</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">Overview</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../whats_new/whats_new.html">What's New</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../whats_new/agentic_authoring.html">Agentic Evaluation Authoring</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../whats_new/agentic_authoring_workbench.html">Workbench Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../whats_new/agentic_authoring_kitchen.html">Kitchen Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../whats_new/newton_evaluation.html">Newton-Based Evaluation Workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../whats_new/vlm_policy.html">Multimodal VLM as a Policy</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../motivation/motivation.html">Why Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/arena_experiment.html">First Arena Experiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/environment_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../quickstart/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/openpi.html">OpenPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/vlm_agent.html">VLM Agent</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/kitchen_bench_catalog.html">Kitchen Benchmark Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/python_environment_catalog.html">Python Environment Catalog</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/analysis/index.html">Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/analysis/variations.html">Run an Evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/analysis/recorded_variations.html">Run an Evaluation with Recorded Variations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/agentic_env_gen/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/index.html">Pick and Place atomic task with homogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/index.html">Pick and Place atomic task with heterogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/index.html">Pick and Place composite task with SimReady assets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/agentic_env_gen/kitchen_pick_and_place/index.html">Pick and Place on a Kitchen Countertop</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/agentic_env_gen/kitchen_open_door/index.html">Open a Kitchen Fridge Door</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/kitchen_open_door/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/kitchen_open_door/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/agentic_env_gen/kitchen_open_door/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/newton/index.html">Newton Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/newton/gear_insertion.html">Gear Insertion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/newton/deformable_pick_and_place.html">Deformable Pick and Place</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/environment_definition.html">Environment Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_configuration.html">Physics configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/agentic_environment_generation/system_overview.html">System Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/agentic_environment_generation/model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/agentic_environment_generation/gui_runner.html">GUI Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/agentic_environment_generation/cli_runner.html">CLI Runner</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../concepts/offline_placement/clutter.html">Clutter Layouts</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/solver.html">Placement Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/validation.html">Placement Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/pooled_placement.html">Pooled Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/placement_success_benchmark.html">Placement Success Benchmark</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/policy/index.html">Policy</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_arena_experiments.html">Arena Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/experiment_record_replay.html">Record and Replay Experiments</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../references/performance.html">Performance and scaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../references/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Gallery</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../gallery/index.html">Gallery</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../community-contributions.html">Community Contributions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Development Team Internal</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Development Team Internal</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dreamzero.html">DreamZero</a></li>
+<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">PerfLab Benchmarks</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-house"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Development Team Internal</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">PerfLab Benchmarks</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="perflab-benchmarks">
+<h1>PerfLab Benchmarks<a class="headerlink" href="#perflab-benchmarks" title="Link to this heading">#</a></h1>
+<p>This guide tells a PerfLab operator how to set up and run seven non-OSMO Arena benchmarks on Arena’s
+<code class="docutils literal notranslate"><span class="pre">main</span></code> branch:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">zero_action</span></code> without cameras.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zero_action</span></code> with the maintained production DROID cameras.</p></li>
+<li><p>Pi0.5 with the maintained production DROID cameras and a separate OpenPI server.</p></li>
+<li><p>The same apple in every environment.</p></li>
+<li><p>Ten fruit assets distributed across environments.</p></li>
+<li><p>Cosmos with the maintained production DROID cameras and a separate Cosmos server.</p></li>
+<li><p>GR00T N1.6 with the maintained production DROID cameras and a separate GR00T server.</p></li>
+</ol>
+<p>Each command starts one fresh Arena Experiment Runner process on one simulator GPU. Pi0.5,
+Cosmos, and GR00T also need separately started policy servers on the same machine. The Pi0.5 and
+Cosmos servers run in their own containers; the GR00T server runs on the host.</p>
+<p>The configurations live in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/performance/</span></code>, laid out like RoboLab’s:
+<code class="docutils literal notranslate"><span class="pre">experiment_configs/</span></code> holds the Experiments, <code class="docutils literal notranslate"><span class="pre">tasks/</span></code> the fruit tasks, and <code class="docutils literal notranslate"><span class="pre">scenes/</span></code> the scene
+they share.</p>
+<section id="what-the-experiments-show">
+<h2>What the experiments show<a class="headerlink" href="#what-the-experiments-show" title="Link to this heading">#</a></h2>
+<p>All experiments use a DROID robot at the Maple table. The camera and policy workloads place a
+Rubik’s cube in a bowl. The object workloads place fruit in a bowl.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 30.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Experiment</p></th>
+<th class="head"><p>What runs</p></th>
+<th class="head"><p>What it tells us</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Camera-free baseline</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">zero_action</span></code>; cameras off</p></td>
+<td><p>Scene construction, physics stepping, throughput, and the maximum environment count without
+camera or policy cost.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Production-camera baseline</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">zero_action</span></code>; the maintained three-camera DROID rig is on</p></td>
+<td><p>The additional cost of producing the normal camera observations. The rig renders at its
+declared 1280x720.</p></td>
+</tr>
+<tr class="row-even"><td><p>Pi0.5</p></td>
+<td><p>Pi0.5 remote policy; the maintained three-camera DROID rig is on</p></td>
+<td><p>End-to-end production evaluation cost, including camera rendering and calls to the OpenPI
+server.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Homogeneous objects</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">zero_action</span></code>; cameras off; one apple asset</p></td>
+<td><p>Performance when every parallel environment uses the same object.</p></td>
+</tr>
+<tr class="row-even"><td><p>Heterogeneous objects</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">zero_action</span></code>; cameras off; ten fruit assets</p></td>
+<td><p>Performance when parallel environments use different object assets.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Cosmos</p></td>
+<td><p>Cosmos remote policy; the maintained three-camera DROID rig is on</p></td>
+<td><p>End-to-end production evaluation cost, including camera rendering and calls to the Cosmos
+server.</p></td>
+</tr>
+<tr class="row-even"><td><p>GR00T</p></td>
+<td><p>GR00T N1.6 remote closed-loop policy; the maintained three-camera DROID rig is on</p></td>
+<td><p>End-to-end production evaluation cost, including camera rendering and calls to the GR00T
+server.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The first two experiments use the same <code class="docutils literal notranslate"><span class="pre">droid_rel_joint_pos</span></code> embodiment, so comparing them
+isolates the cost of enabling the production camera rig. Pi0.5 requires the <code class="docutils literal notranslate"><span class="pre">droid_abs_joint_pos</span></code>
+embodiment. Cosmos and GR00T also use <code class="docutils literal notranslate"><span class="pre">droid_abs_joint_pos</span></code>. Therefore, compare a policy run with the
+production-camera baseline only as a complete production-path comparison, not as a measurement of
+policy inference alone.</p>
+<p>All three DROID cameras are rendered in the Pi0.5 experiment. The policy request uses the main
+external-camera image and the wrist-camera image; the second external-camera image is rendered but
+is not sent to OpenPI.</p>
+<p>The homogeneous and heterogeneous experiments use the same task, zero-action policy, and
+camera-free setup. They come from <code class="docutils literal notranslate"><span class="pre">tasks/same_object.yaml</span></code> and <code class="docutils literal notranslate"><span class="pre">tasks/mixed_object.yaml</span></code>, which
+share <code class="docutils literal notranslate"><span class="pre">scenes/fruit_bowl_maple_table.yaml</span></code> and differ only in the fruit list. The homogeneous
+run uses one apple in every environment. The heterogeneous run assigns its ten fruit assets
+repeatedly in the listed order. Compare these two runs to measure the cost of heterogeneous
+parallel environments. Do not compare them with the Rubik’s-cube baseline, which uses a different
+scene definition, different task assets, and an explicit HDR. All ten fruit assets appear when
+<code class="docutils literal notranslate"><span class="pre">NUM_ENVS</span></code> is at least 10.</p>
+<p>The zero-action policy keeps the robot stationary. A completed zero-action run proves that the
+performance pipeline worked; it is not expected to solve the task.</p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
+<p>Follow the <a class="reference external" href="https://isaac-sim.github.io/IsaacLab-Arena/main/pages/quickstart/installation.html">Isaac Lab-Arena installation guide</a> and use the
+Docker setup. Pi0.5, Cosmos, and GR00T also require the policy servers described below.</p>
+<p>The Arena image installs PyTorch built for CUDA 13.0, so the host needs an NVIDIA driver from the
+R580 branch or newer. Check the driver version with <code class="docutils literal notranslate"><span class="pre">nvidia-smi</span></code> on the host. With an older
+driver, every run stops at startup with <code class="docutils literal notranslate"><span class="pre">The</span> <span class="pre">NVIDIA</span> <span class="pre">driver</span> <span class="pre">on</span> <span class="pre">your</span> <span class="pre">system</span> <span class="pre">is</span> <span class="pre">too</span> <span class="pre">old</span></code>.</p>
+</section>
+<section id="prepare-a-clean-arena-checkout">
+<h2>1. Prepare a clean Arena checkout<a class="headerlink" href="#prepare-a-clean-arena-checkout" title="Link to this heading">#</a></h2>
+<p>Clone Arena’s <code class="docutils literal notranslate"><span class="pre">main</span></code> branch on the host:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>--branch<span class="w"> </span>main<span class="w"> </span>--recurse-submodules<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>https://github.com/isaac-sim/IsaacLab-Arena.git
+<span class="nb">cd</span><span class="w"> </span>IsaacLab-Arena
+</pre></div>
+</div>
+<p>To benchmark a release instead, replace <code class="docutils literal notranslate"><span class="pre">main</span></code> with the release tag.</p>
+<p>Check that the checkout is clean and record the Arena and submodule revisions:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>status<span class="w"> </span>--short
+git<span class="w"> </span>rev-parse<span class="w"> </span>HEAD
+git<span class="w"> </span>submodule<span class="w"> </span>status<span class="w"> </span>--recursive
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">status</span> <span class="pre">--short</span></code> should print nothing. A line from <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">submodule</span> <span class="pre">status</span></code> must not begin
+with <code class="docutils literal notranslate"><span class="pre">-</span></code>, <code class="docutils literal notranslate"><span class="pre">+</span></code>, or <code class="docutils literal notranslate"><span class="pre">U</span></code>.</p>
+</section>
+<section id="start-the-arena-container">
+<h2>2. Start the Arena container<a class="headerlink" href="#start-the-arena-container" title="Link to this heading">#</a></h2>
+<p>Choose an absolute host directory that PerfLab will retain after the job. Start the container from
+the repository root and mount that directory at <code class="docutils literal notranslate"><span class="pre">/eval</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="o">=</span>/absolute/path/to/perflab-output
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="si">}</span><span class="s2">"</span>
+
+./docker/run_docker.sh<span class="w"> </span>-e<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>The first invocation builds the Arena image, which also downloads the Isaac Sim base image. Do that
+before timing any trial. The launcher enters the Arena container interactively; leave that terminal
+open.</p>
+<p>The launcher runs <code class="docutils literal notranslate"><span class="pre">xhost</span></code> only when <code class="docutils literal notranslate"><span class="pre">DISPLAY</span></code> is set. These commands do not open a simulator
+window, so leave <code class="docutils literal notranslate"><span class="pre">DISPLAY</span></code> unset on a headless worker. If the launcher stops at <code class="docutils literal notranslate"><span class="pre">xhost</span></code>, treat
+that as a setup problem rather than a benchmark result.</p>
+<p>Inside the Arena container, verify that the source checkout is mounted and the simulator GPU is
+visible:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/workspaces/isaaclab_arena
+
+./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import isaaclab_arena; print(isaaclab_arena.__file__)"</span>
+nvidia-smi
+<span class="nb">test</span><span class="w"> </span>-d<span class="w"> </span>/eval<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">test</span><span class="w"> </span>-w<span class="w"> </span>/eval
+</pre></div>
+</div>
+<p>The import path must be below <code class="docutils literal notranslate"><span class="pre">/workspaces/isaaclab_arena</span></code>, and the final command must exit with
+status zero. The <code class="docutils literal notranslate"><span class="pre">-e</span></code> mount is applied only when the launcher creates the container; attaching to
+an older container does not change its mounts.</p>
+<p>Every Python command in this guide runs <code class="docutils literal notranslate"><span class="pre">./submodules/IsaacLab/isaaclab.sh</span> <span class="pre">-p</span></code> from
+<code class="docutils literal notranslate"><span class="pre">/workspaces/isaaclab_arena</span></code>. This works in the launcher’s shell and in shells attached later
+with <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">exec</span></code>, where <code class="docutils literal notranslate"><span class="pre">isaaclab.sh</span></code> is not on <code class="docutils literal notranslate"><span class="pre">PATH</span></code>. <code class="docutils literal notranslate"><span class="pre">isaaclab.sh</span></code> prints a
+deprecation warning on every call; it does not affect the run.</p>
+<p>Create only the common output root. Do not create a trial’s exact output directory before its
+command runs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="o">=</span>/eval/perflab-workloads
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+</section>
+<section id="understand-the-trial-variables">
+<h2>3. Understand the trial variables<a class="headerlink" href="#understand-the-trial-variables" title="Link to this heading">#</a></h2>
+<p>Set these variables inside the Arena container before each command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">NUM_STEPS</span><span class="o">=</span><span class="m">300</span>
+<span class="nv">NUM_ENVS</span><span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">NUM_STEPS</span></code> stays at <code class="docutils literal notranslate"><span class="pre">300</span></code> for every measured trial.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NUM_ENVS</span></code> selects one point from the experiment’s sweep.</p></li>
+</ul>
+<p>The exact output directory passed to Arena must be missing or empty.</p>
+<p>Each command writes two timing files: <code class="docutils literal notranslate"><span class="pre">arena_experiment_timings.json</span></code> in the directory passed to
+<code class="docutils literal notranslate"><span class="pre">--experiment_output_directory</span></code>, and <code class="docutils literal notranslate"><span class="pre">arena_run_timings.json</span></code> in the Run’s subdirectory. For
+example, the first run writes
+<code class="docutils literal notranslate"><span class="pre">${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/steps-${NUM_STEPS}/arena_experiment_timings.json</span></code>
+and <code class="docutils literal notranslate"><span class="pre">camera_free_baseline/arena_run_timings.json</span></code> below that directory.</p>
+<p>Each timing record names one timer and gives its <code class="docutils literal notranslate"><span class="pre">count</span></code>, <code class="docutils literal notranslate"><span class="pre">mean_ms</span></code>, <code class="docutils literal notranslate"><span class="pre">total_ms</span></code>, <code class="docutils literal notranslate"><span class="pre">min_ms</span></code>,
+<code class="docutils literal notranslate"><span class="pre">max_ms</span></code>, <code class="docutils literal notranslate"><span class="pre">p10_ms</span></code>, <code class="docutils literal notranslate"><span class="pre">p50_ms</span></code>, and <code class="docutils literal notranslate"><span class="pre">p90_ms</span></code>. The <code class="docutils literal notranslate"><span class="pre">step</span></code> timer covers one full control
+step; <code class="docutils literal notranslate"><span class="pre">step/policy_inference</span></code> and <code class="docutils literal notranslate"><span class="pre">step/env_step</span></code> split it into the policy call and the
+environment step. <code class="docutils literal notranslate"><span class="pre">arena_run_timings.json</span></code> is a list of these records.
+<code class="docutils literal notranslate"><span class="pre">arena_experiment_timings.json</span></code> lists them under <code class="docutils literal notranslate"><span class="pre">runs</span></code>, with the Run name added to each
+record, and sums them per timer under <code class="docutils literal notranslate"><span class="pre">totals</span></code>. The timers cover the rollout only. Isaac Sim
+startup and scene construction are part of the trial wall-clock but have no timer of their own.</p>
+<p>PerfLab’s harness should capture stdout and stderr outside the Arena output directory. Start the
+trial wall-clock immediately before <code class="docutils literal notranslate"><span class="pre">isaaclab.sh</span></code> and stop it when that process exits. Container
+startup, image downloads, asset downloads, and policy-server startup are preparation and must not
+be included in this trial time.</p>
+</section>
+<section id="zero-action-without-cameras">
+<h2>4. Zero action without cameras<a class="headerlink" href="#zero-action-without-cameras" title="Link to this heading">#</a></h2>
+<p>This is the simplest reference workload. It needs only the Arena container and one simulator GPU.
+No policy server is involved.</p>
+<p>Run this command inside the Arena container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>env<span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/camera_free_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/camera-free/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>In plain English, this starts a fresh Isaac Sim process, creates <code class="docutils literal notranslate"><span class="pre">NUM_ENVS</span></code> copies of the task
+with no cameras, takes <code class="docutils literal notranslate"><span class="pre">NUM_STEPS</span></code> stationary actions, writes one result directory, and exits.</p>
+<p>For the measured sweep, use these environment counts in order:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1, 64, 256, 1024, 2048
+</pre></div>
+</div>
+<p>Run <code class="docutils literal notranslate"><span class="pre">4096</span></code> only if <code class="docutils literal notranslate"><span class="pre">2048</span></code> completes successfully. Run each count once before increasing
+<code class="docutils literal notranslate"><span class="pre">NUM_ENVS</span></code>.</p>
+</section>
+<section id="homogeneous-objects">
+<h2>5. Homogeneous objects<a class="headerlink" href="#homogeneous-objects" title="Link to this heading">#</a></h2>
+<p>Every environment uses the same apple asset. Cameras and policy inference are off.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>env<span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/same_object_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/same-object/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">1,</span> <span class="pre">64,</span> <span class="pre">256,</span> <span class="pre">1024,</span> <span class="pre">2048</span></code>, followed by <code class="docutils literal notranslate"><span class="pre">4096</span></code> only if <code class="docutils literal notranslate"><span class="pre">2048</span></code> succeeds.</p>
+</section>
+<section id="heterogeneous-objects">
+<h2>6. Heterogeneous objects<a class="headerlink" href="#heterogeneous-objects" title="Link to this heading">#</a></h2>
+<p>The environments use ten fruit assets in a repeating order. Cameras and policy inference are off.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>env<span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/mixed_object_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/mixed-object/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>Use the same sweep as the homogeneous run: <code class="docutils literal notranslate"><span class="pre">1,</span> <span class="pre">64,</span> <span class="pre">256,</span> <span class="pre">1024,</span> <span class="pre">2048</span></code>, then <code class="docutils literal notranslate"><span class="pre">4096</span></code> if <code class="docutils literal notranslate"><span class="pre">2048</span></code>
+succeeds.</p>
+</section>
+<section id="zero-action-with-production-cameras">
+<h2>7. Zero action with production cameras<a class="headerlink" href="#zero-action-with-production-cameras" title="Link to this heading">#</a></h2>
+<p>This uses the same task and zero-action policy, but enables the maintained three-camera DROID rig.
+The Experiment Runner detects the camera requirement from the YAML, so do not add an
+<code class="docutils literal notranslate"><span class="pre">--enable_cameras</span></code> flag. Do not add video flags or camera-resolution overrides.</p>
+<p>Run this command inside the Arena container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>env<span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/production_camera_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/production-camera/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>This repeats the same task and stationary actions, but renders the maintained production camera
+rig. The difference from Experiment 1 shows the camera cost.</p>
+<p>For the measured sweep, use these environment counts in order:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1, 16, 64, 128, 256
+</pre></div>
+</div>
+<p>If <code class="docutils literal notranslate"><span class="pre">256</span></code> completes successfully, continue by doubling to <code class="docutils literal notranslate"><span class="pre">512</span></code>, then <code class="docutils literal notranslate"><span class="pre">1024</span></code>, and so on while
+the preceding point succeeds.</p>
+</section>
+<section id="prepare-the-pi0-5-policy-server">
+<h2>8. Prepare the Pi0.5 policy server<a class="headerlink" href="#prepare-the-pi0-5-policy-server" title="Link to this heading">#</a></h2>
+<p>Before running Pi0.5, start OpenPI in a second terminal on the host, from the repository root:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_openpi/docker/run_openpi_server.sh<span class="w"> </span>-v<span class="w"> </span>pi05<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span>
+</pre></div>
+</div>
+<p>The script gives the server container access to every GPU on the machine and has no option to
+restrict it to one. Record the GPU memory the server uses, as shown by <code class="docutils literal notranslate"><span class="pre">nvidia-smi</span></code> once the
+server is ready.</p>
+<p>On the first invocation, the wrapper may build the OpenPI server image and download the
+approximately 11 GB Pi0.5 checkpoint. Complete that work before starting the measured clock.</p>
+<p>Wait until the server prints:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>INFO:websockets.server:server listening on 0.0.0.0:8000
+</pre></div>
+</div>
+<p>Leave this terminal and server running throughout the Pi0.5 sweep. Do not include server startup
+in the Arena trial time. Keep the server’s checkpoint, GPU, endpoint, and warm state unchanged
+throughout the sweep.</p>
+</section>
+<section id="pi0-5-with-production-cameras">
+<h2>9. Pi0.5 with production cameras<a class="headerlink" href="#pi0-5-with-production-cameras" title="Link to this heading">#</a></h2>
+<p>Return to the Arena container terminal. The default setup uses the OpenPI server at
+<code class="docutils literal notranslate"><span class="pre">127.0.0.1:8000</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">POLICY_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1
+<span class="nv">POLICY_PORT</span><span class="o">=</span><span class="m">8000</span>
+</pre></div>
+</div>
+<p>Run this command inside the Arena container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>env<span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/pi05_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/pi05/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.policy.remote_host=</span><span class="si">${</span><span class="nv">POLICY_HOST</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.policy.remote_port=</span><span class="si">${</span><span class="nv">POLICY_PORT</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>This renders the production camera observations, sends one request per environment to OpenPI when
+a new action chunk is needed, applies the returned actions, writes the result, and exits. The
+current client sends environment requests one at a time and reuses each Pi0.5 action chunk for 15
+simulation steps. That behavior is part of this end-to-end measurement, and the 300-step run
+exercises repeated requests.</p>
+<p>For the measured sweep, use these environment counts in order:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1, 16, 64, 128, 256
+</pre></div>
+</div>
+<p>If <code class="docutils literal notranslate"><span class="pre">256</span></code> completes successfully, continue by doubling while the preceding point succeeds. Finish
+the Pi0.5 sweep before stopping the OpenPI server. Stop it with Ctrl-C in the same terminal that
+started the wrapper so the wrapper can clean up correctly.</p>
+</section>
+<section id="prepare-the-cosmos-policy-server">
+<h2>10. Prepare the Cosmos policy server<a class="headerlink" href="#prepare-the-cosmos-policy-server" title="Link to this heading">#</a></h2>
+<p>Stop the Pi0.5 server first because both servers use port <code class="docutils literal notranslate"><span class="pre">8000</span></code>. Then start Cosmos in the
+second terminal on the host:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_cosmos/docker/run_cosmos_server.sh<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span>
+</pre></div>
+</div>
+<p>Like the OpenPI script, this script gives the server container access to every GPU on the machine.
+The local client still uses <code class="docutils literal notranslate"><span class="pre">127.0.0.1:8000</span></code>.</p>
+<p>If the Cosmos image is not already available, PerfLab must provide <code class="docutils literal notranslate"><span class="pre">HF_TOKEN</span></code> while the helper
+builds the image and downloads the checkpoint. Finish that work before starting the measured
+clock. Wait until the server reports that it is listening on port <code class="docutils literal notranslate"><span class="pre">8000</span></code>, then leave it running
+throughout the Cosmos sweep.</p>
+</section>
+<section id="cosmos-with-production-cameras">
+<h2>11. Cosmos with production cameras<a class="headerlink" href="#cosmos-with-production-cameras" title="Link to this heading">#</a></h2>
+<p>Set the Cosmos endpoint inside the Arena container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">COSMOS_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1
+<span class="nv">COSMOS_PORT</span><span class="o">=</span><span class="m">8000</span>
+</pre></div>
+</div>
+<p>Then run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>env<span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/cosmos_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/cosmos/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.policy.remote_host=</span><span class="si">${</span><span class="nv">COSMOS_HOST</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.policy.remote_port=</span><span class="si">${</span><span class="nv">COSMOS_PORT</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">1,</span> <span class="pre">16,</span> <span class="pre">64,</span> <span class="pre">128,</span> <span class="pre">256</span></code>, then continue doubling while the preceding point succeeds. Stop the
+Cosmos server with Ctrl-C after the sweep finishes.</p>
+</section>
+<section id="prepare-the-gr00t-policy-server">
+<h2>12. Prepare the GR00T policy server<a class="headerlink" href="#prepare-the-gr00t-policy-server" title="Link to this heading">#</a></h2>
+<p>GR00T uses port <code class="docutils literal notranslate"><span class="pre">5555</span></code>, so it does not conflict with the Pi0.5 or Cosmos server. Unlike those
+servers, it runs on the host from the pinned <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code> checkout and needs <code class="docutils literal notranslate"><span class="pre">uv</span></code>
+on the host. Populate the submodule if needed, then start the server in the second terminal on the
+host, from the repository root:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>submodules/Isaac-GR00T
+<span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--model-path<span class="w"> </span>nvidia/GR00T-N1.6-DROID<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment-tag<span class="w"> </span>OXE_DROID<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
+</pre></div>
+</div>
+<p>On the first invocation, <code class="docutils literal notranslate"><span class="pre">uv</span></code> creates the GR00T Python environment and the server downloads the
+<code class="docutils literal notranslate"><span class="pre">nvidia/GR00T-N1.6-DROID</span></code> checkpoint. Complete that work before starting the measured clock. See
+<a class="reference internal" href="../quickstart/running_a_real_policy/gr00t.html"><span class="doc">GR00T</span></a> for hardware requirements.</p>
+<p>The server prints its configuration when it starts. Before the sweep, confirm that it answers
+requests:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>../../isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--timeout-sec<span class="w"> </span><span class="m">60</span><span class="w"> </span>--poll-interval-sec<span class="w"> </span><span class="m">5</span><span class="w"> </span>--request-timeout-ms<span class="w"> </span><span class="m">5000</span>
+</pre></div>
+</div>
+<p>Leave the server running throughout the GR00T sweep, and record the GPU memory it uses, as shown by
+<code class="docutils literal notranslate"><span class="pre">nvidia-smi</span></code>.</p>
+</section>
+<section id="gr00t-with-production-cameras">
+<h2>13. GR00T with production cameras<a class="headerlink" href="#gr00t-with-production-cameras" title="Link to this heading">#</a></h2>
+<p>Set the GR00T endpoint inside the Arena container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">GR00T_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1
+<span class="nv">GR00T_PORT</span><span class="o">=</span><span class="m">5555</span>
+</pre></div>
+</div>
+<p>Then run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>env<span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/gr00t_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/gr00t/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.policy.remote_host=</span><span class="si">${</span><span class="nv">GR00T_HOST</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"shared.policy.remote_port=</span><span class="si">${</span><span class="nv">GR00T_PORT</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>The client reuses each GR00T action chunk for 32 simulation steps, so the 300-step run exercises
+repeated requests.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">1,</span> <span class="pre">16,</span> <span class="pre">64,</span> <span class="pre">128,</span> <span class="pre">256</span></code>, then continue doubling while the preceding point succeeds. Stop the
+GR00T server with Ctrl-C after the sweep finishes.</p>
+</section>
+<section id="decide-whether-a-trial-passed">
+<h2>14. Decide whether a trial passed<a class="headerlink" href="#decide-whether-a-trial-passed" title="Link to this heading">#</a></h2>
+<p>A successful trial has all of the following:</p>
+<ul class="simple">
+<li><p>Process exit code <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">arena_experiment_result.json</span></code> with <code class="docutils literal notranslate"><span class="pre">runs.&lt;run-name&gt;.status</span></code> equal to <code class="docutils literal notranslate"><span class="pre">completed</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">arena_experiment_timings.json</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;run-name&gt;/arena_run_timings.json</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">index.html</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;run-name&gt;/episode_results_rebuild0.jsonl</span></code>. It may be empty when no episode finishes during
+the fixed number of steps.</p></li>
+<li><p>No CUDA OOM, host OOM, GPU reset, fatal renderer error, or policy-connection error in the log.</p></li>
+</ul>
+<p>Expected Run names are:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Experiment</p></th>
+<th class="head"><p>Run name</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Camera-free baseline</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">camera_free_baseline</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Homogeneous objects</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">same_object_control</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Heterogeneous objects</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mixed_object_workload</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Production-camera baseline</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">production_camera_baseline</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Pi0.5</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pi05_evaluation</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Cosmos</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cosmos_evaluation</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>GR00T</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gr00t_evaluation</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>In <code class="docutils literal notranslate"><span class="pre">&lt;run-name&gt;/arena_run_timings.json</span></code>, the <code class="docutils literal notranslate"><span class="pre">count</span></code> of the <code class="docutils literal notranslate"><span class="pre">step</span></code>, <code class="docutils literal notranslate"><span class="pre">step/env_step</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">step/policy_inference</span></code> records must equal <code class="docutils literal notranslate"><span class="pre">NUM_STEPS</span></code>.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="dreamzero.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">DreamZero</p>
+      </div>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-the-experiments-show">What the experiments show</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prepare-a-clean-arena-checkout">1. Prepare a clean Arena checkout</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-the-arena-container">2. Start the Arena container</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#understand-the-trial-variables">3. Understand the trial variables</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#zero-action-without-cameras">4. Zero action without cameras</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#homogeneous-objects">5. Homogeneous objects</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heterogeneous-objects">6. Heterogeneous objects</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#zero-action-with-production-cameras">7. Zero action with production cameras</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prepare-the-pi0-5-policy-server">8. Prepare the Pi0.5 policy server</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pi0-5-with-production-cameras">9. Pi0.5 with production cameras</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prepare-the-cosmos-policy-server">10. Prepare the Cosmos policy server</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cosmos-with-production-cameras">11. Cosmos with production cameras</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prepare-the-gr00t-policy-server">12. Prepare the GR00T policy server</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gr00t-with-production-cameras">13. GR00T with production cameras</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#decide-whether-a-trial-passed">14. Decide whether a trial passed</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>
