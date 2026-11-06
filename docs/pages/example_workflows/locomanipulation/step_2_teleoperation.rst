@@ -93,12 +93,10 @@ Step 3: Record with Quest 3
 
 #. Run the recording script from the Arena runtime:
 
-   Record the demonstrations:
-
    .. code-block:: bash
 
-      mkdir -p $DATASET_DIR
       export DATASET_DIR="$HOME/datasets/isaaclab_arena/locomanipulation_tutorial"
+      mkdir -p $DATASET_DIR
 
       # Record demonstrations with OpenXR teleop
       python submodules/IsaacLab/scripts/tools/record_demos.py \

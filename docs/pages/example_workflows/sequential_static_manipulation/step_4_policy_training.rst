@@ -74,6 +74,13 @@ Note that this conversion step can be skipped by downloading the pre-converted L
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
 
+The converter calls ``ffprobe``, which the Docker container already provides. On a native host,
+install it first if it is missing:
+
+.. code-block:: bash
+
+   sudo apt-get install -y ffmpeg
+
 Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash

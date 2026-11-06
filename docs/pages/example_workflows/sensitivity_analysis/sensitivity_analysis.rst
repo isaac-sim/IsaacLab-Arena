@@ -29,26 +29,9 @@ concept page <../../concepts/concept_sensitivity_analysis>`.
 Estimate the success-conditioned posterior
 ------------------------------------------
 
-Prepare the Arena runtime from the repository root, using either a native ``uv`` environment or the
-Base Docker container (see :doc:`../../quickstart/installation`), then set the
-paths used by the download and analysis commands:
+:runtime_setup_tabs:
 
-.. tab-set::
-
-   .. tab-item:: Native uv
-      :selected:
-
-      .. code-block:: bash
-
-         uv sync --extra dev
-         source .venv/bin/activate
-         export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
-
-   .. tab-item:: Docker Container
-
-      .. code-block:: bash
-
-         ./docker/run_docker.sh
+Then set the paths used by the download and analysis commands:
 
 .. code-block:: bash
 
