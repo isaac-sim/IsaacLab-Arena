@@ -40,8 +40,12 @@ def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:
     return repo_id, revision, filename, str(folder)
 
 
-def _download_central_asset_package_to_cache(url: str) -> str:
-    """Download the pinned asset package and return its cached USD entrypoint."""
+def download_central_asset_package(url: str) -> str:
+    """Download every file in a pinned asset package and return its cached USD entrypoint.
+
+    The returned snapshot path preserves relative references to sibling package files and
+    must not be resolved to the underlying cache blob.
+    """
     from concurrent.futures import ThreadPoolExecutor
 
     from huggingface_hub import HfApi, hf_hub_download
@@ -72,7 +76,7 @@ def download_and_wrap_central_asset(url: str) -> str:
 
     from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 
-    asset_path = _download_central_asset_package_to_cache(url)
+    asset_path = download_central_asset_package(url)
     asset_stage = Usd.Stage.Open(asset_path)
     assert asset_stage and asset_stage.GetDefaultPrim(), "asset requires a default prim"
     stage = Usd.Stage.CreateInMemory()
