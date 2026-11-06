@@ -1,11 +1,11 @@
-Server–client policies
+Server–Client Policies
 ======================
 
-Large robot foundation models (VLAs and world-model policies) bring their own dependencies,
-GPUs, and release cadence. Arena keeps them out of the simulation process: the model runs as a
-**server**, and Arena runs a thin **client policy** that implements ``PolicyBase``. The two talk
-over a websocket, so the server can sit in another container, on another GPU, or on another
-machine.
+Robot foundation models such as vision-language-action models (VLAs) and world-model policies
+bring their own dependencies, GPUs, and release schedules. Arena keeps them out of the
+simulation process. The model runs as a **server**, and Arena runs a thin **client policy**
+that implements ``PolicyBase``. The two talk over a websocket, so the server can run in another
+container, on another GPU, or on another machine.
 
 .. code-block:: text
 
@@ -16,103 +16,96 @@ machine.
    │ env.step ◄─ action ◄─ chunk replay ◄──┼─────────── │  {"actions": (H, D)} │
    └───────────────────────────────────────┘  response  └──────────────────────┘
 
-Supported models
-----------------
+Arena includes clients for Cosmos (``CosmosRemotePolicy``), π0 and π0.5 from OpenPI
+(``Pi0RemotePolicy``), GR00T (``Gr00tRemoteClosedloopPolicy``), and DreamZero
+(``DreamZeroRemotePolicy``). The :doc:`OpenPI <../../quickstart/running_a_real_policy/openpi>`
+and :doc:`GR00T <../../quickstart/running_a_real_policy/gr00t>` quickstarts start a server and
+run its client end to end.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 22 33 45
 
-   * - Model
-     - Client policy
-     - Transport
-   * - Cosmos policy
-     - ``CosmosRemotePolicy``
-     - openpi websocket protocol
-   * - π0 / π0.5 (OpenPI)
-     - ``Pi0RemotePolicy``
-     - openpi websocket protocol
-   * - GR00T N1.x
-     - ``Gr00tRemoteClosedloopPolicy``
-     - GR00T's native ``PolicyClient``
-   * - DreamZero
-     - ``DreamZeroRemotePolicy``
-     - Websocket with DreamZero's msgpack encoding
+How the client works
+--------------------
 
-Quickstarts: :doc:`OpenPI <../../quickstart/running_a_real_policy/openpi>` and
-:doc:`GR00T <../../quickstart/running_a_real_policy/gr00t>`. On OSMO, each client policy is
-paired with a server task in ``osmo/tasks/``, so one workflow launches both.
+The Cosmos and OpenPI clients share one implementation,
+`remote_policy_base.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/policy/remote_policy_base.py>`__,
+which separates *what* is sent from *how* it is sent.
 
-The contract
-------------
+An ``EmbodimentAdapter`` decides what is sent for one robot and one server format. Its
+``extract(obs, env_id)`` method pulls one environment's camera images and joint state out of
+Arena's observation dictionary. ``pack_request(extracted, instruction)`` turns them into the
+request the server expects. ``action_dim`` declares the width of each action the server returns.
 
-Cosmos and OpenPI share one client,
-`remote_policy_base.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/policy/remote_policy_base.py>`__.
-It splits the work into two classes:
+``RemoteChunkReplayPolicy`` decides how it is sent, and every adapter shares it. For each
+environment, it sends one request and receives an action chunk of shape ``(H, action_dim)``. It
+replays the first ``open_loop_horizon`` actions, one per step, and then requests a new chunk.
+When an environment resets, or the connection drops and reconnects, the client discards the
+cached chunk so that it never replays stale actions. ``close()`` disconnects the client but
+leaves the server running.
 
-**EmbodimentAdapter**: what is sent. One adapter per robot and wire format.
-
-* ``action_dim``: width of each action row the server returns.
-* ``extract(obs, env_id)``: pull one environment's images and proprioception out of Arena's
-  observation dict.
-* ``pack_request(extracted, instruction)``: build the request dict the server expects.
-
-**RemoteChunkReplayPolicy**: how it is sent. Shared by every adapter.
-
-* Sends one request per environment and expects an action chunk of shape ``(H, action_dim)``
-  under ``server_response_actions_key``.
-* Replays the first ``open_loop_horizon`` rows, one per step, then asks again.
-* Clears an environment's chunk on ``reset(env_ids)`` and every chunk after a reconnect, so a
-  stale chunk is never replayed.
-* Reconnects up to three times on a dropped connection. ``close()`` closes the client only; the
-  server keeps running.
-
-**Wire format.** Requests and responses are flat dicts of numpy arrays and strings, packed with
+Requests and responses are flat dictionaries of NumPy arrays and strings, packed with
 ``msgpack_numpy``. For example, the Cosmos DROID adapter sends:
 
 .. code-block:: python
 
    {
-       "observation/image": uint8[H, W, 3],          # wrist on top, two exterior views below
+       "observation/image": uint8[H, W, 3],          # wrist view on top, two exterior views below
        "observation/joint_position": float32[7],
        "observation/gripper_position": float32[1],
        "prompt": "put the banana in the bowl",
    }
    # response: {"action": float32[H, 8]}
 
-The client config carries the connection: ``remote_host``, ``remote_port``, ``ping_interval``,
-``ping_timeout``, and ``policy_device``. In an Experiment Definition:
+The client's configuration holds the connection settings: ``remote_host``, ``remote_port``,
+``ping_interval``, ``ping_timeout``, and ``policy_device``. The RoboLab example below evaluates
+π0.5 and Cosmos on the same two tasks:
 
-.. code-block:: yaml
+.. dropdown:: Configuration file (``robolab_2_tasks_pi0_and_cosmos.yaml``)
+   :animate: fade-in
 
-   policy:
-     type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
-     cosmos_embodiment_adapter: droid
-     remote_host: 127.0.0.1
-     remote_port: 8000
+   .. literalinclude:: ../../../../isaaclab_arena_environments/robolab/experiment_configs/robolab_2_tasks_pi0_and_cosmos.yaml
+      :language: yaml
+      :lines: 6-
 
-GR00T and DreamZero keep their native clients because their servers use a different protocol.
-They still implement ``PolicyBase``, so runners treat them the same way. GR00T also turns chunks
-into per-step actions through a pluggable ``ActionScheduler``
-(`action_scheduling/ <https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaaclab_arena/policy/action_scheduling>`__).
+GR00T and DreamZero servers use their own protocols, so Arena keeps their native clients. Both
+still implement ``PolicyBase``, and the runners treat them like any other policy. GR00T also
+converts chunks into per-step actions through a configurable ``ActionScheduler`` (see
+`action_scheduling/ <https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaaclab_arena/policy/action_scheduling>`__).
 
-Extend
-------
 
-**New robot, existing model server.** Write an ``EmbodimentAdapter`` for the robot's cameras,
-proprioception, and action layout, then add its key to the policy's adapter lookup
-(``cosmos_embodiment_adapter`` or ``openpi_embodiment_adapter``). The transport stays unchanged.
+Add a model or a robot
+----------------------
 
-**New model that speaks the openpi protocol.** Subclass ``RemoteChunkReplayPolicy`` and
-``PolicyBase[YourCfg]``, set ``name`` and ``server_response_actions_key``, and pass your adapter
-and horizon to ``super().__init__``. ``CosmosRemotePolicy`` is the reference: it changes only
-the response key and the adapter.
+To run an existing model on a new robot, write an ``EmbodimentAdapter`` for that robot's
+cameras, joint state, and action layout. Then add its name to the client's adapter lookup,
+which ``cosmos_embodiment_adapter`` or ``openpi_embodiment_adapter`` selects. The transport
+does not change.
 
-**New model with its own protocol.** Implement ``PolicyBase`` directly, as GR00T does. Keep
-the client thin: preprocessing, chunking, and reconnects in the client; model code in the
-server.
+To add a model whose server speaks the OpenPI protocol, subclass ``RemoteChunkReplayPolicy`` and
+``PolicyBase[YourCfg]``. Set ``name`` and ``server_response_actions_key``, and pass your adapter
+and horizon to ``super().__init__``. ``CosmosRemotePolicy`` is the reference: it differs from
+the OpenPI client only in its response key and adapter.
 
-**Scale out.** Because the model is behind a socket, scaling is a deployment choice, not a code
-change: point ``remote_host`` at a bigger GPU or another node, and run many environments per
-client with ``num_envs``. To run a new server on OSMO, subclass ``PolicyServerTask`` for the client
-policy and register it with ``@register_server_task``.
+.. dropdown:: ``cosmos_remote_policy.py``
+   :animate: fade-in
+
+   .. literalinclude:: ../../../../isaaclab_arena_cosmos/policy/cosmos_remote_policy.py
+      :language: python
+      :lines: 6-
+
+If the server uses its own protocol, implement ``PolicyBase`` directly, as the GR00T client
+does. Keep the client thin. Image preprocessing, chunk handling, and reconnects belong in the
+client, and model code belongs in the server.
+
+Because the model sits behind a socket, scaling up is a deployment choice, not a code change.
+Point ``remote_host`` at a larger GPU or another node, and raise ``num_envs`` to run more
+environments per client. On OSMO, each client policy is paired with a server task in
+``osmo/tasks/``, so one workflow launches both. To serve a new model there, subclass
+``PolicyServerTask`` and register it with ``@register_server_task``.
+
+
+Next steps
+----------
+
+Continue to :doc:`agent_policies` to use a hosted foundation model as a policy without robot
+training. See :doc:`Arena Experiments <../concept_arena_experiments>` to submit a server–client
+evaluation to OSMO.
