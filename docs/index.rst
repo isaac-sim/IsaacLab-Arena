@@ -20,7 +20,7 @@ Welcome to Isaac Lab-Arena!
 
       .. rst-class:: arena-release-schedule
 
-      The Qualified Release is coming soon, around 8 December.
+      The official and tested release will be available around 8 December.
 
    .. button-ref:: pages/whats_new/whats_new
       :ref-type: doc
@@ -766,7 +766,7 @@ Execute large-scale parallel policy evaluations
 
             .. rst-class:: arena-policy-vlm-note
 
-            Multimodal VLMs can also act as policies through a hosted, OpenAI-compatible endpoint.
+            Now available: evaluate multimodal VLMs as policies.
             :doc:`See an example <pages/whats_new/vlm_policy>`.
 
       .. grid-item::
