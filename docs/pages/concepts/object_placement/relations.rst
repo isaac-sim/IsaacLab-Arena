@@ -63,8 +63,9 @@ similar prim should support placement.
 A background with mesh collision cannot have relations, ``IsAnchor`` included.
 Placement would treat its whole mesh as one solid, which for a room fills the
 open space, so placement fails with an error. Leave such a background without
-relations, so it acts as a passive obstacle, and anchor an ``ObjectReference``
-to the support prim instead; see :doc:`./collision_handling`.
+relations, so it acts as a passive obstacle. To place objects on a surface
+within the background, such as a countertop prim in a kitchen, anchor an
+``ObjectReference`` to that prim, as above; see :doc:`./collision_handling`.
 
 Common Relations
 ----------------
