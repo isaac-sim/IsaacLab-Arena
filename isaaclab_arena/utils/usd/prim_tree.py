@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.object_type import ObjectType
+
+if TYPE_CHECKING:
+    from pxr import Usd
 
 
 @dataclass(frozen=True)
@@ -89,7 +92,14 @@ class UsdPrimRecord:
 
 
 def format_usd_prim_record_metadata(record: UsdPrimRecord) -> str:
-    """Return short physics labels for hierarchy browsing."""
+    """Return short physics labels for hierarchy browsing.
+
+    Args:
+        record: Prim record whose joint and collider metadata to summarize.
+
+    Returns:
+        Space-separated labels, or an empty string when the record has no displayed metadata.
+    """
     fields: list[str] = []
     if record.joint_names:
         fields.append(f"joints=[{','.join(record.joint_names)}]")
@@ -101,7 +111,15 @@ def format_usd_prim_record_metadata(record: UsdPrimRecord) -> str:
 
 
 def format_usd_prim_tree(prim_tree: list[UsdPrimRecord], *, heading: str = "USD PRIM TREE:") -> str:
-    """Format prim records as a nested text tree with physics metadata."""
+    """Format prim records as a nested text tree with physics metadata.
+
+    Args:
+        prim_tree: Prim records to sort and display by relative path.
+        heading: First line of the formatted tree.
+
+    Returns:
+        Newline-separated tree text.
+    """
     records = sorted(prim_tree, key=lambda record: record.relative_path)
     lines = [heading]
     stack: list[str] = []
@@ -122,7 +140,15 @@ def format_usd_prim_tree(prim_tree: list[UsdPrimRecord], *, heading: str = "USD 
 
 
 def usd_prim_records_to_dicts(prim_tree: list[UsdPrimRecord]) -> list[dict[str, Any]]:
-    """Return complete records for strict JSON, encoding non-finite floats as "inf", "-inf", or "nan"."""
+    """Return complete records suitable for strict JSON serialization.
+
+    Args:
+        prim_tree: Prim records to convert.
+
+    Returns:
+        Record dictionaries with object types encoded as strings and non-finite floats encoded as
+        ``"inf"``, ``"-inf"``, or ``"nan"``.
+    """
     records = []
     for record in prim_tree:
         data = asdict(record)
@@ -131,154 +157,18 @@ def usd_prim_records_to_dicts(prim_tree: list[UsdPrimRecord]) -> list[dict[str, 
     return records
 
 
-def _json_value(value: Any) -> Any:
-    """Convert nested metadata to JSON values without non-finite numeric tokens."""
-    if isinstance(value, float) and not math.isfinite(value):
-        return str(value)
-    if isinstance(value, dict):
-        return {key: _json_value(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_value(item) for item in value]
-    return value
-
-
-def _attribute_value(attribute, default=None):
-    value = attribute.Get() if attribute else None
-    return default if value is None else value
-
-
-def _authored_attribute_value(attribute):
-    if not attribute or not attribute.HasAuthoredValueOpinion():
-        return None
-    return attribute.Get()
-
-
-def _optional_float(value) -> float | None:
-    return None if value is None else float(value)
-
-
-def _optional_tuple(value) -> tuple[float, ...] | None:
-    return None if value is None else tuple(float(component) for component in value)
-
-
-def _bounding_box_in_root_frame(prim, root_prim, bbox_cache, meters_per_unit: float) -> UsdBoundingBox | None:
-    """Return meter-valued bounds in frame R, the inspected root's frame."""
-    relative_range = bbox_cache.ComputeRelativeBound(prim, root_prim).ComputeAlignedRange()
-    if relative_range.IsEmpty():
-        return None
-    center_R = relative_range.GetMidpoint()
-    size_R = relative_range.GetSize()
-    return UsdBoundingBox(
-        center_m=tuple(float(component) * meters_per_unit for component in center_R),
-        size_m=tuple(float(component) * meters_per_unit for component in size_R),
-    )
-
-
-def _authored_named_attribute_value(prim, name: str):
-    return _authored_attribute_value(prim.GetAttribute(name))
-
-
-def _distance_in_meters(value, meters_per_unit: float) -> float | None:
-    return None if value is None else float(value) * meters_per_unit
-
-
-def _rigid_body_info(
-    prim,
-    UsdPhysics,
-    kilograms_per_unit: float,
-    meters_per_unit: float,
-) -> UsdRigidBodyInfo:
-    rigid_body = UsdPhysics.RigidBodyAPI(prim)
-    mass = UsdPhysics.MassAPI(prim)
-    mass_value = _authored_attribute_value(mass.GetMassAttr())
-    density_value = _authored_attribute_value(mass.GetDensityAttr())
-    return UsdRigidBodyInfo(
-        enabled=bool(_attribute_value(rigid_body.GetRigidBodyEnabledAttr(), True)),
-        kinematic=bool(_attribute_value(rigid_body.GetKinematicEnabledAttr(), False)),
-        mass_kg=None if mass_value is None else float(mass_value) * kilograms_per_unit,
-        density_kg_m3=(
-            None if density_value is None else float(density_value) * kilograms_per_unit / meters_per_unit**3
-        ),
-        center_of_mass=_optional_tuple(_authored_attribute_value(mass.GetCenterOfMassAttr())),
-        diagonal_inertia=_optional_tuple(_authored_attribute_value(mass.GetDiagonalInertiaAttr())),
-        disable_gravity=_authored_named_attribute_value(prim, "physxRigidBody:disableGravity"),
-        linear_damping=_optional_float(_authored_named_attribute_value(prim, "physxRigidBody:linearDamping")),
-        angular_damping=_optional_float(_authored_named_attribute_value(prim, "physxRigidBody:angularDamping")),
-    )
-
-
-def _nearest_rigid_body_path(stage, target_path, root_prim, UsdPhysics) -> str | None:
-    """Find the owning body across the stage, using absolute paths outside the inspected root."""
-    prim = stage.GetPrimAtPath(target_path)
-    root_path = root_prim.GetPath()
-    while prim and not prim.IsPseudoRoot():
-        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
-            prim_path = prim.GetPath()
-            return str(prim_path.MakeRelativePath(root_path)) if prim_path.HasPrefix(root_path) else str(prim_path)
-        prim = prim.GetParent()
-    return None
-
-
-def _joint_body_path(stage, relationship, root_prim, UsdPhysics) -> str | None:
-    targets = relationship.GetTargets() if relationship else []
-    if len(targets) != 1:
-        return None
-    return _nearest_rigid_body_path(stage, targets[0], root_prim, UsdPhysics)
-
-
-def _joint_info(prim, stage, root_prim, UsdPhysics) -> UsdJointInfo:
-    joint = UsdPhysics.Joint(prim)
-    axis = None
-    lower_limit = None
-    upper_limit = None
-    limit_unit = None
-    if prim.IsA(UsdPhysics.RevoluteJoint):
-        typed_joint = UsdPhysics.RevoluteJoint(prim)
-        axis = str(_attribute_value(typed_joint.GetAxisAttr()))
-        lower_limit = _optional_float(_attribute_value(typed_joint.GetLowerLimitAttr()))
-        upper_limit = _optional_float(_attribute_value(typed_joint.GetUpperLimitAttr()))
-        limit_unit = "degrees"
-    elif prim.IsA(UsdPhysics.PrismaticJoint):
-        typed_joint = UsdPhysics.PrismaticJoint(prim)
-        axis = str(_attribute_value(typed_joint.GetAxisAttr()))
-        lower_limit = _optional_float(_attribute_value(typed_joint.GetLowerLimitAttr()))
-        upper_limit = _optional_float(_attribute_value(typed_joint.GetUpperLimitAttr()))
-        limit_unit = "stage_units"
-    return UsdJointInfo(
-        type_name=prim.GetTypeName(),
-        enabled=bool(_attribute_value(joint.GetJointEnabledAttr(), True)),
-        body_0_path=_joint_body_path(stage, joint.GetBody0Rel(), root_prim, UsdPhysics),
-        body_1_path=_joint_body_path(stage, joint.GetBody1Rel(), root_prim, UsdPhysics),
-        axis=axis,
-        lower_limit=lower_limit,
-        upper_limit=upper_limit,
-        limit_unit=limit_unit,
-    )
-
-
-def _collider_info(prim, stage, root_prim, UsdPhysics, meters_per_unit: float) -> UsdColliderInfo:
-    collision = UsdPhysics.CollisionAPI(prim)
-    approximation = _attribute_value(UsdPhysics.MeshCollisionAPI(prim).GetApproximationAttr())
-    return UsdColliderInfo(
-        type_name=prim.GetTypeName(),
-        enabled=bool(_attribute_value(collision.GetCollisionEnabledAttr(), True)),
-        rigid_body_owner_path=_nearest_rigid_body_path(stage, prim.GetPath(), root_prim, UsdPhysics),
-        approximation=str(approximation) if approximation is not None else None,
-        contact_offset_m=_distance_in_meters(
-            _authored_named_attribute_value(prim, "physxCollision:contactOffset"), meters_per_unit
-        ),
-        rest_offset_m=_distance_in_meters(
-            _authored_named_attribute_value(prim, "physxCollision:restOffset"), meters_per_unit
-        ),
-    )
-
-
-def find_nested_physics_roots(root_prim) -> dict[str, ObjectType]:
+def find_nested_physics_roots(root_prim: Usd.Prim) -> dict[str, ObjectType]:
     """Return absolute paths of independently resettable physics roots.
 
     Standalone rigid bodies and articulation roots are reset roots. Articulation
     links are owned by their articulation root, while base and collision-only prims
     are not reset roots.
+
+    Args:
+        root_prim: Root prim whose composed subtree to inspect.
+
+    Returns:
+        Physics object types keyed by absolute prim path.
     """
     from pxr import Usd
 
@@ -311,7 +201,15 @@ def exclude_referenced_physics_roots(
     physics_roots: dict[str, ObjectType],
     referenced_prim_paths: dict[str, ObjectType],
 ) -> dict[str, ObjectType]:
-    """Remove physics roots whose reset state is owned by matching object references."""
+    """Remove physics roots whose reset state is owned by matching object references.
+
+    Args:
+        physics_roots: Independently resettable physics roots keyed by absolute prim path.
+        referenced_prim_paths: Object references keyed by absolute prim path.
+
+    Returns:
+        Physics roots not owned by rigid or articulation object references.
+    """
     reset_owned_references = {
         path: object_type
         for path, object_type in referenced_prim_paths.items()
@@ -393,7 +291,12 @@ def load_usd_physics_roots(
     return dict(sorted(roots.items()))
 
 
-def load_stage_prim_tree(stage, root_prim, *, include_physical_root: bool = False) -> list[UsdPrimRecord]:
+def load_stage_prim_tree(
+    stage: Usd.Stage,
+    root_prim: Usd.Prim,
+    *,
+    include_physical_root: bool = False,
+) -> list[UsdPrimRecord]:
     """Return physics/collision records below a composed stage prim.
 
     A prim is included when it directly participates in physics or collision, or
@@ -402,8 +305,8 @@ def load_stage_prim_tree(stage, root_prim, *, include_physical_root: bool = Fals
     Bounds include all geometry purposes. Bounds and collider offsets use meters.
 
     Args:
-        stage: Open composed USD stage.
-        root_prim: Root of the subtree to inspect.
+        stage: Open composed USD stage containing ``root_prim``.
+        root_prim: Root prim of the subtree to inspect.
         include_physical_root: Include ``root_prim`` as path ``.`` when it directly
             participates in physics.
 
@@ -517,3 +420,160 @@ def load_usd_prim_tree(usd_path: str, prim_path: str | None = None) -> list[UsdP
             else:
                 root_prim = default_prim
         return load_stage_prim_tree(stage, root_prim, include_physical_root=bool(prim_path))
+
+
+################################################################################
+# Bounds and rigid-body metadata
+################################################################################
+
+
+def _bounding_box_in_root_frame(prim, root_prim, bbox_cache, meters_per_unit: float) -> UsdBoundingBox | None:
+    """Return meter-valued bounds in frame R, the inspected root's frame."""
+    relative_range = bbox_cache.ComputeRelativeBound(prim, root_prim).ComputeAlignedRange()
+    if relative_range.IsEmpty():
+        return None
+    center_R = relative_range.GetMidpoint()
+    size_R = relative_range.GetSize()
+    return UsdBoundingBox(
+        center_m=tuple(float(component) * meters_per_unit for component in center_R),
+        size_m=tuple(float(component) * meters_per_unit for component in size_R),
+    )
+
+
+def _rigid_body_info(
+    prim,
+    UsdPhysics,
+    kilograms_per_unit: float,
+    meters_per_unit: float,
+) -> UsdRigidBodyInfo:
+    rigid_body = UsdPhysics.RigidBodyAPI(prim)
+    mass = UsdPhysics.MassAPI(prim)
+    mass_value = _authored_attribute_value(mass.GetMassAttr())
+    density_value = _authored_attribute_value(mass.GetDensityAttr())
+    return UsdRigidBodyInfo(
+        enabled=bool(_attribute_value(rigid_body.GetRigidBodyEnabledAttr(), True)),
+        kinematic=bool(_attribute_value(rigid_body.GetKinematicEnabledAttr(), False)),
+        mass_kg=None if mass_value is None else float(mass_value) * kilograms_per_unit,
+        density_kg_m3=(
+            None if density_value is None else float(density_value) * kilograms_per_unit / meters_per_unit**3
+        ),
+        center_of_mass=_optional_tuple(_authored_attribute_value(mass.GetCenterOfMassAttr())),
+        diagonal_inertia=_optional_tuple(_authored_attribute_value(mass.GetDiagonalInertiaAttr())),
+        disable_gravity=_authored_named_attribute_value(prim, "physxRigidBody:disableGravity"),
+        linear_damping=_optional_float(_authored_named_attribute_value(prim, "physxRigidBody:linearDamping")),
+        angular_damping=_optional_float(_authored_named_attribute_value(prim, "physxRigidBody:angularDamping")),
+    )
+
+
+################################################################################
+# Joint and collider metadata
+################################################################################
+
+
+def _nearest_rigid_body_path(stage, target_path, root_prim, UsdPhysics) -> str | None:
+    """Find the owning body across the stage, using absolute paths outside the inspected root."""
+    prim = stage.GetPrimAtPath(target_path)
+    root_path = root_prim.GetPath()
+    while prim and not prim.IsPseudoRoot():
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            prim_path = prim.GetPath()
+            return str(prim_path.MakeRelativePath(root_path)) if prim_path.HasPrefix(root_path) else str(prim_path)
+        prim = prim.GetParent()
+    return None
+
+
+def _joint_body_path(stage, relationship, root_prim, UsdPhysics) -> str | None:
+    targets = relationship.GetTargets() if relationship else []
+    if len(targets) != 1:
+        return None
+    return _nearest_rigid_body_path(stage, targets[0], root_prim, UsdPhysics)
+
+
+def _joint_info(prim, stage, root_prim, UsdPhysics) -> UsdJointInfo:
+    joint = UsdPhysics.Joint(prim)
+    axis = None
+    lower_limit = None
+    upper_limit = None
+    limit_unit = None
+    if prim.IsA(UsdPhysics.RevoluteJoint):
+        typed_joint = UsdPhysics.RevoluteJoint(prim)
+        axis = str(_attribute_value(typed_joint.GetAxisAttr()))
+        lower_limit = _optional_float(_attribute_value(typed_joint.GetLowerLimitAttr()))
+        upper_limit = _optional_float(_attribute_value(typed_joint.GetUpperLimitAttr()))
+        limit_unit = "degrees"
+    elif prim.IsA(UsdPhysics.PrismaticJoint):
+        typed_joint = UsdPhysics.PrismaticJoint(prim)
+        axis = str(_attribute_value(typed_joint.GetAxisAttr()))
+        lower_limit = _optional_float(_attribute_value(typed_joint.GetLowerLimitAttr()))
+        upper_limit = _optional_float(_attribute_value(typed_joint.GetUpperLimitAttr()))
+        limit_unit = "stage_units"
+    return UsdJointInfo(
+        type_name=prim.GetTypeName(),
+        enabled=bool(_attribute_value(joint.GetJointEnabledAttr(), True)),
+        body_0_path=_joint_body_path(stage, joint.GetBody0Rel(), root_prim, UsdPhysics),
+        body_1_path=_joint_body_path(stage, joint.GetBody1Rel(), root_prim, UsdPhysics),
+        axis=axis,
+        lower_limit=lower_limit,
+        upper_limit=upper_limit,
+        limit_unit=limit_unit,
+    )
+
+
+def _collider_info(prim, stage, root_prim, UsdPhysics, meters_per_unit: float) -> UsdColliderInfo:
+    collision = UsdPhysics.CollisionAPI(prim)
+    approximation = _attribute_value(UsdPhysics.MeshCollisionAPI(prim).GetApproximationAttr())
+    return UsdColliderInfo(
+        type_name=prim.GetTypeName(),
+        enabled=bool(_attribute_value(collision.GetCollisionEnabledAttr(), True)),
+        rigid_body_owner_path=_nearest_rigid_body_path(stage, prim.GetPath(), root_prim, UsdPhysics),
+        approximation=str(approximation) if approximation is not None else None,
+        contact_offset_m=_distance_in_meters(
+            _authored_named_attribute_value(prim, "physxCollision:contactOffset"), meters_per_unit
+        ),
+        rest_offset_m=_distance_in_meters(
+            _authored_named_attribute_value(prim, "physxCollision:restOffset"), meters_per_unit
+        ),
+    )
+
+
+################################################################################
+# Value conversion helpers
+################################################################################
+
+
+def _json_value(value: Any) -> Any:
+    """Convert nested metadata to JSON values without non-finite numeric tokens."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    return value
+
+
+def _attribute_value(attribute, default=None):
+    value = attribute.Get() if attribute else None
+    return default if value is None else value
+
+
+def _authored_attribute_value(attribute):
+    if not attribute or not attribute.HasAuthoredValueOpinion():
+        return None
+    return attribute.Get()
+
+
+def _authored_named_attribute_value(prim, name: str):
+    return _authored_attribute_value(prim.GetAttribute(name))
+
+
+def _optional_float(value) -> float | None:
+    return None if value is None else float(value)
+
+
+def _optional_tuple(value) -> tuple[float, ...] | None:
+    return None if value is None else tuple(float(component) for component in value)
+
+
+def _distance_in_meters(value, meters_per_unit: float) -> float | None:
+    return None if value is None else float(value) * meters_per_unit
