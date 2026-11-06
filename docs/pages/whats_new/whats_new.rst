@@ -1,10 +1,8 @@
 What's New
 ==========
 
-The Isaac Lab-Arena **v0.4 Developer Preview** is available now on ``main``,
-with three new capabilities for authoring and running evaluations.
-
-The tested v0.4 release, called the **Qualified Release**, is expected around 8 December.
+The upcoming release of Isaac Lab-Arena ``v0.4`` adds three new capabilities
+to the evaluation framework. Try out the Developer Preview on the ``main`` branch!
 
 .. grid:: 1 1 3 3
    :gutter: 2
