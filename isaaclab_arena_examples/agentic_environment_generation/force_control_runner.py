@@ -101,199 +101,6 @@ class PoseHold:
     max_torque: float = 5.0
 
 
-def _assert_number(value: Any, field: str, line_number: int) -> None:
-    assert isinstance(value, int | float) and not isinstance(
-        value, bool
-    ), f"Recipe line {line_number}: '{field}' must be a number"
-
-
-def _validate_command(command: Any, line_number: int) -> dict[str, Any]:
-    """Validate and return one JSONL command."""
-    assert isinstance(command, dict), f"Recipe line {line_number}: each line must contain a JSON object"
-    assert isinstance(command.get("action"), str), f"Recipe line {line_number}: missing string field 'action'"
-    action = command["action"]
-    assert action in _COMMAND_FIELDS, f"Recipe line {line_number}: unknown action '{action}'"
-    required, optional = _COMMAND_FIELDS[action]
-    fields = set(command) - {"action"}
-    missing = required - fields
-    unknown = fields - required - optional
-    assert not missing, f"Recipe line {line_number}: action '{action}' is missing {sorted(missing)}"
-    assert not unknown, f"Recipe line {line_number}: action '{action}' has unknown fields {sorted(unknown)}"
-
-    for field in ("name", "joint_name", "reference", "reference_point", "rotation_mode", "title", "boundary"):
-        if field in command:
-            assert (
-                isinstance(command[field], str) and command[field]
-            ), f"Recipe line {line_number}: '{field}' must be a non-empty string"
-    for field in (
-        "height",
-        "normalized_goal",
-        "seconds",
-        "linear_gain",
-        "linear_damping",
-        "minimum_stiffness",
-        "max_force",
-        "rotation_gain",
-        "angular_damping",
-        "max_torque",
-        "gain",
-        "damping",
-        "limit",
-        "effort_limit",
-        "drive_stiffness",
-        "drive_damping",
-    ):
-        if field in command:
-            _assert_number(command[field], field, line_number)
-    for field in ("drive_stiffness", "drive_damping"):
-        if field in command:
-            assert command[field] >= 0, f"Recipe line {line_number}: '{field}' must be non-negative"
-    for field in ("index", "steps", "timeout_steps"):
-        if field in command:
-            assert (
-                isinstance(command[field], int) and command[field] >= 0
-            ), f"Recipe line {line_number}: '{field}' must be a non-negative integer"
-    for field in _VECTOR_FIELDS & set(command):
-        expected_length = 4 if field == "orientation" else 3
-        value = command[field]
-        assert (
-            isinstance(value, list) and len(value) == expected_length
-        ), f"Recipe line {line_number}: '{field}' must contain {expected_length} numbers"
-        for component in value:
-            _assert_number(component, field, line_number)
-    if "reference_axes" in command:
-        axes = command["reference_axes"]
-        assert isinstance(axes, list) and axes, f"Recipe line {line_number}: 'reference_axes' must be a non-empty list"
-        assert len(axes) == len(set(axes)) and set(axes) <= {
-            "x",
-            "y",
-            "z",
-        }, f"Recipe line {line_number}: 'reference_axes' must contain unique x, y, or z values"
-    if action == "move":
-        assert (
-            "goal" in command or "reference" in command
-        ), f"Recipe line {line_number}: move requires 'goal' or 'reference'"
-        if "goal" in command:
-            goal = command["goal"]
-            assert (
-                isinstance(goal, list) and len(goal) == 3
-            ), f"Recipe line {line_number}: move 'goal' must contain 3 numbers"
-            for component in goal:
-                _assert_number(component, "goal", line_number)
-        assert (
-            "reference_axes" not in command or "reference" in command
-        ), f"Recipe line {line_number}: 'reference_axes' requires 'reference'"
-        if "reference_point" in command:
-            assert command["reference_point"] in {
-                "position",
-                "aabb_center",
-            }, f"Recipe line {line_number}: 'reference_point' must be 'position' or 'aabb_center'"
-    if action == "joint":
-        assert ("goal" in command) != (
-            "normalized_goal" in command
-        ), f"Recipe line {line_number}: joint requires exactly one of 'goal' and 'normalized_goal'"
-        if "goal" in command:
-            _assert_number(command["goal"], "goal", line_number)
-        if "normalized_goal" in command:
-            assert (
-                0.0 <= command["normalized_goal"] <= 1.0
-            ), f"Recipe line {line_number}: 'normalized_goal' must be between 0 and 1"
-    if action == "wait":
-        assert ("steps" in command) != (
-            "seconds" in command
-        ), f"Recipe line {line_number}: wait requires exactly one of 'steps' and 'seconds'"
-    if "rotation_mode" in command:
-        assert command["rotation_mode"] in {
-            "acceleration",
-            "torque",
-        }, f"Recipe line {line_number}: 'rotation_mode' must be 'acceleration' or 'torque'"
-    if "replace_existing" in command:
-        assert isinstance(
-            command["replace_existing"], bool
-        ), f"Recipe line {line_number}: 'replace_existing' must be a boolean"
-    if "settle_hold" in command:
-        hold = command["settle_hold"]
-        assert isinstance(hold, dict) and set(hold) == {
-            "gain",
-            "damping",
-            "limit",
-        }, f"Recipe line {line_number}: 'settle_hold' requires exactly gain, damping, and limit"
-        for field, value in hold.items():
-            _assert_number(value, f"settle_hold.{field}", line_number)
-            assert (
-                math.isfinite(value) and value >= 0
-            ), f"Recipe line {line_number}: 'settle_hold.{field}' must be finite and non-negative"
-    return command
-
-
-def load_force_control_recipe(path: Path, require_runtime_commands: bool = True) -> ForceControlRecipe:
-    """Load and validate a force-control JSONL recipe."""
-    joint_setups = []
-    commands = []
-    runtime_command_seen = False
-    for line_number, line in enumerate(path.read_text().splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            raw_command = json.loads(line)
-        except json.JSONDecodeError as error:
-            raise AssertionError(f"Recipe line {line_number}: invalid JSON: {error.msg}") from error
-        command = _validate_command(raw_command, line_number)
-        if command["action"] == "setup_joint":
-            assert (
-                not runtime_command_seen
-            ), f"Recipe line {line_number}: setup_joint commands must precede runtime commands"
-            joint_setups.append(command)
-        else:
-            runtime_command_seen = True
-            commands.append(command)
-    assert commands or not require_runtime_commands, f"Recipe '{path}' has no runtime commands"
-    return ForceControlRecipe(tuple(joint_setups), tuple(commands))
-
-
-def _apply_joint_setups(env_cfg, joint_setups: tuple[dict[str, Any], ...]) -> None:
-    """Add effort-controlled actuators requested before environment creation."""
-    if not joint_setups:
-        return
-    from isaaclab.actuators import ImplicitActuatorCfg
-
-    for setup in joint_setups:
-        name = setup["name"]
-        assert hasattr(env_cfg.scene, name), f"Recipe setup refers to unknown scene entity '{name}'"
-        asset_cfg = getattr(env_cfg.scene, name)
-        existing_actuators = dict(asset_cfg.actuators or {})
-        if setup.get("replace_existing", False):
-            existing_actuators = {}
-        actuator_name = "force_control_" + re.sub(r"\W+", "_", setup["joint_name"]).strip("_")
-        assert (
-            actuator_name not in existing_actuators
-        ), f"Recipe defines duplicate actuator '{actuator_name}' for scene entity '{name}'"
-        existing_actuators[actuator_name] = ImplicitActuatorCfg(
-            joint_names_expr=[re.escape(setup["joint_name"])],
-            stiffness=float(setup.get("drive_stiffness", 0.0)),
-            damping=float(setup.get("drive_damping", 0.0)),
-            effort_limit_sim=float(setup.get("effort_limit", 100.0)),
-        )
-        asset_cfg.actuators = existing_actuators
-
-
-def _combine_reference_goal(
-    goal: list[float] | None,
-    reference: list[float],
-    offset: list[float],
-    reference_axes: list[str] | None,
-) -> list[float]:
-    """Combine absolute and reference-relative components into a world-frame goal."""
-    axes = {"x": 0, "y": 1, "z": 2}
-    selected_axes = set(reference_axes or axes)
-    assert goal is not None or len(selected_axes) == 3, "Unreferenced axes require an absolute goal"
-    combined = list(goal or (0.0, 0.0, 0.0))
-    for axis in selected_axes:
-        index = axes[axis]
-        combined[index] = reference[index] + offset[index]
-    return combined
-
-
 class PhysicalCommandRunner:
     """Execute physical commands and evaluate the environment's task predicates."""
 
@@ -424,12 +231,11 @@ class PhysicalCommandRunner:
                 torque_W = quat_apply(q_W_B, torque_B).clamp(-hold.max_torque, hold.max_torque)
 
             self.last_wrenches[name] = {
-                "goal": hold.t_W_goal.tolist(),
-                "velocity": v_W.tolist(),
-                "linear_velocity": v_W.tolist(),
-                "angular_velocity": omega_W.tolist(),
-                "force": force_W.tolist(),
-                "torque": torque_W.tolist(),
+                "goal": hold.t_W_goal,
+                "linear_velocity": v_W,
+                "angular_velocity": omega_W,
+                "force": force_W,
+                "torque": torque_W,
                 "mass": mass,
             }
             forces_W = masses[:, :, None] / mass * force_W[:, None, :]
@@ -493,24 +299,16 @@ class PhysicalCommandRunner:
 
     def _contact_sensor_state(self) -> dict[str, dict]:
         """Return configured contact-sensor forces without relying on task-specific names."""
-        from dataclasses import fields, is_dataclass
-
         from isaaclab.sensors import ContactSensorCfg
 
-        scene_cfg = self.env.cfg.scene
-        if is_dataclass(scene_cfg):
-            configured_sensors = ((field.name, getattr(scene_cfg, field.name)) for field in fields(scene_cfg))
-        else:
-            configured_sensors = vars(scene_cfg).items()
-
         result = {}
-        for name, sensor_cfg in configured_sensors:
-            if not isinstance(sensor_cfg, ContactSensorCfg) or name not in self.env.scene.sensors:
+        for name, sensor in self.env.scene.sensors.items():
+            if not isinstance(sensor.cfg, ContactSensorCfg):
                 continue
-            data = self.env.scene.sensors[name].data
+            data = sensor.data
             result[name] = {
-                "prim_path": sensor_cfg.prim_path,
-                "filter_prim_paths_expr": list(sensor_cfg.filter_prim_paths_expr or []),
+                "prim_path": sensor.cfg.prim_path,
+                "filter_prim_paths_expr": list(sensor.cfg.filter_prim_paths_expr or []),
                 "net_forces_w": self._buffer_to_list(getattr(data, "net_forces_w", None)),
                 "force_matrix_w": self._buffer_to_list(getattr(data, "force_matrix_w", None)),
             }
@@ -552,7 +350,10 @@ class PhysicalCommandRunner:
             "contact_sensors": self._contact_sensor_state(),
             "completion": self._task_completion().tolist(),
             "current_predicates": self._criterion_status(),
-            "wrenches": self.last_wrenches,
+            "wrenches": {
+                name: {key: value.tolist() if hasattr(value, "tolist") else value for key, value in wrench.items()}
+                for name, wrench in self.last_wrenches.items()
+            },
         }
 
     def _write_failure_snapshot(self, trigger: str, subtask_index: int | None = None) -> Path:
@@ -599,20 +400,6 @@ class PhysicalCommandRunner:
         print("SUBTASK", json.dumps(record), flush=True)
         (self.output / "progress.json").write_text(json.dumps(self.events, indent=2))
 
-    def _pose_hold_from_command(self, command: dict[str, Any], t_W_goal, q_W_goal) -> PoseHold:
-        return PoseHold(
-            t_W_goal=t_W_goal,
-            q_W_goal=q_W_goal,
-            linear_gain=float(command.get("linear_gain", 150.0)),
-            linear_damping=float(command.get("linear_damping", 24.0)),
-            minimum_stiffness=float(command.get("minimum_stiffness", 0.0)),
-            max_force=float(command.get("max_force", 100.0)),
-            rotation_mode=command.get("rotation_mode", "acceleration"),
-            rotation_gain=float(command.get("rotation_gain", 100.0)),
-            angular_damping=float(command.get("angular_damping", 20.0)),
-            max_torque=float(command.get("max_torque", 5.0)),
-        )
-
     def _move_goal(self, command: dict[str, Any]) -> Any:
         goal = command.get("goal")
         if "reference" not in command:
@@ -637,11 +424,23 @@ class PhysicalCommandRunner:
         else:
             q_W_goal = T_W_start[:, 3:]
         count = max(1, int(float(command.get("seconds", 2.0)) / self.env.physics_dt))
+        hold = PoseHold(
+            t_W_goal=T_W_start[:, :3],
+            q_W_goal=q_W_goal,
+            linear_gain=float(command.get("linear_gain", 150.0)),
+            linear_damping=float(command.get("linear_damping", 24.0)),
+            minimum_stiffness=float(command.get("minimum_stiffness", 0.0)),
+            max_force=float(command.get("max_force", 100.0)),
+            rotation_mode=command.get("rotation_mode", "acceleration"),
+            rotation_gain=float(command.get("rotation_gain", 100.0)),
+            angular_damping=float(command.get("angular_damping", 20.0)),
+            max_torque=float(command.get("max_torque", 5.0)),
+        )
         for index in range(count):
             alpha = (index + 1) / count
             alpha = alpha * alpha * (3 - 2 * alpha)
-            t_W_interpolated = (1 - alpha) * T_W_start[:, :3] + alpha * t_W_goal
-            self.holds[name] = self._pose_hold_from_command(command, t_W_interpolated, q_W_goal)
+            hold.t_W_goal = (1 - alpha) * T_W_start[:, :3] + alpha * t_W_goal
+            self.holds[name] = hold
             self.step()
         self.step(60)
         print("MOVE_RESULT", name, self.env.arena_world.get_pose_w(name).tolist(), flush=True)
@@ -649,7 +448,6 @@ class PhysicalCommandRunner:
     def lift(self, command: dict[str, Any]) -> None:
         t_W = self.env.arena_world.get_position_w(command["name"])[0].tolist()
         move_command = dict(command)
-        move_command["action"] = "move"
         move_command["goal"] = [t_W[0], t_W[1], command["height"]]
         move_command.pop("height")
         self.move(move_command)
@@ -680,6 +478,7 @@ class PhysicalCommandRunner:
 
     def release(self, name: str) -> None:
         self.holds.pop(name, None)
+        self.last_wrenches.pop(name, None)
         self.env.scene[name].permanent_wrench_composer.reset()
 
     def check(self, index: int, timeout_steps: int = 600) -> None:
@@ -814,6 +613,220 @@ class PhysicalCommandRunner:
                 self.writer.close()
 
 
+def load_force_control_recipe(path: Path, require_runtime_commands: bool = True) -> ForceControlRecipe:
+    """Load and validate a force-control JSONL recipe."""
+    joint_setups = []
+    commands = []
+    runtime_command_seen = False
+    for line_number, line in enumerate(path.read_text().splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            raw_command = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise AssertionError(f"Recipe line {line_number}: invalid JSON: {error.msg}") from error
+        command = _validate_command(raw_command, line_number)
+        if command["action"] == "setup_joint":
+            assert (
+                not runtime_command_seen
+            ), f"Recipe line {line_number}: setup_joint commands must precede runtime commands"
+            joint_setups.append(command)
+        else:
+            runtime_command_seen = True
+            commands.append(command)
+    assert commands or not require_runtime_commands, f"Recipe '{path}' has no runtime commands"
+    return ForceControlRecipe(tuple(joint_setups), tuple(commands))
+
+
+def main() -> None:
+    """Launch an Arena environment and execute a physical force-control recipe."""
+    parser = get_isaaclab_arena_cli_parser()
+    _add_runner_args(parser)
+    parser.set_defaults(device="cpu", visualizer=["kit"])
+    parser.allow_abbrev = False
+    original_cli_args = sys.argv[1:]
+    app_args, _ = parser.parse_known_args(original_cli_args)
+    _assert_runner_args(app_args)
+
+    with SimulationAppContext(app_args):
+        parser = get_isaaclab_arena_environments_cli_parser(parser)
+        args, hydra_overrides = parser.parse_known_args(original_cli_args)
+        assert_hydra_overrides(hydra_overrides, parser)
+        _assert_runner_args(args)
+        recipe = load_force_control_recipe(args.commands, require_runtime_commands=not args.follow_commands)
+        builder = get_arena_builder_from_cli(args, hydra_overrides=hydra_overrides)
+        assert builder.resolved_physics_backend is PhysicsBackend.PHYSX, "force_control_runner requires PhysX"
+        _run_recipe(builder, args, recipe)
+
+
+def _assert_number(value: Any, field: str, line_number: int) -> None:
+    assert isinstance(value, int | float) and not isinstance(
+        value, bool
+    ), f"Recipe line {line_number}: '{field}' must be a number"
+
+
+def _validate_command(command: Any, line_number: int) -> dict[str, Any]:
+    """Validate and return one JSONL command."""
+    assert isinstance(command, dict), f"Recipe line {line_number}: each line must contain a JSON object"
+    assert isinstance(command.get("action"), str), f"Recipe line {line_number}: missing string field 'action'"
+    action = command["action"]
+    assert action in _COMMAND_FIELDS, f"Recipe line {line_number}: unknown action '{action}'"
+    required, optional = _COMMAND_FIELDS[action]
+    fields = set(command) - {"action"}
+    missing = required - fields
+    unknown = fields - required - optional
+    assert not missing, f"Recipe line {line_number}: action '{action}' is missing {sorted(missing)}"
+    assert not unknown, f"Recipe line {line_number}: action '{action}' has unknown fields {sorted(unknown)}"
+
+    for field in ("name", "joint_name", "reference", "reference_point", "rotation_mode", "title", "boundary"):
+        if field in command:
+            assert (
+                isinstance(command[field], str) and command[field]
+            ), f"Recipe line {line_number}: '{field}' must be a non-empty string"
+    for field in (
+        "height",
+        "normalized_goal",
+        "seconds",
+        "linear_gain",
+        "linear_damping",
+        "minimum_stiffness",
+        "max_force",
+        "rotation_gain",
+        "angular_damping",
+        "max_torque",
+        "gain",
+        "damping",
+        "limit",
+        "effort_limit",
+        "drive_stiffness",
+        "drive_damping",
+    ):
+        if field in command:
+            _assert_number(command[field], field, line_number)
+    for field in ("drive_stiffness", "drive_damping"):
+        if field in command:
+            assert command[field] >= 0, f"Recipe line {line_number}: '{field}' must be non-negative"
+    for field in ("index", "steps", "timeout_steps"):
+        if field in command:
+            assert (
+                isinstance(command[field], int) and command[field] >= 0
+            ), f"Recipe line {line_number}: '{field}' must be a non-negative integer"
+    for field in _VECTOR_FIELDS & set(command):
+        expected_length = 4 if field == "orientation" else 3
+        value = command[field]
+        assert (
+            isinstance(value, list) and len(value) == expected_length
+        ), f"Recipe line {line_number}: '{field}' must contain {expected_length} numbers"
+        for component in value:
+            _assert_number(component, field, line_number)
+    if "reference_axes" in command:
+        axes = command["reference_axes"]
+        assert isinstance(axes, list) and axes, f"Recipe line {line_number}: 'reference_axes' must be a non-empty list"
+        assert len(axes) == len(set(axes)) and set(axes) <= {
+            "x",
+            "y",
+            "z",
+        }, f"Recipe line {line_number}: 'reference_axes' must contain unique x, y, or z values"
+    if action == "move":
+        assert (
+            "goal" in command or "reference" in command
+        ), f"Recipe line {line_number}: move requires 'goal' or 'reference'"
+        if "goal" in command:
+            goal = command["goal"]
+            assert (
+                isinstance(goal, list) and len(goal) == 3
+            ), f"Recipe line {line_number}: move 'goal' must contain 3 numbers"
+            for component in goal:
+                _assert_number(component, "goal", line_number)
+        assert (
+            "reference_axes" not in command or "reference" in command
+        ), f"Recipe line {line_number}: 'reference_axes' requires 'reference'"
+        if "reference_point" in command:
+            assert command["reference_point"] in {
+                "position",
+                "aabb_center",
+            }, f"Recipe line {line_number}: 'reference_point' must be 'position' or 'aabb_center'"
+    if action == "joint":
+        assert ("goal" in command) != (
+            "normalized_goal" in command
+        ), f"Recipe line {line_number}: joint requires exactly one of 'goal' and 'normalized_goal'"
+        if "goal" in command:
+            _assert_number(command["goal"], "goal", line_number)
+        if "normalized_goal" in command:
+            assert (
+                0.0 <= command["normalized_goal"] <= 1.0
+            ), f"Recipe line {line_number}: 'normalized_goal' must be between 0 and 1"
+    if action == "wait":
+        assert ("steps" in command) != (
+            "seconds" in command
+        ), f"Recipe line {line_number}: wait requires exactly one of 'steps' and 'seconds'"
+    if "rotation_mode" in command:
+        assert command["rotation_mode"] in {
+            "acceleration",
+            "torque",
+        }, f"Recipe line {line_number}: 'rotation_mode' must be 'acceleration' or 'torque'"
+    if "replace_existing" in command:
+        assert isinstance(
+            command["replace_existing"], bool
+        ), f"Recipe line {line_number}: 'replace_existing' must be a boolean"
+    if "settle_hold" in command:
+        hold = command["settle_hold"]
+        assert isinstance(hold, dict) and set(hold) == {
+            "gain",
+            "damping",
+            "limit",
+        }, f"Recipe line {line_number}: 'settle_hold' requires exactly gain, damping, and limit"
+        for field, value in hold.items():
+            _assert_number(value, f"settle_hold.{field}", line_number)
+            assert (
+                math.isfinite(value) and value >= 0
+            ), f"Recipe line {line_number}: 'settle_hold.{field}' must be finite and non-negative"
+    return command
+
+
+def _apply_joint_setups(env_cfg, joint_setups: tuple[dict[str, Any], ...]) -> None:
+    """Add effort-controlled actuators requested before environment creation."""
+    if not joint_setups:
+        return
+    from isaaclab.actuators import ImplicitActuatorCfg
+
+    for setup in joint_setups:
+        name = setup["name"]
+        assert hasattr(env_cfg.scene, name), f"Recipe setup refers to unknown scene entity '{name}'"
+        asset_cfg = getattr(env_cfg.scene, name)
+        existing_actuators = dict(asset_cfg.actuators or {})
+        if setup.get("replace_existing", False):
+            existing_actuators = {}
+        actuator_name = "force_control_" + re.sub(r"\W+", "_", setup["joint_name"]).strip("_")
+        assert (
+            actuator_name not in existing_actuators
+        ), f"Recipe defines duplicate actuator '{actuator_name}' for scene entity '{name}'"
+        existing_actuators[actuator_name] = ImplicitActuatorCfg(
+            joint_names_expr=[re.escape(setup["joint_name"])],
+            stiffness=float(setup.get("drive_stiffness", 0.0)),
+            damping=float(setup.get("drive_damping", 0.0)),
+            effort_limit_sim=float(setup.get("effort_limit", 100.0)),
+        )
+        asset_cfg.actuators = existing_actuators
+
+
+def _combine_reference_goal(
+    goal: list[float] | None,
+    reference: list[float],
+    offset: list[float],
+    reference_axes: list[str] | None,
+) -> list[float]:
+    """Combine absolute and reference-relative components into a world-frame goal."""
+    axes = {"x": 0, "y": 1, "z": 2}
+    selected_axes = set(reference_axes or axes)
+    assert goal is not None or len(selected_axes) == 3, "Unreferenced axes require an absolute goal"
+    combined = list(goal or (0.0, 0.0, 0.0))
+    for axis in selected_axes:
+        index = axes[axis]
+        combined[index] = reference[index] + offset[index]
+    return combined
+
+
 def _assert_runner_args(args: argparse.Namespace) -> None:
     assert args.num_envs == 1, "force_control_runner supports exactly one environment"
     assert not args.distributed, "force_control_runner does not support distributed execution"
@@ -844,27 +857,6 @@ def _run_recipe(builder, args: argparse.Namespace, recipe: ForceControlRecipe) -
         PhysicalCommandRunner(env.unwrapped, args).run(recipe)
     finally:
         env.close()
-
-
-def main() -> None:
-    """Launch an Arena environment and execute a physical force-control recipe."""
-    parser = get_isaaclab_arena_cli_parser()
-    _add_runner_args(parser)
-    parser.set_defaults(device="cpu", visualizer=["kit"])
-    parser.allow_abbrev = False
-    original_cli_args = sys.argv[1:]
-    app_args, _ = parser.parse_known_args(original_cli_args)
-    _assert_runner_args(app_args)
-
-    with SimulationAppContext(app_args):
-        parser = get_isaaclab_arena_environments_cli_parser(parser)
-        args, hydra_overrides = parser.parse_known_args(original_cli_args)
-        assert_hydra_overrides(hydra_overrides, parser)
-        _assert_runner_args(args)
-        recipe = load_force_control_recipe(args.commands, require_runtime_commands=not args.follow_commands)
-        builder = get_arena_builder_from_cli(args, hydra_overrides=hydra_overrides)
-        assert builder.resolved_physics_backend is PhysicsBackend.PHYSX, "force_control_runner requires PhysX"
-        _run_recipe(builder, args, recipe)
 
 
 if __name__ == "__main__":
