@@ -44,16 +44,21 @@ Read only the references relevant to the requested behavior:
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
   Check asset identity, collision handling, reachability, physical support, and reset requirements.
-- **Placement diagnostics:** when placement rejects many candidates or a fill fails, read its
-  diagnostics before changing relations or writing a diagnostic script; "Diagnosing Placement" in
+- **Placement diagnostics:** the object placer converts the environment's relations into concrete
+  object poses: it solves candidate layouts, then checks each one against its relations, collision
+  clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
+  records diagnostics that show how well placement went and why candidates were rejected. When
+  placement rejects many candidates or a fill fails, read them before changing relations, collision
+  settings or reachability, or writing a diagnostic script; "Diagnosing Placement" in
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst) explains
   them. After each solved batch, the console shows how many candidates passed each check, then one
   line per rejection cause with its count and one measured violation, such as
   `on_relation: 'box' on(desk): edge margin wider than the free space x4 (e.g. ...)`. A fill that
   falls back to best-loss layouts prints each check's most frequent causes over the fill, and a
-  failed fill's error lists them. For more measured violations per cause, set `verbose: true` under `placer_params`, or
-  `ObjectPlacerParams(verbose=True)` in Python. A Run of an Experiment writes every rejection to
-  `arena_run_placement_diagnostics.json` in its Run directory, also when the Run fails.
+  failed fill's error lists them. For more measured violations per cause, set `verbose: true` under
+  `placer_params`, or `ObjectPlacerParams(verbose=True)` in Python. A Run of an Experiment writes
+  every rejection to `arena_run_placement_diagnostics.json` in its Run directory, also when the Run
+  fails.
 - **Task semantics:** read [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
   and [predicates and progress](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst)
   for ordered milestones, current final conditions, simultaneous truth, temporal holds, and reporting.
