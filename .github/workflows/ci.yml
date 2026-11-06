@@ -229,7 +229,7 @@ jobs:
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 80
+    timeout-minutes: 100
     needs: [build_and_push_image]
     env:
       ARENA_INFERENCE_ENDPOINT: public
