@@ -209,7 +209,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             if not ik.feasible[target_index].item():
                 rejections.append(
                     Rejection(
-                        f"'{target.name}': top-down grasp unreachable",
+                        f"'{target.name}' {PlacementCheck.IK_REACHABLE}: top-down grasp unreachable",
                         detail=(
                             f"IK position error {ik.position_error[target_index].item():.3f} m,"
                             f" rotation error {ik.rotation_error[target_index].item():.3f} rad"

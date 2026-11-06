@@ -106,6 +106,20 @@ class BoundingBox(ABC):
         depths, norms = self._sat_depths(other, margin)
         return ((depths > 0) | (norms == 0)).all(dim=-1)
 
+    def separation(self, other: "BoundingBox") -> torch.Tensor:
+        """Return the largest gap between the boxes along a separating-axis (SAT) candidate, shape (N,).
+
+        Negative when the boxes intersect. overlaps(other, margin) is True exactly where this is below margin, up to
+        float32 roundoff.
+
+        Args:
+            other: Finite boxes in the same frame and device; rows pair N/N or 1/N.
+        """
+        depths, norms = self._sat_depths(other, 0.0)
+        # Exactly parallel edge pairs give zero-norm cross axes, which separate nothing.
+        gaps = torch.where(norms > 0, -depths / norms.clamp_min(1e-12), -torch.inf)
+        return gaps.max(dim=-1).values
+
     def overlap_volume_upper_bound(self, other: "BoundingBox", margin: float = 0.0) -> torch.Tensor:
         """Return a differentiable upper bound on the overlap volume, in cubed length units, shape (N,).
 

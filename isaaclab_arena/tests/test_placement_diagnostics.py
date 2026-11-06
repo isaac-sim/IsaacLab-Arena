@@ -110,7 +110,7 @@ def test_pool_diagnostics_record_fallbacks_and_explain_fill_failures():
 
 def test_aggregated_diagnostics_sum_fills_by_batch_position():
     """Fills sum batch by batch and check by check; a later batch sums only the fills that validated one."""
-    overlap = Rejection("'a' and 'b': bounding boxes intersect")
+    overlap = Rejection("'a' and 'b': bounding boxes closer than the clearance")
     first_batch = BatchValidationDiagnostics(
         100, 60, {"no_overlap": ValidationCheckDiagnostics(100, 70, required=True, rejections=[overlap] * 30)}
     )
@@ -229,6 +229,32 @@ def test_on_validator_records_an_edge_margin_wider_than_the_free_space():
             "'box' on(desk): edge margin wider than the free space",
             detail="edge_margin_m 0.100 m, feasible margin 0.050 m",
         )
+    ]
+
+
+def test_no_overlap_validator_records_how_far_boxes_fall_short_of_the_clearance():
+    """A box pair closer than the clearance is a rejection with its shortfall, whether the boxes are apart or not."""
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
+    from isaaclab_arena.tests.dummy_object import make_candidate_batch
+
+    first = DummyObject(name="first", bounding_box=AxisAlignedBoundingBox((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)))
+    second = DummyObject(name="second", bounding_box=AxisAlignedBoundingBox((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)))
+    bounds = {obj: obj.get_bounding_box() for obj in (first, second)}
+    apart = {first: (0.0, 0.0, 0.0), second: (0.205, 0.0, 0.0)}
+    intersecting = {first: (0.0, 0.0, 0.0), second: (0.18, 0.0, 0.0)}
+    params = _placer_params()
+    params.solver_params.clearance_m = 0.01
+    rejections: list[Rejection] = []
+
+    verdicts = NoOverlapValidator(params).validate_batch(
+        make_candidate_batch([apart, intersecting], [{}, {}], [bounds, bounds]), [], rejections=rejections
+    )
+
+    assert verdicts == [False, False]
+    cause = "'first' and 'second': bounding boxes closer than the clearance"
+    assert rejections == [
+        Rejection(cause, detail="gap short of the 0.010 m clearance by 0.005 m"),
+        Rejection(cause, detail="gap short of the 0.010 m clearance by 0.030 m"),
     ]
 
 

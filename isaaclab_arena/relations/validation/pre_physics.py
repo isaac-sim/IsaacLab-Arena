@@ -527,11 +527,14 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
             world_boxes[obj] = bounds.to("cpu").translated(origins_W)
 
         valid = torch.ones(len(batch), dtype=torch.bool)
-        margin = max(0.0, self._params.solver_params.clearance_m - 1e-6)
+        clearance_m = self._params.solver_params.clearance_m
+        margin = max(0.0, clearance_m - 1e-6)
         for first, second in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
             overlaps = world_boxes[first].overlaps(world_boxes[second], margin=margin)
             if overlaps.any():
-                self._record_box_overlap(rejections, first, second, int(overlaps.sum()))
+                gaps_m = world_boxes[first].separation(world_boxes[second])[overlaps]
+                cause = f"'{first.name}' and '{second.name}': bounding boxes closer than the clearance"
+                self._record_box_clearance_violations(rejections, cause, gaps_m, clearance_m)
             valid &= ~overlaps
 
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
@@ -549,28 +552,25 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
                     continue
                 overlaps = world_boxes[obj].overlaps(background_world, margin=margin)
                 if overlaps.any():
-                    self._record_background_overlap(rejections, obj, background, int(overlaps.sum()))
+                    gaps_m = world_boxes[obj].separation(background_world)[overlaps]
+                    cause = f"'{obj.name}' and background '{background.name}': bounding boxes closer than the clearance"
+                    self._record_box_clearance_violations(rejections, cause, gaps_m, clearance_m)
                 valid &= ~overlaps
 
         return valid.tolist()
 
     @staticmethod
-    def _record_box_overlap(
-        rejections: list[Rejection], first: PlaceableAsset, second: PlaceableAsset, num_candidates: int
+    def _record_box_clearance_violations(
+        rejections: list[Rejection], cause: str, gaps_m: torch.Tensor, clearance_m: float
     ) -> None:
-        """Record one rejection for each of num_candidates candidates whose two placed objects' bounding boxes
-        intersect."""
-        cause = f"'{first.name}' and '{second.name}': bounding boxes intersect"
-        rejections.extend(Rejection(cause) for _ in range(num_candidates))
+        """Record one rejection for each candidate whose bounding boxes are closer than clearance_m.
 
-    @staticmethod
-    def _record_background_overlap(
-        rejections: list[Rejection], obj: PlaceableAsset, background: CollisionObject, num_candidates: int
-    ) -> None:
-        """Record one rejection for each of num_candidates candidates whose placed object's bounding box intersects a
-        background object's."""
-        cause = f"'{obj.name}' and background '{background.name}': bounding boxes intersect"
-        rejections.extend(Rejection(cause) for _ in range(num_candidates))
+        Args:
+            gaps_m: Gap between the boxes in each rejected candidate; negative when they intersect.
+        """
+        for gap_m in gaps_m.tolist():
+            detail = f"gap short of the {clearance_m:.3f} m clearance by {clearance_m - gap_m:.3f} m"
+            rejections.append(Rejection(cause, detail=detail))
 
     def _should_validate_mesh(
         self,

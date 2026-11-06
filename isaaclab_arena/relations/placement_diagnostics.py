@@ -111,12 +111,12 @@ class PlacementDiagnostics:
                 sorted_num_rejected_by_cause_per_check[check] = _sort_by_count_descending(counts)
         return sorted_num_rejected_by_cause_per_check
 
-    def format_summary(self, max_causes_per_check: int | None = 5) -> str:
+    def format_summary(self, max_causes_per_check: int = 5) -> str:
         """Return one line per batch with its valid and per-check counts, then the most frequent rejection causes
         of each check over all batches, then the fallback environments, if any.
 
         Args:
-            max_causes_per_check: Most rejection causes listed for each check. None lists every cause.
+            max_causes_per_check: Most rejection causes listed for each check.
         """
         lines = []
         for index, batch in enumerate(self.batches):
@@ -130,7 +130,7 @@ class PlacementDiagnostics:
         for check, counts in num_rejected_by_cause_per_check.items():
             for cause, count in list(counts.items())[:max_causes_per_check]:
                 lines.append(f"  {check}: {cause} x{count}")
-            if max_causes_per_check is not None and len(counts) > max_causes_per_check:
+            if len(counts) > max_causes_per_check:
                 lines.append(f"  {check}: {len(counts) - max_causes_per_check} more cause(s)")
         if self.fallback_envs:
             lines.append(f"best-loss fallback for envs: {self.fallback_envs}")
