@@ -1150,12 +1150,12 @@ def test_placed_background_with_mesh_collision_is_rejected(monkeypatch):
     background.collision_mode = CollisionMode.MESH
     monkeypatch.setattr(passive_collision_objects, "discover_passive_assets", lambda *args, **kwargs: [])
 
-    with pytest.raises(AssertionError, match="Background 'kitchen' has relations and mesh collision"):
+    with pytest.raises(ValueError, match="Background 'kitchen' has relations and mesh collision"):
         passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.BBOX)
 
     background.collision_mode = None
     assert (
         passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.BBOX) == []
     )
-    with pytest.raises(AssertionError, match="anchor an object reference to the support surface"):
+    with pytest.raises(ValueError, match="anchor an object reference to the support surface"):
         passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.MESH)
