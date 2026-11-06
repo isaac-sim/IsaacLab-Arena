@@ -83,51 +83,9 @@ Diagnosing Placement
 --------------------
 
 Each fill of the pool, at creation or during a reset that finds a partition
-empty, records how its candidates did. For each solved batch, it records how
-many candidates passed every required check and, for each check, how many
-candidates the check ran on, how many passed, and every rejection it made. A
-rejection names its cause, such as
-``'plate' next_to(box, positive_x): on the wrong side``, and the measured
-violation, such as ``by 0.250 m``. The fill also records which environments
-fell back to best-loss layouts. After each batch, Arena prints how many
-candidates passed each check, then one line per rejection cause with its count
-and one measured violation:
-
-.. code-block:: text
-
-   [placement] Validated 1500 candidate layout(s); passed per check: on_relation=1304/1500, ...
-     on_relation: 'far_bowl' on(island_top): bottom outside the contact band x192 (e.g. bottom z 0.973 m, support top z 0.880 m)
-
-With ``ObjectPlacerParams.verbose`` set, each check also prints its rejections
-after it runs on a batch, grouped by cause and at most
-``max_printed_rejections_per_cause`` (3 by default) for each cause; one more
-line counts the rest.
-
-- After ``build_env_cfg()`` or ``make_registered()``,
-  ``ArenaEnvBuilder.placement_diagnostics`` holds the record of the fill made
-  during that build. It is ``None`` when the build solved no relations or
-  failed.
-- From a running environment, ``get_placement_diagnostics(env)`` returns the
-  record of the pool's most recent fill, including one made during a reset, or
-  ``None`` when the environment has no live pool. It is in
-  ``isaaclab_arena.relations.runtime.placement_events``.
-- When a fill falls back to best-loss layouts, it prints the same summary as
-  a failed fill, below the fallback message.
-- When a fill fails, it raises a ``PlacementPoolFillError`` whose
-  ``diagnostics`` hold the fill's record. Its message lists the counts, one
-  line per batch, then each check's most frequent rejection causes. For a box
-  wider than the table it is placed on, for example:
-
-  .. code-block:: text
-
-     batch 0: 0/4 valid; passed per check: on_relation=0/4, clutter_on_relation=4/4, ..., no_overlap=4/4
-     rejections by cause over all batches:
-       on_relation: 'box' on(desk): edge margin wider than the free space x8
-
-The required check that rejects the most candidates, here ``on_relation``, and
-its most frequent cause point to the relation or collision geometry to adjust. A check that runs only
-on candidates that passed the cheaper required checks, such as
-``ik_reachable``, counts only those candidates.
+empty, records how its candidates did and why the checks rejected them. Arena
+prints a summary after each batch. See :doc:`./placement_diagnostics` for what
+is recorded, where to read it, and what to change for each cause.
 
 Reproducibility
 ---------------

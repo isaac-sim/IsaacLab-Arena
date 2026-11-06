@@ -359,8 +359,8 @@ what to adjust:
      - What to check or change
    * - ``solver validation failed``
      - A layout failed a required solver check.
-     - Read earlier solver diagnostics and check relation constraints and collision
-       geometry. Increasing settling time cannot fix a solver failure.
+     - Read the :doc:`placement diagnostics <./placement_diagnostics>` and check
+       relation constraints and collision geometry. Increasing settling time cannot fix a solver failure.
    * - ``physics_settled``
      - Final root velocity is too high.
      - Inspect contacts and support. Increase ``settle.num_steps`` if motion is
@@ -399,7 +399,8 @@ Pre-physics validators check the solver's proposed layout before physics is adva
 ``ObjectPlacerParams.enabled_checks``, and implement ``_validate_batch``. Return one boolean per
 candidate, in batch order, and append a ``Rejection`` to ``rejections`` for each candidate you
 reject. Its ``cause`` names what failed without measured values, so rejections of the same kind
-are counted together, and its ``detail`` holds the measured violation. For example, reject
+are counted together, and its ``detail`` holds the measured violation. Rejections appear in the
+:doc:`placement diagnostics <./placement_diagnostics>`. For example, reject
 layouts with any object origin above 1.5 metres:
 
 .. code-block:: python
