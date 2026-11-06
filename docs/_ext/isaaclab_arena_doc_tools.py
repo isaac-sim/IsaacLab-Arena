@@ -87,13 +87,7 @@ def docker_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
 
 
 def runtime_setup_tabs_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
-    """Replaces the :runtime_setup_tabs: directive with a lead-in sentence and a Native uv / Docker Container tab set.
-
-    The tab set shows how to prepare the Arena runtime for either installation method. The directive keeps the
-    indentation of the line it is on, so it can be used inside directives. Placed after a ``#. `` list marker,
-    the lead-in sentence becomes the list item's text and the tab set is indented under it. It must be processed
-    before the uv_run_source and docker_run_default replacers, which expand the directives it emits.
-    """
+    """Replaces the :runtime_setup_tabs: directive with a lead-in sentence and a Native uv / Docker tab set."""
 
     template = (
         "Prepare the Arena runtime from the repository root, using either a native ``uv`` environment or the\n"
