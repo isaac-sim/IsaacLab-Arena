@@ -182,13 +182,13 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     transform: translate(0.14rem, -50%);
 }
 
-#author-benchmarks,
+#author-evaluations-with-agents,
 #execute-large-scale-parallel-policy-evaluations,
 #analyze-robustness-and-why-policies-fail {
     scroll-margin-top: 5.2rem;
 }
 
-#author-benchmarks > h3,
+#author-evaluations-with-agents > h3,
 #execute-large-scale-parallel-policy-evaluations > h3,
 #analyze-robustness-and-why-policies-fail > h3 {
     border-radius: 0;
@@ -483,7 +483,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
 
 @media (max-width: 767px) {
 
-    #author-benchmarks > h3,
+    #author-evaluations-with-agents > h3,
     #execute-large-scale-parallel-policy-evaluations > h3,
     #analyze-robustness-and-why-policies-fail > h3 {
         border-radius: 0;
@@ -3144,7 +3144,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     content: none !important;
 }
 
-#author-benchmarks > h3,
+#author-evaluations-with-agents > h3,
 #execute-large-scale-parallel-policy-evaluations > h3,
 #analyze-robustness-and-why-policies-fail > h3 {
     position: static;
@@ -3164,7 +3164,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     white-space: normal;
 }
 
-#author-benchmarks > h3::before,
+#author-evaluations-with-agents > h3::before,
 #execute-large-scale-parallel-policy-evaluations > h3::before,
 #analyze-robustness-and-why-policies-fail > h3::before {
     flex: 0 0 auto;
@@ -3175,7 +3175,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     letter-spacing: 0.04em;
 }
 
-#author-benchmarks > h3::before {
+#author-evaluations-with-agents > h3::before {
     content: "01";
 }
 
@@ -3187,7 +3187,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     content: "03";
 }
 
-#author-benchmarks {
+#author-evaluations-with-agents {
     margin-top: 0;
     padding-top: 0;
 }
@@ -3240,7 +3240,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
 }
 
 @media (max-width: 767px) {
-    #author-benchmarks > h3,
+    #author-evaluations-with-agents > h3,
     #execute-large-scale-parallel-policy-evaluations > h3,
     #analyze-robustness-and-why-policies-fail > h3 {
         align-items: flex-start;
@@ -3272,7 +3272,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     line-height: 1;
 }
 
-#author-benchmarks > h3,
+#author-evaluations-with-agents > h3,
 #execute-large-scale-parallel-policy-evaluations > h3,
 #analyze-robustness-and-why-policies-fail > h3 {
     gap: 0.65rem;
@@ -6198,14 +6198,14 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     margin-bottom: 0.6rem !important;
 }
 
-.arena-release-banner {
+.arena-release-banner.docutils.container {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 1.4rem;
     order: -2;
-    margin: 0 0 1.3rem;
-    padding: 0.9rem 1rem;
+    margin: 0 0 1.3rem !important;
+    padding: 0.9rem 1rem !important;
     border: 1px solid #bdd698;
     border-left: 4px solid #76b900;
     border-radius: 6px;
@@ -6213,8 +6213,14 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     font-family: var(--arena-page-font);
 }
 
-.arena-release-copy {
+.arena-release-copy.docutils.container {
     min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.arena-release-banner > p {
+    margin: 0;
 }
 
 .arena-release-copy > p {
@@ -6282,10 +6288,10 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
 }
 
 @media (max-width: 767px) {
-    .arena-release-banner {
+    .arena-release-banner.docutils.container {
         grid-template-columns: minmax(0, 1fr);
         gap: 0.65rem;
-        padding: 0.8rem;
+        padding: 0.8rem !important;
     }
 
     .arena-release-action {
@@ -6293,11 +6299,158 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     }
 }
 
-/* Introduce the existing authoring features beneath agentic evaluation authoring. */
-.arena-agentic-lead .arena-feature-copy > p.rubric,
-.arena-agentic-lead .arena-feature-copy > p.rubric a {
-    font-size: 1.05rem !important;
-    font-weight: 620 !important;
+/* Summarize authoring case-study outcomes below the walkthrough. */
+
+.arena-authoring-results {
+    margin: 0;
+    padding: 1rem 1.1rem 0.8rem;
+    border-top: 1px solid #dce5d5;
+    background: #fbfcfa;
+    font-family: var(--arena-page-font);
+}
+
+.arena-authoring-results__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1.2rem;
+}
+
+.arena-authoring-results__header > p {
+    margin: 0;
+    color: #34442a;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.arena-authoring-results__header strong {
+    font-weight: 700;
+}
+
+.arena-authoring-results__header > a {
+    flex-shrink: 0;
+    color: #3c631b !important;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-underline-offset: 0.18em;
+    white-space: nowrap;
+}
+
+.arena-authoring-results__metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0 !important;
+    padding: 0.9rem 0 0.3rem !important;
+    list-style: none !important;
+}
+
+.arena-authoring-results__metrics > li {
+    display: grid;
+    grid-template-rows: 2.9rem auto;
+    row-gap: 0.15rem;
+    margin: 0;
+    padding: 0 1rem;
+    border-left: 1px solid #dce5d5;
+}
+
+.arena-authoring-results__metrics > li:first-child {
+    padding-left: 0;
+    border-left: 0;
+}
+
+.arena-authoring-results__metrics > li:last-child {
+    padding-right: 0;
+}
+
+.arena-authoring-results__metrics > li > strong {
+    display: block;
+    align-self: center;
+    color: #49740f;
+    font-size: 1.7rem;
+    font-weight: 680;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+
+.arena-authoring-results__metrics > li > strong > span {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.arena-authoring-results__metrics > li > strong.arena-authoring-results__cost {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.arena-authoring-results__metrics > li > strong.arena-authoring-results__cost > span {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.arena-authoring-results__metrics > li > strong.arena-authoring-results__qualitative {
+    font-size: 1.05rem;
+    letter-spacing: 0;
+    line-height: 1.25;
+}
+
+.arena-authoring-results__metrics > li > span {
+    color: #34442a;
+    font-size: 0.75rem;
+    line-height: 1.45;
+}
+
+@media (max-width: 767px) {
+    .arena-authoring-results {
+        padding: 0.85rem;
+    }
+
+    .arena-authoring-results__header {
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .arena-authoring-results__metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 0.5rem 0 !important;
+    }
+
+    .arena-authoring-results__metrics > li {
+        grid-template-rows: 2.7rem auto;
+        padding: 0.65rem 0.7rem;
+    }
+
+    .arena-authoring-results__metrics > li:nth-child(odd) {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .arena-authoring-results__metrics > li:nth-child(even) {
+        padding-right: 0;
+    }
+
+    .arena-authoring-results__metrics > li:nth-child(n + 3) {
+        border-top: 1px solid #dce5d5;
+    }
+
+    .arena-authoring-results__metrics > li > strong {
+        font-size: 1.5rem;
+    }
+
+    .arena-authoring-results__metrics > li > strong > span {
+        font-size: 0.75rem;
+    }
+
+    .arena-authoring-results__metrics > li > strong.arena-authoring-results__cost > span {
+        font-size: 0.85rem;
+    }
+
+    .arena-authoring-results__metrics > li > strong.arena-authoring-results__qualitative {
+        font-size: 0.95rem;
+    }
 }
 
 .arena-agentic-walkthrough.docutils.container {
@@ -6379,6 +6532,9 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
 }
 
 .arena-newton-proof.docutils.container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
     box-sizing: border-box;
     width: 100%;
     margin: 0 !important;
@@ -6386,12 +6542,6 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     border: 1px solid #d8dfd3;
     border-radius: 15px;
     background: linear-gradient(145deg, #f8faf6, #f1f5ed);
-}
-
-.arena-newton-proof.docutils.container {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
 }
 
 .arena-newton-example.docutils.container {

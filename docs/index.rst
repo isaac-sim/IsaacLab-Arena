@@ -6,16 +6,27 @@ Welcome to Isaac Lab-Arena!
    be fully tested yet. For the tested version, please refer to the `release/0.3.0 branch
    <https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html>`_.
 
-.. raw:: html
+.. container:: arena-release-banner
 
-   <aside class="arena-release-banner" aria-label="What's new in Isaac Lab-Arena">
-     <div class="arena-release-copy">
-       <p class="arena-release-lead">The <strong>v0.4 Developer Preview</strong> is available now on main.</p>
-       <p class="arena-release-features">Includes faster agentic evaluation authoring, Newton-based evaluation workflows, and multimodal VLMs as policies.</p>
-       <p class="arena-release-schedule">The Qualified Release is coming soon, around <time datetime="2026-12-08">8 December</time>.</p>
-     </div>
-     <a class="arena-release-action" href="pages/whats_new/whats_new.html">See what’s new on main <span aria-hidden="true">→</span></a>
-   </aside>
+   .. container:: arena-release-copy
+
+      .. rst-class:: arena-release-lead
+
+      The **v0.4 Developer Preview** is available now on main.
+
+      .. rst-class:: arena-release-features
+
+      Includes faster agentic evaluation authoring, Newton-based evaluation workflows, and multimodal VLMs as policies.
+
+      .. rst-class:: arena-release-schedule
+
+      The Qualified Release is coming soon, around 8 December.
+
+   .. button-ref:: pages/whats_new/whats_new
+      :ref-type: doc
+      :class: arena-release-action
+
+      See what’s new on main →
 
 .. _overview:
 
@@ -64,9 +75,10 @@ Features
 --------
 
 .. _home-author-benchmarks:
+.. _author-benchmarks:
 
-Author benchmarks
-^^^^^^^^^^^^^^^^^
+:doc:`Author evaluations with agents <pages/whats_new/agentic_authoring>`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. _home-agentic-environment-generation:
 
@@ -74,11 +86,9 @@ Author benchmarks
 
    .. container:: arena-feature-copy
 
-      .. rubric:: :doc:`Agentic evaluation authoring <pages/whats_new/agentic_authoring>`
-
-      Describe the evaluation environment you want in natural language. A coding agent finds
-      SimReady USD assets and uses Arena's features to build environments and configure
-      evaluation workflows.
+      Describe the evaluation environment you want in natural language.
+      A coding agent finds SimReady USD assets
+      and uses Arena's features to build environments and configure evaluation workflows.
 
    .. container:: arena-agentic-walkthrough
 
@@ -86,15 +96,41 @@ Author benchmarks
 
          .. raw:: html
 
-            <span>Workbench cleanup walkthrough</span>
+            <span>Sample: A coding agent authors a workbench cleanup environment, evaluates a VLM-based policy on it, and adds variations.</span>
 
       .. video:: images/whats_new/agentic_authoring_workbench_walkthrough.mp4
          :width: 100%
          :alt: A coding agent authors a workbench cleanup evaluation environment, evaluates a VLM policy, and adds variations
          :muted:
          :playsinline:
-         :preload: metadata
+         :preload: none
          :poster: _images/agentic-authoring-walkthrough.webp
+
+      .. raw:: html
+
+         <aside id="arena-authoring-case-study" class="arena-authoring-results" aria-labelledby="arena-authoring-case-study-title">
+           <div class="arena-authoring-results__header">
+             <p id="arena-authoring-case-study-title"><strong>Case study:</strong> With Arena, the agent built environments at scale <strong>faster and at 72% lower cost.</strong></p>
+             <a href="pages/whats_new/agentic_authoring_workbench.html#analysis">Read more <span aria-hidden="true">→</span></a>
+           </div>
+           <ul class="arena-authoring-results__metrics">
+             <li>
+               <strong>5.25× <span>faster</span></strong>
+               <span>to a validated environment</span>
+             </li>
+             <li>
+               <strong class="arena-authoring-results__cost">72% <span>lower<br>cost</span></strong>
+             </li>
+             <li>
+               <strong>0 <span>custom Python</span></strong>
+               <span>for the environment</span>
+             </li>
+             <li>
+               <strong class="arena-authoring-results__qualitative">Physically stable<br>&amp; collision-free</strong>
+               <span>layout variations</span>
+             </li>
+           </ul>
+         </aside>
 
    .. container:: arena-video-poster-sources
 
@@ -417,7 +453,7 @@ Author benchmarks
 
 .. _home-newton-environments:
 
-.. container:: arena-feature-row arena-feature-rich arena-newton-feature
+.. container:: arena-feature-row arena-feature-rich
 
    .. container:: arena-feature-copy
 
@@ -730,7 +766,8 @@ Execute large-scale parallel policy evaluations
 
             .. rst-class:: arena-policy-vlm-note
 
-            Now also supports multimodal VLMs as policies. :doc:`See an example <pages/whats_new/vlm_policy>`.
+            Multimodal VLMs can also act as policies through a hosted, OpenAI-compatible endpoint.
+            :doc:`See an example <pages/whats_new/vlm_policy>`.
 
       .. grid-item::
          :columns: 12 12 7 7
@@ -743,13 +780,12 @@ Execute large-scale parallel policy evaluations
 
             .. raw:: html
 
-               <div class="arena-policy-runtime-flow" aria-label="Four policy servers exchange observations and actions with Isaac Lab-Arena through a shared client contract.">
+               <div class="arena-policy-runtime-flow" aria-label="Three policy servers exchange observations and actions with Isaac Lab-Arena through a shared client contract.">
                  <section class="arena-policy-runtime arena-policy-external">
                    <header><strong>Policy servers</strong><small>Separate process</small></header>
                    <div class="arena-policy-models">
                      <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>GR00T</strong></span></article>
                      <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>π0.5</strong></span></article>
-                     <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>Multimodal VLM</strong></span></article>
                      <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>Your policy</strong></span></article>
                    </div>
                  </section>
