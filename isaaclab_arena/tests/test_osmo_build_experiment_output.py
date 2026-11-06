@@ -6,6 +6,7 @@
 """Verify building one Experiment output from exact Experiment Runner task outputs."""
 
 import json
+import yaml
 from pathlib import Path
 from unittest.mock import patch
 
@@ -26,12 +27,14 @@ from isaaclab_arena_benchmarking.tests.utils.influxdb_kpi_records_validation imp
     assert_influxdb_kpi_records_are_valid,
 )
 from osmo.scripts.build_experiment_output import (
+    ARENA_EXPERIMENT_DEFINITION_FILENAME,
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
-    _parse_arguments,
     build_experiment_output,
     collect_run_outputs_into_experiment_output,
     load_experiment_runner_output_directories_by_run_name,
     load_experiment_runner_result,
+    main,
+    read_experiment_name_and_kpi_exporters,
 )
 
 START_TIMESTAMP_NS = 1792799000000000000
@@ -591,46 +594,55 @@ def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch,
     assert "success rate exporter broke" in printed
 
 
-def _parse_collector_arguments(monkeypatch, extra_arguments: list[str]):
+def _write_experiment_definition(path: Path, name: str = EXPERIMENT_NAME, **extra_values) -> Path:
+    path.write_text(yaml.safe_dump({"name": name, **extra_values, "runs": {}}), encoding="utf-8")
+    return path
+
+
+def test_collector_reads_the_experiment_name_and_kpi_exporters_from_the_definition(tmp_path):
+    definition_path = _write_experiment_definition(tmp_path / "definition.yaml", kpi_exporters=["timing"])
+
+    assert read_experiment_name_and_kpi_exporters(definition_path) == (EXPERIMENT_NAME, ["timing"])
+
+
+def test_collector_exports_no_kpis_when_the_definition_has_no_exporters(tmp_path):
+    definition_path = _write_experiment_definition(tmp_path / "definition.yaml", kpi_exporters=[])
+
+    assert read_experiment_name_and_kpi_exporters(definition_path) == (EXPERIMENT_NAME, [])
+
+
+def test_collector_reads_the_definition_from_the_experiment_output(tmp_path, monkeypatch):
+    runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(runner_output_directory / "run_a", "run_a", True)
+    _write_run_timings(runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        runner_output_directory, RunStatus.COMPLETED, 0, {"run_a": _run_metadata("environment", "pi05")}
+    )
+    runners_file = tmp_path / "runners.json"
+    runners_file.write_text(json.dumps({"run_a": str(runner_output_directory)}), encoding="utf-8")
+    experiment_output_directory = tmp_path / "experiment-output"
+    experiment_output_directory.mkdir()
+    _write_experiment_definition(
+        experiment_output_directory / ARENA_EXPERIMENT_DEFINITION_FILENAME, kpi_exporters=["timing"]
+    )
     monkeypatch.setattr(
         "sys.argv",
         [
             "build_experiment_output.py",
             "--experiment-runner-output-directories-file",
-            "runners.json",
+            str(runners_file),
             "--experiment-output-directory",
-            "output",
-            "--experiment-name",
-            EXPERIMENT_NAME,
-            *extra_arguments,
+            str(experiment_output_directory),
         ],
     )
-    return _parse_arguments()
 
+    main()
 
-def test_collector_exports_no_kpis_when_the_flag_is_omitted(monkeypatch):
-    parsed_arguments = _parse_collector_arguments(monkeypatch, [])
-
-    assert parsed_arguments.kpi_exporters == []
-
-
-def test_collector_parses_selected_kpi_exporters(monkeypatch):
-    parsed_arguments = _parse_collector_arguments(monkeypatch, ["--kpi-exporters", "timing"])
-
-    assert parsed_arguments.kpi_exporters == ["timing"]
-
-
-def test_collector_parses_a_bare_kpi_exporters_flag_as_no_exporters(monkeypatch):
-    parsed_arguments = _parse_collector_arguments(monkeypatch, ["--kpi-exporters"])
-
-    assert parsed_arguments.kpi_exporters == []
-
-
-def test_collector_rejects_unknown_kpi_exporter(monkeypatch, capsys):
-    with pytest.raises(SystemExit):
-        _parse_collector_arguments(monkeypatch, ["--kpi-exporters", "success_rate", "latency"])
-
-    assert "invalid choice: 'latency'" in capsys.readouterr().err
+    experiment_result = json.loads(
+        (experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8")
+    )
+    assert experiment_result["experiment_name"] == EXPERIMENT_NAME
+    assert (experiment_output_directory / "kpis_timing.json").is_file()
 
 
 def test_collector_writes_only_the_selected_kpi_records(tmp_path):

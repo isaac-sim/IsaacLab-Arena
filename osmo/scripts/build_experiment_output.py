@@ -11,7 +11,8 @@ its ``<run-name>/...`` output is included. Completed Run directories are copied 
 ``arena_experiment_result.json`` and ``index.html`` report list every Run execution and include episode details only
 from completed Runs. ``arena_experiment_timings.json`` holds each completed Run's timings and their per-timer totals.
 ``kpis_*.json`` files hold the Experiment's KPIs as records ready for InfluxDB; they are written only when every Run
-completed.
+completed. The Experiment name and the KPI exporters come from the ``arena_experiment_definition.yaml`` already in
+the Experiment output.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import yaml
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -27,9 +29,10 @@ from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_ti
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
-from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis, get_exporters_by_name
+from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
+ARENA_EXPERIMENT_DEFINITION_FILENAME = "arena_experiment_definition.yaml"
 
 
 def load_experiment_runner_result(
@@ -215,6 +218,15 @@ def build_experiment_output(
     return report_path
 
 
+def read_experiment_name_and_kpi_exporters(experiment_definition_path: Path) -> tuple[str, list[str]]:
+    """Return the Experiment name and the KPI exporter names of an Experiment Definition YAML file."""
+    experiment_definition = yaml.safe_load(experiment_definition_path.read_text(encoding="utf-8"))
+    assert isinstance(experiment_definition, dict), f"{experiment_definition_path} must hold a YAML mapping"
+    experiment_name = experiment_definition["name"]
+    assert isinstance(experiment_name, str), f"Experiment 'name' must be a string, got {experiment_name!r}"
+    return experiment_name, list(experiment_definition.get("kpi_exporters", []))
+
+
 def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -227,19 +239,7 @@ def _parse_arguments() -> argparse.Namespace:
         "--experiment-output-directory",
         required=True,
         type=Path,
-        help="Arena Experiment output containing one directory per Run and index.html",
-    )
-    parser.add_argument(
-        "--experiment-name",
-        required=True,
-        help="Name of the Experiment, recorded in the Experiment result",
-    )
-    parser.add_argument(
-        "--kpi-exporters",
-        nargs="*",
-        choices=sorted(get_exporters_by_name()),
-        default=[],
-        help="KPI exporters that write the Experiment's KPI records; omit the flag or pass no names to skip KPI export",
+        help="Arena Experiment output containing one directory per Run",
     )
     return parser.parse_args()
 
@@ -250,11 +250,14 @@ def main() -> None:
     experiment_runner_output_directories_by_run_name = load_experiment_runner_output_directories_by_run_name(
         parsed_arguments.experiment_runner_output_directories_file
     )
+    experiment_name, kpi_exporters = read_experiment_name_and_kpi_exporters(
+        parsed_arguments.experiment_output_directory / ARENA_EXPERIMENT_DEFINITION_FILENAME
+    )
     build_experiment_output(
         experiment_runner_output_directories_by_run_name,
         parsed_arguments.experiment_output_directory,
-        parsed_arguments.experiment_name,
-        parsed_arguments.kpi_exporters,
+        experiment_name,
+        kpi_exporters,
     )
 
 

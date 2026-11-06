@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import json
 import shlex
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
+from osmo.scripts.build_experiment_output import ARENA_EXPERIMENT_DEFINITION_FILENAME
 from osmo.tasks.base_task import BaseTask
 from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
@@ -20,6 +23,7 @@ from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPU
 _LOCAL_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH = Path(__file__).parents[1] / "scripts" / "build_experiment_output.py"
 _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH = "/tmp/arena_build_experiment_output.py"
 _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH = "/tmp/arena_experiment_runner_output_directories.json"
+_REMOTE_EXPERIMENT_DEFINITION_FILE_PATH = "/tmp/arena_experiment_definition.yaml"
 
 
 def experiment_runner_output_directory_input_token(experiment_runner_task_name: str) -> str:
@@ -30,21 +34,16 @@ def experiment_runner_output_directory_input_token(experiment_runner_task_name: 
 class CollectExperimentOutputsTask(BaseTask):
     """Collect and publish one Experiment output from the Experiment Runner task outputs.
 
-    For each Run, OSMO exposes its Experiment Runner task output at ``{{input:<runner-task>}}``. The embedded script
-    copies completed Run outputs to ``{{output}}/<run-name>/...``, preserves failed runner results without partial Run
-    artifacts, and writes ``{{output}}/arena_experiment_result.json``, ``{{output}}/arena_experiment_timings.json``,
-    plus ``{{output}}/index.html``. These list failed Run executions but exclude their partial episode artifacts.
-    The Experiment's KPI exporters, if any, also write ``{{output}}/kpis_*.json`` records files, only when every
-    Run completed.
-    Only this final task output is published to Swift; the Experiment Runner task outputs remain workflow-local.
+    Copies each completed Run's output, the Experiment result, timings and report, and the Experiment Definition
+    (with its overrides applied) into one output directory. Failed Runs are listed without their partial artifacts.
+    Only this copied output is published to Swift.
     """
 
     def __init__(
         self,
         image: str,
         experiment_runner_task_names_by_run_name: Mapping[str, str],
-        experiment_name: str,
-        kpi_exporters: Sequence[str],
+        experiment_cfg: ArenaExperimentCfg,
         lead: bool | None = None,
         resource: str | None = None,
         output_url: str = DATASET_SWIFT_URL,
@@ -52,10 +51,8 @@ class CollectExperimentOutputsTask(BaseTask):
         task_name: str,
     ) -> None:
         assert experiment_runner_task_names_by_run_name, "Experiment output requires at least one Run task"
-        assert experiment_name, "Experiment output requires an Experiment name"
         super().__init__(task_name=task_name, lead=lead, resource=resource)
-        self.experiment_name = experiment_name
-        self.kpi_exporters = list(kpi_exporters)
+        self.experiment_cfg = experiment_cfg
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
         self.output_url = output_url
@@ -75,7 +72,7 @@ class CollectExperimentOutputsTask(BaseTask):
         return [{"url": self.output_url}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
-        """Embed the output builder and its JSON inputs."""
+        """Embed the output builder, its JSON input and the Experiment Definition."""
         experiment_runner_output_directory_tokens_by_run_name = {
             run_name: experiment_runner_output_directory_input_token(experiment_runner_task_name)
             for run_name, experiment_runner_task_name in self.experiment_runner_task_names_by_run_name.items()
@@ -92,6 +89,10 @@ class CollectExperimentOutputsTask(BaseTask):
                     json.dumps(experiment_runner_output_directory_tokens_by_run_name, indent=2)
                 ),
             },
+            {
+                "path": _REMOTE_EXPERIMENT_DEFINITION_FILE_PATH,
+                "contents": block_literal_str(serialize_arena_experiment_to_yaml(self.experiment_cfg)),
+            },
         ]
 
     def _get_run_script(self) -> str:
@@ -102,9 +103,14 @@ class CollectExperimentOutputsTask(BaseTask):
             _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
             "--experiment-output-directory",
             OSMO_TASK_OUTPUT_DIR,
-            # One token, so a name starting with "-" is not parsed as an option.
-            f"--experiment-name={self.experiment_name}",
-            "--kpi-exporters",
-            *self.kpi_exporters,
         ])
-        return f"set -euo pipefail\n{build_experiment_output_command}\n"
+        # The builder reads the Experiment Definition back from the Experiment output, which then publishes it.
+        copy_experiment_definition_command = shlex.join([
+            "cp",
+            _REMOTE_EXPERIMENT_DEFINITION_FILE_PATH,
+            f"{OSMO_TASK_OUTPUT_DIR}/{ARENA_EXPERIMENT_DEFINITION_FILENAME}",
+        ])
+        return (
+            f"set -euo pipefail\nmkdir -p {shlex.quote(OSMO_TASK_OUTPUT_DIR)}\n"
+            f"{copy_experiment_definition_command}\n{build_experiment_output_command}\n"
+        )
