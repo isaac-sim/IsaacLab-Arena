@@ -74,15 +74,36 @@ Use [dev-container](../dev-container/SKILL.md) for the clone's runtime and host-
 [setup-arena](../../user/setup-arena/SKILL.md) for requested runtime preparation, and
 [run-tests](../run-tests/SKILL.md) for pytest. Run lint and source inspection on the host.
 If no runtime is ready, complete static review and report the limit; do not install dependencies
-or claim runtime success. Authoring alone does not require policy rollouts or policy servers.
+or claim runtime success. Authoring does not require policy rollouts, zero-action rollouts, or
+policy servers.
 
 Check Python/YAML syntax, referenced constructors, registration, schema conversion, defaults, and
-feature reuse without importing Arena on the host. In a ready runtime, build and reset the
-environment, then use bounded direct steps for inspection. Use existing focused tests to check
-changed success logic, temporal interruptions, and reset isolation across parallel environments.
-Parsing or passive stepping alone does not establish task solvability.
+feature reuse without importing Arena on the host. Use existing focused tests to check changed
+success logic, temporal interruptions, and reset isolation across parallel environments.
 
-For variation inspection, use the `--list_variations` path through
+In a ready runtime, validate a new or changed environment with these two commands, run from the
+repository root inside the container. The environment is done when both pass; stop there:
+
+```bash
+# Build, reset once and take a few steps (about a minute).
+OMNI_KIT_ACCEPT_EULA=YES isaaclab.sh -p \
+  isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
+  --mode build --env_spec <environment.yaml> --num_envs 1 --num_steps 30
+
+# Apply every stored placement layout, as a reset would, and check each one settles (about two minutes).
+OMNI_KIT_ACCEPT_EULA=YES isaaclab.sh -p \
+  isaaclab_arena/scripts/run_placement_pool_validation.py --num_envs 2 --env_spec <environment.yaml>
+```
+
+Then read the build log's placement diagnostics for rejection causes, and the success
+configuration that the build prints. Together these show the environment builds and resets cleanly.
+
+Do not run the Policy Runner, the Experiment Runner, or zero-action episodes to validate an
+environment. A zero-action episode only resets at its timeout, which takes minutes per episode, and
+cannot succeed, so it shows nothing the two commands above do not. Whether a policy can solve the
+task needs a real policy evaluation; report it as remaining validation instead of attempting it.
+
+For environment variations declared on the environment, use the `--list_variations` path through
 [run-experiment](../../user/run-experiment/SKILL.md). Check the
 [Environment Runner](../../../isaaclab_arena/scripts/environment_runner.py) requirements before
 using it for interactive inspection; do not assume it supports headless validation.
