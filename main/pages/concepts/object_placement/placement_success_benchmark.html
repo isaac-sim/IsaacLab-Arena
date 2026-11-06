@@ -508,6 +508,7 @@
 <li class="toctree-l2"><a class="reference internal" href="solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="validation.html">Placement Validation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pooled_placement.html">Pooled Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="placement_diagnostics.html">Placement Diagnostics</a></li>
 <li class="toctree-l2"><a class="reference internal" href="homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Placement Success Benchmark</a></li>
 </ul>
@@ -629,15 +630,10 @@ highest-ranked candidates that fail at least one required check. Candidates rank
 by fewest failed required checks, then fewest failed optional checks, then lowest
 loss. This best-loss fallback is on by default. When fallback is off, an
 environment with empty slots after the last batch fails the build.</p>
-<p>When a Run completes, the experiment runner sums the placement diagnostics of
-its builds that solved relation placement and writes them to
-<code class="docutils literal notranslate"><span class="pre">arena_run_placement_diagnostics.json</span></code> in the Run directory, whatever the
-Run’s policy. The file holds the number of builds, environments and batches, the
-number of environments that fell back, and for each batch position the number of
-candidates, the number of valid ones, and how many candidates each check ran on
-and passed, which shows which check rejects candidates. A build that replays
-recorded layouts adds nothing, and a failed Run writes no file. From these files
-the benchmark reports for each Run:</p>
+<p>Each Run writes <code class="docutils literal notranslate"><span class="pre">arena_run_placement_diagnostics.json</span></code> to its Run directory,
+with one entry per build that solved relation placement; see
+<a class="reference internal" href="placement_diagnostics.html"><span class="doc">Placement Diagnostics</span></a>. From these files the benchmark reports for each completed Run, summing over its
+builds:</p>
 <ul class="simple">
 <li><p><strong>Valid candidates</strong> (<code class="docutils literal notranslate"><span class="pre">valid_candidate_rate_first_batch</span></code>): the share of
 candidates in the first batch that pass every required check. The first batch
