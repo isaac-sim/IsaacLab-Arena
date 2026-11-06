@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import re
 import sys
@@ -85,191 +86,66 @@ class ForceControlRecipe:
     commands: tuple[dict[str, Any], ...]
 
 
-@dataclass
-class PoseHold:
-    """Pose target and controller gains for one rigid object."""
-
-    t_W_goal: Any
-    q_W_goal: Any
-    linear_gain: float = 150.0
-    linear_damping: float = 24.0
-    minimum_stiffness: float = 0.0
-    max_force: float = 100.0
-    rotation_mode: str = "acceleration"
-    rotation_gain: float = 100.0
-    angular_damping: float = 20.0
-    max_torque: float = 5.0
-
-
 class PhysicalCommandRunner:
     """Execute physical commands and evaluate the environment's task predicates."""
 
     def __init__(self, env, args: argparse.Namespace):
         import torch
 
-        self.env = env
+        from isaaclab_arena.terms.force_actions import ForceJointActionTerm, ForcePoseActionTerm
+        from isaaclab_arena_examples.agentic_environment_generation.force_control_video import ForceControlVideo
+
+        self.wrapped_env = env
+        self.env = env.unwrapped
         self.args = args
         self.torch = torch
         self.output = args.output
         self.output.mkdir(parents=True, exist_ok=True)
-        self.steps = 0
-        self.holds: dict[str, PoseHold] = {}
-        self.joint_holds = {}
-        self.frames = 0
-        self.writer = None
-        self.viewport = None
-        self.last_image = None
+        self.start_sim_step = self.env._sim_step_counter
+        self.actions = torch.zeros(
+            (self.env.num_envs, self.env.action_manager.total_action_dim), device=self.env.device
+        )
+        self.pose_actions = {}
+        self.joint_actions = {}
+        offset = 0
+        for name in self.env.action_manager.active_terms:
+            term = self.env.action_manager.get_term(name)
+            action = self.actions[:, offset : offset + term.action_dim]
+            if isinstance(term, ForcePoseActionTerm):
+                self.pose_actions[term.cfg.asset_name] = (term, action)
+            elif isinstance(term, ForceJointActionTerm):
+                self.joint_actions[term.cfg.asset_name] = action.reshape(self.env.num_envs, -1, 5)
+            offset += term.action_dim
         self.events = []
-        self.last_wrenches = {}
         self.current_subtask_index = None
         self.current_subtask_title = "Preparing force-control recipe"
-        if not args.no_record:
-            import imageio.v2 as imageio
-            from omni.kit.viewport.utility import get_active_viewport
+        self.video = None if args.no_record else ForceControlVideo(self.env, self.output)
+        self._record_progress()
 
-            self.viewport = get_active_viewport()
-            self.viewport.resolution = (960, 720)
-            self.writer = imageio.get_writer(str(self.output / "demo.mp4"), fps=20, codec="libx264", quality=8)
-            for _ in range(30):
-                self.env.sim.render()
+    @property
+    def steps(self) -> int:
+        """Elapsed physics steps, owned and counted by the environment."""
+        return self.env._sim_step_counter - self.start_sim_step
 
-    def _capture_frame(self) -> None:
-        import ctypes
-        import numpy as np
+    def _progress(self) -> dict:
+        return {
+            "index": self.current_subtask_index,
+            "title": self.current_subtask_title,
+            "completion": self._task_completion()[0].tolist(),
+        }
 
-        from omni.kit.viewport.utility import capture_viewport_to_buffer
+    def _record_progress(self) -> None:
+        if self.video is not None:
+            self.video.record_progress(self.steps * self.env.physics_dt, self._progress())
 
-        captured = []
-
-        def receive(buffer, buffer_size, width, height, byte_format):
-            get_pointer = ctypes.pythonapi.PyCapsule_GetPointer
-            get_pointer.restype = ctypes.c_void_p
-            get_pointer.argtypes = [ctypes.py_object, ctypes.c_char_p]
-            pointer = ctypes.cast(get_pointer(buffer, None), ctypes.POINTER(ctypes.c_uint8))
-            pixels = np.ctypeslib.as_array(pointer, shape=(buffer_size,))
-            captured.append(pixels.reshape(height, width, 4)[:, :, :3].copy())
-
-        capture_viewport_to_buffer(self.viewport, receive)
-        for _ in range(30):
-            self.env.sim.render()
-            if captured:
-                self.last_image = self._overlay_progress_banner(captured[0])
-                self.writer.append_data(self.last_image)
-                self.frames += 1
-                return
-        raise RuntimeError("Viewport capture did not return an image.")
-
-    def _overlay_progress_banner(self, frame):
-        """Draw the current subtask and latched completion state on a viewport frame."""
-        import numpy as np
-
-        from PIL import Image, ImageDraw, ImageFont
-
-        completion = self._task_completion()[0].tolist()
-        status_labels = []
-        for index, complete in enumerate(completion):
-            if complete:
-                status = "done"
-            elif index == self.current_subtask_index:
-                status = "active"
-            else:
-                status = "pending"
-            status_labels.append(f"{index + 1}:{status}")
-        progress = "Subtasks  " + "  ".join(status_labels)
-
-        image = Image.fromarray(frame).convert("RGBA")
-        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-        banner_height = 76
-        draw.rectangle((0, 0, image.width - 1, banner_height - 1), fill=(8, 12, 18, 205))
-        try:
-            title_font = ImageFont.truetype("DejaVuSans.ttf", 24)
-            progress_font = ImageFont.truetype("DejaVuSans.ttf", 17)
-        except OSError:
-            title_font = ImageFont.load_default()
-            progress_font = title_font
-        if self.current_subtask_index is None:
-            title = self.current_subtask_title
-        else:
-            title = f"Subtask {self.current_subtask_index + 1}/{len(completion)}  |  {self.current_subtask_title}"
-        draw.text((18, 10), title, fill=(255, 255, 255, 255), font=title_font)
-        draw.text((18, 45), progress, fill=(136, 220, 170, 255), font=progress_font)
-        return np.asarray(Image.alpha_composite(image, overlay).convert("RGB"))
-
-    def _apply_forces(self) -> None:
-        from isaaclab.utils.math import compute_pose_error, quat_apply, quat_apply_inverse
-
-        torch = self.torch
-        for name, hold in self.holds.items():
-            obj = self.env.scene[name]
-            T_W_O = self.env.arena_world.get_pose_w(name)
-            v_W = self.env.arena_world.get_root_linear_velocity_w(name)
-            omega_W = self.env.arena_world.get_root_angular_velocity_w(name)
-            _, rotation_error_W = compute_pose_error(T_W_O[:, :3], T_W_O[:, 3:], hold.t_W_goal, hold.q_W_goal)
-            masses = obj.data.body_mass.torch
-            mass = masses.sum().item()
-            stiffness = max(hold.linear_gain * mass, hold.minimum_stiffness)
-            if hold.minimum_stiffness > 0:
-                damping = 2 * (stiffness * mass) ** 0.5
-            else:
-                damping = hold.linear_damping * mass
-            force_W = stiffness * (hold.t_W_goal - T_W_O[:, :3]) - damping * v_W
-            force_W[:, 2] += mass * 9.81
-            force_W = force_W.clamp(-hold.max_force, hold.max_force)
-
-            if hold.rotation_mode == "torque":
-                torque_W = (hold.rotation_gain * rotation_error_W - hold.angular_damping * omega_W).clamp(
-                    -hold.max_torque, hold.max_torque
-                )
-            else:
-                q_W_B = T_W_O[:, 3:]
-                acceleration_B = quat_apply_inverse(
-                    q_W_B, hold.rotation_gain * rotation_error_W - hold.angular_damping * omega_W
-                )
-                inertia_B = obj.data.body_inertia.torch.reshape(1, -1, 3, 3).sum(dim=1)
-                torque_B = torch.bmm(inertia_B, acceleration_B[:, :, None]).squeeze(-1)
-                torque_W = quat_apply(q_W_B, torque_B).clamp(-hold.max_torque, hold.max_torque)
-
-            self.last_wrenches[name] = {
-                "goal": hold.t_W_goal,
-                "linear_velocity": v_W,
-                "angular_velocity": omega_W,
-                "force": force_W,
-                "torque": torque_W,
-                "mass": mass,
-            }
-            forces_W = masses[:, :, None] / mass * force_W[:, None, :]
-            torques_W = torch.zeros_like(forces_W)
-            torques_W[:, 0, :] = torque_W
-            obj.permanent_wrench_composer.set_forces_and_torques_index(
-                forces=forces_W,
-                torques=torques_W,
-                is_global=True,
-            )
-
-        for (name, joint_name), (goal, gain, damping, limit) in self.joint_holds.items():
-            obj = self.env.scene[name]
-            joint_id = obj.data.joint_names.index(joint_name)
-            q = obj.data.joint_pos.torch[:, joint_id]
-            qd = obj.data.joint_vel.torch[:, joint_id]
-            effort = (gain * (goal - q) - damping * qd).clamp(-limit, limit)
-            obj.set_joint_effort_target(effort[:, None], joint_ids=[joint_id])
+    def _step_env(self) -> None:
+        self.wrapped_env.step(self.actions)
+        self._record_progress()
 
     def step(self, count: int = 1) -> None:
-        for _ in range(count):
-            self._apply_forces()
-            self.env.scene.write_data_to_sim()
-            self.env.sim.step(render=False)
-            self.env.scene.update(self.env.physics_dt)
-            self.steps += 1
-            if self.steps % self.env.cfg.decimation == 0:
-                self.env.common_step_counter += 1
-                self.env.episode_length_buf += 1
-                if "interval" in self.env.event_manager.available_modes:
-                    self.env.event_manager.apply(mode="interval", dt=self.env.step_dt)
-                self.env.update_task_progress()
-            if self.steps % 6 == 0 and self.viewport is not None:
-                self._capture_frame()
+        """Advance a physics-step budget, rounding up to a whole control step."""
+        for _ in range(math.ceil(count / self.env.cfg.decimation)):
+            self._step_env()
 
     def _task_completion(self):
         tracker = self.env.progress_tracker
@@ -277,14 +153,21 @@ class PhysicalCommandRunner:
             return tracker.is_complete()[:, None]
         return tracker.get_subtask_completion()
 
-    def _criterion_status(self) -> dict[str, list]:
+    def _criterion_status(self) -> dict[str, list | dict]:
+        from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
+
         status = {}
-        for criterion in self.env.cfg.task_progress.success_criteria:
-            values = []
-            for predicate in criterion.predicate_sequence:
-                evaluate = getattr(predicate, "predicate", predicate)
-                values.append(evaluate(self.env).tolist())
-            status[criterion.name] = values
+        for runner in self.env.progress_tracker.runners:
+            sequences = {}
+            for sequence_name, chain in runner.predicate_chains.items():
+                values = []
+                for predicate, _ in chain:
+                    evaluate = getattr(predicate, "predicate", predicate)
+                    values.append(evaluate(self.env).tolist())
+                sequences[sequence_name] = values
+            status[runner.completion_criteria.name] = (
+                sequences[DEFAULT_SEQUENCE_NAME] if list(sequences) == [DEFAULT_SEQUENCE_NAME] else sequences
+            )
         return status
 
     @staticmethod
@@ -352,36 +235,33 @@ class PhysicalCommandRunner:
             "current_predicates": self._criterion_status(),
             "wrenches": {
                 name: {key: value.tolist() if hasattr(value, "tolist") else value for key, value in wrench.items()}
-                for name, wrench in self.last_wrenches.items()
+                for name, (term, _) in self.pose_actions.items()
+                if (wrench := term.last_wrench) is not None
             },
         }
 
     def _write_failure_snapshot(self, trigger: str, subtask_index: int | None = None) -> Path:
         """Persist live state and an optional viewport image for a failed command."""
-        import imageio.v3 as iio
-
         suffix = f"_subtask_{subtask_index:02d}" if subtask_index is not None else ""
         stem = f"failure_{trigger}{suffix}_step_{self.steps:06d}"
         state = self._collect_state()
         state["trigger"] = trigger
-        if self.viewport is not None:
-            self._capture_frame()
-        if self.last_image is not None:
-            image_name = f"{stem}.png"
-            iio.imwrite(self.output / image_name, self.last_image)
-            state["viewport"] = image_name
         output_path = self.output / f"{stem}.json"
+        # Preserve diagnostics even if the renderer cannot produce the optional image.
+        output_path.write_text(json.dumps(state, indent=2))
+        self._failure_snapshot_path = output_path
+        if self.video is not None:
+            image_name = f"{stem}.png"
+            self.video.snapshot(image_name, self._progress())
+            state["viewport"] = image_name
         output_path.write_text(json.dumps(state, indent=2))
         print("FORCE_CONTROL_FAILURE", json.dumps({"trigger": trigger, "output": str(output_path)}), flush=True)
         return output_path
 
     def mark(self, index: int, boundary: str, title: str) -> None:
-        import imageio.v3 as iio
-
         self.current_subtask_index = index
         self.current_subtask_title = title
-        if self.viewport is not None:
-            self._capture_frame()
+        self._record_progress()
         record = {
             "subtask": index,
             "boundary": boundary,
@@ -389,9 +269,9 @@ class PhysicalCommandRunner:
             "simulation_time_s": self.steps * self.env.physics_dt,
             "completion": self._task_completion()[0].tolist(),
         }
-        if self.last_image is not None:
+        if self.video is not None:
             filename = f"{index:02d}_{boundary}.png"
-            iio.imwrite(self.output / filename, self.last_image)
+            self.video.snapshot(filename, self._progress())
             record["viewport"] = filename
         self.events.append(record)
         state_filename = f"{index:02d}_{boundary}_state.json"
@@ -415,33 +295,36 @@ class PhysicalCommandRunner:
     def move(self, command: dict[str, Any]) -> None:
         torch = self.torch
         name = command["name"]
+        term, action = self.pose_actions[name]
         T_W_start = self.env.arena_world.get_pose_w(name).clone()
         t_W_goal = torch.tensor([self._move_goal(command)], dtype=torch.float32, device=self.env.device)
         if "orientation" in command:
             q_W_goal = torch.tensor([command["orientation"]], dtype=torch.float32, device=self.env.device)
-        elif name in self.holds:
-            q_W_goal = self.holds[name].q_W_goal
+        elif action[0, 7] > 0:
+            q_W_goal = action[:, 3:7].clone()
         else:
             q_W_goal = T_W_start[:, 3:]
-        count = max(1, int(float(command.get("seconds", 2.0)) / self.env.physics_dt))
-        hold = PoseHold(
-            t_W_goal=T_W_start[:, :3],
-            q_W_goal=q_W_goal,
-            linear_gain=float(command.get("linear_gain", 150.0)),
-            linear_damping=float(command.get("linear_damping", 24.0)),
-            minimum_stiffness=float(command.get("minimum_stiffness", 0.0)),
-            max_force=float(command.get("max_force", 100.0)),
-            rotation_mode=command.get("rotation_mode", "acceleration"),
-            rotation_gain=float(command.get("rotation_gain", 100.0)),
-            angular_damping=float(command.get("angular_damping", 20.0)),
-            max_torque=float(command.get("max_torque", 5.0)),
-        )
+        # Each command supplies a fresh set of gains, as in the JSONL controller contract.
+        defaults = type(term.cfg)(asset_name=name)
+        for field in (
+            "linear_gain",
+            "linear_damping",
+            "minimum_stiffness",
+            "max_force",
+            "rotation_mode",
+            "rotation_gain",
+            "angular_damping",
+            "max_torque",
+        ):
+            setattr(term.cfg, field, command.get(field, getattr(defaults, field)))
+        action[:, 3:7] = q_W_goal
+        action[:, 7] = 1
+        count = max(1, math.ceil(float(command.get("seconds", 2.0)) / self.env.step_dt))
         for index in range(count):
             alpha = (index + 1) / count
             alpha = alpha * alpha * (3 - 2 * alpha)
-            hold.t_W_goal = (1 - alpha) * T_W_start[:, :3] + alpha * t_W_goal
-            self.holds[name] = hold
-            self.step()
+            action[:, :3] = (1 - alpha) * T_W_start[:, :3] + alpha * t_W_goal
+            self._step_env()
         self.step(60)
         print("MOVE_RESULT", name, self.env.arena_world.get_pose_w(name).tolist(), flush=True)
 
@@ -469,23 +352,32 @@ class PhysicalCommandRunner:
         gain = float(command.get("gain", 40.0))
         damping = float(command.get("damping", 6.0))
         limit = float(command.get("limit", 30.0))
-        count = max(1, int(float(command.get("seconds", 2.0)) / self.env.physics_dt))
+        count = max(1, math.ceil(float(command.get("seconds", 2.0)) / self.env.step_dt))
         for index in range(count):
             alpha = (index + 1) / count
-            self.joint_holds[(name, joint_name)] = (start + alpha * (goal - start), gain, damping, limit)
-            self.step()
+            self._set_joint_hold(name, joint_name, start + alpha * (goal - start), gain, damping, limit)
+            self._step_env()
         self.step(90)
 
+    def _set_joint_hold(self, name, joint_name, goal, gain, damping, limit) -> None:
+        joint_id = self.env.scene[name].data.joint_names.index(joint_name)
+        self.joint_actions[name][:, joint_id] = self.torch.tensor(
+            [goal, gain, damping, limit, 1], device=self.env.device
+        )
+
     def release(self, name: str) -> None:
-        self.holds.pop(name, None)
-        self.last_wrenches.pop(name, None)
-        self.env.scene[name].permanent_wrench_composer.reset()
+        term, action = self.pose_actions[name]
+        action[:, 7] = 0
+        # Clear the persistent wrench immediately, including when release precedes a snapshot.
+        term.process_actions(action)
 
     def check(self, index: int, timeout_steps: int = 600) -> None:
-        for _ in range(timeout_steps):
+        for _ in range(math.ceil(timeout_steps / self.env.cfg.decimation)):
             if self._task_completion()[0, index].item():
                 return
             self.step()
+        if self._task_completion()[0, index].item():
+            return
         snapshot_path = self._write_failure_snapshot("check_timeout", index)
         raise AssertionError(
             f"Subtask {index} did not complete: {self._task_completion()[0].tolist()}; "
@@ -495,7 +387,7 @@ class PhysicalCommandRunner:
     def wait_final(self, timeout_steps: int = 1200) -> None:
         from isaaclab_arena.tasks.terminations import task_success_from_progress
 
-        for _ in range(timeout_steps):
+        for _ in range(math.ceil(timeout_steps / self.env.cfg.decimation)):
             if task_success_from_progress(self.env).all().item():
                 return
             self.step()
@@ -544,18 +436,24 @@ class PhysicalCommandRunner:
 
     def _execute_followed(self, path: Path) -> None:
         cursor = 0
+        runtime_command_seen = False
         print("FORCE_CONTROL_READY", str(path), flush=True)
         while True:
-            lines = path.read_text().splitlines() if path.exists() else []
+            lines = _recipe_lines(path, complete_only=True) if path.exists() else []
             if cursor == len(lines):
                 self.env.sim.render()
                 time.sleep(0.05)
                 continue
             line_number = cursor + 1
-            command = _validate_command(json.loads(lines[cursor]), line_number)
+            line = lines[cursor]
             cursor += 1
-            if command["action"] == "setup_joint":
+            if not line.strip():
                 continue
+            command = _validate_command(json.loads(line), line_number)
+            if command["action"] == "setup_joint":
+                assert not runtime_command_seen, "setup_joint commands must precede runtime commands"
+                continue
+            runtime_command_seen = True
             print("FORCE_CONTROL_COMMAND", json.dumps(command), flush=True)
             if not self._execute(command):
                 return
@@ -569,7 +467,7 @@ class PhysicalCommandRunner:
         report = {
             "mode": "followed_force_commands" if self.args.follow_commands else "force_control_recipe",
             "success": success,
-            "video_frames": self.frames,
+            "video_frames": self.video.frames if self.video is not None else 0,
             "state": state,
             "subtasks": state["completion"],
             "current_predicates": state["current_predicates"],
@@ -582,6 +480,10 @@ class PhysicalCommandRunner:
             "events": self.events,
         }
         (self.output / "validation.json").write_text(json.dumps(report, indent=2))
+        if self.video is not None:
+            self.video.close()
+            report["video_frames"] = self.video.frames
+            (self.output / "validation.json").write_text(json.dumps(report, indent=2))
         print("TASK_SUCCESS" if all(success) else "TASK_INCOMPLETE", json.dumps(report), flush=True)
         return report
 
@@ -595,7 +497,7 @@ class PhysicalCommandRunner:
             obj = self.env.scene[name]
             joint_id = obj.data.joint_names.index(joint_name)
             goal = obj.data.joint_pos.torch[0, joint_id].item()
-            self.joint_holds[(name, joint_name)] = (goal, hold["gain"], hold["damping"], hold["limit"])
+            self._set_joint_hold(name, joint_name, goal, hold["gain"], hold["damping"], hold["limit"])
 
     def run(self, recipe: ForceControlRecipe) -> None:
         try:
@@ -607,10 +509,33 @@ class PhysicalCommandRunner:
                 self._execute_finite(recipe.commands)
             report = self._write_report()
             if not self.args.allow_incomplete:
-                assert all(report["success"]), f"Final task conditions failed: {report}"
+                if not all(report["success"]):
+                    snapshot = self._write_failure_snapshot("final_conditions")
+                    raise AssertionError(f"Final task conditions failed; diagnostics: {snapshot}")
+        except Exception:
+            if getattr(self, "_failure_snapshot_path", None) is None:
+                try:
+                    self._write_failure_snapshot("execution_error")
+                except Exception:
+                    logging.exception("Could not finish the execution-error snapshot")
+            raise
         finally:
-            if self.writer is not None:
-                self.writer.close()
+            if self.video is not None:
+                if sys.exception() is None:
+                    self.video.close()
+                else:
+                    try:
+                        self.video.close()
+                    except Exception:
+                        logging.exception("Could not finish the failure video")
+
+
+def _recipe_lines(path: Path, complete_only: bool = False) -> list[str]:
+    """Read JSONL records, withholding an unterminated append in follow mode."""
+    content = path.read_bytes()
+    if complete_only:
+        content = content[: content.rfind(b"\n") + 1]
+    return content.decode("utf-8").splitlines(keepends=True)
 
 
 def load_force_control_recipe(path: Path, require_runtime_commands: bool = True) -> ForceControlRecipe:
@@ -618,7 +543,7 @@ def load_force_control_recipe(path: Path, require_runtime_commands: bool = True)
     joint_setups = []
     commands = []
     runtime_command_seen = False
-    for line_number, line in enumerate(path.read_text().splitlines(), 1):
+    for line_number, line in enumerate(_recipe_lines(path, complete_only=not require_runtime_commands), 1):
         if not line.strip():
             continue
         try:
@@ -647,6 +572,9 @@ def main() -> None:
     original_cli_args = sys.argv[1:]
     app_args, _ = parser.parse_known_args(original_cli_args)
     _assert_runner_args(app_args)
+    # Load RTX/Replicator for Lab's Kit recorder without adding scene cameras.
+    if not app_args.no_record:
+        app_args.enable_cameras = True
 
     with SimulationAppContext(app_args):
         parser = get_isaaclab_arena_environments_cli_parser(parser)
@@ -844,6 +772,22 @@ def _add_runner_args(parser: argparse.ArgumentParser) -> None:
     group.add_argument("--allow_incomplete", action="store_true", help="Write a report without requiring task success.")
 
 
+def _configure_force_actions(env_cfg) -> None:
+    """Attach force actions to scene assets; existing robot drives remain at reset targets."""
+    from isaaclab.assets import ArticulationCfg, RigidObjectCfg
+
+    from isaaclab_arena.terms.force_actions import ForceJointActionCfg, ForcePoseActionCfg
+    from isaaclab_arena.utils.configclass import make_configclass
+
+    terms = []
+    for name, asset_cfg in vars(env_cfg.scene).items():
+        if isinstance(asset_cfg, (ArticulationCfg, RigidObjectCfg)):
+            terms.append((f"pose_{name}", ForcePoseActionCfg, ForcePoseActionCfg(asset_name=name)))
+        if isinstance(asset_cfg, ArticulationCfg):
+            terms.append((f"joint_{name}", ForceJointActionCfg, ForceJointActionCfg(asset_name=name)))
+    env_cfg.actions = make_configclass("ForceActionsCfg", terms)()
+
+
 def _run_recipe(builder, args: argparse.Namespace, recipe: ForceControlRecipe) -> None:
     """Build one environment, execute its recipe, and always close it."""
     env_cfg, env_kwargs = builder.build_env_cfg()
@@ -851,10 +795,17 @@ def _run_recipe(builder, args: argparse.Namespace, recipe: ForceControlRecipe) -
     env_cfg.recorders = {}
     env_cfg.episode_recorders = {}
     _apply_joint_setups(env_cfg, recipe.joint_setups)
+    _configure_force_actions(env_cfg)
+    env_cfg.video_recorders = []
+    if not args.no_record:
+        from isaaclab_arena_examples.agentic_environment_generation.force_control_video import configure_video
+
+        configure_video(env_cfg, args.output)
     env = builder.make_registered(env_cfg, env_kwargs)
     try:
+        env.unwrapped.configure_episode_limit(1)
         env.reset()
-        PhysicalCommandRunner(env.unwrapped, args).run(recipe)
+        PhysicalCommandRunner(env, args).run(recipe)
     finally:
         env.close()
 
