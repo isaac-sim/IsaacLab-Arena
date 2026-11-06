@@ -10,11 +10,13 @@ from __future__ import annotations
 
 """Example notebook demonstrating ObjectPlacer with real Isaac Sim objects."""
 
-# NOTE: When running as a notebook, first run this cell to launch the simulation app:
-from isaaclab.app import AppLauncher
+# NOTE: When running as a notebook, first run this cell to launch the simulation app.
+# It is skipped on import so the smoke test can launch its own app.
+if __name__ == "__main__":
+    from isaaclab.app import AppLauncher
 
-print("Launching simulation app once in notebook")
-simulation_app = AppLauncher()
+    print("Launching simulation app once in notebook")
+    simulation_app = AppLauncher()
 
 # %%
 
@@ -100,7 +102,8 @@ def smoke_test_isaac_sim_object_placer(simulation_app: SimulationApp) -> bool:
 
 
 # %%
-# When running as a notebook (after launching simulation_app), uncomment and run:
-run_isaac_sim_object_placer_demo()
+# When running as a notebook (after launching simulation_app), run:
+if __name__ == "__main__":
+    run_isaac_sim_object_placer_demo()
 
 # %%
