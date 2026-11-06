@@ -44,6 +44,16 @@ Read only the references relevant to the requested behavior:
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
   Check asset identity, collision handling, reachability, physical support, and reset requirements.
+- **Placement diagnostics:** the object placer converts the environment's relations into concrete
+  object poses: it solves candidate layouts, then checks each one against its relations, collision
+  clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
+  records diagnostics that show how well placement went and why candidates were rejected. When
+  placement rejects many candidates or a fill fails, read them before changing relations, collision
+  settings or reachability.
+  [Placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst)
+  explains them and how to act on them. The build log already lists each
+  check's rejection causes after every batch, and an Experiment Run writes them all to
+  `arena_run_placement_diagnostics.json`.
 - **Task semantics:** read [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
   and [predicates and progress](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst)
   for ordered milestones, current final conditions, simultaneous truth, temporal holds, and reporting.
