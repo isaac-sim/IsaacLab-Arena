@@ -816,6 +816,10 @@ embodiments are active placement participants whose poses the solver computes.
 Passive obstacles therefore usually need a fixed initial pose. A
 full-environment <code class="docutils literal notranslate"><span class="pre">Background</span></code> in <code class="docutils literal notranslate"><span class="pre">MESH</span></code> mode may use identity when its pose
 is omitted.</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">Background</span></code> in <code class="docutils literal notranslate"><span class="pre">MESH</span></code> mode must stay passive: it cannot have relations,
+including <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code>. Its prims can still be supports. To place objects on a
+surface within the background, anchor an <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> to that prim, as
+the example below does with the kitchen’s counter; see <a class="reference internal" href="relations.html#relations-anchors"><span class="std std-ref">Anchors</span></a>.</p>
 <p>The included kitchen example shows objects placed on a counter while avoiding
 the background mesh.</p>
 <figure class="align-center" id="id2">

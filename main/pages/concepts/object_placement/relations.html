@@ -625,7 +625,7 @@ advanced users can replace entries in <code class="docutils literal notranslate"
 <p>This describes the intended arrangement without requiring coordinates derived
 from the dimensions of the table, mug, and bowl.</p>
 <section id="anchors">
-<h2>Anchors<a class="headerlink" href="#anchors" title="Link to this heading">#</a></h2>
+<span id="relations-anchors"></span><h2>Anchors<a class="headerlink" href="#anchors" title="Link to this heading">#</a></h2>
 <p>An anchor is a fixed reference in the relation graph. Mark it with
 <code class="docutils literal notranslate"><span class="pre">IsAnchor()</span></code>; the solver does not move it. This marker does not make an asset
 static or kinematic in physics. A standalone anchor needs a fixed
@@ -654,6 +654,12 @@ bounds. The solver rotates these bounds into world-aligned bounds.</p>
 <p>Anchor the background asset directly when its complete bounds represent the
 support. Use an <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> when only an internal tabletop, counter, or
 similar prim should support placement.</p>
+<p>A background with mesh collision cannot have relations, <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> included.
+Placement would treat its whole mesh as one solid, which for a room fills the
+open space, so placement fails with an error. Leave such a background without
+relations, so it acts as a passive obstacle. To place objects on a surface
+within the background, such as a countertop prim in a kitchen, anchor an
+<code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> to that prim, as above; see <a class="reference internal" href="collision_handling.html"><span class="doc">Collision Handling</span></a>.</p>
 </section>
 <section id="common-relations">
 <h2>Common Relations<a class="headerlink" href="#common-relations" title="Link to this heading">#</a></h2>
