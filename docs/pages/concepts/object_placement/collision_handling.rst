@@ -205,9 +205,9 @@ full-environment ``Background`` in ``MESH`` mode may use identity when its pose
 is omitted.
 
 A ``Background`` in ``MESH`` mode must stay passive: it cannot have relations,
-including ``IsAnchor``. To place objects on part of it, anchor an
-``ObjectReference`` to that surface, as the example below does with the
-counter; see :ref:`relations-anchors`.
+including ``IsAnchor``. Its prims can still be supports. To place objects on a
+surface within the background, anchor an ``ObjectReference`` to that prim, as
+the example below does with the kitchen's counter; see :ref:`relations-anchors`.
 
 The included kitchen example shows objects placed on a counter while avoiding
 the background mesh.
