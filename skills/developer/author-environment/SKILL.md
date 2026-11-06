@@ -96,10 +96,19 @@ isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/force_cont
 
 The cabinet recipe demonstrates joint setup and effort control. The kitchen examples also include
 [a two-banana placement recipe](../../../isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_force_control.jsonl)
-for the adjacent YAML scene. The runner applies forces and torques directly to objects and joints.
-Use `--follow_commands` to execute commands
-appended to a recipe, or `--no_record` to skip video and marker images. Outputs include `demo.mp4`,
+for the adjacent YAML scene. The runner's Isaac Lab action terms apply forces and torques directly
+to existing objects and joints before each physics substep. Normal `env.step()` owns counters,
+events, task progress, and recording. Arena's one-episode limit retains terminal state for inspection.
+Recipe `steps` and `timeout_steps` remain physics-step budgets, rounded up to whole control steps;
+motion durations likewise round up to the next control step without changing the scene's rates.
+
+Use `--follow_commands` to execute newline-terminated commands appended to a recipe. Blank lines
+are skipped; an unfinished final line waits for its newline. All `setup_joint` commands must be
+present before startup. Use `--no_record` to skip video and marker images. Outputs include `demo.mp4`,
 `validation.json`, `progress.json`, and state snapshots at subtask boundaries.
+Lab records viewport clips at the control rate into `raw_video/`; the runner combines them into
+`demo.mp4` with a progress banner after execution, including on a failed check. `video_progress.json`
+retains the overlay timeline. Snapshot PNGs are captured at the command boundary.
 
 When a `check` command reaches `timeout_steps`, the runner raises and writes
 `failure_check_timeout_subtask_<NN>_step_<step>.json` in `--output` (plus a PNG when a viewport is
