@@ -1,0 +1,24 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# DROID at the Maple table with a bowl. Each task declares the "fruit" object set that sits on the table.
+embodiment:
+  id: droid
+  registry_name: droid_rel_joint_pos
+background:
+  id: maple_table
+  registry_name: maple_table_robolab
+objects:
+- id: bowl
+  registry_name: bowl_ycb_robolab
+relations:
+- kind: is_anchor
+  subject: maple_table
+- kind: 'on'
+  subject: bowl
+  reference: maple_table
+- kind: 'on'
+  subject: fruit
+  reference: maple_table
