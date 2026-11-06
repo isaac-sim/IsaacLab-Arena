@@ -11,7 +11,9 @@ import pytest
 
 
 def test_load_force_control_recipe_separates_setup_from_runtime_commands(tmp_path):
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import load_force_control_recipe
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        load_force_control_recipe,
+    )
 
     recipe_path = tmp_path / "recipe.jsonl"
     commands = [
@@ -35,8 +37,7 @@ def test_load_force_control_recipe_separates_setup_from_runtime_commands(tmp_pat
 def test_reset_joint_hold_is_active_before_initial_settling():
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import (
-        ForceControlRecipe,
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
         PhysicalCommandRunner,
     )
 
@@ -56,8 +57,8 @@ def test_reset_joint_hold_is_active_before_initial_settling():
     observed = []
     runner._set_joint_hold = lambda *args: observed.append(args)
     runner.step = lambda count: observed.append(count)
-    runner._execute_finite = lambda commands: None
-    runner._write_report = lambda: {"success": [True]}
+    runner._execute_commands = lambda commands: None
+    runner._write_report = lambda mode: {"success": [True]}
     setup = {
         "action": "setup_joint",
         "name": "scope",
@@ -65,7 +66,7 @@ def test_reset_joint_hold_is_active_before_initial_settling():
         "settle_hold": {"gain": 2.0, "damping": 0.015, "limit": 0.01},
     }
 
-    runner.run(ForceControlRecipe((setup,), ()))
+    runner.run((), (setup,))
 
     assert observed[0][:2] == ("scope", "button")
     assert observed[0][2:] == pytest.approx((-0.001, 2.0, 0.015, 0.01))
@@ -73,7 +74,9 @@ def test_reset_joint_hold_is_active_before_initial_settling():
 
 
 def test_combine_reference_goal_uses_only_selected_reference_axes():
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import _combine_reference_goal
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
+        _combine_reference_goal,
+    )
 
     result = _combine_reference_goal(
         goal=[1.0, 2.0, 0.56],
@@ -88,7 +91,9 @@ def test_combine_reference_goal_uses_only_selected_reference_axes():
 def test_check_timeout_writes_failure_snapshot(tmp_path):
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import PhysicalCommandRunner
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
+        PhysicalCommandRunner,
+    )
 
     runner = PhysicalCommandRunner.__new__(PhysicalCommandRunner)
     runner.output = tmp_path
@@ -112,7 +117,9 @@ def test_check_timeout_writes_failure_snapshot(tmp_path):
 def test_overlay_progress_banner_draws_title_and_preserves_scene_pixels():
     import numpy as np
 
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_video import overlay_progress_banner
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_video import (
+        overlay_progress_banner,
+    )
 
     progress = {"index": 1, "title": "Put the second banana in the bowl", "completion": [True, False]}
     frame = np.full((120, 320, 3), 200, dtype=np.uint8)
@@ -124,7 +131,10 @@ def test_overlay_progress_banner_draws_title_and_preserves_scene_pixels():
 
 
 def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
-    from isaaclab_arena_examples.agentic_environment_generation import force_control_runner
+    from isaaclab_arena_examples.agentic_environment_generation import force_demo_runner
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        ForceControlRecipe,
+    )
 
     env_cfg = SimpleNamespace(
         sim=SimpleNamespace(enable_scene_query_support=False),
@@ -154,15 +164,15 @@ def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
         def __init__(self, unwrapped, args):
             pass
 
-        def run(self, recipe):
+        def run(self, commands, joint_setups, report_mode):
             raise RuntimeError("recipe failed")
 
-    monkeypatch.setattr(force_control_runner, "PhysicalCommandRunner", FailingRunner)
-    monkeypatch.setattr(force_control_runner, "_configure_force_actions", lambda cfg: None)
-    recipe = force_control_runner.ForceControlRecipe((), ({"action": "finish"},))
+    monkeypatch.setattr(force_demo_runner, "PhysicalCommandRunner", FailingRunner)
+    monkeypatch.setattr(force_demo_runner, "configure_physical_command_runner", lambda cfg, setups: None)
+    recipe = ForceControlRecipe((), ({"action": "finish"},))
 
     with pytest.raises(RuntimeError, match="recipe failed"):
-        force_control_runner._run_recipe(builder, Namespace(no_record=True), recipe)
+        force_demo_runner._run_recipe(builder, Namespace(no_record=True, follow_commands=False), recipe)
 
     assert env.reset_count == 1
     assert env.close_count == 1
@@ -171,7 +181,9 @@ def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
 def test_force_steps_delegate_to_wrapped_environment():
     from unittest.mock import Mock
 
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import PhysicalCommandRunner
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
+        PhysicalCommandRunner,
+    )
 
     runner = PhysicalCommandRunner.__new__(PhysicalCommandRunner)
     runner.env = SimpleNamespace(cfg=SimpleNamespace(decimation=4), _sim_step_counter=0)
@@ -191,7 +203,9 @@ def test_force_steps_delegate_to_wrapped_environment():
 def test_check_accepts_completion_at_timeout_boundary(timeout_steps, initially_complete):
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import PhysicalCommandRunner
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
+        PhysicalCommandRunner,
+    )
 
     runner = PhysicalCommandRunner.__new__(PhysicalCommandRunner)
     runner.env = SimpleNamespace(cfg=SimpleNamespace(decimation=4))
@@ -210,7 +224,9 @@ def test_diagnostics_use_initialized_named_and_temporal_predicates():
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import PhysicalCommandRunner
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
+        PhysicalCommandRunner,
+    )
 
     def predicate(env, value):
         return torch.tensor([value])
@@ -234,27 +250,28 @@ def test_diagnostics_use_initialized_named_and_temporal_predicates():
 
 
 def test_follow_waits_for_complete_records_and_skips_blank_lines(tmp_path, monkeypatch):
-    from isaaclab_arena_examples.agentic_environment_generation import force_control_runner as module
+    from isaaclab_arena_examples.agentic_environment_generation import force_demo_runner as module
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        load_force_control_recipe,
+    )
 
     path = tmp_path / "follow.jsonl"
     path.write_text('\n{"action":"wait",')
-    assert module.load_force_control_recipe(path, require_runtime_commands=False).commands == ()
-    runner = module.PhysicalCommandRunner.__new__(module.PhysicalCommandRunner)
-    runner.env = SimpleNamespace(sim=SimpleNamespace(render=lambda: None))
-    executed = []
-    runner._execute = lambda command: executed.append(command) or command["action"] != "finish"
+    assert load_force_control_recipe(path, require_runtime_commands=False).commands == ()
 
     def append_rest(_):
         with path.open("a") as stream:
             stream.write('"steps":0}\n  \n{"action":"finish"}\n')
 
     monkeypatch.setattr(module.time, "sleep", append_rest)
-    runner._execute_followed(path)
-    assert executed == [{"action": "wait", "steps": 0}, {"action": "finish"}]
+    commands = list(module._follow_commands(path, lambda: None))
+    assert commands == [{"action": "wait", "steps": 0}, {"action": "finish"}]
 
 
 def test_follow_buffers_an_incomplete_utf8_character(tmp_path):
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import load_force_control_recipe
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        load_force_control_recipe,
+    )
 
     path = tmp_path / "follow.jsonl"
     line = '{"action":"mark","index":0,"boundary":"start","title":"90°"}\n'.encode()
@@ -272,7 +289,7 @@ def test_lab_recording_preserves_simulation_time(tmp_path, physics_dt, decimatio
 
     from isaaclab.envs.utils.video_recorder import VideoRecorder
 
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_video import (
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_video import (
         ForceControlVideo,
         configure_video,
     )
@@ -305,13 +322,12 @@ def test_failed_recipe_flushes_lab_video_and_diagnostics(tmp_path):
 
     from isaaclab.envs.utils.video_recorder import VideoRecorder
 
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import (
-        ForceControlRecipe,
-        PhysicalCommandRunner,
-    )
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_video import (
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_video import (
         ForceControlVideo,
         configure_video,
+    )
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
+        PhysicalCommandRunner,
     )
 
     frame = np.full((96, 128, 3), 120, dtype=np.uint8)
@@ -356,7 +372,7 @@ def test_failed_recipe_flushes_lab_video_and_diagnostics(tmp_path):
     runner._step_env = advance
     runner._record_progress()
     with pytest.raises(AssertionError, match="Subtask 0 did not complete"):
-        runner.run(ForceControlRecipe((), ({"action": "check", "index": 0, "timeout_steps": 0},)))
+        runner.run(({"action": "check", "index": 0, "timeout_steps": 0},))
     [snapshot] = tmp_path.glob("failure_check_timeout_*.json")
     state = json.loads(snapshot.read_text())
     assert state["contact_sensors"] == diagnostic["contact_sensors"]
@@ -369,8 +385,7 @@ def test_failed_recipe_flushes_lab_video_and_diagnostics(tmp_path):
 def test_execution_error_keeps_json_when_video_capture_and_cleanup_fail(tmp_path):
     from unittest.mock import Mock
 
-    from isaaclab_arena_examples.agentic_environment_generation.force_control_runner import (
-        ForceControlRecipe,
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
         PhysicalCommandRunner,
     )
 
@@ -386,6 +401,6 @@ def test_execution_error_keeps_json_when_video_capture_and_cleanup_fail(tmp_path
     runner._collect_state = lambda: {"poses": {"cube": [[0, 0, 1, 0, 0, 0, 1]]}}
     runner._progress = lambda: {}
     with pytest.raises(RuntimeError, match="^physics failed$"):
-        runner.run(ForceControlRecipe((), ()))
+        runner.run(())
     [snapshot] = tmp_path.glob("failure_execution_error_*.json")
     assert json.loads(snapshot.read_text())["poses"]["cube"][0][2] == 1
