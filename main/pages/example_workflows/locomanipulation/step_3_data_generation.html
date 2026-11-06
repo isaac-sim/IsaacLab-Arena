@@ -609,7 +609,7 @@
   <section id="data-generation">
 <h1>Data Generation<a class="headerlink" href="#data-generation" title="Link to this heading">#</a></h1>
 <p>This workflow covers annotating and generating the demonstration dataset using
-<a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html">Isaac Lab Mimic</a>.</p>
+<a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/features/imitation-learning/teleop_imitation.html">Isaac Lab Mimic</a>.</p>
 <p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
@@ -618,7 +618,7 @@
 <h2>Step 1: Annotate Demonstrations<a class="headerlink" href="#step-1-annotate-demonstrations" title="Link to this heading">#</a></h2>
 <p>This step describes how to annotate the demonstrations recorded in the preceding step
 so they can be used by Isaac Lab Mimic. For more details on Mimic annotation, see the
-<a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#annotate-the-demonstrationsl">Isaac Lab Mimic documentation</a>.</p>
+<a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/features/imitation-learning/teleop_imitation.html#subtask-annotation">Isaac Lab Mimic documentation</a>.</p>
 <p>To skip this step, you can download the pre-annotated dataset from Hugging Face as described below.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
@@ -635,7 +635,10 @@ such that the annotation step can be skipped.</p>
 </pre></div>
 </div>
 </div>
-</details><p>To start the annotation process, run the following command:</p>
+</details><p>Run from the repository root with <code class="docutils literal notranslate"><span class="pre">DATASET_DIR</span></code> set to the directory used in
+<a class="reference internal" href="step_2_teleoperation.html"><span class="doc">Teleoperation Data Collection</span></a>. Keep the task,
+object, embodiment and physics device consistent with the recording.</p>
+<p>To start manual annotation, run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
@@ -643,10 +646,140 @@ such that the annotation step can be skipped.</p>
 <span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--task<span class="w"> </span>galileo_g1_locomanip_pick_and_place
+<span class="w">  </span>--task<span class="w"> </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>env.actions.g1_action.use_p_control<span class="o">=</span><span class="nb">false</span>
 </pre></div>
 </div>
-<p>Follow the instructions described on the CLI to complete the annotation.</p>
+<p>The final override keeps the recorded navigation commands during annotation.
+Step 2 below uses the navigation controller to generate new demonstrations.</p>
+<p><strong>Mark the subtask boundaries</strong></p>
+<p>Click inside the <strong>Isaac Sim viewport</strong> before using the keyboard. These keys
+are read by the simulation window, not the terminal:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">N</span></code>: begin or resume playback.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">B</span></code>: pause playback.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">S</span></code>: mark the next subtask boundary at the current frame.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Q</span></code>: skip the entire episode without exporting it.</p></li>
+</ul>
+<p>Annotation has three passes: <strong>right arm</strong>, <strong>left arm</strong>, then <strong>body</strong>. The
+<strong>entire episode</strong> replays on each pass; mark only the named arm or body.
+The terminal identifies the pass as <code class="docutils literal notranslate"><span class="pre">eef</span> <span class="pre">&quot;right&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">eef</span> <span class="pre">&quot;left&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">eef</span> <span class="pre">&quot;body&quot;</span></code>.
+Press <code class="docutils literal notranslate"><span class="pre">N</span></code> to begin each pass, then <code class="docutils literal notranslate"><span class="pre">S</span></code> once at each boundary below, in order.
+You can pause with <code class="docutils literal notranslate"><span class="pre">B</span></code>, mark with <code class="docutils literal notranslate"><span class="pre">S</span></code>, then resume with <code class="docutils literal notranslate"><span class="pre">N</span></code>.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 13.0%" />
+<col style="width: 32.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Pass</p></th>
+<th class="head"><p>Signal</p></th>
+<th class="head"><p>When to press <code class="docutils literal notranslate"><span class="pre">S</span></code></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Right arm</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">idle_right</span></code></p></td>
+<td><p>When the right arm finishes waiting and starts reaching for the box.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Right arm</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grasp_and_idle_right</span></code></p></td>
+<td><p>When grasping and carrying finish, just before the right arm starts
+placing the box in the bin.</p></td>
+</tr>
+<tr class="row-even"><td><p>Left arm</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">idle_left</span></code></p></td>
+<td><p>When the left arm finishes waiting and starts reaching for the box.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Left arm</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grasp_and_idle_left</span></code></p></td>
+<td><p>When grasping and carrying finish, just before the left arm starts
+placing the box in the bin.</p></td>
+</tr>
+<tr class="row-even"><td><p>Body</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">navigate_to_table</span></code></p></td>
+<td><p>When the robot reaches the pickup position in front of the box.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Body</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">navigate_turn_inplace</span></code></p></td>
+<td><p>When the robot finishes turning toward the bin after picking up the box.</p></td>
+</tr>
+<tr class="row-even"><td><p>Body</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">navigate_to_bin</span></code></p></td>
+<td><p>When the robot stops walking at the bin, before it squats to place the box.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Mark <strong>two boundaries per arm and three for the body</strong>. Let each replay finish
+after marking them. The final subtask ends with the episode and needs no mark.</p>
+<p>Each press prints <code class="docutils literal notranslate"><span class="pre">Marked</span> <span class="pre">a</span> <span class="pre">subtask</span> <span class="pre">signal</span> <span class="pre">at</span> <span class="pre">action</span> <span class="pre">index:</span> <span class="pre">&lt;index&gt;</span></code>. If you
+mistime a mark, press <code class="docutils literal notranslate"><span class="pre">S</span></code> once more before the replay ends; the wrong count
+makes the script replay the pass. To drop the episode instead, press <code class="docutils literal notranslate"><span class="pre">Q</span></code>.</p>
+<p><strong>Check the result</strong></p>
+<p>For each exported episode, the output includes:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>All 2 subtask signals for eef "right" were annotated.
+All 2 subtask signals for eef "left" were annotated.
+All 3 subtask signals for eef "body" were annotated.
+Exported the annotated episode.
+</pre></div>
+</div>
+<p>After the last episode, the script prints a summary. For example, a run on five
+recorded episodes in which one replay failed prints:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Exported 4 (out of 5) annotated episodes.
+Successful task completions: 4
+</pre></div>
+</div>
+<p>Annotation succeeds when at least one episode is exported. Some episodes may be
+skipped if PhysX non-determinism causes borderline successful trajectories to
+fail the task during replay.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Do not start Step 2 with zero exported episodes.</strong> The script creates the
+output file when it starts, replacing any existing file at
+<code class="docutils literal notranslate"><span class="pre">--output_file</span></code>, so the file exists even when every episode fails. Its
+existence or size does not mean it contains annotated demonstrations.
+Recover the failed annotations below or use the pre-annotated download
+above.</p>
+</div>
+<p><strong>Recover from an unsuccessful annotation</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 35.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Message</p></th>
+<th class="head"><p>Meaning and next action</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Only</span> <span class="pre">N</span> <span class="pre">out</span> <span class="pre">of</span> <span class="pre">M</span> <span class="pre">subtask</span> <span class="pre">signals</span> <span class="pre">...</span> <span class="pre">were</span> <span class="pre">annotated.</span></code></p></td>
+<td><p>Replay succeeded, but the number of marks was wrong. The script clears
+the marks for this pass and pauses the retry until you press <code class="docutils literal notranslate"><span class="pre">N</span></code>.
+Focus the viewport, press <code class="docutils literal notranslate"><span class="pre">N</span></code>, and mark every boundary for that arm
+or body again.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">The</span> <span class="pre">final</span> <span class="pre">task</span> <span class="pre">was</span> <span class="pre">not</span> <span class="pre">completed.</span></code></p></td>
+<td><p>The replay failed the task’s success check. The entire episode is
+skipped without retrying, even if an earlier pass succeeded. Replaying
+the same recorded actions can produce different outcomes, so a few
+episodes can fail this way at random. If every episode fails, check
+that the command includes <code class="docutils literal notranslate"><span class="pre">env.actions.g1_action.use_p_control=false</span></code>
+and matches the recording’s task and <code class="docutils literal notranslate"><span class="pre">--device</span></code>. To retry skipped
+episodes, rerun annotation, which annotates every episode again, or
+use the pre-annotated dataset. A rerun replaces <code class="docutils literal notranslate"><span class="pre">--output_file</span></code>; to
+keep an earlier output, pass a different filename and use that file in
+Step 2.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Skipped</span> <span class="pre">exporting</span> <span class="pre">the</span> <span class="pre">episode</span> <span class="pre">due</span> <span class="pre">to</span> <span class="pre">incomplete</span> <span class="pre">subtask</span> <span class="pre">annotations</span></code> also
+appears after a failed task replay or after <code class="docutils literal notranslate"><span class="pre">Q</span></code>; read the preceding message
+for the cause.
+Skipped episodes remain in the original recorded file.</p>
 </section>
 <section id="step-2-generate-augmented-dataset">
 <h2>Step 2: Generate Augmented Dataset<a class="headerlink" href="#step-2-generate-augmented-dataset" title="Link to this heading">#</a></h2>
