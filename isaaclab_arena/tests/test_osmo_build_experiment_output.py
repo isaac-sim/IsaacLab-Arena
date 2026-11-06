@@ -16,8 +16,8 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
-from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport
 from osmo.scripts.build_experiment_output import (
@@ -32,6 +32,7 @@ START_TIMESTAMP_NS = 1792799000000000000
 END_TIMESTAMP_NS = 1792800000000000000
 GIT_SHA = "0123456789abcdef0123456789abcdef01234567"
 GIT_BRANCH = "feature/provenance"
+EXPERIMENT_NAME = "pnp_benchmark"
 
 
 def _run_metadata(environment_name: str, policy_variant: str) -> dict[str, object]:
@@ -283,6 +284,7 @@ def test_rejects_runs_executed_at_different_commits(tmp_path):
         build_experiment_output(
             {"first": first_runner_output_directory, "second": second_runner_output_directory},
             tmp_path / "experiment-output",
+            experiment_name=EXPERIMENT_NAME,
         )
 
 
@@ -325,6 +327,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
             "second": second_experiment_runner_output_directory,
         },
         experiment_output_directory,
+        experiment_name=EXPERIMENT_NAME,
     )
 
     assert report_path == experiment_output_directory / "index.html"
@@ -333,6 +336,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     experiment_result = json.loads(
         (experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8")
     )
+    assert experiment_result["experiment_name"] == EXPERIMENT_NAME
     assert list(experiment_result["runs"]) == ["first", "second"]
     first_run_result = experiment_result["runs"]["first"]
     assert first_run_result["environment"] == {
@@ -421,6 +425,7 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
             "failed-run": failed_runner_output_directory,
         },
         experiment_output_directory,
+        experiment_name=EXPERIMENT_NAME,
     )
 
     assert (experiment_output_directory / "completed-run/episode_results_rebuild0.jsonl").is_file()
@@ -492,6 +497,7 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
             "second": second_runner_output_directory,
         },
         experiment_output_directory,
+        experiment_name=EXPERIMENT_NAME,
     )
 
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()

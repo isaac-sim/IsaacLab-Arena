@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from enum import Enum
 from prettytable import PrettyTable
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
@@ -126,13 +126,6 @@ class ArenaRunCfg:
                 f"Run '{self.name}': num_episodes ({self.rollout_limit.num_episodes}) must be >= num_rebuilds "
                 f"({self.num_rebuilds}) so each rebuild runs at least one episode"
             )
-
-
-class RunStatus(Enum):
-    """Describe whether a run completed or failed."""
-
-    COMPLETED = "completed"
-    FAILED = "failed"
 
 
 @dataclass

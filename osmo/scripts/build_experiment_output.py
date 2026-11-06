@@ -21,8 +21,8 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
-from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 
@@ -178,6 +178,7 @@ def collect_run_outputs_into_experiment_output(
 def build_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
+    experiment_name: str,
 ) -> Path:
     """Build one complete Experiment output from Experiment Runner task outputs.
 
@@ -186,6 +187,7 @@ def build_experiment_output(
             directories.
         experiment_output_directory: Experiment output directory containing one subdirectory per Run and
             ``index.html``.
+        experiment_name: Name of the Experiment, written into the Experiment result.
 
     Returns:
         Path to the generated Experiment report.
@@ -194,7 +196,9 @@ def build_experiment_output(
         experiment_runner_output_directories_by_run_name,
         experiment_output_directory,
     )
-    ArenaExperimentResult(experiment_output_directory, run_metadata_by_name, git_stamp).write()
+    ArenaExperimentResult.from_run_outputs(
+        experiment_output_directory, run_metadata_by_name, git_stamp, experiment_name=experiment_name
+    ).write()
     experiment_timings_path = aggregate_experiment_timings(
         experiment_output_directory,
         [report.run_name for report in run_execution_reports if report.status is RunStatus.COMPLETED],
@@ -217,6 +221,11 @@ def _parse_arguments() -> argparse.Namespace:
         type=Path,
         help="Arena Experiment output containing one directory per Run and index.html",
     )
+    parser.add_argument(
+        "--experiment-name",
+        required=True,
+        help="Name of the Experiment, recorded in the Experiment result",
+    )
     return parser.parse_args()
 
 
@@ -229,6 +238,7 @@ def main() -> None:
     build_experiment_output(
         experiment_runner_output_directories_by_run_name,
         parsed_arguments.experiment_output_directory,
+        parsed_arguments.experiment_name,
     )
 
 

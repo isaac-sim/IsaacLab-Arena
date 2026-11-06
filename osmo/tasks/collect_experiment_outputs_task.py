@@ -41,6 +41,7 @@ class CollectExperimentOutputsTask(BaseTask):
         self,
         image: str,
         experiment_runner_task_names_by_run_name: Mapping[str, str],
+        experiment_name: str,
         lead: bool | None = None,
         resource: str | None = None,
         output_url: str = DATASET_SWIFT_URL,
@@ -48,7 +49,9 @@ class CollectExperimentOutputsTask(BaseTask):
         task_name: str,
     ) -> None:
         assert experiment_runner_task_names_by_run_name, "Experiment output requires at least one Run task"
+        assert experiment_name, "Experiment output requires an Experiment name"
         super().__init__(task_name=task_name, lead=lead, resource=resource)
+        self.experiment_name = experiment_name
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
         self.output_url = output_url
@@ -95,5 +98,7 @@ class CollectExperimentOutputsTask(BaseTask):
             _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
             "--experiment-output-directory",
             OSMO_TASK_OUTPUT_DIR,
+            # One token, so a name starting with "-" is not parsed as an option.
+            f"--experiment-name={self.experiment_name}",
         ])
         return f"set -euo pipefail\n{build_experiment_output_command}\n"
