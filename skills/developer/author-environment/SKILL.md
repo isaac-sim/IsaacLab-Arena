@@ -50,8 +50,8 @@ Read only the references relevant to the requested behavior:
   them. After each solved batch, the console shows how many candidates passed each check, then one
   line per rejection cause with its count and one measured violation, such as
   `on_relation: 'box' on(desk): edge margin wider than the free space x4 (e.g. ...)`. A fill that
-  falls back to best-loss layouts, or fails, also prints each check's most frequent causes over the
-  fill. For more measured violations per cause, set `verbose: true` under `placer_params`, or
+  falls back to best-loss layouts prints each check's most frequent causes over the fill, and a
+  failed fill's error lists them. For more measured violations per cause, set `verbose: true` under `placer_params`, or
   `ObjectPlacerParams(verbose=True)` in Python. A Run of an Experiment writes every rejection to
   `arena_run_placement_diagnostics.json` in its Run directory, also when the Run fails.
 - **Task semantics:** read [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
