@@ -6,8 +6,9 @@ description: Create or modify Isaac Lab-Arena environments, scenes, tasks, compl
 # Author an Arena environment
 
 Produce the smallest environment definition that expresses the request and follows a maintained
-Arena example. Write it as an environment graph YAML. Use Python only for configuration the graph
-YAML cannot express, and then name that gap; a small code extension is the last resort.
+Arena example. Prefer configuration, then composition, then a small extension for a demonstrated gap.
+Prefer writing the environment as a graph YAML, and write a Python environment only when the YAML
+cannot express the user's intent.
 
 ## Discover before extending
 
@@ -35,17 +36,23 @@ hand off". Write a diagnostic script only when these cannot answer the question.
 
 Read only the references relevant to the requested behavior:
 
-- **Authoring surface:** start from a matching RoboLab graph YAML, such as the
-  [task example](../../../isaaclab_arena_environments/robolab/tasks/apple_and_yogurt_in_bowl.yaml)
-  and the [scene example](../../../isaaclab_arena_environments/robolab/scenes/banana_bowl.yaml), with
-  more under `isaaclab_arena_environments/robolab/`. RoboLab tasks include
-  [robolab_defaults.yaml](../../../isaaclab_arena_environments/robolab/robolab_defaults.yaml), which
-  sets RoboLab's own PhysX solver iterations and lights; do not copy them into a new environment.
-  Check fields against the
-  [schema](../../../isaaclab_arena/environment_spec/arena_env_graph_types.py) and
-  [task conversion](../../../isaaclab_arena/environment_spec/arena_env_graph_task_conversion_utils.py);
-  a field parsing successfully does not prove it is consumed. Only when the graph cannot express a
-  requirement, write Python following the
+- **Authoring surface:** start from a matching graph YAML example:
+  - **Table-top scene:** follow a RoboLab task, such as
+    [banana in bowl](../../../isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml) for a
+    single pick and place, or
+    [apple and yogurt in bowl](../../../isaaclab_arena_environments/robolab/tasks/apple_and_yogurt_in_bowl.yaml)
+    for two subtasks. More are under `isaaclab_arena_environments/robolab/tasks/`.
+  - **Scene in a larger background,** such as a kitchen: follow a KitchenBench environment, such as
+    [mustard in bowl](../../../isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_mustard_bowl.yaml)
+    for a single pick and place, or
+    [banana and orange in bowl](../../../isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml)
+    for two subtasks with a robot that moves along the counter. More are under
+    `isaaclab_arena_environments/kitchen_bench/`.
+
+  Check the fields you use against the
+  [schema](../../../isaaclab_arena/environment_spec/arena_env_graph_types.py) and the
+  [task conversion](../../../isaaclab_arena/environment_spec/arena_env_graph_task_conversion_utils.py).
+  Only when the YAML cannot express a requirement, write Python following the
   [factory contract](../../../isaaclab_arena/environments/arena_environment_factory.py), and reuse
   [builder configuration](../../../isaaclab_arena/environments/arena_env_builder_cfg.py) for
   existing build and reset controls.
@@ -54,6 +61,8 @@ Read only the references relevant to the requested behavior:
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
   Check asset identity, collision handling, reachability, physical support, and reset requirements.
+  Read [placing objects and the robot](placement.md) for background collision, robot placement,
+  reachability, and how to get large variation between resets.
 - **Placement diagnostics:** the object placer converts the environment's relations into concrete
   object poses: it solves candidate layouts, then checks each one against its relations, collision
   clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
@@ -64,35 +73,6 @@ Read only the references relevant to the requested behavior:
   explains them and how to act on them. The build log already lists each
   check's rejection causes after every batch, and an Experiment Run writes them all to
   `arena_run_placement_diagnostics.json`.
-- **Background collision:** give a complex background with many built-in objects, such as a
-  kitchen with trays and utensils on its counters, `collision_mode: mesh` so placement avoids those
-  objects. A simple background, such as a RoboLab table, can keep the default bounding-box mode.
-  A mesh-mode background takes no relations, not even `is_anchor`: anchor object references to its
-  support prims instead, such as the countertop and floor, found in the prim tree, and place
-  objects `on` those references.
-- **Robot placement:** to stand a robot at a work surface, follow
-  [robot embodiment placement](../../../docs/pages/concepts/object_placement/solver.rst#robot-embodiment-placement).
-- **Reachability:** keep task objects within the robot's reach. Tasks such as `PickAndPlaceTask`
-  mark their objects `requires_reachability`, and the `ik_reachable` check rejects layouts where the
-  arm cannot reach them, so you need not check reach yourself. Its pass counts are in the placement
-  diagnostics.
-- **Reset variation:** prefer relative relations (`next_to`, `align_with`, `on`) with loose
-  tolerances over absolute positions, and make the bounds as loose as the arrangement allows, so
-  layouts vary as much as possible between resets. An object varies along a relation's axis by
-  about that relation's `tolerance_m`. For large variation:
-  - Place objects that belong together relative to each other, such as the robot relative to the
-    task objects, so the group moves as one, rather than pinning each to the support separately.
-  - Give the group's anchor a wide band along the support. Do not fit the bounds to a clear strip
-    found in the prim tree; let `no_overlap` reject layouts that hit the scene's own objects, and
-    `ik_reachable` reject layouts the robot cannot reach.
-  - When the side does not matter, use `align_with` on both axes rather than `next_to` with a
-    fixed side.
-
-  Wide bounds lower the share of candidates that pass, so the pool fills more slowly; the placement
-  diagnostics' per-check pass counts show which relation or check rejects them. Keep the pool
-  settings (`min_unique_layouts_per_env`, `max_placement_attempts`) at their defaults: every extra
-  layout adds solving time to each build. Do not run episodes to see how resets vary; a zero-action
-  episode only resets at its timeout, which takes minutes.
 - **Task semantics:** read [tasks in graph YAML](tasks.md) to choose and compose tasks, including
   how to require every subtask to hold when the task ends. For the full design, read
   [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
@@ -136,13 +116,18 @@ OMNI_KIT_ACCEPT_EULA=YES isaaclab.sh -p \
   isaaclab_arena/scripts/run_placement_pool_validation.py --num_envs 2 --env_spec <environment.yaml>
 ```
 
-Then read the build log's placement diagnostics for rejection causes, and the success
+Then check how many candidate layouts passed placement in the build log. Only when few pass, or a
+fill fails, read the placement diagnostics for the rejection causes. Also read the success
 configuration that the build prints. Together these show the environment builds and resets cleanly.
 
-Do not run the Policy Runner, the Experiment Runner, or zero-action episodes to validate an
-environment. A zero-action episode only resets at its timeout, which takes minutes per episode, and
-cannot succeed, so it shows nothing the two commands above do not. Whether a policy can solve the
-task needs a real policy evaluation; report it as remaining validation instead of attempting it.
+Do not run zero-action episodes to validate an environment. A zero-action episode only resets at
+its timeout, which takes minutes per episode, and cannot succeed, so it shows nothing the two
+commands above do not.
+
+A final, optional check is to evaluate a real policy on the environment, such as
+[OpenPI](../../../docs/pages/quickstart/running_a_real_policy/openpi.rst) through
+[run-experiment](../../user/run-experiment/SKILL.md). It needs a policy server and a GPU for some
+time, so ask the user before running it; otherwise report it as remaining validation.
 
 For environment variations declared on the environment, use the `--list_variations` path through
 [run-experiment](../../user/run-experiment/SKILL.md). Check the
