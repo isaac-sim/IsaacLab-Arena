@@ -85,7 +85,7 @@ Diagnosing Placement
 Each fill of the pool, at creation or during a reset that finds a partition
 empty, records how its candidates did and why the checks rejected them. Arena
 prints a summary after each batch. See :doc:`./placement_diagnostics` for what
-is recorded, where to read it, and what to change for each cause.
+is recorded, where to read it, and how to act on it.
 
 Reproducibility
 ---------------
