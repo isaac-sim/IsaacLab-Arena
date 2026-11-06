@@ -73,12 +73,7 @@ def get_placement_collision_objects(
 def assert_assets_compatible_with_collision_objects(
     placement_assets: list[PlaceableAsset], default_collision_mode: CollisionMode
 ) -> None:
-    """Raise a ValueError when a placed asset uses a collision mode that placement cannot handle for it.
-
-    A background with relations and mesh collision is rejected: placement treats a placed asset's mesh as one
-    solid, replacing a non-watertight one with its convex hull, and for a room that hull fills the open space,
-    so every candidate would collide with it.
-    """
+    """Raise a ValueError when a placed asset uses a collision mode that placement cannot handle for it."""
     for asset in placement_assets:
         if (
             isinstance(asset, Background)
