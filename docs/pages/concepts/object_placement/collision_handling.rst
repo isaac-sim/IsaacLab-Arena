@@ -204,6 +204,11 @@ Passive obstacles therefore usually need a fixed initial pose. A
 full-environment ``Background`` in ``MESH`` mode may use identity when its pose
 is omitted.
 
+A ``Background`` in ``MESH`` mode must stay passive: it cannot have relations,
+including ``IsAnchor``. To place objects on part of it, anchor an
+``ObjectReference`` to that surface, as the example below does with the
+counter; see :ref:`relations-anchors`.
+
 The included kitchen example shows objects placed on a counter while avoiding
 the background mesh.
 
