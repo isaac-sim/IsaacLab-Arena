@@ -362,6 +362,20 @@ def test_sat_separates_boxes_whose_six_face_axes_overlap():
     assert not first.overlaps(overlapping.translated((depth + 1e-4) * separating_direction)).item()
 
 
+def test_separation_is_the_gap_between_boxes_and_negative_when_they_intersect():
+    """Separation is the widest separating-axis gap, which overlaps() compares against its margin."""
+    first = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+    apart = AxisAlignedBoundingBox((1.25, 0.0, 0.0), (2.0, 1.0, 1.0))
+    intersecting = AxisAlignedBoundingBox((0.9, 0.0, 0.0), (2.0, 1.0, 1.0))
+    torch.testing.assert_close(first.separation(apart), torch.tensor([0.25]))
+    torch.testing.assert_close(first.separation(intersecting), torch.tensor([-0.1]))
+
+    rotated = OrientedBoundingBox((2.0, 0.5, 0.5), (0.5, 0.5, 0.5), _yaw(math.pi / 4))
+    torch.testing.assert_close(first.separation(rotated), torch.tensor([1.0 - math.sqrt(0.5)]))
+    assert first.overlaps(rotated, margin=0.3).item()
+    assert not first.overlaps(rotated, margin=0.28).item()
+
+
 def test_nearly_parallel_thin_boxes_do_not_use_their_enclosing_aabbs():
     """Rods with distinct tiny yaws separate despite their enclosing AABBs overlapping."""
     first = OrientedBoundingBox((0.0, 0.0, 0.0), (100.0, 0.001, 1.0), _yaw(5e-6))

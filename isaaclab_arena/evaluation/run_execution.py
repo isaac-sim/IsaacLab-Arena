@@ -29,7 +29,8 @@ from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
-from isaaclab_arena.relations.placement_diagnostics import aggregate_placement_diagnostics
+from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
+from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
@@ -102,10 +103,8 @@ def execute_experiment(
 
 
 def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult) -> None:
-    """Write a completed Run's timings and, when it has any, its placement diagnostics to its output directory."""
+    """Write a completed Run's timings to its output directory."""
     write_run_timings(run_output_dir)
-    if result.placement_diagnostics is not None:
-        result.placement_diagnostics.save(run_output_dir / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME)
 
 
 def build_and_run(
@@ -155,21 +154,42 @@ def build_and_run(
             metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
+        except Exception as error:
+            # A failed fill leaves no pool to read its diagnostics from, so they are taken from its error.
+            if isinstance(error, PlacementPoolFillError):
+                placement_diagnostics_per_rebuild.append(error.diagnostics)
+            _aggregate_and_write_placement_diagnostics(placement_diagnostics_per_rebuild, output_dir)
+            raise
         finally:
             close_run_resources(policy, env)
 
+    placement_diagnostics = _aggregate_and_write_placement_diagnostics(placement_diagnostics_per_rebuild, output_dir)
     return ArenaRunResult(
         run_name=cfg.name,
         status=RunStatus.COMPLETED,
         start_timestamp_ns=start_timestamp_ns,
         end_timestamp_ns=time.time_ns(),
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
-        placement_diagnostics=(
-            aggregate_placement_diagnostics(placement_diagnostics_per_rebuild)
-            if placement_diagnostics_per_rebuild
-            else None
-        ),
+        placement_diagnostics=placement_diagnostics,
     )
+
+
+def _aggregate_and_write_placement_diagnostics(
+    placement_diagnostics_per_fill: list[PlacementDiagnostics], output_dir: str | Path
+) -> AggregatedPlacementDiagnostics | None:
+    """Return the fills' diagnostics as a run's placement diagnostics, written to its placement diagnostics file in
+    output_dir, or None without writing a file when there are no fills.
+
+    Args:
+        placement_diagnostics_per_fill: Diagnostics of each placement pool fill of the run, in order.
+        output_dir: Run output directory, created if needed.
+    """
+    if not placement_diagnostics_per_fill:
+        return None
+    placement_diagnostics = AggregatedPlacementDiagnostics(placement_diagnostics_per_fill)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    placement_diagnostics.save(Path(output_dir) / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME)
+    return placement_diagnostics
 
 
 def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:

@@ -84,7 +84,7 @@ def test_candidate_filtering_preserves_identity_and_separates_support_checks():
         check = "expensive_for_test"
         run_after_inexpensive_checks = True
 
-        def validate_batch(self, candidates, collision_objects):
+        def _validate_batch(self, candidates, collision_objects, rejections):
             assert candidates.candidates == [batch.candidates[0], batch.candidates[2]]
             return [False, True]
 

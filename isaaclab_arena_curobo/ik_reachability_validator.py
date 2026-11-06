@@ -18,6 +18,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.placement_diagnostics import Rejection
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.relations.runtime.placement_events import get_base_rotation_per_asset
 from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
@@ -112,9 +113,11 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             return False
         return True
 
-    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
         return [
-            self._validate(candidate.positions, candidate.orientations, layout_index_within_batch=i)
+            self._validate(candidate.positions, candidate.orientations, rejections, layout_index_within_batch=i)
             for i, candidate in enumerate(batch.candidates)
         ]
 
@@ -122,6 +125,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
+        rejections: list[Rejection],
         layout_index_within_batch: int,
     ) -> bool:
         """Whether the robot can reach a top-down grasp at the target objects in one candidate layout.
@@ -135,6 +139,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         Args:
             positions: Solved (x, y, z) per object.
             orientations: Absolute world Z-yaw per object.
+            rejections: List the rejection, with its cause, is appended to.
             layout_index_within_batch: Position of this layout in the batch given to ``validate_batch``.
         """
         objects = list(positions.keys())
@@ -194,7 +199,23 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                 robot_spheres=robot_collision_spheres(self._solver, ik.joint_positions),
                 muted_sphere_mask=hand_sphere_mask(self._solver) if self._require_collision_free else None,
             )
+        self._record_failure(rejections, targets, ik)
         return bool(ik.feasible.all().item())
+
+    @staticmethod
+    def _record_failure(rejections: list[Rejection], targets: list[ObjectBase], ik: IKFeasibility) -> None:
+        """Record a rejection for each target whose top-down grasp has no feasible IK solution."""
+        for target_index, target in enumerate(targets):
+            if not ik.feasible[target_index].item():
+                rejections.append(
+                    Rejection(
+                        f"'{target.name}' {PlacementCheck.IK_REACHABLE}: top-down grasp unreachable",
+                        detail=(
+                            f"IK position error {ik.position_error[target_index].item():.3f} m,"
+                            f" rotation error {ik.rotation_error[target_index].item():.3f} rad"
+                        ),
+                    )
+                )
 
     def _solve_grasp_per_target(
         self,

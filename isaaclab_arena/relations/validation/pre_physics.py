@@ -20,6 +20,7 @@ from isaaclab_arena.relations.optimization.losses.relation_loss_strategies impor
     not_next_to_violations,
 )
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.placement_diagnostics import Rejection
 from isaaclab_arena.relations.relations import (
     AlignWith,
     ClutterOn,
@@ -74,9 +75,26 @@ class PrePhysicsPlacementValidator(base.PlacementValidator):
         """
         return True
 
+    def validate_batch(
+        self,
+        batch: PlacementCandidateBatch,
+        collision_objects: list[CollisionObject],
+        rejections: list[Rejection] | None = None,
+    ) -> list[bool]:
+        """Return one verdict per candidate in batch order.
+
+        Args:
+            batch: Candidate layouts to check.
+            collision_objects: Fixed background obstacles in the scene.
+            rejections: List each rejection, with its cause, is appended to. None discards the rejections.
+        """
+        return self._validate_batch(batch, collision_objects, rejections if rejections is not None else [])
+
     @abstractmethod
-    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        """Return one verdict per candidate in batch order."""
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
+        """Return one verdict per candidate in batch order, appending each rejection, with its cause, to rejections."""
         pass
 
 
@@ -120,19 +138,23 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.ON_RELATION
 
-    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
+        return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        rejections: list[Rejection],
     ) -> bool:
         """Check support relations against the same bounds as their loss strategies.
 
         Args:
             positions: Solved positions for each object.
             env_bboxes: Per-object bounds for one environment, each with min/max shape (1, 3).
+            rejections: List the rejection, with its cause, is appended to.
         """
         for obj in positions:
             for relation in obj.get_relations():
@@ -146,32 +168,65 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
                 height_fits = relation.is_child_bottom_z_within_placement_height_range(
                     bottom, top, self._params.on_relation_z_tolerance_m
                 )
-                if not height_fits or not self._validate_footprint(relation, child_world, parent_world):
-                    if self._params.verbose:
-                        print(f"{type(relation).__name__}: '{obj.name}' outside support footprint or height range")
+                if not height_fits:
+                    self._record_height_failure(rejections, obj, relation, bottom, top)
+                    return False
+                support = self._get_support_footprint(relation, parent_world)
+                margin = 0.0 if relation.overlap else relation.edge_margin_m
+                feasible_margin = self._get_feasible_margin(child_world, support)
+                if margin > 0 and feasible_margin < margin:
+                    self._record_margin_failure(rejections, obj, relation, margin, feasible_margin)
+                    return False
+                if not self._footprint_fits(relation, child_world, support, margin):
+                    self._record_footprint_failure(rejections, obj, relation)
                     return False
         return True
+
+    @staticmethod
+    def _record_height_failure(
+        rejections: list[Rejection], obj: PlaceableAsset, relation: On, bottom_z: float, top_z: float
+    ) -> None:
+        """Record a rejection for a child bottom outside the contact band above the support top."""
+        rejections.append(
+            Rejection(
+                f"'{obj.name}' {relation.name}({relation.parent.name}): bottom outside the contact band",
+                detail=f"bottom z {bottom_z:.3f} m, support top z {top_z:.3f} m",
+            )
+        )
+
+    @staticmethod
+    def _record_margin_failure(
+        rejections: list[Rejection], obj: PlaceableAsset, relation: On, margin: float, feasible_margin: float
+    ) -> None:
+        """Record a rejection for an edge margin wider than the support leaves around the child."""
+        rejections.append(
+            Rejection(
+                f"'{obj.name}' {relation.name}({relation.parent.name}): edge margin wider than the free space",
+                detail=f"edge_margin_m {margin:.3f} m, feasible margin {max(0.0, feasible_margin):.3f} m",
+            )
+        )
+
+    @staticmethod
+    def _record_footprint_failure(rejections: list[Rejection], obj: PlaceableAsset, relation: On) -> None:
+        """Record a rejection for a child footprint outside the support footprint."""
+        rejections.append(
+            Rejection(f"'{obj.name}' {relation.name}({relation.parent.name}): footprint outside the support")
+        )
 
     @staticmethod
     def _matches_relation(relation: RelationBase) -> bool:
         return isinstance(relation, On) and not isinstance(relation, ClutterOn)
 
-    def _validate_footprint(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
-        """Check feasible margins and containment or overlap within the support footprint."""
-        margin = 0.0 if relation.overlap else relation.edge_margin_m
-        return self._margin_fits(child, parent, margin) and self._footprint_fits(relation, child, parent, margin)
+    @staticmethod
+    def _get_support_footprint(relation: On, parent: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        """Return the bounds the child's footprint must fit within: the parent's own bounds."""
+        return parent
 
-    def _margin_fits(self, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox, margin: float) -> bool:
-        """Whether the child fits inside the inset support footprint."""
-        if margin == 0:
-            return True
-        free_space = (parent.size - child.size)[0, :2]
-        if torch.any(free_space < 2 * margin):
-            if self._params.verbose:
-                feasible_margin = max(0.0, float(free_space.min()) / 2.0)
-                print(f"Support relation: edge_margin_m={margin} exceeds feasible margin {feasible_margin:.3f} m")
-            return False
-        return True
+    @staticmethod
+    def _get_feasible_margin(child: AxisAlignedBoundingBox, support: AxisAlignedBoundingBox) -> float:
+        """Return the widest edge margin that leaves room for the child on the support, negative when it is wider."""
+        free_space = (support.size - child.size)[0, :2]
+        return float(free_space.min()) / 2.0
 
     @staticmethod
     def _footprint_fits(
@@ -197,10 +252,10 @@ class ClutterOnRelationValidator(OnRelationValidator):
     def _matches_relation(relation: RelationBase) -> bool:
         return isinstance(relation, ClutterOn)
 
-    def _validate_footprint(
-        self, relation: ClutterOn, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox
-    ) -> bool:
-        return super()._validate_footprint(relation, child, relation.get_release_region_bbox(parent))
+    @staticmethod
+    def _get_support_footprint(relation: ClutterOn, parent: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        """Return the bounds the child's footprint must fit within: the relation's release region on the parent."""
+        return relation.get_release_region_bbox(parent)
 
 
 @register_validator
@@ -209,13 +264,16 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.ALIGN_WITH
 
-    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
+        return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        rejections: list[Rejection],
     ) -> bool:
         """Check every alignment against the same geometry as the solver objective."""
         for obj, t_W_C in positions.items():
@@ -230,14 +288,21 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
                     p_W_child_center[..., axis_index] - parent_world.center[..., axis_index] - relation.offset_m
                 )
                 if not torch.isfinite(center_distance).all() or center_distance.abs().item() > relation.tolerance_m:
-                    if self._params.verbose:
-                        print(
-                            f"AlignWith: '{obj.name}' align_with({relation.parent.name}) violated "
-                            f"(world {relation.axis.value} band-centre distance={center_distance.item():.4f} m; "
-                            f"tolerance_m={relation.tolerance_m})"
-                        )
+                    self._record_failure(rejections, obj, relation, center_distance.item())
                     return False
         return True
+
+    @staticmethod
+    def _record_failure(
+        rejections: list[Rejection], obj: PlaceableAsset, relation: AlignWith, center_error_m: float
+    ) -> None:
+        """Record a rejection for a bounding-box centre outside the alignment tolerance."""
+        rejections.append(
+            Rejection(
+                f"'{obj.name}' align_with({relation.parent.name}, {relation.axis.value}): centre outside tolerance",
+                detail=f"centre error {center_error_m:+.3f} m, tolerance {relation.tolerance_m} m",
+            )
+        )
 
 
 @register_validator
@@ -246,13 +311,16 @@ class NextToValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.NEXT_TO
 
-    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
+        return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        rejections: list[Rejection],
     ) -> bool:
         """Validate each NextTo relation: child on the requested side, facing edge within the
         relation's tolerance_m of distance_m from the parent edge. Shares next_to_violations with
@@ -261,6 +329,7 @@ class NextToValidator(PrePhysicsPlacementValidator):
         Args:
             positions: Solved positions for each object.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            rejections: List the rejection, with its cause, is appended to.
         """
         for obj in positions:
             for rel in obj.get_relations():
@@ -276,14 +345,27 @@ class NextToValidator(PrePhysicsPlacementValidator):
                 half_plane, distance = next_to_violations(cfg, child_pos, child_bbox, parent_world, rel.distance_m)
 
                 if half_plane.item() > rel.tolerance_m or distance.item() > rel.tolerance_m:
-                    if self._params.verbose:
-                        print(
-                            f"NextTo: '{obj.name}' next_to({parent.name}) violated"
-                            f" (side={half_plane.item():.4f}, distance={distance.item():.4f} m;"
-                            f" tolerance_m={rel.tolerance_m})"
-                        )
+                    self._record_failure(rejections, obj, rel, half_plane.item(), distance.item())
                     return False
         return True
+
+    @staticmethod
+    def _record_failure(
+        rejections: list[Rejection], obj: PlaceableAsset, relation: NextTo, half_plane_m: float, distance_m: float
+    ) -> None:
+        """Record a NextTo rejection, reporting the wrong side before the gap error."""
+        cause = f"'{obj.name}' next_to({relation.parent.name}, {relation.side.value})"
+        if half_plane_m > relation.tolerance_m:
+            rejections.append(Rejection(f"{cause}: on the wrong side", detail=f"by {half_plane_m:.3f} m"))
+        else:
+            rejections.append(
+                Rejection(
+                    f"{cause}: gap outside tolerance",
+                    detail=(
+                        f"off target {relation.distance_m} m by {distance_m:.3f} m, tolerance {relation.tolerance_m} m"
+                    ),
+                )
+            )
 
 
 @register_validator
@@ -292,13 +374,16 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.NOT_NEXT_TO
 
-    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
+        return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        rejections: list[Rejection],
     ) -> bool:
         """Validate each NotNextTo relation: child has cleared the keep-out zone beside the parent
         (within the relation's tolerance_m) via either route — back over the edge or past the
@@ -307,6 +392,7 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
         Args:
             positions: Solved positions for each object.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            rejections: List the rejection, with its cause, is appended to.
         """
         for obj in positions:
             for rel in obj.get_relations():
@@ -325,15 +411,27 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
                 )
 
                 if min(remaining_side.item(), remaining_cross.item()) > rel.tolerance_m:
-                    if self._params.verbose:
-                        print(
-                            f"NotNextTo: '{obj.name}' not_next_to({parent.name}) violated"
-                            f" (remaining_side={remaining_side.item():.4f},"
-                            f" remaining_cross={remaining_cross.item():.4f} m;"
-                            f" margin_m={margin_m}, tolerance_m={rel.tolerance_m})"
-                        )
+                    self._record_failure(rejections, obj, rel, remaining_side.item(), remaining_cross.item())
                     return False
         return True
+
+    @staticmethod
+    def _record_failure(
+        rejections: list[Rejection],
+        obj: PlaceableAsset,
+        relation: NotNextTo,
+        remaining_side_m: float,
+        remaining_cross_m: float,
+    ) -> None:
+        """Record a rejection for a child inside the keep-out zone, with the distance left on each route out."""
+        rejections.append(
+            Rejection(
+                f"'{obj.name}' not_next_to({relation.parent.name}, {relation.side.value}): inside the keep-out zone",
+                detail=(
+                    f"{remaining_side_m:.3f} m to clear over the edge, {remaining_cross_m:.3f} m past the footprint end"
+                ),
+            )
+        )
 
     def _not_next_to_margin(self, relation: NotNextTo) -> float:
         """Keep-out margin_m from the registered NotNextTo loss strategy (stays in sync with the solver)."""
@@ -347,13 +445,18 @@ class FaceToValidator(PrePhysicsPlacementValidator):
 
     check = PlacementCheck.FACE_TO
 
-    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(candidate.positions, candidate.orientations) for candidate in batch.candidates]
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
+        return [
+            self._validate(candidate.positions, candidate.orientations, rejections) for candidate in batch.candidates
+        ]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         orientations: dict[PlaceableAsset, float] | None,
+        rejections: list[Rejection],
     ) -> bool:
         """Validate that every FaceTo subject has a defined direction and computed yaw."""
         for obj in positions:
@@ -364,14 +467,17 @@ class FaceToValidator(PrePhysicsPlacementValidator):
             target_position = torch.tensor([positions[face_to.parent]])
             _, direction_is_defined = yaw_toward_positions(subject_position, target_position)
             if not direction_is_defined.item():
-                if self._params.verbose:
-                    print(f"  FaceTo: '{obj.name}' is too close to its target in XY")
+                self._record_failure(rejections, obj, face_to, "too close to its target in XY to define a heading")
                 return False
             if orientations is None or obj not in orientations:
-                if self._params.verbose:
-                    print(f"  FaceTo: '{obj.name}' has no computed facing yaw")
+                self._record_failure(rejections, obj, face_to, "no computed facing yaw")
                 return False
         return True
+
+    @staticmethod
+    def _record_failure(rejections: list[Rejection], obj: PlaceableAsset, relation: FaceTo, reason: str) -> None:
+        """Record a FaceTo rejection with the reason the facing yaw is missing."""
+        rejections.append(Rejection(f"'{obj.name}' face_to({relation.parent.name}): {reason}"))
 
 
 @register_validator
@@ -388,16 +494,18 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         super().__init__(params, visualizer)
         self._cpu_mesh_manager: WarpMeshAndSphereCache | None = None
 
-    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
         if not batch.candidates:
             return []
         use_mesh = self._should_validate_mesh(batch.candidates[0].positions, collision_objects)
-        results = self._validate_no_overlap(batch, collision_objects, skip_mesh_pairs=use_mesh)
+        results = self._validate_no_overlap(batch, collision_objects, rejections, skip_mesh_pairs=use_mesh)
         if use_mesh:
             for index, candidate in enumerate(batch.candidates):
                 if results[index]:
                     results[index] = self._validate_no_overlap_mesh(
-                        candidate.positions, candidate.bboxes, candidate.orientations, collision_objects
+                        candidate.positions, candidate.bboxes, rejections, candidate.orientations, collision_objects
                     )
         return results
 
@@ -405,6 +513,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         self,
         batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
+        rejections: list[Rejection],
         skip_mesh_pairs: bool = False,
     ) -> list[bool]:
         """Check each box pair across candidates, excluding On and fixed-fixed pairs."""
@@ -418,11 +527,14 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
             world_boxes[obj] = bounds.to("cpu").translated(origins_W)
 
         valid = torch.ones(len(batch), dtype=torch.bool)
-        margin = max(0.0, self._params.solver_params.clearance_m - 1e-6)
+        clearance_m = self._params.solver_params.clearance_m
+        margin = max(0.0, clearance_m - 1e-6)
         for first, second in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
             overlaps = world_boxes[first].overlaps(world_boxes[second], margin=margin)
-            if self._params.verbose and overlaps.any():
-                print(f"  Overlap between '{first.name}' and '{second.name}' in {int(overlaps.sum())} candidate(s)")
+            if overlaps.any():
+                gaps_m = world_boxes[first].separation(world_boxes[second])[overlaps]
+                cause = f"'{first.name}' and '{second.name}': bounding boxes closer than the clearance"
+                self._record_box_clearance_violations(rejections, cause, gaps_m, clearance_m)
             valid &= ~overlaps
 
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
@@ -439,14 +551,26 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
                 if obj.is_anchor:
                     continue
                 overlaps = world_boxes[obj].overlaps(background_world, margin=margin)
-                if self._params.verbose and overlaps.any():
-                    print(
-                        f"  Overlap between '{obj.name}' and background '{background.name}'"
-                        f" in {int(overlaps.sum())} candidate(s)"
-                    )
+                if overlaps.any():
+                    gaps_m = world_boxes[obj].separation(background_world)[overlaps]
+                    cause = f"'{obj.name}' and background '{background.name}': bounding boxes closer than the clearance"
+                    self._record_box_clearance_violations(rejections, cause, gaps_m, clearance_m)
                 valid &= ~overlaps
 
         return valid.tolist()
+
+    @staticmethod
+    def _record_box_clearance_violations(
+        rejections: list[Rejection], cause: str, gaps_m: torch.Tensor, clearance_m: float
+    ) -> None:
+        """Record one rejection for each candidate whose bounding boxes are closer than clearance_m.
+
+        Args:
+            gaps_m: Gap between the boxes in each rejected candidate; negative when they intersect.
+        """
+        for gap_m in gaps_m.tolist():
+            detail = f"gap short of the {clearance_m:.3f} m clearance by {clearance_m - gap_m:.3f} m"
+            rejections.append(Rejection(cause, detail=detail))
 
     def _should_validate_mesh(
         self,
@@ -526,6 +650,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        rejections: list[Rejection],
         orientations: dict[PlaceableAsset, float] | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> bool:
@@ -570,6 +695,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
                 mesh_manager,
                 tolerance,
                 orientations,
+                rejections,
             ):
                 return False
             if a_mesh is not None and self._spheres_penetrate_mesh(
@@ -586,6 +712,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
                 mesh_manager,
                 tolerance,
                 orientations,
+                rejections,
             ):
                 return False
 
@@ -625,6 +752,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
                     mesh_manager,
                     tolerance,
                     orientations,
+                    rejections,
                 ):
                     return False
 
@@ -657,6 +785,7 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         mesh_manager: WarpMeshAndSphereCache,
         tolerance: float,
         orientations: dict[PlaceableAsset, float] | None,
+        rejections: list[Rejection],
     ) -> bool:
         """True if source's spheres penetrate target's mesh or if BVH returns no-face sentinel.
 
@@ -679,12 +808,41 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         sdf = mesh_sdf(centers, warp_mesh)
         mesh_manager.warn_sdf_sentinel(sdf)
         if has_sdf_sentinel(sdf):
+            self._record_mesh_overlap(rejections, source, target, max_clearance_shortfall_m=None, clearance_m=tolerance)
             return True
-        if (sdf < spheres[:, 3] + tolerance).any():
-            if self._params.verbose:
-                print(f"  Mesh overlap between '{source.name}' and '{target.name}'")
+        penetration = spheres[:, 3] + tolerance - sdf
+        if (penetration > 0).any():
+            self._record_mesh_overlap(
+                rejections, source, target, max_clearance_shortfall_m=float(penetration.max()), clearance_m=tolerance
+            )
             return True
         return False
+
+    @staticmethod
+    def _record_mesh_overlap(
+        rejections: list[Rejection],
+        source: PlaceableAsset | CollisionObject,
+        target: PlaceableAsset | CollisionObject,
+        max_clearance_shortfall_m: float | None,
+        clearance_m: float,
+    ) -> None:
+        """Record a rejection because source's collision spheres come closer to target's mesh than clearance_m.
+
+        Args:
+            max_clearance_shortfall_m: Largest amount by which the gap between a sphere and the mesh falls short of
+                clearance_m; more than clearance_m when they intersect. None when the SDF query found no mesh face,
+                which is rejected too.
+            clearance_m: Gap required between the meshes.
+        """
+        if max_clearance_shortfall_m is None:
+            rejections.append(Rejection(f"'{source.name}' and '{target.name}': SDF query found no mesh face"))
+        else:
+            rejections.append(
+                Rejection(
+                    f"'{source.name}' and '{target.name}': meshes closer than the clearance",
+                    detail=f"gap short of the {clearance_m:.3f} m clearance by up to {max_clearance_shortfall_m:.3f} m",
+                )
+            )
 
     @staticmethod
     def _effective_yaw(

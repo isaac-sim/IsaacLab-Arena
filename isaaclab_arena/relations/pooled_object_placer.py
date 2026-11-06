@@ -21,6 +21,20 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
+class PlacementPoolFillError(RuntimeError):
+    """A fill of a placement pool ended with too few layouts for some environment."""
+
+    def __init__(self, message: str, diagnostics: PlacementDiagnostics) -> None:
+        """Create the error.
+
+        Args:
+            message: Description of the failure, with a summary of the diagnostics.
+            diagnostics: Diagnostics of the failed fill, with every batch it validated.
+        """
+        super().__init__(message)
+        self.diagnostics = diagnostics
+
+
 @dataclass
 class EnvLayoutPool:
     """Unread layout queue for one absolute environment."""
@@ -170,10 +184,11 @@ class PooledObjectPlacer:
             if min(self._available_per_env()) >= target_num_layouts_per_env:
                 return
 
-        raise RuntimeError(
+        raise PlacementPoolFillError(
             f"Placement pool could not fill {target_num_layouts_per_env} layouts per env after "
             f"{max_solve_batches} solve batches. Available per env: {self._available_per_env()}.\n"
-            f"{self._last_fill_diagnostics.format_summary()}"
+            f"{self._last_fill_diagnostics.format_summary()}",
+            self._last_fill_diagnostics,
         )
 
     def _solve_env_ranked_layouts(self, num_layouts: int) -> tuple[list[list[PlacementResult]], int]:
@@ -227,7 +242,10 @@ class PooledObjectPlacer:
         self._last_fill_diagnostics.fallback_envs.extend(fallback_envs)
 
         if fallback_envs:
-            print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
+            print(
+                f"Falling back to best-loss layouts for envs: {fallback_envs}. Placement diagnostics of this fill:\n"
+                f"{self._last_fill_diagnostics.format_summary()}"
+            )
 
     # ------------------------------------------------------------------
     # Public API
