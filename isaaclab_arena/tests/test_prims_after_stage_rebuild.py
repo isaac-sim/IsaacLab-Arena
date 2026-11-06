@@ -60,7 +60,7 @@ def _build_droid_env(disable_fabric: bool):
     arena_env = IsaacLabArenaEnvironment(
         name="test_prims_after_stage_rebuild",
         # Enabling cameras turns on the Fabric Scene Delegate, the render path this bug lives on.
-        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=True),
+        embodiments=[DroidAbsoluteJointPositionEmbodiment(enable_cameras=True)],
         scene=scene,
     )
     cli_args = ["--num_envs", "1", "--enable_cameras"]

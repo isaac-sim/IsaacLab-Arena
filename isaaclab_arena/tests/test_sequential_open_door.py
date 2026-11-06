@@ -59,7 +59,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="sequential_open_door",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
         task=CompositeTaskBase([subtask_1, subtask_2], subtasks_are_sequential=True),
     )

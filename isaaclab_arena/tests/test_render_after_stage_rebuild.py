@@ -57,7 +57,7 @@ def _build_droid_env(disable_fabric: bool):
     )
     arena_env = IsaacLabArenaEnvironment(
         name="test_render_after_stage_rebuild",
-        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=True),
+        embodiments=[DroidAbsoluteJointPositionEmbodiment(enable_cameras=True)],
         scene=scene,
     )
     cli_args = ["--num_envs", "1", "--enable_cameras"]

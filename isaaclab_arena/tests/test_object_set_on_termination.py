@@ -63,7 +63,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="object_set_termination_test",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
         task=PickAndPlaceTask(object_set, destination_location, background),
     )

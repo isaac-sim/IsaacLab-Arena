@@ -88,7 +88,7 @@ def get_test_environment(num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="test_sorting_task",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=task,
     )

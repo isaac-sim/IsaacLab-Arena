@@ -72,7 +72,7 @@ class Gr1TurnStandMixerKnobEnvironment(ArenaEnvironmentFactory[Gr1TurnStandMixer
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=TurnKnobTask(turnable_object=stand_mixer, target_level=cfg.target_level, reset_level=cfg.reset_level),
             teleop_device=teleop_device,

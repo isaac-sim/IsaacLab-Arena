@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import dataclasses
 
 from isaaclab.utils.configclass import configclass
 
@@ -110,6 +111,60 @@ def test_combine_configclass_instances_preserves_default_factory_nested_config()
     assert not callable(merged.inner)
     assert type(merged.inner).__name__ == "Inner"
     assert merged.inner.x == 0
+
+
+def test_combine_unique_extends_in_contribution_order():
+    from isaaclab_arena.utils.configclass import combine_unique
+
+    @configclass
+    class FirstCfg:
+        b: int = 1
+        a: int = 2
+
+    @configclass
+    class SecondCfg:
+        c: int = 3
+
+    combined = combine_unique("CombinedCfg", FirstCfg(a=5), None, SecondCfg())
+    assert [field.name for field in dataclasses.fields(combined)] == ["b", "a", "c"]
+    assert (combined.b, combined.a, combined.c) == (1, 5, 3)
+
+
+def test_combine_unique_rejects_a_repeated_field():
+    import pytest
+
+    from isaaclab_arena.utils.configclass import combine_unique
+
+    @configclass
+    class FirstCfg:
+        a: int = 1
+
+    @configclass
+    class SecondCfg:
+        a: int = 2
+
+    with pytest.raises(AssertionError, match="repeat fields"):
+        combine_unique("CombinedCfg", FirstCfg(), SecondCfg())
+
+
+def test_combine_unique_lets_later_contributions_override_base_settings():
+    from isaaclab_arena.utils.configclass import combine_unique
+
+    @configclass
+    class SettingsCfg:
+        mode: str = "default"
+
+    @configclass
+    class FirstCfg(SettingsCfg):
+        first: int = 1
+
+    @configclass
+    class SecondCfg(SettingsCfg):
+        second: int = 2
+
+    combined = combine_unique("CombinedCfg", FirstCfg(), SecondCfg(mode="last"), bases=(SettingsCfg,))
+    assert isinstance(combined, SettingsCfg)
+    assert (combined.mode, combined.first, combined.second) == ("last", 1, 2)
 
 
 if __name__ == "__main__":

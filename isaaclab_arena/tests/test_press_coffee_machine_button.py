@@ -41,7 +41,7 @@ def get_test_environment(num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="press_button_coffee_machine",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
     )
 

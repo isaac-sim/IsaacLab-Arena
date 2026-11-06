@@ -41,7 +41,7 @@ def _test_robot_initial_position(simulation_app):
     scene = Scene(assets=[background, cracker_box])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="robot_initial_position",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
     )
 

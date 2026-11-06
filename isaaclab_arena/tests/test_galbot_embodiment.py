@@ -65,7 +65,7 @@ def get_galbot_test_environment(num_envs: int = 1):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="galbot_kitchen_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=PickAndPlaceTask(pick_up_object, destination_location, background),
     )

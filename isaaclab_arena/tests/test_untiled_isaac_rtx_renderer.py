@@ -21,7 +21,7 @@ def _test_untiled_isaac_rtx_renderer_produces_images_and_cleans_up(simulation_ap
     )
 
     arena_env = PickAndPlaceMapleTableEnvironment().build(PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=True))
-    rig = arena_env.embodiment.camera_config
+    rig = arena_env.embodiments[0].camera_config
     rig.set_use_tiled_camera(False)
     for name in rig.camera_names():
         getattr(rig, name).data_types = ["rgb", "rgba"]
