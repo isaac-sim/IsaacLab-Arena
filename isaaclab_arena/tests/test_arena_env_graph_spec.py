@@ -246,6 +246,16 @@ def test_graph_spec_accepts_legacy_position_limits_box_name():
     assert isinstance(relation, PositionLimitsBox)
 
 
+def test_graph_spec_explains_an_unquoted_on_kind():
+    """YAML 1.1 reads an unquoted ``on`` as true, so the error must say to quote it."""
+
+    data = _minimal_env_graph_data()
+    data["relations"] = yaml.safe_load("- kind: on\n  subject: cube\n  reference: table\n")
+
+    with pytest.raises(ValidationError, match="quote it: kind: 'on'"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_graph_spec_loads_object_set_yaml():
     spec = ArenaEnvGraphSpec.from_yaml(_OBJECT_SET_GRAPH)
 
