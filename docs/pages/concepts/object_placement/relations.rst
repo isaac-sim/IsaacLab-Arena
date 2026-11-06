@@ -22,6 +22,8 @@ advanced users can replace entries in ``RelationSolverParams.strategies``.
 This describes the intended arrangement without requiring coordinates derived
 from the dimensions of the table, mug, and bowl.
 
+.. _relations-anchors:
+
 Anchors
 -------
 
@@ -57,6 +59,12 @@ When the support surface is part of a larger background, use an
 Anchor the background asset directly when its complete bounds represent the
 support. Use an ``ObjectReference`` when only an internal tabletop, counter, or
 similar prim should support placement.
+
+A background with mesh collision cannot have relations, ``IsAnchor`` included.
+Placement would treat its whole mesh as one solid, which for a room fills the
+open space, so placement fails with an error. Leave such a background without
+relations, so it acts as a passive obstacle, and anchor an ``ObjectReference``
+to the support prim instead; see :doc:`./collision_handling`.
 
 Common Relations
 ----------------
