@@ -51,7 +51,7 @@ Read only the references relevant to the requested behavior:
   placement rejects many candidates or a fill fails, read them before changing relations, collision
   settings or reachability.
   [Placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst)
-  explains them and what to change for each rejection cause. The build log already lists each
+  explains them and how to act on them. The build log already lists each
   check's rejection causes after every batch, and an Experiment Run writes them all to
   `arena_run_placement_diagnostics.json`.
 - **Task semantics:** read [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
