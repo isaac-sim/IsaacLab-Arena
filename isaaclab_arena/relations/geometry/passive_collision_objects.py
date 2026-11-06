@@ -38,18 +38,7 @@ def get_placement_collision_objects(
     checks those supports separately.
     """
     scene_assets = list(scene_assets)
-    for asset in placement_assets:
-        # A placed asset's mesh is treated as one solid, and a non-watertight one is replaced by its convex hull.
-        # For a room that hull fills the open space, so every candidate collides with it.
-        if (
-            isinstance(asset, Background)
-            and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
-        ):
-            raise ValueError(
-                f"Background '{asset.name}' has relations and mesh collision, so placement would treat its whole mesh"
-                " as one solid, filling its open space. Remove its relations so placement treats it as a fixed"
-                " obstacle, and anchor an object reference to the support surface instead, such as a countertop prim."
-            )
+    assert_assets_compatible_with_collision_objects(placement_assets, default_collision_mode)
     include_background = (
         default_collision_mode == CollisionMode.MESH
         or any(
@@ -79,6 +68,27 @@ def get_placement_collision_objects(
         if isinstance(asset, ObjectReference) and asset.is_anchor and asset.parent_asset in passive_asset_set:
             excluded_prim_paths_by_object[asset.parent_asset].add(asset.prim_path_in_parent_usd)
     return make_fixed_collision_objects(collision_objects, excluded_prim_paths_by_object=excluded_prim_paths_by_object)
+
+
+def assert_assets_compatible_with_collision_objects(
+    placement_assets: list[PlaceableAsset], default_collision_mode: CollisionMode
+) -> None:
+    """Raise a ValueError when a placed asset uses a collision mode that placement cannot handle for it.
+
+    A background with relations and mesh collision is rejected: placement treats a placed asset's mesh as one
+    solid, replacing a non-watertight one with its convex hull, and for a room that hull fills the open space,
+    so every candidate would collide with it.
+    """
+    for asset in placement_assets:
+        if (
+            isinstance(asset, Background)
+            and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
+        ):
+            raise ValueError(
+                f"Background '{asset.name}' has relations and mesh collision, so placement would treat its whole mesh"
+                " as one solid, filling its open space. Remove its relations so placement treats it as a fixed"
+                " obstacle, and anchor an object reference to the support surface instead, such as a countertop prim."
+            )
 
 
 def discover_passive_assets(
