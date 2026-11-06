@@ -233,6 +233,8 @@ jobs:
     needs: [build_and_push_image]
     env:
       ARENA_INFERENCE_ENDPOINT: public
+      # Fail a hung Isaac Sim startup with a stack dump so the step wrapper can retry it.
+      ISAACLAB_ARENA_APP_STARTUP_TIMEOUT_SEC: 300
       NVIDIA_API_KEY: ${{ secrets.ARENA_PUBLIC_NVIDIA_API_KEY }}
 
     container:
@@ -286,24 +288,24 @@ jobs:
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
       - name: Run in-process Newton tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
+          .github/scripts/retry_on_app_startup_hang.sh isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process Newton tests with cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
+          .github/scripts/retry_on_app_startup_hang.sh isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+          .github/scripts/retry_on_app_startup_hang.sh isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
             isaaclab_arena_benchmarking/tests/test_placement_success.py \
             isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
+          .github/scripts/retry_on_app_startup_hang.sh isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
             isaaclab_arena_vlm_agent/tests/
 

@@ -20,17 +20,38 @@ def get_isaac_sim_version() -> str:
     return omni.kit.app.get_app().get_app_version()
 
 
+STARTUP_BEGIN_MARKER = "[isaaclab-arena] AppLauncher initialization started"
 STARTUP_COMPLETE_MARKER = "[isaaclab-arena] AppLauncher initialization complete"
+
+STARTUP_TIMEOUT_ENV_VAR = "ISAACLAB_ARENA_APP_STARTUP_TIMEOUT_SEC"
+"""Seconds Kit startup may take before the process dumps all thread stacks and exits with code 1. Unset disables it."""
 
 
 def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
-    """Get an app launcher."""
+    """Get an app launcher.
+
+    When ``ISAACLAB_ARENA_APP_STARTUP_TIMEOUT_SEC`` is set, a startup that exceeds it dumps the stacks of all
+    threads to stderr and exits the process with code 1.
+    """
+    import faulthandler
     import time
 
+    sys.__stderr__.write(f"{STARTUP_BEGIN_MARKER}\n")
+    sys.__stderr__.flush()
+    startup_timeout_sec = float(os.environ.get(STARTUP_TIMEOUT_ENV_VAR, "0"))
+    if startup_timeout_sec > 0:
+        # Kit can hang in native code with the GIL held, where no Python-level timer would run.
+        # faulthandler's watchdog is a native thread, so it fires regardless.
+        faulthandler.dump_traceback_later(startup_timeout_sec, exit=True, file=sys.__stderr__)
+
     t0 = time.monotonic()
-    # AppLauncher consumes recognized entries from its input mapping. Pass a copy so
-    # Arena can continue using its parsed arguments after the application launches.
-    app_launcher = AppLauncher(vars(args).copy())
+    try:
+        # AppLauncher consumes recognized entries from its input mapping. Pass a copy so
+        # Arena can continue using its parsed arguments after the application launches.
+        app_launcher = AppLauncher(vars(args).copy())
+    finally:
+        if startup_timeout_sec > 0:
+            faulthandler.cancel_dump_traceback_later()
     elapsed = time.monotonic() - t0
     sys.__stderr__.write(f"{STARTUP_COMPLETE_MARKER} ({elapsed:.1f}s)\n")
     sys.__stderr__.flush()
