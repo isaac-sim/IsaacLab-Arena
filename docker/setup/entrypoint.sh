@@ -54,10 +54,6 @@ touch /home/$DOCKER_RUN_USER_NAME/.sudo_as_admin_successful
 cp /etc/bash.bashrc /home/$DOCKER_RUN_USER_NAME/.bashrc
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME/.bashrc
 
-# Add the models, datasets, and eval folders if they don't exist
-mkdir -p /datasets /models /eval
-chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /datasets /models /eval
-
 # Create the _isaac_sim symlink if it doesn't exist
 if [ ! -e "$WORKDIR/submodules/IsaacLab/_isaac_sim" ]; then
     ln -s /isaac-sim/ "$WORKDIR/submodules/IsaacLab/_isaac_sim"
