@@ -402,7 +402,7 @@ def test_from_experiment_output_rejects_missing_runs(tmp_path):
 
 
 def test_result_and_run_status_modules_import_without_torch_or_isaaclab():
-    """Import the modules the OSMO collector uses in a fresh process."""
+    """Import the modules the OSMO collector and KPI exporters use in a fresh process."""
     code = (
         "import sys\n"
         "import isaaclab_arena.evaluation.arena_experiment_result\n"
