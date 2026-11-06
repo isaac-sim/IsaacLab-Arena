@@ -26,6 +26,17 @@ class Pi0RemotePolicyCfg(PolicyCfg):
     remote_host: str = "localhost"
     remote_port: int = 8000
 
+    batch_chunk_fetches: bool = True
+    """Send the chunk requests of the environments that request on the same step as one batched request.
+
+    Takes effect when the server advertises ``batch_inference`` in its connect metadata, as the batched
+    openpi server (``isaaclab_arena_openpi/server/serve_batched_policy.py``) does; against any other server
+    requests go out one per environment.
+    """
+
+    max_batch_size: int | None = None
+    """Largest number of environments per batched request, or None to use the server's advertised limit."""
+
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""
 

@@ -8,13 +8,19 @@ from __future__ import annotations
 import logging
 import time
 
+import websockets.exceptions
 import websockets.sync.client
 from openpi_client import msgpack_numpy, websocket_client_policy
 from typing_extensions import override
 
 
 class WebsocketClientPolicy(websocket_client_policy.WebsocketClientPolicy):
-    """openpi WebsocketClientPolicy with configurable keepalive ping."""
+    """openpi WebsocketClientPolicy with configurable keepalive ping and handshake timeout.
+
+    The connection is retried while the server refuses it (not started yet) or fails the websocket
+    handshake, which happens while a single-threaded server compiles the model for its first request
+    and other threads open their connections.
+    """
 
     def __init__(
         self,
@@ -24,11 +30,13 @@ class WebsocketClientPolicy(websocket_client_policy.WebsocketClientPolicy):
         *,
         ping_interval: float | None = 20.0,
         ping_timeout: float | None = 20.0,
+        open_timeout: float | None = 300.0,
     ) -> None:
         # Stored before super().__init__ because the base constructor calls
         # _wait_for_server(), which reads these back to open the connection.
         self._ping_interval = ping_interval
         self._ping_timeout = ping_timeout
+        self._open_timeout = open_timeout
         super().__init__(host=host, port=port, api_key=api_key)
 
     @override
@@ -44,9 +52,13 @@ class WebsocketClientPolicy(websocket_client_policy.WebsocketClientPolicy):
                     additional_headers=headers,
                     ping_interval=self._ping_interval,
                     ping_timeout=self._ping_timeout,
+                    open_timeout=self._open_timeout,
                 )
                 metadata = msgpack_numpy.unpackb(conn.recv())
                 return conn, metadata
             except ConnectionRefusedError:
                 logging.info("Still waiting for server...")
                 time.sleep(5)
+            except (TimeoutError, websockets.exceptions.InvalidHandshake) as exc:
+                logging.info(f"Websocket handshake with the server failed ({exc}), retrying...")
+                time.sleep(1)
