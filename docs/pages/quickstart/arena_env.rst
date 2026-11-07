@@ -53,19 +53,7 @@ actions, so no policy or model weights are required. It keeps running until you 
 ``Ctrl-C``. While it runs, hold ``Shift`` and left-drag an object to move it and inspect its physical
 behavior.
 
-Prepare the runtime from the repository root, using either a native ``uv`` environment or the base
-Docker container (see :doc:`installation` for the full setup):
-
-.. tab-set::
-
-   .. tab-item:: Native uv
-      :selected:
-
-      :uv_run_source:
-
-   .. tab-item:: Docker Container
-
-      :docker_run_default:
+:runtime_setup_tabs:
 
 Every command below is identical in both runtimes.
 

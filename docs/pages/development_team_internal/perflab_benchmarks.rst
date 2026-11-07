@@ -125,7 +125,7 @@ with ``-``, ``+``, or ``U``.
 ----------------------------
 
 Choose an absolute host directory that PerfLab will retain after the job. Start the container from
-the repository root and mount that directory at ``/eval``:
+the repository root and mount that directory at ``$HOME/eval`` inside the container:
 
 .. code-block:: bash
 
@@ -151,7 +151,7 @@ visible:
 
    ./submodules/IsaacLab/isaaclab.sh -p -c "import isaaclab_arena; print(isaaclab_arena.__file__)"
    nvidia-smi
-   test -d /eval && test -w /eval
+   test -d "$HOME/eval" && test -w "$HOME/eval"
 
 The import path must be below ``/workspaces/isaaclab_arena``, and the final command must exit with
 status zero. The ``-e`` mount is applied only when the launcher creates the container; attaching to
@@ -167,7 +167,7 @@ command runs:
 
 .. code-block:: bash
 
-   PERFLAB_OUTPUT_ROOT=/eval/perflab-workloads
+   PERFLAB_OUTPUT_ROOT="$HOME/eval/perflab-workloads"
    mkdir -p "${PERFLAB_OUTPUT_ROOT}"
 
 

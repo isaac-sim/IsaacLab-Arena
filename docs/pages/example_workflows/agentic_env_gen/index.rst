@@ -51,19 +51,7 @@ what Arena validates, and how to select the model.
 Start uv or Docker
 ~~~~~~~~~~~~~~~~~~
 
-Use either a native ``uv`` environment or the base Docker container (see
-:doc:`../../quickstart/installation` for more details).
-
-.. tab-set::
-
-   .. tab-item:: Native uv
-      :selected:
-
-      :uv_run_source:
-
-   .. tab-item:: Docker Container
-
-      :docker_run_default:
+:runtime_setup_tabs:
 
 Available Generated Environments
 --------------------------------

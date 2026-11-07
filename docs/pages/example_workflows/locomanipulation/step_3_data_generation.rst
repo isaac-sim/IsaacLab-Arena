@@ -5,9 +5,7 @@ This workflow covers annotating and generating the demonstration dataset using
 `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/features/imitation-learning/teleop_imitation.html>`_.
 
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 
 

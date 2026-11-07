@@ -78,9 +78,9 @@ Use these options only when the request needs them:
 
 | Flag | Purpose |
 |---|---|
-| `-d <path>` | Mount datasets at `/datasets`. |
-| `-m <path>` | Mount models at `/models`. |
-| `-e <path>` | Mount evaluation outputs at `/eval`. |
+| `-d <path>` | Mount datasets at `$HOME/datasets` in the container. |
+| `-m <path>` | Mount models at `$HOME/models` in the container. |
+| `-e <path>` | Mount evaluation outputs at `$HOME/eval` in the container. |
 | `-s <suffix>` | Override the automatic per-checkout container suffix. |
 
 Confirm that each explicitly requested mount path exists before launching. Mount flags apply only

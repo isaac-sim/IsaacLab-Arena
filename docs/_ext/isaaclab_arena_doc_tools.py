@@ -62,16 +62,22 @@ def isaaclab_arena_code_link(app: Sphinx, _: Any, source: list[str]) -> None:
 
 
 def uv_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
-    """Replaces uv setup command directives with code blocks."""
+    """Replaces uv setup command directives with code blocks.
 
-    def uv_source_replacer(_: Any) -> str:
-        return """.. code-block:: bash
+    ``:uv_run_source:`` may be followed by backticked extra arguments for ``uv sync``, for example
+    ``:uv_run_source:`--group gr00t-client```.
+    """
 
-           uv sync --extra dev
+    def uv_source_replacer(match: re.Match) -> str:
+        extra_args = match.group("args")
+        sync_args = f" {extra_args}" if extra_args else ""
+        return f""".. code-block:: bash
+
+           uv sync --extra dev{sync_args}
            source .venv/bin/activate
            export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y"""
 
-    source[0] = re.sub(r":uv_run_source:", uv_source_replacer, source[0])
+    source[0] = re.sub(r":uv_run_source:(?:`(?P<args>[^`]*)`)?", uv_source_replacer, source[0])
 
 
 def docker_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
@@ -86,9 +92,58 @@ def docker_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
     source[0] = re.sub(r":docker_run_default:", default_replacer, source[0])
 
 
+def runtime_setup_tabs_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
+    """Replaces the :runtime_setup_tabs: directive with a lead-in sentence and a Native uv / Docker tab set.
+
+    Backticked extra arguments for ``uv sync`` may follow the directive, for example
+    ``:runtime_setup_tabs:`--group gr00t-client```.
+    """
+
+    template = (
+        "Prepare the Arena runtime from the repository root, using either a native ``uv`` environment or the\n"
+        "base Docker container (see :doc:`/pages/quickstart/installation` for the full setup):\n"
+        "\n"
+        ".. tab-set::\n"
+        "\n"
+        "   .. tab-item:: Native uv\n"
+        "      :selected:\n"
+        "\n"
+        "      :uv_run_source:{uv_args}\n"
+        "\n"
+        "   .. tab-item:: Docker Container\n"
+        "\n"
+        "      :docker_run_default:"
+    )
+
+    def replacer(match: re.Match) -> str:
+        indent = match.group("indent")
+        marker = match.group("marker") or ""
+        body_indent = indent + " " * len(marker)
+        extra_args = match.group("args")
+        uv_args = f"`{extra_args}`" if extra_args else ""
+        lines = template.replace("{uv_args}", uv_args).split("\n")
+        out = []
+        for i, line in enumerate(lines):
+            if not line:
+                out.append(line)
+            elif i == 0:
+                out.append(indent + marker + line)
+            else:
+                out.append(body_indent + line)
+        return "\n".join(out)
+
+    source[0] = re.sub(
+        r"^(?P<indent> *)(?P<marker>#\. )?:runtime_setup_tabs:(?:`(?P<args>[^`]*)`)?",
+        replacer,
+        source[0],
+        flags=re.MULTILINE,
+    )
+
+
 def setup(app: Sphinx) -> None:
     app.connect("source-read", isaaclab_arena_git_clone_code_block)
     app.connect("source-read", isaaclab_arena_code_link)
+    app.connect("source-read", runtime_setup_tabs_replacer)
     app.connect("source-read", uv_run_command_replacer)
     app.connect("source-read", docker_run_command_replacer)
     app.add_config_value("isaaclab_arena_docs_config", {}, "env")

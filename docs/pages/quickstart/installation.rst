@@ -93,14 +93,14 @@ installation options.
 The container will build (if needed) and drop you into an interactive shell.
 
 .. note::
-   The run docker script mounts the following directories from the host machine if they exist:
+   The run docker script mounts the following directories from the host machine into the
+   container user's home directory, creating them on the host if they do not exist:
 
-   - **Datasets**: ``$HOME/datasets`` → ``/datasets``
-   - **Models**: ``$HOME/models`` → ``/models``
-   - **Evaluation**: ``$HOME/eval`` → ``/eval``
+   - **Datasets**: ``$HOME/datasets``
+   - **Models**: ``$HOME/models``
+   - **Evaluation**: ``$HOME/eval``
 
-   When mounted a user avoids re-downloading datasets and models between container restarts,
-   so our suggestion is to create these directories on the host machine before running the container.
+   Mounting them lets a user avoid re-downloading datasets and models between container restarts.
    Note that the path of the mounted directories are configurable — see ``docker/run_docker.sh``
    for the full list of arguments.
 
