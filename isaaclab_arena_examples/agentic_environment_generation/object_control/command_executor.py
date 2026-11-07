@@ -119,6 +119,8 @@ class ObjectCommandExecutor:
         self._drive_pose(command.name, [t_W[0], t_W[1], command.height], None, command)
 
     def joint(self, command: JointCommand) -> None:
+        from isaaclab_arena.utils.joint_utils import unnormalize_joint_position
+
         name = command.name
         joint_name = command.joint_name
         obj = self.env.scene[name]
@@ -126,10 +128,7 @@ class ObjectCommandExecutor:
         start = obj.data.joint_pos.torch[0, joint_id].item()
         if command.normalized_goal is not None:
             joint_min, joint_max = obj.data.joint_pos_limits.torch[0, joint_id].tolist()
-            normalized_goal = command.normalized_goal
-            if joint_min < 0.0:
-                normalized_goal = 1.0 - normalized_goal
-            goal = joint_min + (joint_max - joint_min) * normalized_goal
+            goal = unnormalize_joint_position(command.normalized_goal, joint_min, joint_max)
         else:
             assert command.goal is not None
             goal = command.goal

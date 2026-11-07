@@ -21,6 +21,13 @@ def unnormalize_value(value: float, min_value: float, max_value: float) -> float
     return min_value + (max_value - min_value) * value
 
 
+def unnormalize_joint_position(normalized_position: float, joint_min: float, joint_max: float) -> float:
+    """Convert a normalized joint position to radians or meters."""
+    if joint_min < 0.0:
+        normalized_position = 1 - normalized_position
+    return unnormalize_value(normalized_position, joint_min, joint_max)
+
+
 def get_joint_index_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> int:
     """Get the index of a joint from the asset config."""
     articulation = env.unwrapped.scene.articulations[asset_cfg.name]
@@ -114,7 +121,5 @@ def set_normalized_joint_position(
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
     joint_min, joint_max = get_joint_position_limits_from_articulation(articulation, joint_index)
-    if joint_min < 0.0:
-        target_joint_position = 1 - target_joint_position
-    target_joint_position_unnormlized = unnormalize_value(target_joint_position, joint_min, joint_max)
+    target_joint_position_unnormlized = unnormalize_joint_position(target_joint_position, joint_min, joint_max)
     set_unnormalized_joint_position(env, asset_cfg, target_joint_position_unnormlized, env_ids)
