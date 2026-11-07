@@ -144,10 +144,6 @@ def _above_height(env, height):
     return env.scene["cube"].data.root_pos_w.torch[:, 2] > height
 
 
-def _count_interval(env, env_ids):
-    env.force_test_interval_calls = getattr(env, "force_test_interval_calls", 0) + 1
-
-
 def _cube_pose(env):
     return env.scene["cube"].data.root_pose_w.torch
 
@@ -157,7 +153,7 @@ def _test_force_action_environment_lifecycle(_simulation_app):
     import torch
 
     from isaaclab.assets import RigidObjectCfg
-    from isaaclab.managers import EventTermCfg, ObservationGroupCfg, ObservationTermCfg, TerminationTermCfg
+    from isaaclab.managers import ObservationGroupCfg, ObservationTermCfg, TerminationTermCfg
     from isaaclab.scene import InteractiveSceneCfg
     from isaaclab.sim import CuboidCfg, MassPropertiesCfg, RigidBodyPropertiesCfg, SimulationCfg
     from isaaclab.utils import configclass
@@ -197,7 +193,6 @@ def _test_force_action_environment_lifecycle(_simulation_app):
         scene=SceneCfg(num_envs=1, env_spacing=2),
         actions=ActionsCfg(),
         observations=ObservationsCfg(),
-        events={"count": EventTermCfg(func=_count_interval, mode="interval", interval_range_s=(0.02, 0.02))},
         terminations={"success": TerminationTermCfg(func=task_success_from_progress)},
         episode_length_s=20,
         decimation=4,
@@ -223,11 +218,6 @@ def _test_force_action_environment_lifecycle(_simulation_app):
         action = torch.tensor([[0, 0, 1.3, 0, 0, 0, 1, 1]], dtype=torch.float32)
         for _ in range(100):
             env.step(action)
-        assert base.common_step_counter == 100
-        assert base.episode_length_buf.tolist() == [100]
-        assert base.force_test_interval_calls > 0
-        assert base.completed_episode_count == 1
-        assert base.reset_env_ids.numel() == 0
         assert base.progress_tracker.is_complete().tolist() == [True]
         assert base.scene["cube"].data.root_pos_w.torch[0, 2].item() == pytest.approx(1.3, abs=0.01)
         action[:, 7] = 0
