@@ -26,18 +26,6 @@ inheritance chains before adding capabilities. If reuse cannot express a require
 missing capability and add the smallest extension. Do not duplicate solvers, predicates, temporal
 counters, reset loops, progress tracking, or variation systems that Arena already provides.
 
-### Inspect USD assets
-
-Before selecting an `object_reference.prim_path`, support surface, openable articulation, or
-collision geometry from a USD scene, dump its composed physics prim tree using
-`python scene_inspector.py prim-tree --usd ...`. Skim the text hierarchy to locate relevant rigid
-bodies, articulations, joints, and colliders. Only after identifying a relevant subtree, rerun with
-`--prim <path> --format json` to inspect its complete bounds, mass, damping, joint, collider, and
-instancing metadata. Do not dump a whole scene as JSON or infer physics from prim names.
-
-The output describes authored USD physics only; it does not include Arena or Isaac Lab spawn-time
-overrides.
-
 ## Assemble from maintained sources
 
 Read only the references relevant to the requested behavior:
@@ -49,13 +37,19 @@ Read only the references relevant to the requested behavior:
   existing build and reset controls; keep environment configuration focused on the scene and task.
   For graph YAML, inspect the [schema](../../../isaaclab_arena/environment_spec/arena_env_graph_types.py)
   and [task conversion](../../../isaaclab_arena/environment_spec/arena_env_graph_task_conversion_utils.py)
-  alongside `isaaclab_arena_environments/robolab/` examples. Choose Python when the graph cannot
+  alongside `isaaclab_arena_environments/robolab/` and `isaaclab_arena_environments/kitchen_bench/` examples. Choose Python when the graph cannot
   express the required semantics; a field parsing successfully does not prove it is consumed.
-- **Assets and layout:** follow the example's ownership and scene composition. Use the existing
+- **Assets:** follow the example's asset ownership and check identity, collision handling, and reset
+  requirements.
+  Before choosing an `object_reference.prim_path`, use the documented `prim-tree` mode in
+  [scene_inspector.py](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py).
+  Browse text first, then request scoped JSON only for the relevant subtree. Treat results as
+  authored USD data; Arena and Isaac Lab spawn-time overrides are excluded.
+- **Layout:** follow the example's scene composition. Use the existing
   [relations](../../../docs/pages/concepts/object_placement/relations.rst),
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
-  Check asset identity, collision handling, reachability, physical support, and reset requirements.
+  Check reachability and physical support.
 - **Placement diagnostics:** the object placer converts the environment's relations into concrete
   object poses: it solves candidate layouts, then checks each one against its relations, collision
   clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
