@@ -7,7 +7,6 @@
 
 import json
 import os
-import shlex
 import subprocess
 import time
 import yaml
@@ -28,7 +27,7 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
-from osmo.scripts.build_experiment_output import _parse_arguments, load_experiment_runner_result
+from osmo.scripts.build_experiment_output import ARENA_EXPERIMENT_DEFINITION_FILENAME, load_experiment_runner_result
 from osmo.submit_arena_experiment import (
     ArenaExperimentSubmissionCfg,
     build_arena_experiment_submission_cfg,
@@ -39,6 +38,7 @@ from osmo.submit_arena_experiment import (
 )
 from osmo.tasks.collect_experiment_outputs_task import (
     _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
+    _REMOTE_EXPERIMENT_DEFINITION_FILE_PATH,
     _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
     experiment_runner_output_directory_input_token,
 )
@@ -322,7 +322,10 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
         in experiment_output_command
     )
     assert "--experiment-output-directory" in experiment_output_command
-    assert f"--experiment-name={EXPERIMENT_NAME}" in experiment_output_command
+    assert (
+        f"cp {_REMOTE_EXPERIMENT_DEFINITION_FILE_PATH} '{OSMO_TASK_OUTPUT_DIR}/{ARENA_EXPERIMENT_DEFINITION_FILENAME}'"
+        in experiment_output_command
+    )
     assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
 
@@ -497,6 +500,22 @@ def test_embeds_effective_experiment_yaml():
     assert embedded_experiment["runs"]["baseline"]["environment_builder"]["num_envs"] == 1
 
 
+def test_embedded_experiment_of_every_run_exports_no_kpis():
+    """Embed an empty kpi_exporters in each single-Run Experiment; the collector task exports the KPIs."""
+    source_experiment_cfg = _pi0_experiment_cfg()
+    source_experiment_cfg.kpi_exporters = ["success_rate", "timing"]
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="exporters-experiment"),
+        experiment_cfg=source_experiment_cfg,
+    )
+
+    run_groups = _workflow_groups(workflow.generate_workflow())[:-1]
+
+    assert run_groups
+    for group in run_groups:
+        assert _embedded_experiment(group["tasks"][0])["kpi_exporters"] == []
+
+
 def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
     """Embed the Experiment name in each single-Run Experiment so remote results keep it."""
     source_experiment_cfg = _pi0_experiment_cfg()
@@ -514,39 +533,86 @@ def test_embedded_experiment_of_every_run_keeps_the_experiment_name():
         assert _embedded_experiment(group["tasks"][0])["name"] == "my-benchmark"
 
 
-def test_collector_task_script_passes_the_experiment_name_to_the_collector():
-    """The collector writes the Experiment name into the result, so it needs it on its command line."""
+def _collector_definition(workflow: dict) -> dict:
+    experiment_output_task = _workflow_groups(workflow)[-1]["tasks"][0]
+    definition_file = _task_file(experiment_output_task, _REMOTE_EXPERIMENT_DEFINITION_FILE_PATH)
+    assert "localpath" not in definition_file
+    return yaml.safe_load(definition_file["contents"])
+
+
+@pytest.mark.parametrize("name", ["my benchmark", "--benchmark", "-x"])
+def test_collector_task_embeds_the_experiment_definition_with_its_name(name):
+    """The collector reads the Experiment name, and every Run, from the embedded Experiment Definition."""
     source_experiment_cfg = _zero_action_experiment_cfg()
-    source_experiment_cfg.name = "my benchmark"
+    source_experiment_cfg.name = name
     workflow = ArenaExperimentWorkflow(
         workflow_cfg=WorkflowCfg(workflow_name="named-collector"),
         experiment_cfg=source_experiment_cfg,
     )
 
-    experiment_output_task = _workflow_groups(workflow.generate_workflow())[-1]["tasks"][0]
+    definition = _collector_definition(workflow.generate_workflow())
 
-    experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
-    assert "'--experiment-name=my benchmark'" in experiment_output_command
+    assert definition["name"] == name
+    assert list(definition["runs"]) == list(source_experiment_cfg.runs)
 
 
-@pytest.mark.parametrize("name", ["--benchmark", "-x"])
-def test_collector_task_script_accepts_an_experiment_name_starting_with_a_dash(name, monkeypatch):
-    """A valid name that looks like an option reaches the collector's parser as the --experiment-name value."""
-    source_experiment_cfg = _zero_action_experiment_cfg()
-    source_experiment_cfg.name = name
+def _collector_kpi_exporters_for_submission(overrides: list[str], experiment_cfg_path: Path) -> list[str]:
+    submission_cfg = _compose_submission(overrides, experiment_cfg_path=experiment_cfg_path)
     workflow = ArenaExperimentWorkflow(
-        workflow_cfg=WorkflowCfg(workflow_name="dash-named-collector"),
-        experiment_cfg=source_experiment_cfg,
+        workflow_cfg=submission_cfg.osmo,
+        experiment_cfg=submission_cfg.experiment_cfg,
+        task_cfg=submission_cfg.experiment_runner,
     )
-    experiment_output_task = _workflow_groups(workflow.generate_workflow())[-1]["tasks"][0]
+    return _collector_definition(workflow.generate_workflow())["kpi_exporters"]
 
-    command_line = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"].splitlines()[1]
-    command_tokens = shlex.split(command_line)
 
-    assert f"--experiment-name={name}" in command_tokens
-    assert name not in command_tokens
-    monkeypatch.setattr("sys.argv", command_tokens[1:])  # argv[0] is the script path
-    assert _parse_arguments().experiment_name == name
+def test_collector_runs_the_kpi_exporters_of_the_experiment():
+    """The collector's Experiment Definition lists the Experiment's kpi_exporters."""
+    kpi_exporters = _collector_kpi_exporters_for_submission([], GETTING_STARTED_EXPERIMENT_CFG_PATH)
+
+    assert kpi_exporters == ["success_rate", "timing"]
+
+
+def test_kpi_exporters_override_narrows_the_collector_selection():
+    """The collector's Experiment Definition lists only the overridden exporter names."""
+    kpi_exporters = _collector_kpi_exporters_for_submission(
+        ["experiment_cfg.kpi_exporters=[timing]"], GETTING_STARTED_EXPERIMENT_CFG_PATH
+    )
+
+    assert kpi_exporters == ["timing"]
+
+
+def test_empty_kpi_exporters_override_gives_the_collector_no_exporters():
+    """An empty kpi_exporters list gives the collector no names, so it exports no KPIs."""
+    kpi_exporters = _collector_kpi_exporters_for_submission(
+        ["experiment_cfg.kpi_exporters=[]"], GETTING_STARTED_EXPERIMENT_CFG_PATH
+    )
+
+    assert kpi_exporters == []
+
+
+def test_unknown_kpi_exporter_fails_submission_with_the_valid_names():
+    """Reject an exporter name that is not in the registry, listing the valid names."""
+    with pytest.raises(AssertionError, match=r"Unknown KPI exporters \['latency'\].*\['success_rate', 'timing'\]"):
+        _compose_submission(
+            ["experiment_cfg.kpi_exporters=[success_rate,latency]"],
+            experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH,
+        )
+
+
+def test_duplicate_kpi_exporters_fail_submission():
+    """Reject a submission that selects the same KPI exporter twice."""
+    with pytest.raises(AssertionError, match=r"duplicate KPI exporters \['timing'\]"):
+        _compose_submission(
+            ["experiment_cfg.kpi_exporters=[timing,timing]"], experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH
+        )
+
+
+def test_osmo_workflow_cfg_has_no_kpi_exporters_field():
+    """KPI exporters belong to the Experiment, so the submission's osmo section does not accept them."""
+    assert not hasattr(WorkflowCfg(), "kpi_exporters")
+    with pytest.raises(Exception, match="osmo.kpi_exporters"):
+        _compose_submission(["osmo.kpi_exporters=[timing]"], experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH)
 
 
 def test_null_experiment_name_fails_submission():
@@ -591,6 +657,20 @@ def test_result_wrapper_preserves_experiment_video_options():
     assert "--record_viewport_video" in experiment_runner_command
     assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
     assert experiment_runner_command.endswith("exit 0\n")
+
+
+def test_experiment_runner_task_does_not_pass_a_kpi_exporters_option():
+    """The Experiment Runner task has no KPI exporter option; its embedded Experiment selects none."""
+    experiment_runner_task = ExperimentRunnerTask(
+        task_cfg=ExperimentRunnerTaskCfg(),
+        experiment_cfg=_zero_action_experiment_cfg(),
+        lead=True,
+        task_name="experiment-runner",
+    )
+
+    experiment_runner_command = _task_file(experiment_runner_task.create_task_dict(), "/tmp/entry.sh")["contents"]
+
+    assert "--kpi_exporters" not in experiment_runner_command
 
 
 def test_experiment_runner_without_timeout_runs_unbounded():

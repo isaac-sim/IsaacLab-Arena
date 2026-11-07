@@ -6,6 +6,7 @@
 """Verify building one Experiment output from exact Experiment Runner task outputs."""
 
 import json
+import yaml
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,12 +21,20 @@ from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_ti
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport
+from isaaclab_arena_benchmarking.benchmarks import registry
+from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import SuccessRateKpiExporter
+from isaaclab_arena_benchmarking.tests.utils.influxdb_kpi_records_validation import (
+    assert_influxdb_kpi_records_are_valid,
+)
 from osmo.scripts.build_experiment_output import (
+    ARENA_EXPERIMENT_DEFINITION_FILENAME,
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
     build_experiment_output,
     collect_run_outputs_into_experiment_output,
     load_experiment_runner_output_directories_by_run_name,
     load_experiment_runner_result,
+    main,
+    read_experiment_name_and_kpi_exporters,
 )
 
 START_TIMESTAMP_NS = 1792799000000000000
@@ -33,6 +42,7 @@ END_TIMESTAMP_NS = 1792800000000000000
 GIT_SHA = "0123456789abcdef0123456789abcdef01234567"
 GIT_BRANCH = "feature/provenance"
 EXPERIMENT_NAME = "pnp_benchmark"
+KPI_EXPORTERS = ["success_rate", "timing"]
 
 
 def _run_metadata(environment_name: str, policy_variant: str) -> dict[str, object]:
@@ -285,6 +295,7 @@ def test_rejects_runs_executed_at_different_commits(tmp_path):
             {"first": first_runner_output_directory, "second": second_runner_output_directory},
             tmp_path / "experiment-output",
             experiment_name=EXPERIMENT_NAME,
+            kpi_exporters=KPI_EXPORTERS,
         )
 
 
@@ -328,6 +339,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
         },
         experiment_output_directory,
         experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=KPI_EXPORTERS,
     )
 
     assert report_path == experiment_output_directory / "index.html"
@@ -395,6 +407,28 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert "second" in report_contents
     assert "2 run(s) &middot; 2 completed &middot; 0 failed &middot; 2 episode(s)" in report_contents
     assert "Failed runs" not in report_contents
+    assert {path.name for path in experiment_output_directory.glob("kpis_*.json")} == {
+        "kpis_success_rates.json",
+        "kpis_timing.json",
+    }
+    success_rate_kpis = json.loads(
+        (experiment_output_directory / "kpis_success_rates.json").read_text(encoding="utf-8")
+    )
+    assert_influxdb_kpi_records_are_valid(success_rate_kpis)
+    assert success_rate_kpis == [{
+        "type": "per_experiment",
+        "timestamp_ns": END_TIMESTAMP_NS + 1,
+        **GitStamp(git_sha=GIT_SHA, git_branch=GIT_BRANCH).to_dict(),
+        "benchmark_id": EXPERIMENT_NAME,
+        "success_rate": 0.5,
+        "num_episodes": 2,
+        "num_runs": 2,
+    }]
+    timing_kpis = json.loads((experiment_output_directory / "kpis_timing.json").read_text(encoding="utf-8"))
+    assert_influxdb_kpi_records_are_valid(timing_kpis)
+    assert sorted(record["name"] for record in timing_kpis) == ["step", "step/policy_inference"]
+    assert all(record["type"] == "timing" and "run_name" not in record for record in timing_kpis)
+    assert all(record["benchmark_id"] == EXPERIMENT_NAME for record in timing_kpis)
 
 
 def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
@@ -426,6 +460,7 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
         },
         experiment_output_directory,
         experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=KPI_EXPORTERS,
     )
 
     assert (experiment_output_directory / "completed-run/episode_results_rebuild0.jsonl").is_file()
@@ -472,6 +507,8 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     assert "Failed runs (1)" in report_contents
     assert "<code>17</code>" in report_contents
     assert "These runs did not complete and are excluded from episode results." in report_contents
+    # An Experiment with a failed Run is not complete, so it produces no KPI files.
+    assert list(experiment_output_directory.glob("kpis_*.json")) == []
 
 
 def test_builds_failure_report_when_every_runner_failed(tmp_path):
@@ -498,6 +535,7 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
         },
         experiment_output_directory,
         experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=KPI_EXPORTERS,
     )
 
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
@@ -520,3 +558,133 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
     assert "<code>1</code>" in report_contents
     assert "<code>2</code>" in report_contents
     assert "No results recorded yet." not in report_contents
+    assert list(experiment_output_directory.glob("kpis_*.json")) == []
+
+
+class _FailingSuccessRateExporter(SuccessRateKpiExporter):
+    def build_records_from_output_dir(self, output_dir):
+        raise RuntimeError("success rate exporter broke")
+
+
+def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch, capsys):
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(experiment_runner_output_directory / "run_a", "run_a", True)
+    _write_run_timings(experiment_runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        experiment_runner_output_directory,
+        RunStatus.COMPLETED,
+        0,
+        {"run_a": _run_metadata("environment", "pi05")},
+    )
+    experiment_output_directory = tmp_path / "experiment-output"
+    monkeypatch.setitem(registry.get_exporters_by_name(), "success_rate", _FailingSuccessRateExporter)
+
+    build_experiment_output(
+        {"run_a": experiment_runner_output_directory},
+        experiment_output_directory,
+        experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=KPI_EXPORTERS,
+    )
+
+    assert (experiment_output_directory / "index.html").is_file()
+    assert not (experiment_output_directory / "kpis_success_rates.json").exists()
+    assert (experiment_output_directory / "kpis_timing.json").is_file()
+    printed = capsys.readouterr().out
+    assert "success_rate" in printed
+    assert "success rate exporter broke" in printed
+
+
+def _write_experiment_definition(path: Path, name: str = EXPERIMENT_NAME, **extra_values) -> Path:
+    path.write_text(yaml.safe_dump({"name": name, **extra_values, "runs": {}}), encoding="utf-8")
+    return path
+
+
+def test_collector_reads_the_experiment_name_and_kpi_exporters_from_the_definition(tmp_path):
+    definition_path = _write_experiment_definition(tmp_path / "definition.yaml", kpi_exporters=["timing"])
+
+    assert read_experiment_name_and_kpi_exporters(definition_path) == (EXPERIMENT_NAME, ["timing"])
+
+
+def test_collector_exports_no_kpis_when_the_definition_has_no_exporters(tmp_path):
+    definition_path = _write_experiment_definition(tmp_path / "definition.yaml", kpi_exporters=[])
+
+    assert read_experiment_name_and_kpi_exporters(definition_path) == (EXPERIMENT_NAME, [])
+
+
+def test_collector_reads_the_definition_from_the_experiment_output(tmp_path, monkeypatch):
+    runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(runner_output_directory / "run_a", "run_a", True)
+    _write_run_timings(runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        runner_output_directory, RunStatus.COMPLETED, 0, {"run_a": _run_metadata("environment", "pi05")}
+    )
+    runners_file = tmp_path / "runners.json"
+    runners_file.write_text(json.dumps({"run_a": str(runner_output_directory)}), encoding="utf-8")
+    experiment_output_directory = tmp_path / "experiment-output"
+    experiment_output_directory.mkdir()
+    _write_experiment_definition(
+        experiment_output_directory / ARENA_EXPERIMENT_DEFINITION_FILENAME, kpi_exporters=["timing"]
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "build_experiment_output.py",
+            "--experiment-runner-output-directories-file",
+            str(runners_file),
+            "--experiment-output-directory",
+            str(experiment_output_directory),
+        ],
+    )
+
+    main()
+
+    experiment_result = json.loads(
+        (experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8")
+    )
+    assert experiment_result["experiment_name"] == EXPERIMENT_NAME
+    assert (experiment_output_directory / "kpis_timing.json").is_file()
+
+
+def test_collector_writes_only_the_selected_kpi_records(tmp_path):
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(experiment_runner_output_directory / "run_a", "run_a", True)
+    _write_run_timings(experiment_runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        experiment_runner_output_directory,
+        RunStatus.COMPLETED,
+        0,
+        {"run_a": _run_metadata("environment", "pi05")},
+    )
+    experiment_output_directory = tmp_path / "experiment-output"
+
+    build_experiment_output(
+        {"run_a": experiment_runner_output_directory},
+        experiment_output_directory,
+        experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=["timing"],
+    )
+
+    assert (experiment_output_directory / "kpis_timing.json").is_file()
+    assert not (experiment_output_directory / "kpis_success_rates.json").exists()
+
+
+def test_collector_writes_no_kpi_records_when_no_exporter_is_selected(tmp_path):
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(experiment_runner_output_directory / "run_a", "run_a", True)
+    _write_run_timings(experiment_runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        experiment_runner_output_directory,
+        RunStatus.COMPLETED,
+        0,
+        {"run_a": _run_metadata("environment", "pi05")},
+    )
+    experiment_output_directory = tmp_path / "experiment-output"
+
+    build_experiment_output(
+        {"run_a": experiment_runner_output_directory},
+        experiment_output_directory,
+        experiment_name=EXPERIMENT_NAME,
+        kpi_exporters=[],
+    )
+
+    assert list(experiment_output_directory.glob("kpis_*.json")) == []

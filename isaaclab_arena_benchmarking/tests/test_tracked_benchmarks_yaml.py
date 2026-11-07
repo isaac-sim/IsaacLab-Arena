@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from osmo.submit_arena_experiment import build_arena_experiment_submission_cfg
 
 REPO_ROOT = Path(TestConstants.repo_root).resolve()
 TRACKED_BENCHMARKS_PATH = REPO_ROOT / "isaaclab_arena_benchmarking" / "benchmark_lists" / "tracked_benchmarks.yaml"
@@ -22,7 +23,9 @@ BENCHMARK_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg", "overrides"}
 
-RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url")
+REQUIRED_BENCHMARK_ENTRY_KEYS = {"name", "experiment_cfg"}
+
+RESERVED_OVERRIDE_KEYS = ("osmo.workflow_name", "osmo.output_url", "experiment_cfg.name")
 """OSMO settings chosen per launch, which a benchmark entry must not fix."""
 
 
@@ -55,6 +58,8 @@ def test_benchmark_entry_is_well_formed(entry):
     ), f"benchmark name {name!r} must match {BENCHMARK_NAME_PATTERN.pattern}"
     unknown_keys = set(entry) - BENCHMARK_ENTRY_KEYS
     assert not unknown_keys, f"benchmark {name!r} has unknown keys {sorted(unknown_keys)}"
+    missing_keys = REQUIRED_BENCHMARK_ENTRY_KEYS - set(entry)
+    assert not missing_keys, f"benchmark {name!r} is missing required keys {sorted(missing_keys)}"
 
     experiment_cfg = entry.get("experiment_cfg")
     assert isinstance(experiment_cfg, str), f"benchmark {name!r} needs a string experiment_cfg"
@@ -75,6 +80,29 @@ def test_benchmark_entry_is_well_formed(entry):
         ), f"benchmark {name!r} override {override!r} sets reserved key {override_key!r}"
 
 
+def _compose_benchmark_submission(entry: dict):
+    return build_arena_experiment_submission_cfg(
+        REPO_ROOT / entry["experiment_cfg"],
+        [*entry.get("overrides", []), f"experiment_cfg.name='{entry['name']}'"],
+    )
+
+
+@pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
+def test_benchmark_experiment_exports_kpis(entry):
+    """Every tracked Experiment selects the success rate and timing exporters, not the config default."""
+    experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
+
+    assert experiment_cfg.kpi_exporters == ["success_rate", "timing"], f"benchmark {entry['name']!r}"
+
+
+def test_smoke_single_run_benchmark_keeps_only_the_baseline_run():
+    entry = next(entry for entry in BENCHMARK_ENTRIES if entry["name"] == "smoke-single-run")
+
+    experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
+
+    assert list(experiment_cfg.runs) == ["baseline"]
+
+
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
 def test_benchmark_renders_an_osmo_workflow_dry_run(entry):
     result = subprocess.run(
@@ -86,6 +114,8 @@ def test_benchmark_renders_an_osmo_workflow_dry_run(entry):
             entry["experiment_cfg"],
             "--dry_run",
             *entry.get("overrides", []),
+            # The per-launch setting an internal launcher adds from the entry.
+            f"experiment_cfg.name='{entry['name']}'",
         ],
         cwd=REPO_ROOT,
         capture_output=True,

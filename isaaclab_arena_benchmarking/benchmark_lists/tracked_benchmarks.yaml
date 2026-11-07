@@ -3,15 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Benchmarks used for KPI tracking.
+# Benchmarks used for KPI tracking. KPIs are always aggregated over all Runs of an Experiment.
 benchmarks:
-  # getting_started_experiment.yaml has four Runs; keep baseline and swap_objects only. Video recording is
+  # getting_started_experiment.yaml has four Runs; keep baseline only. Video recording is
   # disabled because the default recording fails on cameraless environments on OSMO.
   # TODO(dtingdahl) re-visit this list and add more relevant benchmarks
-  - name: smoke-two-runs
+  - name: smoke-single-run
     experiment_cfg: isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
     overrides:
       - experiment_cfg.shared.rollout_limit.num_episodes=2
+      - "~experiment_cfg.runs.swap_objects"
       - "~experiment_cfg.runs.change_background_hdr"
       - "~experiment_cfg.runs.parallel_envs"
       - experiment_runner.record_camera_video=false

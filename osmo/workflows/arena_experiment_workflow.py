@@ -75,9 +75,10 @@ class ArenaExperimentWorkflow(Workflow):
     ) -> tuple[dict[str, Any], str]:
         """Create one OSMO group that executes a single-Run Arena Experiment, plus its server if any."""
         experiment_runner_task_name = f"experiment-runner-{run_index}"
-        # Snapshot this Run alone so the Experiment Runner task embeds a single-Run Experiment.
+        # Snapshot this Run alone so the Experiment Runner task embeds a single-Run Experiment. It exports no KPIs,
+        # because the collector task writes and publishes the KPI files of the whole Experiment.
         single_run_experiment_config = ArenaExperimentCfg(
-            runs={run_name: deepcopy(run_config)}, name=self.experiment_cfg.name
+            runs={run_name: deepcopy(run_config)}, name=self.experiment_cfg.name, kpi_exporters=[]
         )
 
         policy_server_tasks: list[BaseTask] = []
@@ -132,7 +133,7 @@ class ArenaExperimentWorkflow(Workflow):
             task_name="collect-experiment-outputs",
             image=self.task_cfg.image,
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
-            experiment_name=self.experiment_cfg.name,
+            experiment_cfg=self.experiment_cfg,
             lead=True,
             resource=self.experiment_output_resource_name,
             output_url=self.workflow_cfg.output_url,
