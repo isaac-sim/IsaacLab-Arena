@@ -34,6 +34,23 @@ def test_load_force_control_recipe_separates_setup_from_runtime_commands(tmp_pat
     assert recipe.commands == tuple(commands[1:])
 
 
+def test_replace_existing_actuators_keeps_all_recipe_joint_setups():
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
+        _apply_joint_setups,
+    )
+
+    cabinet_cfg = SimpleNamespace(actuators={"original": object()})
+    env_cfg = SimpleNamespace(scene=SimpleNamespace(cabinet=cabinet_cfg))
+    setups = (
+        {"name": "cabinet", "joint_name": "door", "replace_existing": True},
+        {"name": "cabinet", "joint_name": "drawer", "replace_existing": True},
+    )
+
+    _apply_joint_setups(env_cfg, setups)
+
+    assert set(cabinet_cfg.actuators) == {"force_control_door", "force_control_drawer"}
+
+
 def test_reset_joint_hold_is_active_before_initial_settling():
     import torch
 

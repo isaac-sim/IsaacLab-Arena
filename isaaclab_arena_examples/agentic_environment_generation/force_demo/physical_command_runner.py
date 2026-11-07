@@ -454,13 +454,18 @@ def _apply_joint_setups(env_cfg, joint_setups: tuple[dict[str, Any], ...]) -> No
         return
     from isaaclab.actuators import ImplicitActuatorCfg
 
+    asset_cfgs = {}
     for setup in joint_setups:
         name = setup["name"]
         assert hasattr(env_cfg.scene, name), f"Recipe setup refers to unknown scene entity '{name}'"
-        asset_cfg = getattr(env_cfg.scene, name)
+        asset_cfgs[name] = getattr(env_cfg.scene, name)
+    for name in {setup["name"] for setup in joint_setups if setup.get("replace_existing", False)}:
+        asset_cfgs[name].actuators = {}
+
+    for setup in joint_setups:
+        name = setup["name"]
+        asset_cfg = asset_cfgs[name]
         existing_actuators = dict(asset_cfg.actuators or {})
-        if setup.get("replace_existing", False):
-            existing_actuators = {}
         actuator_name = "force_control_" + re.sub(r"\W+", "_", setup["joint_name"]).strip("_")
         assert (
             actuator_name not in existing_actuators
