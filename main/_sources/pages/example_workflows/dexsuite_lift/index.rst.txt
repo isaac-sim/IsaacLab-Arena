@@ -83,9 +83,7 @@ checkpoint in Arena.
 Prerequisites
 ^^^^^^^^^^^^^
 
-Start the Isaac Lab Arena docker container:
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 Workflow Steps
 ^^^^^^^^^^^^^^

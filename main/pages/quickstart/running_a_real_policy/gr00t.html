@@ -677,13 +677,14 @@ DROID environment, connects the GR00T policy to the server, and stops after thre
 <code class="docutils literal notranslate"><span class="pre">droid_abs_joint_pos</span></code> and enables the cameras required by the policy. The natural-language
 instruction belongs to the environment builder, while the server connection belongs to the
 policy.</p>
-<p>Open another shell and prepare the Arena runtime from the repository root, using either a native
-<code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the base Docker container (see <a class="reference internal" href="../installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
+<p>Open another shell. The GR00T client is not part of a default <code class="docutils literal notranslate"><span class="pre">uv</span></code> sync, so the native setup
+selects its dependency group:</p>
+<p>Prepare the Arena runtime from the repository root, using either a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the
+base Docker container (see <a class="reference internal" href="../installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
 Native uv</label><div class="sd-tab-content docutils">
-<p>The GR00T client is not part of a default sync, so select its dependency group:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w"> </span>--group<span class="w"> </span>gr00t-client
 <span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 <span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y

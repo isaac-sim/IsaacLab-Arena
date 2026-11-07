@@ -61,18 +61,16 @@ If using Docker, start the container from the repository root on the host:
 
 .. code-block:: bash
 
-   mkdir -p "$HOME/datasets"
    ./docker/run_docker.sh
 
 Run the remaining commands from the repository root in the activated native
 environment or inside the Docker container (``/workspaces/isaaclab_arena``).
 
-Create a directory for your demonstrations. For native installations, replace
-``/datasets/gear_insertion`` with ``$HOME/datasets/gear_insertion``:
+Create a directory for your demonstrations:
 
 .. code-block:: bash
 
-   export DATASET_DIR=/datasets/gear_insertion
+   export DATASET_DIR="$HOME/datasets/gear_insertion"
    mkdir -p "${DATASET_DIR}"
 
 Keep using this terminal so ``DATASET_DIR`` remains set.

@@ -1,15 +1,13 @@
 Evaluation in Arena
 --------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:
 
-:docker_run_default:
-
-Once inside the container, set the models directory:
+Once the runtime is ready, set the models directory:
 
 .. code-block:: bash
 
-   export MODELS_DIR=/models/isaaclab_arena/dexsuite_lift
+   export MODELS_DIR="$HOME/models/isaaclab_arena/dexsuite_lift"
    mkdir -p $MODELS_DIR
 
 This step evaluates Isaac Lab's published Newton state-policy checkpoint using

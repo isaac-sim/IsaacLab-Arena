@@ -662,8 +662,8 @@ and samples a new wrist-camera position for each episode.</span><a class="header
 </pre></div>
 </div>
 </div>
-</details><p>In the Base Docker container, set the output directory used by this workflow:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">"/eval/camera_sensitivity_workflow"</span>
+</details><p>In the Arena runtime prepared in <a class="reference internal" href="index.html"><span class="doc">Evaluation</span></a>, set the output directory used by this workflow:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/eval/camera_sensitivity_workflow"</span>
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>
@@ -702,7 +702,7 @@ droid_pnp_camera_sensitivity_openpi:
   success_rate                       1.0000
 ======================================================================
 
-Wrote evaluation report with 1 task(s), 1 run(s) and 10 episode(s) to: /eval/camera_sensitivity_workflow/index.html (+2 linked page(s))
+Wrote evaluation report with 1 task(s), 1 run(s) and 10 episode(s) to: ${CAMERA_SENSITIVITY_OUTPUT_DIR}/index.html (+2 linked page(s))
 Serving evaluation report at http://localhost:8001/index.html (Ctrl+C to stop).
 </pre></div>
 </div>
@@ -720,7 +720,7 @@ outcome of each episode.</span><a class="headerlink" href="#id3" title="Link to 
 </figure>
 <p>Select <strong>Open droid_pnp_camera_sensitivity_openpi to watch the videos</strong> to inspect the individual
 episodes. The recording below shows the three DROID camera views for the first episode:</p>
-<figure  class="sphinx-contrib-video-container align-center"><video autoplay="True" controls="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../../_images/droid_camera_sensitivity_evaluation_report_episode.mp4" type="video/mp4">Evaluation report episode with external-camera and wrist-camera videos</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">Each episode includes its outcome, task progress, recorded camera views, and sampled variation values.</span></p></figcaption></figure><p>Press <kbd class="kbd docutils literal notranslate">Ctrl</kbd>+<kbd class="kbd docutils literal notranslate">C</kbd> in the Base Docker container when you finish reviewing the report. This stops
+<figure  class="sphinx-contrib-video-container align-center"><video autoplay="True" controls="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../../_images/droid_camera_sensitivity_evaluation_report_episode.mp4" type="video/mp4">Evaluation report episode with external-camera and wrist-camera videos</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">Each episode includes its outcome, task progress, recorded camera views, and sampled variation values.</span></p></figcaption></figure><p>Press <kbd class="kbd docutils literal notranslate">Ctrl</kbd>+<kbd class="kbd docutils literal notranslate">C</kbd> in the terminal running the evaluation when you finish reviewing the report. This stops
 the report server; the HTML pages, videos, and episode results remain in the output directory.</p>
 </section>
 <section id="look-beyond-the-success-rate">

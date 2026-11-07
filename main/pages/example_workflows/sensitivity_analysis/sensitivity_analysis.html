@@ -630,8 +630,28 @@ judge the policy’s robustness. For background on the method, see the <a class=
 concept page</span></a>.</p>
 <section id="estimate-the-success-conditioned-posterior">
 <h2>Estimate the success-conditioned posterior<a class="headerlink" href="#estimate-the-success-conditioned-posterior" title="Link to this heading">#</a></h2>
-<p>In the Base Docker container, set the paths used by the download and analysis commands:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">"/eval/camera_sensitivity_workflow"</span>
+<p>Prepare the Arena runtime from the repository root, using either a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the
+base Docker container (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Docker Container</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+</div>
+</div>
+<p>Then set the paths used by the download and analysis commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/eval/camera_sensitivity_workflow"</span>
 <span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">/droid_pnp_camera_sensitivity_openpi"</span>
 <span class="nv">EPISODE_RESULTS_PATH</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/episode_results_rebuild0.jsonl"</span>
 <span class="nv">POSTERIOR_FIGURE_PATH</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/camera_sensitivity_posterior.png"</span>
@@ -672,15 +692,29 @@ the next step.</p>
 <p>For the downloaded sample, the terminal output includes:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[INFO] SensitivityAnalyzer: fitting NPE_C on 10 episodes (theta dim=3, x dim=1).
 ...
-[INFO] Wrote report → /eval/camera_sensitivity_workflow/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png
+[INFO] Wrote report → ${CAMERA_SENSITIVITY_OUTPUT_DIR}/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png
 </pre></div>
 </div>
 </section>
 <section id="read-the-posterior-marginals">
 <h2>Read the posterior marginals<a class="headerlink" href="#read-the-posterior-marginals" title="Link to this heading">#</a></h2>
-<p>Still in the Base Docker container, open the generated image:</p>
+<p>Open the generated image. In the Docker container, use <code class="docutils literal notranslate"><span class="pre">pqiv</span></code>; on a native host, use your
+desktop image viewer:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+Native uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>xdg-open<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">"</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Docker Container</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">NO_AT_BRIDGE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pqiv<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
+</div>
+</div>
 </div>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/droid_camera_sensitivity_posterior.png"><img alt="Posterior marginals for the three wrist-camera position offsets conditioned on success" src="../../../_images/droid_camera_sensitivity_posterior.png" style="width: 100%;" />

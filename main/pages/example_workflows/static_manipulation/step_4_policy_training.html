@@ -612,16 +612,32 @@
 <h1>Policy Post-training<a class="headerlink" href="#policy-post-training" title="Link to this heading">#</a></h1>
 <p>This workflow covers post-training an example policy using the generated dataset,
 here we use <a class="reference external" href="https://research.nvidia.com/labs/gear/gr00t-n1_6/">GR00T N1.6</a> as the base model.</p>
-<p>Use the Arena <strong>Base</strong> container for dataset download and LeRobot conversion. Run GR00T
+<p>Use the Arena runtime for dataset download and LeRobot conversion. Run GR00T
 finetuning from the native Isaac-GR00T <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment in <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>,
-not from the Arena container.</p>
-<p><strong>Docker Container for conversion</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
+not from the Arena runtime.</p>
+<p>Prepare the Arena runtime from the repository root, using either a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the
+base Docker container (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Docker Container</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-<p>Once inside the container, set the dataset and models directories.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/static_manipulation_tutorial
-<span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/static_manipulation_tutorial
+</div>
+</div>
+<p>Once the runtime is ready, set the dataset and models directories.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/datasets/isaaclab_arena/static_manipulation_tutorial"</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/models/isaaclab_arena/static_manipulation_tutorial"</span>
 </pre></div>
 </div>
 <p>Note that this tutorial assumes that you’ve completed the
@@ -662,7 +678,12 @@ such that the conversion step can be skipped.</p>
 </div>
 <p class="sd-card-text">If you download this dataset, you can skip the conversion step below and continue to the next step.</p>
 </div>
-</details><p>Convert the HDF5 dataset to LeRobot format for policy post-training:</p>
+</details><p>The converter calls <code class="docutils literal notranslate"><span class="pre">ffprobe</span></code>, which the Docker container already provides. On a native host,
+install it first if it is missing:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>ffmpeg
+</pre></div>
+</div>
+<p>Convert the HDF5 dataset to LeRobot format for policy post-training:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--yaml_file<span class="w"> </span>isaaclab_arena_gr00t/lerobot/config/gr1_manip_config.yaml
 </pre></div>
@@ -673,7 +694,7 @@ such that the conversion step can be skipped.</p>
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">gr1_manip_config.yaml</span></code>)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Input/Output paths</span>
-<span class="nt">data_root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/datasets/isaaclab_arena/static_manipulation_tutorial</span>
+<span class="nt">data_root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~/datasets/isaaclab_arena/static_manipulation_tutorial</span>
 <span class="nt">hdf5_name</span><span class="p">:</span><span class="w"> </span><span class="s">"arena_gr1_manipulation_dataset_generated.hdf5"</span>
 
 <span class="c1"># Task description</span>
@@ -709,8 +730,8 @@ We provide two post-training options:</p>
 specifies CUDA 12.8 and <code class="docutils literal notranslate"><span class="pre">pytorch-cu128</span></code> for RTX 5090 systems.</p>
 </div>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-0">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
 Best Quality</label><div class="sd-tab-content docutils">
 <p>Training takes approximately 4-8 hours on 8x L40s GPUs.</p>
 <p>Compute Requirements:</p>
@@ -733,12 +754,11 @@ longer to converge.</p>
 <li><p><strong>Batch Size:</strong> 24 (adjust based on GPU memory)</p></li>
 <li><p><strong>Training Steps:</strong> 20,000</p></li>
 </ul>
-<p>To post-train the policy, open another terminal <strong>outside</strong> the Arena Base Docker container
+<p>To post-train the policy, open another terminal, separate from the Arena runtime,
 and <code class="docutils literal notranslate"><span class="pre">cd</span></code> to <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>. Set up GR00T’s native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment by
 following the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment">GR00T environment setup guide</a>,
-then run the finetuning command below. The paths assume the default Arena Docker mounts
-(<code class="docutils literal notranslate"><span class="pre">~/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">~/models</span></code> on the host); adjust them if you launched Arena with
-custom mount directories.</p>
+then run the finetuning command below. The paths assume the default <code class="docutils literal notranslate"><span class="pre">$HOME/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">$HOME/models</span></code>
+locations; adjust them if you use other directories.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset-path<span class="w"> </span>~/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
@@ -760,8 +780,8 @@ custom mount directories.</p>
 </pre></div>
 </div>
 </div>
-<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
 Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <p>Training takes approximately 2-3 hours on 1x Ada6000 GPU.</p>
 <p>Training Configuration:</p>
@@ -773,12 +793,11 @@ Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <li><p><strong>Training Steps:</strong> 30,000</p></li>
 <li><p><strong>GPUs:</strong> 1 (single-GPU training)</p></li>
 </ul>
-<p>To post-train the policy, open another terminal <strong>outside</strong> the Arena Base Docker container
+<p>To post-train the policy, open another terminal, separate from the Arena runtime,
 and <code class="docutils literal notranslate"><span class="pre">cd</span></code> to <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>. Set up GR00T’s native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment by
 following the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment">GR00T environment setup guide</a>,
-then run the finetuning command below. The paths assume the default Arena Docker mounts
-(<code class="docutils literal notranslate"><span class="pre">~/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">~/models</span></code> on the host); adjust them if you launched Arena with
-custom mount directories.</p>
+then run the finetuning command below. The paths assume the default <code class="docutils literal notranslate"><span class="pre">$HOME/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">$HOME/models</span></code>
+locations; adjust them if you use other directories.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset-path<span class="w"> </span>~/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output-dir<span class="w"> </span>~/models/isaaclab_arena/static_manipulation_tutorial<span class="w"> </span><span class="se">\</span>

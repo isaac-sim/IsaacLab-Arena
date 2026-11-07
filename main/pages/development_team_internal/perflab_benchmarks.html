@@ -724,7 +724,7 @@ with <code class="docutils literal notranslate"><span class="pre">-</span></code
 <section id="start-the-arena-container">
 <h2>2. Start the Arena container<a class="headerlink" href="#start-the-arena-container" title="Link to this heading">#</a></h2>
 <p>Choose an absolute host directory that PerfLab will retain after the job. Start the container from
-the repository root and mount that directory at <code class="docutils literal notranslate"><span class="pre">/eval</span></code>:</p>
+the repository root and mount that directory at <code class="docutils literal notranslate"><span class="pre">$HOME/eval</span></code> inside the container:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="o">=</span>/absolute/path/to/perflab-output
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="si">}</span><span class="s2">"</span>
 
@@ -743,7 +743,7 @@ visible:</p>
 
 ./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import isaaclab_arena; print(isaaclab_arena.__file__)"</span>
 nvidia-smi
-<span class="nb">test</span><span class="w"> </span>-d<span class="w"> </span>/eval<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">test</span><span class="w"> </span>-w<span class="w"> </span>/eval
+<span class="nb">test</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/eval"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">test</span><span class="w"> </span>-w<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/eval"</span>
 </pre></div>
 </div>
 <p>The import path must be below <code class="docutils literal notranslate"><span class="pre">/workspaces/isaaclab_arena</span></code>, and the final command must exit with
@@ -755,7 +755,7 @@ with <code class="docutils literal notranslate"><span class="pre">docker</span> 
 deprecation warning on every call; it does not affect the run.</p>
 <p>Create only the common output root. Do not create a trial’s exact output directory before its
 command runs:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="o">=</span>/eval/perflab-workloads
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/eval/perflab-workloads"</span>
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>

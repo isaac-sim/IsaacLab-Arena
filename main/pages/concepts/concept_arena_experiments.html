@@ -657,8 +657,12 @@ Execution</div>
 <h2>The Experiment Definition<a class="headerlink" href="#the-experiment-definition" title="Link to this heading">#</a></h2>
 <p>The YAML has a required <code class="docutils literal notranslate"><span class="pre">runs</span></code> mapping. A <code class="docutils literal notranslate"><span class="pre">shared</span></code> mapping is optional. When present, its
 values are reused by every Run. An optional top-level <code class="docutils literal notranslate"><span class="pre">name</span></code> string names the Experiment; if it is not
-given, the name is taken from the YAML file name (without extension). Each key below <code class="docutils literal notranslate"><span class="pre">runs</span></code> is a Run name:</p>
+given, the name is taken from the YAML file name (without extension). An optional top-level <code class="docutils literal notranslate"><span class="pre">kpi_exporters</span></code>
+list names the registered KPI exporters (see the <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_benchmarking/benchmarks/registry.py">KPI exporter registry</a>)
+that write the Experiment’s KPI records once every Run has completed. An empty list exports no KPIs. KPIs are
+aggregated over all Runs of the Experiment. Each key below <code class="docutils literal notranslate"><span class="pre">runs</span></code> is a Run name:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_experiment</span>
+<span class="nt">kpi_exporters</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">success_rate</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">timing</span><span class="p p-Indicator">]</span>
 <span class="nt">shared</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">environment</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pick_and_place_maple_table</span>
@@ -765,6 +769,7 @@ Run locally</label><div class="sd-tab-content docutils">
 <ul class="simple">
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">shared.&lt;path&gt;=&lt;value&gt;</span></code> to change a shared value.</p></li>
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">runs.&lt;name&gt;.&lt;path&gt;=&lt;value&gt;</span></code> to change one Run.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">kpi_exporters=[&lt;name&gt;,&lt;name&gt;,...]</span></code> to change the KPI exporters.</p></li>
 </ul>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_config<span class="w"> </span>path/to/experiment.yaml<span class="w"> </span><span class="se">\</span>
@@ -779,6 +784,7 @@ Preview an OSMO workflow</label><div class="sd-tab-content docutils">
 <ul class="simple">
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">experiment_cfg.shared.&lt;path&gt;=&lt;value&gt;</span></code> to change a shared value.</p></li>
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">experiment_cfg.runs.&lt;name&gt;.&lt;path&gt;=&lt;value&gt;</span></code> to change one Run.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">experiment_cfg.kpi_exporters=[&lt;name&gt;,&lt;name&gt;,...]</span></code> to change the KPI exporters.</p></li>
 </ul>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>osmo.submit_arena_experiment<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_cfg<span class="w"> </span>path/to/experiment.yaml<span class="w"> </span><span class="se">\</span>
@@ -821,10 +827,11 @@ runs.&lt;name&gt;.* CLI overrides
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Configuration rules</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <ul class="simple">
-<li><p class="sd-card-text">The only top-level fields are <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">shared</span></code>, and <code class="docutils literal notranslate"><span class="pre">runs</span></code>.</p></li>
+<li><p class="sd-card-text">The only top-level fields are <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">kpi_exporters</span></code>, <code class="docutils literal notranslate"><span class="pre">shared</span></code>, and <code class="docutils literal notranslate"><span class="pre">runs</span></code>.</p></li>
 <li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">runs</span></code> must contain at least one Run.</p></li>
 <li><p class="sd-card-text">A Run name starts with a letter or underscore. It can then contain letters, numbers,
 underscores, or hyphens.</p></li>
+<li><p class="sd-card-text">Each <code class="docutils literal notranslate"><span class="pre">kpi_exporters</span></code> name must be a registered KPI exporter and appear once.</p></li>
 <li><p class="sd-card-text">An override can change a field on a Run declared in the YAML, but it cannot add another Run.</p></li>
 <li><p class="sd-card-text">A shared override must point to a field already present below <code class="docutils literal notranslate"><span class="pre">shared</span></code> in the Experiment
 YAML. The Hydra operators <code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">++</span></code>, and <code class="docutils literal notranslate"><span class="pre">~</span></code> are not supported for shared values.</p></li>

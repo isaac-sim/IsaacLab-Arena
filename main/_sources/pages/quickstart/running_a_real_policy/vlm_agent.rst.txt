@@ -75,19 +75,7 @@ from :doc:`../arena_env`: pick up the Rubik's cube and place it in the bowl, in 
 Run the example
 ---------------
 
-Prepare the Arena runtime from the repository root, using either a native ``uv`` environment or
-the base Docker container (see :doc:`../installation`):
-
-.. tab-set::
-
-   .. tab-item:: Native uv
-      :selected:
-
-      :uv_run_source:
-
-   .. tab-item:: Docker Container
-
-      :docker_run_default:
+:runtime_setup_tabs:
 
 Arena includes one configuration for each policy type:
 

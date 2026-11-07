@@ -4,16 +4,14 @@ Closed-Loop Policy Inference and Evaluation
 This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:`--group gr00t-client`
 
-:docker_run_default:
+Once the runtime is ready, set the dataset and models directories.
 
-Once inside the container, set the dataset and models directories.
+.. code-block:: bash
 
-.. code:: bash
-
-    export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/static_manipulation_tutorial
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/static_manipulation_tutorial"
+   export MODELS_DIR="$HOME/models/isaaclab_arena/static_manipulation_tutorial"
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
@@ -35,9 +33,8 @@ pre-trained model checkpoint below:
 
 **Prerequisite: launch the GR00T policy server**
 
-The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
-Before running the evaluation, open another terminal **outside the Arena development
-container**.
+The Arena evaluation client runs in the Arena runtime and connects to a GR00T policy server.
+Before running the evaluation, open another terminal, separate from the Arena runtime, for the server.
 The server runs out of
 the `Isaac-GR00T source <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_
 submodule pinned at commit ``e29d8fc``; populate it with
@@ -50,11 +47,6 @@ leave it running:
    Blackwell GPUs with compute capability ``sm_120`` require CUDA 12.8 or newer. The
    `GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_
    specifies CUDA 12.8 and ``pytorch-cu128`` for RTX 5090 systems.
-
-.. note::
-
-   ``$MODELS_DIR`` exists inside the container. On the host, the checkpoint is
-   under the models directory passed to ``./docker/run_docker.sh -m`` (default ``$HOME/models``).
 
 .. code-block:: bash
 

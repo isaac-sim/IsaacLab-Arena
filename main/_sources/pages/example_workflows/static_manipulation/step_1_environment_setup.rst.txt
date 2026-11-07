@@ -1,14 +1,10 @@
 Environment Setup and Validation
 --------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
-
 On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 
 Environment Description

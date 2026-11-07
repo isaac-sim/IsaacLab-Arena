@@ -665,15 +665,13 @@ sudo<span class="w"> </span>udevadm<span class="w"> </span>control<span class="w
 <section id="open-the-arena-runtime">
 <h3>Open the Arena Runtime<a class="headerlink" href="#open-the-arena-runtime" title="Link to this heading">#</a></h3>
 <p>If using Docker, start the container from the repository root on the host:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/datasets"</span>
-./docker/run_docker.sh
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
 <p>Run the remaining commands from the repository root in the activated native
 environment or inside the Docker container (<code class="docutils literal notranslate"><span class="pre">/workspaces/isaaclab_arena</span></code>).</p>
-<p>Create a directory for your demonstrations. For native installations, replace
-<code class="docutils literal notranslate"><span class="pre">/datasets/gear_insertion</span></code> with <code class="docutils literal notranslate"><span class="pre">$HOME/datasets/gear_insertion</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/gear_insertion
+<p>Create a directory for your demonstrations:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/datasets/gear_insertion"</span>
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>

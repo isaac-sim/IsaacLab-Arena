@@ -4,20 +4,18 @@ Policy Post-Training
 This workflow covers post-training an example policy using the generated dataset,
 here we use `GR00T N1.6 <https://research.nvidia.com/labs/gear/gr00t-n1_6/>`_ as the base model.
 
-Use the Arena **Base** container for dataset download and LeRobot conversion. Run GR00T
+Use the Arena runtime for dataset download and LeRobot conversion. Run GR00T
 finetuning from the native Isaac-GR00T ``uv`` environment in ``submodules/Isaac-GR00T``,
-not from the Arena container.
+not from the Arena runtime.
 
-**Docker Container for conversion**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:
 
-:docker_run_default:
+Once the runtime is ready, set the dataset and models directories.
 
-Once inside the container, set the dataset and models directories.
+.. code-block:: bash
 
-.. code:: bash
-
-    export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/locomanipulation_tutorial"
+   export MODELS_DIR="$HOME/models/isaaclab_arena/locomanipulation_tutorial"
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Data Generation) <step_3_data_generation>` or downloaded the pre-generated dataset.
@@ -65,6 +63,13 @@ Note that this conversion step can be skipped by downloading the pre-converted L
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
+The converter calls ``ffprobe``, which the Docker container already provides. On a native host,
+install it first if it is missing:
+
+.. code-block:: bash
+
+   sudo apt-get install -y ffmpeg
+
 Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
@@ -84,7 +89,7 @@ The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/c
    .. code-block:: yaml
 
       # Input/Output paths
-      data_root: /datasets/isaaclab_arena/locomanipulation_tutorial
+      data_root: ~/datasets/isaaclab_arena/locomanipulation_tutorial
       hdf5_name: "arena_g1_loco_manipulation_dataset_generated.hdf5"
 
       # Task description
@@ -137,12 +142,11 @@ Training Configuration:
 - **Batch Size:** 96 (adjust based on GPU memory)
 - **Training Steps:** 20,000
 
-To post-train the policy, open another terminal **outside** the Arena Base Docker container
+To post-train the policy, open another terminal, separate from the Arena runtime,
 and ``cd`` to ``submodules/Isaac-GR00T``. Set up GR00T's native ``uv`` environment by following
 the `GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_,
-then run the finetuning command below. The paths assume the default Arena Docker mounts
-(``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with custom
-mount directories.
+then run the finetuning command below. The paths assume the default ``$HOME/datasets`` and
+``$HOME/models`` locations; adjust them if you use other directories.
 
 .. code-block:: bash
 

@@ -1,9 +1,7 @@
 Environment Setup and Validation
 ---------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 
 Environment Description

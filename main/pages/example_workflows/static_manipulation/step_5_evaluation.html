@@ -612,13 +612,29 @@
 <h1>Closed-Loop Policy Inference and Evaluation<a class="headerlink" href="#closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h1>
 <p>This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.</p>
-<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
+<p>Prepare the Arena runtime from the repository root, using either a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the
+base Docker container (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w"> </span>--group<span class="w"> </span>gr00t-client
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Docker Container</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-<p>Once inside the container, set the dataset and models directories.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/static_manipulation_tutorial
-<span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/static_manipulation_tutorial
+</div>
+</div>
+<p>Once the runtime is ready, set the dataset and models directories.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/datasets/isaaclab_arena/static_manipulation_tutorial"</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/models/isaaclab_arena/static_manipulation_tutorial"</span>
 </pre></div>
 </div>
 <p>Note that this tutorial assumes that you’ve completed the
@@ -637,9 +653,8 @@ such that the preceding steps can be skipped.</p>
 </div>
 </div>
 </details><p><strong>Prerequisite: launch the GR00T policy server</strong></p>
-<p>The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
-Before running the evaluation, open another terminal <strong>outside the Arena development
-container</strong>.
+<p>The Arena evaluation client runs in the Arena runtime and connects to a GR00T policy server.
+Before running the evaluation, open another terminal, separate from the Arena runtime, for the server.
 The server runs out of
 the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6">Isaac-GR00T source</a>
 submodule pinned at commit <code class="docutils literal notranslate"><span class="pre">e29d8fc</span></code>; populate it with
@@ -651,11 +666,6 @@ leave it running:</p>
 <p>Blackwell GPUs with compute capability <code class="docutils literal notranslate"><span class="pre">sm_120</span></code> require CUDA 12.8 or newer. The
 <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment">GR00T environment setup guide</a>
 specifies CUDA 12.8 and <code class="docutils literal notranslate"><span class="pre">pytorch-cu128</span></code> for RTX 5090 systems.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><code class="docutils literal notranslate"><span class="pre">$MODELS_DIR</span></code> exists inside the container. On the host, the checkpoint is
-under the models directory passed to <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span> <span class="pre">-m</span></code> (default <code class="docutils literal notranslate"><span class="pre">$HOME/models</span></code>).</p>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
@@ -710,15 +720,15 @@ should be greater than 0.9, and the number of episodes should be in the range of
 <p>Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-0">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
 Best Quality</label><div class="sd-tab-content docutils">
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.8823529411764706, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 17}
 </pre></div>
 </div>
 </div>
-<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
 Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 1.0, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 19}
 </pre></div>
@@ -730,8 +740,8 @@ Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <h2>Step 2: Run Parallel Environments Evaluation<a class="headerlink" href="#step-2-run-parallel-environments-evaluation" title="Link to this heading">#</a></h2>
 <p>Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-2">
+<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-4">
 Single GPU Evaluation</label><div class="sd-tab-content docutils">
 <p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
@@ -748,8 +758,8 @@ Single GPU Evaluation</label><div class="sd-tab-content docutils">
 </pre></div>
 </div>
 </div>
-<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-3">
+<input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-5">
 Distribute Multi-GPU Evaluation</label><div class="sd-tab-content docutils">
 <p>Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
