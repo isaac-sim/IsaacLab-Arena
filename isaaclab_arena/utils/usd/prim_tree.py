@@ -321,13 +321,7 @@ def load_stage_prim_tree(
     Returns:
         Sorted list of :class:`UsdPrimRecord` entries keyed by relative_path suffix.
     """
-    from pxr import Sdf, Usd, UsdGeom, UsdPhysics
-
-    from isaaclab_arena.utils.usd.helpers import (
-        articulation_joint_names,
-        has_physics_or_collision,
-        object_type_for_prim,
-    )
+    from pxr import Usd, UsdGeom, UsdPhysics
 
     records: list[UsdPrimRecord] = []
     assert root_prim and root_prim.IsValid(), "Inspection root prim must exist."
@@ -335,63 +329,21 @@ def load_stage_prim_tree(
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), UsdGeom.Imageable.GetOrderedPurposeTokens())
     meters_per_unit = UsdGeom.GetStageMetersPerUnit(stage)
     kilograms_per_unit = UsdPhysics.GetStageKilogramsPerUnit(stage)
-    root_path = root_prim.GetPath()
-    included_paths: set[Sdf.Path] = set()
-    for prim in prims:
-        if not has_physics_or_collision(prim) and not prim.IsA(UsdPhysics.Joint):
-            continue
-        ancestor = prim
-        while ancestor and ancestor.GetPath().HasPrefix(root_path):
-            path = ancestor.GetPath()
-            if path in included_paths:
-                break
-            included_paths.add(path)
-            if ancestor == root_prim:
-                break
-            ancestor = ancestor.GetParent()
+    included_paths = _physics_prim_and_ancestor_paths(prims, root_prim)
 
     for prim in prims:
-        prim_path = prim.GetPath()
-        if prim_path not in included_paths:
+        if prim.GetPath() not in included_paths:
             continue
-        if prim == root_prim and (
-            not include_physical_root or (not has_physics_or_collision(prim) and not prim.IsA(UsdPhysics.Joint))
-        ):
+        if prim == root_prim and not _include_root_prim(root_prim, include_physical_root):
             continue
-        relative_path = str(prim_path.MakeRelativePath(root_path))
-        object_type = object_type_for_prim(prim)
-        articulation = None
-        if object_type == ObjectType.ARTICULATION:
-            articulation = UsdArticulationInfo(joint_names=articulation_joint_names(prim))
-        directly_physical = has_physics_or_collision(prim)
-        prototype = prim.GetPrototype() if prim.IsInstance() else prim.GetPrimInPrototype()
         records.append(
-            UsdPrimRecord(
-                relative_path=relative_path,
-                object_type=object_type,
-                articulation=articulation,
-                bounding_box_root=(
-                    _bounding_box_in_root_frame(prim, root_prim, bbox_cache, meters_per_unit)
-                    if directly_physical
-                    else None
-                ),
-                joint=(_joint_info(prim, stage, root_prim, UsdPhysics) if prim.IsA(UsdPhysics.Joint) else None),
-                collider=(
-                    _collider_info(prim, stage, root_prim, UsdPhysics, meters_per_unit)
-                    if prim.HasAPI(UsdPhysics.CollisionAPI)
-                    else None
-                ),
-                rigid_body=(
-                    _rigid_body_info(prim, UsdPhysics, kilograms_per_unit, meters_per_unit)
-                    if prim.HasAPI(UsdPhysics.RigidBodyAPI)
-                    else None
-                ),
-                instance=UsdInstanceInfo(
-                    instance=prim.IsInstance(),
-                    instance_proxy=prim.IsInstanceProxy(),
-                    instanceable=prim.IsInstanceable(),
-                    prototype_path=str(prototype.GetPath()) if prototype and prototype.IsValid() else None,
-                ),
+            _build_prim_record(
+                prim,
+                stage,
+                root_prim,
+                bbox_cache,
+                meters_per_unit,
+                kilograms_per_unit,
             )
         )
     records.sort(key=lambda record: record.relative_path)
@@ -428,6 +380,93 @@ def load_usd_prim_tree(usd_path: str, prim_path: str | None = None) -> list[UsdP
             else:
                 root_prim = default_prim
         return load_stage_prim_tree(stage, root_prim, include_physical_root=bool(prim_path))
+
+
+################################################################################
+# Prim-tree record construction
+################################################################################
+
+
+def _physics_prim_and_ancestor_paths(prims, root_prim) -> set:
+    """Return paths of physical prims and their ancestors through the inspection root."""
+    from pxr import UsdPhysics
+
+    from isaaclab_arena.utils.usd.helpers import has_physics_or_collision
+
+    root_path = root_prim.GetPath()
+    included_paths = set()
+    for prim in prims:
+        if not has_physics_or_collision(prim) and not prim.IsA(UsdPhysics.Joint):
+            continue
+        ancestor = prim
+        while ancestor and ancestor.GetPath().HasPrefix(root_path):
+            path = ancestor.GetPath()
+            if path in included_paths:
+                break
+            included_paths.add(path)
+            if ancestor == root_prim:
+                break
+            ancestor = ancestor.GetParent()
+    return included_paths
+
+
+def _include_root_prim(root_prim, include_physical_root: bool) -> bool:
+    """Return whether the inspection root itself should have a record."""
+    from pxr import UsdPhysics
+
+    from isaaclab_arena.utils.usd.helpers import has_physics_or_collision
+
+    return include_physical_root and (has_physics_or_collision(root_prim) or root_prim.IsA(UsdPhysics.Joint))
+
+
+def _build_prim_record(
+    prim,
+    stage,
+    root_prim,
+    bbox_cache,
+    meters_per_unit: float,
+    kilograms_per_unit: float,
+) -> UsdPrimRecord:
+    """Build authored physics and spatial metadata for one included prim."""
+    from pxr import UsdPhysics
+
+    from isaaclab_arena.utils.usd.helpers import (
+        articulation_joint_names,
+        has_physics_or_collision,
+        object_type_for_prim,
+    )
+
+    object_type = object_type_for_prim(prim)
+    articulation = None
+    if object_type == ObjectType.ARTICULATION:
+        articulation = UsdArticulationInfo(joint_names=articulation_joint_names(prim))
+    directly_physical = has_physics_or_collision(prim)
+    prototype = prim.GetPrototype() if prim.IsInstance() else prim.GetPrimInPrototype()
+    return UsdPrimRecord(
+        relative_path=str(prim.GetPath().MakeRelativePath(root_prim.GetPath())),
+        object_type=object_type,
+        articulation=articulation,
+        bounding_box_root=(
+            _bounding_box_in_root_frame(prim, root_prim, bbox_cache, meters_per_unit) if directly_physical else None
+        ),
+        joint=(_joint_info(prim, stage, root_prim, UsdPhysics) if prim.IsA(UsdPhysics.Joint) else None),
+        collider=(
+            _collider_info(prim, stage, root_prim, UsdPhysics, meters_per_unit)
+            if prim.HasAPI(UsdPhysics.CollisionAPI)
+            else None
+        ),
+        rigid_body=(
+            _rigid_body_info(prim, UsdPhysics, kilograms_per_unit, meters_per_unit)
+            if prim.HasAPI(UsdPhysics.RigidBodyAPI)
+            else None
+        ),
+        instance=UsdInstanceInfo(
+            instance=prim.IsInstance(),
+            instance_proxy=prim.IsInstanceProxy(),
+            instanceable=prim.IsInstanceable(),
+            prototype_path=str(prototype.GetPath()) if prototype and prototype.IsValid() else None,
+        ),
+    )
 
 
 ################################################################################
