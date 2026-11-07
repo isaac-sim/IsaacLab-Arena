@@ -12,6 +12,9 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from isaaclab_arena.affordances.openable import Openable
+from isaaclab_arena.affordances.pressable import Pressable
+from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
@@ -19,11 +22,55 @@ from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.assets.simready_constants import (
     SIMREADY_PHYSICS_VARIANTS,
     SIMREADY_SEARCH_REGISTRY_PREFIX,
+    SIMREADY_USD_ARTICULATION_REGISTRY_NAME,
+    SIMREADY_USD_BACKGROUND_REGISTRY_NAME,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,
+    SIMREADY_USD_OPENABLE_ARTICULATION_REGISTRY_NAME,
+    SIMREADY_USD_PRESSABLE_ARTICULATION_REGISTRY_NAME,
 )
 from isaaclab_arena.utils.pose import Pose
 
 _NON_IDENTIFIER_CHARACTERS = re.compile(r"[^a-z0-9]+")
+
+
+@register_asset
+class SimReadyUsdBackground(Background):
+    """Spawn a SimReady background from an explicit USD path."""
+
+    registry_name = SIMREADY_USD_BACKGROUND_REGISTRY_NAME
+    tags = ["background", "sim-ready"]
+
+    def __init__(
+        self,
+        usd_path: str,
+        object_min_z: float,
+        name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        **kwargs: Any,
+    ):
+        """Create a SimReady background from an explicit USD path."""
+        assert usd_path, "simready_usd_background requires params.usd_path"
+        from isaaclab_arena.assets.simready_central_asset_loader import (
+            download_central_asset_package,
+            is_central_asset_url,
+        )
+
+        if is_central_asset_url(usd_path):
+            usd_path = download_central_asset_package(usd_path)
+        spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
+        default_variants = {**SIMREADY_PHYSICS_VARIANTS, "PhysX": "Enabled"}
+        spawn_cfg_addon.setdefault("variants", default_variants)
+        super().__init__(
+            name=name or self.registry_name,
+            prim_path=prim_path,
+            usd_path=usd_path,
+            object_min_z=object_min_z,
+            initial_pose=initial_pose,
+            tags=self.tags,
+            spawn_cfg_addon=spawn_cfg_addon,
+            **kwargs,
+        )
 
 
 @register_asset
@@ -78,6 +125,72 @@ class SimReadyUsdObject(Object):
             spawn_cfg_addon=spawn_cfg_addon,
             **kwargs,
         )
+
+
+@register_asset
+class SimReadyUsdArticulation(Object):
+    """Spawn an articulated SimReady USD with optional initial-joint configuration."""
+
+    registry_name = SIMREADY_USD_ARTICULATION_REGISTRY_NAME
+    tags = ["object", "sim-ready"]
+    object_type = ObjectType.ARTICULATION
+
+    def __init__(
+        self,
+        usd_path: str,
+        name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        initial_joint_positions: dict[str, float] | None = None,
+        **kwargs: Any,
+    ):
+        """Create an articulation from a SimReady USD path."""
+        assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
+        assert usd_path, "simready_usd_articulation requires params.usd_path"
+        from isaaclab_arena.assets.simready_central_asset_loader import (
+            download_central_asset_package,
+            is_central_asset_url,
+        )
+
+        if is_central_asset_url(usd_path):
+            usd_path = download_central_asset_package(usd_path)
+        spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
+        default_variants = {**SIMREADY_PHYSICS_VARIANTS, "PhysX": "Enabled"}
+        spawn_cfg_addon.setdefault("variants", default_variants)
+        super().__init__(
+            name=name or self.registry_name,
+            prim_path=prim_path,
+            tags=self.tags,
+            usd_path=usd_path,
+            object_type=self.object_type,
+            initial_pose=initial_pose,
+            spawn_cfg_addon=spawn_cfg_addon,
+            **kwargs,
+        )
+        if initial_joint_positions is not None:
+            self.object_cfg.init_state.joint_pos = dict(initial_joint_positions)
+
+
+@register_asset
+class SimReadyUsdOpenableArticulation(SimReadyUsdArticulation, Openable):
+    """Spawn an articulated SimReady USD that exposes one openable joint."""
+
+    registry_name = SIMREADY_USD_OPENABLE_ARTICULATION_REGISTRY_NAME
+
+    def __init__(self, openable_joint_name: str, **kwargs: Any):
+        """Create an openable articulation from a SimReady USD path."""
+        super().__init__(openable_joint_name=openable_joint_name, **kwargs)
+
+
+@register_asset
+class SimReadyUsdPressableArticulation(SimReadyUsdArticulation, Pressable):
+    """Spawn an articulated SimReady USD that exposes one pressable joint."""
+
+    registry_name = SIMREADY_USD_PRESSABLE_ARTICULATION_REGISTRY_NAME
+
+    def __init__(self, pressable_joint_name: str, **kwargs: Any):
+        """Create a pressable articulation from a SimReady USD path."""
+        super().__init__(pressable_joint_name=pressable_joint_name, **kwargs)
 
 
 def simready_search_registry_name(search_phrase: str, usd_path: str) -> str:

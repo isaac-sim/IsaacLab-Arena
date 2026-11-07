@@ -93,7 +93,7 @@ def _test_central_usd_validation(simulation_app):
         body.CreateRigidBodyEnabledAttr(True)
         stage.GetRootLayer().Save()
         with (
-            patch(f"{LOADER}._download_central_asset_package_to_cache", return_value=str(asset)),
+            patch(f"{LOADER}.download_central_asset_package", return_value=str(asset)),
             patch(f"{LOADER}.Path.home", return_value=folder),
         ):
             wrapper = download_and_wrap_central_asset(URL)
@@ -124,7 +124,7 @@ def test_central_usd_validation():
 def test_central_download_lists_only_the_selected_package():
     from huggingface_hub.hf_api import RepoFile
 
-    from isaaclab_arena.assets.simready_central_asset_loader import _download_central_asset_package_to_cache
+    from isaaclab_arena.assets.simready_central_asset_loader import download_central_asset_package
 
     filenames = ["pallet/simready_usd/pallet.usd", "pallet/textures/color.png"]
     entries = [RepoFile(path=path, size=1, oid="a" * 40) for path in filenames]
@@ -132,7 +132,7 @@ def test_central_download_lists_only_the_selected_package():
         patch("huggingface_hub.HfApi.list_repo_tree", return_value=iter(entries)) as list_tree,
         patch("huggingface_hub.hf_hub_download", side_effect=lambda **kw: "/cache/" + kw["filename"]) as download,
     ):
-        assert _download_central_asset_package_to_cache(URL) == "/cache/" + filenames[0]
+        assert download_central_asset_package(URL) == "/cache/" + filenames[0]
     list_tree.assert_called_once_with(
         repo_id="nvidia/simready-assets",
         repo_type="dataset",
