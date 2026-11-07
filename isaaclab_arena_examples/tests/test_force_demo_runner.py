@@ -34,6 +34,67 @@ def test_load_force_control_recipe_separates_setup_from_runtime_commands(tmp_pat
     assert recipe.commands == tuple(commands[1:])
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_force_control_recipe_rejects_non_finite_numbers(value):
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        validate_force_control_command,
+    )
+
+    with pytest.raises(AssertionError, match="'seconds' must be a finite number"):
+        validate_force_control_command({"action": "wait", "seconds": value}, 1)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "seconds",
+        "linear_gain",
+        "linear_damping",
+        "minimum_stiffness",
+        "max_force",
+        "rotation_gain",
+        "angular_damping",
+        "max_torque",
+        "gain",
+        "damping",
+        "limit",
+        "effort_limit",
+        "drive_stiffness",
+        "drive_damping",
+    ],
+)
+def test_force_control_recipe_rejects_negative_controller_values(field):
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        validate_force_control_command,
+    )
+
+    if field in {"effort_limit", "drive_stiffness", "drive_damping"}:
+        command = {"action": "setup_joint", "name": "cabinet", "joint_name": "drawer"}
+    elif field in {"gain", "damping", "limit"}:
+        command = {"action": "joint", "name": "cabinet", "joint_name": "drawer", "goal": 0.1}
+    else:
+        command = {"action": "move", "name": "object", "goal": [0.0, 0.0, 0.0]}
+    command[field] = -0.1
+
+    with pytest.raises(AssertionError, match=rf"'{field}' must be non-negative"):
+        validate_force_control_command(command, 1)
+
+
+def test_force_control_recipe_rejects_zero_orientation():
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        validate_force_control_command,
+    )
+
+    command = {
+        "action": "move",
+        "name": "object",
+        "goal": [0.0, 0.0, 0.0],
+        "orientation": [0.0, 0.0, 0.0, 0.0],
+    }
+    with pytest.raises(AssertionError, match="'orientation' must be nonzero"):
+        validate_force_control_command(command, 1)
+
+
 def test_replace_existing_actuators_keeps_all_recipe_joint_setups():
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
         _apply_joint_setups,

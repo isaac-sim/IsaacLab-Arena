@@ -14,6 +14,22 @@ from pathlib import Path
 from typing import Any
 
 _VECTOR_FIELDS = {"offset", "orientation"}
+_NON_NEGATIVE_NUMBER_FIELDS = {
+    "seconds",
+    "linear_gain",
+    "linear_damping",
+    "minimum_stiffness",
+    "max_force",
+    "rotation_gain",
+    "angular_damping",
+    "max_torque",
+    "gain",
+    "damping",
+    "limit",
+    "effort_limit",
+    "drive_stiffness",
+    "drive_damping",
+}
 _COMMAND_FIELDS = {
     "setup_joint": (
         {"name", "joint_name"},
@@ -146,9 +162,8 @@ def validate_force_control_command(command: Any, line_number: int) -> dict[str, 
     ):
         if field in command:
             _assert_number(command[field], field, line_number)
-    for field in ("drive_stiffness", "drive_damping"):
-        if field in command:
-            assert command[field] >= 0, f"Recipe line {line_number}: '{field}' must be non-negative"
+            if field in _NON_NEGATIVE_NUMBER_FIELDS:
+                assert command[field] >= 0, f"Recipe line {line_number}: '{field}' must be non-negative"
     for field in ("index", "steps", "timeout_steps"):
         if field in command:
             assert (
@@ -162,6 +177,8 @@ def validate_force_control_command(command: Any, line_number: int) -> dict[str, 
         ), f"Recipe line {line_number}: '{field}' must contain {expected_length} numbers"
         for component in value:
             _assert_number(component, field, line_number)
+        if field == "orientation":
+            assert any(value), f"Recipe line {line_number}: 'orientation' must be nonzero"
     if "reference_axes" in command:
         axes = command["reference_axes"]
         assert isinstance(axes, list) and axes, f"Recipe line {line_number}: 'reference_axes' must be a non-empty list"
@@ -221,13 +238,11 @@ def validate_force_control_command(command: Any, line_number: int) -> dict[str, 
         }, f"Recipe line {line_number}: 'settle_hold' requires exactly gain, damping, and limit"
         for field, value in hold.items():
             _assert_number(value, f"settle_hold.{field}", line_number)
-            assert (
-                math.isfinite(value) and value >= 0
-            ), f"Recipe line {line_number}: 'settle_hold.{field}' must be finite and non-negative"
+            assert value >= 0, f"Recipe line {line_number}: 'settle_hold.{field}' must be non-negative"
     return command
 
 
 def _assert_number(value: Any, field: str, line_number: int) -> None:
-    assert isinstance(value, int | float) and not isinstance(
-        value, bool
-    ), f"Recipe line {line_number}: '{field}' must be a number"
+    assert (
+        isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
+    ), f"Recipe line {line_number}: '{field}' must be a finite number"
