@@ -42,7 +42,10 @@ class ObjectCommandExecutor:
     def __init__(self, env, args: argparse.Namespace):
         import torch
 
-        from isaaclab_arena.terms.force_actions import ForceJointActionTerm, ForcePoseActionTerm
+        from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
+            ForceJointActionTerm,
+            ForcePoseActionTerm,
+        )
         from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_video import (
             ObjectControlVideo,
         )
@@ -511,8 +514,11 @@ def _configure_force_actions(env_cfg) -> None:
     """Attach force actions to scene assets; existing robot drives remain at reset targets."""
     from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 
-    from isaaclab_arena.terms.force_actions import ForceJointActionCfg, ForcePoseActionCfg
     from isaaclab_arena.utils.configclass import make_configclass
+    from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
+        ForceJointActionCfg,
+        ForcePoseActionCfg,
+    )
 
     terms = []
     for name, asset_cfg in vars(env_cfg.scene).items():
