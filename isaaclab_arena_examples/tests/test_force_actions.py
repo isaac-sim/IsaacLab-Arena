@@ -18,7 +18,7 @@ def _force_asset():
     asset = SimpleNamespace(
         permanent_wrench_composer=SimpleNamespace(reset=Mock(), set_forces_and_torques_index=Mock()),
         num_joints=1,
-        set_joint_effort_target=Mock(),
+        actuators=SimpleNamespace(target_command=SimpleNamespace(set_effort_index=Mock())),
         data=SimpleNamespace(
             root_pose_w=buffer([[0, 0, 1, 0, 0, 0, 1], [0, 0, 1, 0, 0, 0, 1]]),
             root_lin_vel_w=buffer([[0, 0, 0], [0, 0, 0]]),
@@ -130,14 +130,14 @@ def test_joint_efforts_use_substep_feedback_and_release():
     actions = torch.tensor([[1, 10, 2, 6, 1], [1, 10, 2, 6, 0]], dtype=torch.float32)
     term.process_actions(actions)
     term.apply_actions()
-    assert asset.set_joint_effort_target.call_args.args[0].tolist() == [[6]]
+    assert asset.actuators.target_command.set_effort_index.call_args.kwargs["value"].tolist() == [[6]]
     asset.data.joint_pos.torch[0, 0] = 0.75
     asset.data.joint_vel.torch[0, 0] = 0.5
     term.apply_actions()
-    assert asset.set_joint_effort_target.call_args.args[0].tolist() == [[1.5]]
+    assert asset.actuators.target_command.set_effort_index.call_args.kwargs["value"].tolist() == [[1.5]]
     actions[:, 4] = 0
     term.process_actions(actions)
-    assert asset.set_joint_effort_target.call_args.args[0].tolist() == [[0]]
+    assert asset.actuators.target_command.set_effort_index.call_args.kwargs["value"].tolist() == [[0]]
 
 
 def _above_height(env, height):

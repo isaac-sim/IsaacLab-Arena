@@ -170,8 +170,10 @@ class ForceJointActionTerm(ActionTerm):
         released = (previous[:, :, 4] > 0) & (current[:, :, 4] <= 0)
         for joint_id in released.any(dim=0).nonzero().flatten().tolist():
             env_ids = released[:, joint_id].nonzero().flatten()
-            self._asset.set_joint_effort_target(
-                torch.zeros((len(env_ids), 1), device=self.device), joint_ids=[joint_id], env_ids=env_ids
+            self._asset.actuators.target_command.set_effort_index(
+                value=torch.zeros((len(env_ids), 1), device=self.device),
+                joint_ids=[joint_id],
+                env_ids=env_ids,
             )
         self._raw_actions.copy_(actions)
         self._processed_actions.copy_(actions)
@@ -184,14 +186,16 @@ class ForceJointActionTerm(ActionTerm):
             q = self._asset.data.joint_pos.torch[env_ids, joint_id]
             qd = self._asset.data.joint_vel.torch[env_ids, joint_id]
             effort = (gain * (goal - q) - damping * qd).clamp(-limit, limit)
-            self._asset.set_joint_effort_target(effort[:, None], joint_ids=[joint_id], env_ids=env_ids)
+            self._asset.actuators.target_command.set_effort_index(
+                value=effort[:, None], joint_ids=[joint_id], env_ids=env_ids
+            )
 
     def reset(self, env_ids=None) -> None:
         env_ids = slice(None) if env_ids is None else env_ids
         self._raw_actions[env_ids] = 0
         self._processed_actions[env_ids] = 0
-        self._asset.set_joint_effort_target(
-            torch.zeros_like(self._asset.data.joint_pos.torch[env_ids]), env_ids=env_ids
+        self._asset.actuators.target_command.set_effort_index(
+            value=torch.zeros_like(self._asset.data.joint_pos.torch[env_ids]), env_ids=env_ids
         )
 
 
