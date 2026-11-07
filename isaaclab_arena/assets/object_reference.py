@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import numpy as np
 import trimesh
 from dataclasses import MISSING
@@ -49,8 +51,18 @@ class ArticulationBodyReferenceCfg(AssetBaseCfg):
 class ObjectReference(RootedObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
-    def __init__(self, parent_asset: Object, **kwargs):
+    def __init__(
+        self,
+        parent_asset: Object | ObjectReference,
+        initial_joint_positions: dict[str, float] | None = None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
+        if isinstance(parent_asset, ObjectReference):
+            assert parent_asset.object_type == ObjectType.ARTICULATION, (
+                "Nested object references currently require an articulation reference parent, "
+                f"got {parent_asset.object_type} for '{parent_asset.name}'."
+            )
         self.parent_asset = parent_asset
         self._parent_scale = parent_asset.scale
         # Resolve the path, link motion and pose together to avoid opening the parent USD stage multiple times.
@@ -61,6 +73,12 @@ class ObjectReference(RootedObjectBase):
             self.initial_pose_relative_to_parent,
         ) = self._get_referenced_prim_path_and_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
+        if initial_joint_positions is not None:
+            assert (
+                self.object_type == ObjectType.ARTICULATION
+            ), "initial_joint_positions requires an articulation object reference"
+            assert isinstance(self.object_cfg, ArticulationCfg)
+            self.object_cfg.init_state.joint_pos = dict(initial_joint_positions)
         self._pose_event_cfg = self._build_reset_event()
         self._bounding_box: AxisAlignedBoundingBox | None = None
         self._collision_mesh: trimesh.Trimesh | None = None
@@ -76,9 +94,25 @@ class ObjectReference(RootedObjectBase):
 
     def get_parent_pose(self) -> Pose:
         """Return the parent's fixed pose, using identity when no pose is configured."""
+        if isinstance(self.parent_asset, ObjectReference):
+            return self.parent_asset.get_initial_pose()
         pose = self.parent_asset.initial_pose
         assert pose is None or isinstance(pose, Pose), "ObjectReference requires a fixed parent pose"
         return pose if pose is not None else Pose.identity()
+
+    @property
+    def scale(self) -> tuple[float, float, float]:
+        """Return the scale inherited from the source asset."""
+        return self._parent_scale
+
+    @property
+    def usd_path(self) -> str:
+        """Return the source USD path inherited from the root asset."""
+        return self.parent_asset.usd_path
+
+    def open_spawned_usd_stage(self) -> Usd.Stage:
+        """Open the root parent's spawned USD stage."""
+        return self.parent_asset.open_spawned_usd_stage()
 
     @property
     def prim_path_in_parent_usd(self) -> str:
@@ -206,7 +240,7 @@ class ObjectReference(RootedObjectBase):
         )
 
     def _get_referenced_prim_path_and_pose_relative_to_parent(
-        self, parent_asset: Object
+        self, parent_asset: Object | ObjectReference
     ) -> tuple[str, np.ndarray | None, Pose]:
         """Get the prim path, initial link motion and pose relative to the parent's default prim.
 
@@ -224,6 +258,10 @@ class ObjectReference(RootedObjectBase):
             raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
         initial_link_world_delta = self._get_initial_link_world_delta(parent_asset, parent_stage, prim)
         prim_pose = get_prim_pose_in_default_prim_frame(prim, parent_stage, initial_link_world_delta)
+        if isinstance(parent_asset, ObjectReference):
+            parent_prim = parent_stage.GetPrimAtPath(parent_asset.prim_path_in_parent_usd)
+            parent_pose = get_prim_pose_in_default_prim_frame(parent_prim, parent_stage)
+            prim_pose = self._pose_relative_to_parent(parent_pose, prim_pose)
         # Apply parent's scale to the position
         scaled_pos = (
             prim_pose.position_xyz[0] * self._parent_scale[0],
@@ -236,8 +274,31 @@ class ObjectReference(RootedObjectBase):
             Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw),
         )
 
+    @staticmethod
+    def _pose_relative_to_parent(T_D_P: Pose, T_D_O: Pose) -> Pose:
+        """Return T_P_O from source-default-frame poses T_D_P and T_D_O."""
+        t_D_P = np.asarray(T_D_P.position_xyz, dtype=np.float64)
+        t_D_O = np.asarray(T_D_O.position_xyz, dtype=np.float64)
+        x, y, z, w = T_D_P.rotation_xyzw
+        R_D_P = np.asarray([
+            [1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)],
+            [2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)],
+            [2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)],
+        ])
+        t_P_O = R_D_P.T @ (t_D_O - t_D_P)
+        q_P_D = (-x, -y, -z, w)
+        ox, oy, oz, ow = T_D_O.rotation_xyzw
+        px, py, pz, pw = q_P_D
+        q_P_O = (
+            pw * ox + px * ow + py * oz - pz * oy,
+            pw * oy - px * oz + py * ow + pz * ox,
+            pw * oz + px * oy - py * ox + pz * ow,
+            pw * ow - px * ox - py * oy - pz * oz,
+        )
+        return Pose(position_xyz=tuple(float(value) for value in t_P_O), rotation_xyzw=q_P_O)
+
     def _get_initial_link_world_delta(
-        self, parent_asset: Object, parent_stage: Usd.Stage, prim: Usd.Prim
+        self, parent_asset: Object | ObjectReference, parent_stage: Usd.Stage, prim: Usd.Prim
     ) -> np.ndarray | None:
         """Return the stage-world motion of a referenced link at the parent's initial joint positions.
 
@@ -291,7 +352,7 @@ class ObjectReference(RootedObjectBase):
 
     @staticmethod
     def isaaclab_prim_path_to_original_prim_path(
-        isaaclab_prim_path: str, parent_asset: Object, stage: Usd.Stage
+        isaaclab_prim_path: str, parent_asset: Object | ObjectReference, stage: Usd.Stage
     ) -> str:
         """Map a runtime path beneath the parent asset to a stage opened from the parent's USD.
 
@@ -310,7 +371,12 @@ class ObjectReference(RootedObjectBase):
             parent_path + "/"
         ), f"Reference path '{isaaclab_prim_path}' must be beneath parent path '{parent_path}'"
         relative_path = isaaclab_prim_path.removeprefix(parent_path)
-        return str(default_prim.GetPath()) + relative_path
+        source_parent_path = (
+            parent_asset.prim_path_in_parent_usd
+            if isinstance(parent_asset, ObjectReference)
+            else str(default_prim.GetPath())
+        )
+        return source_parent_path + relative_path
 
 
 class OpenableObjectReference(ObjectReference, Openable):
