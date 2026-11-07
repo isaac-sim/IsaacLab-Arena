@@ -117,11 +117,15 @@ def kitchen_resolve_response() -> dict[str, Any]:
 def kitchen_prim_tree() -> list[UsdPrimRecord]:
     """Return the mocked kitchen USD prim tree for pass-2 resolver tests."""
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
+    from isaaclab_arena.utils.usd.prim_tree import UsdArticulationInfo, UsdPrimRecord
 
     return [
         UsdPrimRecord("counter_right_main_group/top_geometry", ObjectType.BASE),
-        UsdPrimRecord("fridge_main_group", ObjectType.ARTICULATION, ("fridge_door_joint",)),
+        UsdPrimRecord(
+            "fridge_main_group",
+            ObjectType.ARTICULATION,
+            articulation=UsdArticulationInfo(("fridge_door_joint",)),
+        ),
     ]
 
 
