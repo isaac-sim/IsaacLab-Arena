@@ -37,13 +37,19 @@ Read only the references relevant to the requested behavior:
   existing build and reset controls; keep environment configuration focused on the scene and task.
   For graph YAML, inspect the [schema](../../../isaaclab_arena/environment_spec/arena_env_graph_types.py)
   and [task conversion](../../../isaaclab_arena/environment_spec/arena_env_graph_task_conversion_utils.py)
-  alongside `isaaclab_arena_environments/robolab/` examples. Choose Python when the graph cannot
+  alongside `isaaclab_arena_environments/robolab/` and `isaaclab_arena_environments/kitchen_bench/` examples. Choose Python when the graph cannot
   express the required semantics; a field parsing successfully does not prove it is consumed.
-- **Assets and layout:** follow the example's ownership and scene composition. Use the existing
+- **Assets:** follow the example's asset ownership and check identity, collision handling, and reset
+  requirements.
+  Before choosing an `object_reference.prim_path`, use the documented `prim-tree` mode in
+  [scene_inspector.py](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py).
+  Browse text first, then request scoped JSON only for the relevant subtree. Treat results as
+  authored USD data; Arena and Isaac Lab spawn-time overrides are excluded.
+- **Layout:** follow the example's scene composition. Use the existing
   [relations](../../../docs/pages/concepts/object_placement/relations.rst),
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
-  Check asset identity, collision handling, reachability, physical support, and reset requirements.
+  Check reachability and physical support.
 - **Placement diagnostics:** the object placer converts the environment's relations into concrete
   object poses: it solves candidate layouts, then checks each one against its relations, collision
   clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it

@@ -10,7 +10,7 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass, field
 
-from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord, format_usd_prim_record_metadata
 
 
 @dataclass
@@ -24,8 +24,9 @@ class _PrimNode:
 
 def _record_label(record: UsdPrimRecord, suffix: str) -> str:
     tag = record.object_type.value
-    if record.joint_names:
-        tag += " " + ",".join(record.joint_names)
+    metadata = format_usd_prim_record_metadata(record)
+    if metadata:
+        tag += " " + metadata
     return f"{suffix} ({tag})"
 
 
@@ -42,7 +43,7 @@ def build_prim_nodes(prim_tree: list[UsdPrimRecord]) -> list[_PrimNode]:
         suffix = path[len(parent_path) + 1 :] if parent_path else path
         node = _PrimNode(
             text=_record_label(record, suffix),
-            search_text=path.lower(),
+            search_text=f"{path} {format_usd_prim_record_metadata(record)}".lower(),
         )
         if stack:
             stack[-1][1].children.append(node)
