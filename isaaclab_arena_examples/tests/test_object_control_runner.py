@@ -84,7 +84,7 @@ def test_replace_existing_actuators_keeps_all_recipe_joint_setups():
     assert set(cabinet_cfg.actuators) == {"object_control_door", "object_control_drawer"}
 
 
-def test_reset_joint_hold_is_active_before_initial_settling():
+def test_reset_joint_hold_is_released_after_initial_settling():
     import torch
 
     from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
@@ -109,6 +109,7 @@ def test_reset_joint_hold_is_active_before_initial_settling():
     runner.video = None
     observed = []
     runner._set_joint_hold = lambda *args: observed.append(args)
+    runner._release_joint = lambda *args: observed.append(("release", *args))
     runner.step = lambda count: observed.append(count)
     runner._execute_commands = lambda commands: None
     runner._write_report = lambda mode: {"success": [True]}
@@ -123,6 +124,36 @@ def test_reset_joint_hold_is_active_before_initial_settling():
     assert observed[0][:2] == ("scope", "button")
     assert observed[0][2:] == pytest.approx((-0.001, 2.0, 0.015, 0.01))
     assert observed[1] == 240
+    assert observed[2] == ("release", "scope", "button")
+
+
+def test_release_command_disables_joint_control():
+    import torch
+    from unittest.mock import Mock
+
+    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
+        ObjectCommandExecutor,
+    )
+    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
+        ReleaseCommand,
+    )
+
+    runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
+    runner.env = SimpleNamespace(
+        num_envs=1, scene={"cabinet": SimpleNamespace(data=SimpleNamespace(joint_names=["door"]))}
+    )
+    runner.joint_actions = {"cabinet": torch.tensor([[[0.5, 10.0, 2.0, 5.0, 1.0]]])}
+    term = Mock()
+    runner.joint_terms = {"cabinet": term}
+
+    runner.release(ReleaseCommand(name="cabinet", joint_name="door"))
+
+    assert runner.joint_actions["cabinet"][0, 0, 4] == 0
+    term.process_actions.assert_called_once()
+    assert torch.equal(
+        term.process_actions.call_args.args[0],
+        runner.joint_actions["cabinet"].reshape(1, -1),
+    )
 
 
 def test_combine_reference_goal_uses_only_selected_reference_axes():
@@ -320,10 +351,20 @@ def test_follow_waits_for_complete_records_and_skips_blank_lines(tmp_path, monke
             stream.write('"steps":0}\n  \n{"action":"finish"}\n')
 
     monkeypatch.setattr(module.time, "sleep", append_rest)
-    commands = list(module._follow_commands(path, lambda: None))
+    commands = list(module._follow_commands(path, lambda: None, ()))
     assert isinstance(commands[0], WaitCommand)
     assert commands[0].steps == 0
     assert isinstance(commands[1], FinishCommand)
+
+
+def test_follow_rejects_joint_setup_added_after_startup(tmp_path):
+    from isaaclab_arena_examples.agentic_environment_generation import object_control_runner as module
+
+    path = tmp_path / "follow.jsonl"
+    path.write_text('{"action":"setup_joint","name":"cabinet","joint_name":"door"}\n{"action":"finish"}\n')
+
+    with pytest.raises(AssertionError, match="add setup_joint before starting the runner"):
+        list(module._follow_commands(path, lambda: None, ()))
 
 
 def test_follow_buffers_an_incomplete_utf8_character(tmp_path):

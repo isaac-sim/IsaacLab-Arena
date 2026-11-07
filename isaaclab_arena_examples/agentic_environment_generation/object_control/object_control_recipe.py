@@ -166,10 +166,11 @@ class JointCommand(CommandBase):
 
 
 class ReleaseCommand(CommandBase):
-    """Release the persistent pose wrench on an object."""
+    """Release persistent pose or joint control."""
 
     action: Literal["release"] = "release"
     name: NonEmptyString
+    joint_name: NonEmptyString | None = None
 
 
 class WaitCommand(CommandBase):

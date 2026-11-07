@@ -62,6 +62,7 @@ class ObjectCommandExecutor:
         )
         self.pose_actions = {}
         self.joint_actions = {}
+        self.joint_terms = {}
         offset = 0
         for name in self.env.action_manager.active_terms:
             term = self.env.action_manager.get_term(name)
@@ -69,6 +70,7 @@ class ObjectCommandExecutor:
             if isinstance(term, ForcePoseActionTerm):
                 self.pose_actions[term.cfg.asset_name] = (term, action)
             elif isinstance(term, ForceJointActionTerm):
+                self.joint_terms[term.cfg.asset_name] = term
                 self.joint_actions[term.cfg.asset_name] = action.reshape(self.env.num_envs, -1, 5)
             offset += term.action_dim
         self.events = []
@@ -142,11 +144,14 @@ class ObjectCommandExecutor:
             self._step_env()
         self.step(90)
 
-    def release(self, name: str) -> None:
-        term, action = self.pose_actions[name]
-        action[:, 7] = 0
-        # Clear the persistent wrench immediately, including when release precedes a snapshot.
-        term.process_actions(action)
+    def release(self, command: ReleaseCommand) -> None:
+        if command.joint_name is not None:
+            self._release_joint(command.name, command.joint_name)
+        else:
+            term, action = self.pose_actions[command.name]
+            action[:, 7] = 0
+            # Clear the persistent wrench immediately, including when release precedes a snapshot.
+            term.process_actions(action)
 
     def check(self, index: int, timeout_steps: int = 600) -> None:
         for _ in range(math.ceil(timeout_steps / self.env.cfg.decimation)):
@@ -186,6 +191,7 @@ class ObjectCommandExecutor:
         try:
             self._hold_reset_joint_positions(joint_setups)
             self.step(240)
+            self._release_reset_joint_holds(joint_setups)
             self._execute_commands(commands)
             report = self._write_report(report_mode)
             if not self.args.allow_incomplete:
@@ -397,6 +403,12 @@ class ObjectCommandExecutor:
             [goal, gain, damping, limit, 1], device=self.env.device
         )
 
+    def _release_joint(self, name: str, joint_name: str) -> None:
+        joint_id = self.env.scene[name].data.joint_names.index(joint_name)
+        actions = self.joint_actions[name]
+        actions[:, joint_id, 4] = 0
+        self.joint_terms[name].process_actions(actions.reshape(self.env.num_envs, -1))
+
     def _execute(self, command: RuntimeCommand) -> bool:
         if isinstance(command, MoveCommand):
             self.move(command)
@@ -405,7 +417,7 @@ class ObjectCommandExecutor:
         elif isinstance(command, JointCommand):
             self.joint(command)
         elif isinstance(command, ReleaseCommand):
-            self.release(command.name)
+            self.release(command)
         elif isinstance(command, WaitCommand):
             count = command.steps
             if count is None:
@@ -471,6 +483,12 @@ class ObjectCommandExecutor:
             joint_id = obj.data.joint_names.index(joint_name)
             goal = obj.data.joint_pos.torch[0, joint_id].item()
             self._set_joint_hold(name, joint_name, goal, hold.gain, hold.damping, hold.limit)
+
+    def _release_reset_joint_holds(self, joint_setups: Sequence[SetupJointCommand]) -> None:
+        """Release effort holds after initial settling."""
+        for setup in joint_setups:
+            if setup.settle_hold is not None:
+                self._release_joint(setup.name, setup.joint_name)
 
 
 def configure_object_command_executor(env_cfg, joint_setups: tuple[SetupJointCommand, ...]) -> None:

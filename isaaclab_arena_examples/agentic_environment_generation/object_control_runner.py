@@ -104,7 +104,11 @@ def _add_runner_args(parser: argparse.ArgumentParser) -> None:
     group.add_argument("--allow_incomplete", action="store_true", help="Write a report without requiring task success.")
 
 
-def _follow_commands(path: Path, render: Callable[[], None]) -> Iterator[RuntimeCommand]:
+def _follow_commands(
+    path: Path,
+    render: Callable[[], None],
+    startup_joint_setups: tuple[SetupJointCommand, ...],
+) -> Iterator[RuntimeCommand]:
     """Yield complete validated commands as they are appended to a JSONL recipe."""
     cursor = 0
     runtime_command_seen = False
@@ -123,6 +127,9 @@ def _follow_commands(path: Path, render: Callable[[], None]) -> Iterator[Runtime
         command = parse_object_control_line(line, line_number)
         if isinstance(command, SetupJointCommand):
             assert not runtime_command_seen, "setup_joint commands must precede runtime commands"
+            assert (
+                command in startup_joint_setups
+            ), f"Recipe line {line_number}: add setup_joint before starting the runner"
             continue
         runtime_command_seen = True
         yield command
@@ -150,7 +157,9 @@ def _run_recipe(builder, args: argparse.Namespace, recipe: ObjectControlRecipe) 
         env.unwrapped.configure_episode_limit(1)
         env.reset()
         commands = (
-            _follow_commands(args.commands, env.unwrapped.sim.render) if args.follow_commands else recipe.commands
+            _follow_commands(args.commands, env.unwrapped.sim.render, recipe.joint_setups)
+            if args.follow_commands
+            else recipe.commands
         )
         report_mode = "followed_object_commands" if args.follow_commands else "object_control_recipe"
         ObjectCommandExecutor(env, args).run(commands, recipe.joint_setups, report_mode)
