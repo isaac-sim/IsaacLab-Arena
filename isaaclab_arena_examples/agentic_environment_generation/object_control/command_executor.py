@@ -230,24 +230,15 @@ class ObjectCommandExecutor:
         self._record_progress()
 
     def _task_completion(self):
-        tracker = self.env.progress_tracker
-        if all(criteria.parent_subtask_idx is None for criteria in tracker.completion_criteria):
-            return tracker.is_complete()[:, None]
-        return tracker.get_subtask_completion()
+        return self.env.progress_tracker.get_completion_by_subtask()
 
     def _criterion_status(self) -> dict[str, list | dict]:
         from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
 
         status = {}
-        for runner in self.env.progress_tracker.runners:
-            sequences = {}
-            for sequence_name, chain in runner.predicate_chains.items():
-                values = []
-                for predicate, _ in chain:
-                    evaluate = getattr(predicate, "predicate", predicate)
-                    values.append(evaluate(self.env).tolist())
-                sequences[sequence_name] = values
-            status[runner.completion_criteria.name] = (
+        for criteria_name, sequences in self.env.progress_tracker.evaluate_predicates(self.env).items():
+            sequences = {name: [value.tolist() for value in values] for name, values in sequences.items()}
+            status[criteria_name] = (
                 sequences[DEFAULT_SEQUENCE_NAME] if list(sequences) == [DEFAULT_SEQUENCE_NAME] else sequences
             )
         return status
