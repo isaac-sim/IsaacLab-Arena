@@ -16,7 +16,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
+from isaaclab_arena.agentic_tools.object_control.object_control_recipe import (
     Axis,
     CheckCommand,
     FinishCommand,
@@ -33,6 +33,7 @@ from isaaclab_arena_examples.agentic_environment_generation.object_control.objec
     WaitCommand,
     WaitFinalCommand,
 )
+from isaaclab_arena.utils.timer import Timer
 
 
 class ObjectCommandExecutor:
@@ -41,13 +42,8 @@ class ObjectCommandExecutor:
     def __init__(self, env, output_dir: Path, *, record_video: bool, allow_incomplete: bool):
         import torch
 
-        from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
-            ForceJointActionTerm,
-            ForcePoseActionTerm,
-        )
-        from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_video import (
-            ObjectControlVideo,
-        )
+        from isaaclab_arena.agentic_tools.object_control.force_actions import ForceJointActionTerm, ForcePoseActionTerm
+        from isaaclab_arena.agentic_tools.object_control.object_control_video import ObjectControlVideo
 
         self.wrapped_env = env
         self.env = env.unwrapped
@@ -192,7 +188,8 @@ class ObjectCommandExecutor:
             self.step(240)
             self._release_reset_joint_holds(joint_setups)
             self._execute_commands(commands)
-            report = self._write_report(report_mode)
+            with Timer("report"):
+                report = self._write_report(report_mode)
             if not self.allow_incomplete:
                 if not all(report["success"]):
                     snapshot = self._write_failure_snapshot("final_conditions")
@@ -431,9 +428,10 @@ class ObjectCommandExecutor:
 
     def _execute_commands(self, commands: Iterable[RuntimeCommand]) -> None:
         for command in commands:
-            print("OBJECT_CONTROL_COMMAND", command.model_dump_json(exclude_unset=True), flush=True)
-            if not self._execute(command):
-                break
+            with Timer(f"command_{command.action}"):
+                print("OBJECT_CONTROL_COMMAND", command.model_dump_json(exclude_unset=True), flush=True)
+                if not self._execute(command):
+                    break
 
     def _write_report(self, mode: str) -> dict[str, Any]:
         from isaaclab_arena.tasks.terminations import task_success_from_progress
@@ -523,11 +521,8 @@ def _configure_force_actions(env_cfg) -> None:
     """Attach force actions to scene assets; existing robot drives remain at reset targets."""
     from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 
+    from isaaclab_arena.agentic_tools.object_control.force_actions import ForceJointActionCfg, ForcePoseActionCfg
     from isaaclab_arena.utils.configclass import make_configclass
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
-        ForceJointActionCfg,
-        ForcePoseActionCfg,
-    )
 
     terms = []
     for name, asset_cfg in vars(env_cfg.scene).items():
@@ -545,11 +540,11 @@ def _combine_reference_goal(
     reference_axes: list[Axis] | None,
 ) -> list[float]:
     """Combine absolute and reference-relative components into a world-frame goal."""
-    axes = {"x": 0, "y": 1, "z": 2}
-    selected_axes = set(reference_axes or axes)
+    axis_indices = {axis: index for index, axis in enumerate(Axis)}
+    selected_axes = set(reference_axes or Axis)
     assert goal is not None or len(selected_axes) == 3, "Unreferenced axes require an absolute goal"
     combined = list(goal or (0.0, 0.0, 0.0))
     for axis in selected_axes:
-        index = axes[axis.value]
+        index = axis_indices[axis]
         combined[index] = reference[index] + offset[index]
     return combined

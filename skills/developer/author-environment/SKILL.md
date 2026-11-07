@@ -83,7 +83,7 @@ changed success logic, temporal interruptions, and reset isolation across parall
 Parsing or passive stepping alone does not establish task solvability.
 
 Use the generic [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst)
-([source](../../../isaaclab_arena_examples/agentic_environment_generation/object_control_runner.py))
+([source](../../../isaaclab_arena/agentic_tools/object_control_runner.py))
 when an authored environment needs physics-based validation without a robot policy. Use it to
 drive objects to pose and joint-position targets, verify task success predicates, and diagnose why
 an interaction or success condition fails. Its documentation covers recipe and live-command usage,

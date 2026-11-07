@@ -8,21 +8,26 @@
 import json
 from pathlib import Path
 
+from isaaclab_arena.utils.timer import Timer
+
 
 def configure_video(env_cfg, output: Path) -> None:
-    """Record bounded clips at the environment's control rate using Isaac Lab."""
+    """Record bounded clips near 15 FPS independently of the environment's control rate."""
     from isaaclab.envs.utils.video_recorder_cfg import VideoRecorderCfg
 
     step_dt = env_cfg.sim.dt * env_cfg.decimation
-    clip_steps = max(1, round(5.0 / step_dt))
+    frame_stride = max(1, round(1.0 / (15 * step_dt)))
+    frame_dt = step_dt * frame_stride
+    clip_steps = max(1, round(5.0 / frame_dt)) * frame_stride
     env_cfg.video_recorders = [
         VideoRecorderCfg(
             source="visualizer:kit",
             output_dir=str(output / "raw_video"),
             output_filename_prefix="viewport",
-            fps=1.0 / step_dt,
+            fps=1.0 / frame_dt,
             video_length=clip_steps,
             video_interval=clip_steps,
+            frame_stride=frame_stride,
         )
     ]
 
@@ -68,6 +73,7 @@ class ObjectControlVideo:
         self.timeline = []
         self.frames = 0
         self.closed = False
+        self.frame_dt = env.step_dt * env.video_recorders[0].cfg.frame_stride
         self.visualizer = next(v for v in env.sim.visualizers if v.cfg.visualizer_type == "kit")
 
     def record_progress(self, simulation_time_s: float, progress: dict) -> None:
@@ -86,11 +92,16 @@ class ObjectControlVideo:
 
     def close(self) -> None:
         """Flush Lab's recorder and stitch annotated clips into demo.mp4."""
-        import imageio.v2 as imageio
-
         if self.closed:
             return
         self.closed = True
+        with Timer("video_postprocessing"):
+            self._write_video()
+
+    def _write_video(self) -> None:
+        """Flush recorded clips and write the annotated video."""
+        import imageio.v2 as imageio
+
         for recorder in self.env.video_recorders:
             recorder.close()
         (self.output / "video_progress.json").write_text(json.dumps(self.timeline, indent=2))
@@ -98,12 +109,12 @@ class ObjectControlVideo:
         assert clips, "Lab's video recorder produced no clips; see the simulation log"
         timeline_index = 0
         with imageio.get_writer(
-            str(self.output / "demo.mp4"), fps=1.0 / self.env.step_dt, codec="libx264", quality=8
+            str(self.output / "demo.mp4"), fps=1.0 / self.frame_dt, codec="libx264", quality=8
         ) as writer:
             for clip in clips:
                 with imageio.get_reader(str(clip)) as reader:
                     for frame in reader:
-                        simulation_time_s = (self.frames + 1) * self.env.step_dt
+                        simulation_time_s = (self.frames + 1) * self.frame_dt
                         while (
                             timeline_index + 1 < len(self.timeline)
                             and self.timeline[timeline_index + 1]["simulation_time_s"] <= simulation_time_s + 1e-9

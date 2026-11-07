@@ -38,10 +38,7 @@ def _force_asset():
 def test_force_pose_recomputes_damping_each_substep_and_releases_selected_envs():
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
-        ForcePoseActionCfg,
-        ForcePoseActionTerm,
-    )
+    from isaaclab_arena.agentic_tools.object_control.force_actions import ForcePoseActionCfg, ForcePoseActionTerm
 
     asset, env = _force_asset()
     term = ForcePoseActionTerm(ForcePoseActionCfg(asset_name="object", linear_gain=10, linear_damping=2), env)
@@ -75,10 +72,7 @@ def test_force_pose_recomputes_damping_each_substep_and_releases_selected_envs()
 def test_force_pose_selects_linear_damping_mode_independently_of_minimum_stiffness(critical_damping, expected_force_x):
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
-        ForcePoseActionCfg,
-        ForcePoseActionTerm,
-    )
+    from isaaclab_arena.agentic_tools.object_control.force_actions import ForcePoseActionCfg, ForcePoseActionTerm
 
     asset, env = _force_asset()
     asset.data.root_lin_vel_w.torch[:, 0] = 1
@@ -102,10 +96,7 @@ def test_force_pose_preserves_rotation_modes(rotation_mode, expected):
     import math
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
-        ForcePoseActionCfg,
-        ForcePoseActionTerm,
-    )
+    from isaaclab_arena.agentic_tools.object_control.force_actions import ForcePoseActionCfg, ForcePoseActionTerm
 
     _, env = _force_asset()
     term = ForcePoseActionTerm(
@@ -120,10 +111,7 @@ def test_force_pose_preserves_rotation_modes(rotation_mode, expected):
 def test_joint_efforts_use_substep_feedback_and_release():
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
-        ForceJointActionCfg,
-        ForceJointActionTerm,
-    )
+    from isaaclab_arena.agentic_tools.object_control.force_actions import ForceJointActionCfg, ForceJointActionTerm
 
     asset, env = _force_asset()
     term = ForceJointActionTerm(ForceJointActionCfg(asset_name="object"), env)
@@ -159,13 +147,13 @@ def _test_force_action_environment_lifecycle(_simulation_app):
     from isaaclab.utils import configclass
     from isaaclab_physx.physics import PhysxCfg
 
+    from isaaclab_arena.agentic_tools.object_control.force_actions import ForcePoseActionCfg
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
     from isaaclab_arena.tasks.terminations import task_success_from_progress
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import ForcePoseActionCfg
 
     @configclass
     class SceneCfg(InteractiveSceneCfg):

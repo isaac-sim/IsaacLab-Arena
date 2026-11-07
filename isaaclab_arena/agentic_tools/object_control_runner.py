@@ -7,7 +7,7 @@ r"""Launch an Arena environment and execute an object-control demo.
 
 Run a complete checked-in JSONL recipe inside the Arena container::
 
-    isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/object_control_runner.py \
+    isaaclab.sh -p isaaclab_arena/agentic_tools/object_control_runner.py \
       --env_spec isaaclab_arena_environments/kitchen_bench/\
 kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.yaml \
       --commands isaaclab_arena_environments/kitchen_bench/\
@@ -19,7 +19,7 @@ For live mode, create the JSONL file first, including any ``setup_joint`` record
 ``--follow_commands``. Append newline-terminated runtime commands from another shell; the runner
 waits for each complete line and stops on ``{"action":"finish"}``::
 
-    isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/object_control_runner.py \
+    isaaclab.sh -p isaaclab_arena/agentic_tools/object_control_runner.py \
       --env_spec isaaclab_arena_environments/kitchen_bench/\
 kitchen_bench_lightwheel_open_cabinet_u_shaped_with_island_farmhouse2.yaml \
       --commands /tmp/object_control.jsonl --follow_commands --visualizer kit
@@ -38,21 +38,20 @@ runs also produce ``demo.mp4`` and progress/state artifacts under ``--output``.
 from __future__ import annotations
 
 import argparse
+import json
+import math
 import sys
 import time
 from collections.abc import Callable, Iterator
+from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-from isaaclab_arena.utils.physics_backend import PhysicsBackend
-from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
-from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
+from isaaclab_arena.agentic_tools.object_control.command_executor import (
     ObjectCommandExecutor,
     configure_object_command_executor,
 )
-from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
+from isaaclab_arena.agentic_tools.object_control.object_control_recipe import (
     FinishCommand,
     ObjectControlRecipe,
     RuntimeCommand,
@@ -61,10 +60,17 @@ from isaaclab_arena_examples.agentic_environment_generation.object_control.objec
     parse_object_control_line,
     read_recipe_lines,
 )
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
+from isaaclab_arena.utils.timer import Timer, get_timer_stats_json
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 
 def main() -> None:
     """Launch an Arena environment and execute an object-control demo."""
+    started = time.perf_counter()
     parser = get_isaaclab_arena_cli_parser()
     _add_runner_args(parser)
     parser.set_defaults(device="cpu", visualizer=["kit"])
@@ -76,15 +82,34 @@ def main() -> None:
     if not app_args.no_record:
         app_args.enable_cameras = True
 
+    startup_started = time.perf_counter()
     with SimulationAppContext(app_args):
-        parser = get_isaaclab_arena_environments_cli_parser(parser)
-        args, hydra_overrides = parser.parse_known_args(original_cli_args)
-        assert_hydra_overrides(hydra_overrides, parser)
-        _assert_runner_args(args)
-        recipe = load_object_control_recipe(args.commands, require_runtime_commands=not args.follow_commands)
-        builder = get_arena_builder_from_cli(args, hydra_overrides=hydra_overrides)
-        assert builder.resolved_physics_backend is PhysicsBackend.PHYSX, "object_control_runner requires PhysX"
-        _run_recipe(builder, args, recipe)
+        startup_seconds = time.perf_counter() - startup_started
+        try:
+            with Timer("scene_spec"):
+                parser = get_isaaclab_arena_environments_cli_parser(parser)
+                args, hydra_overrides = parser.parse_known_args(original_cli_args)
+                assert_hydra_overrides(hydra_overrides, parser)
+                _assert_runner_args(args)
+                recipe = load_object_control_recipe(args.commands, require_runtime_commands=not args.follow_commands)
+                builder = get_arena_builder_from_cli(args, hydra_overrides=hydra_overrides)
+                assert builder.resolved_physics_backend is PhysicsBackend.PHYSX, "object_control_runner requires PhysX"
+                from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+                # This runner starts exactly one episode; unused pool layouts only add solver work.
+                builder.arena_env.placer_params = replace(
+                    builder.arena_env.placer_params or ObjectPlacerParams(), min_unique_layouts_per_env=1
+                )
+            _run_recipe(builder, args, recipe)
+        finally:
+            app_args.output.mkdir(parents=True, exist_ok=True)
+            timings = {
+                "simulation_app_startup_s": startup_seconds,
+                "main_wall_time_s": time.perf_counter() - started,
+                "timers": get_timer_stats_json("object_control_runner"),
+            }
+            (app_args.output / "timings.json").write_text(json.dumps(timings, indent=2) + "\n", encoding="utf-8")
+            print("OBJECT_CONTROL_TIMINGS", json.dumps(timings), flush=True)
 
 
 def _assert_runner_args(args: argparse.Namespace) -> None:
@@ -140,36 +165,69 @@ def _follow_commands(
 
 def _run_recipe(builder, args: argparse.Namespace, recipe: ObjectControlRecipe) -> None:
     """Build one environment, execute its recipe, and always close it."""
-    env_cfg, env_kwargs = builder.build_env_cfg()
+    with Timer("scene_config"):
+        env_cfg, env_kwargs = builder.build_env_cfg()
+    _configure_demo_timing(env_cfg)
     env_cfg.sim.enable_scene_query_support = True
     env_cfg.recorders = {}
     env_cfg.episode_recorders = {}
     configure_object_command_executor(env_cfg, recipe.joint_setups)
     env_cfg.video_recorders = []
     if not args.no_record:
-        from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_video import (
-            configure_video,
-        )
+        from isaaclab_arena.agentic_tools.object_control.object_control_video import configure_video
 
         configure_video(env_cfg, args.output)
-    env = builder.make_registered(env_cfg, env_kwargs)
+    with Timer("scene_loading"):
+        env = builder.make_registered(env_cfg, env_kwargs)
     try:
         env.unwrapped.configure_episode_limit(1)
-        env.reset()
+        with Timer("scene_reset"):
+            env.reset()
         commands = (
             _follow_commands(args.commands, env.unwrapped.sim.render, recipe.joint_setups)
             if args.follow_commands
             else recipe.commands
         )
         report_mode = "followed_object_commands" if args.follow_commands else "object_control_recipe"
-        ObjectCommandExecutor(
-            env,
-            args.output,
-            record_video=not args.no_record,
-            allow_incomplete=args.allow_incomplete,
-        ).run(commands, recipe.joint_setups, report_mode)
+        with Timer("force_demo"):
+            ObjectCommandExecutor(
+                env,
+                args.output,
+                record_video=not args.no_record,
+                allow_incomplete=args.allow_incomplete,
+            ).run(commands, recipe.joint_setups, report_mode)
     finally:
-        env.close()
+        with Timer("environment_close"):
+            env.close()
+
+
+def _configure_demo_timing(env_cfg) -> None:
+    """Use 120 Hz physics and control, preserving configured temporal hold durations."""
+    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+    previous_step_dt = env_cfg.sim.dt * env_cfg.decimation
+    # Update pose targets every physics tick and honor recipe step budgets exactly. At the default
+    # 15 Hz control rate, targets change only every eight ticks and 60-step waits round up to 64;
+    # both changes altered banana contacts enough to fail the placement support predicate.
+    env_cfg.sim.dt = 1 / 120
+    env_cfg.decimation = 1
+    steps_per_previous_step = previous_step_dt / env_cfg.sim.dt
+    if env_cfg.task_progress is None:
+        return
+    # The task may reuse these configs elsewhere; adjust only this demo's copy.
+    env_cfg.task_progress = deepcopy(env_cfg.task_progress)
+    temporal_predicates = {}
+    for criteria in env_cfg.task_progress.success_criteria:
+        for sequence in criteria.canonical_predicate_sequences.values():
+            for predicate, _ in sequence:
+                if isinstance(predicate, TrueForConsecutiveStepsCfg):
+                    temporal_predicates[id(predicate)] = predicate
+    for event in env_cfg.task_progress.tracked_events:
+        for predicate in event.predicate_sequence:
+            if isinstance(predicate, TrueForConsecutiveStepsCfg):
+                temporal_predicates[id(predicate)] = predicate
+    for predicate in temporal_predicates.values():
+        predicate.required_steps = max(1, math.ceil(predicate.required_steps * steps_per_previous_step))
 
 
 if __name__ == "__main__":

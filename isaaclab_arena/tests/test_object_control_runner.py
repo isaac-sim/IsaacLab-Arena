@@ -11,7 +11,7 @@ import pytest
 
 
 def test_load_object_control_recipe_separates_setup_from_runtime_commands(tmp_path):
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import (
         FinishCommand,
         JointCommand,
         SetupJointCommand,
@@ -41,18 +41,14 @@ def test_load_object_control_recipe_separates_setup_from_runtime_commands(tmp_pa
 
 
 def test_object_control_recipe_reports_validation_context():
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
-        validate_object_control_command,
-    )
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import validate_object_control_command
 
     with pytest.raises(AssertionError, match="Recipe line 7: 'seconds': Input should be a finite number"):
         validate_object_control_command({"action": "wait", "seconds": float("inf")}, 7)
 
 
 def test_object_control_recipe_rejects_zero_orientation():
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
-        validate_object_control_command,
-    )
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import validate_object_control_command
 
     command = {
         "action": "move",
@@ -65,12 +61,8 @@ def test_object_control_recipe_rejects_zero_orientation():
 
 
 def test_replace_existing_actuators_keeps_all_recipe_joint_setups():
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        _apply_joint_setups,
-    )
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
-        SetupJointCommand,
-    )
+    from isaaclab_arena.agentic_tools.object_control.command_executor import _apply_joint_setups
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import SetupJointCommand
 
     cabinet_cfg = SimpleNamespace(actuators={"original": object()})
     env_cfg = SimpleNamespace(scene=SimpleNamespace(cabinet=cabinet_cfg))
@@ -87,12 +79,8 @@ def test_replace_existing_actuators_keeps_all_recipe_joint_setups():
 def test_reset_joint_hold_is_released_after_initial_settling():
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        ObjectCommandExecutor,
-    )
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
-        SetupJointCommand,
-    )
+    from isaaclab_arena.agentic_tools.object_control.command_executor import ObjectCommandExecutor
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import SetupJointCommand
 
     runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
     reset_joint_positions = torch.tensor([[0.7, -0.001]])
@@ -132,12 +120,8 @@ def test_release_command_disables_joint_control():
     import torch
     from unittest.mock import Mock
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        ObjectCommandExecutor,
-    )
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
-        ReleaseCommand,
-    )
+    from isaaclab_arena.agentic_tools.object_control.command_executor import ObjectCommandExecutor
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import ReleaseCommand
 
     runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
     runner.env = SimpleNamespace(
@@ -158,10 +142,15 @@ def test_release_command_disables_joint_control():
 
 
 def test_combine_reference_goal_uses_only_selected_reference_axes():
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        _combine_reference_goal,
-    )
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import Axis
+    from isaaclab_arena.agentic_tools.object_control.command_executor import _combine_reference_goal
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import Axis
+
+    assert _combine_reference_goal(
+        goal=None,
+        reference=[0.2, -0.1, 0.8],
+        offset=[0.05, 0.06, 0.0],
+        reference_axes=None,
+    ) == pytest.approx([0.25, -0.04, 0.8])
 
     result = _combine_reference_goal(
         goal=[1.0, 2.0, 0.56],
@@ -176,9 +165,7 @@ def test_combine_reference_goal_uses_only_selected_reference_axes():
 def test_check_timeout_writes_failure_snapshot(tmp_path):
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        ObjectCommandExecutor,
-    )
+    from isaaclab_arena.agentic_tools.object_control.command_executor import ObjectCommandExecutor
 
     runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
     runner.output = tmp_path
@@ -202,9 +189,7 @@ def test_check_timeout_writes_failure_snapshot(tmp_path):
 def test_overlay_progress_banner_draws_title_and_preserves_scene_pixels():
     import numpy as np
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_video import (
-        overlay_progress_banner,
-    )
+    from isaaclab_arena.agentic_tools.object_control.object_control_video import overlay_progress_banner
 
     progress = {"index": 1, "title": "Put the second banana in the bowl", "completion": [True, False]}
     frame = np.full((120, 320, 3), 200, dtype=np.uint8)
@@ -216,14 +201,13 @@ def test_overlay_progress_banner_draws_title_and_preserves_scene_pixels():
 
 
 def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
-    from isaaclab_arena_examples.agentic_environment_generation import object_control_runner
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
-        FinishCommand,
-        ObjectControlRecipe,
-    )
+    from isaaclab_arena.agentic_tools import object_control_runner
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import FinishCommand, ObjectControlRecipe
 
     env_cfg = SimpleNamespace(
-        sim=SimpleNamespace(enable_scene_query_support=False),
+        sim=SimpleNamespace(dt=0.005, enable_scene_query_support=False),
+        decimation=4,
+        task_progress=None,
         recorders=object(),
         episode_recorders=object(),
     )
@@ -241,9 +225,15 @@ def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
             self.close_count += 1
 
     env = FakeEnvironment()
+
+    def make_registered(cfg, kwargs):
+        assert cfg.sim.dt == 1 / 120
+        assert cfg.decimation == 1
+        return env
+
     builder = SimpleNamespace(
         build_env_cfg=lambda: (env_cfg, {"example": True}),
-        make_registered=lambda cfg, kwargs: env,
+        make_registered=make_registered,
     )
 
     constructor_options = {}
@@ -280,34 +270,67 @@ def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
     }
 
 
-def test_force_steps_delegate_to_wrapped_environment():
+@pytest.mark.parametrize("decimation,budget,calls,elapsed_steps", [(4, 9, 3, 12), (1, 60, 60, 60)])
+def test_force_steps_delegate_to_wrapped_environment(decimation, budget, calls, elapsed_steps):
     from unittest.mock import Mock
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        ObjectCommandExecutor,
-    )
+    from isaaclab_arena.agentic_tools.object_control.command_executor import ObjectCommandExecutor
 
     runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
-    runner.env = SimpleNamespace(cfg=SimpleNamespace(decimation=4), _sim_step_counter=0)
+    runner.env = SimpleNamespace(cfg=SimpleNamespace(decimation=decimation), _sim_step_counter=0)
     runner.start_sim_step = 0
     runner.wrapped_env = SimpleNamespace(
-        step=Mock(side_effect=lambda _: setattr(runner.env, "_sim_step_counter", runner.steps + 4))
+        step=Mock(side_effect=lambda _: setattr(runner.env, "_sim_step_counter", runner.steps + decimation))
     )
     runner.actions = object()
     runner._record_progress = Mock()
-    runner.step(9)
-    assert runner.wrapped_env.step.call_count == 3
+    runner.step(budget)
+    assert runner.wrapped_env.step.call_count == calls
     runner.wrapped_env.step.assert_called_with(runner.actions)
-    assert runner.steps == 12
+    assert runner.steps == elapsed_steps
+
+
+@pytest.mark.parametrize("physics_dt,decimation,expected_steps", [(1 / 120, 8, 24), (1 / 200, 4, 8), (1 / 120, 1, 3)])
+def test_demo_timing_preserves_temporal_durations_and_original_task(physics_dt, decimation, expected_steps):
+    from isaaclab_arena.agentic_tools.object_control_runner import _configure_demo_timing
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+    from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
+    from isaaclab_arena.progress_tracking.tracked_event_cfg import TrackedEventCfg
+    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+    held = TrueForConsecutiveStepsCfg(lambda env: True, required_steps=3)
+    progress = TaskProgressCfg(
+        success_criteria=[
+            CompletionCriteria(name="single", predicate_sequence=[held]),
+            CompletionCriteria(name="named", predicate_sequences={"first": [(held, 1.0)]}),
+        ],
+        tracked_events=[TrackedEventCfg(name="held", predicate_sequence=[held])],
+    )
+    cfg = SimpleNamespace(
+        sim=SimpleNamespace(dt=physics_dt), decimation=decimation, task_progress=progress, episode_length_s=60
+    )
+
+    _configure_demo_timing(cfg)
+
+    assert cfg.sim.dt == 1 / 120
+    assert cfg.decimation == 1
+    assert cfg.episode_length_s == 60
+    assert cfg.task_progress is not progress
+    assert held.required_steps == 3
+    for criterion in cfg.task_progress.success_criteria:
+        for sequence in criterion.canonical_predicate_sequences.values():
+            assert sequence[0][0].required_steps == expected_steps
+    assert cfg.task_progress.tracked_events[0].predicate_sequence[0].required_steps == expected_steps
+    # Reapplying the override must not multiply shared requirements again.
+    _configure_demo_timing(cfg)
+    assert cfg.task_progress.tracked_events[0].predicate_sequence[0].required_steps == expected_steps
 
 
 @pytest.mark.parametrize("timeout_steps,initially_complete", [(0, True), (8, False)])
 def test_check_accepts_completion_at_timeout_boundary(timeout_steps, initially_complete):
     import torch
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        ObjectCommandExecutor,
-    )
+    from isaaclab_arena.agentic_tools.object_control.command_executor import ObjectCommandExecutor
 
     runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
     runner.env = SimpleNamespace(cfg=SimpleNamespace(decimation=4))
@@ -323,12 +346,10 @@ def test_diagnostics_use_initialized_named_and_temporal_predicates():
 
     from isaaclab.managers import TerminationTermCfg
 
+    from isaaclab_arena.agentic_tools.object_control.command_executor import ObjectCommandExecutor
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        ObjectCommandExecutor,
-    )
 
     def predicate(env, value):
         return torch.tensor([value])
@@ -352,8 +373,8 @@ def test_diagnostics_use_initialized_named_and_temporal_predicates():
 
 
 def test_follow_waits_for_complete_records_and_skips_blank_lines(tmp_path, monkeypatch):
-    from isaaclab_arena_examples.agentic_environment_generation import object_control_runner as module
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
+    from isaaclab_arena.agentic_tools import object_control_runner as module
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import (
         FinishCommand,
         WaitCommand,
         load_object_control_recipe,
@@ -375,7 +396,7 @@ def test_follow_waits_for_complete_records_and_skips_blank_lines(tmp_path, monke
 
 
 def test_follow_rejects_joint_setup_added_after_startup(tmp_path):
-    from isaaclab_arena_examples.agentic_environment_generation import object_control_runner as module
+    from isaaclab_arena.agentic_tools import object_control_runner as module
 
     path = tmp_path / "follow.jsonl"
     path.write_text('{"action":"setup_joint","name":"cabinet","joint_name":"door"}\n{"action":"finish"}\n')
@@ -385,9 +406,7 @@ def test_follow_rejects_joint_setup_added_after_startup(tmp_path):
 
 
 def test_follow_buffers_an_incomplete_utf8_character(tmp_path):
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
-        load_object_control_recipe,
-    )
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import load_object_control_recipe
 
     path = tmp_path / "follow.jsonl"
     line = '{"action":"mark","index":0,"boundary":"start","title":"90°"}\n'.encode()
@@ -399,18 +418,14 @@ def test_follow_buffers_an_incomplete_utf8_character(tmp_path):
     assert load_object_control_recipe(path, require_runtime_commands=False).commands[0].title == "90°"
 
 
-def test_lab_recording_preserves_simulation_time(tmp_path):
+@pytest.mark.parametrize("physics_dt,decimation", [(1 / 120, 1), (1 / 120, 8), (1 / 200, 4)])
+def test_lab_recording_preserves_simulation_time(tmp_path, physics_dt, decimation):
     import numpy as np
 
     from isaaclab.envs.utils.video_recorder import VideoRecorder
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_video import (
-        ObjectControlVideo,
-        configure_video,
-    )
+    from isaaclab_arena.agentic_tools.object_control.object_control_video import ObjectControlVideo, configure_video
 
-    physics_dt = 1 / 120
-    decimation = 8
     cfg = SimpleNamespace(sim=SimpleNamespace(dt=physics_dt), decimation=decimation)
     configure_video(cfg, tmp_path)
     env = SimpleNamespace(
@@ -422,14 +437,15 @@ def test_lab_recording_preserves_simulation_time(tmp_path):
     recorder._get_frame = lambda: np.full((96, 128, 3), 120, dtype=np.uint8)
     video = ObjectControlVideo(env, tmp_path)
     video.record_progress(0, {"index": 0, "title": "Test", "completion": [False]})
-    for _ in range(round(1 / env.step_dt)):
+    # Cross a clip boundary to detect drift from a stride that does not divide the clip length.
+    for _ in range(round(6 / env.step_dt)):
         recorder.step()
     video.close()
     import imageio.v2 as imageio
 
     with imageio.get_reader(str(tmp_path / "demo.mp4")) as reader:
-        assert reader.get_meta_data()["duration"] == pytest.approx(1.0, abs=0.01)
-    assert video.frames == round(1 / env.step_dt)
+        assert reader.get_meta_data()["duration"] == pytest.approx(6.0, abs=0.01)
+    assert video.frames == round(6 / video.frame_dt)
     assert (tmp_path / "video_progress.json").exists()
 
 
@@ -439,14 +455,9 @@ def test_failed_recipe_flushes_lab_video_and_diagnostics(tmp_path):
 
     from isaaclab.envs.utils.video_recorder import VideoRecorder
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        ObjectCommandExecutor,
-    )
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import CheckCommand
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_video import (
-        ObjectControlVideo,
-        configure_video,
-    )
+    from isaaclab_arena.agentic_tools.object_control.command_executor import ObjectCommandExecutor
+    from isaaclab_arena.agentic_tools.object_control.object_control_recipe import CheckCommand
+    from isaaclab_arena.agentic_tools.object_control.object_control_video import ObjectControlVideo, configure_video
 
     frame = np.full((96, 128, 3), 120, dtype=np.uint8)
     cfg = SimpleNamespace(sim=SimpleNamespace(dt=0.005), decimation=4)
@@ -498,15 +509,13 @@ def test_failed_recipe_flushes_lab_video_and_diagnostics(tmp_path):
     assert state["wrenches"] == diagnostic["wrenches"]
     assert (tmp_path / state["viewport"]).exists()
     assert (tmp_path / "demo.mp4").exists()
-    assert runner.video.frames == 60
+    assert runner.video.frames == 20
 
 
 def test_execution_error_keeps_json_when_video_capture_and_cleanup_fail(tmp_path):
     from unittest.mock import Mock
 
-    from isaaclab_arena_examples.agentic_environment_generation.object_control.command_executor import (
-        ObjectCommandExecutor,
-    )
+    from isaaclab_arena.agentic_tools.object_control.command_executor import ObjectCommandExecutor
 
     runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
     runner.env = SimpleNamespace(_sim_step_counter=0)
