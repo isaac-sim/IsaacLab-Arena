@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load and validate physical force-control recipes."""
+"""Load and validate object-control recipes."""
 
 from __future__ import annotations
 
@@ -236,27 +236,27 @@ RuntimeCommand = Annotated[
     | FinishCommand,
     Field(discriminator="action"),
 ]
-ForceControlCommand = Annotated[SetupJointCommand | RuntimeCommand, Field(discriminator="action")]
-_COMMAND_ADAPTER = TypeAdapter(ForceControlCommand)
+ObjectControlCommand = Annotated[SetupJointCommand | RuntimeCommand, Field(discriminator="action")]
+_COMMAND_ADAPTER = TypeAdapter(ObjectControlCommand)
 
 
 @dataclass(frozen=True)
-class ForceControlRecipe:
+class ObjectControlRecipe:
     """Validated setup and runtime commands loaded from JSONL."""
 
     joint_setups: tuple[SetupJointCommand, ...]
     commands: tuple[RuntimeCommand, ...]
 
 
-def load_force_control_recipe(path: Path, require_runtime_commands: bool = True) -> ForceControlRecipe:
-    """Load and validate a force-control JSONL recipe."""
+def load_object_control_recipe(path: Path, require_runtime_commands: bool = True) -> ObjectControlRecipe:
+    """Load and validate an object-control JSONL recipe."""
     joint_setups = []
     commands = []
     runtime_command_seen = False
     for line_number, line in enumerate(read_recipe_lines(path, complete_only=not require_runtime_commands), 1):
         if not line.strip():
             continue
-        command = parse_force_control_line(line, line_number)
+        command = parse_object_control_line(line, line_number)
         if isinstance(command, SetupJointCommand):
             assert (
                 not runtime_command_seen
@@ -266,7 +266,7 @@ def load_force_control_recipe(path: Path, require_runtime_commands: bool = True)
             runtime_command_seen = True
             commands.append(command)
     assert commands or not require_runtime_commands, f"Recipe '{path}' has no runtime commands"
-    return ForceControlRecipe(tuple(joint_setups), tuple(commands))
+    return ObjectControlRecipe(tuple(joint_setups), tuple(commands))
 
 
 def read_recipe_lines(path: Path, complete_only: bool = False) -> list[str]:
@@ -277,16 +277,16 @@ def read_recipe_lines(path: Path, complete_only: bool = False) -> list[str]:
     return content.decode("utf-8").splitlines(keepends=True)
 
 
-def parse_force_control_line(line: str, line_number: int) -> ForceControlCommand:
+def parse_object_control_line(line: str, line_number: int) -> ObjectControlCommand:
     """Decode and validate one JSONL command."""
     try:
         command = json.loads(line)
     except json.JSONDecodeError as error:
         raise AssertionError(f"Recipe line {line_number}: invalid JSON: {error.msg}") from error
-    return validate_force_control_command(command, line_number)
+    return validate_object_control_command(command, line_number)
 
 
-def validate_force_control_command(command: object, line_number: int) -> ForceControlCommand:
+def validate_object_control_command(command: object, line_number: int) -> ObjectControlCommand:
     """Validate and return one typed JSONL command."""
     try:
         return _COMMAND_ADAPTER.validate_python(command)

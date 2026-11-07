@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Execute physical commands in an initialized Arena environment."""
+"""Execute object-control commands in an initialized Arena environment."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_recipe import (
     Axis,
     CheckCommand,
     FinishCommand,
@@ -36,15 +36,15 @@ from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_con
 )
 
 
-class PhysicalCommandRunner:
-    """Execute physical commands and evaluate the environment's task predicates."""
+class ObjectCommandExecutor:
+    """Execute object-control commands and evaluate the environment's task predicates."""
 
     def __init__(self, env, args: argparse.Namespace):
         import torch
 
         from isaaclab_arena.terms.force_actions import ForceJointActionTerm, ForcePoseActionTerm
-        from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_video import (
-            ForceControlVideo,
+        from isaaclab_arena_examples.agentic_environment_generation.object_control.object_control_video import (
+            ObjectControlVideo,
         )
 
         self.wrapped_env = env
@@ -70,8 +70,8 @@ class PhysicalCommandRunner:
             offset += term.action_dim
         self.events = []
         self.current_subtask_index = None
-        self.current_subtask_title = "Preparing physical commands"
-        self.video = None if args.no_record else ForceControlVideo(self.env, self.output)
+        self.current_subtask_title = "Preparing object-control commands"
+        self.video = None if args.no_record else ObjectControlVideo(self.env, self.output)
         self._record_progress()
 
     @property
@@ -168,7 +168,7 @@ class PhysicalCommandRunner:
 
     def inspect(self) -> None:
         print(
-            "FORCE_CONTROL_STATE",
+            "OBJECT_CONTROL_STATE",
             json.dumps(self._collect_state()),
             flush=True,
         )
@@ -177,7 +177,7 @@ class PhysicalCommandRunner:
         self,
         commands: Iterable[RuntimeCommand],
         joint_setups: Sequence[SetupJointCommand] = (),
-        report_mode: str = "physical_commands",
+        report_mode: str = "object_control_commands",
     ) -> None:
         """Execute validated commands after holding configured joints through initial settling."""
         try:
@@ -329,7 +329,7 @@ class PhysicalCommandRunner:
             self.video.snapshot(image_name, self._progress())
             state["viewport"] = image_name
             output_path.write_text(json.dumps(state, indent=2))
-        print("FORCE_CONTROL_FAILURE", json.dumps({"trigger": trigger, "output": str(output_path)}), flush=True)
+        print("OBJECT_CONTROL_FAILURE", json.dumps({"trigger": trigger, "output": str(output_path)}), flush=True)
         return output_path
 
     def _drive_pose(
@@ -425,7 +425,7 @@ class PhysicalCommandRunner:
 
     def _execute_commands(self, commands: Iterable[RuntimeCommand]) -> None:
         for command in commands:
-            print("FORCE_CONTROL_COMMAND", command.model_dump_json(exclude_unset=True), flush=True)
+            print("OBJECT_CONTROL_COMMAND", command.model_dump_json(exclude_unset=True), flush=True)
             if not self._execute(command):
                 break
 
@@ -470,8 +470,8 @@ class PhysicalCommandRunner:
             self._set_joint_hold(name, joint_name, goal, hold.gain, hold.damping, hold.limit)
 
 
-def configure_physical_command_runner(env_cfg, joint_setups: tuple[SetupJointCommand, ...]) -> None:
-    """Configure scene assets and force actions required by ``PhysicalCommandRunner``."""
+def configure_object_command_executor(env_cfg, joint_setups: tuple[SetupJointCommand, ...]) -> None:
+    """Configure scene assets and force actions required by ``ObjectCommandExecutor``."""
     _apply_joint_setups(env_cfg, joint_setups)
     _configure_force_actions(env_cfg)
 
@@ -494,7 +494,7 @@ def _apply_joint_setups(env_cfg, joint_setups: tuple[SetupJointCommand, ...]) ->
         name = setup.name
         asset_cfg = asset_cfgs[name]
         existing_actuators = dict(asset_cfg.actuators or {})
-        actuator_name = "force_control_" + re.sub(r"\W+", "_", setup.joint_name).strip("_")
+        actuator_name = "object_control_" + re.sub(r"\W+", "_", setup.joint_name).strip("_")
         assert (
             actuator_name not in existing_actuators
         ), f"Recipe defines duplicate actuator '{actuator_name}' for scene entity '{name}'"

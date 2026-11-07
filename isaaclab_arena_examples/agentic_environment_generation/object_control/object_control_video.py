@@ -57,7 +57,7 @@ def overlay_progress_banner(frame, progress: dict):
     return np.asarray(Image.alpha_composite(image, overlay).convert("RGB"))
 
 
-class ForceControlVideo:
+class ObjectControlVideo:
     """Keep progress metadata alongside Lab's clips, including on failed recipes."""
 
     def __init__(self, env, output: Path):
