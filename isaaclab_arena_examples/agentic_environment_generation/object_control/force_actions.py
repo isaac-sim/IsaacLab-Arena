@@ -69,7 +69,7 @@ class ForcePoseActionTerm(ActionTerm):
         masses = data.body_mass.torch[env_ids]
         mass = masses.sum(dim=1, keepdim=True)
         stiffness = (cfg.linear_gain * mass).clamp_min(cfg.minimum_stiffness)
-        damping = 2 * (stiffness * mass).sqrt() if cfg.minimum_stiffness > 0 else cfg.linear_damping * mass
+        damping = 2 * (stiffness * mass).sqrt() if cfg.critical_damping else cfg.linear_damping * mass
         gravity_W = torch.tensor(self._env.cfg.sim.gravity, device=self.device)
         force_W = stiffness * (T_W_goal[:, :3] - T_W_O[:, :3]) - damping * v_W - mass * gravity_W
         force_W = force_W.clamp(-cfg.max_force, cfg.max_force)
@@ -109,17 +109,35 @@ class ForcePoseActionTerm(ActionTerm):
 
 @configclass
 class ForcePoseActionCfg(ActionTermCfg):
-    """Configure a pose force controller on asset_name, with SI gains and limits."""
+    """Configure a force-limited pose controller."""
 
     class_type: type[ActionTerm] = ForcePoseActionTerm
     linear_gain: float = 150.0
+    """Mass-scaled translational stiffness gain, in inverse seconds squared."""
+
     linear_damping: float = 24.0
+    """Mass-scaled translational damping gain, in inverse seconds."""
+
+    critical_damping: bool = False
+    """Use critical translational damping instead of ``linear_damping``."""
+
     minimum_stiffness: float = 0.0
+    """Minimum translational stiffness, in newtons per meter."""
+
     max_force: float = 100.0
+    """Maximum absolute force along each world-frame axis, in newtons."""
+
     rotation_mode: str = "acceleration"
+    """Interpret the rotational command as angular acceleration or torque."""
+
     rotation_gain: float = 100.0
+    """Rotational proportional gain in the units selected by ``rotation_mode``."""
+
     angular_damping: float = 20.0
+    """Rotational damping gain in the units selected by ``rotation_mode``."""
+
     max_torque: float = 5.0
+    """Maximum absolute torque along each world-frame axis, in newton-meters."""
 
 
 class ForceJointActionTerm(ActionTerm):

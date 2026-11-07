@@ -95,6 +95,7 @@ class PoseControlCommand(CommandBase):
     seconds: NonNegativeFloat = 2.0
     linear_gain: NonNegativeFloat | None = None
     linear_damping: NonNegativeFloat | None = None
+    critical_damping: bool | None = None
     minimum_stiffness: NonNegativeFloat | None = None
     max_force: NonNegativeFloat | None = None
     rotation_mode: RotationModeValue | None = None

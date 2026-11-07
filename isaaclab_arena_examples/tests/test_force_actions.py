@@ -65,6 +65,38 @@ def test_force_pose_recomputes_damping_each_substep_and_releases_selected_envs()
     assert term.last_wrench is None
 
 
+@pytest.mark.parametrize(
+    ("critical_damping", "expected_force_x"),
+    [
+        (False, [8.0, 6.0]),
+        (True, [3.6754, 1.0557]),
+    ],
+)
+def test_force_pose_selects_linear_damping_mode_independently_of_minimum_stiffness(critical_damping, expected_force_x):
+    import torch
+
+    from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
+        ForcePoseActionCfg,
+        ForcePoseActionTerm,
+    )
+
+    asset, env = _force_asset()
+    asset.data.root_lin_vel_w.torch[:, 0] = 1
+    cfg = ForcePoseActionCfg(
+        asset_name="object",
+        linear_gain=0,
+        linear_damping=2,
+        critical_damping=critical_damping,
+        minimum_stiffness=10,
+    )
+    term = ForcePoseActionTerm(cfg, env)
+    term.process_actions(torch.tensor([[1, 0, 1, 0, 0, 0, 1, 1]] * 2, dtype=torch.float32))
+
+    term.apply_actions()
+
+    assert term.last_wrench["force"][:, 0].tolist() == pytest.approx(expected_force_x, abs=1e-4)
+
+
 @pytest.mark.parametrize("rotation_mode,expected", [("acceleration", 0.1), ("torque", 1.0)])
 def test_force_pose_preserves_rotation_modes(rotation_mode, expected):
     import math

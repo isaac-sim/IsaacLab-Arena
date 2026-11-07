@@ -353,6 +353,7 @@ class ObjectCommandExecutor:
         for field in (
             "linear_gain",
             "linear_damping",
+            "critical_damping",
             "minimum_stiffness",
             "max_force",
             "rotation_mode",
