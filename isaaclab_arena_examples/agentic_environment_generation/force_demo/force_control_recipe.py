@@ -8,87 +8,244 @@
 from __future__ import annotations
 
 import json
-import math
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Literal
 
-_VECTOR_FIELDS = {"offset", "orientation"}
-_NON_NEGATIVE_NUMBER_FIELDS = {
-    "seconds",
-    "linear_gain",
-    "linear_damping",
-    "minimum_stiffness",
-    "max_force",
-    "rotation_gain",
-    "angular_damping",
-    "max_torque",
-    "gain",
-    "damping",
-    "limit",
-    "effort_limit",
-    "drive_stiffness",
-    "drive_damping",
-}
-_COMMAND_FIELDS = {
-    "setup_joint": (
-        {"name", "joint_name"},
-        {"effort_limit", "replace_existing", "settle_hold", "drive_stiffness", "drive_damping"},
-    ),
-    "move": (
-        {"name"},
-        {
-            "goal",
-            "reference",
-            "reference_point",
-            "reference_axes",
-            "offset",
-            "orientation",
-            "seconds",
-            "linear_gain",
-            "linear_damping",
-            "minimum_stiffness",
-            "max_force",
-            "rotation_mode",
-            "rotation_gain",
-            "angular_damping",
-            "max_torque",
-        },
-    ),
-    "lift": (
-        {"name", "height"},
-        {
-            "seconds",
-            "linear_gain",
-            "linear_damping",
-            "minimum_stiffness",
-            "max_force",
-            "rotation_mode",
-            "rotation_gain",
-            "angular_damping",
-            "max_torque",
-        },
-    ),
-    "joint": (
-        {"name", "joint_name"},
-        {"goal", "normalized_goal", "seconds", "gain", "damping", "limit"},
-    ),
-    "release": ({"name"}, set()),
-    "wait": (set(), {"steps", "seconds"}),
-    "mark": ({"index", "boundary", "title"}, set()),
-    "check": ({"index"}, {"timeout_steps"}),
-    "wait_final": (set(), {"timeout_steps"}),
-    "inspect": (set(), set()),
-    "finish": (set(), set()),
-}
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, TypeAdapter, ValidationError, model_validator
+
+NonEmptyString = Annotated[str, Field(min_length=1)]
+NonNegativeFloat = Annotated[FiniteFloat, Field(ge=0)]
+NonNegativeInt = Annotated[int, Field(ge=0)]
+NormalizedFloat = Annotated[FiniteFloat, Field(ge=0, le=1)]
+Vector3 = Annotated[list[FiniteFloat], Field(min_length=3, max_length=3)]
+Quaternion = Annotated[list[FiniteFloat], Field(min_length=4, max_length=4)]
+
+
+class Axis(str, Enum):
+    """World-frame axis used by a reference-relative target."""
+
+    X = "x"
+    Y = "y"
+    Z = "z"
+
+
+class ReferencePoint(str, Enum):
+    """Point on a referenced object used to construct a move target."""
+
+    POSITION = "position"
+    AABB_CENTER = "aabb_center"
+
+
+class RotationMode(str, Enum):
+    """Rotation-controller command representation."""
+
+    ACCELERATION = "acceleration"
+    TORQUE = "torque"
+
+
+class MarkBoundary(str, Enum):
+    """Recipe milestone boundary."""
+
+    START = "start"
+    END = "end"
+
+
+AxisValue = Annotated[Axis, Field(strict=False)]
+ReferencePointValue = Annotated[ReferencePoint, Field(strict=False)]
+RotationModeValue = Annotated[RotationMode, Field(strict=False)]
+MarkBoundaryValue = Annotated[MarkBoundary, Field(strict=False)]
+
+
+class StrictRecipeModel(BaseModel):
+    """Forbid unknown fields and implicit type coercion in recipe data."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class CommandBase(StrictRecipeModel):
+    """Strict base model for one recipe command."""
+
+
+class SettleHold(StrictRecipeModel):
+    """Effort hold applied at a joint's reset position."""
+
+    gain: NonNegativeFloat
+    damping: NonNegativeFloat
+    limit: NonNegativeFloat
+
+
+class SetupJointCommand(CommandBase):
+    """Configure one effort-controlled articulation joint."""
+
+    action: Literal["setup_joint"] = "setup_joint"
+    name: NonEmptyString
+    joint_name: NonEmptyString
+    effort_limit: NonNegativeFloat = 100.0
+    replace_existing: bool = False
+    settle_hold: SettleHold | None = None
+    drive_stiffness: NonNegativeFloat = 0.0
+    drive_damping: NonNegativeFloat = 0.0
+
+
+class PoseControlCommand(CommandBase):
+    """Shared bounded pose-controller settings."""
+
+    seconds: NonNegativeFloat = 2.0
+    linear_gain: NonNegativeFloat | None = None
+    linear_damping: NonNegativeFloat | None = None
+    minimum_stiffness: NonNegativeFloat | None = None
+    max_force: NonNegativeFloat | None = None
+    rotation_mode: RotationModeValue | None = None
+    rotation_gain: NonNegativeFloat | None = None
+    angular_damping: NonNegativeFloat | None = None
+    max_torque: NonNegativeFloat | None = None
+
+
+class MoveCommand(PoseControlCommand):
+    """Drive an object's pose toward an absolute or reference-relative target."""
+
+    action: Literal["move"] = "move"
+    name: NonEmptyString
+    goal: Vector3 | None = None
+    reference: NonEmptyString | None = None
+    reference_point: ReferencePointValue = ReferencePoint.POSITION
+    reference_axes: list[AxisValue] | None = None
+    offset: Vector3 = Field(default_factory=lambda: [0.0, 0.0, 0.0])
+    orientation: Quaternion | None = None
+
+    @model_validator(mode="after")
+    def validate_target(self) -> MoveCommand:
+        """Validate cross-field target requirements."""
+        if self.goal is None and self.reference is None:
+            raise ValueError("move requires 'goal' or 'reference'")
+        if self.reference is None and (
+            self.offset != [0.0, 0.0, 0.0] or self.reference_point is not ReferencePoint.POSITION
+        ):
+            raise ValueError("'offset' and 'reference_point' require 'reference'")
+        if self.goal is not None and self.reference is not None and self.reference_axes is None:
+            raise ValueError("'goal' with 'reference' requires 'reference_axes'")
+        if self.reference_axes is not None:
+            if self.reference is None:
+                raise ValueError("'reference_axes' requires 'reference'")
+            if not self.reference_axes or len(self.reference_axes) != len(set(self.reference_axes)):
+                raise ValueError("'reference_axes' must contain unique x, y, or z values")
+        if self.orientation is not None and not any(self.orientation):
+            raise ValueError("'orientation' must be nonzero")
+        return self
+
+
+class LiftCommand(PoseControlCommand):
+    """Drive an object's world-frame height while preserving its x-y position."""
+
+    action: Literal["lift"] = "lift"
+    name: NonEmptyString
+    height: FiniteFloat
+
+
+class JointCommand(CommandBase):
+    """Drive one articulation joint toward an absolute or normalized target."""
+
+    action: Literal["joint"] = "joint"
+    name: NonEmptyString
+    joint_name: NonEmptyString
+    goal: FiniteFloat | None = None
+    normalized_goal: NormalizedFloat | None = None
+    seconds: NonNegativeFloat = 2.0
+    gain: NonNegativeFloat = 40.0
+    damping: NonNegativeFloat = 6.0
+    limit: NonNegativeFloat = 30.0
+
+    @model_validator(mode="after")
+    def validate_goal(self) -> JointCommand:
+        """Require exactly one joint target representation."""
+        if (self.goal is None) == (self.normalized_goal is None):
+            raise ValueError("joint requires exactly one of 'goal' and 'normalized_goal'")
+        return self
+
+
+class ReleaseCommand(CommandBase):
+    """Release the persistent pose wrench on an object."""
+
+    action: Literal["release"] = "release"
+    name: NonEmptyString
+
+
+class WaitCommand(CommandBase):
+    """Advance a physics-step or simulation-time budget."""
+
+    action: Literal["wait"] = "wait"
+    steps: NonNegativeInt | None = None
+    seconds: NonNegativeFloat | None = None
+
+    @model_validator(mode="after")
+    def validate_budget(self) -> WaitCommand:
+        """Require exactly one wait budget representation."""
+        if (self.steps is None) == (self.seconds is None):
+            raise ValueError("wait requires exactly one of 'steps' and 'seconds'")
+        return self
+
+
+class MarkCommand(CommandBase):
+    """Record a named subtask boundary."""
+
+    action: Literal["mark"] = "mark"
+    index: NonNegativeInt
+    boundary: MarkBoundaryValue
+    title: NonEmptyString
+
+
+class CheckCommand(CommandBase):
+    """Wait for one subtask completion condition."""
+
+    action: Literal["check"] = "check"
+    index: NonNegativeInt
+    timeout_steps: NonNegativeInt = 600
+
+
+class WaitFinalCommand(CommandBase):
+    """Wait for the overall task success condition."""
+
+    action: Literal["wait_final"] = "wait_final"
+    timeout_steps: NonNegativeInt = 1200
+
+
+class InspectCommand(CommandBase):
+    """Print the current physical and task state."""
+
+    action: Literal["inspect"] = "inspect"
+
+
+class FinishCommand(CommandBase):
+    """Stop consuming commands."""
+
+    action: Literal["finish"] = "finish"
+
+
+RuntimeCommand = Annotated[
+    MoveCommand
+    | LiftCommand
+    | JointCommand
+    | ReleaseCommand
+    | WaitCommand
+    | MarkCommand
+    | CheckCommand
+    | WaitFinalCommand
+    | InspectCommand
+    | FinishCommand,
+    Field(discriminator="action"),
+]
+ForceControlCommand = Annotated[SetupJointCommand | RuntimeCommand, Field(discriminator="action")]
+_COMMAND_ADAPTER = TypeAdapter(ForceControlCommand)
 
 
 @dataclass(frozen=True)
 class ForceControlRecipe:
     """Validated setup and runtime commands loaded from JSONL."""
 
-    joint_setups: tuple[dict[str, Any], ...]
-    commands: tuple[dict[str, Any], ...]
+    joint_setups: tuple[SetupJointCommand, ...]
+    commands: tuple[RuntimeCommand, ...]
 
 
 def load_force_control_recipe(path: Path, require_runtime_commands: bool = True) -> ForceControlRecipe:
@@ -99,12 +256,8 @@ def load_force_control_recipe(path: Path, require_runtime_commands: bool = True)
     for line_number, line in enumerate(read_recipe_lines(path, complete_only=not require_runtime_commands), 1):
         if not line.strip():
             continue
-        try:
-            raw_command = json.loads(line)
-        except json.JSONDecodeError as error:
-            raise AssertionError(f"Recipe line {line_number}: invalid JSON: {error.msg}") from error
-        command = validate_force_control_command(raw_command, line_number)
-        if command["action"] == "setup_joint":
+        command = parse_force_control_line(line, line_number)
+        if isinstance(command, SetupJointCommand):
             assert (
                 not runtime_command_seen
             ), f"Recipe line {line_number}: setup_joint commands must precede runtime commands"
@@ -124,125 +277,24 @@ def read_recipe_lines(path: Path, complete_only: bool = False) -> list[str]:
     return content.decode("utf-8").splitlines(keepends=True)
 
 
-def validate_force_control_command(command: Any, line_number: int) -> dict[str, Any]:
-    """Validate and return one JSONL command."""
-    assert isinstance(command, dict), f"Recipe line {line_number}: each line must contain a JSON object"
-    assert isinstance(command.get("action"), str), f"Recipe line {line_number}: missing string field 'action'"
-    action = command["action"]
-    assert action in _COMMAND_FIELDS, f"Recipe line {line_number}: unknown action '{action}'"
-    required, optional = _COMMAND_FIELDS[action]
-    fields = set(command) - {"action"}
-    missing = required - fields
-    unknown = fields - required - optional
-    assert not missing, f"Recipe line {line_number}: action '{action}' is missing {sorted(missing)}"
-    assert not unknown, f"Recipe line {line_number}: action '{action}' has unknown fields {sorted(unknown)}"
-
-    for field in ("name", "joint_name", "reference", "reference_point", "rotation_mode", "title", "boundary"):
-        if field in command:
-            assert (
-                isinstance(command[field], str) and command[field]
-            ), f"Recipe line {line_number}: '{field}' must be a non-empty string"
-    for field in (
-        "height",
-        "normalized_goal",
-        "seconds",
-        "linear_gain",
-        "linear_damping",
-        "minimum_stiffness",
-        "max_force",
-        "rotation_gain",
-        "angular_damping",
-        "max_torque",
-        "gain",
-        "damping",
-        "limit",
-        "effort_limit",
-        "drive_stiffness",
-        "drive_damping",
-    ):
-        if field in command:
-            _assert_number(command[field], field, line_number)
-            if field in _NON_NEGATIVE_NUMBER_FIELDS:
-                assert command[field] >= 0, f"Recipe line {line_number}: '{field}' must be non-negative"
-    for field in ("index", "steps", "timeout_steps"):
-        if field in command:
-            assert (
-                isinstance(command[field], int) and command[field] >= 0
-            ), f"Recipe line {line_number}: '{field}' must be a non-negative integer"
-    for field in _VECTOR_FIELDS & set(command):
-        expected_length = 4 if field == "orientation" else 3
-        value = command[field]
-        assert (
-            isinstance(value, list) and len(value) == expected_length
-        ), f"Recipe line {line_number}: '{field}' must contain {expected_length} numbers"
-        for component in value:
-            _assert_number(component, field, line_number)
-        if field == "orientation":
-            assert any(value), f"Recipe line {line_number}: 'orientation' must be nonzero"
-    if "reference_axes" in command:
-        axes = command["reference_axes"]
-        assert isinstance(axes, list) and axes, f"Recipe line {line_number}: 'reference_axes' must be a non-empty list"
-        assert len(axes) == len(set(axes)) and set(axes) <= {
-            "x",
-            "y",
-            "z",
-        }, f"Recipe line {line_number}: 'reference_axes' must contain unique x, y, or z values"
-    if action == "move":
-        assert (
-            "goal" in command or "reference" in command
-        ), f"Recipe line {line_number}: move requires 'goal' or 'reference'"
-        if "goal" in command:
-            goal = command["goal"]
-            assert (
-                isinstance(goal, list) and len(goal) == 3
-            ), f"Recipe line {line_number}: move 'goal' must contain 3 numbers"
-            for component in goal:
-                _assert_number(component, "goal", line_number)
-        assert (
-            "reference_axes" not in command or "reference" in command
-        ), f"Recipe line {line_number}: 'reference_axes' requires 'reference'"
-        if "reference_point" in command:
-            assert command["reference_point"] in {
-                "position",
-                "aabb_center",
-            }, f"Recipe line {line_number}: 'reference_point' must be 'position' or 'aabb_center'"
-    if action == "joint":
-        assert ("goal" in command) != (
-            "normalized_goal" in command
-        ), f"Recipe line {line_number}: joint requires exactly one of 'goal' and 'normalized_goal'"
-        if "goal" in command:
-            _assert_number(command["goal"], "goal", line_number)
-        if "normalized_goal" in command:
-            assert (
-                0.0 <= command["normalized_goal"] <= 1.0
-            ), f"Recipe line {line_number}: 'normalized_goal' must be between 0 and 1"
-    if action == "wait":
-        assert ("steps" in command) != (
-            "seconds" in command
-        ), f"Recipe line {line_number}: wait requires exactly one of 'steps' and 'seconds'"
-    if "rotation_mode" in command:
-        assert command["rotation_mode"] in {
-            "acceleration",
-            "torque",
-        }, f"Recipe line {line_number}: 'rotation_mode' must be 'acceleration' or 'torque'"
-    if "replace_existing" in command:
-        assert isinstance(
-            command["replace_existing"], bool
-        ), f"Recipe line {line_number}: 'replace_existing' must be a boolean"
-    if "settle_hold" in command:
-        hold = command["settle_hold"]
-        assert isinstance(hold, dict) and set(hold) == {
-            "gain",
-            "damping",
-            "limit",
-        }, f"Recipe line {line_number}: 'settle_hold' requires exactly gain, damping, and limit"
-        for field, value in hold.items():
-            _assert_number(value, f"settle_hold.{field}", line_number)
-            assert value >= 0, f"Recipe line {line_number}: 'settle_hold.{field}' must be non-negative"
-    return command
+def parse_force_control_line(line: str, line_number: int) -> ForceControlCommand:
+    """Decode and validate one JSONL command."""
+    try:
+        command = json.loads(line)
+    except json.JSONDecodeError as error:
+        raise AssertionError(f"Recipe line {line_number}: invalid JSON: {error.msg}") from error
+    return validate_force_control_command(command, line_number)
 
 
-def _assert_number(value: Any, field: str, line_number: int) -> None:
-    assert (
-        isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
-    ), f"Recipe line {line_number}: '{field}' must be a finite number"
+def validate_force_control_command(command: object, line_number: int) -> ForceControlCommand:
+    """Validate and return one typed JSONL command."""
+    try:
+        return _COMMAND_ADAPTER.validate_python(command)
+    except ValidationError as error:
+        action = command.get("action") if isinstance(command, dict) else None
+        details = []
+        for item in error.errors(include_url=False):
+            location = ".".join(str(part) for part in item["loc"] if part != action)
+            prefix = f"'{location}': " if location else ""
+            details.append(prefix + item["msg"])
+        raise AssertionError(f"Recipe line {line_number}: {'; '.join(details)}") from None

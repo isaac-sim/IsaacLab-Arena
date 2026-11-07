@@ -37,7 +37,6 @@ runs also produce ``demo.mp4`` and progress/state artifacts under ``--output``.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import time
 from collections.abc import Callable, Iterator
@@ -49,10 +48,13 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+    FinishCommand,
     ForceControlRecipe,
+    RuntimeCommand,
+    SetupJointCommand,
     load_force_control_recipe,
+    parse_force_control_line,
     read_recipe_lines,
-    validate_force_control_command,
 )
 from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
     PhysicalCommandRunner,
@@ -101,7 +103,7 @@ def _add_runner_args(parser: argparse.ArgumentParser) -> None:
     group.add_argument("--allow_incomplete", action="store_true", help="Write a report without requiring task success.")
 
 
-def _follow_commands(path: Path, render: Callable[[], None]) -> Iterator[dict]:
+def _follow_commands(path: Path, render: Callable[[], None]) -> Iterator[RuntimeCommand]:
     """Yield complete validated commands as they are appended to a JSONL recipe."""
     cursor = 0
     runtime_command_seen = False
@@ -117,13 +119,13 @@ def _follow_commands(path: Path, render: Callable[[], None]) -> Iterator[dict]:
         cursor += 1
         if not line.strip():
             continue
-        command = validate_force_control_command(json.loads(line), line_number)
-        if command["action"] == "setup_joint":
+        command = parse_force_control_line(line, line_number)
+        if isinstance(command, SetupJointCommand):
             assert not runtime_command_seen, "setup_joint commands must precede runtime commands"
             continue
         runtime_command_seen = True
         yield command
-        if command["action"] == "finish":
+        if isinstance(command, FinishCommand):
             return
         print("FORCE_CONTROL_DONE", cursor, flush=True)
 

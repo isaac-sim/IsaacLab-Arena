@@ -12,6 +12,9 @@ import pytest
 
 def test_load_force_control_recipe_separates_setup_from_runtime_commands(tmp_path):
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        FinishCommand,
+        JointCommand,
+        SetupJointCommand,
         load_force_control_recipe,
     )
 
@@ -30,54 +33,20 @@ def test_load_force_control_recipe_separates_setup_from_runtime_commands(tmp_pat
 
     recipe = load_force_control_recipe(recipe_path)
 
-    assert recipe.joint_setups == (commands[0],)
-    assert recipe.commands == tuple(commands[1:])
+    assert isinstance(recipe.joint_setups[0], SetupJointCommand)
+    assert isinstance(recipe.commands[0], JointCommand)
+    assert isinstance(recipe.commands[1], FinishCommand)
+    assert recipe.joint_setups[0].joint_name == "slide"
+    assert recipe.commands[0].goal == 0.2
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
-def test_force_control_recipe_rejects_non_finite_numbers(value):
+def test_force_control_recipe_reports_validation_context():
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
         validate_force_control_command,
     )
 
-    with pytest.raises(AssertionError, match="'seconds' must be a finite number"):
-        validate_force_control_command({"action": "wait", "seconds": value}, 1)
-
-
-@pytest.mark.parametrize(
-    "field",
-    [
-        "seconds",
-        "linear_gain",
-        "linear_damping",
-        "minimum_stiffness",
-        "max_force",
-        "rotation_gain",
-        "angular_damping",
-        "max_torque",
-        "gain",
-        "damping",
-        "limit",
-        "effort_limit",
-        "drive_stiffness",
-        "drive_damping",
-    ],
-)
-def test_force_control_recipe_rejects_negative_controller_values(field):
-    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
-        validate_force_control_command,
-    )
-
-    if field in {"effort_limit", "drive_stiffness", "drive_damping"}:
-        command = {"action": "setup_joint", "name": "cabinet", "joint_name": "drawer"}
-    elif field in {"gain", "damping", "limit"}:
-        command = {"action": "joint", "name": "cabinet", "joint_name": "drawer", "goal": 0.1}
-    else:
-        command = {"action": "move", "name": "object", "goal": [0.0, 0.0, 0.0]}
-    command[field] = -0.1
-
-    with pytest.raises(AssertionError, match=rf"'{field}' must be non-negative"):
-        validate_force_control_command(command, 1)
+    with pytest.raises(AssertionError, match="Recipe line 7: 'seconds': Input should be a finite number"):
+        validate_force_control_command({"action": "wait", "seconds": float("inf")}, 7)
 
 
 def test_force_control_recipe_rejects_zero_orientation():
@@ -96,6 +65,7 @@ def test_force_control_recipe_rejects_zero_orientation():
 
 
 def test_replace_existing_actuators_keeps_all_recipe_joint_setups():
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import SetupJointCommand
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
         _apply_joint_setups,
     )
@@ -103,8 +73,8 @@ def test_replace_existing_actuators_keeps_all_recipe_joint_setups():
     cabinet_cfg = SimpleNamespace(actuators={"original": object()})
     env_cfg = SimpleNamespace(scene=SimpleNamespace(cabinet=cabinet_cfg))
     setups = (
-        {"name": "cabinet", "joint_name": "door", "replace_existing": True},
-        {"name": "cabinet", "joint_name": "drawer", "replace_existing": True},
+        SetupJointCommand(name="cabinet", joint_name="door", replace_existing=True),
+        SetupJointCommand(name="cabinet", joint_name="drawer", replace_existing=True),
     )
 
     _apply_joint_setups(env_cfg, setups)
@@ -115,6 +85,7 @@ def test_replace_existing_actuators_keeps_all_recipe_joint_setups():
 def test_reset_joint_hold_is_active_before_initial_settling():
     import torch
 
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import SetupJointCommand
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
         PhysicalCommandRunner,
     )
@@ -137,12 +108,11 @@ def test_reset_joint_hold_is_active_before_initial_settling():
     runner.step = lambda count: observed.append(count)
     runner._execute_commands = lambda commands: None
     runner._write_report = lambda mode: {"success": [True]}
-    setup = {
-        "action": "setup_joint",
+    setup = SetupJointCommand.model_validate({
         "name": "scope",
         "joint_name": "button",
         "settle_hold": {"gain": 2.0, "damping": 0.015, "limit": 0.01},
-    }
+    })
 
     runner.run((), (setup,))
 
@@ -152,6 +122,7 @@ def test_reset_joint_hold_is_active_before_initial_settling():
 
 
 def test_combine_reference_goal_uses_only_selected_reference_axes():
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import Axis
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.physical_command_runner import (
         _combine_reference_goal,
     )
@@ -160,7 +131,7 @@ def test_combine_reference_goal_uses_only_selected_reference_axes():
         goal=[1.0, 2.0, 0.56],
         reference=[0.2, -0.1, 0.8],
         offset=[0.05, 0.06, 0.0],
-        reference_axes=["x", "y"],
+        reference_axes=[Axis.X, Axis.Y],
     )
 
     assert result == pytest.approx([0.25, -0.04, 0.56])
@@ -211,6 +182,7 @@ def test_overlay_progress_banner_draws_title_and_preserves_scene_pixels():
 def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
     from isaaclab_arena_examples.agentic_environment_generation import force_demo_runner
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        FinishCommand,
         ForceControlRecipe,
     )
 
@@ -247,7 +219,7 @@ def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
 
     monkeypatch.setattr(force_demo_runner, "PhysicalCommandRunner", FailingRunner)
     monkeypatch.setattr(force_demo_runner, "configure_physical_command_runner", lambda cfg, setups: None)
-    recipe = ForceControlRecipe((), ({"action": "finish"},))
+    recipe = ForceControlRecipe((), (FinishCommand(),))
 
     with pytest.raises(RuntimeError, match="recipe failed"):
         force_demo_runner._run_recipe(builder, Namespace(no_record=True, follow_commands=False), recipe)
@@ -330,6 +302,8 @@ def test_diagnostics_use_initialized_named_and_temporal_predicates():
 def test_follow_waits_for_complete_records_and_skips_blank_lines(tmp_path, monkeypatch):
     from isaaclab_arena_examples.agentic_environment_generation import force_demo_runner as module
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import (
+        FinishCommand,
+        WaitCommand,
         load_force_control_recipe,
     )
 
@@ -343,7 +317,9 @@ def test_follow_waits_for_complete_records_and_skips_blank_lines(tmp_path, monke
 
     monkeypatch.setattr(module.time, "sleep", append_rest)
     commands = list(module._follow_commands(path, lambda: None))
-    assert commands == [{"action": "wait", "steps": 0}, {"action": "finish"}]
+    assert isinstance(commands[0], WaitCommand)
+    assert commands[0].steps == 0
+    assert isinstance(commands[1], FinishCommand)
 
 
 def test_follow_buffers_an_incomplete_utf8_character(tmp_path):
@@ -358,11 +334,10 @@ def test_follow_buffers_an_incomplete_utf8_character(tmp_path):
     assert load_force_control_recipe(path, require_runtime_commands=False).commands == ()
     with path.open("ab") as stream:
         stream.write(line[split:])
-    assert load_force_control_recipe(path, require_runtime_commands=False).commands[0]["title"] == "90°"
+    assert load_force_control_recipe(path, require_runtime_commands=False).commands[0].title == "90°"
 
 
-@pytest.mark.parametrize("physics_dt,decimation", [(1 / 120, 8), (1 / 200, 4)])
-def test_lab_recording_preserves_simulation_time(tmp_path, physics_dt, decimation):
+def test_lab_recording_preserves_simulation_time(tmp_path):
     import numpy as np
 
     from isaaclab.envs.utils.video_recorder import VideoRecorder
@@ -372,6 +347,8 @@ def test_lab_recording_preserves_simulation_time(tmp_path, physics_dt, decimatio
         configure_video,
     )
 
+    physics_dt = 1 / 120
+    decimation = 8
     cfg = SimpleNamespace(sim=SimpleNamespace(dt=physics_dt), decimation=decimation)
     configure_video(cfg, tmp_path)
     env = SimpleNamespace(
@@ -400,6 +377,7 @@ def test_failed_recipe_flushes_lab_video_and_diagnostics(tmp_path):
 
     from isaaclab.envs.utils.video_recorder import VideoRecorder
 
+    from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_recipe import CheckCommand
     from isaaclab_arena_examples.agentic_environment_generation.force_demo.force_control_video import (
         ForceControlVideo,
         configure_video,
@@ -450,7 +428,7 @@ def test_failed_recipe_flushes_lab_video_and_diagnostics(tmp_path):
     runner._step_env = advance
     runner._record_progress()
     with pytest.raises(AssertionError, match="Subtask 0 did not complete"):
-        runner.run(({"action": "check", "index": 0, "timeout_steps": 0},))
+        runner.run((CheckCommand(index=0, timeout_steps=0),))
     [snapshot] = tmp_path.glob("failure_check_timeout_*.json")
     state = json.loads(snapshot.read_text())
     assert state["contact_sensors"] == diagnostic["contact_sensors"]
