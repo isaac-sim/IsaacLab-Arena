@@ -54,6 +54,7 @@ class PrimPathInference:
 
         spec = _enforce_object_reference_types(spec)
         usd_path = spec.background.resolve_usd_path()
+        # Exclude joint prims for backward compatibility; joint-only parent may remain as base candidates.
         prim_tree = [record for record in load_usd_prim_tree(usd_path) if record.joint is None]
         data = self._inference_backend.run_json(
             StructuredOutputRequest(

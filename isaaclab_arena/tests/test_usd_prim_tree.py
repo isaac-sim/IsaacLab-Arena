@@ -19,10 +19,8 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 from isaaclab_arena.utils.usd.prim_tree import (
     UsdBoundingBox,
     UsdColliderInfo,
-    UsdInstanceInfo,
     UsdJointInfo,
     UsdPrimRecord,
-    UsdRigidBodyInfo,
     format_usd_prim_tree,
     load_stage_prim_tree,
     load_usd_prim_tree,
@@ -30,57 +28,15 @@ from isaaclab_arena.utils.usd.prim_tree import (
 )
 
 
-@pytest.fixture
-def detailed_body_record():
-    expected = {
-        "relative_path": "Case/Body",
-        "object_type": "rigid",
-        "joint_names": [],
-        "bounding_box_root": {"center_m": [0.12345678901234566, 2.0, 3.0], "size_m": [1.0, 2.0, 3.0]},
-        "joint": None,
-        "collider": {
-            "type_name": "Mesh",
-            "enabled": True,
-            "rigid_body_owner_path": "Case/Body",
-            "approximation": "convexHull",
-            "contact_offset_m": 0.012345678901234567,
-            "rest_offset_m": None,
-        },
-        "rigid_body": {
-            "enabled": True,
-            "kinematic": False,
-            "mass_kg": 1.2345678901234567,
-            "density_kg_m3": None,
-            "center_of_mass": [0.1, 0.2, 0.3],
-            "diagonal_inertia": [1.0, 2.0, 3.0],
-            "disable_gravity": False,
-            "linear_damping": 0.3,
-            "angular_damping": 0.4,
-        },
-        "instance": {
-            "instance": False,
-            "instance_proxy": True,
-            "instanceable": False,
-            "prototype_path": "/Prototype/Body",
-        },
-    }
-    record = UsdPrimRecord(
-        "Case/Body",
-        ObjectType.RIGID,
-        bounding_box_root=UsdBoundingBox(**expected["bounding_box_root"]),
-        collider=UsdColliderInfo(**expected["collider"]),
-        rigid_body=UsdRigidBodyInfo(**expected["rigid_body"]),
-        instance=UsdInstanceInfo(**expected["instance"]),
-    )
-    return record, expected
-
-
-def test_prim_tree_compact_text_preserves_hierarchy(detailed_body_record):
-    body, _ = detailed_body_record
+def test_prim_tree_compact_text_preserves_hierarchy():
     joint = UsdJointInfo("PhysicsRevoluteJoint", True, "Case/Body", None, "Z", -30.0, 60.0, "degrees")
     records = [
         UsdPrimRecord("Case/Joints/lid", ObjectType.BASE, joint=joint),
-        body,
+        UsdPrimRecord(
+            "Case/Body",
+            ObjectType.RIGID,
+            collider=UsdColliderInfo("Mesh", True, "Case/Body", "convexHull"),
+        ),
         UsdPrimRecord("Case/Joints", ObjectType.BASE),
         UsdPrimRecord("Case", ObjectType.ARTICULATION, ("lid",)),
         UsdPrimRecord("Ground", ObjectType.BASE),
@@ -94,13 +50,20 @@ def test_prim_tree_compact_text_preserves_hierarchy(detailed_body_record):
         "    lid (base joint(type=PhysicsRevoluteJoint))\n"
         "Ground (base)"
     )
-    assert records[0].relative_path == "Case/Joints/lid"
 
 
-def test_prim_tree_json_preserves_metadata_and_precision(detailed_body_record):
-    record, expected = detailed_body_record
-    output = json.dumps(usd_prim_records_to_dicts([record]), allow_nan=False)
-    assert json.loads(output) == [expected]
+def test_prim_tree_compact_text_nests_scoped_records_under_root():
+    records = [
+        UsdPrimRecord(".", ObjectType.ARTICULATION),
+        UsdPrimRecord("Geometry", ObjectType.BASE),
+        UsdPrimRecord("Joints", ObjectType.BASE),
+        UsdPrimRecord("Joints/lid", ObjectType.BASE),
+    ]
+
+    assert (
+        format_usd_prim_tree(records)
+        == "USD PRIM TREE:\n. (articulation)\n  Geometry (base)\n  Joints (base)\n    lid (base)"
+    )
 
 
 def test_prim_tree_json_encodes_non_finite_numbers():

@@ -125,10 +125,10 @@ def format_usd_prim_tree(prim_tree: list[UsdPrimRecord], *, heading: str = "USD 
     stack: list[str] = []
     for record in records:
         path = record.relative_path
-        while stack and not path.startswith(stack[-1] + "/"):
+        while stack and stack[-1] != "." and not path.startswith(stack[-1] + "/"):
             stack.pop()
         parent = stack[-1] if stack else ""
-        suffix = path[len(parent) + 1 :] if parent else path
+        suffix = path if parent in ("", ".") else path[len(parent) + 1 :]
         indent = "  " * len(stack)
         tag = record.object_type.value
         metadata = format_usd_prim_record_metadata(record)
