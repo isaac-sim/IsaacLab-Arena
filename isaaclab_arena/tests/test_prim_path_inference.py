@@ -28,12 +28,16 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import (
     kitchen_prim_tree,
     kitchen_resolve_response,
 )
-from isaaclab_arena.utils.usd.prim_tree import UsdJointInfo, UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdArticulationInfo, UsdJointInfo, UsdPrimRecord
 
 
 def test_prim_tree_catalog_nested_format():
     tree = [
-        UsdPrimRecord("cab_1_main_group", ObjectType.ARTICULATION, ("right_door_joint",)),
+        UsdPrimRecord(
+            "cab_1_main_group",
+            ObjectType.ARTICULATION,
+            articulation=UsdArticulationInfo(("right_door_joint",)),
+        ),
         UsdPrimRecord("cab_1_main_group/corpus", ObjectType.RIGID),
         UsdPrimRecord("cab_1_main_group/corpus/back", ObjectType.BASE),
     ]

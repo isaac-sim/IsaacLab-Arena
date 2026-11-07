@@ -24,7 +24,7 @@ from isaaclab_arena.inference.backend import (
     OPENAI_ENDPOINT,
     PUBLIC_ENDPOINT,
 )
-from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdArticulationInfo, UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_env_graph_spec,
@@ -172,7 +172,11 @@ class TestMermaidHtml:
 
 class TestPrimTreeView:
     _TREE = [
-        UsdPrimRecord("cab_1_main_group", ObjectType.ARTICULATION, ("right_door_joint",)),
+        UsdPrimRecord(
+            "cab_1_main_group",
+            ObjectType.ARTICULATION,
+            articulation=UsdArticulationInfo(("right_door_joint",)),
+        ),
         UsdPrimRecord("cab_1_main_group/corpus", ObjectType.RIGID),
         UsdPrimRecord("cab_1_main_group/corpus/back", ObjectType.BASE),
     ]

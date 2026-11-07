@@ -78,12 +78,20 @@ class UsdInstanceInfo:
 
 
 @dataclass(frozen=True)
+class UsdArticulationInfo:
+    """Authored USD articulation-root properties."""
+
+    joint_names: tuple[str, ...]
+    """Names of the revolute and prismatic joints under this articulation root."""
+
+
+@dataclass(frozen=True)
 class UsdPrimRecord:
     """One prim inside a USD asset, keyed by inspection-root-relative suffix."""
 
     relative_path: str
     object_type: ObjectType
-    joint_names: tuple[str, ...] = ()
+    articulation: UsdArticulationInfo | None = None
     bounding_box_root: UsdBoundingBox | None = None
     joint: UsdJointInfo | None = None
     collider: UsdColliderInfo | None = None
@@ -101,8 +109,8 @@ def format_usd_prim_record_metadata(record: UsdPrimRecord) -> str:
         Space-separated labels, or an empty string when the record has no displayed metadata.
     """
     fields: list[str] = []
-    if record.joint_names:
-        fields.append(f"joints=[{','.join(record.joint_names)}]")
+    if record.articulation is not None:
+        fields.append(f"joints=[{','.join(record.articulation.joint_names)}]")
     if record.joint is not None:
         fields.append(f"joint(type={record.joint.type_name})")
     if record.collider is not None:
@@ -352,16 +360,16 @@ def load_stage_prim_tree(
             continue
         relative_path = str(prim_path.MakeRelativePath(root_path))
         object_type = object_type_for_prim(prim)
-        joint_names: tuple[str, ...] = ()
+        articulation = None
         if object_type == ObjectType.ARTICULATION:
-            joint_names = articulation_joint_names(prim)
+            articulation = UsdArticulationInfo(joint_names=articulation_joint_names(prim))
         directly_physical = has_physics_or_collision(prim)
         prototype = prim.GetPrototype() if prim.IsInstance() else prim.GetPrimInPrototype()
         records.append(
             UsdPrimRecord(
                 relative_path=relative_path,
                 object_type=object_type,
-                joint_names=joint_names,
+                articulation=articulation,
                 bounding_box_root=(
                     _bounding_box_in_root_frame(prim, root_prim, bbox_cache, meters_per_unit)
                     if directly_physical

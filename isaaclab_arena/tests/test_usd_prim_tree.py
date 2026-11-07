@@ -17,6 +17,7 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.usd.prim_tree import (
+    UsdArticulationInfo,
     UsdBoundingBox,
     UsdColliderInfo,
     UsdJointInfo,
@@ -38,7 +39,7 @@ def test_prim_tree_compact_text_preserves_hierarchy():
             collider=UsdColliderInfo("Mesh", True, "Case/Body", "convexHull"),
         ),
         UsdPrimRecord("Case/Joints", ObjectType.BASE),
-        UsdPrimRecord("Case", ObjectType.ARTICULATION, ("lid",)),
+        UsdPrimRecord("Case", ObjectType.ARTICULATION, articulation=UsdArticulationInfo(("lid",))),
         UsdPrimRecord("Ground", ObjectType.BASE),
     ]
     assert (
@@ -112,7 +113,8 @@ def _test_kitchen_physics_prim_trees(_) -> bool:
     fridge = records.get("fridge_main_group")
     assert fridge is not None, "fridge_main_group missing from kitchen USD"
     assert fridge.object_type == ObjectType.ARTICULATION
-    assert "fridge_door_joint" in fridge.joint_names
+    assert fridge.articulation is not None
+    assert "fridge_door_joint" in fridge.articulation.joint_names
     fridge_door_joint = next(record for record in tree if record.relative_path.endswith("/fridge_door_joint"))
     assert fridge_door_joint.joint is not None
     assert fridge_door_joint.joint.body_0_path == "fridge_main_group/Refrigerator032"
