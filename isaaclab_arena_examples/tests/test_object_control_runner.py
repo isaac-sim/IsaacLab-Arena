@@ -105,7 +105,8 @@ def test_reset_joint_hold_is_released_after_initial_settling():
             )
         }
     )
-    runner.args = Namespace(follow_commands=False, allow_incomplete=False)
+    runner.allow_incomplete = False
+    runner._failure_snapshot_path = None
     runner.video = None
     observed = []
     runner._set_joint_hold = lambda *args: observed.append(args)
@@ -245,9 +246,15 @@ def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
         make_registered=lambda cfg, kwargs: env,
     )
 
+    constructor_options = {}
+
     class FailingRunner:
-        def __init__(self, unwrapped, args):
-            pass
+        def __init__(self, env, output_dir, *, record_video, allow_incomplete):
+            constructor_options.update(
+                output_dir=output_dir,
+                record_video=record_video,
+                allow_incomplete=allow_incomplete,
+            )
 
         def run(self, commands, joint_setups, report_mode):
             raise RuntimeError("recipe failed")
@@ -255,12 +262,22 @@ def test_run_recipe_closes_environment_when_execution_fails(monkeypatch):
     monkeypatch.setattr(object_control_runner, "ObjectCommandExecutor", FailingRunner)
     monkeypatch.setattr(object_control_runner, "configure_object_command_executor", lambda cfg, setups: None)
     recipe = ObjectControlRecipe((), (FinishCommand(),))
+    output_dir = object()
 
     with pytest.raises(RuntimeError, match="recipe failed"):
-        object_control_runner._run_recipe(builder, Namespace(no_record=True, follow_commands=False), recipe)
+        object_control_runner._run_recipe(
+            builder,
+            Namespace(no_record=True, follow_commands=False, output=output_dir, allow_incomplete=False),
+            recipe,
+        )
 
     assert env.reset_count == 1
     assert env.close_count == 1
+    assert constructor_options == {
+        "output_dir": output_dir,
+        "record_video": False,
+        "allow_incomplete": False,
+    }
 
 
 def test_force_steps_delegate_to_wrapped_environment():
@@ -450,7 +467,8 @@ def test_failed_recipe_flushes_lab_video_and_diagnostics(tmp_path):
     runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
     runner.env = env
     runner.start_sim_step = 0
-    runner.args = Namespace(follow_commands=False, allow_incomplete=False)
+    runner.allow_incomplete = False
+    runner._failure_snapshot_path = None
     runner.output = tmp_path
     runner.video = ObjectControlVideo(env, tmp_path)
     runner._task_completion = lambda: torch.tensor([[False]])
@@ -493,6 +511,8 @@ def test_execution_error_keeps_json_when_video_capture_and_cleanup_fail(tmp_path
     runner = ObjectCommandExecutor.__new__(ObjectCommandExecutor)
     runner.env = SimpleNamespace(_sim_step_counter=0)
     runner.start_sim_step = 0
+    runner.allow_incomplete = False
+    runner._failure_snapshot_path = None
     runner.output = tmp_path
     runner.step = Mock(side_effect=RuntimeError("physics failed"))
     runner.video = SimpleNamespace(

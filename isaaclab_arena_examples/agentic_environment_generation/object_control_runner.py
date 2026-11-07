@@ -162,7 +162,12 @@ def _run_recipe(builder, args: argparse.Namespace, recipe: ObjectControlRecipe) 
             else recipe.commands
         )
         report_mode = "followed_object_commands" if args.follow_commands else "object_control_recipe"
-        ObjectCommandExecutor(env, args).run(commands, recipe.joint_setups, report_mode)
+        ObjectCommandExecutor(
+            env,
+            args.output,
+            record_video=not args.no_record,
+            allow_incomplete=args.allow_incomplete,
+        ).run(commands, recipe.joint_setups, report_mode)
     finally:
         env.close()
 

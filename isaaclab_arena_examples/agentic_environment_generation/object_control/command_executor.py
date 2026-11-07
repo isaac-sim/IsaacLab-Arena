@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import logging
 import math
@@ -39,7 +38,7 @@ from isaaclab_arena_examples.agentic_environment_generation.object_control.objec
 class ObjectCommandExecutor:
     """Execute object-control commands and evaluate the environment's task predicates."""
 
-    def __init__(self, env, args: argparse.Namespace):
+    def __init__(self, env, output_dir: Path, *, record_video: bool, allow_incomplete: bool):
         import torch
 
         from isaaclab_arena_examples.agentic_environment_generation.object_control.force_actions import (
@@ -52,9 +51,10 @@ class ObjectCommandExecutor:
 
         self.wrapped_env = env
         self.env = env.unwrapped
-        self.args = args
         self.torch = torch
-        self.output = args.output
+        self.output = output_dir
+        self.allow_incomplete = allow_incomplete
+        self._failure_snapshot_path: Path | None = None
         self.output.mkdir(parents=True, exist_ok=True)
         self.start_sim_step = self.env._sim_step_counter
         self.actions = torch.zeros(
@@ -76,7 +76,7 @@ class ObjectCommandExecutor:
         self.events = []
         self.current_subtask_index = None
         self.current_subtask_title = "Preparing object-control commands"
-        self.video = None if args.no_record else ObjectControlVideo(self.env, self.output)
+        self.video = ObjectControlVideo(self.env, self.output) if record_video else None
         self._record_progress()
 
     @property
@@ -193,12 +193,12 @@ class ObjectCommandExecutor:
             self._release_reset_joint_holds(joint_setups)
             self._execute_commands(commands)
             report = self._write_report(report_mode)
-            if not self.args.allow_incomplete:
+            if not self.allow_incomplete:
                 if not all(report["success"]):
                     snapshot = self._write_failure_snapshot("final_conditions")
                     raise AssertionError(f"Final task conditions failed; diagnostics: {snapshot}")
         except Exception:
-            if getattr(self, "_failure_snapshot_path", None) is None:
+            if self._failure_snapshot_path is None:
                 try:
                     self._write_failure_snapshot("execution_error")
                 except Exception:
