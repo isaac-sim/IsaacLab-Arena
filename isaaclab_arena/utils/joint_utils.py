@@ -3,12 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import torch
+from typing import TYPE_CHECKING
 
 import warp as wp
-from isaaclab.assets import Articulation
-from isaaclab.envs.manager_based_env import ManagerBasedEnv
-from isaaclab.managers import SceneEntityCfg
+
+# These types pull in USD through Isaac Lab; numerical helpers must remain safe before AppLauncher.
+if TYPE_CHECKING:
+    from isaaclab.assets import Articulation
+    from isaaclab.envs.manager_based_env import ManagerBasedEnv
+    from isaaclab.managers import SceneEntityCfg
 
 
 def normalize_value(value: torch.Tensor, min_value: float, max_value: float) -> torch.Tensor:
