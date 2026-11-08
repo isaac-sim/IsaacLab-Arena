@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
 import subprocess
 import sys
@@ -17,14 +16,10 @@ from types import SimpleNamespace
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCRIPT = _REPO_ROOT / "isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py"
-_BACKEND_SCRIPT = _REPO_ROOT / "isaaclab_arena_examples/agentic_environment_generation/scene_inspector_backend.py"
-
 
 def _run_scene_inspector(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(_SCRIPT), *args],
+        [sys.executable, "-m", "isaaclab_arena.agentic_tools.scene_inspector", *args],
         capture_output=True,
         text=True,
         timeout=30,
@@ -108,7 +103,7 @@ def Xform "Asset"
 
 def test_backend_entrypoint_help_does_not_start_simapp():
     result = subprocess.run(
-        [sys.executable, str(_BACKEND_SCRIPT), "--help"],
+        [sys.executable, "-m", "isaaclab_arena.agentic_tools.scene_inspector_backend", "--help"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -119,17 +114,23 @@ def test_backend_entrypoint_help_does_not_start_simapp():
 
 
 def test_snapshot_command_writes_backend_images(tmp_path: Path, monkeypatch, capsys):
-    from isaaclab_arena_examples.agentic_environment_generation import scene_inspector
+    from isaaclab_arena.agentic_tools import scene_inspector
 
     class _Client:
         def render_spec(self, _spec, *, background_panorama, ignore_cache):
             assert background_panorama
             assert ignore_cache
-            return {"counter/top": b"png"}, {"counter/top": (1.0, 2.0, 3.0)}
+            image_path = tmp_path / "cached.png"
+            image_path.write_bytes(b"png")
+            return {
+                "artifacts": {"counter/top": {"path": str(image_path), "media_type": "image/png"}},
+                "metadata": {"aabb_dimensions_m": {"counter/top": [1.0, 2.0, 3.0]}},
+                "warnings": [],
+                "temporary_dir": None,
+            }
 
-    @contextlib.contextmanager
     def _backend(_socket):
-        yield _Client()
+        return _Client()
 
     monkeypatch.setattr(scene_inspector, "_live_backend", _backend)
     monkeypatch.setattr(scene_inspector, "_load_env_spec", lambda _path: object())
@@ -151,31 +152,36 @@ def test_snapshot_command_writes_backend_images(tmp_path: Path, monkeypatch, cap
 
 
 def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsys):
-    from isaaclab_arena_examples.agentic_environment_generation import scene_inspector
+    from isaaclab_arena.agentic_tools import scene_inspector
+    from isaaclab_arena.agentic_tools.inspection import artifacts
 
-    backend_dir = tmp_path / "backend"
+    monkeypatch.setattr(artifacts, "sim_preview_cache_dir", lambda: tmp_path)
+    backend_dir = tmp_path / "preview-backend"
     backend_dir.mkdir()
     source_path = backend_dir / "preview.mp4"
     source_path.write_bytes(b"video")
 
     class _Client:
-        def run_sim_preview(self, yaml_text, *, num_envs, num_steps, env_spacing, show_placement_overlay):
-            assert yaml_text == "expanded"
+        def run_sim_preview(self, spec, *, num_envs, num_steps, env_spacing, show_placement_overlay):
+            assert spec == "expanded"
             assert show_placement_overlay
             return {
-                "video_path": str(source_path),
-                "num_envs": num_envs,
-                "num_steps": num_steps,
-                "env_spacing": env_spacing,
-                "show_placement_overlay": show_placement_overlay,
+                "artifacts": {"preview": {"path": str(source_path), "media_type": "video/mp4"}},
+                "warnings": [],
+                "temporary_dir": str(backend_dir),
+                "metadata": {
+                    "num_envs": num_envs,
+                    "num_steps": num_steps,
+                    "env_spacing": env_spacing,
+                    "show_placement_overlay": show_placement_overlay,
+                },
             }
 
-    @contextlib.contextmanager
     def _backend(_socket):
-        yield _Client()
+        return _Client()
 
     monkeypatch.setattr(scene_inspector, "_live_backend", _backend)
-    monkeypatch.setattr(scene_inspector, "_spec_yaml_text", lambda _path: "expanded")
+    monkeypatch.setattr(scene_inspector, "_load_env_spec", lambda _path: "expanded")
     output_path = tmp_path / "result" / "preview.mp4"
     args = SimpleNamespace(
         socket=tmp_path / "backend.sock",
@@ -199,7 +205,7 @@ def test_preview_command_copies_backend_video(tmp_path: Path, monkeypatch, capsy
 
 @pytest.mark.parametrize("requested_ignore_cache", [False, True])
 def test_render_backend_forwards_cache_choice(requested_ignore_cache):
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.server import _handle_render_spec
+    from isaaclab_arena.agentic_tools.inspection.server import _handle_render_spec
 
     received_ignore_cache = None
 
@@ -212,21 +218,19 @@ def test_render_backend_forwards_cache_choice(requested_ignore_cache):
         nonlocal received_ignore_cache
         assert not background_panorama
         received_ignore_cache = ignore_cache
-        return {}, {}
+        return {}, {}, []
 
-    request = {"yaml_text": "{}"}
+    request = {"spec": {}, "options": {}}
     if requested_ignore_cache:
-        request["ignore_cache"] = True
+        request["options"]["ignore_cache"] = True
     response = _handle_render_spec(object(), request, _render, _Spec)
 
-    assert response["ok"]
+    assert response["artifacts"] == {}
     assert received_ignore_cache is requested_ignore_cache
 
 
 def test_object_reference_snapshot_uses_parent_relative_prim_path():
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.object_reference_paths import (
-        object_reference_relative_prim_path,
-    )
+    from isaaclab_arena.agentic_tools.inspection.object_reference_paths import object_reference_relative_prim_path
 
     ref = SimpleNamespace(id="table_ref", parent_id="background")
     assets = {
@@ -238,9 +242,7 @@ def test_object_reference_snapshot_uses_parent_relative_prim_path():
 
 
 def test_camera_fit_tightly_frames_bounds():
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.camera_framing import (
-        fit_camera_to_bounds,
-    )
+    from isaaclab_arena.agentic_tools.inspection.camera_framing import fit_camera_to_bounds
 
     eye, target = fit_camera_to_bounds(
         (-1.0, -0.5, 0.0),

@@ -7,55 +7,37 @@
 
 Usage::
 
-    python isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+    python -m isaaclab_arena.agentic_tools.scene_inspector \
         prim-tree --usd /path/to/scene.usd --output prim_tree.txt
 
-    python isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+    python -m isaaclab_arena.agentic_tools.scene_inspector \
         snapshot --env-spec scene.yaml --output snapshots
 
-    python isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+    python -m isaaclab_arena.agentic_tools.scene_inspector \
         preview --env-spec scene.yaml --output preview.mp4
 """
 
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
-import shutil
 import sys
 import time
-import yaml
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
-    SimAppClient,
-    SimAppError,
-    default_simapp_socket_path,
-)
+from isaaclab_arena.agentic_tools.inspection.artifacts import consume_result, copy_artifact
+from isaaclab_arena.agentic_tools.inspection.backend_process import select_socket_path
+from isaaclab_arena.agentic_tools.inspection.client import InspectorClient
+from isaaclab_arena.agentic_tools.inspection.protocol import InspectionError
 
 
 def _json_stdout(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, sort_keys=True, allow_nan=False), flush=True)
 
 
-@contextlib.contextmanager
-def _live_backend(socket_path: Path) -> Iterator[SimAppClient]:
-    try:
-        client = SimAppClient.connect(str(socket_path))
-    except OSError as exc:
-        raise SimAppError(
-            f"No scene-inspector backend is listening on {socket_path}. "
-            "Start scene_inspector_backend.py before running this command."
-        ) from exc
-    try:
-        if not client.ping():
-            raise SimAppError(f"Scene-inspector backend on {socket_path} did not answer ping.")
-        yield client
-    finally:
-        client.disconnect()
+def _live_backend(socket_path: Path) -> InspectorClient:
+    return InspectorClient(socket_path)
 
 
 def _load_env_spec(path: Path):
@@ -64,11 +46,6 @@ def _load_env_spec(path: Path):
     if not path.is_file():
         raise FileNotFoundError(path)
     return ArenaEnvGraphSpec.from_yaml(path)
-
-
-def _spec_yaml_text(path: Path) -> str:
-    """Return a self-contained graph YAML string with external includes expanded."""
-    return yaml.safe_dump(_load_env_spec(path).to_dict(), sort_keys=False)
 
 
 def _dump_prim_tree(args: argparse.Namespace) -> int:
@@ -97,9 +74,8 @@ def _dump_prim_tree(args: argparse.Namespace) -> int:
 
 def _backend_status(args: argparse.Namespace) -> int:
     try:
-        with _live_backend(args.socket):
-            pass
-    except SimAppError as exc:
+        _live_backend(args.socket).ping()
+    except InspectionError as exc:
         _json_stdout({
             "command": "status",
             "status": "unavailable",
@@ -112,11 +88,7 @@ def _backend_status(args: argparse.Namespace) -> int:
 
 
 def _shutdown_backend(args: argparse.Namespace) -> int:
-    try:
-        client = SimAppClient.connect(str(args.socket))
-    except OSError as exc:
-        raise SimAppError(f"No scene-inspector backend is listening on {args.socket}.") from exc
-    client.shutdown()
+    _live_backend(args.socket).shutdown()
     _json_stdout({"command": "shutdown", "status": "completed", "socket": str(args.socket)})
     return 0
 
@@ -126,26 +98,23 @@ def _snapshot_scene(args: argparse.Namespace) -> int:
 
     started_at = time.monotonic()
     spec = _load_env_spec(args.env_spec)
-    with _live_backend(args.socket) as client:
-        images, dimensions = client.render_spec(
-            spec,
-            background_panorama=args.background_panorama,
-            ignore_cache=True,
-        )
-
+    result = _live_backend(args.socket).render_spec(
+        spec,
+        background_panorama=args.background_panorama,
+        ignore_cache=True,
+    )
     output_dir = args.output.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     output_paths: dict[str, str] = {}
     used_filenames: set[str] = set()
-    for node_id, image in sorted(images.items()):
-        filename = f"{safe_filename_stem(node_id)}.png"
-        if filename in used_filenames:
-            raise ValueError(f"Snapshot node ids map to the same output filename: {filename}")
-        used_filenames.add(filename)
-        output_path = output_dir / filename
-        output_path.write_bytes(image)
-        output_paths[node_id] = str(output_path)
-
+    with consume_result(result):
+        for node_id in sorted(result["artifacts"]):
+            filename = f"{safe_filename_stem(node_id)}.png"
+            if filename in used_filenames:
+                raise ValueError(f"Snapshot node ids map to the same output filename: {filename}")
+            used_filenames.add(filename)
+            output_paths[node_id] = str(copy_artifact(result, node_id, output_dir / filename))
+    dimensions = result["metadata"]["aabb_dimensions_m"]
     _json_stdout({
         "command": "snapshot",
         "status": "completed",
@@ -155,6 +124,7 @@ def _snapshot_scene(args: argparse.Namespace) -> int:
         "aabb_dimensions_m": {node_id: list(size) for node_id, size in dimensions.items()},
         "background_panorama": args.background_panorama,
         "ignore_cache": True,
+        "warnings": result["warnings"],
         "timings_s": {"total": time.monotonic() - started_at},
     })
     return 0
@@ -162,29 +132,23 @@ def _snapshot_scene(args: argparse.Namespace) -> int:
 
 def _preview_scene(args: argparse.Namespace) -> int:
     started_at = time.monotonic()
-    with _live_backend(args.socket) as client:
-        response = client.run_sim_preview(
-            _spec_yaml_text(args.env_spec),
-            num_envs=args.num_envs,
-            num_steps=args.num_steps,
-            env_spacing=args.env_spacing,
-            show_placement_overlay=args.show_placement_overlay,
-        )
-
-    source_path = Path(response["video_path"])
-    output_path = args.output.resolve()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        shutil.copy2(source_path, output_path)
-    finally:
-        shutil.rmtree(source_path.parent, ignore_errors=True)
-
+    result = _live_backend(args.socket).run_sim_preview(
+        _load_env_spec(args.env_spec),
+        num_envs=args.num_envs,
+        num_steps=args.num_steps,
+        env_spacing=args.env_spacing,
+        show_placement_overlay=args.show_placement_overlay,
+    )
+    with consume_result(result):
+        output_path = copy_artifact(result, "preview", args.output)
+    response = result["metadata"]
     _json_stdout({
         "command": "preview",
         "status": "completed",
         "inputs": {"env_spec": str(args.env_spec.resolve())},
         "socket": str(args.socket),
         "output": str(output_path),
+        "warnings": result["warnings"],
         "num_envs": response.get("num_envs", args.num_envs),
         "num_steps": response.get("num_steps", args.num_steps),
         "env_spacing": response.get("env_spacing", args.env_spacing),
@@ -199,7 +163,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--socket",
         type=Path,
-        default=default_simapp_socket_path(),
+        default=select_socket_path(),
         help="Unix socket of the persistent scene-inspector backend.",
     )
     commands = parser.add_subparsers(dest="command", required=True)

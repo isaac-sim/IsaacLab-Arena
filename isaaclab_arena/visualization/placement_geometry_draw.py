@@ -156,7 +156,7 @@ class PlacementGeometryDraw:
 
             prim_name = Tf.MakeValidIdentifier(f"{index}_{geometry.name}")
             try:
-                world_bbox = geometry.asset.get_world_bounding_box()
+                world_bbox = _static_world_bounding_box(env, geometry.asset)
                 min_pt = tuple(float(v) for v in world_bbox.min_point[0].tolist())
                 max_pt = tuple(float(v) for v in world_bbox.max_point[0].tolist())
                 starts, ends = oriented_bbox_edge_segments(min_pt, max_pt, IDENTITY_POS, IDENTITY_XYZW)
@@ -192,16 +192,23 @@ class PlacementGeometryDraw:
 
 def _build_placement_geometries(pool: PooledObjectPlacer) -> list[_PlacementGeometry]:
     """Build deduplicated draw geometry from placed and fixed collision assets."""
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
+
     assets: list[tuple[CollisionObject, bool]] = [(asset, asset.is_anchor) for asset in pool.objects]
     assets.extend((asset, True) for asset in pool.collision_objects)
     geometries: list[_PlacementGeometry] = []
+    mesh_cache = WarpMeshAndSphereCache(device="cpu")
     seen: set[int] = set()
     for asset, is_static in assets:
         asset_id = id(asset)
         if asset_id in seen:
             continue
         seen.add(asset_id)
-        mesh = asset.get_collision_mesh() if object_uses_mesh_collision(asset, pool.default_collision_mode) else None
+        mesh = (
+            mesh_cache.get_collision_mesh(asset)
+            if object_uses_mesh_collision(asset, pool.default_collision_mode)
+            else None
+        )
         geometries.append(
             _PlacementGeometry(
                 name=asset.name,
@@ -233,14 +240,32 @@ def _color_for_asset(asset: CollisionObject) -> tuple[float, float, float, float
     return (0.85, 0.85, 0.2, 1.0)  # yellow
 
 
+def _environment_origin(env) -> tuple[float, float, float]:
+    """Return environment zero's origin in simulation world coordinates."""
+    origins = getattr(env.unwrapped.scene, "env_origins", None)
+    return tuple(float(v) for v in origins[0].tolist()) if origins is not None else IDENTITY_POS
+
+
+def _static_world_bounding_box(env, asset: CollisionObject):
+    """Place static collision bounds in environment zero's simulation world frame."""
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
+
+    if isinstance(asset, FixedCollisionObject):
+        return asset.get_world_bounding_box().translated(_environment_origin(env))
+    T_W_O = _live_pose_for_asset(env, asset)
+    if T_W_O is None:
+        return asset.get_world_bounding_box().translated(_environment_origin(env))
+    return asset.get_bounding_box().rotated_by_quat(T_W_O.rotation_xyzw).translated(T_W_O.position_xyz)
+
+
 def _live_pose_for_asset(env, asset: CollisionObject) -> Pose | None:
     """Return the world pose used to place mesh overlay geometry for ``asset``."""
     from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
     if isinstance(asset, FixedCollisionObject):
-        # Mesh vertices are already baked in world coordinates.
-        return Pose.identity()
+        # Fixed solver meshes are baked in environment coordinates.
+        return Pose(position_xyz=_environment_origin(env), rotation_xyzw=IDENTITY_XYZW)
 
     if not isinstance(asset, PlaceableAsset):
         return None
@@ -258,4 +283,10 @@ def _live_pose_for_asset(env, asset: CollisionObject) -> Pose | None:
         )
 
     initial_pose = asset.get_initial_pose()
-    return initial_pose if isinstance(initial_pose, Pose) else None
+    if not isinstance(initial_pose, Pose):
+        return None
+    t_W_E = _environment_origin(env)
+    return Pose(
+        position_xyz=tuple(a + b for a, b in zip(initial_pose.position_xyz, t_W_E)),
+        rotation_xyzw=initial_pose.rotation_xyzw,
+    )

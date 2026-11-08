@@ -1,6 +1,6 @@
 # Shared inspection service for the review GUI and scene inspector
 
-Status: design proposal; the APIs below are not implemented.
+Status: implemented; validation is recorded in the accompanying tests.
 Date: 2026-11-08.
 
 ## Objective
@@ -35,11 +35,11 @@ starting or contacting SimulationApp.
 
 Relevant current implementation:
 
-- [CLI](scene_inspector.py) and [standalone backend launcher](scene_inspector_backend.py).
+- [CLI](../../isaaclab_arena/agentic_tools/scene_inspector.py) and [standalone backend launcher](../../isaaclab_arena/agentic_tools/scene_inspector_backend.py).
 - [GUI launcher](gui_runner.py) and [Streamlit connector](review_gui/simapp_connector.py).
-- [Socket client](review_gui/simapp/client.py) and [server](review_gui/simapp/server.py).
-- [Snapshot renderer](review_gui/simapp/thumbnail_capture.py) and
-  [preview runner](review_gui/simapp/sim_preview.py).
+- [Socket client](../../isaaclab_arena/agentic_tools/inspection/client.py) and [server](../../isaaclab_arena/agentic_tools/inspection/server.py).
+- [Snapshot renderer](../../isaaclab_arena/agentic_tools/inspection/thumbnail_capture.py) and
+  [preview runner](../../isaaclab_arena/agentic_tools/inspection/sim_preview.py).
 
 ## Proposed architecture
 

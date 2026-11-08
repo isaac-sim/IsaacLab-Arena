@@ -143,12 +143,15 @@ def test_live_pose_converts_warp_scene_buffers_to_torch(monkeypatch):
         def get_bounding_box(self):
             return AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 1.0))
 
+    class _Scene(dict):
+        env_origins = torch.tensor([[10.0, 20.0, 30.0]])
+
     position_buffer = object()
     quaternion_buffer = object()
     scene_asset = SimpleNamespace(
         data=SimpleNamespace(root_pos_w=position_buffer, root_quat_w=quaternion_buffer),
     )
-    env = SimpleNamespace(unwrapped=SimpleNamespace(scene={"asset": scene_asset}))
+    env = SimpleNamespace(unwrapped=SimpleNamespace(scene=_Scene(asset=scene_asset)))
     asset = _Placeable(name="asset")
     monkeypatch.setattr(asset, "get_scene_key", lambda: "asset")
 
@@ -263,3 +266,46 @@ def test_redraw_skips_static_geometry_and_transforms_live_aabb(monkeypatch):
     assert len(drawn_bboxes) == 1
     min_pt, max_pt = drawn_bboxes[0]
     assert np.subtract(max_pt, min_pt) == pytest.approx((1.0, 4.0, 1.0), abs=1e-5)
+
+
+def test_fixed_overlay_bounds_and_mesh_pose_include_environment_origin():
+    import torch
+    import trimesh
+    from types import SimpleNamespace
+
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.visualization.placement_geometry_draw import _live_pose_for_asset, _static_world_bounding_box
+
+    mesh = trimesh.creation.box(extents=(2, 4, 6))
+    fixed = FixedCollisionObject(mesh, name="fixed")
+    env = SimpleNamespace(
+        unwrapped=SimpleNamespace(scene=SimpleNamespace(env_origins=torch.tensor([[10.0, 20.0, 30.0]])))
+    )
+    T_W_O = _live_pose_for_asset(env, fixed)
+    assert T_W_O.position_xyz == (10, 20, 30)
+    bounds = _static_world_bounding_box(env, fixed)
+    assert bounds.min_point[0].tolist() == pytest.approx([9, 18, 27])
+    assert bounds.max_point[0].tolist() == pytest.approx([11, 22, 33])
+
+
+def test_overlay_uses_solver_mesh_extraction(monkeypatch):
+    import trimesh
+    from types import SimpleNamespace
+
+    from isaaclab_arena.relations.collision_mode import CollisionMode
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.visualization.placement_geometry_draw import _build_placement_geometries
+
+    asset = SimpleNamespace(name="usd", is_anchor=False, collision_mode=CollisionMode.MESH)
+    mesh = trimesh.creation.box()
+    calls = []
+
+    def solver_mesh(_self, received):
+        calls.append(received)
+        return mesh
+
+    monkeypatch.setattr(WarpMeshAndSphereCache, "get_collision_mesh", solver_mesh)
+    pool = SimpleNamespace(objects=[asset], collision_objects=[], default_collision_mode=CollisionMode.MESH)
+    (geometry,) = _build_placement_geometries(pool)
+    assert geometry.mesh is mesh
+    assert calls == [asset]

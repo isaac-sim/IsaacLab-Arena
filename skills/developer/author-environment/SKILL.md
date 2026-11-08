@@ -33,8 +33,7 @@ collision geometry from a USD scene, dump its composed physics prim tree without
 SimulationApp:
 
 ```bash
-uv run --no-sync python \
-  isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py \
+isaaclab.sh -p -m isaaclab_arena.agentic_tools.scene_inspector \
   prim-tree --usd <scene.usd> --output /tmp/scene_prim_tree.txt
 ```
 
@@ -50,28 +49,27 @@ For viewport snapshots or a bounded scene preview, start one persistent backend 
 terminal and leave it running:
 
 ```bash
-uv run --no-sync python \
-  isaaclab_arena_examples/agentic_environment_generation/scene_inspector_backend.py
+isaaclab.sh -p -m isaaclab_arena.agentic_tools.scene_inspector_backend
 ```
 
 The rendering commands connect to that live backend; they do not boot or stop SimulationApp per
 request. Check readiness, render, and stop it explicitly:
 
 ```bash
-INSPECTOR=isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py
+INSPECTOR=isaaclab_arena.agentic_tools.scene_inspector
 
-uv run --no-sync python $INSPECTOR status
-uv run --no-sync python $INSPECTOR snapshot \
+isaaclab.sh -p -m "$INSPECTOR" status
+isaaclab.sh -p -m "$INSPECTOR" snapshot \
   --env-spec <scene.yaml> --output /tmp/scene_snapshots
-uv run --no-sync python $INSPECTOR snapshot \
+isaaclab.sh -p -m "$INSPECTOR" snapshot \
   --env-spec <scene.yaml> --output /tmp/scene_panorama --background-panorama
-uv run --no-sync python $INSPECTOR preview \
+isaaclab.sh -p -m "$INSPECTOR" preview \
   --env-spec <scene.yaml> --output /tmp/scene_preview.mp4 \
   --num-envs 1 --num-steps 10
-uv run --no-sync python $INSPECTOR preview \
+isaaclab.sh -p -m "$INSPECTOR" preview \
   --env-spec <scene.yaml> --output /tmp/scene_placement_overlay.mp4 \
   --num-envs 1 --num-steps 10 --show-placement-overlay
-uv run --no-sync python $INSPECTOR shutdown
+isaaclab.sh -p -m "$INSPECTOR" shutdown
 ```
 
 Each `snapshot` request bypasses the review GUI's thumbnail cache and overwrites its output PNGs
@@ -99,7 +97,7 @@ Read only the references relevant to the requested behavior:
 - **Assets:** follow the example's asset ownership and check identity, collision handling, and reset
   requirements.
   Before choosing an `object_reference.prim_path`, use the documented `prim-tree` mode in
-  [scene_inspector.py](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py).
+  [scene_inspector.py](../../../isaaclab_arena/agentic_tools/scene_inspector.py).
   Browse text first, then request scoped JSON only for the relevant subtree. Treat results as
   authored USD data; Arena and Isaac Lab spawn-time overrides are excluded.
 - **Layout:** follow the example's scene composition. Use the existing

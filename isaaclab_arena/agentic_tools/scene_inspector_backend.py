@@ -7,8 +7,7 @@
 
 Usage::
 
-    uv run --no-sync python \
-        isaaclab_arena_examples/agentic_environment_generation/scene_inspector_backend.py
+    isaaclab.sh -p -m isaaclab_arena.agentic_tools.scene_inspector_backend
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import default_simapp_socket_path
+from isaaclab_arena.agentic_tools.inspection.backend_process import select_socket_path
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -25,7 +24,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--socket",
         type=Path,
-        default=default_simapp_socket_path(),
+        default=select_socket_path(),
         help="Unix socket path shared with scene_inspector.py.",
     )
     return parser
@@ -33,9 +32,9 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = _parser().parse_args()
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.server import _serve_socket
+    from isaaclab_arena.agentic_tools.inspection.server import serve
 
-    return _serve_socket(str(args.socket))
+    return serve(args.socket)
 
 
 if __name__ == "__main__":

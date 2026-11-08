@@ -38,7 +38,7 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
     with actions_col:
         if st.button(
             "Clear cache & rerender",
-            help="Delete cached snapshot PNGs on disk and render this spec again.",
+            help="Invalidate cached snapshots and render this spec again.",
             width="stretch",
         ):
             removed = clear_snapshot_render_caches()

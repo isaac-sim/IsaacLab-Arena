@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from isaaclab_arena.agentic_tools.inspection.asset_identifiers import object_set_member_key
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec, ObjectReferenceSpec
 
@@ -20,11 +21,6 @@ class AssetCard:
     thumbnail_bytes: bytes | None = None
     aabb_dimensions_m: tuple[float, float, float] | None = None
     is_panorama: bool = False
-
-
-def object_set_member_key(object_set_id: str, registry_name: str) -> str:
-    """Return the thumbnail and AABB lookup key for one member of an object set."""
-    return f"{object_set_id}::{registry_name}"
 
 
 def build_asset_cards(
