@@ -88,6 +88,13 @@ environment, then use bounded direct steps for inspection. Use existing focused 
 changed success logic, temporal interruptions, and reset isolation across parallel environments.
 Parsing or passive stepping alone does not establish task solvability.
 
+Use the generic [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst)
+([source](../../../isaaclab_arena/agentic_tools/object_control_runner.py))
+when an authored environment needs physics-based validation without a robot policy. Use it to
+drive objects to pose and joint-position targets, verify task success predicates, and diagnose why
+an interaction or success condition fails. Its documentation covers recipe and live-command usage,
+commands, outputs, and failure diagnostics.
+
 For variation inspection, use the `--list_variations` path through
 [run-experiment](../../user/run-experiment/SKILL.md). Check the
 [Environment Runner](../../../isaaclab_arena/scripts/environment_runner.py) requirements before

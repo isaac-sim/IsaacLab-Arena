@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Guard that no test module imports Isaac Lab cfg modules at collection time.
+"""Guard that test collection does not import USD or Isaac Lab asset configuration modules.
 
 Pytest imports every test module during collection, before the ``SimulationApp``
 launches. If any of them (directly or transitively) executes Isaac Lab cfg
@@ -14,7 +14,10 @@ startup, and every robot-building test collected afterwards fails
 Keep such imports inside the inner functions run via
 ``run_function_with_persistent_simulation_app``.
 
-TODO(alexmillane, 2026-07-15): Remove this test once Isaac Lab #6514 is fixed.
+Importing ``pxr`` early can also load standalone USD libraries that conflict with
+Isaac Sim's USD libraries, causing undefined-symbol errors during Kit startup.
+
+TODO(alexmillane, 2026-07-15): Remove the cfg-module restriction once Isaac Lab #6514 is fixed.
 """
 
 import json
@@ -22,7 +25,7 @@ import subprocess
 
 from isaaclab_arena.tests.utils.constants import TestConstants
 
-_FORBIDDEN_PREFIXES = ("isaaclab.assets", "isaaclab.scene", "isaaclab_assets", "isaaclab_tasks")
+_FORBIDDEN_PREFIXES = ("pxr", "isaaclab.assets", "isaaclab.scene", "isaaclab_assets", "isaaclab_tasks")
 
 _CHILD_SCRIPT = f"""
 import importlib, json, sys
@@ -41,7 +44,7 @@ print("OFFENDERS_JSON=" + json.dumps(offenders))
 """
 
 
-def test_no_isaaclab_cfg_imports_at_collection_time():
+def test_no_usd_or_isaaclab_cfg_imports_at_collection_time():
     result = subprocess.run(
         [TestConstants.python_path, "-c", _CHILD_SCRIPT, TestConstants.test_dir],
         capture_output=True,
@@ -53,7 +56,7 @@ def test_no_isaaclab_cfg_imports_at_collection_time():
     assert len(json_lines) == 1, f"marker line not found in child output:\n{result.stdout}"
     offenders = json.loads(json_lines[0].removeprefix("OFFENDERS_JSON="))
     assert not offenders, (
-        "These test modules import Isaac Lab cfg modules at collection (module) time, which duplicates "
-        f"ArticulationCfg once the SimulationApp launches: {offenders}. "
+        "These test modules import USD or Isaac Lab cfg modules at collection (module) time, which causes "
+        f"USD library conflicts or duplicate ArticulationCfg types when SimulationApp launches: {offenders}. "
         "Defer the imports into the inner function run via run_function_with_persistent_simulation_app."
     )

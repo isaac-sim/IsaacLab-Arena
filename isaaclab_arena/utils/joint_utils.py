@@ -3,12 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import torch
+from typing import TYPE_CHECKING
 
 import warp as wp
-from isaaclab.assets import Articulation
-from isaaclab.envs.manager_based_env import ManagerBasedEnv
-from isaaclab.managers import SceneEntityCfg
+
+# These types pull in USD through Isaac Lab; numerical helpers must remain safe before AppLauncher.
+if TYPE_CHECKING:
+    from isaaclab.assets import Articulation
+    from isaaclab.envs.manager_based_env import ManagerBasedEnv
+    from isaaclab.managers import SceneEntityCfg
 
 
 def normalize_value(value: torch.Tensor, min_value: float, max_value: float) -> torch.Tensor:
@@ -19,6 +25,13 @@ def normalize_value(value: torch.Tensor, min_value: float, max_value: float) -> 
 def unnormalize_value(value: float, min_value: float, max_value: float) -> float:
     """Unnormalize a value from [0, 1] back to the original range."""
     return min_value + (max_value - min_value) * value
+
+
+def unnormalize_joint_position(normalized_position: float, joint_min: float, joint_max: float) -> float:
+    """Convert a normalized joint position to radians or meters."""
+    if joint_min < 0.0:
+        normalized_position = 1 - normalized_position
+    return unnormalize_value(normalized_position, joint_min, joint_max)
 
 
 def get_joint_index_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> int:
@@ -114,7 +127,5 @@ def set_normalized_joint_position(
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
     joint_min, joint_max = get_joint_position_limits_from_articulation(articulation, joint_index)
-    if joint_min < 0.0:
-        target_joint_position = 1 - target_joint_position
-    target_joint_position_unnormlized = unnormalize_value(target_joint_position, joint_min, joint_max)
+    target_joint_position_unnormlized = unnormalize_joint_position(target_joint_position, joint_min, joint_max)
     set_unnormalized_joint_position(env, asset_cfg, target_joint_position_unnormlized, env_ids)
