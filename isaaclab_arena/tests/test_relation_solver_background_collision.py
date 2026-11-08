@@ -317,15 +317,14 @@ def test_background_exclusions_preserve_unsupported_geometry_error(monkeypatch):
         )
 
 
-def test_passive_background_excludes_relation_anchor_subtrees(monkeypatch):
-    """Background aggregation omits geometry represented separately by relation anchors."""
-    from unittest.mock import MagicMock
-
+def test_passive_background_excludes_nested_relation_anchor_subtrees(monkeypatch):
+    """Background aggregation omits nested geometry represented separately by relation anchors."""
     import isaaclab_arena.relations.geometry.passive_collision_objects as passive_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.relations.collision_mode import CollisionMode
     from isaaclab_arena.relations.geometry.passive_collision_objects import get_placement_collision_objects
+    from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.utils.pose import Pose
 
     kitchen = Background.__new__(Background)
@@ -334,10 +333,12 @@ def test_passive_background_excludes_relation_anchor_subtrees(monkeypatch):
     kitchen.initial_pose = Pose.identity()
     kitchen.relations = []
 
-    counter = MagicMock(spec=ObjectReference)
-    counter.is_anchor = True
-    counter.parent_asset = kitchen
-    counter.prim_path_in_parent_usd = "/Kitchen/counter"
+    cabinet = ObjectReference.__new__(ObjectReference)
+    cabinet.parent_asset = kitchen
+    counter = ObjectReference.__new__(ObjectReference)
+    counter.relations = [IsAnchor()]
+    counter.parent_asset = cabinet
+    counter._prim_path_in_parent_usd = "/Kitchen/cabinet/counter"
     calls = {}
 
     def fake_make_fixed(objects, excluded_prim_paths_by_object=None):
@@ -349,9 +350,10 @@ def test_passive_background_excludes_relation_anchor_subtrees(monkeypatch):
 
     result = get_placement_collision_objects([counter, counter], [kitchen], CollisionMode.MESH)
 
+    assert counter.root_asset is kitchen
     assert result == [kitchen]
     assert calls["objects"] == [kitchen]
-    assert calls["exclusions"] == {kitchen: {"/Kitchen/counter"}}
+    assert calls["exclusions"] == {kitchen: {"/Kitchen/cabinet/counter"}}
 
 
 def test_background_collision_objects_treat_background_none_pose_as_identity(monkeypatch):

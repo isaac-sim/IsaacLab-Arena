@@ -57,7 +57,7 @@ def get_placement_collision_objects(
     # A parent's collision geometry already contains its passive references.
     collision_objects = []
     for asset in passive_assets:
-        if isinstance(asset, ObjectReference) and asset.parent_asset in passive_asset_set:
+        if isinstance(asset, ObjectReference) and asset.root_asset in passive_asset_set:
             continue
         collision_objects.append(asset)
     if not include_background:
@@ -65,8 +65,8 @@ def get_placement_collision_objects(
 
     excluded_prim_paths_by_object: defaultdict[CollisionObject, set[str]] = defaultdict(set)
     for asset in placement_assets:
-        if isinstance(asset, ObjectReference) and asset.is_anchor and asset.parent_asset in passive_asset_set:
-            excluded_prim_paths_by_object[asset.parent_asset].add(asset.prim_path_in_parent_usd)
+        if isinstance(asset, ObjectReference) and asset.is_anchor and asset.root_asset in passive_asset_set:
+            excluded_prim_paths_by_object[asset.root_asset].add(asset.prim_path_in_parent_usd)
     return make_fixed_collision_objects(collision_objects, excluded_prim_paths_by_object=excluded_prim_paths_by_object)
 
 
@@ -114,7 +114,7 @@ def discover_passive_assets(
             continue
         if asset.get_relations():
             continue
-        if isinstance(asset, ObjectReference) and asset.parent_asset in placement_asset_set:
+        if isinstance(asset, ObjectReference) and asset.root_asset in placement_asset_set:
             # The parent's placement geometry already contains its referenced children.
             continue
         # Without a USD path, only rigid objects are obstacles: object sets and primitive shapes take their bounds
@@ -122,10 +122,10 @@ def discover_passive_assets(
         if isinstance(asset, Object) and asset.usd_path is None and asset.object_type != ObjectType.RIGID:
             print(f"Skipping '{asset.name}' as a collision obstacle: it is not rigid and has no USD path.")
             continue
-        if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
+        if isinstance(asset, ObjectReference) and asset.root_asset.usd_path is None:
             print(
                 f"Skipping object reference '{asset.name}' as a collision obstacle: "
-                f"parent asset '{asset.parent_asset.name}' is missing a USD path."
+                f"root asset '{asset.root_asset.name}' is missing a USD path."
             )
             continue
         initial_pose = asset.get_initial_pose()

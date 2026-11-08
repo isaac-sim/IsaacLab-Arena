@@ -106,6 +106,13 @@ class ObjectReference(RootedObjectBase):
         return self._parent_scale
 
     @property
+    def root_asset(self) -> Object:
+        """Return the spawned asset at the top of the reference chain."""
+        if isinstance(self.parent_asset, ObjectReference):
+            return self.parent_asset.root_asset
+        return self.parent_asset
+
+    @property
     def usd_path(self) -> str:
         """Return the source USD path inherited from the root asset."""
         return self.parent_asset.usd_path
