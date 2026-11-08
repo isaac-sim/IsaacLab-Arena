@@ -429,6 +429,19 @@ def test_graph_spec_rejects_invalid_data():
             "references invalid parent",
         ),
         (
+            "object reference parent declared later",
+            lambda data: data["object_references"].insert(
+                0,
+                {
+                    "id": "table_body",
+                    "parent_id": "table",
+                    "prim_path": "body",
+                    "object_type": "base",
+                },
+            ),
+            "references invalid parent",
+        ),
+        (
             "unknown task kind",
             lambda data: data["task"]["subtasks"][0].update({"kind": "UnknownTask"}),
             "Unknown task kind 'UnknownTask'",
