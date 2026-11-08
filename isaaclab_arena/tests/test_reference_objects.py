@@ -280,14 +280,19 @@ def _test_nested_reference_uses_articulation_parent_pose(simulation_app, tmp_pat
         cabinet_yaw_degrees=90.0,
         sibling_cabinet=True,
     )
-    workbench = Object(name="workbench", usd_path=str(usd_path), object_type=ObjectType.BASE)
+    workbench = Object(
+        name="workbench",
+        usd_path=str(usd_path),
+        object_type=ObjectType.BASE,
+        scale=(4.0, 2.0, 1.0),
+    )
     cabinet = ObjectReference(
         name="cabinet",
         prim_path="{ENV_REGEX_NS}/workbench/Cabinet",
         parent_asset=workbench,
         object_type=ObjectType.ARTICULATION,
     )
-    cabinet.object_cfg.init_state.joint_pos = {"drawer_joint": 0.3}
+    cabinet.object_cfg.init_state.joint_pos = {"drawer_joint": 0.0}
 
     drawer = ObjectReference(
         name="drawer",
@@ -297,7 +302,7 @@ def _test_nested_reference_uses_articulation_parent_pose(simulation_app, tmp_pat
     )
 
     assert drawer.get_parent_pose() == cabinet.get_initial_pose()
-    assert drawer.get_initial_pose().position_xyz == pytest.approx((0.0, 0.5, 0.0), abs=1e-7)
+    assert drawer.get_initial_pose().position_xyz == pytest.approx((0.0, 0.4, 0.0), abs=1e-7)
     assert drawer.get_bounding_box_rotation() == Pose.identity().rotation_xyzw
     assert isinstance(drawer.object_cfg, ArticulationBodyReferenceCfg)
     assert drawer.object_cfg.articulation_name == "cabinet"

@@ -259,48 +259,31 @@ class ObjectReference(RootedObjectBase):
         if not prim:
             raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
         initial_link_world_delta = self._get_initial_link_world_delta(parent_asset, parent_stage, prim)
-        prim_pose = get_prim_pose_in_default_prim_frame(prim, parent_stage, initial_link_world_delta)
+        T_D_O = get_prim_pose_in_default_prim_frame(prim, parent_stage, initial_link_world_delta)
+        T_D_O = Pose(
+            position_xyz=tuple(
+                position * scale for position, scale in zip(T_D_O.position_xyz, self._parent_scale, strict=True)
+            ),
+            rotation_xyzw=T_D_O.rotation_xyzw,
+        )
         if isinstance(parent_asset, ObjectReference):
             parent_prim_path = self.isaaclab_prim_path_to_original_prim_path(
                 parent_asset.prim_path, parent_asset, parent_stage
             )
             parent_prim = parent_stage.GetPrimAtPath(parent_prim_path)
-            parent_pose = get_prim_pose_in_default_prim_frame(parent_prim, parent_stage)
-            prim_pose = self._pose_relative_to_parent(parent_pose, prim_pose)
-        # Apply parent's scale to the position
-        scaled_pos = (
-            prim_pose.position_xyz[0] * self._parent_scale[0],
-            prim_pose.position_xyz[1] * self._parent_scale[1],
-            prim_pose.position_xyz[2] * self._parent_scale[2],
-        )
+            T_D_P = get_prim_pose_in_default_prim_frame(parent_prim, parent_stage)
+            T_D_P = Pose(
+                position_xyz=tuple(
+                    position * scale for position, scale in zip(T_D_P.position_xyz, self._parent_scale, strict=True)
+                ),
+                rotation_xyzw=T_D_P.rotation_xyzw,
+            )
+            T_D_O = T_D_O.relative_to(T_D_P)
         return (
             prim_path_in_usd,
             initial_link_world_delta,
-            Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw),
+            T_D_O,
         )
-
-    @staticmethod
-    def _pose_relative_to_parent(T_D_P: Pose, T_D_O: Pose) -> Pose:
-        """Return T_P_O from source-default-frame poses T_D_P and T_D_O."""
-        t_D_P = np.asarray(T_D_P.position_xyz, dtype=np.float64)
-        t_D_O = np.asarray(T_D_O.position_xyz, dtype=np.float64)
-        x, y, z, w = T_D_P.rotation_xyzw
-        R_D_P = np.asarray([
-            [1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)],
-            [2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)],
-            [2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)],
-        ])
-        t_P_O = R_D_P.T @ (t_D_O - t_D_P)
-        q_P_D = (-x, -y, -z, w)
-        ox, oy, oz, ow = T_D_O.rotation_xyzw
-        px, py, pz, pw = q_P_D
-        q_P_O = (
-            pw * ox + px * ow + py * oz - pz * oy,
-            pw * oy - px * oz + py * ow + pz * ox,
-            pw * oz + px * oy - py * ox + pz * ow,
-            pw * ow - px * ox - py * oy - pz * oz,
-        )
-        return Pose(position_xyz=tuple(float(value) for value in t_P_O), rotation_xyzw=q_P_O)
 
     def _get_initial_link_world_delta(
         self, parent_asset: Object | ObjectReference, parent_stage: Usd.Stage, prim: Usd.Prim
