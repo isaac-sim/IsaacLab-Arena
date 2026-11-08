@@ -27,8 +27,6 @@ args_cli = args_parser.parse_args([
     "kitchen_pick_and_place",
     "--object",
     "cracker_box",
-    "--background",
-    "kitchen",
     "--embodiment",
     "franka_ik",
 ])

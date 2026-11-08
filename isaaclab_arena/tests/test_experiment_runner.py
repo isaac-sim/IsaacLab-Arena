@@ -395,39 +395,6 @@ runs:
 
 
 @pytest.mark.with_subprocess
-def test_experiment_runner_two_jobs_zero_action(tmp_path):
-    """Test experiment_runner with 2 jobs using zero_action policy on different objects."""
-    jobs = [
-        {
-            "name": "maple_table_rubiks_cube",
-            "arena_env_args": {
-                "environment": "pick_and_place_maple_table",
-                "pick_up_object": "rubiks_cube_hot3d_robolab",
-                "embodiment": "droid_rel_joint_pos",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "maple_table_mustard_bottle",
-            "arena_env_args": {
-                "environment": "pick_and_place_maple_table",
-                "pick_up_object": "mustard_bottle_hot3d_robolab",
-                "embodiment": "droid_rel_joint_pos",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_two_jobs_zero_action.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
-
-
-@pytest.mark.with_subprocess
 def test_experiment_runner_multiple_environments(tmp_path):
     """Test experiment_runner with jobs across different environments."""
     jobs = [

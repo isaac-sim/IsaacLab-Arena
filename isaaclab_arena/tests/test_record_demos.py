@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify native Lab recording preserves Arena task success, placement and variations."""
+"""Verify native Lab recording preserves Arena placement and variations."""
 
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ def _register_with_test_device(task_name: str, advance_fn) -> list[str]:
             return torch.zeros(self._env.action_manager.total_action_dim, device=self._env.device)
 
     device_cfg = DeviceCfg(class_type=ScriptedTestDevice)
-    # Replace hardware input before registration; GR1 joint control has no keyboard retargeter.
+    # Replace hardware input before registration.
     with patch.object(DeviceRegistry, "get_teleop_device_cfg", return_value=device_cfg):
         remaining_args = register_arena_environment()
     cfg = gym.spec(task_name).kwargs["env_cfg_entry_point"]
