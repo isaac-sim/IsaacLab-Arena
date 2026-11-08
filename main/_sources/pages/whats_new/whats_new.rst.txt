@@ -2,7 +2,7 @@ What's New
 ==========
 
 The upcoming release of Isaac Lab-Arena ``v0.4`` adds three new capabilities
-to the evaluation framework. Try out the early versions on the ``main`` branch!
+to the evaluation framework. Try out the Developer Preview on the ``main`` branch!
 
 .. grid:: 1 1 3 3
    :gutter: 2

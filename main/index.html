@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="_static/custom.css?v=bed50f1e" />
-    <link rel="stylesheet" type="text/css" href="_static/landing.css?v=6be9e05b" />
+    <link rel="stylesheet" type="text/css" href="_static/landing.css?v=6736781a" />
   
   <!-- So that users can add custom icons -->
   <script defer src="_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
@@ -593,11 +593,13 @@
 <p>This is the development version of Isaac Lab Arena. It contains the newest features but may not
 be fully tested yet. For the tested version, please refer to the <a class="reference external" href="https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html">release/0.3.0 branch</a>.</p>
 </div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p><strong>Coming in the next release (scheduled for 8 December 2026):</strong> faster agentic evaluation
-authoring, Newton-based evaluation workflows, and multimodal VLMs as policies. You can try them
-now on the <code class="docutils literal notranslate"><span class="pre">main</span></code> branch. <a class="reference internal" href="pages/whats_new/whats_new.html"><span class="doc">See what’s new</span></a>.</p>
+<div class="arena-release-banner docutils container">
+<div class="arena-release-copy docutils container">
+<p class="arena-release-lead">The <strong>v0.4 Developer Preview</strong> is available now on main.</p>
+<p class="arena-release-features">Includes faster agentic evaluation authoring, Newton-based evaluation workflows, and multimodal VLMs as policies.</p>
+<p class="arena-release-schedule">The official and tested release will be available around 8 December.</p>
+</div>
+<p><a class="sd-sphinx-override sd-btn sd-text-wrap arena-release-action reference internal" href="pages/whats_new/whats_new.html"><span class="doc">See what’s new on main →</span></a></p>
 </div>
 <section class="arena-overview-hero" aria-labelledby="arena-overview-heading">
   <div class="arena-overview-hero__copy">
@@ -638,8 +640,49 @@ now on the <code class="docutils literal notranslate"><span class="pre">main</sp
   </div>
 </section><section id="features">
 <h2>Features<a class="headerlink" href="#features" title="Link to this heading">#</a></h2>
-<section id="author-benchmarks">
-<span id="home-author-benchmarks"></span><h3>Author benchmarks<a class="headerlink" href="#author-benchmarks" title="Link to this heading">#</a></h3>
+<section id="author-evaluations-with-agents">
+<span id="author-benchmarks"></span><span id="home-author-benchmarks"></span><h3><a class="reference internal" href="pages/whats_new/agentic_authoring.html"><span class="doc">Author evaluations with agents</span></a><a class="headerlink" href="#author-evaluations-with-agents" title="Link to this heading">#</a></h3>
+<div class="arena-feature-row arena-feature-rich arena-agentic-lead docutils container" id="home-agentic-environment-generation">
+<div class="arena-feature-copy docutils container">
+<p>Describe the evaluation environment you want in natural language.
+A coding agent finds SimReady USD assets
+and uses Arena’s features to build environments and configure evaluation workflows.</p>
+</div>
+<div class="arena-agentic-walkthrough docutils container">
+<div class="arena-agentic-walkthrough-toolbar docutils container">
+<span>Sample: A coding agent authors a workbench cleanup environment, evaluates a VLM-based policy on it, and adds variations.</span></div>
+<div  class="sphinx-contrib-video-container align-left"><video controls="True" muted="True" poster="_images/agentic-authoring-walkthrough.webp" preload="none" width="100%" playsinline="True"><source src="_images/agentic_authoring_workbench_walkthrough.mp4" type="video/mp4">A coding agent authors a workbench cleanup evaluation environment, evaluates a VLM policy, and adds variations</video></div><aside id="arena-authoring-case-study" class="arena-authoring-results" aria-labelledby="arena-authoring-case-study-title">
+  <div class="arena-authoring-results__header">
+    <p id="arena-authoring-case-study-title"><strong>Case study:</strong> With Arena, the agent built environments at scale <strong>faster and at 72% lower cost.</strong></p>
+    <a href="pages/whats_new/agentic_authoring_workbench.html#analysis">Read more <span aria-hidden="true">→</span></a>
+  </div>
+  <ul class="arena-authoring-results__metrics">
+    <li>
+      <strong>5.25× <span>faster</span></strong>
+      <span>to a validated environment</span>
+    </li>
+    <li>
+      <strong class="arena-authoring-results__cost">72% <span>lower<br>cost</span></strong>
+    </li>
+    <li>
+      <strong>0 <span>custom Python</span></strong>
+      <span>for the environment</span>
+    </li>
+    <li>
+      <strong class="arena-authoring-results__qualitative">Physically stable<br>&amp; collision-free</strong>
+      <span>layout variations</span>
+    </li>
+  </ul>
+</aside></div>
+<div class="arena-video-poster-sources docutils container">
+<img alt="Agentic workbench evaluation authoring walkthrough preview" loading="lazy" src="_images/agentic-authoring-walkthrough.webp" />
+</div>
+</div>
+<div class="arena-authoring-foundation docutils container">
+<p class="rubric">The building blocks behind agentic authoring</p>
+<p>The features below give coding agents the building blocks to author evaluations.
+Use the same tools directly to compose environments, place objects, and add variations.</p>
+</div>
 <div class="arena-feature-row arena-feature-rich docutils container" id="home-modular-environment-composition">
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 arena-feature-grid docutils">
 <div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-4 sd-g-xs-4 sd-g-sm-4 sd-g-md-4 sd-g-lg-4 docutils">
@@ -750,24 +793,6 @@ constraints.</p>
 </div>
 </div>
 </div>
-<div class="arena-feature-row arena-feature-rich docutils container" id="home-agentic-environment-generation">
-<div class="sd-container-fluid sd-sphinx-override sd-mb-4 arena-feature-grid docutils">
-<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-4 sd-g-xs-4 sd-g-sm-4 sd-g-md-4 sd-g-lg-4 docutils">
-<div class="sd-col sd-d-flex-column sd-col-12 sd-col-xs-12 sd-col-sm-12 sd-col-md-5 sd-col-lg-5 docutils">
-<div class="arena-feature-copy docutils container">
-<div class="arena-feature-heading docutils container">
-<p class="rubric"><a class="reference internal" href="pages/whats_new/agentic_authoring.html"><span class="doc">Agentic evaluation authoring</span></a></p>
-</div>
-<p>Describe the evaluation environment you want in natural language. A coding agent finds
-SimReady USD assets and uses Arena’s features to build environments and configure
-evaluation workflows.</p>
-</div>
-</div>
-<div class="sd-col sd-d-flex-column sd-col-12 sd-col-xs-12 sd-col-sm-12 sd-col-md-7 sd-col-lg-7 docutils">
-<div  class="sphinx-contrib-video-container align-left"><video controls="True" muted="True" preload="none" width="100%" playsinline="True"><source src="_images/agentic_authoring_workbench_walkthrough.mp4" type="video/mp4">A coding agent authors a workbench cleanup evaluation environment, evaluates a VLM policy, and adds variations</video></div></div>
-</div>
-</div>
-</div>
 <div class="arena-feature-row arena-feature-rich docutils container" id="home-variation-system">
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 arena-feature-grid docutils">
 <div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-4 sd-g-xs-4 sd-g-sm-4 sd-g-md-4 sd-g-lg-4 docutils">
@@ -852,6 +877,28 @@ with ease to perform data collection or policy learning in Isaac Lab.</p>
 </div></div>
 </div>
 </div>
+</div>
+</div>
+<div class="arena-feature-row arena-feature-rich docutils container" id="home-newton-environments">
+<div class="arena-feature-copy docutils container">
+<p class="rubric"><a class="reference internal" href="pages/whats_new/newton_evaluation.html"><span class="doc">Contact-rich and deformable environments with Newton</span></a></p>
+<p>Build evaluation environments for tight-tolerance insertion and deformable-object
+manipulation with the Newton physics backend. Run these tasks through Arena’s evaluation
+workflows.</p>
+</div>
+<div class="arena-newton-proof docutils container">
+<div class="arena-newton-example docutils container">
+<p class="rubric"><a class="reference internal" href="pages/example_workflows/newton/gear_insertion.html"><span class="doc">Gear insertion</span></a></p>
+<div  class="sphinx-contrib-video-container align-left"><video loop="True" muted="True" poster="_images/newton-gear-overview.webp" preload="none" width="100%" playsinline="True"><source src="_images/arena_v04_newton_rigid_gear_insertion.mp4" type="video/mp4">DROID inserts a gear onto a peg, with the rendered scene beside the Newton collision geometry</video></div><p>Tight-tolerance contact between a gear and a peg.</p>
+</div>
+<div class="arena-newton-example docutils container">
+<p class="rubric"><a class="reference internal" href="pages/example_workflows/newton/deformable_pick_and_place.html"><span class="doc">Deformable pick and place</span></a></p>
+<div  class="sphinx-contrib-video-container align-left"><video loop="True" muted="True" poster="_images/newton-deformable-overview.webp" preload="none" width="100%" playsinline="True"><source src="_images/arena_v04_newton_deformables.mp4" type="video/mp4">DROID places a deformable block on a plate, with the rendered scene beside the Newton deformable mesh</video></div><p>Objects deform as the robot grasps and moves them.</p>
+</div>
+</div>
+<div class="arena-video-poster-sources docutils container">
+<img alt="Newton gear insertion preview" loading="lazy" src="_images/newton-gear-overview.webp" />
+<img alt="Newton deformable pick-and-place preview" loading="lazy" src="_images/newton-deformable-overview.webp" />
 </div>
 </div>
 </section>
@@ -978,6 +1025,8 @@ run independent Runs concurrently.</p>
 <p>Run leading foundation models GR00T, π0.5, or bring your own policy behind a server.
 Arena exchanges observations and actions through one client contract across processes,
 GPUs, or machines.</p>
+<p class="arena-policy-vlm-note">Now available: evaluate multimodal VLMs as policies.
+<a class="reference internal" href="pages/whats_new/vlm_policy.html"><span class="doc">See an example</span></a>.</p>
 </div>
 </div>
 <div class="sd-col sd-d-flex-column sd-col-12 sd-col-xs-12 sd-col-sm-12 sd-col-md-7 sd-col-lg-7 docutils">
@@ -1377,7 +1426,7 @@ Isaac Lab team and the broader robotics community for their foundational work.</
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#features">Features</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#author-benchmarks">Author benchmarks</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#author-evaluations-with-agents"><span class="xref std std-doc">Author evaluations with agents</span></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#execute-large-scale-parallel-policy-evaluations">Execute large-scale parallel policy evaluations</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#analyze-robustness-and-why-policies-fail">Analyze robustness and why policies fail</a></li>
 </ul>
