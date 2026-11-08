@@ -9,22 +9,23 @@ from __future__ import annotations
 
 import shutil
 import sys
+import tempfile
 import time
 import uuid
 from contextlib import nullcontext, suppress
 from typing import Any
 
 from isaaclab_arena.agentic_environment_generation.spec_io import safe_filename_stem
+from isaaclab_arena.agentic_tools.inspection.kit_viewport import (
+    CAPTURE_DONE_TAIL_UPDATES,
+    pump_app,
+    sim_preview_cache_dir,
+)
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
     collect_garbage_and_clear_cuda_cache,
     teardown_simulation_app,
-)
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
-    CAPTURE_DONE_TAIL_UPDATES,
-    pump_app,
-    sim_preview_cache_dir,
 )
 
 # Placement pool size when preview uses resolve_on_reset=False (see ObjectPlacerParams).
@@ -84,19 +85,20 @@ def _close_env_and_reset_sim(
 
 def run_sim_preview(
     app,
-    yaml_text: str,
+    graph_spec: ArenaEnvGraphSpec,
     *,
     num_envs: int,
     num_steps: int,
     env_spacing: float,
+    show_placement_overlay: bool = False,
 ) -> dict[str, Any]:
     """Run relation-solver preview and record the task-configured viewport."""
     import gymnasium as gym
-    import yaml
+
+    from isaaclab.envs import VideoRecorderCfg
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
-    from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
     started_at = time.monotonic()
     _preview_log(started_at, "run_sim_preview started")
@@ -104,11 +106,6 @@ def run_sim_preview(
     _close_env_and_reset_sim(suppress_exceptions=True, app=app)
     _preview_log(started_at, "cleared stale sim state")
 
-    raw = yaml.safe_load(yaml_text)
-    if not isinstance(raw, dict):
-        raise ValueError(f"expected mapping, got {type(raw).__name__}")
-
-    graph_spec = ArenaEnvGraphSpec.model_validate(raw)
     arena_env = graph_spec.to_arena_env()
     preview_name = f"{safe_filename_stem(arena_env.name)}_preview_{uuid.uuid4().hex[:8]}"
     arena_env.name = preview_name
@@ -119,15 +116,13 @@ def run_sim_preview(
     policy = ZeroActionPolicy(ZeroActionPolicyCfg())
 
     cache_dir = sim_preview_cache_dir()
-    stamp = int(time.time() * 1000)
-    video_dir = cache_dir / f"{preview_name}_{stamp}"
-    video_cfg = VideoRecordingCfg(
-        record_viewport_video=True,
-        video_base_dir=str(video_dir),
-    )
+    from pathlib import Path
+
+    video_dir = Path(tempfile.mkdtemp(prefix="preview-", dir=cache_dir))
 
     pool_layouts = builder_cfg.num_envs * _PREVIEW_LAYOUTS_PER_ENV
     env = None
+    placement_overlay = None
     completed = False
     try:
         _preview_log(
@@ -136,19 +131,40 @@ def run_sim_preview(
         )
         t_relations = time.monotonic()
         env_cfg, env_kwargs = builder.build_env_cfg()
+        env_cfg.video_recorders = [
+            VideoRecorderCfg(
+                source="visualizer:kit",
+                output_dir=str(video_dir),
+                video_length=num_steps,
+                output_filename_prefix="viewport",
+            )
+        ]
         _preview_log(started_at, f"relation solver finished ({time.monotonic() - t_relations:.1f}s)")
 
         _preview_log(started_at, "spawning sim scene (gym.make)…")
         t_spawn = time.monotonic()
-        env = builder.make_registered(env_cfg, env_kwargs, render_mode=video_cfg.render_mode)
+        env = builder.make_registered(env_cfg, env_kwargs)
         _preview_log(started_at, f"sim scene ready ({time.monotonic() - t_spawn:.1f}s)")
 
-        env = wrap_env_for_video(env, video_cfg, num_steps=num_steps, num_episodes=None)
         obs, _ = env.reset()
+        if show_placement_overlay:
+            from isaaclab_arena.visualization.placement_geometry_draw import PlacementGeometryDraw
+
+            placement_overlay = PlacementGeometryDraw.from_env(env)
+            if placement_overlay is None:
+                _preview_log(started_at, "placement overlay requested, but the environment has no placement pool")
+            else:
+                placement_overlay.print_legend()
+                placement_overlay.redraw(env)
         for _ in range(num_steps):
+            if placement_overlay is not None:
+                placement_overlay.redraw(env)
             action = policy.get_action(env, obs)
             obs, _, _, _, _ = env.step(action)
 
+        if placement_overlay is not None:
+            placement_overlay.close()
+            placement_overlay = None
         env.close()
         env = None
         video_paths = sorted(video_dir.rglob("*.mp4"))
@@ -163,14 +179,21 @@ def run_sim_preview(
         )
         completed = True
         return {
-            "ok": True,
-            "video_path": str(video_paths[0]),
-            "env_name": preview_name,
-            "num_envs": num_envs,
-            "env_spacing": env_spacing,
-            "num_steps": num_steps,
+            "artifacts": {"preview": {"path": str(video_paths[0]), "media_type": "video/mp4"}},
+            "warnings": [],
+            "temporary_dir": str(video_dir),
+            "metadata": {
+                "env_name": preview_name,
+                "num_envs": num_envs,
+                "env_spacing": env_spacing,
+                "num_steps": num_steps,
+                "show_placement_overlay": show_placement_overlay,
+            },
         }
     finally:
+        if placement_overlay is not None:
+            with suppress(Exception):
+                placement_overlay.close()
         _close_env_and_reset_sim(env, app=app, suppress_exceptions=True)
         if not completed:
             shutil.rmtree(video_dir, ignore_errors=True)

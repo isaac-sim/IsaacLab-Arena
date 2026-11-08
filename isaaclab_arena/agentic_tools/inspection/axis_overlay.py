@@ -81,3 +81,32 @@ def _unit(direction: tuple[float, float, float]) -> tuple[float, float, float] |
     if length < 1e-12:
         return None
     return (direction[0] / length, direction[1] / length, direction[2] / length)
+
+
+def world_point_to_image_pixel(
+    viewport,
+    point_W: tuple[float, float, float],
+    *,
+    image_size: tuple[int, int],
+    viewport_size: tuple[int, int],
+) -> tuple[int, int] | None:
+    """Project a world point to PNG pixel coordinates, or None if not projectable."""
+    from pxr import Gf
+
+    clip = Gf.Vec4d(float(point_W[0]), float(point_W[1]), float(point_W[2]), 1.0) * viewport.world_to_ndc
+    if clip[3] <= 1e-9:
+        return None
+    ndc_x = clip[0] / clip[3]
+    ndc_y = clip[1] / clip[3]
+    ndc_z = clip[2] / clip[3]
+    # Discard points behind / outside the clip volume so we do not draw wild lines.
+    if not (-1.5 <= ndc_x <= 1.5 and -1.5 <= ndc_y <= 1.5 and -1.0 <= ndc_z <= 1.0):
+        return None
+
+    # Kit returns ``(pixel, ViewportAPI)``; keep the pixel only.
+    pixel = viewport.map_ndc_to_texture_pixel(Gf.Vec2d(ndc_x, ndc_y))[0]
+    vw, vh = viewport_size
+    iw, ih = image_size
+    if vw <= 0 or vh <= 0:
+        return None
+    return (int(round(float(pixel[0]) * iw / vw)), int(round(float(pixel[1]) * ih / vh)))

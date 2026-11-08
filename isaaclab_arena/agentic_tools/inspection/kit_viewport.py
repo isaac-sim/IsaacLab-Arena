@@ -7,6 +7,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import io
+import tempfile
 from pathlib import Path
 
 from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
@@ -43,12 +46,11 @@ def pump_app(app, *, count: int = 1) -> None:
     settings = carb.settings.get_settings()
     prev_play = settings.get("/app/player/playSimulations")
     settings.set_bool("/app/player/playSimulations", False)
-    for _ in range(count):
-        app.update()
-    if prev_play is not None:
-        settings.set_bool("/app/player/playSimulations", bool(prev_play))
-    else:
-        settings.set_bool("/app/player/playSimulations", True)
+    try:
+        for _ in range(count):
+            app.update()
+    finally:
+        settings.set_bool("/app/player/playSimulations", True if prev_play is None else bool(prev_play))
 
 
 def wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
@@ -66,14 +68,6 @@ def wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
                 return
         else:
             settled = 0
-
-
-def wait_for_capture(app, cache_path: Path, max_updates: int = CAPTURE_WAIT_MAX_UPDATES) -> None:
-    """Pump render updates until the capture PNG exists or the budget expires."""
-    for _ in range(max_updates):
-        pump_app(app)
-        if cache_path.exists() and cache_path.stat().st_size > 0:
-            return
 
 
 def set_viewport_camera_eye_lookat(
@@ -107,13 +101,35 @@ def capture_viewport_png(
     pre_capture_updates: int = PRE_CAPTURE_UPDATES,
 ) -> bytes | None:
     """Capture the active Kit viewport to ``cache_path`` and return PNG bytes."""
+
     from omni.kit.viewport.utility import capture_viewport_to_file, get_active_viewport
+    from PIL import Image
 
     viewport = get_active_viewport()
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     pump_app(app, count=pre_capture_updates)
-    capture_viewport_to_file(viewport, str(cache_path))
-    wait_for_capture(app, cache_path, max_updates=max_updates)
-    if cache_path.exists() and cache_path.stat().st_size > 0:
-        return cache_path.read_bytes()
-    return None
+    # A failed or late GPU write must not leave a temporary file in the cache root.
+    with tempfile.TemporaryDirectory(prefix=".capture-", dir=cache_path.parent) as pending_dir:
+        pending_path = Path(pending_dir) / "viewport.png"
+        capture = capture_viewport_to_file(viewport, str(pending_path))
+        completion = asyncio.ensure_future(capture.wait_for_result())
+        try:
+            for _ in range(max_updates):
+                pump_app(app)
+                if completion.done():
+                    completion.result()
+                    if pending_path.is_file() and pending_path.stat().st_size > 0:
+                        # Kit's future acknowledges scheduling the GPU write. The file writer
+                        # can finish later; decode the new file before publishing it.
+                        try:
+                            png_bytes = pending_path.read_bytes()
+                            with Image.open(io.BytesIO(png_bytes)) as image:
+                                image.verify()
+                        except (OSError, SyntaxError):
+                            continue
+                        pending_path.replace(cache_path)
+                        return png_bytes
+            raise TimeoutError(f"Viewport capture did not complete after {max_updates} updates")
+        finally:
+            if not completion.done():
+                completion.cancel()

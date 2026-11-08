@@ -132,3 +132,82 @@ The main update flow is:
 
    Edit the YAML with live validation, save it to a file, and review the asset
    snapshots and graph visualization as they update automatically.
+
+Shared Scene Inspector
+----------------------
+
+The GUI and command-line inspector can share one persistent SimulationApp backend.
+Inside this checkout's Docker container, start it in a dedicated terminal:
+
+.. code-block:: bash
+
+   isaaclab.sh -p -m isaaclab_arena.agentic_tools.scene_inspector_backend
+
+Then attach the GUI with the socket reported by the backend:
+
+.. code-block:: bash
+
+   isaaclab.sh -p -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \
+      --socket /tmp/arena_scene_inspector_<uid>_<checkout>.sock
+
+The socket is selected by ``--socket``, then ``ARENA_REVIEW_SIMAPP_SOCKET``, then a
+checkout-specific default. The default key includes the directory's filesystem
+identity because separate containers share a mount pathname and ``/tmp``. With no attach setting the GUI starts a private child
+backend and stops that child on exit. Exiting an attached GUI leaves the shared
+backend running. An unavailable explicit address is an error; it never starts a
+replacement or removes that socket. A private backend boot failure still permits
+editing with placeholder thumbnails.
+
+Inspect a spec from another terminal in the same container:
+
+.. code-block:: bash
+
+   INSPECTOR=isaaclab_arena.agentic_tools.scene_inspector
+   isaaclab.sh -p -m "$INSPECTOR" status
+   isaaclab.sh -p -m "$INSPECTOR" snapshot --env-spec scene.yaml --output /tmp/snapshots
+   isaaclab.sh -p -m "$INSPECTOR" snapshot --env-spec scene.yaml \
+      --background-panorama --output /tmp/panorama
+   isaaclab.sh -p -m "$INSPECTOR" preview --env-spec scene.yaml \
+      --num-envs 2 --num-steps 10 --show-placement-overlay --output /tmp/preview.mp4
+   isaaclab.sh -p -m "$INSPECTOR" shutdown
+
+For an explicit address, put ``--socket <path>`` before the inspector subcommand.
+Each request closes its connection after its response. Operations run sequentially;
+a health check may time out while a long preview is running. A timeout means the
+outcome is unknown: do not automatically retry a preview or remove its socket.
+The Python client exposes separate finite connection and request deadlines.
+
+``snapshot`` bypasses cached images and publishes completed immutable PNGs. The GUI
+reuses cached captures by default. Clearing the GUI cache invalidates indexes while
+keeping images already returned to other clients readable. Individual snapshot
+failures produce warnings and retain available images. Preview failures are errors.
+
+``prim-tree`` requires no live backend and never starts SimulationApp:
+
+.. code-block:: bash
+
+   isaaclab.sh -p -m isaaclab_arena.agentic_tools.scene_inspector prim-tree \
+      --usd scene.usd --output /tmp/tree.txt
+   isaaclab.sh -p -m isaaclab_arena.agentic_tools.scene_inspector prim-tree \
+      --usd scene.usd --prim Selected --format json --output /tmp/tree.json
+
+The old inspector scripts in examples have moved to the core module paths above.
+Restart existing backends after updating; mixed protocol versions are unsupported.
+Both Python frontends and the backend must see the same filesystem paths.
+
+Artifact ownership and cleanup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Python callers use ``inspection.artifacts.consume_result`` to release a completed
+preview's temporary directory after reading or copying it. Cached PNGs belong to
+the backend; caller-selected output paths are never removed by result consumption.
+Missing files are reported as errors.
+
+A crashed client or a timed-out request can abandon files. After all inspector
+backends and GUI clients have stopped, explicitly remove abandoned ``preview-*``
+job directories under ``~/.cache/isaaclab_arena/agentic_env_gen_sim_preview``.
+The ``agentic_env_gen_thumbnails`` sibling directory contains thumbnail indexes and
+immutable images, including older versions; it may also be removed while no clients
+are using it. There is no automatic eviction. Clean up a stale socket explicitly
+only after confirming its backend has exited; launchers never unlink it to probe
+liveness.

@@ -13,17 +13,13 @@ import sys
 
 import streamlit as st
 
+from isaaclab_arena.agentic_tools.inspection.artifacts import consume_result, read_artifact
+from isaaclab_arena.agentic_tools.inspection.backend_process import simapp_socket_from_env
+from isaaclab_arena.agentic_tools.inspection.kit_viewport import thumbnail_cache_dir
+from isaaclab_arena.agentic_tools.inspection.protocol import InspectionError
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
-    SimAppError,
-    simapp_socket_from_env,
-)
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import thumbnail_cache_dir
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
-    clear_simapp_client,
-    ensure_simapp,
-)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import get_inspector_client
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
     AssetCard,
     build_asset_cards,
@@ -72,8 +68,9 @@ def _store_asset_cards(spec_key: str, asset_cards: list[AssetCard], prim_tree: l
 
 
 def clear_snapshot_render_caches() -> int:
-    """Delete cached review GUI snapshot PNGs and return how many files were removed."""
-    paths = list(thumbnail_cache_dir().glob("*.png"))
+    """Invalidate snapshot cache indexes and return how many were removed."""
+    # Invalidate cache indexes; previously returned immutable PNGs remain readable.
+    paths = list(thumbnail_cache_dir().glob("*.json"))
     for path in paths:
         path.unlink()
     return len(paths)
@@ -95,7 +92,7 @@ def _warn_simapp_unavailable_once() -> None:
     )
 
 
-def _show_simapp_render_error_once(exc: SimAppError) -> None:
+def _show_simapp_render_error_once(exc: InspectionError) -> None:
     if st.session_state.get("_simapp_render_error_shown"):
         return
     st.session_state["_simapp_render_error_shown"] = True
@@ -133,19 +130,21 @@ def build_asset_cards_with_thumbnails(
     prim_tree = resolve_background_prim_tree(spec)
 
     simapp_expected = simapp_socket_from_env() is not None
-    client = ensure_simapp() if simapp_expected else None
+    client = get_inspector_client() if simapp_expected else None
     if client is None:
         if simapp_expected:
             _warn_simapp_unavailable_once()
     else:
         try:
-            thumbnails, aabb_dimensions_m = client.render_spec(spec, background_panorama=background_panorama)
-        except SimAppError as exc:
+            result = client.render_spec(spec, background_panorama=background_panorama)
+            with consume_result(result):
+                thumbnails = {node_id: read_artifact(result, node_id) for node_id in result["artifacts"]}
+            aabb_dimensions_m = {key: tuple(dims) for key, dims in result["metadata"]["aabb_dimensions_m"].items()}
+            for warning in result["warnings"]:
+                st.warning(warning)
+        except (InspectionError, OSError) as exc:
             _show_simapp_render_error_once(exc)
             thumbnails, aabb_dimensions_m = {}, {}
-        finally:
-            # Release the socket so the sequential SimApp server can accept other tabs.
-            clear_simapp_client()
 
     asset_cards = build_asset_cards(
         spec,

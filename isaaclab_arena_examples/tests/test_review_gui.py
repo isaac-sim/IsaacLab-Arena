@@ -15,6 +15,10 @@ import pytest
 
 from isaaclab_arena.agentic_environment_generation.simready_search_interface import SimReadySearchConfig
 from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
+from isaaclab_arena.agentic_tools.inspection.artifacts import consume_result, read_artifact
+from isaaclab_arena.agentic_tools.inspection.backend_process import spawn_backend, stop_owned_backend, wait_for_backend
+from isaaclab_arena.agentic_tools.inspection.client import InspectorClient
+from isaaclab_arena.agentic_tools.inspection.sim_preview import _preview_cfg, parse_sim_preview_params
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.inference.backend import (
@@ -39,16 +43,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _get_generation_agent,
     available_inference_endpoints,
     run_generation_pipeline,
-)
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
-    SimAppClient,
-    spawn_simapp_process,
-    stop_simapp_process,
-    wait_for_simapp_socket,
-)
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
-    _preview_cfg,
-    parse_sim_preview_params,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     ENV_SPACING_M,
@@ -597,16 +591,15 @@ class TestSimAppClient:
             def poll(self) -> None:
                 return None
 
-        wait_for_simapp_socket(str(socket_path), _Proc(), timeout_s=5.0, poll_interval_s=0.05)
+        wait_for_backend(_Proc(), socket_path, timeout_s=5.0, poll_interval_s=0.05)
         assert pings == 1
         assert shutdowns == 0
 
-        client = SimAppClient.connect(str(socket_path))
-        assert client.ping()
-        client.disconnect()
+        client = InspectorClient(socket_path)
+        client.ping()
         assert shutdowns == 0
 
-        client = SimAppClient.connect(str(socket_path))
+        client = InspectorClient(socket_path)
         client.shutdown()
         thread.join(timeout=2.0)
         assert shutdowns == 1
@@ -615,30 +608,107 @@ class TestSimAppClient:
 class TestSimAppSimPreview:
     @pytest.mark.with_subprocess
     def test_run_sim_preview_via_simapp_subprocess(self, tmp_path: Path) -> None:
-        yaml_text = _VALID_SPEC_YAML_PATH.read_text(encoding="utf-8")
         socket_path = tmp_path / "sim_preview.sock"
-        proc = spawn_simapp_process(str(socket_path))
+        proc = spawn_backend(socket_path)
         try:
-            wait_for_simapp_socket(str(socket_path), proc, timeout_s=180.0, poll_interval_s=0.5)
-            client = SimAppClient.connect(str(socket_path))
+            wait_for_backend(proc, socket_path, timeout_s=180.0, poll_interval_s=0.5)
+            client = InspectorClient(socket_path)
+            import json
+            import subprocess
+
+            def inspector(*args):
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "isaaclab_arena.agentic_tools.scene_inspector",
+                        "--socket",
+                        str(socket_path),
+                        *args,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                )
+                assert completed.returncode == 0, completed.stderr + completed.stdout
+                return json.loads(completed.stdout)
+
+            assert inspector("status")["status"] == "ready"
+            spec = ArenaEnvGraphSpec.from_yaml(_VALID_SPEC_YAML_PATH)
+            first = client.render_spec(spec, ignore_cache=True)
+            expected = {
+                spec.background.id,
+                *(obj.id for obj in spec.objects),
+                *(ref.id for ref in spec.object_references),
+            }
+            assert set(first["artifacts"]) == expected, first["warnings"]
+            assert not first["warnings"]
+            first_images = {key: read_artifact(first, key) for key in expected}
+            assert all(image.startswith(b"\x89PNG") for image in first_images.values())
+            assert first["metadata"]["aabb_dimensions_m"]
+            cached = InspectorClient(socket_path).render_spec(spec)
+            assert cached["artifacts"] == first["artifacts"]
+            panorama = client.render_spec(spec, background_panorama=True, ignore_cache=True)
+            assert set(panorama["artifacts"]) == expected, panorama["warnings"]
+            assert read_artifact(panorama, spec.background.id) != first_images[spec.background.id]
+            assert {key: read_artifact(first, key) for key in expected} == first_images
+            set_spec = ArenaEnvGraphSpec.from_yaml(
+                _REPO_ROOT / "isaaclab_arena/tests/test_data/object_set_maple_table_env_graph.yaml"
+            )
+            members = client.render_spec(set_spec)
+            for object_set in set_spec.object_sets:
+                for name in object_set.members:
+                    assert read_artifact(members, object_set_member_key(object_set.id, name)).startswith(b"\x89PNG")
             response = client.run_sim_preview(
-                yaml_text,
-                num_envs=1,
+                spec,
+                num_envs=2,
                 num_steps=2,
                 env_spacing=ENV_SPACING_M,
+                show_placement_overlay=True,
             )
-            assert response["ok"] is True
-
-            video_path = Path(response["video_path"])
+            result = response
+            response = result["metadata"]
+            video_path = Path(result["artifacts"]["preview"]["path"])
             assert video_path.is_file() and video_path.stat().st_size > 0
-            assert response["num_envs"] == 1
+            assert response["num_envs"] == 2
             assert response["env_spacing"] == ENV_SPACING_M
             assert response["num_steps"] == 2
-            assert client.ping()
+            client.ping()
 
-            video_path.unlink()
-            video_path.parent.rmdir()
+            with consume_result(result):
+                assert read_artifact(result, "preview")
 
+            from isaaclab_arena.agentic_tools.inspection.protocol import InspectionError
+
+            bad_spec = spec.model_copy(deep=True)
+            bad_spec.background.registry_name = "missing_inspection_fixture"
+            with pytest.raises(InspectionError):
+                client.run_sim_preview(bad_spec, num_envs=1, num_steps=2, env_spacing=ENV_SPACING_M)
+            final = client.render_spec(spec, ignore_cache=True)
+            assert set(final["artifacts"]) == expected, final["warnings"]
+            assert not final["warnings"]
+            assert final["artifacts"] != first["artifacts"]
+            assert {key: read_artifact(first, key) for key in expected} == first_images
+            snapshot_report = inspector(
+                "snapshot", "--env-spec", str(_VALID_SPEC_YAML_PATH), "--output", str(tmp_path / "cli-snapshots")
+            )
+            assert set(snapshot_report["outputs"]) == expected
+            assert all(Path(path).read_bytes().startswith(b"\x89PNG") for path in snapshot_report["outputs"].values())
+            preview_output = tmp_path / "cli-preview.mp4"
+            preview_report = inspector(
+                "preview",
+                "--env-spec",
+                str(_VALID_SPEC_YAML_PATH),
+                "--num-envs",
+                "1",
+                "--num-steps",
+                "2",
+                "--output",
+                str(preview_output),
+            )
+            assert preview_report["status"] == "completed"
+            assert preview_output.read_bytes()[4:8] == b"ftyp"
+            client.ping()
             client.shutdown()
         finally:
-            stop_simapp_process(proc, str(socket_path))
+            stop_owned_backend(proc, socket_path)

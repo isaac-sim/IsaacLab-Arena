@@ -5,7 +5,7 @@
 
 """Unit tests for review-GUI axis overlay helpers."""
 
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.axis_overlay import (
+from isaaclab_arena.agentic_tools.inspection.axis_overlay import (
     AXIS_X_COLOR,
     AXIS_Y_COLOR,
     AXIS_Z_COLOR,
@@ -71,3 +71,21 @@ def test_overlay_rgb_segments_on_png_draws_opaque_lines():
         assert image.getpixel((32, 32)) in {(255, 0, 0), (0, 255, 0)}
         assert image.getpixel((40, 32)) == (255, 0, 0)
         assert image.getpixel((32, 40)) == (0, 255, 0)
+
+
+def test_world_point_projection_accepts_near_clip_and_rejects_behind_camera():
+    from types import SimpleNamespace
+
+    from pxr import Gf
+
+    from isaaclab_arena.agentic_tools.inspection.axis_overlay import world_point_to_image_pixel
+
+    viewport = SimpleNamespace(
+        world_to_ndc=Gf.Matrix4d(1.0),
+        map_ndc_to_texture_pixel=lambda point: (((point[0] + 1) * 100, (1 - point[1]) * 50), None),
+    )
+    options = {"image_size": (400, 200), "viewport_size": (200, 100)}
+    assert world_point_to_image_pixel(viewport, (0, 0, -0.5), **options) == (200, 100)
+    assert world_point_to_image_pixel(viewport, (0.5, -0.5, 0), **options) == (300, 150)
+    viewport.world_to_ndc = Gf.Matrix4d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1)
+    assert world_point_to_image_pixel(viewport, (0, 0, 0), **options) is None

@@ -32,13 +32,16 @@ import tempfile
 from pathlib import Path
 
 from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
+from isaaclab_arena.agentic_tools.inspection.backend_process import (
     SIMAPP_SOCKET_ENV,
-    SimAppError,
-    spawn_simapp_process,
-    stop_simapp_process,
-    wait_for_simapp_socket,
+    select_socket_path,
+    simapp_socket_from_env,
+    spawn_backend,
+    stop_owned_backend,
+    wait_for_backend,
 )
+from isaaclab_arena.agentic_tools.inspection.client import InspectorClient
+from isaaclab_arena.agentic_tools.inspection.protocol import InspectionError
 
 _REVIEW_GUI_DIR = Path(__file__).resolve().parent / "review_gui"
 
@@ -68,11 +71,13 @@ def main() -> None:
         default=8501,
         help="Streamlit server port (default: 8501).",
     )
+    parser.add_argument("--socket", type=Path, help="Attach to an existing inspection backend.")
     args = parser.parse_args()
     serve_live_editor(
         args.env_spec,
         out_dir=args.out_dir,
         port=args.port,
+        socket_path=args.socket,
     )
 
 
@@ -81,6 +86,7 @@ def serve_live_editor(
     *,
     out_dir: Path = DEFAULT_AGENTIC_OUTPUT_DIR,
     port: int = 8501,
+    socket_path: Path | None = None,
 ) -> None:
     """Start the SimApp server, spawn Streamlit, and supervise both until exit.
 
@@ -88,28 +94,36 @@ def serve_live_editor(
         yaml_path: Optional spec YAML to open in the editor.
         out_dir: Directory the editor writes generated spec YAML into.
         port: Streamlit server port.
+        socket_path: Existing backend to attach to; otherwise use the environment setting or an owned child.
     """
     app_path = _REVIEW_GUI_DIR / "streamlit_ui.py"
     assert app_path.exists(), f"Streamlit app not found at {app_path} — installation is incomplete."
 
-    active_socket: Path | None = Path(tempfile.gettempdir()) / f"arena_review_simapp_{os.getpid()}.sock"
+    attached = socket_path is not None or simapp_socket_from_env() is not None
+    private_dir = None if attached else tempfile.TemporaryDirectory(prefix="arena-review-")
+    active_socket = select_socket_path(socket_path) if attached else Path(private_dir.name) / "backend.sock"
     simapp_proc = None
     try:
-        print(f"[review_gui] booting Isaac Sim on {active_socket} …", file=sys.stderr)
-        simapp_proc = spawn_simapp_process(str(active_socket))
-        try:
-            wait_for_simapp_socket(str(active_socket), simapp_proc)
-        except SimAppError as exc:
-            print(f"[review_gui] SimApp unavailable — continuing without it: {exc}", file=sys.stderr)
-            stop_simapp_process(simapp_proc, str(active_socket))
-            simapp_proc = None
-            active_socket = None
+        if attached:
+            InspectorClient(active_socket).ping()
         else:
+            print(f"[review_gui] booting Isaac Sim on {active_socket} …", file=sys.stderr)
+            simapp_proc = spawn_backend(active_socket)
+            try:
+                wait_for_backend(simapp_proc, active_socket)
+            except InspectionError as exc:
+                print(f"[review_gui] SimApp unavailable — continuing with placeholders: {exc}", file=sys.stderr)
+                stop_owned_backend(simapp_proc, active_socket)
+                simapp_proc = None
+                active_socket = None
+        if active_socket is not None:
             print("[review_gui] SimApp ready.", file=sys.stderr)
 
         env = os.environ.copy()
         if active_socket is not None:
             env[SIMAPP_SOCKET_ENV] = str(active_socket)
+        else:
+            env.pop(SIMAPP_SOCKET_ENV, None)
 
         cmd = [
             sys.executable,
@@ -140,9 +154,10 @@ def serve_live_editor(
         except KeyboardInterrupt:
             pass
     finally:
-        if active_socket is not None:
-            print("[review_gui] shutting down SimApp …", file=sys.stderr)
-            stop_simapp_process(simapp_proc, str(active_socket))
+        if simapp_proc is not None:
+            stop_owned_backend(simapp_proc, active_socket)
+        if private_dir is not None:
+            private_dir.cleanup()
 
 
 if __name__ == "__main__":

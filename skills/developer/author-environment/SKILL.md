@@ -26,6 +26,61 @@ inheritance chains before adding capabilities. If reuse cannot express a require
 missing capability and add the smallest extension. Do not duplicate solvers, predicates, temporal
 counters, reset loops, progress tracking, or variation systems that Arena already provides.
 
+### Inspect USD scene physics
+
+Before selecting an `object_reference.prim_path`, support surface, openable articulation, or
+collision geometry from a USD scene, dump its composed physics prim tree without starting
+SimulationApp:
+
+```bash
+isaaclab.sh -p -m isaaclab_arena.agentic_tools.scene_inspector \
+  prim-tree --usd <scene.usd> --output /tmp/scene_prim_tree.txt
+```
+
+Read the generated text file to inspect the hierarchy and object types. Physics records include
+root-frame bounding-box center and size, joint type/axis/limits/connected bodies, collider type and
+approximation, and authored rigid-body properties such as mass and density. Use these fields to
+confirm a candidate rather than inferring physics from prim names alone. Mass and inertia are
+authored USD values; they do not include values computed later by PhysX or Newton.
+
+### Render and preview through the persistent backend
+
+For viewport snapshots or a bounded scene preview, start one persistent backend in a dedicated
+terminal and leave it running:
+
+```bash
+isaaclab.sh -p -m isaaclab_arena.agentic_tools.scene_inspector_backend
+```
+
+The rendering commands connect to that live backend; they do not boot or stop SimulationApp per
+request. Check readiness, render, and stop it explicitly:
+
+```bash
+INSPECTOR=isaaclab_arena.agentic_tools.scene_inspector
+
+isaaclab.sh -p -m "$INSPECTOR" status
+isaaclab.sh -p -m "$INSPECTOR" snapshot \
+  --env-spec <scene.yaml> --output /tmp/scene_snapshots
+isaaclab.sh -p -m "$INSPECTOR" snapshot \
+  --env-spec <scene.yaml> --output /tmp/scene_panorama --background-panorama
+isaaclab.sh -p -m "$INSPECTOR" preview \
+  --env-spec <scene.yaml> --output /tmp/scene_preview.mp4 \
+  --num-envs 1 --num-steps 10
+isaaclab.sh -p -m "$INSPECTOR" preview \
+  --env-spec <scene.yaml> --output /tmp/scene_placement_overlay.mp4 \
+  --num-envs 1 --num-steps 10 --show-placement-overlay
+isaaclab.sh -p -m "$INSPECTOR" shutdown
+```
+
+Each `snapshot` request bypasses the review GUI's thumbnail cache and overwrites its output PNGs
+with fresh renders. Snapshots include one image per resolvable asset. Each `object_reference` image
+selects its USD subtree and enables collider visualization, which is useful for checking support
+and interaction geometry. The review GUI continues to reuse cached thumbnails by default.
+`preview` runs the graph's relation solver, builds the scene, takes bounded zero-action steps, and
+records the configured viewport. Add `--show-placement-overlay` to draw the placement solver's
+object AABBs and mesh collision geometry in the video. Use `prim-tree` without the backend for static USD inspection;
+`snapshot`, `preview`, `status`, and `shutdown` require the live backend.
+
 ## Assemble from maintained sources
 
 Read only the references relevant to the requested behavior:
@@ -42,7 +97,7 @@ Read only the references relevant to the requested behavior:
 - **Assets:** follow the example's asset ownership and check identity, collision handling, and reset
   requirements.
   Before choosing an `object_reference.prim_path`, use the documented `prim-tree` mode in
-  [scene_inspector.py](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py).
+  [scene_inspector.py](../../../isaaclab_arena/agentic_tools/scene_inspector.py).
   Browse text first, then request scoped JSON only for the relevant subtree. Treat results as
   authored USD data; Arena and Isaac Lab spawn-time overrides are excluded.
 - **Layout:** follow the example's scene composition. Use the existing

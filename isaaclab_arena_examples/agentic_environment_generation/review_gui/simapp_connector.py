@@ -7,20 +7,16 @@
 
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
-
 import streamlit as st
 
+from isaaclab_arena.agentic_tools.inspection.artifacts import consume_result, read_artifact
+from isaaclab_arena.agentic_tools.inspection.backend_process import select_socket_path, simapp_socket_from_env
+from isaaclab_arena.agentic_tools.inspection.client import InspectorClient
+from isaaclab_arena.agentic_tools.inspection.protocol import InspectionError
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     validate_yaml_text,
-)
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
-    SimAppClient,
-    SimAppError,
-    simapp_socket_from_env,
 )
 
 _DEFAULT_BUILDER_CFG = ArenaEnvBuilderCfg()
@@ -28,48 +24,12 @@ NUM_ENVS = _DEFAULT_BUILDER_CFG.num_envs
 ENV_SPACING_M = _DEFAULT_BUILDER_CFG.env_spacing
 NUM_STEPS = 10
 
-_SIMAPP_CLIENT_SESSION_KEY = "_simapp_client"
 
-
-def clear_simapp_client() -> None:
-    """Disconnect and drop this Streamlit session's SimApp client."""
-    client = st.session_state.pop(_SIMAPP_CLIENT_SESSION_KEY, None)
-    if client is not None:
-        client.disconnect()
-
-
-def get_simapp_client() -> SimAppClient | None:
-    """Return this browser session's client for the SimApp socket from gui_runner."""
-    client = st.session_state.get(_SIMAPP_CLIENT_SESSION_KEY)
-    if client is not None:
-        return client
-
-    socket_path = simapp_socket_from_env()
-    if socket_path is None:
+def get_inspector_client() -> InspectorClient | None:
+    """Build a stateless client from the launcher's backend configuration."""
+    if simapp_socket_from_env() is None:
         return None
-    try:
-        client = SimAppClient.connect(socket_path)
-    except OSError as exc:
-        print(f"[review_gui] SimApp connect failed: {exc}", flush=True)
-        return None
-
-    st.session_state[_SIMAPP_CLIENT_SESSION_KEY] = client
-    return client
-
-
-def ensure_simapp() -> SimAppClient | None:
-    """Return a healthy SimApp client, reconnecting if this session's client died."""
-    client = get_simapp_client()
-    if client is not None and client.ping():
-        return client
-
-    clear_simapp_client()
-    client = get_simapp_client()
-    if client is not None and client.ping():
-        return client
-
-    clear_simapp_client()
-    return None
+    return InspectorClient(select_socket_path())
 
 
 def run_sim_preview_pipeline(
@@ -89,38 +49,30 @@ def run_sim_preview_pipeline(
     if simapp_socket_from_env() is None:
         return False, "SimApp is unavailable — launch the review GUI via gui_runner."
 
-    client = ensure_simapp()
+    client = get_inspector_client()
     if client is None:
         return False, "SimApp is unavailable — check the gui_runner terminal for boot errors."
 
     try:
-        response = client.run_sim_preview(
-            yaml_text,
+        result = client.run_sim_preview(
+            validation.spec,
             num_envs=num_envs,
             num_steps=num_steps,
             env_spacing=env_spacing,
         )
-    except SimAppError as exc:
-        st.session_state.pop("sim_preview_video", None)
-        st.session_state.pop("sim_preview_run_params", None)
-        return False, str(exc)
-    finally:
-        clear_simapp_client()
-
-    video_path: Path | None = None
-    try:
-        video_path = Path(response["video_path"])
-        st.session_state["sim_preview_video"] = video_path.read_bytes()
+        with consume_result(result):
+            video = read_artifact(result, "preview")
+        response = result["metadata"]
+        st.session_state["sim_preview_video"] = video
         st.session_state["sim_preview_run_params"] = {
             "num_envs": response.get("num_envs", num_envs),
             "num_steps": response.get("num_steps", num_steps),
             "env_spacing": response.get("env_spacing", env_spacing),
         }
-    except (KeyError, OSError) as exc:
-        return False, f"Failed to read preview video: {exc}"
-    finally:
-        if video_path is not None:
-            shutil.rmtree(video_path.parent, ignore_errors=True)
+    except (InspectionError, OSError) as exc:
+        st.session_state.pop("sim_preview_video", None)
+        st.session_state.pop("sim_preview_run_params", None)
+        return False, str(exc)
 
     return (
         True,
