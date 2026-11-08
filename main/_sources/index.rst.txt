@@ -1077,6 +1077,13 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
 .. toctree::
    :maxdepth: 1
    :hidden:
+   :caption: Agentic Tools
+
+   pages/agentic_tools/index
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
    :caption: Concepts
 
    pages/concepts/environment/index
