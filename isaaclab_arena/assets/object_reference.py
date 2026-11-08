@@ -259,7 +259,10 @@ class ObjectReference(RootedObjectBase):
         initial_link_world_delta = self._get_initial_link_world_delta(parent_asset, parent_stage, prim)
         prim_pose = get_prim_pose_in_default_prim_frame(prim, parent_stage, initial_link_world_delta)
         if isinstance(parent_asset, ObjectReference):
-            parent_prim = parent_stage.GetPrimAtPath(parent_asset.prim_path_in_parent_usd)
+            parent_prim_path = self.isaaclab_prim_path_to_original_prim_path(
+                parent_asset.prim_path, parent_asset, parent_stage
+            )
+            parent_prim = parent_stage.GetPrimAtPath(parent_prim_path)
             parent_pose = get_prim_pose_in_default_prim_frame(parent_prim, parent_stage)
             prim_pose = self._pose_relative_to_parent(parent_pose, prim_pose)
         # Apply parent's scale to the position
@@ -370,13 +373,12 @@ class ObjectReference(RootedObjectBase):
         assert isaaclab_prim_path == parent_path or isaaclab_prim_path.startswith(
             parent_path + "/"
         ), f"Reference path '{isaaclab_prim_path}' must be beneath parent path '{parent_path}'"
+        if isinstance(parent_asset, ObjectReference):
+            return ObjectReference.isaaclab_prim_path_to_original_prim_path(
+                isaaclab_prim_path, parent_asset.parent_asset, stage
+            )
         relative_path = isaaclab_prim_path.removeprefix(parent_path)
-        source_parent_path = (
-            parent_asset.prim_path_in_parent_usd
-            if isinstance(parent_asset, ObjectReference)
-            else str(default_prim.GetPath())
-        )
-        return source_parent_path + relative_path
+        return str(default_prim.GetPath()) + relative_path
 
 
 class OpenableObjectReference(ObjectReference, Openable):

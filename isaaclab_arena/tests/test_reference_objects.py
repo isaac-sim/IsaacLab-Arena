@@ -149,6 +149,7 @@ def _write_scaled_drawer_articulation(
     collider_scale: float = 1.0,
     drawer_physics_in_variant: bool = False,
     repeat_joint_name: bool = False,
+    default_prim_name: str = "Asset",
 ) -> None:
     """Write a cabinet scaled by 2 whose drawer body is driven by one prismatic or revolute joint.
 
@@ -162,20 +163,23 @@ def _write_scaled_drawer_articulation(
         drawer_physics_in_variant: Author the drawer's rigid body only inside a "Physics" variant that is
             not selected by default, as SimReady assets do.
         repeat_joint_name: Add a second drawer whose joint repeats the first joint's name.
+        default_prim_name: Name of the stage's default prim.
     """
     from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
     stage = Usd.Stage.CreateNew(str(path))
-    root = UsdGeom.Xform.Define(stage, "/Asset").GetPrim()
+    root_path = f"/{default_prim_name}"
+    cabinet_path = root_path + "/Cabinet"
+    root = UsdGeom.Xform.Define(stage, root_path).GetPrim()
     stage.SetDefaultPrim(root)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
-    cabinet = UsdGeom.Xform.Define(stage, "/Asset/Cabinet")
+    cabinet = UsdGeom.Xform.Define(stage, cabinet_path)
     cabinet.AddScaleOp().Set(Gf.Vec3f(2.0))
     UsdPhysics.ArticulationRootAPI.Apply(cabinet.GetPrim())
 
-    base = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/Base").GetPrim()
+    base = UsdGeom.Xform.Define(stage, cabinet_path + "/Base").GetPrim()
     UsdPhysics.RigidBodyAPI.Apply(base)
-    drawer = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/Drawer")
+    drawer = UsdGeom.Xform.Define(stage, cabinet_path + "/Drawer")
     drawer.AddTranslateOp().Set(Gf.Vec3d(0.1, 0.0, 0.0))
     if drawer_physics_in_variant:
         physics_variants = root.GetVariantSets().AddVariantSet("Physics")
@@ -187,27 +191,28 @@ def _write_scaled_drawer_articulation(
         physics_variants.SetVariantSelection("none")
     else:
         UsdPhysics.RigidBodyAPI.Apply(drawer.GetPrim())
-    collider = UsdGeom.Cube.Define(stage, "/Asset/Cabinet/Drawer/Collider")
+    collider = UsdGeom.Cube.Define(stage, cabinet_path + "/Drawer/Collider")
     collider.CreateExtentAttr([Gf.Vec3f(-0.2, -0.1, -0.05), Gf.Vec3f(0.4, 0.1, 0.05)])
     if collider_scale != 1.0:
         collider.AddScaleOp().Set(Gf.Vec3f(collider_scale))
     UsdPhysics.CollisionAPI.Apply(collider.GetPrim())
 
     joint_schema = UsdPhysics.PrismaticJoint if joint_type == "prismatic" else UsdPhysics.RevoluteJoint
-    joint = joint_schema.Define(stage, "/Asset/Cabinet/drawer_joint")
-    joint.CreateBody0Rel().SetTargets(["/Asset/Cabinet/Base"])
+    joint = joint_schema.Define(stage, cabinet_path + "/drawer_joint")
+    joint.CreateBody0Rel().SetTargets([cabinet_path + "/Base"])
     # Target the collider, as SimReady assets do, rather than the drawer body itself.
-    joint.CreateBody1Rel().SetTargets(["/Asset/Cabinet/Drawer/Collider"])
+    joint.CreateBody1Rel().SetTargets([cabinet_path + "/Drawer/Collider"])
     joint.CreateAxisAttr("X" if joint_type == "prismatic" else "Z")
     joint.CreateLocalPos0Attr(Gf.Vec3f(0.1, 0.0, 0.0))
     joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
 
     if repeat_joint_name:
-        second_drawer = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/SecondDrawer").GetPrim()
+        second_drawer_path = cabinet_path + "/SecondDrawer"
+        second_drawer = UsdGeom.Xform.Define(stage, second_drawer_path).GetPrim()
         UsdPhysics.RigidBodyAPI.Apply(second_drawer)
-        second_joint = UsdPhysics.PrismaticJoint.Define(stage, "/Asset/Cabinet/SecondDrawer/drawer_joint")
-        second_joint.CreateBody0Rel().SetTargets(["/Asset/Cabinet/Base"])
-        second_joint.CreateBody1Rel().SetTargets(["/Asset/Cabinet/SecondDrawer"])
+        second_joint = UsdPhysics.PrismaticJoint.Define(stage, second_drawer_path + "/drawer_joint")
+        second_joint.CreateBody0Rel().SetTargets([cabinet_path + "/Base"])
+        second_joint.CreateBody1Rel().SetTargets([second_drawer_path])
         second_joint.CreateAxisAttr("X")
     stage.GetRootLayer().Save()
 
@@ -251,7 +256,7 @@ def _test_nested_reference_uses_articulation_parent_pose(simulation_app, tmp_pat
     from isaaclab_arena.assets.object_type import ObjectType
 
     usd_path = tmp_path / "nested_reference.usda"
-    _write_scaled_drawer_articulation(usd_path, "prismatic")
+    _write_scaled_drawer_articulation(usd_path, "prismatic", default_prim_name="Workbench")
     workbench = Object(name="workbench", usd_path=str(usd_path), object_type=ObjectType.BASE)
     cabinet = ObjectReference(
         name="cabinet",
