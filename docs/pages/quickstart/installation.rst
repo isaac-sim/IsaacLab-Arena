@@ -35,9 +35,7 @@ Sync the environment and activate it:
 ``.python-version``), installs Isaac Lab Arena and Isaac Lab editable from
 ``submodules/IsaacLab``, and pulls the matching Isaac Sim, PyTorch, and Newton
 wheels at the versions pinned by the committed lockfile. The ``dev`` extra
-installs the Streamlit and SimReady search dependencies used by the
-:doc:`agentic environment generation workflow
-</pages/concepts/agentic_environment_generation/index>`.
+installs the development and documentation dependencies.
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 

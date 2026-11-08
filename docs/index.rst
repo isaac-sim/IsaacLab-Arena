@@ -1181,7 +1181,6 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
 
    pages/example_workflows/example_environments
    pages/example_workflows/analysis/index
-   pages/example_workflows/agentic_env_gen/index
    pages/example_workflows/newton/index
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
@@ -1199,7 +1198,6 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    :caption: Concepts
 
    pages/concepts/environment/index
-   pages/concepts/agentic_environment_generation/index
    pages/concepts/scene/index
    pages/concepts/task/index
    pages/concepts/embodiment/index
