@@ -229,7 +229,7 @@ jobs:
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 80
+    timeout-minutes: 100
     needs: [build_and_push_image]
     env:
       ARENA_INFERENCE_ENDPOINT: public
@@ -265,9 +265,10 @@ jobs:
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - &setup_isaac_sim_kit_cache_step
-        name: Setup Isaac Sim kit cache (shader warmup on miss)
-        uses: ./.github/actions/setup-isaac-sim-kit-cache
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        with:
+          cache-name: tests
 
       # Run the tests.
       #
@@ -341,7 +342,10 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
-      - *setup_isaac_sim_kit_cache_step
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        with:
+          cache-name: tests_with_subprocess
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
@@ -435,9 +439,11 @@ jobs:
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - name: Setup Isaac Sim kit cache (shader warmup on miss)
+      - name: Setup caches
         if: steps.gr00t_cuda.outputs.enabled == 'true'
-        uses: ./.github/actions/setup-isaac-sim-kit-cache
+        uses: ./.github/actions/setup-caches
+        with:
+          cache-name: gr00t
 
       # The GR00T server post-trains a tiny checkpoint before loading it. Its
       # entrypoint waits for the LFS-backed dataset media fetched above before
@@ -461,7 +467,6 @@ jobs:
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_remote_e2e \
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
-
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
