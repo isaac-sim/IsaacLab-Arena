@@ -159,7 +159,9 @@ class ObjectReference(RootedObjectBase):
         return self._bounding_box
 
     def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
-        """Return the parent rotation; the prim's authored rotation is already included in its bounds."""
+        """Return the root asset's rotation; authored prim rotations are already included in the bounds."""
+        if isinstance(self.parent_asset, ObjectReference):
+            return self.parent_asset.get_bounding_box_rotation()
         return self.get_parent_pose().rotation_xyzw
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:

@@ -150,6 +150,7 @@ def _write_scaled_drawer_articulation(
     drawer_physics_in_variant: bool = False,
     repeat_joint_name: bool = False,
     default_prim_name: str = "Asset",
+    cabinet_yaw_degrees: float = 0.0,
 ) -> None:
     """Write a cabinet scaled by 2 whose drawer body is driven by one prismatic or revolute joint.
 
@@ -164,6 +165,7 @@ def _write_scaled_drawer_articulation(
             not selected by default, as SimReady assets do.
         repeat_joint_name: Add a second drawer whose joint repeats the first joint's name.
         default_prim_name: Name of the stage's default prim.
+        cabinet_yaw_degrees: Rotation of the cabinet about the default prim's Z axis.
     """
     from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
@@ -175,6 +177,7 @@ def _write_scaled_drawer_articulation(
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     cabinet = UsdGeom.Xform.Define(stage, cabinet_path)
     cabinet.AddScaleOp().Set(Gf.Vec3f(2.0))
+    cabinet.AddRotateZOp().Set(cabinet_yaw_degrees)
     UsdPhysics.ArticulationRootAPI.Apply(cabinet.GetPrim())
 
     base = UsdGeom.Xform.Define(stage, cabinet_path + "/Base").GetPrim()
@@ -256,7 +259,7 @@ def _test_nested_reference_uses_articulation_parent_pose(simulation_app, tmp_pat
     from isaaclab_arena.assets.object_type import ObjectType
 
     usd_path = tmp_path / "nested_reference.usda"
-    _write_scaled_drawer_articulation(usd_path, "prismatic", default_prim_name="Workbench")
+    _write_scaled_drawer_articulation(usd_path, "prismatic", default_prim_name="Workbench", cabinet_yaw_degrees=90.0)
     workbench = Object(name="workbench", usd_path=str(usd_path), object_type=ObjectType.BASE)
     cabinet = ObjectReference(
         name="cabinet",
@@ -274,7 +277,8 @@ def _test_nested_reference_uses_articulation_parent_pose(simulation_app, tmp_pat
     )
 
     assert drawer.get_parent_pose() == cabinet.get_initial_pose()
-    assert drawer.get_initial_pose().position_xyz == pytest.approx((0.5, 0.0, 0.0))
+    assert drawer.get_initial_pose().position_xyz == pytest.approx((0.0, 0.5, 0.0), abs=1e-7)
+    assert drawer.get_bounding_box_rotation() == Pose.identity().rotation_xyzw
     assert isinstance(drawer.object_cfg, ArticulationBodyReferenceCfg)
     assert drawer.object_cfg.articulation_name == "cabinet"
     return True
