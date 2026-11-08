@@ -323,12 +323,17 @@ class ObjectReference(RootedObjectBase):
             and prim.HasAPI(UsdPhysics.RigidBodyAPI)
         ):
             return None
-        default_prim = parent_stage.GetDefaultPrim()
+        articulation_prim = parent_stage.GetDefaultPrim()
+        if isinstance(parent_asset, ObjectReference):
+            articulation_prim_path = self.isaaclab_prim_path_to_original_prim_path(
+                parent_asset.prim_path, parent_asset, parent_stage
+            )
+            articulation_prim = parent_stage.GetPrimAtPath(articulation_prim_path)
         # Find the body's joint before reading joint names, so a link that no joint moves builds even when the
         # parent repeats a joint name. Joints may target a mesh beneath the body, so match each child target by its
         # rigid body.
         parent_joint_child_paths = []
-        for joint_prim in Usd.PrimRange(default_prim):
+        for joint_prim in Usd.PrimRange(articulation_prim):
             if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint):
                 continue
             for child_path in UsdPhysics.Joint(joint_prim).GetBody1Rel().GetTargets():
@@ -337,7 +342,7 @@ class ObjectReference(RootedObjectBase):
         assert len(parent_joint_child_paths) <= 1, f"Body {prim.GetPath()} is the child of several movable joints."
         if not parent_joint_child_paths:
             return np.eye(4)
-        joint_prims = articulation_joint_prims(default_prim)
+        joint_prims = articulation_joint_prims(articulation_prim)
         # The joint positions are read once, here, so the parent's init_state.joint_pos must be set before the
         # reference is created.
         joint_pos = resolve_joint_pos_patterns(joint_prims, parent_asset.object_cfg.init_state.joint_pos)
@@ -346,7 +351,7 @@ class ObjectReference(RootedObjectBase):
             return np.eye(4)
         usd_joint_pos = adjust_prismatic_joint_positions_for_spawn_scale(joint_prims, joint_pos, self._parent_scale)
         body_world_deltas = compute_posed_prim_world_deltas(
-            parent_stage, default_prim.GetPath().pathString, usd_joint_pos
+            parent_stage, articulation_prim.GetPath().pathString, usd_joint_pos
         )
         link_world_delta = body_world_deltas[parent_joint_child_paths[0]]
         # Posing treats joint targets as unscaled frames, so a target scaled relative to its body moves non-rigidly.

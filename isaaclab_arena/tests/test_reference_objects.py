@@ -151,6 +151,7 @@ def _write_scaled_drawer_articulation(
     repeat_joint_name: bool = False,
     default_prim_name: str = "Asset",
     cabinet_yaw_degrees: float = 0.0,
+    sibling_cabinet: bool = False,
 ) -> None:
     """Write a cabinet scaled by 2 whose drawer body is driven by one prismatic or revolute joint.
 
@@ -166,6 +167,7 @@ def _write_scaled_drawer_articulation(
         repeat_joint_name: Add a second drawer whose joint repeats the first joint's name.
         default_prim_name: Name of the stage's default prim.
         cabinet_yaw_degrees: Rotation of the cabinet about the default prim's Z axis.
+        sibling_cabinet: Add another articulation whose joint has the same name.
     """
     from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
@@ -217,6 +219,18 @@ def _write_scaled_drawer_articulation(
         second_joint.CreateBody0Rel().SetTargets([cabinet_path + "/Base"])
         second_joint.CreateBody1Rel().SetTargets([second_drawer_path])
         second_joint.CreateAxisAttr("X")
+    if sibling_cabinet:
+        sibling_path = root_path + "/SiblingCabinet"
+        sibling = UsdGeom.Xform.Define(stage, sibling_path).GetPrim()
+        UsdPhysics.ArticulationRootAPI.Apply(sibling)
+        sibling_base = UsdGeom.Xform.Define(stage, sibling_path + "/Base").GetPrim()
+        UsdPhysics.RigidBodyAPI.Apply(sibling_base)
+        sibling_drawer = UsdGeom.Xform.Define(stage, sibling_path + "/Drawer").GetPrim()
+        UsdPhysics.RigidBodyAPI.Apply(sibling_drawer)
+        sibling_joint = UsdPhysics.PrismaticJoint.Define(stage, sibling_path + "/drawer_joint")
+        sibling_joint.CreateBody0Rel().SetTargets([sibling_path + "/Base"])
+        sibling_joint.CreateBody1Rel().SetTargets([sibling_path + "/Drawer"])
+        sibling_joint.CreateAxisAttr("X")
     stage.GetRootLayer().Save()
 
 
@@ -259,7 +273,13 @@ def _test_nested_reference_uses_articulation_parent_pose(simulation_app, tmp_pat
     from isaaclab_arena.assets.object_type import ObjectType
 
     usd_path = tmp_path / "nested_reference.usda"
-    _write_scaled_drawer_articulation(usd_path, "prismatic", default_prim_name="Workbench", cabinet_yaw_degrees=90.0)
+    _write_scaled_drawer_articulation(
+        usd_path,
+        "prismatic",
+        default_prim_name="Workbench",
+        cabinet_yaw_degrees=90.0,
+        sibling_cabinet=True,
+    )
     workbench = Object(name="workbench", usd_path=str(usd_path), object_type=ObjectType.BASE)
     cabinet = ObjectReference(
         name="cabinet",
