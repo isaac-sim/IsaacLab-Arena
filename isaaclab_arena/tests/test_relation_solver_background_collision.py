@@ -591,6 +591,8 @@ def _test_discover_passive_assets_filters(simulation_app) -> bool:
     kitchen_no_pose = fake_object("kitchen_no_pose", [], "kitchen.usd", None, spec=Background)
     counter_ref = fake_object("counter_ref", [], None, fixed_pose, spec=ObjectReference)
     counter_ref.parent_asset = kitchen
+    # MagicMock does not evaluate ObjectReference's root_asset property from parent_asset.
+    counter_ref.root_asset = kitchen
     anchored = fake_object("anchored", [IsAnchor()], "a.usd", fixed_pose)
     no_usd = fake_object("no_usd", [], None, fixed_pose)
     no_usd.object_type = ObjectType.BASE
@@ -957,6 +959,7 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     reference.get_relations.return_value = [IsAnchor()]
     background = MagicMock(spec=Background)
     reference.parent_asset = background
+    reference.root_asset = background
     reference.prim_path_in_parent_usd = "/Kitchen/counter"
     reference.is_anchor = True
     calls = {}
