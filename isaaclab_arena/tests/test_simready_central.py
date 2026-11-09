@@ -60,6 +60,18 @@ def test_central_package_location_preserves_revision_and_folder():
     )
 
 
+def test_central_package_source_downloads_once_without_creating_wrapper():
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralPackageSource
+
+    source = SimReadyCentralPackageSource(URL)
+    with patch(f"{LOADER}.download_central_asset_package", return_value="/cache/pallet.usd") as download:
+        assert source.resolve() == "/cache/pallet.usd"
+        assert source.resolve() == "/cache/pallet.usd"
+
+    assert source.identity() == f"simready-central-package:{URL}"
+    download.assert_called_once_with(URL)
+
+
 @pytest.mark.parametrize(
     "url",
     [

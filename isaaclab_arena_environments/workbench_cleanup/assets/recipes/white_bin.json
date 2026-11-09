@@ -1,0 +1,38 @@
+{
+  "source_identity": "simready-central-package:hf://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/69a87329036cec0440403351c12230970c4e67d8/D00814/simready_usd/D00814.usd",
+  "source_entry": "simready_usd/D00814.usd",
+  "output_entry": "simready_usd/arena_white_bin.usda",
+  "expected_source_sha256": "406bcad14e23c35ce722959dc3bd3adc6d81a7eb58198b45a439f16d6478d927",
+  "operation": "isaaclab_arena.assets.derivation.pipeline:derive_asset",
+  "required_prims": [
+    "ArenaWhitePlastic"
+  ],
+  "variants": {
+    "Physics": "physics",
+    "PhysX": "Enabled"
+  },
+  "steps": [
+    {
+      "operation": "preview_surface",
+      "path": "ArenaWhitePlastic",
+      "inputs": {
+        "diffuseColor": {
+          "type": "Color3f",
+          "value": [
+            0.85,
+            0.85,
+            0.85
+          ]
+        },
+        "roughness": {
+          "type": "Float",
+          "value": 0.5
+        }
+      },
+      "bind_to": [
+        "."
+      ],
+      "stronger_than_descendants": true
+    }
+  ]
+}

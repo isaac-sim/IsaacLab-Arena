@@ -16,6 +16,25 @@ from isaaclab_arena.assets.simready_constants import SIMREADY_PHYSICS_VARIANTS
 from isaaclab_arena.assets.sources.base import UsdSource
 
 
+class SimReadyCentralPackageSource(UsdSource):
+    """Download a complete pinned SimReady Central package on first resolution."""
+
+    def __init__(self, url: str):
+        _parse_central_asset_url(url)
+        self.url = url
+        self._resolved: str | None = None
+
+    def identity(self) -> str:
+        """Return the pinned package URL as a stable source identity."""
+        return f"simready-central-package:{self.url}"
+
+    def resolve(self) -> str:
+        """Download the package and return its original USD entry point."""
+        if self._resolved is None:
+            self._resolved = download_central_asset_package(self.url)
+        return self._resolved
+
+
 class SimReadyCentralUsdSource(UsdSource):
     """Download a complete pinned SimReady Central package on first resolution."""
 

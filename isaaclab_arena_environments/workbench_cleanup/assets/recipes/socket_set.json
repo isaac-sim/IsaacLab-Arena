@@ -1,0 +1,108 @@
+{
+  "source_identity": "simready-central-package:hf://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/ratchet_socket_set/simready_usd/ratchet_socket_set.usda",
+  "source_entry": "simready_usd/ratchet_socket_set.usda",
+  "output_entry": "simready_usd/arena_socket_set.usda",
+  "expected_source_sha256": "99b23ccd1ed07460399ca45fb180ffa4b36d1ba9152f4a60f04f52976b69eccc",
+  "operation": "isaaclab_arena.assets.derivation.pipeline:derive_asset",
+  "required_prims": [
+    "Physics/Joints/case_lid",
+    "Geometry/Case_base/Case_lid"
+  ],
+  "variants": {
+    "Physics": "physics",
+    "PhysX": "Enabled"
+  },
+  "steps": [
+    {
+      "operation": "edit_prims",
+      "paths": [
+        "Geometry/Extension_150_mm",
+        "Geometry/Extension_75_mm",
+        "Geometry/Ratchet_body",
+        "Geometry/Socket_10_mm",
+        "Geometry/Socket_11_mm",
+        "Geometry/Socket_12_mm",
+        "Geometry/Socket_13_mm",
+        "Geometry/Socket_14_mm",
+        "Geometry/Socket_15_mm",
+        "Geometry/Socket_16_mm",
+        "Geometry/Socket_17_mm",
+        "Geometry/Socket_18_mm",
+        "Geometry/Socket_19_mm",
+        "Geometry/Socket_8_mm",
+        "Geometry/Socket_9_mm",
+        "Physics/Joints/drive",
+        "Physics/Joints/release",
+        "Physics/Joints/direction"
+      ],
+      "active": false
+    },
+    {
+      "operation": "edit_prims",
+      "paths": [
+        "."
+      ],
+      "descendants": true,
+      "has_api": "PhysicsArticulationRootAPI",
+      "remove_api_schemas": [
+        "PhysicsArticulationRootAPI"
+      ]
+    },
+    {
+      "operation": "edit_prims",
+      "paths": [
+        "."
+      ],
+      "apply_api_schemas": [
+        "PhysicsArticulationRootAPI",
+        "PhysxArticulationAPI"
+      ],
+      "attributes": {
+        "physxArticulation:enabledSelfCollisions": {
+          "type": "Bool",
+          "value": false
+        }
+      }
+    },
+    {
+      "operation": "edit_prims",
+      "paths": [
+        "Physics/PhysicsScene"
+      ],
+      "active": false
+    },
+    {
+      "operation": "edit_prims",
+      "paths": [
+        "."
+      ],
+      "descendants": true,
+      "has_api": "PhysicsRigidBodyAPI",
+      "apply_api_schemas": [
+        "PhysxRigidBodyAPI",
+        "PhysxContactReportAPI"
+      ],
+      "attributes": {
+        "physxContactReport:threshold": {
+          "type": "Float",
+          "value": 0.0
+        },
+        "physxRigidBody:sleepThreshold": {
+          "type": "Float",
+          "value": 0.0
+        }
+      }
+    },
+    {
+      "operation": "joint_drive",
+      "path": "Physics/Joints/case_lid",
+      "instance": "angular",
+      "settings": {
+        "target_position": 105.0,
+        "stiffness": 0.3490658503988659,
+        "damping": 0.017453292519943295,
+        "max_force": 3.0
+      }
+    }
+  ]
+}

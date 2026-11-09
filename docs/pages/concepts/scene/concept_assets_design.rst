@@ -44,6 +44,21 @@ and object type, and decorate it with ``@register_asset``:
        usd_path = "path/to/my_object.usd"
        object_type = ObjectType.RIGID
 
+First-party environment-specific asset classes can live in
+``isaaclab_arena_environments/<environment>/assets.py``. Normal environment
+registration imports the package-level ``asset_library.py`` entry point, which
+imports these modules and runs their ``@register_asset`` decorators. Only these
+asset modules are discovered; nested prebuild and runtime helper scripts are not
+imported. Keep acquisition and derivation lazy so registration does not download
+or build USD files.
+
+Python callers should call
+``isaaclab_arena_environments.cli.ensure_environments_registered()`` before looking
+up environment-specific assets. The graph-spec and policy runners already use this
+registration path. For example, the workbench classes live alongside their recipes
+in ``isaaclab_arena_environments/workbench_cleanup/assets.py``; their existing
+``workbench_cleanup_*`` registry names remain valid in YAML.
+
 Once registered, the class is available in the registry like any other asset class:
 
 .. code-block:: python
@@ -71,6 +86,103 @@ An object's constructor sets its USD source, scale, initial pose, and object typ
 actuators). ``spawn_cfg_addon`` configures how the USD is loaded and which physics properties
 are authored during spawning: mass/density, collision settings, and contact materials.
 Use ``prim_physics`` within the spawn addons for selected bodies, colliders, or joints.
+
+Cached USD derivation
+~~~~~~~~~~~~~~~~~~~~~
+
+Use ``DerivedUsdSource`` for edits that must be baked into a reusable USD package,
+such as mesh partitions, fixed articulations, joint drives, or material overrides.
+Pass a local entry path directly, or use an input ``UsdSource`` to acquire the package. Object type,
+tags, affordances, and initial scene state remain in the registered asset class.
+
+.. code-block:: python
+
+   from isaaclab_arena.assets.sources.derived import DerivedUsdSource
+
+   source = DerivedUsdSource(
+       "/data/package/usd/item.usda",
+       "/data/derivation.json",
+   )
+   derived_usd_path = source.resolve()
+
+For a direct path, the default source identity is the path string. Sources that expose
+``identity()`` use that value. For a source implementing only ``resolve()``, pass
+``source_identity="<stable-package-identity>"`` to ``DerivedUsdSource``. The identity
+must match the recipe's ``source_identity`` and is available without acquiring the package.
+
+The implementation lives under ``isaaclab_arena/assets/derivation/``.
+The source adapter delegates to its cache engine, which copies the complete source
+package, applies derivation in a staging directory, and atomically publishes the
+result under ``~/.cache/isaaclab_arena/assets/derived``. A cache hit verifies the
+manifest's file hashes and does not resolve or download the source again. The source identity, recipe bytes, and pipeline version
+form the cache key. Bump ``DERIVATION_PIPELINE_VERSION`` when changing derivation
+behavior without changing its recipe.
+
+Recipes are JSON files read from a filesystem path or a package resource such as
+``package://isaaclab_arena_environments/workbench_cleanup/assets/recipes/white_bin.json``.
+Each recipe declares ``source_identity``, ``source_entry``, ``output_entry``, and
+``expected_source_sha256``. Entry paths are relative to the source package root;
+source and output must be different files. The workbench recipes demonstrate
+pinned complete-package acquisition with ``SimReadyCentralPackageSource``.
+
+Set ``operation`` to
+``isaaclab_arena.assets.derivation.pipeline:derive_asset`` and provide an
+ordered ``steps`` list. These steps depend only on USD, with no environment imports:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Operation
+     - Configuration
+   * - ``partition_mesh``
+     - ``prim``, named component ``groups``, optional ``remainder`` and ``expected_geometry_sha256``.
+   * - ``fixed_articulations``
+     - Named ``groups`` containing ``frame_mesh`` and existing ``joints`` paths.
+   * - ``edit_prims``
+     - ``paths``, optional ``descendants``, ``has_api``, ``is_a``, ``is_instanceable``,
+       and ``exclude_paths`` selectors; API additions/removals, typed attributes,
+       deinstancing, type-name edits, or activation changes.
+   * - ``joint_drive``
+     - Joint ``path``, ``linear``/``angular`` ``instance``, and ``settings`` for drive
+       type, target position, stiffness, damping, or maximum force, in USD units.
+   * - ``fixed_joint``
+     - New joint ``path``, existing ``body1``, and optional ``body0`` (omitted for world attachment).
+   * - ``preview_surface``
+     - Material ``path``, typed ``inputs``, optional ``bind_to`` prims, and
+       ``stronger_than_descendants`` binding strength.
+
+For example, an asset-independent material step is:
+
+.. code-block:: json
+
+   {
+     "operation": "preview_surface",
+     "path": "Materials/Plastic",
+     "inputs": {
+       "diffuseColor": {"type": "Color3f", "value": [0.85, 0.85, 0.85]},
+       "roughness": {"type": "Float", "value": 0.5}
+     },
+     "bind_to": ["."],
+     "stronger_than_descendants": true
+   }
+
+Paths refer to the default prim (``.``) or its descendants. Attribute and shader
+input ``type`` values use ``Sdf.ValueTypeNames`` names; JSON arrays are converted
+to the corresponding USD vector or array type. Attribute specifications may set
+``custom: false`` for schema-defined properties. Only matching existing prims are
+edited; missing explicitly selected paths are errors.
+
+The wrapper preserves the source's units and up axis. Optional ``variants`` select
+authored variants, and ``scale`` bakes a transform under ``BakedScale``; step paths
+must account for that extra prim. ``root_prim`` defaults to ``/Asset``. Use
+``required_prims`` to validate the result and ``flatten: true`` when a self-contained
+layer is required. References and dependencies within the copied package remain
+relative so the package can be relocated.
+
+Keep asset-specific mesh paths, component IDs, hashes, physical tuning, and material
+values in recipes. A new asset using these operations needs no derivation Python
+in its environment package. Custom ``module:function`` operations remain supported
+by the cache engine for edits that the shared pipeline cannot express.
 
 Physics spawn addons
 ~~~~~~~~~~~~~~~~~~~~
