@@ -3,12 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Export the placement success of a finished Arena Experiment as an InfluxDB KPI record.
-
-The records file is ``kpis_placement_success.json``. It holds one ``placement_success`` record with the mean over
-the Runs that wrote placement diagnostics, each Run weighted equally, timestamped with the latest Run end and tagged
-with the Arena git commit SHA, branch and benchmark id (the Experiment name).
-"""
+"""Export the placement success of a finished Arena Experiment as an InfluxDB KPI record."""
 
 from __future__ import annotations
 
@@ -20,7 +15,6 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
     ArenaExperimentResult,
 )
-from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena_benchmarking.benchmarks.registry import register_kpi_exporter
