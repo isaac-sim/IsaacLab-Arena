@@ -84,7 +84,7 @@ def create_central_rigid_wrapper(asset_path: str, *, source_url: str) -> str:
     """Validate a Central USD as one rigid body and cache its PhysX wrapper."""
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
+    from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
 
     asset_stage = Usd.Stage.Open(asset_path)
     assert asset_stage and asset_stage.GetDefaultPrim(), "asset requires a default prim"

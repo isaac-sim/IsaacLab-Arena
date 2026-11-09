@@ -26,11 +26,8 @@ from pxr import Sdf, Usd
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_stage
-from isaaclab_arena.utils.usd.rigid_bodies import (
-    apply_usd_variant_selections,
-    find_shallowest_rigid_body_from_stage,
-    usd_variant_selections_to_dict,
-)
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body_from_stage
+from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections, usd_variant_selections_to_dict
 
 
 def get_geometry_key(spawn_cfg: SpawnerCfg) -> tuple:
