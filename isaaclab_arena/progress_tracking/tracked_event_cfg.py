@@ -5,7 +5,9 @@
 
 """Definitions for recurring observations independent of task success."""
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 from isaaclab_arena.progress_tracking.progress_tracking_utils import Predicate, _is_predicate
 
@@ -20,11 +22,24 @@ class TrackedEventCfg:
     predicate_sequence: list[Predicate]
     """Nonempty ordered predicates; use a one-element list for a single condition.
 
-    Earlier predicates need not remain true when the sequence completes. The final
-    predicate must become false before this event resets and can occur again.
+    Earlier predicates need not remain true when the sequence completes. For a
+    recurring event, the final predicate must become false before the event resets.
+    """
+
+    latch: bool = False
+    """Keep the first completion until episode reset instead of re-arming the event."""
+
+    event_details: Callable[[Any, int], dict[str, Any]] | None = None
+    """Capture JSON-compatible measurements when this event completes for one environment.
+
+    Called with the environment and its index, once per completed occurrence.
+    Return a dictionary without evaluating predicates again. The tracker copies
+    the returned values so later changes cannot alter an earlier occurrence.
     """
 
     def __post_init__(self):
+        assert isinstance(self.latch, bool), "latch must be a boolean."
+        assert self.event_details is None or callable(self.event_details), "event_details must be callable or None."
         assert isinstance(self.name, str) and self.name.strip(), "Tracked events require a nonempty name."
         assert (
             isinstance(self.predicate_sequence, list) and self.predicate_sequence
@@ -50,3 +65,6 @@ class TrackedEventOccurrence:
 
     step: int
     """Episode control step when the event occurred."""
+
+    details: dict[str, Any] = field(default_factory=dict, hash=False)
+    """Measurements copied when the event completed, or an empty dictionary."""
