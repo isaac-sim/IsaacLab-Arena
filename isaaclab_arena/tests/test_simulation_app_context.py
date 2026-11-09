@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from isaaclab_arena.tests.utils import persistent_simulation_app
+from isaaclab_arena.tests.utils import pytest_session as pytest_session_module
 from isaaclab_arena.tests.utils import subprocess as subprocess_utils
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -52,7 +53,7 @@ def test_persistent_simulation_app_force_exit_preserves_test_result(
     app = SimpleNamespace(close=lambda: pytest.fail("Force-exit mode must not call app.close()"))
     monkeypatch.setattr(persistent_simulation_app, "_PERSISTENT_SIM_APP_LAUNCHER", SimpleNamespace(app=app))
     pytest_session = None if pytest_failed is None else SimpleNamespace(tests_failed=pytest_failed)
-    monkeypatch.setattr(persistent_simulation_app, "PYTEST_SESSION", pytest_session)
+    monkeypatch.setattr(pytest_session_module, "PYTEST_SESSION", pytest_session)
     monkeypatch.setattr(subprocess_utils, "_AT_LEAST_ONE_TEST_FAILED", fallback_failed)
     monkeypatch.setenv("ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE", "1")
 
