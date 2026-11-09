@@ -135,27 +135,6 @@ Parallel policy evaluation
    Evaluate a policy across parallel environments, with aggregated metrics for high-level summaries
    and per-episode records for detailed analysis.
 
-Agentic environment generation
-------------------------------
-
-.. container:: arena-media-grid
-
-   .. video:: ../../images/teaser_page/agentic_environment_creation/penisula_mustard_mesh_web.mp4
-      :loop:
-      :muted:
-      :playsinline:
-      :nocontrols:
-      :preload: none
-
-   .. image:: ../../images/teaser_page/agentic_environment_creation/object-ref-replicator-counter_web.webp
-      :alt: Generated Arena environment specification and scene preview
-      :loading: lazy
-
-.. container:: arena-media-caption
-
-   Turn a natural-language task request into a runnable Arena environment. Edit the environment
-   specification and interactively review randomized layouts in the GUI.
-
 Built-in evaluation environments
 --------------------------------
 
