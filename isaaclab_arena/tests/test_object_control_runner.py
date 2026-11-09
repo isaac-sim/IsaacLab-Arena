@@ -10,6 +10,26 @@ from types import SimpleNamespace
 import pytest
 
 
+def test_object_control_runner_import_does_not_load_usd():
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; import isaaclab_arena.agentic_tools.object_control_runner; "
+                "assert 'pxr.Usd' not in sys.modules, 'USD imported before SimulationApp startup'"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_load_object_control_recipe_separates_setup_from_runtime_commands(tmp_path):
     from isaaclab_arena.agentic_tools.object_control.object_control_recipe import (
         FinishCommand,
