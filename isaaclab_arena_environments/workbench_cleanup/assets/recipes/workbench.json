@@ -1,9 +1,8 @@
 {
   "source_identity": "simready-central-package:hf://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/furniture_workbench_standard_e01/simready_usd/sm_furniture_workbench_standard_e01_01.usd",
   "source_entry": "simready_usd/sm_furniture_workbench_standard_e01_01.usd",
-  "output_entry": "simready_usd/arena_workbench.usdc",
+  "output_entry": "simready_usd/arena_workbench_topology.usdc",
   "expected_source_sha256": "7956014afcc1746716a19a233fc14ba3af04fd71b1785da899b85bf55d045347",
-  "operation": "isaaclab_arena.assets.derivation.pipeline:derive_asset",
   "required_prims": [
     "Geometry/table_01_obj_00/table_01_mesh_00/Tabletop",
     "Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf",
@@ -13,7 +12,6 @@
     "Physics": "physics",
     "PhysX": "Enabled"
   },
-  "flatten": true,
   "steps": [
     {
       "operation": "partition_mesh",
@@ -76,21 +74,6 @@
       }
     },
     {
-      "operation": "edit_prims",
-      "paths": [
-        "Articulations/DrawerCabinet/Joints/joint_drawersA_01_joint_00",
-        "Articulations/DrawerCabinet/Joints/joint_drawersB_01_joint_00",
-        "Articulations/DrawerCabinet/Joints/joint_drawersC_01_joint_00",
-        "Articulations/DrawerCabinet/Joints/joint_drawersD_01_joint_00"
-      ],
-      "attributes": {
-        "physics:lowerLimit": {
-          "type": "Float",
-          "value": 0.0
-        }
-      }
-    },
-    {
       "operation": "partition_mesh",
       "prim": "Geometry/table_01_obj_00/table_01_mesh_00/Structure",
       "groups": {
@@ -142,48 +125,6 @@
         ]
       },
       "expected_geometry_sha256": "15920df847fbfbfb15892a7622058c0de9f8b6bcdcb5e8006b681d014c82cf1f"
-    },
-    {
-      "operation": "edit_prims",
-      "paths": [
-        "Geometry/table_01_obj_00/table_01_mesh_00/Tabletop",
-        "Geometry/table_01_obj_00/table_01_mesh_00/Structure/HangingBoard",
-        "Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf",
-        "Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer01",
-        "Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer02",
-        "Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer03",
-        "Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer04",
-        "Geometry/table_01_obj_00/table_01_mesh_00/Structure/LowerCrossBrace"
-      ],
-      "apply_api_schemas": [
-        "PhysicsRigidBodyAPI",
-        "PhysxContactReportAPI",
-        "PhysxCollisionAPI"
-      ],
-      "attributes": {
-        "physics:rigidBodyEnabled": {
-          "type": "Bool",
-          "value": true,
-          "custom": false
-        },
-        "physics:kinematicEnabled": {
-          "type": "Bool",
-          "value": true,
-          "custom": false
-        },
-        "physxContactReport:threshold": {
-          "type": "Float",
-          "value": 0.0
-        },
-        "physxCollision:contactOffset": {
-          "type": "Float",
-          "value": 0.001
-        },
-        "physxCollision:restOffset": {
-          "type": "Float",
-          "value": 0.0
-        }
-      }
     }
   ]
 }

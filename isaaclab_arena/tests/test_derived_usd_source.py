@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -20,7 +19,6 @@ from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.derived import DerivedUsdSource
 
 MODULE = "isaaclab_arena.assets.derivation.cache"
-OPERATION = "isaaclab_arena.tests.test_derived_usd_source:_copy_entry"
 
 
 class _CountingSource(UsdSource):
@@ -37,23 +35,13 @@ class _CountingSource(UsdSource):
         return str(self.path)
 
 
-def _copy_entry(package_root: Path, recipe: dict[str, Any]) -> None:
-    output = package_root / recipe["output_entry"]
-    output.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(package_root / recipe["source_entry"], output)
-
-
-def _fail_derivation(package_root: Path, recipe: dict[str, Any]) -> None:
-    raise RuntimeError("derivation failed")
-
-
 def _write_recipe(tmp_path: Path, source: _CountingSource, **overrides: Any) -> Path:
     recipe = {
         "source_identity": source.identity(),
         "source_entry": "simready_usd/item.usda",
         "output_entry": "derived/item.usda",
         "expected_source_sha256": hashlib.sha256(source.path.read_bytes()).hexdigest(),
-        "operation": OPERATION,
+        "steps": [],
         **overrides,
     }
     recipe_path = tmp_path / f"recipe-{len(list(tmp_path.glob('recipe-*.json')))}.json"
@@ -66,7 +54,7 @@ def source(tmp_path: Path) -> _CountingSource:
     package = tmp_path / "source-package"
     entry = package / "simready_usd/item.usda"
     entry.parent.mkdir(parents=True)
-    entry.write_text("#usda 1.0\n")
+    entry.write_text('#usda 1.0\n(defaultPrim = "Asset")\ndef Xform "Asset" {}\n')
     (package / "textures").mkdir()
     (package / "textures/color.png").write_bytes(b"texture")
     return _CountingSource("test:package", entry)
@@ -79,7 +67,7 @@ def test_derived_source_builds_complete_package_and_reuses_cache(tmp_path, sourc
 
     first_path = Path(DerivedUsdSource(source, str(recipe)).resolve())
 
-    assert first_path.read_text() == "#usda 1.0\n"
+    assert first_path.is_file()
     assert (first_path.parents[1] / "textures/color.png").read_bytes() == b"texture"
     assert source.resolve_calls == 1
     manifest = json.loads((first_path.parents[1] / "manifest.json").read_text())
@@ -103,7 +91,7 @@ def test_derived_source_rebuilds_corrupt_output(tmp_path, source, monkeypatch):
     rebuilt_source = _CountingSource(source.identity(), source.path)
     rebuilt = Path(DerivedUsdSource(rebuilt_source, str(recipe)).resolve())
 
-    assert rebuilt.read_text() == "#usda 1.0\n"
+    assert "corrupt" not in rebuilt.read_text()
     assert rebuilt_source.resolve_calls == 1
 
 
@@ -116,7 +104,7 @@ def test_derived_source_accepts_direct_path_and_reuses_cache_without_original(tm
     source.path.unlink()
 
     assert DerivedUsdSource(source_path, str(recipe)).resolve() == first_path
-    assert Path(first_path).read_text() == "#usda 1.0\n"
+    assert Path(first_path).is_file()
 
 
 def test_derived_source_accepts_resolve_only_source_with_explicit_identity(tmp_path, source, monkeypatch):
@@ -176,10 +164,10 @@ def test_derived_source_removes_failed_staging_directory(tmp_path, source, monke
     recipe = _write_recipe(
         tmp_path,
         source,
-        operation="isaaclab_arena.tests.test_derived_usd_source:_fail_derivation",
+        steps=[{"operation": "missing"}],
     )
 
-    with pytest.raises(RuntimeError, match="derivation failed"):
+    with pytest.raises(AssertionError, match="Unknown asset derivation operation"):
         DerivedUsdSource(source, str(recipe)).resolve()
 
     derived_root = cache / "derived"
@@ -204,7 +192,7 @@ def test_derived_source_preserves_symlinked_snapshot_package_path(tmp_path, monk
     monkeypatch.setattr(f"{MODULE}.get_arena_asset_cache_dir", lambda: cache)
     blob = tmp_path / "blobs/source"
     blob.parent.mkdir()
-    blob.write_text("#usda 1.0\n")
+    blob.write_text('#usda 1.0\n(defaultPrim = "Asset")\ndef Xform "Asset" {}\n')
     snapshot_entry = tmp_path / "snapshots/revision/asset/simready_usd/item.usda"
     snapshot_entry.parent.mkdir(parents=True)
     snapshot_entry.symlink_to(blob)
@@ -217,4 +205,4 @@ def test_derived_source_preserves_symlinked_snapshot_package_path(tmp_path, monk
 
     output = Path(DerivedUsdSource(source, str(recipe)).resolve())
 
-    assert output.read_text() == "#usda 1.0\n"
+    assert output.is_file()

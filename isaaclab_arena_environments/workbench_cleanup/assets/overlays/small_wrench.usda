@@ -1,0 +1,43 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Asset"
+{
+    def Xform "BakedScale" (
+        prepend references = @sm_handTool_wrench_combination_a01_01.usd@</RootNode>
+        variants = {
+            string PhysX = "Enabled"
+        }
+    )
+    {
+        float3 xformOp:scale = (0.75, 0.75, 0.75)
+        uniform token[] xformOpOrder = ["xformOp:scale"]
+
+        over "Geometry"
+        {
+            over "wrench_01_obj_00" (
+                prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"]
+                instanceable = false
+            )
+            {
+                custom float physxContactReport:threshold = 0
+                custom float physxRigidBody:angularDamping = 2
+                custom float physxRigidBody:linearDamping = 2
+                custom float physxRigidBody:sleepThreshold = 0
+
+                over "wrench_01_mesh_00" (
+                    prepend apiSchemas = ["PhysxCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    custom float physxCollision:contactOffset = 0.001
+                    custom float physxCollision:restOffset = 0
+                }
+            }
+        }
+    }
+}

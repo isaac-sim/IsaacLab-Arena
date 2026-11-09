@@ -8,9 +8,11 @@
 import importlib.resources
 import json
 
+from isaaclab_arena.assets.derivation.cache import derivation_identity
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.assets.sources.derived import DerivedUsdSource
+from isaaclab_arena.assets.sources.overlay import OverlayUsdSource
 
 
 def _test_workbench_asset_classes_keep_roles_out_of_sources(simulation_app):
@@ -26,7 +28,8 @@ def _test_workbench_asset_classes_keep_roles_out_of_sources(simulation_app):
     ]
     registry = AssetRegistry()
     assert all(registry.get_asset_by_name(asset.registry_name) is asset for asset in classes)
-    assert all(isinstance(asset.usd_path, DerivedUsdSource) for asset in classes)
+    assert all(isinstance(asset.usd_path, OverlayUsdSource) for asset in classes)
+    assert isinstance(assets._WORKBENCH_TOPOLOGY, DerivedUsdSource)
     assert assets.WorkbenchCleanupSocketSet.object_type is ObjectType.ARTICULATION
     assert assets.WorkbenchCleanupSocketSet.openable_joint_name == "case_lid"
     assert assets.WorkbenchCleanupOscilloscope.object_type is ObjectType.ARTICULATION
@@ -68,33 +71,37 @@ def test_workbench_articulations_accept_scene_joint_metadata(monkeypatch):
     )
 
 
-def _test_workbench_derivation_recipes_match_source_identities(simulation_app):
+def _test_workbench_source_specs_match_source_identities(simulation_app):
     from isaaclab_arena_environments.workbench_cleanup import assets
 
-    classes = [
-        assets.WorkbenchCleanupWorkbench,
-        assets.WorkbenchCleanupWhiteBin,
-        assets.WorkbenchCleanupSocketSet,
-        assets.WorkbenchCleanupOscilloscope,
-        assets.WorkbenchCleanupSlottedScrewdriver,
-        assets.WorkbenchCleanupSmallWrench,
+    source = assets._WORKBENCH_TOPOLOGY
+    package_path = source.derivation_spec.removeprefix("package://")
+    package, relative_path = package_path.split("/", 1)
+    recipe = json.loads(importlib.resources.files(package).joinpath(relative_path).read_bytes())
+    assert recipe["source_identity"] == source.source.identity()
+    assert {step["operation"] for step in recipe["steps"]} == {"partition_mesh", "fixed_articulations"}
+
+    overlays = [
+        assets.WorkbenchCleanupWorkbench.usd_path,
+        assets.WorkbenchCleanupWhiteBin.usd_path,
+        assets.WorkbenchCleanupSocketSet.usd_path,
+        assets.WorkbenchCleanupOscilloscope.usd_path,
+        assets.WorkbenchCleanupSlottedScrewdriver.usd_path,
+        assets.WorkbenchCleanupSmallWrench.usd_path,
     ]
-    for asset in classes:
-        source = asset.usd_path
-        package_path = source.derivation_spec.removeprefix("package://")
-        package, relative_path = package_path.split("/", 1)
-        recipe = json.loads(importlib.resources.files(package).joinpath(relative_path).read_bytes())
-        assert recipe["source_identity"] == source.source.identity()
-        assert recipe["operation"] == "isaaclab_arena.assets.derivation.pipeline:derive_asset"
-        assert recipe["steps"]
+    assert overlays[0].source_identity == derivation_identity(source.source_identity, source.derivation_spec)
+    for overlay in overlays[1:]:
+        assert overlay.source_identity == overlay.source.identity()
+    for overlay in overlays:
+        assert overlay.overlay_spec.endswith(".usda")
 
     return True
 
 
-def test_workbench_derivation_recipes_match_source_identities():
+def test_workbench_source_specs_match_source_identities():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    assert run_function_with_persistent_simulation_app(_test_workbench_derivation_recipes_match_source_identities)
+    assert run_function_with_persistent_simulation_app(_test_workbench_source_specs_match_source_identities)
 
 
 def test_normal_environment_discovery_registers_workbench_assets_in_a_fresh_process():
@@ -105,7 +112,8 @@ def test_normal_environment_discovery_registers_workbench_assets_in_a_fresh_proc
 import sys
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.assets.sources.derived import DerivedUsdSource
-from isaaclab_arena.assets.sources.simready import SimReadyCentralPackageSource
+from isaaclab_arena.assets.sources.overlay import OverlayUsdSource
+from isaaclab_arena.assets.sources.simready_central import SimReadyCentralPackageSource
 
 registry = AssetRegistry()
 assert not registry.is_registered('workbench_cleanup_workbench', ensure_loaded=False)
@@ -115,6 +123,7 @@ def unexpected_resolution(self):
     raise AssertionError('Registration must not download or derive assets')
 
 DerivedUsdSource.resolve = unexpected_resolution
+OverlayUsdSource.resolve = unexpected_resolution
 SimReadyCentralPackageSource.resolve = unexpected_resolution
 
 from isaaclab_arena_environments.cli import ensure_environments_registered

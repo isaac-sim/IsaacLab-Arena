@@ -8,15 +8,19 @@
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.background_library import LibraryBackground
+from isaaclab_arena.assets.derivation.cache import derivation_identity
 from isaaclab_arena.assets.object_library import LibraryObject
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.simready_constants import SIMREADY_PHYSICS_VARIANTS
 from isaaclab_arena.assets.sources.derived import DerivedUsdSource
-from isaaclab_arena.assets.sources.simready import SIMREADY_PHYSICS_VARIANTS, SimReadyCentralPackageSource
+from isaaclab_arena.assets.sources.overlay import OverlayUsdSource
+from isaaclab_arena.assets.sources.simready_central import SimReadyCentralPackageSource
 
 _RECIPE_ROOT = "package://isaaclab_arena_environments/workbench_cleanup/assets/recipes"
+_OVERLAY_ROOT = "package://isaaclab_arena_environments/workbench_cleanup/assets/overlays"
 
-_WORKBENCH = DerivedUsdSource(
+_WORKBENCH_TOPOLOGY = DerivedUsdSource(
     SimReadyCentralPackageSource(
         "hf://huggingface.co/datasets/nvidia/simready-assets/resolve/"
         "653d91e182011f357cf1644013cc94ddf194d349/furniture_workbench_standard_e01/"
@@ -24,44 +28,57 @@ _WORKBENCH = DerivedUsdSource(
     ),
     f"{_RECIPE_ROOT}/workbench.json",
 )
-_WHITE_BIN = DerivedUsdSource(
+_WORKBENCH = OverlayUsdSource(
+    _WORKBENCH_TOPOLOGY,
+    f"{_OVERLAY_ROOT}/workbench.usda",
+    source_identity=derivation_identity(
+        _WORKBENCH_TOPOLOGY.source_identity,
+        _WORKBENCH_TOPOLOGY.derivation_spec,
+    ),
+)
+_WHITE_BIN = OverlayUsdSource(
     SimReadyCentralPackageSource(
         "hf://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
         "69a87329036cec0440403351c12230970c4e67d8/D00814/simready_usd/D00814.usd"
     ),
-    f"{_RECIPE_ROOT}/white_bin.json",
+    f"{_OVERLAY_ROOT}/white_bin.usda",
+    expected_source_sha256="406bcad14e23c35ce722959dc3bd3adc6d81a7eb58198b45a439f16d6478d927",
 )
-_SOCKET_SET = DerivedUsdSource(
+_SOCKET_SET = OverlayUsdSource(
     SimReadyCentralPackageSource(
         "hf://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/"
         "0573053fa2c9174ca2a4678a462ec4dfd3035d59/ratchet_socket_set/"
         "simready_usd/ratchet_socket_set.usda"
     ),
-    f"{_RECIPE_ROOT}/socket_set.json",
+    f"{_OVERLAY_ROOT}/socket_set.usda",
+    expected_source_sha256="99b23ccd1ed07460399ca45fb180ffa4b36d1ba9152f4a60f04f52976b69eccc",
 )
-_OSCILLOSCOPE = DerivedUsdSource(
+_OSCILLOSCOPE = OverlayUsdSource(
     SimReadyCentralPackageSource(
         "hf://huggingface.co/datasets/nvidia/simready-assets/resolve/"
         "653d91e182011f357cf1644013cc94ddf194d349/testingTool_oscilloscope_a01/"
         "simready_usd/sm_testingTool_oscilloscope_a01_01.usd"
     ),
-    f"{_RECIPE_ROOT}/oscilloscope.json",
+    f"{_OVERLAY_ROOT}/oscilloscope.usda",
+    expected_source_sha256="9d05dc74fede498ab4deb3e6b0f41c0c1905f3c21d4bd6c79a84d01d18ff502d",
 )
-_SLOTTED_SCREWDRIVER = DerivedUsdSource(
+_SLOTTED_SCREWDRIVER = OverlayUsdSource(
     SimReadyCentralPackageSource(
         "hf://huggingface.co/datasets/nvidia/simready-assets/resolve/"
         "653d91e182011f357cf1644013cc94ddf194d349/handTool_screwdriver_slotted_55mm_a01/"
         "simready_usd/sm_handTool_screwdriver_slotted_55mm_a01_01.usd"
     ),
-    f"{_RECIPE_ROOT}/slotted_screwdriver.json",
+    f"{_OVERLAY_ROOT}/slotted_screwdriver.usda",
+    expected_source_sha256="9112124017858c6184d46917a87bc3ccf89fc25396021aaa44dfa4d379e5e4ba",
 )
-_SMALL_WRENCH = DerivedUsdSource(
+_SMALL_WRENCH = OverlayUsdSource(
     SimReadyCentralPackageSource(
         "hf://huggingface.co/datasets/nvidia/simready-assets/resolve/"
         "653d91e182011f357cf1644013cc94ddf194d349/handTool_wrench_combination_a01/"
         "simready_usd/sm_handTool_wrench_combination_a01_01.usd"
     ),
-    f"{_RECIPE_ROOT}/small_wrench.json",
+    f"{_OVERLAY_ROOT}/small_wrench.usda",
+    expected_source_sha256="779799b90356be9393f37ed118fefb07a341e3920d901f2e6751ea06166c7117",
 )
 
 

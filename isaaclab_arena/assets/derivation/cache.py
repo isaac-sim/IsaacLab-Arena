@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
-import importlib
 import importlib.resources
 import json
 import os
 import shutil
 import tempfile
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
@@ -27,6 +26,9 @@ if TYPE_CHECKING:
 
 DERIVATION_PIPELINE_VERSION = 1
 """Version of the derived-package layout and execution contract."""
+
+OVERLAY_PIPELINE_VERSION = 1
+"""Version of the cached USDA overlay contract."""
 
 
 def derive_usd_package(source: str | UsdSource, derivation_spec: str, *, source_identity: str) -> str:
@@ -40,9 +42,9 @@ def derive_usd_package(source: str | UsdSource, derivation_spec: str, *, source_
     cache_root = get_arena_asset_cache_dir() / "derived"
     cache_root.mkdir(parents=True, exist_ok=True)
     package_dir = cache_root / digest
-    if not _is_valid_cache_entry(package_dir, digest):
+    if not _is_valid_cache_entry(package_dir, digest, DERIVATION_PIPELINE_VERSION):
         with _exclusive_lock(cache_root / f"{digest}.lock"):
-            if not _is_valid_cache_entry(package_dir, digest):
+            if not _is_valid_cache_entry(package_dir, digest, DERIVATION_PIPELINE_VERSION):
                 _build_derived_package(
                     source=source,
                     source_identity=source_identity,
@@ -53,6 +55,50 @@ def derive_usd_package(source: str | UsdSource, derivation_spec: str, *, source_
                     package_dir=package_dir,
                 )
     return str(package_dir / recipe["output_entry"])
+
+
+def derivation_identity(source_identity: str, derivation_spec: str) -> str:
+    """Return the stable identity of a derived USD without resolving its source."""
+    recipe_bytes = _read_derivation_spec(derivation_spec)
+    return f"derived-usd:{_cache_digest(source_identity, recipe_bytes)}"
+
+
+def cache_usd_overlay(
+    source: str | UsdSource,
+    overlay_spec: str,
+    *,
+    source_identity: str,
+    expected_source_sha256: str | None = None,
+) -> str:
+    """Cache a USDA overlay whose root reference is replaced with the resolved source."""
+    overlay_bytes = _read_spec(overlay_spec)
+    output_name = PurePosixPath(overlay_spec).name
+    assert output_name.endswith(".usda"), "overlay_spec must name a USDA file"
+    identity_bytes = b"\0".join((
+        b"usd-overlay",
+        str(OVERLAY_PIPELINE_VERSION).encode(),
+        source_identity.encode(),
+        (expected_source_sha256 or "").encode(),
+        overlay_bytes,
+    ))
+    digest = hashlib.sha256(identity_bytes).hexdigest()
+    cache_root = get_arena_asset_cache_dir() / "overlays"
+    cache_root.mkdir(parents=True, exist_ok=True)
+    package_dir = cache_root / digest
+    if not _is_valid_overlay_entry(package_dir, digest):
+        with _exclusive_lock(cache_root / f"{digest}.lock"):
+            if not _is_valid_overlay_entry(package_dir, digest):
+                _build_overlay(
+                    source=source,
+                    source_identity=source_identity,
+                    expected_source_sha256=expected_source_sha256,
+                    overlay_bytes=overlay_bytes,
+                    output_name=output_name,
+                    digest=digest,
+                    cache_root=cache_root,
+                    package_dir=package_dir,
+                )
+    return str(package_dir / output_name)
 
 
 def _build_derived_package(
@@ -80,8 +126,9 @@ def _build_derived_package(
     staging_dir = Path(tempfile.mkdtemp(prefix=f".{digest}.", dir=cache_root))
     try:
         shutil.copytree(source_root, staging_dir, dirs_exist_ok=True, symlinks=False)
-        operation = _load_operation(recipe["operation"])
-        operation(staging_dir, recipe)
+        from isaaclab_arena.assets.derivation.pipeline import derive_asset
+
+        derive_asset(staging_dir, recipe)
         output_path = staging_dir / recipe["output_entry"]
         assert output_path.is_file(), f"derivation did not create output entry: {output_path}"
         files = _package_file_hashes(staging_dir)
@@ -94,10 +141,76 @@ def _build_derived_package(
             "source_entry_sha256": source_hash,
             "output_entry": recipe["output_entry"],
             "output_sha256": files[recipe["output_entry"]],
-            "operation": recipe["operation"],
             "dependencies": sorted(
                 path for path in files if path not in (recipe["source_entry"], recipe["output_entry"])
             ),
+            "files": files,
+        }
+        (staging_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        if package_dir.exists():
+            shutil.rmtree(package_dir)
+        os.replace(staging_dir, package_dir)
+    except Exception:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise
+
+
+def _build_overlay(
+    *,
+    source: str | UsdSource,
+    source_identity: str,
+    expected_source_sha256: str | None,
+    overlay_bytes: bytes,
+    output_name: str,
+    digest: str,
+    cache_root: Path,
+    package_dir: Path,
+) -> None:
+    from pxr import Sdf, Usd
+
+    source_path = Path(source if isinstance(source, str) else source.resolve()).expanduser().absolute()
+    assert source_path.is_file(), f"USD source did not resolve to a file: {source_path}"
+    source_hash = _sha256_file(source_path)
+    if expected_source_sha256 is not None:
+        assert (
+            source_hash == expected_source_sha256
+        ), f"source entry hash {source_hash} does not match expected hash {expected_source_sha256}"
+
+    staging_dir = Path(tempfile.mkdtemp(prefix=f".{digest}.", dir=cache_root))
+    try:
+        output = staging_dir / output_name
+        layer = Sdf.Layer.CreateAnonymous()
+        assert layer.ImportFromString(overlay_bytes.decode()), f"Cannot parse USDA overlay: {output_name}"
+        root_path = Sdf.Path.absoluteRootPath.AppendChild(layer.defaultPrim)
+        assert layer.GetPrimAtPath(root_path), "USDA overlay requires a valid default prim"
+        reference_owners = []
+        pending = list(layer.rootPrims)
+        while pending:
+            prim_spec = pending.pop()
+            if prim_spec.referenceList.prependedItems:
+                reference_owners.append(prim_spec)
+            pending.extend(prim_spec.nameChildren)
+        assert len(reference_owners) == 1, "USDA overlay requires exactly one prim with a prepended reference"
+        reference_owner = reference_owners[0]
+        references = list(reference_owner.referenceList.prependedItems)
+        assert len(references) == 1, "USDA overlay requires exactly one prepended reference"
+        reference = references[0]
+        reference_owner.referenceList.prependedItems = [
+            Sdf.Reference(str(source_path), reference.primPath, reference.layerOffset, reference.customData)
+        ]
+        assert layer.Export(str(output)), f"Cannot export USDA overlay: {output}"
+        stage = Usd.Stage.Open(str(output))
+        assert stage and stage.GetDefaultPrim(), f"Cannot open USDA overlay: {output}"
+        assert not stage.GetCompositionErrors(), stage.GetCompositionErrors()
+        files = {output_name: _sha256_file(output)}
+        manifest = {
+            "cache_key": digest,
+            "pipeline_version": OVERLAY_PIPELINE_VERSION,
+            "source_identity": source_identity,
+            "source_path": str(source_path),
+            "source_entry_sha256": source_hash,
+            "output_entry": output_name,
+            "output_sha256": files[output_name],
             "files": files,
         }
         (staging_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
@@ -118,7 +231,6 @@ def _parse_recipe(recipe_bytes: bytes) -> dict[str, Any]:
         "source_entry",
         "output_entry",
         "expected_source_sha256",
-        "operation",
     )
     assert all(
         isinstance(recipe.get(key), str) and recipe[key] for key in required_strings
@@ -135,6 +247,11 @@ def _parse_recipe(recipe_bytes: bytes) -> dict[str, Any]:
 
 def _read_derivation_spec(spec: str) -> bytes:
     """Read a filesystem or package-relative derivation specification."""
+    return _read_spec(spec)
+
+
+def _read_spec(spec: str) -> bytes:
+    """Read a filesystem or package-relative specification."""
     prefix = "package://"
     if not spec.startswith(prefix):
         return Path(spec).read_bytes()
@@ -143,15 +260,6 @@ def _read_derivation_spec(spec: str) -> bytes:
     assert separator and package and relative_path, "package recipe must be package://<package>/<path>"
     resource = importlib.resources.files(package).joinpath(relative_path)
     return resource.read_bytes()
-
-
-def _load_operation(path: str) -> Callable[[Path, Mapping[str, Any]], None]:
-    """Load one recipe operation from ``module:function``."""
-    module_name, separator, function_name = path.partition(":")
-    assert separator and module_name and function_name, "operation must use module:function syntax"
-    operation = getattr(importlib.import_module(module_name), function_name)
-    assert callable(operation), f"derivation operation is not callable: {path}"
-    return operation
 
 
 def _package_root(source_path: Path, source_entry: PurePosixPath) -> Path:
@@ -165,14 +273,14 @@ def _package_root(source_path: Path, source_entry: PurePosixPath) -> Path:
     return package_root
 
 
-def _is_valid_cache_entry(package_dir: Path, digest: str) -> bool:
+def _is_valid_cache_entry(package_dir: Path, digest: str, pipeline_version: int) -> bool:
     """Return whether a derived package and all recorded files are intact."""
     manifest_path = package_dir / "manifest.json"
     if not manifest_path.is_file():
         return False
     try:
         manifest = json.loads(manifest_path.read_text())
-        if manifest["cache_key"] != digest or manifest["pipeline_version"] != DERIVATION_PIPELINE_VERSION:
+        if manifest["cache_key"] != digest or manifest["pipeline_version"] != pipeline_version:
             return False
         files = manifest["files"]
         if not isinstance(files, dict) or not files:
@@ -185,6 +293,16 @@ def _is_valid_cache_entry(package_dir: Path, digest: str) -> bool:
             if not path.is_file() or _sha256_file(path) != expected_hash:
                 return False
         return manifest["output_sha256"] == files[manifest["output_entry"]]
+    except (KeyError, OSError, TypeError, ValueError):
+        return False
+
+
+def _is_valid_overlay_entry(package_dir: Path, digest: str) -> bool:
+    if not _is_valid_cache_entry(package_dir, digest, OVERLAY_PIPELINE_VERSION):
+        return False
+    try:
+        manifest = json.loads((package_dir / "manifest.json").read_text())
+        return Path(manifest["source_path"]).is_file()
     except (KeyError, OSError, TypeError, ValueError):
         return False
 

@@ -9,14 +9,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
-from pathlib import Path
 
 import pytest
 
 from isaaclab_arena.assets.sources.derived import DerivedUsdSource
-
-PIPELINE = "isaaclab_arena.assets.derivation.pipeline:derive_asset"
 
 
 @pytest.fixture
@@ -59,7 +55,6 @@ def _write_recipe(tmp_path, source_path, **options):
         "source_identity": str(source_path),
         "source_entry": "usd/item.usda",
         "output_entry": "usd/derived.usda",
-        "operation": PIPELINE,
         "expected_source_sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
         **options,
     }
@@ -68,115 +63,10 @@ def _write_recipe(tmp_path, source_path, **options):
     return path
 
 
-@pytest.mark.parametrize("flatten", [False, True])
-@pytest.mark.parametrize("scaled", [False, True])
-def test_derivation_edits_a_non_workbench_asset_and_keeps_packages_relocatable(
-    tmp_path,
-    monkeypatch,
-    source_package,
-    flatten,
-    scaled,
-):
-    from pxr import Usd, UsdGeom, UsdPhysics, UsdShade
-
-    monkeypatch.setattr("isaaclab_arena.assets.derivation.cache.get_arena_asset_cache_dir", lambda: tmp_path / "cache")
-    prefix = "BakedScale/" if scaled else ""
-    body = prefix + "Geometry/Body"
-    slide = prefix + "Joints/Slide"
-    other = prefix + "Joints/Other"
-    steps = [
-        {
-            "operation": "edit_prims",
-            "paths": [body],
-            "attributes": {
-                "physics:mass": {"type": "Float", "value": 0.02, "custom": False},
-                "calibrationPoints": {"type": "Float3Array", "value": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]},
-            },
-            "apply_api_schemas": ["PhysicsMassAPI"],
-        },
-        {
-            "operation": "edit_prims",
-            "paths": [body],
-            "descendants": True,
-            "has_api": "PhysicsCollisionAPI",
-            "attributes": {"physics:collisionEnabled": {"type": "Bool", "value": False, "custom": False}},
-        },
-        {
-            "operation": "edit_prims",
-            "descendants": True,
-            "is_a": "PhysicsJoint",
-            "exclude_paths": [slide],
-            "type_name": "PhysicsFixedJoint",
-        },
-        {
-            "operation": "joint_drive",
-            "path": slide,
-            "instance": "linear",
-            "settings": {"stiffness": 20.0, "damping": 0.2, "target_position": 0.0},
-        },
-        {"operation": "fixed_joint", "path": "FixedBase", "body1": body},
-        {
-            "operation": "preview_surface",
-            "path": "Materials/Plastic",
-            "bind_to": [body],
-            "stronger_than_descendants": True,
-            "inputs": {
-                "diffuseColor": {"type": "Color3f", "value": [0.1, 0.2, 0.3]},
-                "roughness": {"type": "Float", "value": 0.4},
-            },
-        },
-    ]
-    options = {
-        "root_prim": "/Derived",
-        "variants": {"Quality": "High"},
-        "steps": steps,
-        "flatten": flatten,
-        "required_prims": [body, slide, "Materials/Plastic"],
-    }
-    if scaled:
-        options["scale"] = [0.5, 0.5, 0.5]
-    recipe = _write_recipe(tmp_path, source_package, **options)
-    source_bytes = source_package.read_bytes()
-    output = Path(DerivedUsdSource(str(source_package), str(recipe)).resolve())
-    package = output.parents[1]
-    relocated = tmp_path / "relocated"
-    shutil.copytree(package, relocated)
-    stage = Usd.Stage.Open(str(relocated / "usd/derived.usda"))
-    assert not stage.GetCompositionErrors()
-    assert UsdGeom.GetStageMetersPerUnit(stage) == 0.01
-    assert UsdGeom.GetStageUpAxis(stage) == UsdGeom.Tokens.y
-    owner = stage.GetPrimAtPath("/Derived/BakedScale" if scaled else "/Derived")
-    assert owner.GetAttribute("quality").Get() == "high"
-    if scaled:
-        assert tuple(owner.GetAttribute("xformOp:scale").Get()) == (0.5, 0.5, 0.5)
-    body_prim = stage.GetPrimAtPath("/Derived/" + body)
-    assert UsdPhysics.MassAPI(body_prim).GetMassAttr().Get() == pytest.approx(0.02)
-    assert not body_prim.GetAttribute("physics:mass").IsCustom()
-    assert [tuple(point) for point in body_prim.GetAttribute("calibrationPoints").Get()] == [(1, 2, 3), (4, 5, 6)]
-    collider = stage.GetPrimAtPath(body_prim.GetPath().AppendChild("Cube"))
-    assert not UsdPhysics.CollisionAPI(collider).GetCollisionEnabledAttr().Get()
-    assert stage.GetPrimAtPath("/Derived/" + other).IsA(UsdPhysics.FixedJoint)
-    drive = UsdPhysics.DriveAPI(stage.GetPrimAtPath("/Derived/" + slide), "linear")
-    assert drive.GetStiffnessAttr().Get() == 20.0
-    fixed = UsdPhysics.FixedJoint(stage.GetPrimAtPath("/Derived/FixedBase"))
-    assert str(fixed.GetBody1Rel().GetTargets()[0]) == "/Derived/" + body
-    material, _ = UsdShade.MaterialBindingAPI(body_prim).ComputeBoundMaterial()
-    assert str(material.GetPath()) == "/Derived/Materials/Plastic"
-    color = stage.GetPrimAtPath("/Derived/Materials/Plastic/Surface").GetAttribute("inputs:diffuseColor").Get()
-    assert tuple(color) == pytest.approx((0.1, 0.2, 0.3))
-    texture = stage.GetPrimAtPath("/Derived/" + prefix + "Texture").GetAttribute("inputs:file").Get()
-    assert Path(texture.resolvedPath) == relocated / "textures/color.png"
-    assert source_package.read_bytes() == source_bytes
-    assert DerivedUsdSource(str(source_package), str(recipe)).resolve() == str(output)
-
-
 @pytest.mark.parametrize(
     "step",
     [
         {"operation": "missing"},
-        {"operation": "edit_prims", "paths": ["Missing"]},
-        {"operation": "edit_prims", "paths": ["/OutsideAsset"]},
-        {"operation": "edit_prims", "attributes": {"bad": {"type": "Unknown", "value": 1}}},
     ],
 )
 def test_invalid_steps_do_not_publish_a_derived_package(tmp_path, monkeypatch, source_package, step):
