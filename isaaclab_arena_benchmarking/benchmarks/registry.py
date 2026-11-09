@@ -82,7 +82,8 @@ def export_kpis(
     """Write the KPI records files of a finished Experiment, unless any of the Runs in the Experiment failed.
 
     Every selected exporter runs even if an earlier one raises. When any of the Runs in the Experiment failed, the
-    failed Runs are printed and no KPI file is written. With no exporter selected, nothing is read or written.
+    failed Runs are printed, each exporter's ``on_experiment_incomplete`` is called and no KPI file is written. With no exporter selected,
+    nothing is read or written.
 
     Args:
         output_dir: Experiment output root holding ``arena_experiment_result.json``.
@@ -117,6 +118,8 @@ def export_kpis(
             if run_result["status"] != RunStatus.COMPLETED.value
         ]
         print(f"Skipping KPI export because these Runs did not complete: {', '.join(failed_run_names)}")
+        for exporter in exporters.values():
+            exporter.on_experiment_incomplete(output_dir, failed_run_names)
         return []
 
     written_paths: list[Path] = []

@@ -20,6 +20,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
     ArenaExperimentResult,
 )
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena_benchmarking.benchmarks.registry import register_kpi_exporter
@@ -139,6 +140,32 @@ class PlacementSuccessKpiExporter(InfluxdbKpiExporter):
     def get_records_filename(self) -> str:
         return PLACEMENT_SUCCESS_RECORDS_FILENAME
 
+    def export_to_json(self, output_dir: Path) -> Path | None:
+        """Write the placement success record and print the placement rates of each Run.
+
+        Args:
+            output_dir: Experiment output root holding the result file and one directory per Run.
+
+        Returns:
+            Path of the records file, or None when no Run wrote placement diagnostics.
+        """
+        written_path = super().export_to_json(output_dir)
+        self._print_summary(output_dir, failed_run_names=[])
+        return written_path
+
+    def on_experiment_incomplete(self, output_dir: Path, failed_run_names: list[str]) -> None:
+        """Print the placement rates of the Runs that completed; the failed Runs are named, not scored.
+
+        Args:
+            output_dir: Experiment output root holding the result file and one directory per Run.
+            failed_run_names: Names of the Runs that did not complete.
+        """
+        self._print_summary(output_dir, failed_run_names)
+
+    def _print_summary(self, output_dir: Path, failed_run_names: list[str]) -> None:
+        print("Placement success per Run:")
+        print(_format_run_placement_counts(read_run_placement_counts(Path(output_dir)), failed_run_names))
+
     def build_records_from_output_dir(self, output_dir: Path) -> list[InfluxdbKpiRecord]:
         """Build the placement success record of a finished Experiment output directory.
 
@@ -160,6 +187,28 @@ class PlacementSuccessKpiExporter(InfluxdbKpiExporter):
             benchmark_id=result.experiment_name,
         )
         return [] if record is None else [record]
+
+
+def _format_run_placement_counts(counts_per_run: list[RunPlacementCounts], failed_run_names: list[str]) -> str:
+    """Return one line per Run with its placement rates, the failed Runs and the Runs without diagnostics.
+
+    Args:
+        counts_per_run: Placement counts of the Experiment's Runs.
+        failed_run_names: Names of the Runs that did not complete; their diagnostics are not used.
+    """
+    lines = []
+    for run_counts in counts_per_run:
+        if run_counts.run_name in failed_run_names:
+            lines.append(f"  {run_counts.run_name}: failed")
+        elif run_counts.placement_diagnostics is None:
+            lines.append(f"  {run_counts.run_name}: no placement diagnostics")
+        else:
+            lines.append(
+                f"  {run_counts.run_name}: valid candidates {100 * run_counts.valid_candidate_rate_first_batch:.1f}%,"
+                f" valid environments {100 * run_counts.valid_env_rate_after_retries:.1f}%,"
+                f" {run_counts.batches_per_build:.2f} batches per build"
+            )
+    return "\n".join(lines)
 
 
 def _mean(values: list[float]) -> float:

@@ -174,6 +174,16 @@ class InfluxdbKpiExporter(ABC):
             The KPI records of the output directory.
         """
 
+    def on_experiment_incomplete(self, output_dir: Path, failed_run_names: list[str]) -> None:
+        """Report what this exporter can, when Runs failed and no KPI records are written. By default does nothing.
+
+        Called instead of ``export_to_json`` when any Run of the Experiment did not complete.
+
+        Args:
+            output_dir: Experiment output root holding the result file and one directory per Run.
+            failed_run_names: Names of the Runs that did not complete.
+        """
+
     def export_to_json(self, output_dir: Path) -> Path | None:
         """Build the records of an output directory and write them to the records file in that directory.
 

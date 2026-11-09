@@ -80,6 +80,19 @@ def test_exporter_writes_the_mean_over_scored_runs_with_equal_weights(tmp_path: 
     }
 
 
+def test_export_kpis_prints_the_run_rates_after_a_complete_experiment(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """The per-Run placement rates are printed after the KPI file is written."""
+    _write_experiment(tmp_path, ["pick_apple"], {"pick_apple": [_diagnostics(25, 150, 250, 3, 2)]})
+
+    assert export_kpis(tmp_path, ["placement_success"]) == [tmp_path / "kpis_placement_success.json"]
+
+    output = capsys.readouterr().out
+    assert "Placement success per Run:" in output
+    assert "  pick_apple: valid candidates 60.0%, valid environments 88.0%, 2.00 batches per build" in output
+
+
 def test_exporter_writes_nothing_when_no_run_wrote_placement_diagnostics(tmp_path: Path):
     """An Experiment whose Runs solved no relations has no placement success record."""
     _write_experiment(tmp_path, ["no_relations"], {})
@@ -88,13 +101,22 @@ def test_exporter_writes_nothing_when_no_run_wrote_placement_diagnostics(tmp_pat
     assert not (tmp_path / "kpis_placement_success.json").exists()
 
 
-def test_export_kpis_writes_no_placement_file_when_a_run_failed(tmp_path: Path):
-    """A failed Run could have lowered the rates, so the Experiment gets no placement success file."""
+def test_export_kpis_writes_no_placement_file_when_a_run_failed_and_prints_the_run_rates(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """A failed Run could have lowered the rates, so the Experiment gets no placement success file. The rates of
+    the Runs that completed are printed, and the failed Run and a Run without diagnostics are named."""
     diagnostics_per_run = {"pick_apple": [_diagnostics(25, 150, 250, 3, 2)]}
-    _write_experiment(tmp_path, ["pick_apple", "place_lime"], diagnostics_per_run, failed_runs=["place_lime"])
+    runs = ["pick_apple", "place_lime", "no_relations"]
+    _write_experiment(tmp_path, runs, diagnostics_per_run, failed_runs=["place_lime"])
 
     assert export_kpis(tmp_path, ["placement_success"]) == []
+
     assert not (tmp_path / "kpis_placement_success.json").exists()
+    output = capsys.readouterr().out
+    assert "  pick_apple: valid candidates 60.0%, valid environments 88.0%, 2.00 batches per build" in output
+    assert "  place_lime: failed" in output
+    assert "  no_relations: no placement diagnostics" in output
 
 
 def _write_experiment(
