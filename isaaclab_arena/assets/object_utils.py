@@ -10,7 +10,7 @@ from pxr import Usd
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.usd.helpers import get_prim_depth, is_articulation_root, is_rigid_body
-from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
+from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
 
 
 def detect_object_type(

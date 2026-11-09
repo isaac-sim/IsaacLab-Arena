@@ -24,7 +24,7 @@ from isaaclab_arena.assets.simready_constants import (
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource, is_central_asset_url
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd.rigid_bodies import usd_variant_selections_to_dict
+from isaaclab_arena.utils.usd.variants import usd_variant_selections_to_dict
 
 _NON_IDENTIFIER_CHARACTERS = re.compile(r"[^a-z0-9]+")
 
@@ -64,7 +64,8 @@ class SimReadyUsdObject(Object):
         assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
         assert usd_path, "simready_usd_object requires params.usd_path"
         spawn_cfg_addon = dict(spawn_cfg_addon or {})
-        spawn_cfg_addon["variants"] = _merge_simready_variant_selections(spawn_cfg_addon.get("variants"))
+        variants = usd_variant_selections_to_dict(spawn_cfg_addon.get("variants"))
+        spawn_cfg_addon["variants"] = {**SIMREADY_PHYSICS_VARIANTS, **variants}
         super().__init__(
             name=name or self.registry_name,
             prim_path=prim_path,
@@ -127,12 +128,3 @@ def _simready_usd_source(usd_path: str) -> str | UsdSource:
     if is_central_asset_url(usd_path):
         return SimReadyCentralRigidSource(usd_path)
     return usd_path
-
-
-def _merge_simready_variant_selections(overrides: object | None) -> dict[str, str]:
-    """Merge SimReady selections with dictionary or configclass overrides."""
-    override_values = usd_variant_selections_to_dict(overrides)
-    assert all(
-        isinstance(key, str) and isinstance(value, str) for key, value in override_values.items()
-    ), "variant names and selections must be strings"
-    return {**SIMREADY_PHYSICS_VARIANTS, **override_values}
