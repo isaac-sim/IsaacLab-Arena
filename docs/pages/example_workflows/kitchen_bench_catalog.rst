@@ -5,8 +5,7 @@ The kitchen benchmark contains 42 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
-environment on October 28, 2026. The G-shape banana and orange task was
-re-evaluated on November 9, 2026, after its layout variation was increased.
+environment on October 28, 2026.
 
 .. list-table:: Task categories
    :header-rows: 1
