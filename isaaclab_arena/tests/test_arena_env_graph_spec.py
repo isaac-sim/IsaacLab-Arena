@@ -106,6 +106,43 @@ def test_graph_spec_rejects_joint_defaults_on_non_articulation_reference(object_
         ArenaEnvGraphSpec.from_dict(data)
 
 
+def test_articulation_body_reference_spec_round_trips():
+    from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
+
+    spec = ObjectReferenceSpec(id="drawer", kind="articulation_body", parent_id="cabinet", prim_path="Drawer")
+    assert spec.object_type == ObjectType.BASE
+    assert ObjectReferenceSpec.model_validate(spec.model_dump()) == spec
+
+
+def test_graph_spec_loads_articulation_body_kitchen_yaml():
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "articulation_body_reference_kitchen.yaml")
+    drawer = next(ref for ref in spec.object_references if ref.id == "drawer")
+    assert drawer.kind == "articulation_body"
+    assert drawer.parent_id == "cabinet"
+    assert drawer.object_type == ObjectType.BASE
+    assert drawer.prim_path == "drawer_door"
+    assert spec.task.subtasks[1].params["target"] == drawer.id
+
+
+@pytest.mark.parametrize(
+    "overrides,error",
+    [
+        ({"object_type": "rigid"}, "require object_type=base"),
+        ({"object_type": "articulation"}, "require object_type=base"),
+        ({"params": {"initial_joint_positions": {"joint": 0.1}}}, "requires object_type=articulation"),
+        ({"params": {"openable_joint_name": "joint"}}, "must not override"),
+        ({"params": {"articulation": "other"}}, "must not override"),
+        ({"params": {"body_prim_path": "other"}}, "must not override"),
+    ],
+)
+def test_articulation_body_reference_spec_rejects_conflicting_params(overrides, error):
+    from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
+
+    data = {"id": "drawer", "kind": "articulation_body", "parent_id": "cabinet", "prim_path": "Drawer"}
+    with pytest.raises(ValidationError, match=error):
+        ObjectReferenceSpec.model_validate({**data, **overrides})
+
+
 def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
     data = _minimal_env_graph_data()
     data["embodiment"].setdefault("params", {})["initial_pose"] = {

@@ -153,6 +153,65 @@ def compute_posed_prim_world_deltas(
     return {path: np.linalg.inv(rest_transforms[path]) @ posed for path, posed in posed_transforms.items()}
 
 
+def compute_articulation_body_world_delta(
+    articulation_prim: Usd.Prim,
+    body_prim: Usd.Prim,
+    joint_pos: Mapping[str, float],
+    spawn_scale: Sequence[float] = (1.0, 1.0, 1.0),
+) -> np.ndarray:
+    """Return a body's stage-world motion at configured Isaac Lab joint positions.
+
+    Undriven bodies and all-zero joint configurations keep their authored poses. Joint targets may be descendants
+    of a rigid body, as in SimReady assets, provided posing those targets gives rigid motion for the body.
+
+    Args:
+        articulation_prim: Subtree to search for joints, excluding sibling articulations.
+        body_prim: Rigid body within that subtree, in the same stage.
+        joint_pos: Exact joint names or Isaac Lab regex patterns; radians for revolute joints and metres for sliders.
+        spawn_scale: Per-axis scale of the spawned asset that contains the articulation.
+
+    Returns:
+        Row-vector 4x4 delta applied to points already expressed in stage world space, or identity if unposed.
+    """
+    assert articulation_prim and body_prim, "Articulation and body prims must be valid"
+    stage = articulation_prim.GetStage()
+    assert body_prim.GetStage() == stage and body_prim.GetPath().HasPrefix(
+        articulation_prim.GetPath()
+    ), f"Body {body_prim.GetPath()} must be within articulation scope {articulation_prim.GetPath()}"
+    assert body_prim.HasAPI(UsdPhysics.RigidBodyAPI), f"Prim {body_prim.GetPath()} must be a rigid body"
+
+    # Find the body's joint before reading names: an undriven body may coexist with repeated joint names.
+    joint_child_paths = []
+    for joint_prim in Usd.PrimRange(articulation_prim):
+        if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint):
+            continue
+        for child_path in UsdPhysics.Joint(joint_prim).GetBody1Rel().GetTargets():
+            if _find_owning_rigid_body_prim(stage.GetPrimAtPath(child_path)) == body_prim:
+                joint_child_paths.append(child_path.pathString)
+    assert len(joint_child_paths) <= 1, f"Body {body_prim.GetPath()} is the child of several movable joints."
+    if not joint_child_paths:
+        return np.eye(4)
+    joint_prims = articulation_joint_prims(articulation_prim)
+    matched_joint_pos = resolve_joint_pos_patterns(joint_prims, joint_pos)
+    if not any(matched_joint_pos.values()):
+        return np.eye(4)
+    usd_joint_pos = adjust_prismatic_joint_positions_for_spawn_scale(joint_prims, matched_joint_pos, spawn_scale)
+    body_world_deltas = compute_posed_prim_world_deltas(stage, articulation_prim.GetPath().pathString, usd_joint_pos)
+    body_world_delta = body_world_deltas[joint_child_paths[0]]
+    # A target scaled relative to its body moves non-rigidly under the joint-frame calculation.
+    assert np.allclose(
+        body_world_delta[:3, :3] @ body_world_delta[:3, :3].T, np.eye(3), atol=1e-5
+    ), f"Cannot pose body {body_prim.GetPath()}: a joint targets a prim scaled relative to its body."
+    return body_world_delta
+
+
+def _find_owning_rigid_body_prim(prim: Usd.Prim) -> Usd.Prim:
+    """Return the nearest rigid body at or above prim, or an invalid prim when there is none."""
+    while prim and not prim.HasAPI(UsdPhysics.RigidBodyAPI):
+        prim = prim.GetParent()
+    return prim
+
+
 def resolve_prim_world_delta(prim_path: str, body_deltas: Mapping[str, np.ndarray]) -> np.ndarray | None:
     """Return the delta of the nearest ancestor of prim_path in body_deltas, or None if unposed."""
     candidate = prim_path

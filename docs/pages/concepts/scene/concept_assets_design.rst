@@ -282,20 +282,53 @@ and metres for prismatic joints. ``OpenableObjectReference``, ``PressableObjectR
 ``TurnableObjectReference`` inherit this option. In graph YAML, the existing ``object_type: articulation`` and
 ``params.initial_joint_positions`` fields select the class automatically.
 
-A reference can also name a link of an ``ARTICULATION`` object, such as a door or a drawer.
-When a revolute or prismatic joint moves the link, the reference is placed where the
-parent's configured initial joint positions put it, and during simulation it follows the link.
-Create the articulation reference before its link references so they use that initial joint
-state. Links inside a ``BASE`` background, such as a kitchen's cabinet doors, keep their authored
-poses.
+Use ``ArticulationBodyReference`` for a whole rigid body of an articulation, such as a door or drawer.
+It takes either a standalone articulation object or an ``ArticulationObjectReference`` and a body-relative
+prim path. It derives USD ownership from that articulation and exposes the body as a ``BASE`` placement
+target. During simulation, pose queries read the articulation's live body pose; the reference creates
+no independent physics object or reset event.
 
 .. code-block:: python
 
-   door = ObjectReference(
+   from isaaclab_arena.assets.object_reference import ArticulationBodyReference
+
+   door = ArticulationBodyReference(
        name="microwave_door",
-       prim_path="{ENV_REGEX_NS}/kitchen/microwave/Microwave039_door",
-       parent_asset=microwave,
+       articulation=microwave,
+       body_prim_path="Microwave039_door",
    )
+
+Select the rigid-body prim itself, rather than a child collision mesh. Use ``body_prim_path="."``
+when the articulation's root prim is also its rigid body. Existing generic ``ObjectReference``
+body references remain supported.
+
+In graph YAML, set ``kind: articulation_body`` and name the articulation as ``parent_id``.
+``object_type`` is fixed to ``base`` and can be omitted:
+
+.. code-block:: yaml
+
+   object_references:
+   - id: cabinet
+     parent_id: kitchen
+     prim_path: island_cab_right_island_group_4
+     object_type: articulation
+     params:
+       initial_joint_positions:
+         drawer_door_joint: 0.0
+   - id: drawer
+     kind: articulation_body
+     parent_id: cabinet
+     prim_path: drawer_door
+
+The complete Lightwheel kitchen example is in
+``isaaclab_arena/tests/test_data/articulation_body_reference_kitchen.yaml``.
+It starts with the authored closed drawer, then opens it before placing the spoon inside. This
+asset's scaled joint targets are unsupported by offline posing at nonzero joints; its live body
+poses still follow joint motion in simulation.
+Declare the articulation's initial joints before creating its body references: placement geometry
+is cached at construction. Keep task reset joint settings consistent with these defaults; changing
+joint defaults later does not update cached placement geometry. The articulation owns resets for
+both its root and its joints.
 
 Rigid object sets
 -----------------

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import (
+    ArticulationBodyReference,
     ArticulationObjectReference,
     ObjectReference,
     OpenableObjectReference,
@@ -146,6 +147,16 @@ def _instantiate_object_reference(
 ) -> ObjectReference:
     """Instantiate a plain or affordance-specific object reference."""
     assert ref.prim_path is not None, "Object reference must have a prim path"
+    if ref.kind == "articulation_body":
+        parent_path = parent_asset.get_prim_path().rstrip("/")
+        prim_path = _prim_path_for_relative(parent_path, ref.prim_path)
+        assert prim_path == parent_path or prim_path.startswith(
+            parent_path + "/"
+        ), f"Body reference path '{prim_path}' must be beneath articulation path '{parent_path}'"
+        body_prim_path = prim_path.removeprefix(parent_path).lstrip("/") or "."
+        return ArticulationBodyReference(
+            name=ref.id, articulation=parent_asset, body_prim_path=body_prim_path, **parse_asset_params(ref.params)
+        )
     joint_param_names = [name for name in _AFFORDANCE_REFERENCE_CLASSES if name in ref.params]
     assert len(joint_param_names) <= 1, f"Object reference '{ref.id}' cannot expose multiple affordances"
 

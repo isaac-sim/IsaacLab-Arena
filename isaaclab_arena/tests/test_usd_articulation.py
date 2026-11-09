@@ -12,6 +12,8 @@ The fixture arm places the joint at the world origin and the child link one unit
 import math
 import numpy as np
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
@@ -79,6 +81,51 @@ def _posed_forearm_origin(stage, joint_pos) -> np.ndarray:
     delta = resolve_prim_world_delta("/root/forearm/box", deltas)
     assert delta is not None, "forearm geometry must inherit its link's delta"
     return (np.array([1.0, 0.0, 0.0, 1.0]) @ delta)[:3]
+
+
+def _test_body_delta_matches_mesh_target_motion(simulation_app, joint_type, joint_position, expected_t_S_B):
+    from pxr import UsdGeom, UsdPhysics
+
+    from isaaclab_arena.utils.usd.articulation import compute_articulation_body_world_delta
+
+    stage = _build_two_link_arm(joint_type)
+    joint = UsdPhysics.Joint(stage.GetPrimAtPath("/root/elbow"))
+    joint.GetBody1Rel().SetTargets(["/root/forearm/box"])
+    joint_pos = {"elb.*": joint_position}
+    delta = compute_articulation_body_world_delta(
+        stage.GetDefaultPrim(), stage.GetPrimAtPath("/root/forearm"), joint_pos, spawn_scale=(2.0, 2.0, 2.0)
+    )
+    # S is the spawned asset frame, B the body frame. The delta acts before the spawn scale.
+    t_S_B = (np.array([1.0, 0.0, 0.0, 1.0]) @ delta)[:3] * 2.0
+    np.testing.assert_allclose(t_S_B, expected_t_S_B, atol=1e-7)
+    assert joint_pos == {"elb.*": joint_position}
+
+    # A sibling articulation with a repeated joint name must not enter this body's joint search.
+    other = UsdGeom.Xform.Define(stage, "/root_other").GetPrim()
+    UsdPhysics.RevoluteJoint.Define(stage, "/root_other/elbow")
+    np.testing.assert_allclose(
+        compute_articulation_body_world_delta(
+            stage.GetDefaultPrim(), stage.GetPrimAtPath("/root/forearm"), joint_pos, (2.0, 2.0, 2.0)
+        ),
+        delta,
+    )
+    with pytest.raises(AssertionError, match="must be within articulation scope"):
+        compute_articulation_body_world_delta(other, stage.GetPrimAtPath("/root/forearm"), joint_pos)
+    return True
+
+
+@pytest.mark.parametrize(
+    "joint_type,joint_position,expected_t_S_B",
+    [("prismatic", 0.3, (2.3, 0.0, 0.0)), ("revolute", math.pi / 2, (0.0, 2.0, 0.0))],
+)
+def test_body_delta_matches_mesh_target_motion(joint_type, joint_position, expected_t_S_B):
+    assert run_function_with_persistent_simulation_app(
+        _test_body_delta_matches_mesh_target_motion,
+        headless=HEADLESS,
+        joint_type=joint_type,
+        joint_position=joint_position,
+        expected_t_S_B=expected_t_S_B,
+    )
 
 
 def _test_revolute_joint_swings_child_link(simulation_app) -> bool:

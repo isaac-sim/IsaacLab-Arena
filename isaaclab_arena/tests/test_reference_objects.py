@@ -48,6 +48,7 @@ def _object_reference_with_cached_bbox(parent_pose: Pose | None, relative_pose: 
 
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.parent_asset = SimpleNamespace(initial_pose=parent_pose)
+    obj_ref._source = SimpleNamespace(asset=obj_ref.parent_asset)
     obj_ref.initial_pose_relative_to_parent = relative_pose
     obj_ref._bounding_box = bbox
     return obj_ref
@@ -106,9 +107,11 @@ def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
     obj_ref.object_type = ObjectType.BASE
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
 
+    prim = object()
+
     def open_spawned_usd_stage():
         calls["open_count"] += 1
-        return SimpleNamespace(GetPrimAtPath=lambda path: object())
+        return SimpleNamespace(GetPrimAtPath=lambda path: prim, GetDefaultPrim=lambda: prim)
 
     parent = SimpleNamespace(
         usd_path="/tmp/kitchen.usd",
@@ -117,14 +120,11 @@ def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
         open_spawned_usd_stage=open_spawned_usd_stage,
     )
 
-    monkeypatch.setattr(
-        ObjectReference,
-        "isaaclab_prim_path_to_original_prim_path",
-        staticmethod(lambda prim_path, parent_asset, stage: "/Asset/counter"),
-    )
-    monkeypatch.setattr(
-        "isaaclab_arena.assets.object_reference._get_prim_path_in_referenced_usd",
-        lambda stage, prim_path: "/World/counter",
+    obj_ref._source = SimpleNamespace(
+        asset=parent,
+        scope_prim_path="{ENV_REGEX_NS}/kitchen",
+        prim_path_in_stage=lambda prim_path, stage: "/Asset/counter",
+        prim_path_in_source_usd=lambda prim_path, stage: "/World/counter",
     )
     monkeypatch.setattr(
         "isaaclab_arena.assets.object_reference.get_prim_pose_in_default_prim_frame",
@@ -267,6 +267,47 @@ def _drawer_reference(
     )
 
 
+def _test_reference_source_tracks_spawned_owner_and_scope(simulation_app, tmp_path, nested):
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ArticulationObjectReference, ObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.reference_source import ReferenceSource
+
+    usd_path = tmp_path / "reference_source.usda"
+    _write_scaled_drawer_articulation(usd_path, "prismatic", default_prim_name="Workbench", sibling_cabinet=True)
+    workbench = Object(name="workbench", usd_path=str(usd_path), object_type=ObjectType.BASE)
+    parent = workbench
+    if nested:
+        parent = ArticulationObjectReference(
+            name="cabinet", parent_asset=workbench, prim_path="{ENV_REGEX_NS}/workbench/Cabinet"
+        )
+    source = ReferenceSource.from_parent_asset(parent)
+    assert source.asset is workbench
+    assert source.scope_prim_path == parent.get_prim_path()
+
+    stage = source.asset.open_spawned_usd_stage()
+    runtime_path = "{ENV_REGEX_NS}/workbench/Cabinet/Drawer"
+    stage_path = source.prim_path_in_stage(runtime_path, stage)
+    assert stage_path == "/Asset/Cabinet/Drawer"
+    assert source.prim_path_in_source_usd(stage_path, stage) == "/Workbench/Cabinet/Drawer"
+    assert ObjectReference.isaaclab_prim_path_to_original_prim_path(runtime_path, parent, stage) == stage_path
+    invalid_path = parent.get_prim_path() + "_other/Drawer"
+    with pytest.raises(AssertionError, match="must be beneath parent path"):
+        source.prim_path_in_stage(invalid_path, stage)
+    if nested:
+        with pytest.raises(AssertionError, match="must be beneath parent path"):
+            source.prim_path_in_stage("{ENV_REGEX_NS}/workbench/SiblingCabinet/Drawer", stage)
+    return True
+
+
+@pytest.mark.parametrize("nested", [False, True], ids=["spawned-parent", "articulation-reference-parent"])
+def test_reference_source_tracks_spawned_owner_and_scope(tmp_path, nested):
+    """Path mapping retains the parent scope and distinguishes spawned-stage paths from source-file paths."""
+    assert run_function_with_persistent_simulation_app(
+        _test_reference_source_tracks_spawned_owner_and_scope, headless=HEADLESS, tmp_path=tmp_path, nested=nested
+    )
+
+
 def _test_articulation_reference_graph_construction(
     simulation_app, tmp_path: pathlib.Path, reference_class_name: str, affordance_params: dict, joint_positions
 ) -> bool:
@@ -386,6 +427,8 @@ def _test_nested_reference_uses_articulation_parent_pose(
     assert drawer.get_parent_pose() == cabinet.get_initial_pose()
     assert drawer.get_initial_pose().position_xyz == pytest.approx(expected_position, abs=1e-7)
     assert drawer.get_bounding_box_rotation() == Pose.identity().rotation_xyzw
+    assert drawer.root_asset is workbench
+    assert drawer.prim_path_in_parent_usd == "/Workbench/Cabinet/Drawer"
     assert isinstance(drawer.object_cfg, ArticulationBodyReferenceCfg)
     assert drawer.object_cfg.articulation_name == "cabinet"
     return True
@@ -770,16 +813,13 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
     obj_ref.parent_asset = SimpleNamespace(
         usd_path="/tmp/kitchen.usd", name="kitchen", open_spawned_usd_stage=open_spawned_usd_stage
     )
+    obj_ref._source = SimpleNamespace(
+        asset=obj_ref.parent_asset, prim_path_in_stage=lambda prim_path, stage: "/World/counter"
+    )
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (2.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
-
-    monkeypatch.setattr(
-        ObjectReference,
-        "isaaclab_prim_path_to_original_prim_path",
-        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
-    )
 
     def fake_extract(stage, prim_path, scale):
         calls["extract"] = (prim_path, scale)
@@ -809,16 +849,13 @@ def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
     obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen", open_spawned_usd_stage=Stage)
+    obj_ref._source = SimpleNamespace(
+        asset=obj_ref.parent_asset, prim_path_in_stage=lambda prim_path, stage: "/World/counter"
+    )
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
-
-    monkeypatch.setattr(
-        ObjectReference,
-        "isaaclab_prim_path_to_original_prim_path",
-        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
-    )
 
     def fail_extract(stage, prim_path, scale):
         calls["extract_count"] += 1
@@ -843,16 +880,13 @@ def test_object_reference_get_collision_mesh_returns_none_on_unsupported_geometr
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
     obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen", open_spawned_usd_stage=Stage)
+    obj_ref._source = SimpleNamespace(
+        asset=obj_ref.parent_asset, prim_path_in_stage=lambda prim_path, stage: "/World/counter"
+    )
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
-
-    monkeypatch.setattr(
-        ObjectReference,
-        "isaaclab_prim_path_to_original_prim_path",
-        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
-    )
 
     def fail_extract(stage, prim_path, scale):
         raise UnsupportedCollisionGeometryError("Unsupported non-mesh geometry under /World/counter: /World/cube")
@@ -875,16 +909,13 @@ def test_object_reference_get_collision_mesh_raises_on_missing_prim(monkeypatch)
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
     obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen", open_spawned_usd_stage=Stage)
+    obj_ref._source = SimpleNamespace(
+        asset=obj_ref.parent_asset, prim_path_in_stage=lambda prim_path, stage: "/World/missing"
+    )
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/missing"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
-
-    monkeypatch.setattr(
-        ObjectReference,
-        "isaaclab_prim_path_to_original_prim_path",
-        staticmethod(lambda prim_path, parent, stage: "/World/missing"),
-    )
 
     with pytest.raises(ValueError, match="No prim found"):
         obj_ref.get_collision_mesh()
