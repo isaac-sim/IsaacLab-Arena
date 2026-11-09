@@ -7,6 +7,8 @@ description: Create or modify Isaac Lab-Arena environments, scenes, tasks, compl
 
 Produce the smallest environment definition that expresses the request and follows a maintained
 Arena example. Prefer configuration, then composition, then a small extension for a demonstrated gap.
+Prefer writing the environment as a graph YAML, and write a Python environment only when the YAML
+cannot express the user's intent.
 
 ## Discover before extending
 
@@ -26,41 +28,46 @@ inheritance chains before adding capabilities. If reuse cannot express a require
 missing capability and add the smallest extension. Do not duplicate solvers, predicates, temporal
 counters, reset loops, progress tracking, or variation systems that Arena already provides.
 
+Prefer Arena's existing tools to build, inspect and check an environment, listed under
+"Authoring and validation tools" below. Write a diagnostic script only when these cannot answer the
+question.
+
 ## Assemble from maintained sources
 
 Read only the references relevant to the requested behavior:
 
-- **Authoring surface:** start from a matching existing environment. For Python, follow the
-  [maintained Maple-table factory](../../../isaaclab_arena_environments/pick_and_place_maple_table_environment.py)
-  and [factory contract](../../../isaaclab_arena/environments/arena_environment_factory.py).
-  Reuse [builder configuration](../../../isaaclab_arena/environments/arena_env_builder_cfg.py) for
-  existing build and reset controls; keep environment configuration focused on the scene and task.
-  For graph YAML, inspect the [schema](../../../isaaclab_arena/environment_spec/arena_env_graph_types.py)
-  and [task conversion](../../../isaaclab_arena/environment_spec/arena_env_graph_task_conversion_utils.py)
-  alongside `isaaclab_arena_environments/robolab/` and `isaaclab_arena_environments/kitchen_bench/` examples. Choose Python when the graph cannot
-  express the required semantics; a field parsing successfully does not prove it is consumed.
+- **Authoring surface:** start from a matching graph YAML example:
+  - **Table-top scene:** follow a RoboLab task, such as
+    [banana in bowl](../../../isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml) for a
+    single pick and place, or
+    [apple and yogurt in bowl](../../../isaaclab_arena_environments/robolab/tasks/apple_and_yogurt_in_bowl.yaml)
+    for two subtasks. More are under `isaaclab_arena_environments/robolab/tasks/`.
+  - **Scene in a larger background,** such as a kitchen: follow a KitchenBench environment, such as
+    [mustard in bowl](../../../isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_mustard_bowl.yaml)
+    for a single pick and place, or
+    [banana and orange in bowl](../../../isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml)
+    for two subtasks with a robot that moves along the counter. More are under
+    `isaaclab_arena_environments/kitchen_bench/`.
+
+  Check the fields you use against the
+  [schema](../../../isaaclab_arena/environment_spec/arena_env_graph_types.py) and the
+  [task conversion](../../../isaaclab_arena/environment_spec/arena_env_graph_task_conversion_utils.py).
+  Only when the YAML cannot express a requirement, write Python following the
+  [factory contract](../../../isaaclab_arena/environments/arena_environment_factory.py), and reuse
+  [builder configuration](../../../isaaclab_arena/environments/arena_env_builder_cfg.py) for
+  existing build and reset controls.
 - **Assets:** follow the example's asset ownership and check identity, collision handling, and reset
-  requirements.
-  Before choosing an `object_reference.prim_path`, use the documented `prim-tree` mode in
-  [scene_inspector.py](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py).
-  Browse text first, then request scoped JSON only for the relevant subtree. Treat results as
-  authored USD data; Arena and Isaac Lab spawn-time overrides are excluded.
-- **Layout:** follow the example's scene composition. Use the existing
+  requirements. Choose `object_reference.prim_path` values with the scene inspector; see
+  "Authoring and validation tools" below.
+- **Layout:** read [placing objects and the robot](placement.md). For the full design, read
   [relations](../../../docs/pages/concepts/object_placement/relations.rst),
-  [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and
+  [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and the
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
-  Check reachability and physical support.
-- **Placement diagnostics:** the object placer converts the environment's relations into concrete
-  object poses: it solves candidate layouts, then checks each one against its relations, collision
-  clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
-  records diagnostics that show how well placement went and why candidates were rejected. When
-  placement rejects many candidates or a fill fails, read them before changing relations, collision
+  Follow the example's scene composition, and check physical support. When placement rejects many
+  candidates or a fill fails, read the placement diagnostics before changing relations, collision
   settings or reachability.
-  [Placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst)
-  explains them and how to act on them. The build log already lists each
-  check's rejection causes after every batch, and an Experiment Run writes them all to
-  `arena_run_placement_diagnostics.json`.
-- **Task semantics:** read [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
+- **Task semantics:** read [tasks in graph YAML](tasks.md). For the full design, read
+  [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
   and [predicates and progress](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst)
   for ordered milestones, current final conditions, simultaneous truth, temporal holds, and reporting.
   Reuse existing tasks and preserve their sensors and failure conditions.
@@ -84,16 +91,16 @@ or claim runtime success. Authoring alone does not require policy rollouts or po
 
 Check Python/YAML syntax, referenced constructors, registration, schema conversion, defaults, and
 feature reuse without importing Arena on the host. In a ready runtime, build and reset the
-environment, then use bounded direct steps for inspection. Use existing focused tests to check
-changed success logic, temporal interruptions, and reset isolation across parallel environments.
-Parsing or passive stepping alone does not establish task solvability.
+environment, then run the placement pool validation. Read the candidate pass counts and the
+success configuration in the build log, and the placement diagnostics if few layouts pass.
+"Authoring and validation tools" below lists the tool for each step. The environment builds and
+resets cleanly when both steps pass; stop there, without running zero-action episodes (unless
+requested by the user). Use existing focused tests to check changed success logic, temporal
+interruptions, and reset isolation across parallel environments. Parsing or passive stepping alone
+does not establish task solvability.
 
-Use the generic [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst)
-([source](../../../isaaclab_arena/agentic_tools/object_control_runner.py))
-when an authored environment needs physics-based validation without a robot policy. Use it to
-drive objects to pose and joint-position targets, verify task success predicates, and diagnose why
-an interaction or success condition fails. Its documentation covers recipe and live-command usage,
-commands, outputs, and failure diagnostics.
+When the user requests physics-based validation of an authored environment without a robot policy,
+use the Object Control Runner.
 
 For variation inspection, use the `--list_variations` path through
 [run-experiment](../../user/run-experiment/SKILL.md). Check the
@@ -103,3 +110,34 @@ using it for interactive inspection; do not assume it supports headless validati
 Finish with the reference example, reused features, any extension rationale, definition/configuration
 paths, checks actually run, and remaining simulation validation. Keep this in the handoff; no extra
 design document is required.
+
+## Authoring and validation tools
+
+- **Find prim paths in a background:**
+  [`scene_inspector.py`](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py)
+  `prim-tree`. Lists a USD scene's authored physics hierarchy as text, or as JSON for one subtree,
+  without starting the simulator. Use it to choose `object_reference.prim_path` values and support
+  prims to anchor. Browse the text first, then request JSON only for the relevant subtree. It shows
+  authored USD data, without Arena and Isaac Lab spawn-time overrides.
+- **Validate environment code:**
+  [`cli_runner.py`](../../../isaaclab_arena_examples/agentic_environment_generation/cli_runner.py)
+  `--mode build`. Builds the environment, resets it once and takes a few steps. The log shows how
+  many candidate layouts passed placement and the effective success configuration.
+- **Validate the placement layouts:**
+  [`run_placement_pool_validation.py`](../../../isaaclab_arena/scripts/run_placement_pool_validation.py).
+  Applies every layout stored in the placement pool, as a reset would, and checks that each one
+  settles under physics.
+- **Find why layouts are rejected:**
+  [placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst).
+  Reports, per check (relations, `no_overlap`, `ik_reachable`), how many candidates passed and why
+  the rest were rejected. Printed in the build log; an Experiment Run also writes
+  `arena_run_placement_diagnostics.json`.
+- **Check the task can be completed:**
+  [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst)
+  ([source](../../../isaaclab_arena/agentic_tools/object_control_runner.py)). Drives objects to
+  pose and joint-position targets with bounded forces, without a robot policy, checks the task's
+  success predicates, and diagnoses why an interaction or success condition fails. Its
+  documentation covers recipe and live-command usage, commands and outputs.
+- **List environment variations:** `--list_variations` through
+  [run-experiment](../../user/run-experiment/SKILL.md). Lists the variations an environment
+  declares, without running rollouts.
