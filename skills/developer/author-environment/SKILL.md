@@ -28,9 +28,9 @@ inheritance chains before adding capabilities. If reuse cannot express a require
 missing capability and add the smallest extension. Do not duplicate solvers, predicates, temporal
 counters, reset loops, progress tracking, or variation systems that Arena already provides.
 
-Prefer Arena's existing tools to build, inspect and check an environment: the scene inspector's
-`prim-tree` mode, the placement diagnostics, the two commands in "Validate and hand off", and the
-Object Control Runner. Write a diagnostic script only when these cannot answer the question.
+Prefer Arena's existing tools to build, inspect and check an environment, listed under
+"Authoring and validation tools" below. Write a diagnostic script only when these cannot answer the
+question.
 
 ## Assemble from maintained sources
 
@@ -68,7 +68,7 @@ Read only the references relevant to the requested behavior:
   [relations](../../../docs/pages/concepts/object_placement/relations.rst),
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and the
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
-  Follow the example's scene composition, and check reachability and physical support.
+  Follow the example's scene composition, and check physical support.
 - **Placement diagnostics:** the object placer converts the environment's relations into concrete
   object poses: it solves candidate layouts, then checks each one against its relations, collision
   clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
@@ -101,8 +101,7 @@ Use [dev-container](../dev-container/SKILL.md) for the clone's runtime and host-
 [setup-arena](../../user/setup-arena/SKILL.md) for requested runtime preparation, and
 [run-tests](../run-tests/SKILL.md) for pytest. Run lint and source inspection on the host.
 If no runtime is ready, complete static review and report the limit; do not install dependencies
-or claim runtime success. Authoring does not require policy rollouts, zero-action rollouts, or
-policy servers.
+or claim runtime success. Authoring does not require policy rollouts or policy servers.
 
 Check Python/YAML syntax, referenced constructors, registration, schema conversion, defaults, and
 feature reuse without importing Arena on the host. Use existing focused tests to check changed
@@ -122,13 +121,13 @@ OMNI_KIT_ACCEPT_EULA=YES isaaclab.sh -p \
   isaaclab_arena/scripts/run_placement_pool_validation.py --num_envs 2 --env_spec <environment.yaml>
 ```
 
-Then check how many candidate layouts passed placement in the build log. Only when few pass, or a
-fill fails, read the placement diagnostics for the rejection causes. Also read the success
-configuration that the build prints. Together these show the environment builds and resets cleanly.
+Then read, in the build log, how many candidate layouts passed placement (see "Placement
+diagnostics" above if few pass) and the success configuration that the build prints. Together these
+show the environment builds and resets cleanly.
 
-Do not run zero-action episodes to validate an environment. A zero-action episode only resets at
-its timeout, which takes minutes per episode, and cannot succeed, so it shows nothing the two
-commands above do not.
+Do not run zero-action episodes, either to validate an environment or to see how layouts vary
+between resets. A zero-action episode only resets at its timeout, which takes minutes per episode,
+and cannot succeed, so it shows nothing the two commands above do not.
 
 When the user asks to check that the task can be completed, use the
 [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst)
@@ -150,3 +149,35 @@ using it for interactive inspection; do not assume it supports headless validati
 Finish with the reference example, reused features, any extension rationale, definition/configuration
 paths, checks actually run, and remaining simulation validation. Keep this in the handoff; no extra
 design document is required.
+
+## Authoring and validation tools
+
+- **Find prim paths in a background:**
+  [`scene_inspector.py`](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py)
+  `prim-tree`. Lists a USD scene's authored physics hierarchy as text, or as JSON for one subtree,
+  without starting the simulator. Use it to choose `object_reference.prim_path` values and support
+  prims to anchor.
+- **Validate environment code:**
+  [`cli_runner.py`](../../../isaaclab_arena_examples/agentic_environment_generation/cli_runner.py)
+  `--mode build`. Builds the environment, resets it once and takes a few steps. The log shows how
+  many candidate layouts passed placement and the effective success configuration.
+- **Validate the placement layouts:**
+  [`run_placement_pool_validation.py`](../../../isaaclab_arena/scripts/run_placement_pool_validation.py).
+  Applies every layout stored in the placement pool, as a reset would, and checks that each one
+  settles under physics.
+- **Find why layouts are rejected:**
+  [placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst).
+  Reports, per check (relations, `no_overlap`, `ik_reachable`), how many candidates passed and why
+  the rest were rejected. Printed in the build log; an Experiment Run also writes
+  `arena_run_placement_diagnostics.json`.
+- **Check the task can be completed:**
+  [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst). Drives objects to
+  pose and joint-position targets with bounded forces, without a robot policy, checks the task's
+  success predicates, and diagnoses why an interaction or success condition fails.
+- **List environment variations:** `--list_variations` through
+  [run-experiment](../../user/run-experiment/SKILL.md). Lists the variations an environment
+  declares, without running rollouts.
+- **Evaluate a real policy (optional):** [run-experiment](../../user/run-experiment/SKILL.md), for
+  example with [OpenPI](../../../docs/pages/quickstart/running_a_real_policy/openpi.rst). Runs a
+  policy on the environment and reports its success rate. Needs a policy server and a GPU for some
+  time; ask the user first.

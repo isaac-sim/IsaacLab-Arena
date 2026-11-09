@@ -71,5 +71,4 @@ possible between resets. An object varies along a relation's axis by about that 
 Wide bounds lower the share of candidates that pass, so the pool fills more slowly; the placement
 diagnostics' per-check pass counts show which relation or check rejects them. Keep the pool settings
 (`min_unique_layouts_per_env`, `max_placement_attempts`) at their defaults: every extra layout adds
-solving time to each build. Do not run episodes to see how resets vary; a zero-action episode only
-resets at its timeout, which takes minutes.
+solving time to each build.
