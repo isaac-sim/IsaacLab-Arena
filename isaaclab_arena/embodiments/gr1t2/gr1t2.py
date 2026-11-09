@@ -31,7 +31,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLMimicEnv
-from isaaclab_arena.terms.events import reset_all_articulation_joints
+from isaaclab_arena.terms.events import reset_articulation_to_default
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
@@ -404,10 +404,11 @@ class GR1T2ObservationsCfg:
 class GR1T2EventCfg:
     """Configuration for events."""
 
-    # NOTE(alexmillane, 2025-07-28): I removed this event term because it was resetting
-    # elements of the scene not related to the robot. However, this causes the humanoid
-    # to not go to it's initial pose... Need to figure out what's going on here.
-    reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
+    # Restores the robot's root state as well as its joints; without the root reset the humanoid
+    # does not return to its initial pose. Scene articulations reset themselves.
+    reset_robot = EventTerm(
+        func=reset_articulation_to_default, mode="reset", params={"asset_cfg": SceneEntityCfg("robot")}
+    )
 
 
 class GR1T2MimicEnv(IsaacLabArenaManagerBasedRLMimicEnv):

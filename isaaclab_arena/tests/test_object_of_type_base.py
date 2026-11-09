@@ -52,7 +52,7 @@ def _test_object_of_type_base(simulation_app):
     scene = Scene(assets=[background, cone])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="base_object_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
     )
 

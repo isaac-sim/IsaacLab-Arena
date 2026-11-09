@@ -53,7 +53,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     task = PickAndPlaceTask(cracker_box, destination_location, background)
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="kitchen",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
         task=task,
     )

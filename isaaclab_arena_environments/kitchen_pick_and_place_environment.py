@@ -82,7 +82,7 @@ class KitchenPickAndPlaceEnvironment(ArenaEnvironmentFactory[KitchenPickAndPlace
         )
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=pick_and_place_task,
             teleop_device=teleop_device,

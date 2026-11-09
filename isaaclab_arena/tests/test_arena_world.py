@@ -20,7 +20,7 @@ def _make_sphere_environment(num_envs: int):
     arena_environment = IsaacLabArenaEnvironment(
         name="arena_world_test",
         scene=Scene(assets=[sphere]),
-        embodiment=FrankaJointPosEmbodiment(),
+        embodiments=[FrankaJointPosEmbodiment()],
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", str(num_envs)])
     env = ArenaEnvBuilder(

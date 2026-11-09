@@ -47,7 +47,7 @@ The environment is defined in
 
               return IsaacLabArenaEnvironment(
                   name=self.name,
-                  embodiment=embodiment,
+                  embodiments=[embodiment],
                   scene=scene,
                   task=task,
                   rl_framework_entry_point="rsl_rl_cfg_entry_point",

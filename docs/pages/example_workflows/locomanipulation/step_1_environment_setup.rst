@@ -67,7 +67,7 @@ Environment Description
 
                isaaclab_arena_environment = IsaacLabArenaEnvironment(
                    name=self.name,
-                   embodiment=embodiment,
+                   embodiments=[embodiment],
                    scene=scene,
                    task=task,
                    teleop_device=teleop_device,
@@ -161,7 +161,7 @@ See :doc:`../../concepts/task/index` for task creation details.
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name=self.name,
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=task,
         teleop_device=teleop_device,

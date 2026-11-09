@@ -196,7 +196,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=NoTask(),
             teleop_device=teleop_device,

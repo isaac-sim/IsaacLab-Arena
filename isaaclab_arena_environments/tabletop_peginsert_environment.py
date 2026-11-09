@@ -91,7 +91,7 @@ class PegInsertEnvironment(ArenaEnvironmentFactory[PegInsertEnvironmentCfg]):
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=task,
             teleop_device=teleop_device,

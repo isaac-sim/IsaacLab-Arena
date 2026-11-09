@@ -71,7 +71,7 @@ arm:
        def __init__(self, **kwargs):
            super().__init__(**kwargs)
            for actuator_name in ("panda_shoulder", "panda_forearm"):
-               actuator = self.scene_config.robot.actuators[actuator_name]
+               actuator = self.get_robot_cfg().actuators[actuator_name]
                actuator.stiffness = 200.0
                actuator.damping = 40.0
 
@@ -123,7 +123,7 @@ that composes the custom task and custom embodiment.
 
            return IsaacLabArenaEnvironment(
                name=self.name,
-               embodiment=embodiment,
+               embodiments=[embodiment],
                scene=scene,
                task=task,
            )

@@ -36,7 +36,7 @@ def _test_droid_absolute_pose_adapters(simulation_app):
     arena_env = IsaacLabArenaEnvironment(
         name="droid_vlm_adapter_test",
         scene=Scene(),
-        embodiment=embodiment,
+        embodiments=[embodiment],
     )
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
     try:
@@ -122,7 +122,7 @@ def _test_droid_joint_position_adapters(simulation_app):
     from isaaclab_arena_vlm_agent.commands import Command, CommandChunk
 
     embodiment = DroidAbsoluteJointPositionEmbodiment()
-    arena_env = IsaacLabArenaEnvironment(name="droid_vlm_joint_test", scene=Scene(), embodiment=embodiment)
+    arena_env = IsaacLabArenaEnvironment(name="droid_vlm_joint_test", scene=Scene(), embodiments=[embodiment])
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
     try:
         env.reset()

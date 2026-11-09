@@ -430,7 +430,7 @@ def _test_finished_episode_records_preserve_events(_app, output_dir):
             ]
 
     description = IsaacLabArenaEnvironment(
-        name="tracked_event_episode_limit", scene=Scene(), task=ObservingTask(), embodiment=NoEmbodiment()
+        name="tracked_event_episode_limit", scene=Scene(), task=ObservingTask(), embodiments=[NoEmbodiment()]
     )
     builder = ArenaEnvBuilder(description, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False))
     env = builder.make_registered()
@@ -542,7 +542,7 @@ def _test_builder_and_composition(_app):
         name="observing_task",
         scene=Scene(),
         task=NoTask(),
-        embodiment=NoEmbodiment(),
+        embodiments=[NoEmbodiment()],
     )
     builder = ArenaEnvBuilder(description, ArenaEnvBuilderCfg(solve_relations=False, device="cpu"))
     cfg, _ = builder.build_env_cfg()

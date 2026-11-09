@@ -160,7 +160,7 @@ def _test_recorded_placement_replays_all_compound_asset_roots(simulation_app, tm
     write_placement_samples(path, samples)
 
     embodiment = _make_two_root_embodiment(tmp_path)
-    arena = IsaacLabArenaEnvironment(name="compound_root_replay", scene=Scene(assets=[]), embodiment=embodiment)
+    arena = IsaacLabArenaEnvironment(name="compound_root_replay", scene=Scene(assets=[]), embodiments=[embodiment])
     env = ArenaEnvBuilder(
         arena,
         ArenaEnvBuilderCfg(
