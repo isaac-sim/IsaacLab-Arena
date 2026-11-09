@@ -32,13 +32,14 @@ placed robot, and objects arranged relative to each other. The KitchenBench
 environment lays them out as follows:
 
 - **Supports:** the kitchen uses mesh collision, so it has no relations. Object references to its
-  floor and corner counter are the anchors instead; see [background collision](#background-collision).
-- **Task objects:** the bowl sits `on` the counter, somewhere within a `position_limits_box`. The
-  banana is aligned to the bowl on both axes and the orange to the banana, so the three move
-  together, and each `tolerance_m` lets them vary around their offsets.
-- **Robot:** the robot stands `on` the floor, at a fixed distance in front of the counter
-  (`align_with` on `y`), turned 90 degrees by `rotate_around_solution`. Aligning it with the bowl
-  on `x` makes it follow the task objects along the counter; see
+  floor and back counter are the anchors instead; see [background collision](#background-collision).
+- **Task objects:** the bowl sits `on` the counter, anywhere within a `position_limits_box` band
+  that keeps it clear of the kitchen's built-in clutter. The banana and the orange are each aligned
+  to the bowl on both axes with wide tolerances, so each lands on either side of the bowl,
+  independently of the other, and all three move together along the counter.
+- **Robot:** the robot stands `on` the floor, turned 90 degrees by `rotate_around_solution`, and is
+  aligned with the bowl on both axes: in front of it on `y`, and level with it on `x`. It follows
+  the task objects, and its tolerances vary its distance to them; see
   [robot placement](#robot-placement).
 
 ## Background collision
