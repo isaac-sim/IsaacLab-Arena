@@ -9,17 +9,20 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.assets.simready_constants import (
+from isaaclab_arena.assets.sources.base import UsdPathSource, UsdSource
+from isaaclab_arena.assets.sources.simready import (
     SIMREADY_PHYSICS_VARIANTS,
     SIMREADY_SEARCH_REGISTRY_PREFIX,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,
+    SimReadyCentralUsdSource,
+    is_central_asset_url,
 )
 from isaaclab_arena.utils.pose import Pose
 
@@ -44,6 +47,7 @@ class SimReadyUsdObject(Object):
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         scale: tuple[float, float, float] | None = None,
+        spawn_cfg_addon: dict[str, Any] | None = None,
         **kwargs: Any,
     ):
         """Create an object from a SimReady USD file.
@@ -54,24 +58,18 @@ class SimReadyUsdObject(Object):
             prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/<name>``.
             initial_pose: Initial pose of the object.
             scale: Scale of the object. Defaults to ``(1.0, 1.0, 1.0)``.
+            spawn_cfg_addon: Additional USD spawn configuration.
             **kwargs: Extra arguments passed to ``Object``.
         """
         assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
         assert usd_path, "simready_usd_object requires params.usd_path"
-        from isaaclab_arena.assets.simready_central_asset_loader import (
-            download_and_wrap_central_asset,
-            is_central_asset_url,
-        )
-
-        if is_central_asset_url(usd_path):
-            usd_path = download_and_wrap_central_asset(usd_path)
-        spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
-        spawn_cfg_addon.setdefault("variants", dict(SIMREADY_PHYSICS_VARIANTS))
+        spawn_cfg_addon = dict(spawn_cfg_addon or {})
+        spawn_cfg_addon["variants"] = _merge_simready_variant_selections(spawn_cfg_addon.get("variants"))
         super().__init__(
             name=name or self.registry_name,
             prim_path=prim_path,
             tags=self.tags,
-            usd_path=usd_path,
+            usd_path=_simready_usd_source(usd_path),
             object_type=self.object_type,
             scale=scale if scale is not None else (1.0, 1.0, 1.0),
             initial_pose=initial_pose,
@@ -107,7 +105,6 @@ def register_searched_simready_object(
     registry = AssetRegistry()
     if registry.is_registered(searched_registry_name, ensure_loaded=False):
         return registry.get_asset_by_name(searched_registry_name)
-    found_usd_path = usd_path
     # Tagged 'object' unlike the generic asset, because this one carries its own usd_path.
     merged_tags = list(dict.fromkeys(["object", *SimReadyUsdObject.tags, *tags]))
 
@@ -118,8 +115,32 @@ def register_searched_simready_object(
         tags = merged_tags
 
         def __init__(self, **kwargs: Any):
-            kwargs.setdefault("usd_path", found_usd_path)
+            kwargs.setdefault("usd_path", usd_path)
             super().__init__(**kwargs)
 
     registry.register(SearchedSimReadyObject, searched_registry_name)
     return SearchedSimReadyObject
+
+
+def _simready_usd_source(usd_path: str) -> UsdSource:
+    """Build a SimReady source for a direct path or Central URL."""
+    if is_central_asset_url(usd_path):
+        return SimReadyCentralUsdSource(usd_path)
+    return UsdPathSource(usd_path)
+
+
+def _merge_simready_variant_selections(overrides: object | None) -> dict[str, str]:
+    """Merge SimReady selections with dictionary or configclass overrides."""
+    if overrides is None:
+        override_values = {}
+    elif isinstance(overrides, Mapping):
+        override_values = dict(overrides)
+    else:
+        to_dict = getattr(overrides, "to_dict", None)
+        assert callable(to_dict), f"variants must be a mapping or configclass instance, got {type(overrides)}"
+        override_values = to_dict()
+        assert isinstance(override_values, dict), "configclass variants must convert to a dictionary"
+    assert all(
+        isinstance(key, str) and isinstance(value, str) for key, value in override_values.items()
+    ), "variant names and selections must be strings"
+    return {**SIMREADY_PHYSICS_VARIANTS, **override_values}

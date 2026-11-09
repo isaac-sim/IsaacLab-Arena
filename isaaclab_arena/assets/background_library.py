@@ -11,9 +11,10 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel_kitchens
-from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.sources.base import UsdSource
+from isaaclab_arena.assets.sources.lightwheel import acquire_lightwheel_asset
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -27,7 +28,7 @@ class LibraryBackground(Background):
     """Key of this asset class in the asset registry."""
 
     tags: list[str]
-    usd_path: str | None = None
+    usd_path: str | UsdSource | None = None
     initial_pose: Pose | None = None
     object_min_z: float
     spawn_cfg_addon: dict[str, Any] = {}

@@ -27,7 +27,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadySourceKind,
     simready_search_config_from_cli,
 )
-from isaaclab_arena.assets.simready_constants import DEFAULT_SIMREADY_SERVICE_URL
+from isaaclab_arena.assets.sources.simready import DEFAULT_SIMREADY_SERVICE_URL
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.inference.backend import DEFAULT_ENDPOINT_NAME, INFERENCE_ENDPOINT_ENV_VAR, INFERENCE_ENDPOINTS
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (

@@ -7,6 +7,10 @@
 
 from __future__ import annotations
 
+from unittest.mock import Mock
+
+import pytest
+
 from isaaclab_arena.assets.registries import AssetRegistry, ensure_assets_registered
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 
@@ -65,10 +69,38 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
     assert stage.Export(usd_path)
 
     obj = SimReadyUsdObject(usd_path=usd_path, name="kettle")
-    assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics"}
+    assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics", "PhysX": "Enabled"}
     spawn = obj._get_spawn_cfg(activate_contact_sensors=True)
-    assert spawn.variants == {"Physics": "physics"}
+    assert spawn.variants == {"Physics": "physics", "PhysX": "Enabled"}
     assert obj.usd_path == usd_path
+
+
+def test_simready_usd_object_merges_configclass_variants(tmp_path):
+    from isaaclab.utils import configclass
+
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
+    from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
+
+    @configclass
+    class VariantSelections:
+        Physics: str = "custom"
+        Quality: str = "High"
+
+    stage = new_stage()
+    add_body(stage, "body")
+    usd_path = str(tmp_path / "rigid.usda")
+    assert stage.Export(usd_path)
+
+    obj = SimReadyUsdObject(
+        usd_path=usd_path,
+        spawn_cfg_addon={"variants": VariantSelections()},
+    )
+
+    assert obj.spawn_cfg_addon["variants"] == {
+        "Physics": "custom",
+        "PhysX": "Enabled",
+        "Quality": "High",
+    }
 
 
 def test_simready_search_registry_name_derives_an_identifier_from_the_phrase():
@@ -114,3 +146,46 @@ def test_registering_distinct_assets_for_the_same_phrase_preserves_both():
     assert AssetSpec(id="first", registry_name=first.registry_name).resolve_usd_path() == "s3://bucket/kettle_a.usd"
     assert AssetSpec(id="second", registry_name=second.registry_name).resolve_usd_path() == "s3://bucket/kettle_b.usd"
     assert register_searched_simready_object("steel kettle", "s3://bucket/kettle_a.usd") is first
+
+
+@pytest.mark.parametrize("variant_type", ["dict", "configclass", "none"])
+def test_simready_factory_merges_variant_selections_without_mutating_inputs(tmp_path, monkeypatch, variant_type):
+    from isaaclab.utils import configclass
+
+    from isaaclab_arena.assets import simready_object_library
+    from isaaclab_arena.assets.sources.base import UsdSource
+    from isaaclab_arena.assets.sources.simready import SIMREADY_PHYSICS_VARIANTS
+    from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
+
+    stage = new_stage()
+    add_body(stage, "body")
+    usd_path = str(tmp_path / "rigid.usda")
+    assert stage.Export(usd_path)
+
+    @configclass
+    class VariantSelections:
+        Quality: str = "High"
+
+    if variant_type == "configclass":
+        caller_variants = VariantSelections()
+    elif variant_type == "dict":
+        caller_variants = {"Quality": "High"}
+    else:
+        caller_variants = None
+    addon = {"variants": caller_variants}
+
+    source = Mock(spec=UsdSource)
+    source.resolve.return_value = usd_path
+    monkeypatch.setattr(simready_object_library, "_simready_usd_source", lambda _: source)
+    obj = simready_object_library.SimReadyUsdObject(usd_path=usd_path, spawn_cfg_addon=addon)
+
+    expected = dict(SIMREADY_PHYSICS_VARIANTS)
+    if variant_type != "none":
+        expected["Quality"] = "High"
+    assert obj.spawn_cfg_addon["variants"] == expected
+    assert obj.object_cfg.spawn.variants == expected
+    assert addon["variants"] is caller_variants
+    if variant_type == "configclass":
+        assert caller_variants.to_dict() == {"Quality": "High"}
+    elif variant_type == "dict":
+        assert caller_variants == {"Quality": "High"}

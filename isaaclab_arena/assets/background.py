@@ -14,6 +14,7 @@ from isaaclab.sim.utils import clone
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
 
@@ -29,7 +30,7 @@ class Background(Object):
     def __init__(
         self,
         name: str,
-        usd_path: str,
+        usd_path: str | UsdSource,
         object_min_z: float,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,

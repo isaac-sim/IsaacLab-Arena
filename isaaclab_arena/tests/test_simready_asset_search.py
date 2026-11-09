@@ -27,7 +27,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadySourceKind,
     simready_search_config_from_cli,
 )
-from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.sources.simready import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 SEARCH_LOGGER = "isaaclab_arena.agentic_environment_generation.simready_asset_library_search"
 """Where the search reports its progress, now that the agent's traces carry only errors."""
@@ -328,7 +328,7 @@ def test_ga_ignores_custom_s3_url(source):
     from isaaclab_arena.agentic_environment_generation.simready_asset_library_search import (
         _create_asset_library_for_source,
     )
-    from isaaclab_arena.assets.simready_constants import ISAAC_SIMREADY_GA_S3_URL
+    from isaaclab_arena.assets.sources.simready import ISAAC_SIMREADY_GA_S3_URL
 
     with patch("simready.search.AssetLibrary") as library:
         library.return_value.add_s3_source = AsyncMock()

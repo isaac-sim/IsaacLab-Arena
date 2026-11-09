@@ -1,13 +1,47 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Lazy Lightwheel USD acquisition."""
+
+from __future__ import annotations
+
+import json
 import time
 from collections.abc import Callable
 from typing import Any
 
+from isaaclab_arena.assets.sources.base import UsdSource
+
 _MISSING = object()
+
+
+class LightwheelUsdSource(UsdSource):
+    """Acquire and memoize one Lightwheel USD on first resolution."""
+
+    def __init__(self, **acquire_by_registry_kwargs: Any):
+        self._kwargs = acquire_by_registry_kwargs
+        self._resolved: str | None = None
+
+    def identity(self) -> str:
+        """Return a stable identity derived from the registry query."""
+        query = json.dumps(self._kwargs, sort_keys=True, separators=(",", ":"))
+        return f"lightwheel:{query}"
+
+    def resolve(self) -> str:
+        """Acquire the USD on first use and reuse that path thereafter."""
+        if self._resolved is None:
+            from lightwheel_sdk.loader import object_loader
+
+            file_path, _, _ = acquire_lightwheel_asset(
+                object_loader,
+                object_loader.acquire_by_registry,
+                description=f"Lightwheel asset {self._kwargs}",
+                **self._kwargs,
+            )
+            self._resolved = str(file_path)
+        return self._resolved
 
 
 def acquire_lightwheel_asset(
@@ -17,10 +51,9 @@ def acquire_lightwheel_asset(
     attempts: int = 3,
     timeout_sec: int | None = 60,
     delay_sec: float = 2.0,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """Acquire a Lightwheel asset with scoped timeout and retry handling."""
-
     assert attempts > 0, "attempts must be positive"
     assert delay_sec >= 0, "delay_sec must be non-negative"
 
