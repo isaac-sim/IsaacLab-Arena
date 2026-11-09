@@ -21,7 +21,8 @@ from isaaclab_arena.assets.simready_constants import (
     SIMREADY_SEARCH_REGISTRY_PREFIX,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,
 )
-from isaaclab_arena.assets.sources.simready import download_and_wrap_central_asset, is_central_asset_url
+from isaaclab_arena.assets.sources.base import UsdSource
+from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource, is_central_asset_url
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_bodies import usd_variant_selections_to_dict
 
@@ -68,7 +69,7 @@ class SimReadyUsdObject(Object):
             name=name or self.registry_name,
             prim_path=prim_path,
             tags=self.tags,
-            usd_path=_simready_usd_path(usd_path),
+            usd_path=_simready_usd_source(usd_path),
             object_type=self.object_type,
             scale=scale if scale is not None else (1.0, 1.0, 1.0),
             initial_pose=initial_pose,
@@ -121,10 +122,10 @@ def register_searched_simready_object(
     return SearchedSimReadyObject
 
 
-def _simready_usd_path(usd_path: str) -> str:
-    """Return the cached wrapper for a pinned Central URL, otherwise preserve the path."""
+def _simready_usd_source(usd_path: str) -> str | UsdSource:
+    """Return a rigid Central source for a pinned URL, otherwise preserve the path."""
     if is_central_asset_url(usd_path):
-        return download_and_wrap_central_asset(usd_path)
+        return SimReadyCentralRigidSource(usd_path)
     return usd_path
 
 

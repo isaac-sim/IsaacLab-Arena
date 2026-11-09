@@ -15,10 +15,10 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadySearchConfig,
     SimReadySourceKind,
 )
-from isaaclab_arena.assets.sources.simready import _parse_central_asset_url, is_central_asset_url
+from isaaclab_arena.assets.sources.simready_central import _parse_central_asset_url, is_central_asset_url
 
 MODULE = "isaaclab_arena.agentic_environment_generation.simready_central_search"
-LOADER = "isaaclab_arena.assets.sources.simready"
+LOADER = "isaaclab_arena.assets.sources.simready_central"
 REVISION = "a" * 40
 URL = f"hf://huggingface.co/datasets/nvidia/simready-assets/resolve/{REVISION}/pallet/simready_usd/pallet.usd"
 
@@ -33,14 +33,13 @@ def test_central_requires_single_body_metadata_and_skips_invalid_usd():
     response.json.return_value = {"hits": [_hit(None), _hit(2), _hit(1), _hit(1)]}
     with (
         patch(f"{MODULE}.requests.post", return_value=response) as post,
-        patch(
-            f"{MODULE}.download_and_wrap_central_asset", side_effect=[ValueError("articulation"), "/cache/pallet.usda"]
-        ) as prepare,
+        patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
     ):
+        source.return_value.resolve.side_effect = [ValueError("articulation"), "/cache/pallet.usda"]
         candidates = search_central_objects("pallet", max_results=1)
     assert [candidate.usd_path for candidate in candidates] == [URL.replace("hf://", "https://", 1)]
-    assert all(call.args == (URL.replace("hf://", "https://", 1),) for call in prepare.call_args_list)
-    assert prepare.call_count == 2
+    assert all(call.args == (URL.replace("hf://", "https://", 1),) for call in source.call_args_list)
+    assert source.call_count == 2
     assert post.call_args.kwargs["json"]["filter_by_properties_numeric"] == "simready_metadata_rigid_body_count=1"
     assert post.call_args.kwargs["timeout"] == 30
 
@@ -74,13 +73,37 @@ def test_central_rejects_unpinned_or_unbounded_packages(url):
         _parse_central_asset_url(url)
 
 
+def test_central_usd_source_downloads_package_once():
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
+
+    source = SimReadyCentralUsdSource(URL)
+    with patch(f"{LOADER}.download_central_asset_package", return_value="/cache/pallet.usd") as download:
+        assert source.resolve() == "/cache/pallet.usd"
+        assert source.resolve() == "/cache/pallet.usd"
+    download.assert_called_once_with(URL)
+
+
+def test_central_rigid_source_wraps_package_once():
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource, SimReadyCentralUsdSource
+
+    source = SimReadyCentralRigidSource(URL)
+    with (
+        patch.object(SimReadyCentralUsdSource, "resolve", return_value="/cache/pallet.usd") as resolve_package,
+        patch(f"{LOADER}.create_central_rigid_wrapper", return_value="/cache/pallet.usda") as create_wrapper,
+    ):
+        assert source.resolve() == "/cache/pallet.usda"
+        assert source.resolve() == "/cache/pallet.usda"
+    resolve_package.assert_called_once_with()
+    create_wrapper.assert_called_once_with("/cache/pallet.usd", source_url=URL)
+
+
 def _test_central_usd_validation(simulation_app):
     import tempfile
     from pathlib import Path
 
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.assets.sources.simready import download_and_wrap_central_asset
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource
 
     with tempfile.TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -102,7 +125,7 @@ def _test_central_usd_validation(simulation_app):
             patch(f"{LOADER}.download_central_asset_package", return_value=str(asset)),
             patch(f"{LOADER}.Path.home", return_value=folder),
         ):
-            wrapper = download_and_wrap_central_asset(URL)
+            wrapper = SimReadyCentralRigidSource(URL).resolve()
             wrapper_stage = Usd.Stage.Open(wrapper)
             wrapper_root = wrapper_stage.GetDefaultPrim()
             assert wrapper_root.GetVariantSet("PhysX").GetVariantSelection() == "Enabled"
@@ -110,17 +133,17 @@ def _test_central_usd_validation(simulation_app):
             body.GetRigidBodyEnabledAttr().Set(False)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="disabled"):
-                download_and_wrap_central_asset(URL)
+                SimReadyCentralRigidSource(URL).resolve()
             body.GetRigidBodyEnabledAttr().Set(True)
             UsdPhysics.ArticulationRootAPI.Apply(root)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="articulation root"):
-                download_and_wrap_central_asset(URL)
+                SimReadyCentralRigidSource(URL).resolve()
             root.RemoveAPI(UsdPhysics.ArticulationRootAPI)
             UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(stage, "/Pallet/Other").GetPrim())
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="found 2"):
-                download_and_wrap_central_asset(URL)
+                SimReadyCentralRigidSource(URL).resolve()
     return True
 
 
@@ -133,7 +156,7 @@ def test_central_usd_validation():
 def test_central_download_lists_only_the_selected_package():
     from huggingface_hub.hf_api import RepoFile
 
-    from isaaclab_arena.assets.sources.simready import download_central_asset_package
+    from isaaclab_arena.assets.sources.simready_central import download_central_asset_package
 
     filenames = ["pallet/simready_usd/pallet.usd", "pallet/textures/color.png"]
     entries = [RepoFile(path=path, size=1, oid="a" * 40) for path in filenames]
@@ -183,12 +206,13 @@ def test_central_rejects_unrelated_hit_before_download_and_tries_next(caplog):
     response.json.return_value = {"hits": [_hit(1, cabinet), _hit(1, bin_url)]}
     with (
         patch(f"{MODULE}.requests.post", return_value=response),
-        patch(f"{MODULE}.download_and_wrap_central_asset", return_value="/cache/bin.usda") as prepare,
+        patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
         caplog.at_level(logging.INFO, logger=MODULE),
     ):
         candidates = search_central_objects("grey bin", max_results=1)
     assert [candidate.usd_path for candidate in candidates] == [bin_url.replace("hf://", "https://", 1)]
-    prepare.assert_called_once_with(candidates[0].usd_path)
+    source.assert_called_once_with(candidates[0].usd_path)
+    source.return_value.resolve.assert_called_once_with()
     assert "asset name does not match the object" in caplog.text
 
 
@@ -200,12 +224,12 @@ def test_central_unrelated_hits_leave_phrase_unmatched(filename):
     response.json.return_value = {"hits": [_hit(1, path)]}
     with (
         patch(f"{MODULE}.requests.post", return_value=response),
-        patch(f"{MODULE}.download_and_wrap_central_asset") as prepare,
+        patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
     ):
         result = search_simready_objects(["grey bin"], SimReadySearchConfig(sources=[SimReadySourceKind.CENTRAL]))
     assert result.candidates == []
     assert result.unmatched_phrases == ["grey bin"]
-    prepare.assert_not_called()
+    source.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -224,8 +248,9 @@ def test_central_accepts_matching_asset_names(phrase, filename):
     response.json.return_value = {"hits": [_hit(1, path)]}
     with (
         patch(f"{MODULE}.requests.post", return_value=response),
-        patch(f"{MODULE}.download_and_wrap_central_asset", return_value="/cache/asset.usda") as prepare,
+        patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
     ):
         candidates = search_central_objects(phrase, max_results=1)
     assert [candidate.usd_path for candidate in candidates] == [path.replace("hf://", "https://", 1)]
-    prepare.assert_called_once_with(candidates[0].usd_path)
+    source.assert_called_once_with(candidates[0].usd_path)
+    source.return_value.resolve.assert_called_once_with()

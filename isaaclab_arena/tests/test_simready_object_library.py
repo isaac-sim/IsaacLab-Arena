@@ -75,15 +75,16 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
 
 def test_simready_usd_object_resolves_central_url(monkeypatch):
     from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource
 
     url = f"hf://huggingface.co/datasets/nvidia/simready-assets/resolve/{'a' * 40}/pallet/simready_usd/pallet.usd"
     resolved_urls = []
 
-    def download(url: str) -> str:
-        resolved_urls.append(url)
+    def resolve(source: SimReadyCentralRigidSource) -> str:
+        resolved_urls.append(source.url)
         return "/cache/pallet.usda"
 
-    monkeypatch.setattr("isaaclab_arena.assets.simready_object_library.download_and_wrap_central_asset", download)
+    monkeypatch.setattr(SimReadyCentralRigidSource, "resolve", resolve)
 
     obj = SimReadyUsdObject(usd_path=url)
 
