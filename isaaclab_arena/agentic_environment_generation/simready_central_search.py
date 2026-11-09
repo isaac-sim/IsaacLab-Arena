@@ -17,7 +17,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     MIN_INSPECTED_MATCHES_PER_PHRASE,
     SimReadyObjectCandidate,
 )
-from isaaclab_arena.assets.sources.simready import download_and_wrap_central_asset
+from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource
 
 CENTRAL_SEARCH_URL = "https://nvidia-simready-central.hf.space/search_hybrid"
 CENTRAL_STORAGE_BACKEND = "usdsearch-dev"
@@ -76,7 +76,7 @@ def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObj
             if not counts or any(float(count) != 1 for count in counts):
                 continue
             usd_path = source["path"].replace("hf://", "https://", 1)
-            download_and_wrap_central_asset(usd_path)  # Validate and populate the local cache.
+            SimReadyCentralRigidSource(usd_path).resolve()  # Validate and populate the local cache.
             candidates.append(
                 SimReadyObjectCandidate(
                     search_phrase=phrase,
