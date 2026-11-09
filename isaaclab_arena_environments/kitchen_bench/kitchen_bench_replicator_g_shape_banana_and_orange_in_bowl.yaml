@@ -27,77 +27,73 @@ object_references:
   parent_id: kitchen
   prim_path: KitchenRoom/Floor
   object_type: base
-- id: corner_counter
+- id: back_counter
   parent_id: kitchen
-  prim_path: CornerCounter_00_0
+  prim_path: CapSurface
   object_type: base
 # Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
 - kind: is_anchor
-  subject: corner_counter
+  subject: back_counter
 - kind: 'on'
   subject: droid
   reference: floor
 - kind: align_with
   subject: droid
-  reference: corner_counter
+  reference: wooden_bowl
   params:
     axis: y
-    offset_m: -0.99
-    tolerance_m: 0.05
+    offset_m: -0.96
+    tolerance_m: 0.15
 - kind: rotate_around_solution
   subject: droid
   params:
     yaw_rad: 1.57
 - kind: 'on'
   subject: banana
-  reference: corner_counter
+  reference: back_counter
 - kind: 'on'
   subject: orange
-  reference: corner_counter
+  reference: back_counter
 - kind: 'on'
   subject: wooden_bowl
-  reference: corner_counter
+  reference: back_counter
 - kind: position_limits_box
   subject: wooden_bowl
   params:
-    x_limits: [-1.89, -1.55]
-    y_limits: [2.07, 2.21]
+    x_limits: [-1.4, -0.2]
 - kind: align_with
   subject: banana
   reference: wooden_bowl
   params:
     axis: x
-    offset_m: -0.25
-    tolerance_m: 0.05
+    tolerance_m: 0.35
 - kind: align_with
   subject: banana
   reference: wooden_bowl
   params:
     axis: y
-    offset_m: -0.1
-    tolerance_m: 0.06
+    tolerance_m: 0.2
 - kind: align_with
   subject: orange
-  reference: banana
+  reference: wooden_bowl
   params:
     axis: x
-    tolerance_m: 0.1
+    tolerance_m: 0.35
 - kind: align_with
   subject: orange
-  reference: banana
+  reference: wooden_bowl
   params:
     axis: y
-    offset_m: 0.23
-    tolerance_m: 0.05
+    tolerance_m: 0.2
 - kind: align_with
   subject: droid
   reference: wooden_bowl
   params:
     axis: x
-    tolerance_m: 0.12
+    tolerance_m: 0.15
 task:
   composition: parallel
   description: Pick up the banana and the orange and place both fruits into the wooden bowl in either
