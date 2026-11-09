@@ -21,7 +21,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadyObjectCandidate,
     SimReadySourceKind,
 )
-from isaaclab_arena.assets.sources.simready import (
+from isaaclab_arena.assets.simready_constants import (
     DEFAULT_SIMREADY_SERVICE_URL,
     ISAAC_SIMREADY_GA_S3_URL,
     SIMREADY_PHYSICS_VARIANTS,

@@ -88,6 +88,24 @@ def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None =
     return list(_RIGID_BODY_PATHS_BY_ASSET[key])
 
 
+def usd_variant_selections_to_dict(variants: object | None) -> dict[str, str]:
+    """Return Isaac Lab USD variant selections as a new dictionary.
+
+    Args:
+        variants: Variant selections given as a dictionary, configclass, or ``None``.
+
+    Returns:
+        A copy of the variant selections, or an empty dictionary when unset.
+    """
+    if variants is None:
+        return {}
+    if isinstance(variants, dict):
+        return dict(variants)
+    values = variants.to_dict()
+    assert isinstance(values, dict), "configclass variants must convert to a dictionary"
+    return values
+
+
 def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> None:
     """Select USD variants on the stage's default prim.
 

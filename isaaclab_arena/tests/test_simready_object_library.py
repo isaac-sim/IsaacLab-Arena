@@ -73,6 +73,24 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
     assert obj.usd_path == usd_path
 
 
+def test_simready_usd_object_resolves_central_url(monkeypatch):
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
+
+    url = f"hf://huggingface.co/datasets/nvidia/simready-assets/resolve/{'a' * 40}/pallet/simready_usd/pallet.usd"
+    resolved_urls = []
+
+    def download(url: str) -> str:
+        resolved_urls.append(url)
+        return "/cache/pallet.usda"
+
+    monkeypatch.setattr("isaaclab_arena.assets.simready_object_library.download_and_wrap_central_asset", download)
+
+    obj = SimReadyUsdObject(usd_path=url)
+
+    assert obj.usd_path == "/cache/pallet.usda"
+    assert resolved_urls == [url]
+
+
 def test_simready_search_registry_name_derives_an_identifier_from_the_phrase():
     from isaaclab_arena.assets.simready_object_library import simready_search_registry_name
 
@@ -137,17 +155,18 @@ def test_simready_factory_merges_variant_selections_without_mutating_inputs(tmp_
 
     if variant_type == "configclass":
         caller_variants = VariantSelections()
+        expected = {"Physics": "custom", "Quality": "High"}
     else:
-        caller_variants = {"Physics": "custom", "Quality": "High"}
+        caller_variants = {"Quality": "High"}
+        expected = {"Physics": "physics", "Quality": "High"}
     addon = {"variants": caller_variants}
 
     obj = SimReadyUsdObject(usd_path=usd_path, spawn_cfg_addon=addon)
 
-    expected = {"Physics": "custom", "Quality": "High"}
     assert obj.spawn_cfg_addon["variants"] == expected
     assert obj.object_cfg.spawn.variants == expected
     assert addon["variants"] is caller_variants
     if variant_type == "configclass":
         assert caller_variants.to_dict() == expected
     else:
-        assert caller_variants == expected
+        assert caller_variants == {"Quality": "High"}
