@@ -37,7 +37,7 @@ environment on October 28, 2026.
 
    * - Multi-object pick-and-place
      - 3
-     - 39.7%
+     - 32.3%
 
    * - Spatial placement
      - 2
@@ -49,7 +49,7 @@ environment on October 28, 2026.
 
    * - **Total**
      - **42**
-     - **38.8%**
+     - **38.3%**
 
 Each row links to the source YAML and shows a Pi policy execution recorded from
 the maintained DROID external camera. Rows are grouped by task category.
@@ -291,7 +291,7 @@ the maintained DROID external camera. Rows are grouped by task category.
           :width: 100%
    * - Multi-object pick-and-place
      - `kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml>`_
-     - 43%
+     - 21%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl_pi05.gif
           :alt: Pi0.5 policy placing a banana and an orange into a wooden bowl in the G-shaped kitchen
           :width: 100%
