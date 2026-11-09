@@ -21,7 +21,7 @@ supported route:
 
 | Route | Use it when |
 |---|---|
-| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic environment generation. |
+| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic authoring. |
 | Docker | Use when requested or when the existing workflow is container-based. |
 
 Do not silently switch routes.

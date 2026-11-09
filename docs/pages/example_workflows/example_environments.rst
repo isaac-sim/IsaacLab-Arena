@@ -12,8 +12,7 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
   argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
 * **Environment graph YAML specs**: ``ArenaEnvGraphSpec`` files that describe the same
   scene, embodiment, task, objects, and relations declaratively. These are
-  passed with ``--env_spec`` and can be generated from prompts by the
-  :doc:`agentic_env_gen/index` workflow.
+  passed with ``--env_spec``.
 
 The environments are grouped into three catalogs:
 
