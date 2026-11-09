@@ -20,15 +20,11 @@ from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.reference_source import ReferenceSource
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd.articulation import (
-    adjust_prismatic_joint_positions_for_spawn_scale,
-    articulation_joint_prims,
-    compute_posed_prim_world_deltas,
-    resolve_joint_pos_patterns,
-)
+from isaaclab_arena.utils.usd.articulation import compute_articulation_body_world_delta
 from isaaclab_arena.utils.usd.helpers import (
     NoCollisionMeshError,
     compute_world_aligned_bounding_box_relative_to_prim_origin,
@@ -59,7 +55,8 @@ class ObjectReference(RootedObjectBase):
                 f"got {parent_asset.object_type} for '{parent_asset.name}'."
             )
         self.parent_asset = parent_asset
-        self._parent_scale = parent_asset.scale
+        self._source = ReferenceSource.from_parent_asset(parent_asset)
+        self._parent_scale = self.root_asset.scale
         # Resolve the path, link motion and pose together to avoid opening the parent USD stage multiple times.
         # The link motion is None unless the reference is a BASE reference to a body of an articulated parent.
         (
@@ -97,22 +94,20 @@ class ObjectReference(RootedObjectBase):
     @property
     def root_asset(self) -> Object:
         """Return the spawned asset at the top of the reference chain."""
-        if isinstance(self.parent_asset, ObjectReference):
-            return self.parent_asset.root_asset
-        return self.parent_asset
+        return self._source.asset
 
     @property
     def usd_path(self) -> str:
         """Return the source USD path inherited from the root asset."""
-        return self.parent_asset.usd_path
+        return self.root_asset.usd_path
 
     def open_spawned_usd_stage(self) -> Usd.Stage:
         """Open the root parent's spawned USD stage."""
-        return self.parent_asset.open_spawned_usd_stage()
+        return self.root_asset.open_spawned_usd_stage()
 
     @property
     def prim_path_in_parent_usd(self) -> str:
-        """Return the referenced prim's absolute path in its parent USD stage."""
+        """Return the referenced prim's absolute path in the source USD file, for collision exclusions."""
         return self._prim_path_in_parent_usd
 
     def add_relation(self, relation: RelationBase) -> None:
@@ -140,10 +135,8 @@ class ObjectReference(RootedObjectBase):
         The bounding box is computed lazily and cached for subsequent calls.
         """
         if self._bounding_box is None:
-            parent_stage = self.parent_asset.open_spawned_usd_stage()
-            prim_path_in_stage = self.isaaclab_prim_path_to_original_prim_path(
-                self.prim_path, self.parent_asset, parent_stage
-            )
+            parent_stage = self.open_spawned_usd_stage()
+            prim_path_in_stage = self._source.prim_path_in_stage(self.prim_path, parent_stage)
             raw_bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(parent_stage, prim_path_in_stage)
             if self._initial_link_world_delta is not None:
                 # The bounds are measured from the link origin, which carries the motion's translation.
@@ -156,9 +149,9 @@ class ObjectReference(RootedObjectBase):
 
     def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
         """Return the root asset's rotation; authored prim rotations are already included in the bounds."""
-        if isinstance(self.parent_asset, ObjectReference):
-            return self.parent_asset.get_bounding_box_rotation()
-        return self.get_parent_pose().rotation_xyzw
+        T_E_D = self.root_asset.initial_pose
+        assert T_E_D is None or isinstance(T_E_D, Pose), "ObjectReference requires a fixed source pose"
+        return (T_E_D if T_E_D is not None else Pose.identity()).rotation_xyzw
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the referenced prim's collision mesh in its local frame, or None if unavailable."""
@@ -177,14 +170,10 @@ class ObjectReference(RootedObjectBase):
 
     def _extract_collision_mesh(self) -> trimesh.Trimesh:
         """Extract the referenced prim mesh from the parent asset USD."""
-        parent_stage = self.parent_asset.open_spawned_usd_stage()
-        prim_path_in_stage = self.isaaclab_prim_path_to_original_prim_path(
-            self.prim_path, self.parent_asset, parent_stage
-        )
+        parent_stage = self.open_spawned_usd_stage()
+        prim_path_in_stage = self._source.prim_path_in_stage(self.prim_path, parent_stage)
         if not parent_stage.GetPrimAtPath(prim_path_in_stage):
-            raise ValueError(
-                f"No prim found with path {prim_path_in_stage} in the stage spawned from {self.parent_asset.usd_path}"
-            )
+            raise ValueError(f"No prim found with path {prim_path_in_stage} in the stage spawned from {self.usd_path}")
         return extract_trimesh_from_prim(parent_stage, prim_path_in_stage, self._parent_scale)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
@@ -248,13 +237,15 @@ class ObjectReference(RootedObjectBase):
         """
         # The spawned stage selects the parent's variants, behind which physics schemas such as a SimReady asset's
         # can sit.
-        parent_stage = parent_asset.open_spawned_usd_stage()
-        prim_path_in_stage = self.isaaclab_prim_path_to_original_prim_path(self.prim_path, parent_asset, parent_stage)
-        prim_path_in_usd = _get_prim_path_in_referenced_usd(parent_stage, prim_path_in_stage)
+        parent_stage = self.open_spawned_usd_stage()
+        prim_path_in_stage = self._source.prim_path_in_stage(self.prim_path, parent_stage)
+        prim_path_in_usd = self._source.prim_path_in_source_usd(prim_path_in_stage, parent_stage)
         prim = parent_stage.GetPrimAtPath(prim_path_in_stage)
         if not prim:
             raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
-        initial_link_world_delta = self._get_initial_link_world_delta(parent_asset, parent_stage, prim)
+        scope_prim_path = self._source.prim_path_in_stage(self._source.scope_prim_path, parent_stage)
+        scope_prim = parent_stage.GetPrimAtPath(scope_prim_path)
+        initial_link_world_delta = self._get_initial_link_world_delta(parent_asset, scope_prim, prim)
         T_D_O = get_prim_pose_in_default_prim_frame(prim, parent_stage, initial_link_world_delta)
         T_D_O = Pose(
             position_xyz=tuple(
@@ -262,12 +253,8 @@ class ObjectReference(RootedObjectBase):
             ),
             rotation_xyzw=T_D_O.rotation_xyzw,
         )
-        if isinstance(parent_asset, ObjectReference):
-            parent_prim_path = self.isaaclab_prim_path_to_original_prim_path(
-                parent_asset.prim_path, parent_asset, parent_stage
-            )
-            parent_prim = parent_stage.GetPrimAtPath(parent_prim_path)
-            T_D_P = get_prim_pose_in_default_prim_frame(parent_prim, parent_stage)
+        if scope_prim != parent_stage.GetDefaultPrim():
+            T_D_P = get_prim_pose_in_default_prim_frame(scope_prim, parent_stage)
             T_D_P = Pose(
                 position_xyz=tuple(
                     position * scale for position, scale in zip(T_D_P.position_xyz, self._parent_scale, strict=True)
@@ -282,13 +269,13 @@ class ObjectReference(RootedObjectBase):
         )
 
     def _get_initial_link_world_delta(
-        self, parent_asset: Object | ObjectReference, parent_stage: Usd.Stage, prim: Usd.Prim
+        self, parent_asset: Object | ObjectReference, articulation_prim: Usd.Prim, prim: Usd.Prim
     ) -> np.ndarray | None:
         """Return the stage-world motion of a referenced link at the parent's initial joint positions.
 
         Args:
             parent_asset: Asset whose USD contains the referenced prim.
-            parent_stage: The parent asset's opened USD stage.
+            articulation_prim: The parent asset's subtree in the spawned USD stage.
             prim: The referenced prim.
 
         Returns:
@@ -302,42 +289,11 @@ class ObjectReference(RootedObjectBase):
             and prim.HasAPI(UsdPhysics.RigidBodyAPI)
         ):
             return None
-        articulation_prim = parent_stage.GetDefaultPrim()
-        if isinstance(parent_asset, ObjectReference):
-            articulation_prim_path = self.isaaclab_prim_path_to_original_prim_path(
-                parent_asset.prim_path, parent_asset, parent_stage
-            )
-            articulation_prim = parent_stage.GetPrimAtPath(articulation_prim_path)
-        # Find the body's joint before reading joint names, so a link that no joint moves builds even when the
-        # parent repeats a joint name. Joints may target a mesh beneath the body, so match each child target by its
-        # rigid body.
-        parent_joint_child_paths = []
-        for joint_prim in Usd.PrimRange(articulation_prim):
-            if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint):
-                continue
-            for child_path in UsdPhysics.Joint(joint_prim).GetBody1Rel().GetTargets():
-                if _find_owning_rigid_body_prim(parent_stage.GetPrimAtPath(child_path)) == prim:
-                    parent_joint_child_paths.append(child_path.pathString)
-        assert len(parent_joint_child_paths) <= 1, f"Body {prim.GetPath()} is the child of several movable joints."
-        if not parent_joint_child_paths:
-            return np.eye(4)
-        joint_prims = articulation_joint_prims(articulation_prim)
         # The joint positions are read once, here, so the parent's init_state.joint_pos must be set before the
         # reference is created.
-        joint_pos = resolve_joint_pos_patterns(joint_prims, parent_asset.object_cfg.init_state.joint_pos)
-        if not any(joint_pos.values()):
-            # With every joint at zero, the authored pose is already right.
-            return np.eye(4)
-        usd_joint_pos = adjust_prismatic_joint_positions_for_spawn_scale(joint_prims, joint_pos, self._parent_scale)
-        body_world_deltas = compute_posed_prim_world_deltas(
-            parent_stage, articulation_prim.GetPath().pathString, usd_joint_pos
+        return compute_articulation_body_world_delta(
+            articulation_prim, prim, parent_asset.object_cfg.init_state.joint_pos, self._parent_scale
         )
-        link_world_delta = body_world_deltas[parent_joint_child_paths[0]]
-        # Posing treats joint targets as unscaled frames, so a target scaled relative to its body moves non-rigidly.
-        assert np.allclose(
-            link_world_delta[:3, :3] @ link_world_delta[:3, :3].T, np.eye(3), atol=1e-5
-        ), f"Cannot pose body {prim.GetPath()}: a joint targets a prim scaled relative to its body."
-        return link_world_delta
 
     @staticmethod
     def isaaclab_prim_path_to_original_prim_path(
@@ -353,18 +309,7 @@ class ObjectReference(RootedObjectBase):
         Returns:
             The same relative path beneath the stage's default prim.
         """
-        default_prim = stage.GetDefaultPrim()
-        assert default_prim.IsValid(), "Parent USD must have a default prim"
-        parent_path = parent_asset.get_prim_path().rstrip("/")
-        assert isaaclab_prim_path == parent_path or isaaclab_prim_path.startswith(
-            parent_path + "/"
-        ), f"Reference path '{isaaclab_prim_path}' must be beneath parent path '{parent_path}'"
-        if isinstance(parent_asset, ObjectReference):
-            return ObjectReference.isaaclab_prim_path_to_original_prim_path(
-                isaaclab_prim_path, parent_asset.parent_asset, stage
-            )
-        relative_path = isaaclab_prim_path.removeprefix(parent_path)
-        return str(default_prim.GetPath()) + relative_path
+        return ReferenceSource.from_parent_asset(parent_asset).prim_path_in_stage(isaaclab_prim_path, stage)
 
 
 class ArticulationObjectReference(ObjectReference):
@@ -424,30 +369,3 @@ class TurnableObjectReference(ArticulationObjectReference, Turnable):
             num_levels=num_levels,
             **kwargs,
         )
-
-
-def _find_owning_rigid_body_prim(prim: Usd.Prim) -> Usd.Prim:
-    """Return the nearest rigid body at or above prim, or an invalid prim when there is none."""
-    while prim and not prim.HasAPI(UsdPhysics.RigidBodyAPI):
-        prim = prim.GetParent()
-    return prim
-
-
-def _get_prim_path_in_referenced_usd(stage: Usd.Stage, prim_path: str) -> str:
-    """Return a prim's path in the USD file that the stage's default prim references.
-
-    Args:
-        stage: Stage whose default prim references one USD file, as returned by Object.open_spawned_usd_stage.
-        prim_path: Path of a prim at or beneath the stage's default prim.
-
-    Returns:
-        The prim's path in the referenced USD file.
-    """
-    default_prim = stage.GetDefaultPrim()
-    # The file's default prim can compose references of its own; only the stage's root layer adds the file's.
-    [reference] = [
-        arc
-        for arc in Usd.PrimCompositionQuery.GetDirectReferences(default_prim).GetCompositionArcs()
-        if arc.IsIntroducedInRootLayerStack()
-    ]
-    return Sdf.Path(prim_path).ReplacePrefix(default_prim.GetPath(), reference.GetTargetPrimPath()).pathString

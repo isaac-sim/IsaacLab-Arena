@@ -319,6 +319,8 @@ def test_background_exclusions_preserve_unsupported_geometry_error(monkeypatch):
 
 def test_passive_background_excludes_nested_relation_anchor_subtrees(monkeypatch):
     """Background aggregation omits nested geometry represented separately by relation anchors."""
+    from types import SimpleNamespace
+
     import isaaclab_arena.relations.geometry.passive_collision_objects as passive_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -335,9 +337,11 @@ def test_passive_background_excludes_nested_relation_anchor_subtrees(monkeypatch
 
     cabinet = ObjectReference.__new__(ObjectReference)
     cabinet.parent_asset = kitchen
+    cabinet._source = SimpleNamespace(asset=kitchen)
     counter = ObjectReference.__new__(ObjectReference)
     counter.relations = [IsAnchor()]
     counter.parent_asset = cabinet
+    counter._source = SimpleNamespace(asset=kitchen)
     counter._prim_path_in_parent_usd = "/Kitchen/cabinet/counter"
     calls = {}
 
