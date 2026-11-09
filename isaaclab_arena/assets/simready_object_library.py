@@ -9,22 +9,21 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.assets.sources.base import UsdSource
-from isaaclab_arena.assets.sources.simready import (
+from isaaclab_arena.assets.simready_constants import (
     SIMREADY_PHYSICS_VARIANTS,
     SIMREADY_SEARCH_REGISTRY_PREFIX,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,
-    SimReadyCentralUsdSource,
-    is_central_asset_url,
 )
+from isaaclab_arena.assets.sources.simready import download_and_wrap_central_asset, is_central_asset_url
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.rigid_bodies import usd_variant_selections_to_dict
 
 _NON_IDENTIFIER_CHARACTERS = re.compile(r"[^a-z0-9]+")
 
@@ -69,7 +68,7 @@ class SimReadyUsdObject(Object):
             name=name or self.registry_name,
             prim_path=prim_path,
             tags=self.tags,
-            usd_path=_simready_usd_source(usd_path),
+            usd_path=_simready_usd_path(usd_path),
             object_type=self.object_type,
             scale=scale if scale is not None else (1.0, 1.0, 1.0),
             initial_pose=initial_pose,
@@ -122,24 +121,16 @@ def register_searched_simready_object(
     return SearchedSimReadyObject
 
 
-def _simready_usd_source(usd_path: str) -> str | UsdSource:
-    """Use a Central source for a pinned URL, otherwise preserve the direct path."""
+def _simready_usd_path(usd_path: str) -> str:
+    """Return the cached wrapper for a pinned Central URL, otherwise preserve the path."""
     if is_central_asset_url(usd_path):
-        return SimReadyCentralUsdSource(usd_path)
+        return download_and_wrap_central_asset(usd_path)
     return usd_path
 
 
 def _merge_simready_variant_selections(overrides: object | None) -> dict[str, str]:
     """Merge SimReady selections with dictionary or configclass overrides."""
-    if overrides is None:
-        override_values = {}
-    elif isinstance(overrides, Mapping):
-        override_values = dict(overrides)
-    else:
-        to_dict = getattr(overrides, "to_dict", None)
-        assert callable(to_dict), f"variants must be a mapping or configclass instance, got {type(overrides)}"
-        override_values = to_dict()
-        assert isinstance(override_values, dict), "configclass variants must convert to a dictionary"
+    override_values = usd_variant_selections_to_dict(overrides)
     assert all(
         isinstance(key, str) and isinstance(value, str) for key, value in override_values.items()
     ), "variant names and selections must be strings"

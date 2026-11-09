@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Protocol
 
-from isaaclab_arena.assets.sources.simready import (
+from isaaclab_arena.assets.simready_constants import (
     DEFAULT_SIMREADY_SERVICE_URL,
     ISAAC_SIMREADY_GA_S3_URL,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,

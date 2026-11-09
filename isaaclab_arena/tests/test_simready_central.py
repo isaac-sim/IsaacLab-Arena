@@ -61,19 +61,6 @@ def test_central_package_location_preserves_revision_and_folder():
     )
 
 
-def test_central_source_downloads_once_and_returns_wrapper_path():
-    from isaaclab_arena.assets.sources.simready import SimReadyCentralUsdSource
-
-    source = SimReadyCentralUsdSource(URL)
-    with patch(f"{LOADER}.download_and_wrap_central_asset", return_value="/cache/pallet.usda") as download:
-        first = source.resolve()
-        second = source.resolve()
-
-    assert first is second
-    assert first == "/cache/pallet.usda"
-    download.assert_called_once_with(URL)
-
-
 @pytest.mark.parametrize(
     "url",
     [
