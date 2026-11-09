@@ -57,26 +57,15 @@ Read only the references relevant to the requested behavior:
   [builder configuration](../../../isaaclab_arena/environments/arena_env_builder_cfg.py) for
   existing build and reset controls.
 - **Assets:** follow the example's asset ownership and check identity, collision handling, and reset
-  requirements.
-  Before choosing an `object_reference.prim_path`, use the documented `prim-tree` mode in
-  [scene_inspector.py](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py).
-  Browse text first, then request scoped JSON only for the relevant subtree. Treat results as
-  authored USD data; Arena and Isaac Lab spawn-time overrides are excluded.
+  requirements. Choose `object_reference.prim_path` values with the scene inspector; see
+  "Authoring and validation tools" below.
 - **Layout:** read [placing objects and the robot](placement.md). For the full design, read
   [relations](../../../docs/pages/concepts/object_placement/relations.rst),
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and the
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
-  Follow the example's scene composition, and check physical support.
-- **Placement diagnostics:** the object placer converts the environment's relations into concrete
-  object poses: it solves candidate layouts, then checks each one against its relations, collision
-  clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
-  records diagnostics that show how well placement went and why candidates were rejected. When
-  placement rejects many candidates or a fill fails, read them before changing relations, collision
+  Follow the example's scene composition, and check physical support. When placement rejects many
+  candidates or a fill fails, read the placement diagnostics before changing relations, collision
   settings or reachability.
-  [Placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst)
-  explains them and how to act on them. The build log already lists each
-  check's rejection causes after every batch, and an Experiment Run writes them all to
-  `arena_run_placement_diagnostics.json`.
 - **Task semantics:** read [tasks in graph YAML](tasks.md). For the full design, read
   [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
   and [predicates and progress](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst)
@@ -110,12 +99,8 @@ requested by the user). Use existing focused tests to check changed success logi
 interruptions, and reset isolation across parallel environments. Parsing or passive stepping alone
 does not establish task solvability.
 
-Use the generic [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst)
-([source](../../../isaaclab_arena/agentic_tools/object_control_runner.py))
-when the user requests physics-based validation of an authored environment without a robot policy.
-Use it to drive objects to pose and joint-position targets, verify task success predicates, and
-diagnose why an interaction or success condition fails. Its documentation covers recipe and
-live-command usage, commands, outputs, and failure diagnostics.
+When the user requests physics-based validation of an authored environment without a robot policy,
+use the Object Control Runner.
 
 For variation inspection, use the `--list_variations` path through
 [run-experiment](../../user/run-experiment/SKILL.md). Check the
@@ -132,7 +117,8 @@ design document is required.
   [`scene_inspector.py`](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py)
   `prim-tree`. Lists a USD scene's authored physics hierarchy as text, or as JSON for one subtree,
   without starting the simulator. Use it to choose `object_reference.prim_path` values and support
-  prims to anchor.
+  prims to anchor. Browse the text first, then request JSON only for the relevant subtree. It shows
+  authored USD data, without Arena and Isaac Lab spawn-time overrides.
 - **Validate environment code:**
   [`cli_runner.py`](../../../isaaclab_arena_examples/agentic_environment_generation/cli_runner.py)
   `--mode build`. Builds the environment, resets it once and takes a few steps. The log shows how
@@ -147,9 +133,11 @@ design document is required.
   the rest were rejected. Printed in the build log; an Experiment Run also writes
   `arena_run_placement_diagnostics.json`.
 - **Check the task can be completed:**
-  [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst). Drives objects to
+  [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst)
+  ([source](../../../isaaclab_arena/agentic_tools/object_control_runner.py)). Drives objects to
   pose and joint-position targets with bounded forces, without a robot policy, checks the task's
-  success predicates, and diagnoses why an interaction or success condition fails.
+  success predicates, and diagnoses why an interaction or success condition fails. Its
+  documentation covers recipe and live-command usage, commands and outputs.
 - **List environment variations:** `--list_variations` through
   [run-experiment](../../user/run-experiment/SKILL.md). Lists the variations an environment
   declares, without running rollouts.
