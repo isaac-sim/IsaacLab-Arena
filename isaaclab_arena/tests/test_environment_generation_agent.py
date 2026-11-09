@@ -23,7 +23,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadyObjectCandidate,
 )
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.sources.simready import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 from isaaclab_arena.tests.utils.agentic_environment_generation import (

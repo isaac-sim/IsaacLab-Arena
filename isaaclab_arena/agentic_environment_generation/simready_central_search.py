@@ -17,7 +17,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     MIN_INSPECTED_MATCHES_PER_PHRASE,
     SimReadyObjectCandidate,
 )
-from isaaclab_arena.assets.simready_central_asset_loader import download_and_wrap_central_asset
+from isaaclab_arena.assets.sources.simready import download_and_wrap_central_asset
 
 CENTRAL_SEARCH_URL = "https://nvidia-simready-central.hf.space/search_hybrid"
 CENTRAL_STORAGE_BACKEND = "usdsearch-dev"

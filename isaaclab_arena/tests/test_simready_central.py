@@ -15,10 +15,10 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadySearchConfig,
     SimReadySourceKind,
 )
-from isaaclab_arena.assets.simready_central_asset_loader import _parse_central_asset_url, is_central_asset_url
+from isaaclab_arena.assets.sources.simready import _parse_central_asset_url, is_central_asset_url
 
 MODULE = "isaaclab_arena.agentic_environment_generation.simready_central_search"
-LOADER = "isaaclab_arena.assets.simready_central_asset_loader"
+LOADER = "isaaclab_arena.assets.sources.simready"
 REVISION = "a" * 40
 URL = f"hf://huggingface.co/datasets/nvidia/simready-assets/resolve/{REVISION}/pallet/simready_usd/pallet.usd"
 
@@ -61,6 +61,19 @@ def test_central_package_location_preserves_revision_and_folder():
     )
 
 
+def test_central_source_downloads_once_and_returns_wrapper_path():
+    from isaaclab_arena.assets.sources.simready import SimReadyCentralUsdSource
+
+    source = SimReadyCentralUsdSource(URL)
+    with patch(f"{LOADER}.download_and_wrap_central_asset", return_value="/cache/pallet.usda") as download:
+        first = source.resolve()
+        second = source.resolve()
+
+    assert first is second
+    assert first == "/cache/pallet.usda"
+    download.assert_called_once_with(URL)
+
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -80,7 +93,7 @@ def _test_central_usd_validation(simulation_app):
 
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.assets.simready_central_asset_loader import download_and_wrap_central_asset
+    from isaaclab_arena.assets.sources.simready import download_and_wrap_central_asset
 
     with tempfile.TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -93,7 +106,7 @@ def _test_central_usd_validation(simulation_app):
         body.CreateRigidBodyEnabledAttr(True)
         stage.GetRootLayer().Save()
         with (
-            patch(f"{LOADER}._download_central_asset_package_to_cache", return_value=str(asset)),
+            patch(f"{LOADER}.download_central_asset_package", return_value=str(asset)),
             patch(f"{LOADER}.Path.home", return_value=folder),
         ):
             wrapper = download_and_wrap_central_asset(URL)
@@ -124,7 +137,7 @@ def test_central_usd_validation():
 def test_central_download_lists_only_the_selected_package():
     from huggingface_hub.hf_api import RepoFile
 
-    from isaaclab_arena.assets.simready_central_asset_loader import _download_central_asset_package_to_cache
+    from isaaclab_arena.assets.sources.simready import download_central_asset_package
 
     filenames = ["pallet/simready_usd/pallet.usd", "pallet/textures/color.png"]
     entries = [RepoFile(path=path, size=1, oid="a" * 40) for path in filenames]
@@ -132,7 +145,7 @@ def test_central_download_lists_only_the_selected_package():
         patch("huggingface_hub.HfApi.list_repo_tree", return_value=iter(entries)) as list_tree,
         patch("huggingface_hub.hf_hub_download", side_effect=lambda **kw: "/cache/" + kw["filename"]) as download,
     ):
-        assert _download_central_asset_package_to_cache(URL) == "/cache/" + filenames[0]
+        assert download_central_asset_package(URL) == "/cache/" + filenames[0]
     list_tree.assert_called_once_with(
         repo_id="nvidia/simready-assets",
         repo_type="dataset",
