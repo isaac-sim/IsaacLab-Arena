@@ -62,9 +62,7 @@ Read only the references relevant to the requested behavior:
   [scene_inspector.py](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py).
   Browse text first, then request scoped JSON only for the relevant subtree. Treat results as
   authored USD data; Arena and Isaac Lab spawn-time overrides are excluded.
-- **Layout:** read [placing objects and the robot](placement.md) to lay out objects with relations,
-  starting from a simple layout, and for background collision, robot placement, reachability, and
-  how to get large variation between resets. For the full design, read
+- **Layout:** read [placing objects and the robot](placement.md). For the full design, read
   [relations](../../../docs/pages/concepts/object_placement/relations.rst),
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and the
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
@@ -79,8 +77,7 @@ Read only the references relevant to the requested behavior:
   explains them and how to act on them. The build log already lists each
   check's rejection causes after every batch, and an Experiment Run writes them all to
   `arena_run_placement_diagnostics.json`.
-- **Task semantics:** read [tasks in graph YAML](tasks.md) to choose and compose tasks, including
-  how to require every subtask to hold when the task ends. For the full design, read
+- **Task semantics:** read [tasks in graph YAML](tasks.md). For the full design, read
   [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
   and [predicates and progress](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst)
   for ordered milestones, current final conditions, simultaneous truth, temporal holds, and reporting.
