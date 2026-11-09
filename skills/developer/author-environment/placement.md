@@ -22,14 +22,7 @@ relations:
   reference: table_oak_robolab
 ```
 
-`is_anchor` keeps the table where the background puts it. `on` rests each object on the table's top
-surface, anywhere within its bounds, so each reset gets a new arrangement. Placement keeps the
-objects from overlapping without a separate relation. Quote `'on'`: YAML reads an unquoted `on` as
-true.
-
-Add `next_to` or `align_with` only when objects must be arranged relative to each other. Read the
-sections below when the scene needs more: a background with built-in objects, a placed robot, or
-more variation between resets.
+Add `next_to` or `align_with` only when objects must be arranged relative to each other.
 
 ## Background collision
 
@@ -53,7 +46,7 @@ Keep task objects within the robot's reach. Tasks such as `PickAndPlaceTask` mar
 `requires_reachability`, and the `ik_reachable` check rejects layouts where the arm cannot reach
 them, so you need not check reach yourself. Its pass counts are in the placement diagnostics.
 
-## Reset variation
+## Diverse layouts
 
 Prefer relative relations (`next_to`, `align_with`, `on`) with loose tolerances over absolute
 positions, and make the bounds as loose as the arrangement allows, so layouts vary as much as
