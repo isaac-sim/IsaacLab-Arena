@@ -21,7 +21,7 @@ from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter
 
 _EXPORTER_MODULE_NAMES = (
-    "isaaclab_arena_benchmarking.benchmarks.placement_success.placement_success_exporter",
+    "isaaclab_arena_benchmarking.benchmarks.placement_solver.placement_solver_exporter",
     "isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter",
     "isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter",
 )

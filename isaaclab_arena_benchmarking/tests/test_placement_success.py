@@ -107,6 +107,6 @@ def test_placement_subset_experiment_runs_are_runs_of_the_suites():
     ],
 )
 def test_placement_experiment_selects_the_placement_kpi_exporters(experiment_config):
-    """A placement Experiment selects the placement success and timing KPI exporters."""
+    """A placement Experiment selects the placement solver and timing KPI exporters."""
     experiment = yaml.safe_load((EXPERIMENT_CONFIGS_DIR / experiment_config).read_text())
-    assert experiment["kpi_exporters"] == ["placement_success", "timing"]
+    assert experiment["kpi_exporters"] == ["placement_solver", "timing"]

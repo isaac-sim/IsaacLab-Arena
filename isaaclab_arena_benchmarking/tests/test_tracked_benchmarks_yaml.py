@@ -93,7 +93,7 @@ def test_benchmark_experiment_exports_kpis(entry):
     experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
 
     expected_exporters = (
-        ["placement_success", "timing"] if entry["name"] == "placement-subset" else ["success_rate", "timing"]
+        ["placement_solver", "timing"] if entry["name"] == "placement-subset" else ["success_rate", "timing"]
     )
     assert experiment_cfg.kpi_exporters == expected_exporters, f"benchmark {entry['name']!r}"
 
