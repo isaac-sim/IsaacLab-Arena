@@ -42,6 +42,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
+    outputs:
+      needs_docker_ci: ${{ steps.needs_docker_ci.outputs.needs_docker_ci }}
 
     container:
       image: python:3.11-slim
@@ -51,6 +53,19 @@ jobs:
       SKIP: check-executables-have-shebangs
 
     steps:
+      # Detect whether a pull request contains only documentation changes.
+      - name: Detect changes requiring Docker CI
+        id: needs_docker_ci
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            needs_docker_ci:
+              - '!docs/**'
+              - '!*.md'
+              - '!skills/**/*.md'
+
       - &install_git_step
         name: Install git (and tools needed by hooks)
         run: |
@@ -112,6 +127,8 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [pre_commit]
+    # Skip this job and its dependents when a PR only contains doc changes.
+    if: github.event_name != 'pull_request' || needs.pre_commit.outputs.needs_docker_ci != 'false'
     container:
       image: ubuntu:24.04
     env:
