@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from enum import Enum
 from numbers import Real
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -147,13 +147,16 @@ class ObjectSetSpec(BaseModel):
 
 
 class ObjectReferenceSpec(BaseModel):
-    """USD prim reference inside a parent background asset."""
+    """USD prim or articulation-body reference inside a parent asset."""
 
     id: str = Field(min_length=1, description="Unique node id referenced by relations and task params.")
-    parent_id: str = Field(min_length=1, description="Id of the parent background asset node.")
+    kind: Literal["object", "articulation_body"] = Field(
+        default="object", description="Use articulation_body to follow one rigid body of the parent articulation."
+    )
+    parent_id: str = Field(min_length=1, description="Id of a spawned parent asset or earlier articulation reference.")
     prim_path: str | None = Field(
         default=None,
-        description="USD prim path inside the parent background; leave empty until resolved.",
+        description="USD prim path inside the parent asset; articulation_body must select a rigid body prim.",
     )
     object_type: ObjectType = Field(
         description=(
@@ -164,6 +167,34 @@ class ObjectReferenceSpec(BaseModel):
         ),
     )
     params: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _set_articulation_body_type(cls, value: Any) -> Any:
+        """Default explicit body references to BASE without changing generic reference requirements."""
+        if isinstance(value, dict) and value.get("kind") == "articulation_body":
+            return {"object_type": ObjectType.BASE, **value}
+        return value
+
+    @model_validator(mode="after")
+    def _assert_articulation_body_params(self) -> ObjectReferenceSpec:
+        """Keep body references observational and their parent/path selection explicit."""
+        if self.kind == "articulation_body":
+            assert self.object_type == ObjectType.BASE, "articulation_body references require object_type=base"
+            reserved = {
+                "articulation",
+                "parent_asset",
+                "prim_path",
+                "body_prim_path",
+                "object_type",
+                "openable_joint_name",
+                "pressable_joint_name",
+                "turnable_joint_name",
+            }
+            assert not (
+                reserved & self.params.keys()
+            ), "articulation_body params must not override parent/path/type or expose joint affordances"
+        return self
 
     @model_validator(mode="after")
     def _assert_initial_joint_positions_require_articulation(self) -> ObjectReferenceSpec:

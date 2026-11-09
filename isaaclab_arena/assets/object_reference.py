@@ -329,6 +329,45 @@ class ArticulationObjectReference(ObjectReference):
             self.object_cfg.init_state.joint_pos = dict(initial_joint_positions)
 
 
+class ArticulationBodyReference(ObjectReference):
+    """Expose one articulation body as a placement target without creating a physics or reset owner."""
+
+    def __init__(self, articulation: Object | ArticulationObjectReference, body_prim_path: str, **kwargs):
+        """Select a rigid body relative to a spawned or referenced articulation.
+
+        Args:
+            articulation: Articulation whose joint defaults and live body poses this reference follows.
+            body_prim_path: Relative USD path to a rigid body; use "." if the articulation prim itself is the body.
+            **kwargs: ObjectReference arguments other than parent_asset, prim_path, and object_type.
+        """
+        assert (
+            articulation.object_type == ObjectType.ARTICULATION
+        ), "ArticulationBodyReference requires an articulation parent"
+        body_path = Sdf.Path(body_prim_path)
+        assert (
+            body_path.IsPrimPath()
+            and not body_path.IsAbsolutePath()
+            and not body_path.ContainsPrimVariantSelection()
+            and ".." not in body_prim_path.split("/")
+        ), f"body_prim_path must be a relative prim path within the articulation, got '{body_prim_path}'"
+        self.articulation = articulation
+        prim_path = articulation.get_prim_path().rstrip("/")
+        if body_prim_path != ".":
+            prim_path += "/" + body_path.pathString
+        super().__init__(parent_asset=articulation, prim_path=prim_path, object_type=ObjectType.BASE, **kwargs)
+
+    def _generate_base_cfg(self) -> ArticulationBodyReferenceCfg:
+        assert self._initial_link_world_delta is not None, (
+            f"ArticulationBodyReference '{self.name}' must select a rigid body of '{self.articulation.name}', "
+            f"got '{self.prim_path}'"
+        )
+        cfg = super()._generate_base_cfg()
+        assert isinstance(cfg, ArticulationBodyReferenceCfg)
+        # Spawning may rename a body at the source file's default prim to the articulation's scene name.
+        cfg.body_name = self.prim_path.rsplit("/", 1)[-1]
+        return cfg
+
+
 class OpenableObjectReference(ArticulationObjectReference, Openable):
     """An object which *refers* to an existing element in the scene and is openable."""
 
