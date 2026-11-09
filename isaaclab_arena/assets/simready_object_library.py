@@ -16,7 +16,7 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.assets.sources.base import UsdPathSource, UsdSource
+from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.simready import (
     SIMREADY_PHYSICS_VARIANTS,
     SIMREADY_SEARCH_REGISTRY_PREFIX,
@@ -122,11 +122,11 @@ def register_searched_simready_object(
     return SearchedSimReadyObject
 
 
-def _simready_usd_source(usd_path: str) -> UsdSource:
-    """Build a SimReady source for a direct path or Central URL."""
+def _simready_usd_source(usd_path: str) -> str | UsdSource:
+    """Use a Central source for a pinned URL, otherwise preserve the direct path."""
     if is_central_asset_url(usd_path):
         return SimReadyCentralUsdSource(usd_path)
-    return UsdPathSource(usd_path)
+    return usd_path
 
 
 def _merge_simready_variant_selections(overrides: object | None) -> dict[str, str]:

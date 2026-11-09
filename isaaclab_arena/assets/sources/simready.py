@@ -28,7 +28,10 @@ ISAAC_SIMREADY_GA_S3_URL = (
 DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
 """Hosted SimReady search, used when the ``service`` source is selected."""
 
-SIMREADY_PHYSICS_VARIANTS: dict[str, str] = {"Physics": "physics", "PhysX": "Enabled"}
+# SimReady GA props author collision/rigid APIs under the Physics=physics variant.
+# Without this selection, Usd.Stage.Open sees geometry but no RigidBodyAPI, and
+# PickAndPlace contact sensors fail with "No rigid body found".
+SIMREADY_PHYSICS_VARIANTS: dict[str, str] = {"Physics": "physics"}
 """Variant selections that expose SimReady physics schemas."""
 
 
@@ -39,10 +42,6 @@ class SimReadyCentralUsdSource(UsdSource):
         _parse_central_asset_url(url)
         self.url = url
         self._resolved: str | None = None
-
-    def identity(self) -> str:
-        """Return the pinned Central URL as a stable source identity."""
-        return f"simready-central:{self.url}"
 
     def resolve(self) -> str:
         """Download the package and return its compatibility wrapper."""
@@ -67,6 +66,7 @@ def download_central_asset_package(url: str) -> str:
     from huggingface_hub.hf_api import RepoFile
 
     repo_id, revision, filename, folder = _parse_central_asset_url(url)
+    # List only the selected package, avoiding a scan of the entire dataset.
     files = [
         entry.path
         for entry in HfApi().list_repo_tree(
@@ -100,7 +100,7 @@ def download_and_wrap_central_asset(url: str) -> str:
     root.GetReferences().AddReference(asset_path)
     stage.SetDefaultPrim(root)
     # TODO(xinjieyao, 20261022): Support Newton.
-    apply_usd_variant_selections(stage, SIMREADY_PHYSICS_VARIANTS)
+    apply_usd_variant_selections(stage, {**SIMREADY_PHYSICS_VARIANTS, "PhysX": "Enabled"})
     assert not stage.GetCompositionErrors(), "USD has unresolved composition errors"
     bodies = []
     for prim in Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()):
@@ -129,6 +129,7 @@ def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:
     assert not any(char in filename for char in "*?[]\\"), "invalid asset path"
     assert path.suffix in (".usd", ".usda", ".usdc", ".usdz"), "expected USD asset"
     assert "simready_usd" in path.parts, "unsupported Central package layout"
+    # Central keeps the entrypoint in <asset>/simready_usd/; fetch that asset's package and dependencies.
     folder = PurePosixPath(*path.parts[: path.parts.index("simready_usd")])
     assert str(folder) != ".", "asset must have a package folder"
     return repo_id, revision, filename, str(folder)
