@@ -44,21 +44,6 @@ and object type, and decorate it with ``@register_asset``:
        usd_path = "path/to/my_object.usd"
        object_type = ObjectType.RIGID
 
-First-party environment-specific asset classes can live in
-``isaaclab_arena_environments/<environment>/assets.py``. Normal environment
-registration imports the package-level ``asset_library.py`` entry point, which
-imports these modules and runs their ``@register_asset`` decorators. Only these
-asset modules are discovered; nested prebuild and runtime helper scripts are not
-imported. Keep acquisition and derivation lazy so registration does not download
-or build USD files.
-
-Python callers should call
-``isaaclab_arena_environments.cli.ensure_environments_registered()`` before looking
-up environment-specific assets. The graph-spec and policy runners already use this
-registration path. For example, the workbench classes live alongside their recipes
-in ``isaaclab_arena_environments/workbench_cleanup/assets.py``; their existing
-``workbench_cleanup_*`` registry names remain valid in YAML.
-
 Once registered, the class is available in the registry like any other asset class:
 
 .. code-block:: python

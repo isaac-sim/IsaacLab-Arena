@@ -43,10 +43,12 @@ def inspect_mesh_components(stage, prim_path: str) -> dict[str, Any]:
             "max_root_m": maximum_R[component_id].tolist(),
             "material_subsets": sorted(subset_names[component_id]),
         })
-    digest = hashlib.sha256(points_M.tobytes() + counts.tobytes() + indices.tobytes()).hexdigest()
+    digest = hashlib.sha256()
+    for array in (points_M, counts, indices):
+        digest.update(array)
     return {
         "mesh": str(mesh.GetPath()),
-        "geometry_sha256": digest,
+        "geometry_sha256": digest.hexdigest(),
         "face_count": len(counts),
         "point_count": len(points_M),
         "collision": mesh.GetPrim().HasAPI(UsdPhysics.CollisionAPI),
@@ -54,7 +56,7 @@ def inspect_mesh_components(stage, prim_path: str) -> dict[str, Any]:
     }
 
 
-def partition_mesh(stage, prim_path: str, groups: dict[str, list[int]], remainder: str = "Remaining") -> dict[str, Any]:
+def partition_mesh(stage, prim_path: str, groups: dict[str, list[int]], remainder: str = "Remaining") -> None:
     """Replace one Mesh with an Xform containing named meshes of complete connected components."""
     from pxr import Tf
 
@@ -97,17 +99,9 @@ def partition_mesh(stage, prim_path: str, groups: dict[str, list[int]], remainde
     source_path = mesh.GetPath()
     snapshot = stage.Flatten()
     _copy_flattened_prototypes(stage, snapshot)
-    parts = []
     for name, faces in selections.items():
         path = source_path.AppendChild(name)
-        piece = _write_piece(stage, snapshot, source_path, path, faces, points_M, counts, indices)
-        piece_R = _points_in_root_m(piece, np.asarray(piece.GetPointsAttr().Get()))
-        parts.append({
-            "path": str(path),
-            "face_count": len(faces),
-            "min_root_m": piece_R.min(0).tolist(),
-            "max_root_m": piece_R.max(0).tolist(),
-        })
+        _write_piece(stage, snapshot, source_path, path, faces, points_M, counts, indices)
 
     source = stage.GetPrimAtPath(source_path)
     source.SetTypeName("Xform")
@@ -120,8 +114,7 @@ def partition_mesh(stage, prim_path: str, groups: dict[str, list[int]], remainde
             attr.Block()
     for name in original_children:
         stage.OverridePrim(source_path.AppendChild(name)).SetActive(False)
-    assert sum(part["face_count"] for part in parts) == len(counts), "Partition lost mesh faces."
-    return {"source_mesh": str(source_path), "source_face_count": len(counts), "parts": parts}
+    assert sum(len(faces) for faces in selections.values()) == len(counts), "Partition lost mesh faces."
 
 
 def _mesh(stage, prim_path: str):
@@ -291,7 +284,6 @@ def _write_piece(stage, snapshot, source_path, destination_path, faces, points_M
             subset.GetIndicesAttr().Set(Vt.IntArray(mapped.tolist()))
         else:
             stage.RemovePrim(subset.GetPath())
-    return mesh
 
 
 def _copy_flattened_prototypes(stage, snapshot) -> None:

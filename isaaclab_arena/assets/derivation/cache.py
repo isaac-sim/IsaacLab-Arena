@@ -33,7 +33,7 @@ OVERLAY_PIPELINE_VERSION = 1
 
 def derive_usd_package(source: str | UsdSource, derivation_spec: str, *, source_identity: str) -> str:
     """Build a complete package atomically on a cache miss and return its derived USD entry."""
-    recipe_bytes = _read_derivation_spec(derivation_spec)
+    recipe_bytes = _read_spec(derivation_spec)
     recipe = _parse_recipe(recipe_bytes)
     assert (
         recipe["source_identity"] == source_identity
@@ -59,7 +59,7 @@ def derive_usd_package(source: str | UsdSource, derivation_spec: str, *, source_
 
 def derivation_identity(source_identity: str, derivation_spec: str) -> str:
     """Return the stable identity of a derived USD without resolving its source."""
-    recipe_bytes = _read_derivation_spec(derivation_spec)
+    recipe_bytes = _read_spec(derivation_spec)
     return f"derived-usd:{_cache_digest(source_identity, recipe_bytes)}"
 
 
@@ -113,8 +113,7 @@ def _build_derived_package(
 ) -> None:
     # Preserve the Hugging Face snapshot path. Resolving its symlink would discard
     # the package-relative location and leave only the content-addressed blob path.
-    source_path = Path(source if isinstance(source, str) else source.resolve()).expanduser().absolute()
-    assert source_path.is_file(), f"USD source did not resolve to a file: {source_path}"
+    source_path = _resolve_source_path(source)
     source_entry = PurePosixPath(recipe["source_entry"])
     source_root = _package_root(source_path, source_entry)
     expected_source_hash = recipe["expected_source_sha256"]
@@ -168,8 +167,7 @@ def _build_overlay(
 ) -> None:
     from pxr import Sdf, Usd
 
-    source_path = Path(source if isinstance(source, str) else source.resolve()).expanduser().absolute()
-    assert source_path.is_file(), f"USD source did not resolve to a file: {source_path}"
+    source_path = _resolve_source_path(source)
     source_hash = _sha256_file(source_path)
     if expected_source_sha256 is not None:
         assert (
@@ -245,11 +243,6 @@ def _parse_recipe(recipe_bytes: bytes) -> dict[str, Any]:
     return recipe
 
 
-def _read_derivation_spec(spec: str) -> bytes:
-    """Read a filesystem or package-relative derivation specification."""
-    return _read_spec(spec)
-
-
 def _read_spec(spec: str) -> bytes:
     """Read a filesystem or package-relative specification."""
     prefix = "package://"
@@ -311,9 +304,16 @@ def _package_file_hashes(package_dir: Path) -> dict[str, str]:
     """Return SHA-256 hashes for every derived package file."""
     return {
         path.relative_to(package_dir).as_posix(): _sha256_file(path)
-        for path in sorted(package_dir.rglob("*"))
+        for path in package_dir.rglob("*")
         if path.is_file() and path.name != "manifest.json"
     }
+
+
+def _resolve_source_path(source: str | UsdSource) -> Path:
+    """Resolve a USD source to an existing absolute file path."""
+    path = Path(source if isinstance(source, str) else source.resolve()).expanduser().absolute()
+    assert path.is_file(), f"USD source did not resolve to a file: {path}"
+    return path
 
 
 def _sha256_file(path: Path) -> str:

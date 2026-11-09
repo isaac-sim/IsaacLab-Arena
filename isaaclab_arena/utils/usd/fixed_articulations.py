@@ -11,7 +11,7 @@ import numpy as np
 from typing import Any
 
 
-def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None:
     """Move selected frame meshes and jointed bodies into separate fixed articulations."""
     from pxr import Sdf, Tf, UsdGeom, UsdPhysics
 
@@ -47,8 +47,7 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> list
         selected_meshes.add(mesh.GetPath())
         assert isinstance(config["joints"], list) and config["joints"], "Expected existing movable joints."
         joints = []
-        base_path = None
-        for path in config["joints"]:
+        for joint_index, path in enumerate(config["joints"]):
             prim = prim_at(path)
             assert prim.IsA(UsdPhysics.PrismaticJoint) or prim.IsA(
                 UsdPhysics.RevoluteJoint
@@ -58,9 +57,10 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> list
             joint = UsdPhysics.Joint(prim)
             targets_0, targets_1 = joint.GetBody0Rel().GetTargets(), joint.GetBody1Rel().GetTargets()
             assert len(targets_0) == len(targets_1) == 1, "Both joint endpoints must be explicit."
-            if base_path is None:
+            if joint_index == 0:
                 base_path = targets_0[0]
-            assert targets_0[0] == base_path, "All joints must attach directly to the same source frame."
+            else:
+                assert targets_0[0] == base_path, "All joints must attach directly to the same source frame."
             owner = _rigid_owner(stage.GetPrimAtPath(targets_1[0]))
             assert owner.GetPath() not in selected_bodies, "Moving bodies must have exactly one selected joint."
             selected_bodies.add(owner.GetPath())
@@ -111,7 +111,6 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> list
 
     snapshot = stage.Flatten()
     _copy_flattened_prototypes(stage, snapshot)
-    reports = []
     for destination, mesh_path, base_path, joints in plans:
         T_R_B = pose_R(base_path)
         articulation = UsdGeom.Xform.Define(stage, destination)
@@ -121,8 +120,6 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> list
         frame = UsdGeom.Xform.Define(stage, frame_path)
         UsdPhysics.RigidBodyAPI.Apply(frame.GetPrim())
         _copy_at_asset_pose(stage, snapshot, mesh_path, frame_path.AppendChild("Geometry"), pose_R(mesh_path), T_R_B)
-        body_paths = []
-        joint_paths = []
         for joint_path, owner_path, endpoint_path in joints:
             new_body_path = destination.AppendChild(owner_path.name)
             assert not stage.GetPrimAtPath(new_body_path), f"Duplicate body name: {new_body_path}."
@@ -133,18 +130,9 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> list
             joint = UsdPhysics.Joint(stage.GetPrimAtPath(new_joint_path))
             joint.GetBody0Rel().SetTargets([frame_path])
             joint.GetBody1Rel().SetTargets([endpoint_path.ReplacePrefix(owner_path, new_body_path)])
-            body_paths.append(str(new_body_path))
-            joint_paths.append(str(new_joint_path))
         fixed = UsdPhysics.FixedJoint.Define(stage, destination.AppendPath("Joints/FixedBase"))
         fixed.CreateBody0Rel().SetTargets([base_path])
         fixed.CreateBody1Rel().SetTargets([frame_path])
-        reports.append({
-            "articulation": str(destination),
-            "base": str(frame_path),
-            "frame_mesh": str(frame_path.AppendChild("Geometry")),
-            "bodies": body_paths,
-            "joints": joint_paths,
-        })
 
     for path in selected_meshes | selected_bodies | selected_joints:
         stage.GetPrimAtPath(path).SetActive(False)
@@ -157,7 +145,6 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> list
             if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
                 prim.RemoveAPI(UsdPhysics.ArticulationRootAPI)
             prim = prim.GetParent()
-    return reports
 
 
 def _rigid_owner(prim):
@@ -181,7 +168,6 @@ def _copy_at_asset_pose(stage, snapshot, source, destination, T_R_S, T_R_P):
         if attr.GetName().startswith("xformOp:") or attr.GetName() == "xformOpOrder":
             prim.RemoveProperty(attr.GetName())
     UsdGeom.Xformable(prim).AddTransformOp().Set(T_R_S * T_R_P.GetInverse())
-    return prim
 
 
 def _copy_flattened_prototypes(stage, snapshot) -> None:

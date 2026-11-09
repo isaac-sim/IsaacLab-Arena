@@ -18,38 +18,9 @@
       "prim": "Geometry/table_01_obj_00/table_01_mesh_00",
       "expected_geometry_sha256": "ec9f1fbdf41f3ed65763add0f05d8a3d2feeb4a0de34c12d02aed974168f02d3",
       "groups": {
-        "Tabletop": [
-          9
-        ],
-        "DrawerFrame": [
-          1,
-          2,
-          3,
-          4,
-          10,
-          11,
-          13,
-          14,
-          49,
-          50,
-          51,
-          52,
-          53,
-          54,
-          55,
-          56
-        ],
-        "DoorFrame": [
-          5,
-          6,
-          7,
-          8,
-          15,
-          16,
-          17,
-          18,
-          57
-        ]
+        "Tabletop": [9],
+        "DrawerFrame": [1, 2, 3, 4, 10, 11, 13, 14, 49, 50, 51, 52, 53, 54, 55, 56],
+        "DoorFrame": [5, 6, 7, 8, 15, 16, 17, 18, 57]
       },
       "remainder": "Structure"
     },
@@ -77,52 +48,13 @@
       "operation": "partition_mesh",
       "prim": "Geometry/table_01_obj_00/table_01_mesh_00/Structure",
       "groups": {
-        "HangingBoard": [
-          0,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10,
-          11,
-          12,
-          13,
-          14,
-          15,
-          16
-        ],
-        "OverheadShelf": [
-          21,
-          22,
-          23,
-          24,
-          25,
-          26,
-          27,
-          28,
-          29,
-          30,
-          31
-        ],
-        "BlueContainer01": [
-          17
-        ],
-        "BlueContainer02": [
-          18
-        ],
-        "BlueContainer03": [
-          19
-        ],
-        "BlueContainer04": [
-          20
-        ],
-        "LowerCrossBrace": [
-          1
-        ]
+        "HangingBoard": [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+        "OverheadShelf": [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+        "BlueContainer01": [17],
+        "BlueContainer02": [18],
+        "BlueContainer03": [19],
+        "BlueContainer04": [20],
+        "LowerCrossBrace": [1]
       },
       "expected_geometry_sha256": "15920df847fbfbfb15892a7622058c0de9f8b6bcdcb5e8006b681d014c82cf1f"
     }

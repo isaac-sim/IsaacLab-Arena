@@ -37,6 +37,8 @@ def _package_path(package_root: Path, entry: str) -> Path:
 def _create_wrapper(package_root: Path, recipe: Mapping[str, Any]):
     from pxr import Sdf, Usd, UsdGeom
 
+    from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
+
     source = _package_path(package_root, recipe["source_entry"])
     output = _package_path(package_root, recipe["output_entry"])
     assert source != output, "Derived output must differ from the source entry"
@@ -53,10 +55,7 @@ def _create_wrapper(package_root: Path, recipe: Mapping[str, Any]):
     root = UsdGeom.Xform.Define(stage, root_path).GetPrim()
     stage.SetDefaultPrim(root)
     root.GetReferences().AddReference(os.path.relpath(source, output.parent), source_stage.GetDefaultPrim().GetPath())
-    variants = root.GetVariantSets()
-    for name, selection in recipe.get("variants", {}).items():
-        if name in variants.GetNames() and selection in variants.GetVariantSet(name).GetVariantNames():
-            variants.GetVariantSet(name).SetVariantSelection(selection)
+    apply_usd_variant_selections(stage, recipe.get("variants", {}))
     assert not stage.GetCompositionErrors(), stage.GetCompositionErrors()
     return stage, output
 
