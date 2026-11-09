@@ -9,7 +9,6 @@ import tqdm
 import pytest
 
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
-from isaaclab_arena.tests.utils.hang_guard import exit_if_stuck
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
@@ -17,14 +16,6 @@ from isaaclab_arena.utils.pose import Pose
 NUM_STEPS = 2
 HEADLESS = True
 OBJECT_SEPARATION = 0.5
-# The slowest test in this file takes about 2.5 minutes.
-TEST_TIMEOUT_S = 600
-
-
-@pytest.fixture(autouse=True)
-def fail_when_test_is_stuck():
-    with exit_if_stuck(TEST_TIMEOUT_S):
-        yield
 
 
 def _test_default_assets_registered(simulation_app):

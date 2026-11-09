@@ -13,6 +13,10 @@
 
 from __future__ import annotations
 
+import pytest
+
+from isaaclab_arena.tests.utils.hang_guard import exit_if_stuck
+
 # Expose agentic LLM test fixtures (``stub_openai``, etc.) to the suite.
 pytest_plugins = ["isaaclab_arena.tests.utils.agentic_environment_generation"]
 
@@ -32,3 +36,15 @@ def pytest_runtest_logreport(report):
     # We set the tests_failed flag to True if the test failed.
     if report.when == "call" and report.failed:
         PYTEST_SESSION.tests_failed = True
+
+
+# The slowest passing tests in CI take about 10 minutes (the gear insertion camera test and the
+# asset registry test). A test running longer than this is stuck.
+TEST_TIMEOUT_S = 1200
+
+
+@pytest.fixture(autouse=True)
+def fail_when_test_is_stuck():
+    """Exit with a stack dump of every thread when a test (including its simulation app startup) is stuck."""
+    with exit_if_stuck(TEST_TIMEOUT_S):
+        yield
