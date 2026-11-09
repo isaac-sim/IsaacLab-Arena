@@ -41,7 +41,7 @@ Building on that foundation, Arena provides three connected capabilities across 
 
 | Workflow | What Arena provides |
 |----------|---------------------|
-| **Author** | Build reusable benchmark environments through modular composition, relational placement, prompt-driven generation, and controlled variations. Register Arena environments with Isaac Lab for learning and data generation. |
+| **Author** | Build reusable benchmark environments through modular composition, relational placement, agentic authoring, and controlled variations. Register Arena environments with Isaac Lab for learning and data generation. |
 | **Execute** | Evaluate one policy concurrently across thousands of heterogeneous environments on a GPU. Package multiple tasks and policies as experiments that run locally or across nodes through OSMO and a common policy client. |
 | **Analyze** | Collect aggregate and per-episode metrics, trace predicate-based subtask progress, and run sensitivity analysis over controlled conditions to see where and why policies fail. |
 
@@ -56,7 +56,7 @@ See the [documentation overview](https://isaac-sim.github.io/IsaacLab-Arena/rele
 - **Composable environments** — Configure scenes, embodiments, and tasks independently, with reusable objects composed into each scene. `ArenaEnvBuilder` assembles them into an Isaac Lab environment without duplicating task logic.
 - **Relational object placement** — Define layouts with spatial relationships such as "on" and "next to" instead of hard-coded coordinates.
 - **Sequential task chaining** — Chain atomic skills (pick, walk, place, …) into long-horizon composite tasks.
-- **Agentic environment generation** — Describe a task in natural language; an agent infers constraints, creates a reviewable specification, finds SimReady USD assets, and builds a family of Arena environments.
+- **Agentic authoring** — Use coding agents with Arena's authoring skill, placement relations, and composite tasks to build and validate evaluation environments.
 - **Controlled environment variations** — Turn one environment into a perturbation sweep over lighting, backgrounds, camera parameters, object mass, and other configurable ranges and distributions.
 - **Isaac Lab interoperability** — Register Arena-authored environments with Isaac Lab workflows for reinforcement learning and data generation.
 - **Newton-backed deformable and contact-rich simulation** — Build evaluation environments for deformable-object manipulation and contact-rich assembly, such as gear insertion, using the Newton physics backend and Arena's evaluation tools.
@@ -195,7 +195,6 @@ Choose a guide based on what you want to do:
 Explore complete workflows for:
 
 - [Evaluation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.1/pages/example_workflows/analysis/index.html) — Run controlled sweeps and analyze the conditions associated with policy success or failure.
-- [Agentic Environment Generation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.1/pages/example_workflows/agentic_env_gen/index.html) — Generate Arena environment specifications from natural-language prompts.
 - [Imitation Learning](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.1/pages/example_workflows/imitation_learning/index.html) — Collect data, post-train a policy, and run closed-loop evaluation.
 - [Reinforcement Learning](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.1/pages/example_workflows/reinforcement_learning_workflows/index.html) — Set up an environment, train a policy, and run closed-loop evaluation.
 

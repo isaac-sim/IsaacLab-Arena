@@ -3,8 +3,7 @@
 Performance and scaling
 =======================
 
-Arena performance spans environment creation and evaluation execution. This page reports reference
-measurements for two parts of that workflow:
+This page reports reference measurements for two parts of evaluation execution:
 
 * **Parallel environments within one Run:** advancing many environments together on one GPU to
   increase rollout throughput.
@@ -22,7 +21,7 @@ actions, and 300 vectorized steps per Run.
 .. note::
 
    These are preliminary reference measurements collected for this release. They show how the
-   specified workloads performed on the named hardware and model; they are not performance
+   specified workloads performed on the named hardware; they are not performance
    guarantees for other tasks or systems.
 
 

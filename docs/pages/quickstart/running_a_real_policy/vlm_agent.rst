@@ -43,7 +43,10 @@ the field, or delete it from the YAML so that the Run uses ``ARENA_INFERENCE_END
 
    runs.droid_pnp_vlm_goal.policy.endpoint=public  # internal, public, or openai
 
-Each endpoint has a default model. Two more policy fields override the connection:
+Each endpoint has a default model. The defaults for ``internal``, ``public``, and ``openai``
+are defined by ``INFERENCE_ENDPOINTS`` in
+`isaaclab_arena/inference/backend.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/inference/backend.py>`_.
+Two more policy fields override the connection:
 
 * ``policy.model``: another model on the same endpoint.
 * ``policy.base_url``: any OpenAI-compatible URL. The API key still comes from the endpoint's
