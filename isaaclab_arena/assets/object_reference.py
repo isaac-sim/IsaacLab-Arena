@@ -51,12 +51,7 @@ class ArticulationBodyReferenceCfg(AssetBaseCfg):
 class ObjectReference(RootedObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
-    def __init__(
-        self,
-        parent_asset: Object | ObjectReference,
-        initial_joint_positions: dict[str, float] | None = None,
-        **kwargs,
-    ):
+    def __init__(self, parent_asset: Object | ObjectReference, **kwargs):
         super().__init__(**kwargs)
         if isinstance(parent_asset, ObjectReference):
             assert parent_asset.object_type == ObjectType.ARTICULATION, (
@@ -73,12 +68,6 @@ class ObjectReference(RootedObjectBase):
             self.initial_pose_relative_to_parent,
         ) = self._get_referenced_prim_path_and_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
-        if initial_joint_positions is not None:
-            assert (
-                self.object_type == ObjectType.ARTICULATION
-            ), "initial_joint_positions requires an articulation object reference"
-            assert isinstance(self.object_cfg, ArticulationCfg)
-            self.object_cfg.init_state.joint_pos = dict(initial_joint_positions)
         self._pose_event_cfg = self._build_reset_event()
         self._bounding_box: AxisAlignedBoundingBox | None = None
         self._collision_mesh: trimesh.Trimesh | None = None
@@ -378,31 +367,46 @@ class ObjectReference(RootedObjectBase):
         return str(default_prim.GetPath()) + relative_path
 
 
-class OpenableObjectReference(ObjectReference, Openable):
+class ArticulationObjectReference(ObjectReference):
+    """Refer to an existing articulation with optional initial joint positions."""
+
+    def __init__(self, initial_joint_positions: dict[str, float] | None = None, **kwargs):
+        """Set joint defaults in radians for revolute joints and metres for prismatic joints.
+
+        Args:
+            initial_joint_positions: Joint names or Isaac Lab regex patterns mapped to positions.
+                None preserves Isaac Lab's defaults; an empty dict leaves all joints unspecified.
+            **kwargs: ObjectReference arguments other than object_type, which is always ARTICULATION.
+        """
+        super().__init__(object_type=ObjectType.ARTICULATION, **kwargs)
+        if initial_joint_positions is not None:
+            assert isinstance(self.object_cfg, ArticulationCfg)
+            self.object_cfg.init_state.joint_pos = dict(initial_joint_positions)
+
+
+class OpenableObjectReference(ArticulationObjectReference, Openable):
     """An object which *refers* to an existing element in the scene and is openable."""
 
     def __init__(self, openable_joint_name: str, openable_threshold: float = 0.5, **kwargs):
         super().__init__(
             openable_joint_name=openable_joint_name,
             openable_threshold=openable_threshold,
-            object_type=ObjectType.ARTICULATION,
             **kwargs,
         )
 
 
-class PressableObjectReference(ObjectReference, Pressable):
+class PressableObjectReference(ArticulationObjectReference, Pressable):
     """A referenced articulation exposing one prismatic joint as a button."""
 
     def __init__(self, pressable_joint_name: str, pressedness_threshold: float = 0.5, **kwargs):
         super().__init__(
             pressable_joint_name=pressable_joint_name,
             pressedness_threshold=pressedness_threshold,
-            object_type=ObjectType.ARTICULATION,
             **kwargs,
         )
 
 
-class TurnableObjectReference(ObjectReference, Turnable):
+class TurnableObjectReference(ArticulationObjectReference, Turnable):
     """A referenced articulation exposing one revolute joint as a discrete control."""
 
     def __init__(
@@ -418,7 +422,6 @@ class TurnableObjectReference(ObjectReference, Turnable):
             min_level_angle_deg=min_level_angle_deg,
             max_level_angle_deg=max_level_angle_deg,
             num_levels=num_levels,
-            object_type=ObjectType.ARTICULATION,
             **kwargs,
         )
 

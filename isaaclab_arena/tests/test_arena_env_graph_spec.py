@@ -94,6 +94,18 @@ def test_graph_spec_parses_default_physics_backend():
     assert spec.default_physics_backend is PhysicsBackend.NEWTON
 
 
+@pytest.mark.parametrize("object_type", [ObjectType.BASE, ObjectType.RIGID])
+def test_graph_spec_rejects_joint_defaults_on_non_articulation_reference(object_type):
+    data = _minimal_env_graph_data()
+    data["object_references"][0].update({
+        "object_type": object_type.value,
+        "params": {"initial_joint_positions": {"drawer_joint": 0.3}},
+    })
+
+    with pytest.raises(ValidationError, match="initial_joint_positions requires object_type=articulation"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
     data = _minimal_env_graph_data()
     data["embodiment"].setdefault("params", {})["initial_pose"] = {

@@ -267,6 +267,79 @@ def _drawer_reference(
     )
 
 
+def _test_articulation_reference_graph_construction(
+    simulation_app, tmp_path: pathlib.Path, reference_class_name: str, affordance_params: dict, joint_positions
+) -> bool:
+    from isaaclab.assets import ArticulationCfg
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ArticulationObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _instantiate_object_reference
+    from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
+
+    usd_path = tmp_path / "articulation_reference.usda"
+    joint_type = "revolute" if "turnable_joint_name" in affordance_params else "prismatic"
+    _write_scaled_drawer_articulation(usd_path, joint_type)
+    workbench = Object(name="workbench", usd_path=str(usd_path), object_type=ObjectType.BASE)
+    params = dict(affordance_params)
+    if joint_positions is not None:
+        params["initial_joint_positions"] = dict(joint_positions)
+    spec = ObjectReferenceSpec(
+        id="cabinet", parent_id="workbench", prim_path="Cabinet", object_type=ObjectType.ARTICULATION, params=params
+    )
+
+    reference = _instantiate_object_reference(spec, workbench)
+
+    assert type(reference).__name__ == reference_class_name
+    assert isinstance(reference, ArticulationObjectReference)
+    assert reference.object_type == ObjectType.ARTICULATION
+    assert isinstance(reference.object_cfg, ArticulationCfg)
+    assert reference.get_prim_path() == "{ENV_REGEX_NS}/workbench/Cabinet"
+    expected_positions = ArticulationCfg.InitialStateCfg().joint_pos if joint_positions is None else joint_positions
+    assert reference.object_cfg.init_state.joint_pos == expected_positions
+    if joint_positions is not None:
+        # Editing the graph parameters later must not silently change the articulation's joint defaults.
+        spec.params["initial_joint_positions"]["drawer_joint"] = 0.9
+        assert reference.object_cfg.init_state.joint_pos == expected_positions
+    for name, value in affordance_params.items():
+        if name.endswith("_joint_name"):
+            assert getattr(reference, name) == value
+    return True
+
+
+@pytest.mark.parametrize("joint_positions", [None, {}, {"drawer_.*": 0.3}], ids=["default", "empty", "configured"])
+@pytest.mark.parametrize(
+    "reference_class_name,affordance_params",
+    [
+        ("ArticulationObjectReference", {}),
+        ("OpenableObjectReference", {"openable_joint_name": "drawer_joint"}),
+        ("PressableObjectReference", {"pressable_joint_name": "drawer_joint"}),
+        (
+            "TurnableObjectReference",
+            {
+                "turnable_joint_name": "drawer_joint",
+                "min_level_angle_deg": 10.0,
+                "max_level_angle_deg": 90.0,
+                "num_levels": 3,
+            },
+        ),
+    ],
+)
+def test_articulation_reference_graph_construction(
+    tmp_path: pathlib.Path, reference_class_name, affordance_params, joint_positions
+):
+    """Graph conversion preserves joint defaults for plain and affordance-specific articulation references."""
+    assert run_function_with_persistent_simulation_app(
+        _test_articulation_reference_graph_construction,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+        reference_class_name=reference_class_name,
+        affordance_params=affordance_params,
+        joint_positions=joint_positions,
+    )
+
+
 def _test_nested_reference_uses_articulation_parent_pose(
     simulation_app,
     tmp_path: pathlib.Path,
@@ -275,7 +348,11 @@ def _test_nested_reference_uses_articulation_parent_pose(
     expected_position: tuple[float, float, float],
 ) -> bool:
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ArticulationBodyReferenceCfg, ObjectReference
+    from isaaclab_arena.assets.object_reference import (
+        ArticulationBodyReferenceCfg,
+        ArticulationObjectReference,
+        ObjectReference,
+    )
     from isaaclab_arena.assets.object_type import ObjectType
 
     usd_path = tmp_path / "nested_reference.usda"
@@ -292,11 +369,10 @@ def _test_nested_reference_uses_articulation_parent_pose(
         object_type=ObjectType.BASE,
         scale=root_scale,
     )
-    cabinet = ObjectReference(
+    cabinet = ArticulationObjectReference(
         name="cabinet",
         prim_path="{ENV_REGEX_NS}/workbench/Cabinet",
         parent_asset=workbench,
-        object_type=ObjectType.ARTICULATION,
         initial_joint_positions={"drawer_joint": joint_position},
     )
 

@@ -165,6 +165,14 @@ class ObjectReferenceSpec(BaseModel):
     )
     params: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def _assert_initial_joint_positions_require_articulation(self) -> ObjectReferenceSpec:
+        """Reject joint defaults on references that do not represent articulations."""
+        assert (
+            "initial_joint_positions" not in self.params or self.object_type == ObjectType.ARTICULATION
+        ), "initial_joint_positions requires object_type=articulation"
+        return self
+
 
 class TaskSpec(BaseModel):
     """Atomic registered task leaf referenced by a composite root task."""
