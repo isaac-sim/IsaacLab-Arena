@@ -61,8 +61,10 @@ To stand a robot at a work surface, follow
 ## Reachability
 
 Keep task objects within the robot's reach. Tasks such as `PickAndPlaceTask` mark their objects
-`requires_reachability`, and the `ik_reachable` check rejects layouts where the arm cannot reach
-them, so you need not check reach yourself. Its pass counts are in the placement diagnostics.
+`requires_reachability`. For a robot with a cuRobo configuration, currently DROID, the
+`ik_reachable` check then rejects layouts where the arm cannot reach them. Confirm that
+`ik_reachable` appears in the placement diagnostics' pass counts; if it is missing, reach was not
+checked.
 
 ## Diverse layouts
 

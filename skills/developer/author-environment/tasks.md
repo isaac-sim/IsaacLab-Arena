@@ -11,10 +11,10 @@ given by their node ids. Check the constructor in `isaaclab_arena/tasks/` for th
 
 - `PickAndPlaceTask`: move `pick_up_object` into or onto `destination_location`. Most RoboLab tasks
   use it, such as [banana in bowl](../../../isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml).
-  Its objects are marked `requires_reachability`, so placement only keeps layouts where the robot
-  can reach them.
+  Its objects are marked `requires_reachability`, so for a robot with a cuRobo configuration, such
+  as DROID, placement only keeps layouts where the robot can reach them.
 - `OpenDoorTask`, `CloseDoorTask`: open or close an articulated door, such as a fridge or cabinet.
-- `PressButtonTask`, `TurnKnobTask`, `RotateRevoluteJointTask`: operate an articulated control.
+- `PressButtonTask`, `TurnKnobTask`: operate an articulated control.
 - `NoTask`: a scene without success criteria.
 
 Search `isaaclab_arena/tasks/` for others, such as sorting, lifting or placing upright, before
@@ -44,5 +44,4 @@ env_cfg_override:
 
 `true` requires the subtask to have completed and its condition to hold now, `false` requires it
 to have completed and its condition to be false now, and `null` leaves it out of the success
-check. The build prints the effective `subtasks_are_sequential` and `desired_subtask_success_state`;
-read them there to confirm the setting was applied.
+check.
