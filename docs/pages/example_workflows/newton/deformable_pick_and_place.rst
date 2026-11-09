@@ -26,13 +26,6 @@ Task Overview
    * - **Physics**
      - Newton by default; select the backend-specific deformable asset for PhysX
 
-Four sampled initial placements are shown below. The placement relations are the same for
-both physics backends.
-
-.. image:: ../../../images/deformable_pick_and_place_sampled_placements.png
-   :align: center
-   :alt: Four sampled deformable pick-and-place initial placements
-
 Prerequisites
 -------------
 
@@ -71,6 +64,17 @@ Use a zero-action policy to inspect either backend:
            --viz kit \
            droid_deformable_pick_and_place \
            --pick_object deformable_cube_physx
+
+You should see the DROID robot with a red deformable cube and a round plate on the maple table.
+The placement relations are the same for both physics backends, with the initial poses sampled
+as shown below.
+
+The preview exits after 1,000 steps. Increase ``--num_steps`` for a longer preview, or press
+``Ctrl+C`` in the terminal to stop it.
+
+.. image:: ../../../images/deformable_pick_and_place_sampled_placements.png
+   :align: center
+   :alt: Four sampled deformable pick-and-place initial placements
 
 Teleoperate the Task
 --------------------
@@ -149,6 +153,10 @@ Then evaluate four parallel environments for 16 completed episodes:
       A local 16-episode OpenPI ``pi05`` validation run succeeded in 9 episodes (56.25%).
       This small stochastic run validates the workflow.
 
+      .. code-block:: text
+
+         [Rank 0/1] Metrics: {'num_episodes': 16, 'success_rate': 0.5625, 'object_moved_rate': 1.0}
+
    .. tab-item:: PhysX
 
       .. code-block:: bash
@@ -164,6 +172,10 @@ Then evaluate four parallel environments for 16 completed episodes:
 
       A local 16-episode OpenPI ``pi05`` validation run succeeded in 15 episodes (93.75%).
       This small stochastic run validates the workflow.
+
+      .. code-block:: text
+
+         [Rank 0/1] Metrics: {'num_episodes': 16, 'success_rate': 0.9375, 'object_moved_rate': 1.0}
 
 The following rollout shows one successful Newton episode from an external camera and the
 robot wrist camera:
