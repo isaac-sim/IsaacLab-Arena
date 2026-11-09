@@ -102,14 +102,13 @@ or claim runtime success. Authoring alone does not require policy rollouts or po
 
 Check Python/YAML syntax, referenced constructors, registration, schema conversion, defaults, and
 feature reuse without importing Arena on the host. In a ready runtime, build and reset the
-environment, then validate its placement layouts: apply every stored layout as a reset would and
-check that each one settles. Read the candidate pass counts and the success configuration in the
-build log, and the placement diagnostics if few layouts pass. "Authoring and validation tools"
-below lists the tool for each step. The environment builds and resets cleanly when both steps
-pass; stop there. Do not run zero-action episodes: one only resets at its timeout, which takes
-minutes, and cannot succeed. Use existing focused tests to check changed success logic, temporal
-interruptions, and reset isolation across parallel environments. Parsing or passive stepping alone
-does not establish task solvability.
+environment, then run the placement pool validation. Read the candidate pass counts and the
+success configuration in the build log, and the placement diagnostics if few layouts pass.
+"Authoring and validation tools" below lists the tool for each step. The environment builds and
+resets cleanly when both steps pass; stop there. Do not run zero-action episodes: one only resets at
+its timeout, which takes minutes, and cannot succeed. Use existing focused tests to check changed
+success logic, temporal interruptions, and reset isolation across parallel environments. Parsing or
+passive stepping alone does not establish task solvability.
 
 Use the generic [Object Control Runner](../../../docs/pages/agentic_tools/object_control.rst)
 ([source](../../../isaaclab_arena/agentic_tools/object_control_runner.py))
