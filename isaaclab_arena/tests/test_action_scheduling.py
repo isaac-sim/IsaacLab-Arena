@@ -331,3 +331,49 @@ def test_latency_scheduler_concatenates_several_request_calls_in_env_order():
 
     torch.testing.assert_close(action, chunk[:, 0])
     scheduler.close()
+
+
+def test_latency_scheduler_parked_envs_request_nothing_and_hold_until_reset():
+    """A parked env drops its chunk, requests nothing and applies the hold action; a reset unparks it."""
+    scheduler = _make_latency_scheduler(latency_steps=0)
+    server = _ChunkServer()
+    hold = torch.full((NUM_ENVS, ACTION_DIM), -1.0)
+
+    server.steps(scheduler, None, 1)  # Both envs fetch their first chunk on step 0.
+    scheduler.park([1])
+    assert scheduler.has_parked_envs
+    actions = server.steps(scheduler, hold, ACTION_CHUNK_LENGTH)
+
+    for k, action in enumerate(actions):
+        torch.testing.assert_close(action[0], server.chunk[0, (k + 1) % ACTION_CHUNK_LENGTH])
+        torch.testing.assert_close(action[1], hold[1])
+    # Env 0 alone requests its second chunk when the first runs out; env 1 never requests while parked.
+    assert server.requests == [(0, [0, 1]), (ACTION_CHUNK_LENGTH, [0])]
+    assert scheduler.parked_steps.tolist() == [0, ACTION_CHUNK_LENGTH]
+    assert scheduler.hold_steps.tolist() == [0, 0]
+
+    scheduler.park([1])  # Parking again is a no-op.
+    scheduler.reset(torch.tensor([1]))
+    assert not scheduler.has_parked_envs
+    (action,) = server.steps(scheduler, None, 1)
+    torch.testing.assert_close(action[1], server.chunk[1, 0])
+    assert server.requests[-1] == (ACTION_CHUNK_LENGTH + 1, [1])
+
+
+def test_latency_scheduler_parking_discards_the_in_flight_request():
+    """Parking an env whose chunk is in flight drops that request; the env holds instead of receiving it."""
+    latency_steps = 2
+    scheduler = _make_latency_scheduler(latency_steps)
+    server = _ChunkServer()
+    hold = torch.full((NUM_ENVS, ACTION_DIM), -1.0)
+
+    server.steps(scheduler, hold, 1)  # Requests issued on step 0, due on step 2.
+    scheduler.park([0])
+    actions = server.steps(scheduler, hold, latency_steps + 1)
+
+    for action in actions:
+        torch.testing.assert_close(action[0], hold[0])
+    torch.testing.assert_close(actions[-1][1], server.chunk[1, 1])
+    assert scheduler.parked_steps.tolist() == [latency_steps + 1, 0]
+    # Env 0 held once on step 0 before it was parked; parked steps are not hold steps.
+    assert scheduler.hold_steps.tolist() == [1, latency_steps]

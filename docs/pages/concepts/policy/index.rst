@@ -152,6 +152,13 @@ Not modeled: the delay between a policy's command and the actuators, which lands
 substeps rather than on control-step boundaries, and jitter around the configured value. Both can be
 added on top of this mechanism.
 
+**Environments that finished their last episode.** A Run with ``num_episodes`` stops assigning new
+episodes once the limit is reached, but the simulation keeps stepping every environment until the last
+assigned episode ends. Chunked remote policies park the environments whose episode is over and has no
+replacement: they request no more chunks and apply the hold action, so the policy server only serves
+the environments whose results count. With many environments and few episodes per environment this
+removes a large share of the inference; the policy prints the number of parked env-steps when it closes.
+
 .. _batched-inference:
 
 Batched inference requests

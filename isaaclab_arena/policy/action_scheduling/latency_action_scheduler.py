@@ -57,6 +57,9 @@ class LatencyActionScheduler(ActionScheduler):
     during the first ``latency_steps`` steps of an episode and whenever a chunk is due later than the
     previous one ends, apply the hold action. With ``latency_steps`` zero requests are made and
     answered on the step they are needed, which is the behavior of ``ActionChunkScheduler``.
+
+    Envs passed to ``park`` request no chunks and apply the hold action until they are reset, so
+    envs that finished their last episode do not consume inference while the others complete theirs.
     """
 
     def __init__(
@@ -103,6 +106,7 @@ class LatencyActionScheduler(ActionScheduler):
         self._next_request_step: list[int | None] = [0] * num_envs
         self._pending: list[_PendingRequest | None] = [None] * num_envs
         self._had_chunk_since_reset = [False] * num_envs
+        self._parked = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
         self.requests_issued = 0
         """Number of chunk requests issued, one per env and chunk."""
@@ -110,11 +114,18 @@ class LatencyActionScheduler(ActionScheduler):
         """Steps each env applied the hold action because it had no usable chunk yet."""
         self.stall_steps = torch.zeros(num_envs, dtype=torch.long, device=device)
         """Subset of ``hold_steps`` spent after an env's first chunk of the episode ran out."""
+        self.parked_steps = torch.zeros(num_envs, dtype=torch.long, device=device)
+        """Steps each env applied the hold action while parked, not counted in ``hold_steps``."""
 
     @property
     def latency_steps(self) -> int | None:
         """Control steps between a request and its chunk becoming usable, None until set."""
         return self._latency_steps
+
+    @property
+    def has_parked_envs(self) -> bool:
+        """Whether any env is parked and therefore needs the hold action on ``get_action``."""
+        return bool(self._parked.any())
 
     def set_latency_steps(self, latency_steps: int) -> None:
         """Set the latency once the control step is known; must happen before the first ``get_action``."""
@@ -134,7 +145,7 @@ class LatencyActionScheduler(ActionScheduler):
                 snapshots their observations and returns the blocking calls that fetch the chunks; see
                 ``PrepareRequestsFn``. Unlike the other schedulers it is not a no-argument fetch.
             hold_action: ``(num_envs, action_dim)`` actions for envs without a usable chunk. Required
-                whenever ``latency_steps`` is positive.
+                whenever ``latency_steps`` is positive or an env is parked.
         """
         assert self._latency_steps is not None, "set_latency_steps must be called before get_action"
         self._issue_due_requests(fetch_action_tensor_fn)
@@ -146,12 +157,13 @@ class LatencyActionScheduler(ActionScheduler):
         batch_idx = torch.arange(self.num_envs, device=self.device)
         action = self.current_action_chunk[batch_idx, self.current_action_index.clamp(min=0)]
         if not bool(has_chunk.all()):
-            assert hold_action is not None, "hold_action is required while some envs wait for their chunk"
-            holding = ~has_chunk
-            action = torch.where(holding.unsqueeze(-1), hold_action.to(action), action)
+            assert hold_action is not None, "hold_action is required while some envs wait for their chunk or are parked"
+            action = torch.where(has_chunk.unsqueeze(-1), action, hold_action.to(action))
+            holding = ~has_chunk & ~self._parked
             self.hold_steps += holding.long()
             stalled = holding & torch.tensor(self._had_chunk_since_reset, device=self.device)
             self.stall_steps += stalled.long()
+            self.parked_steps += self._parked.long()
 
         self.current_action_index[has_chunk] += 1
         exhausted = self.current_action_index >= self.action_chunk_length
@@ -161,13 +173,35 @@ class LatencyActionScheduler(ActionScheduler):
         return action
 
     def reset(self, env_ids: Sequence[int] | torch.Tensor | slice | None = None) -> None:
-        """Drop the given envs' chunks and in-flight requests (all when None); they request anew next step."""
+        """Drop the given envs' chunks and in-flight requests (all when None); they request anew next step.
+
+        A parked env is unparked, since a reset starts a new episode for it.
+        """
         for env_id in self._env_id_list(env_ids):
             self.current_action_chunk[env_id] = 0.0
             self.current_action_index[env_id] = -1
             self._pending[env_id] = None
             self._next_request_step[env_id] = self._step
             self._had_chunk_since_reset[env_id] = False
+            self._parked[env_id] = False
+
+    def park(self, env_ids: Sequence[int] | torch.Tensor) -> None:
+        """Stop requesting chunks for the given envs until they are reset.
+
+        Their current chunk and in-flight request are discarded, and ``get_action`` returns the hold
+        action for them. Meant for envs that finished their last episode while others are still running.
+
+        Args:
+            env_ids: Envs to park; already parked envs are left unchanged.
+        """
+        for env_id in self._env_id_list(env_ids):
+            if self._parked[env_id]:
+                continue
+            self.current_action_chunk[env_id] = 0.0
+            self.current_action_index[env_id] = -1
+            self._pending[env_id] = None
+            self._next_request_step[env_id] = None
+            self._parked[env_id] = True
 
     def close(self) -> None:
         """Stop the worker threads; requests still in flight are abandoned."""

@@ -410,3 +410,37 @@ def test_batching_can_be_disabled_in_the_config(monkeypatch):
 def test_server_without_batch_metadata_gets_one_request_per_env(make_policy):
     policy = make_policy()
     assert not policy.server_batches_requests()
+
+
+def test_envs_that_finished_their_last_episode_are_parked_without_inference(monkeypatch):
+    """An env outside the Arena env's active episode mask requests no chunk and holds; a reset unparks it."""
+    from isaaclab_arena.policy import remote_policy_base
+
+    infer_calls: list[int] = []
+
+    def counting_infer(self, request):
+        infer_calls.append(1)
+        return {"actions": _synthetic_chunk()}
+
+    _patch_websocket_client(monkeypatch, infer_impl=counting_infer)
+    monkeypatch.setattr(remote_policy_base, "hold_action_from_action_manager", lambda env: _hold_action(2))
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=2)
+    env.unwrapped.active_episode_mask = torch.tensor([True, True])
+    obs = _fake_observation(num_envs=2)
+
+    policy.get_action(env, obs)  # Both envs fetch their first chunk.
+    env.unwrapped.active_episode_mask[1] = False  # Env 1 finished its last episode; no replacement started.
+    for _ in range(15):
+        action = policy.get_action(env, obs)  # Env 0 runs out of chunk on step 15 and refetches.
+    assert len(infer_calls) == 3
+    assert action[0, -1].item() == pytest.approx(0.2)
+    assert action[1, -1].item() == pytest.approx(-1.0)
+    assert policy._scheduler.parked_steps.tolist() == [0, 15]
+
+    env.unwrapped.active_episode_mask[1] = True
+    policy.reset(env_ids=torch.tensor([1]))
+    action = policy.get_action(env, obs)
+    assert len(infer_calls) == 4
+    assert action[1, -1].item() == pytest.approx(0.2)

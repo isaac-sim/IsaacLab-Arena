@@ -33,6 +33,23 @@ def inference_latency_steps(inference_latency_ms: float, control_step_dt_s: floa
     return math.ceil(inference_latency_ms / (1000.0 * control_step_dt_s))
 
 
+def idle_env_ids(env: gym.Env) -> list[int]:
+    """Return the envs that finished their last episode and were not assigned a new one.
+
+    With an episode limit, the Arena env stops replacing finished episodes once the limit is reached,
+    but keeps stepping those envs until the remaining episodes complete. Their actions are discarded,
+    so a policy can skip inference for them and hold their robot in place. Without an episode limit,
+    or for an env that does not track episode assignment, every env is active and the list is empty.
+
+    Args:
+        env: Environment, optionally gym-wrapped.
+    """
+    active_episode_mask = getattr(env.unwrapped, "active_episode_mask", None)
+    if active_episode_mask is None:
+        return []
+    return (~active_episode_mask).nonzero(as_tuple=True)[0].tolist()
+
+
 def hold_action_from_action_manager(env: gym.Env) -> torch.Tensor:
     """Return the action that keeps every env's robot where it is for one control step.
 

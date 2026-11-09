@@ -17,7 +17,11 @@ import websockets.exceptions
 from openpi_client import websocket_client_policy
 
 from isaaclab_arena.policy.action_scheduling import LatencyActionScheduler
-from isaaclab_arena.policy.inference_latency import hold_action_from_action_manager, inference_latency_steps
+from isaaclab_arena.policy.inference_latency import (
+    hold_action_from_action_manager,
+    idle_env_ids,
+    inference_latency_steps,
+)
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 from isaaclab_arena.utils.timer import Timer
@@ -133,7 +137,12 @@ class RemoteChunkReplayPolicy:
             scheduler.reset()
             self._flush_requested = False
 
-        hold_action = hold_action_from_action_manager(env) if scheduler.latency_steps > 0 else None
+        # Envs that finished their last episode get no more chunks; their robot holds its pose.
+        finished_env_ids = idle_env_ids(env)
+        if finished_env_ids:
+            scheduler.park(finished_env_ids)
+        needs_hold_action = scheduler.latency_steps > 0 or scheduler.has_parked_envs
+        hold_action = hold_action_from_action_manager(env) if needs_hold_action else None
         return scheduler.get_action(functools.partial(self._prepare_requests, observation), hold_action=hold_action)
 
     def _prepare_requests(self, observation: dict[str, Any], env_ids: list[int]) -> list[functools.partial]:
@@ -332,6 +341,9 @@ class RemoteChunkReplayPolicy:
                 f"[{name}] {scheduler.requests_issued} chunk requests sent in {server_calls} batched server calls"
                 f" ({scheduler.requests_issued / max(server_calls, 1):.1f} environments per call)"
             )
+        parked_steps = int(scheduler.parked_steps.sum().item())
+        if parked_steps:
+            print(f"[{name}] {parked_steps} env-steps parked after the last episode started, without inference")
         if scheduler.latency_steps == 0:
             return
         print(

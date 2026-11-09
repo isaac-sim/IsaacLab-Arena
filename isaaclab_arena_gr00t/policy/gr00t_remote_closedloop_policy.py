@@ -25,7 +25,7 @@ from isaaclab_arena.policy.action_scheduling import (
     LatencyActionScheduler,
     SyncedBatchActionScheduler,
 )
-from isaaclab_arena.policy.inference_latency import inference_latency_steps
+from isaaclab_arena.policy.inference_latency import idle_env_ids, inference_latency_steps
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
@@ -199,6 +199,10 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
                 self._chunking_state.set_latency_steps(
                     inference_latency_steps(self.config.inference_latency_ms, env.unwrapped.step_dt)
                 )
+            # Envs that finished their last episode get no more chunks; their robot holds its pose.
+            finished_env_ids = idle_env_ids(env)
+            if finished_env_ids:
+                self._chunking_state.park(finished_env_ids)
 
             def prepare_requests(env_ids: list[int]) -> list[Callable[[], torch.Tensor]]:
                 # The observation is converted on the calling thread, for this step, because the
