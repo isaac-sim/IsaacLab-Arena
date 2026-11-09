@@ -8,15 +8,8 @@
 from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
 
-from isaaclab_arena.assets.sources.base import UsdPathSource, UsdSource
+from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.lightwheel import LightwheelUsdSource
-
-
-def test_path_source_preserves_path():
-    source = UsdPathSource("omniverse://server/asset.usd")
-
-    assert source.identity() == "omniverse://server/asset.usd"
-    assert source.resolve() == "omniverse://server/asset.usd"
 
 
 def test_object_resolves_usd_source_path(tmp_path):
@@ -59,7 +52,6 @@ def test_lightwheel_source_is_lazy_and_memoizes_acquisition():
     source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
 
     assert loader.acquire_by_registry.call_count == 0
-    assert source.identity() == 'lightwheel:{"file_type":"USD","registry_name":["broccoli"],"registry_type":"objects"}'
     with patch.dict(
         "sys.modules",
         {"lightwheel_sdk": package, "lightwheel_sdk.loader": loader_module},
@@ -109,3 +101,19 @@ def test_library_objects_reuse_their_class_level_lightwheel_source(tmp_path):
 
     assert first.usd_path == second.usd_path == usd_path
     loader.acquire_by_registry.assert_called_once()
+
+
+def test_extract_asset_usd_path_resolves_source_without_constructing_asset():
+    from isaaclab_arena.environment_spec.arena_env_graph_types import _extract_asset_usd_path
+
+    source = Mock(spec=UsdSource)
+    source.resolve.return_value = "/cache/asset.usd"
+
+    class SourcedAsset:
+        usd_path = source
+
+        def __init__(self):
+            raise AssertionError("Extracting the source path must not construct the asset")
+
+    assert _extract_asset_usd_path(SourcedAsset) == "/cache/asset.usd"
+    source.resolve.assert_called_once_with()

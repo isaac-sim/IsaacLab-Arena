@@ -1,4 +1,4 @@
-# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from collections.abc import Callable
 from typing import Any
@@ -23,11 +22,6 @@ class LightwheelUsdSource(UsdSource):
     def __init__(self, **acquire_by_registry_kwargs: Any):
         self._kwargs = acquire_by_registry_kwargs
         self._resolved: str | None = None
-
-    def identity(self) -> str:
-        """Return a stable identity derived from the registry query."""
-        query = json.dumps(self._kwargs, sort_keys=True, separators=(",", ":"))
-        return f"lightwheel:{query}"
 
     def resolve(self) -> str:
         """Acquire the USD on first use and reuse that path thereafter."""

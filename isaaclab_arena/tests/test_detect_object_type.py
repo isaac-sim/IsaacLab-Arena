@@ -74,6 +74,7 @@ def _test_detect_object_type(simulation_app):
 def _test_detect_object_type_for_all_objects(simulation_app):
     from isaaclab_arena.assets.object_utils import detect_object_type
     from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.assets.sources.base import UsdSource
 
     asset_registry = AssetRegistry()
     for object_asset in asset_registry.get_assets_by_tag("object"):
@@ -90,7 +91,10 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         skipped_names = ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere")
         if has_usd_path and not is_procedural and object_asset.registry_name not in skipped_names:
             print(f"Automatically classifying: {object_asset.registry_name}")
-            detected_object_type = detect_object_type(usd_path=object_asset.usd_path)
+            usd_path = object_asset.usd_path
+            if isinstance(usd_path, UsdSource):
+                usd_path = usd_path.resolve()
+            detected_object_type = detect_object_type(usd_path=usd_path)
             print(f"database object type: {object_asset.object_type}")
             print(f"detected object type: {detected_object_type}")
             assert detected_object_type == object_asset.object_type

@@ -18,7 +18,7 @@ from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
-from isaaclab_arena.assets.sources.base import UsdPathSource, UsdSource
+from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry, get_geometry_key
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -44,15 +44,15 @@ class Object(RootedObjectBase):
         **kwargs,
     ):
         # Pull out addons (and remove them from kwargs before passing to super)
+        # Keep nested addon settings independent when multiple objects reuse the same input mapping.
         spawn_cfg_addon: dict[str, Any] = deepcopy(kwargs.pop("spawn_cfg_addon", {}) or {})
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
         assert usd_path is not None or spawner_cfg is not None, "Either usd_path or spawner_cfg must be provided"
         assert usd_path is None or spawner_cfg is None, "Either usd_path or spawner_cfg must be provided (not both)"
         if usd_path is not None:
-            source = UsdPathSource(usd_path) if isinstance(usd_path, str) else usd_path
-            assert isinstance(source, UsdSource), f"usd_path must be a string or UsdSource, got {type(source)}"
-            usd_path = source.resolve()
-            assert isinstance(usd_path, str) and usd_path, "UsdSource.resolve() must return a non-empty string"
+            if isinstance(usd_path, UsdSource):
+                usd_path = usd_path.resolve()
+            assert isinstance(usd_path, str) and usd_path, "usd_path must be a non-empty string"
         if spawner_cfg is not None:
             assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
         # Detect object type if not provided
@@ -69,7 +69,6 @@ class Object(RootedObjectBase):
         self.initial_pose = initial_pose
         self.relations = list(relations)
         self.reset_pose = True
-        # Keep nested addon settings independent when multiple objects reuse the same input mapping.
         self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box: AxisAlignedBoundingBox | None = None

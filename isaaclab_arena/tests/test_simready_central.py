@@ -103,14 +103,23 @@ def _test_central_usd_validation(simulation_app):
         root = UsdGeom.Xform.Define(stage, "/Pallet").GetPrim()
         stage.SetDefaultPrim(root)
         body = UsdPhysics.RigidBodyAPI.Apply(root)
-        body.CreateRigidBodyEnabledAttr(True)
+        physx_variants = root.GetVariantSets().AddVariantSet("PhysX")
+        for selection, enabled in (("Enabled", True), ("Disabled", False)):
+            physx_variants.AddVariant(selection)
+            physx_variants.SetVariantSelection(selection)
+            with physx_variants.GetVariantEditContext():
+                body.CreateRigidBodyEnabledAttr(enabled)
+        physx_variants.SetVariantSelection("Disabled")
         stage.GetRootLayer().Save()
         with (
             patch(f"{LOADER}.download_central_asset_package", return_value=str(asset)),
             patch(f"{LOADER}.Path.home", return_value=folder),
         ):
             wrapper = download_and_wrap_central_asset(URL)
-            assert Usd.Stage.Open(wrapper).GetDefaultPrim().HasAPI(UsdPhysics.RigidBodyAPI)
+            wrapper_stage = Usd.Stage.Open(wrapper)
+            wrapper_root = wrapper_stage.GetDefaultPrim()
+            assert wrapper_root.GetVariantSet("PhysX").GetVariantSelection() == "Enabled"
+            assert UsdPhysics.RigidBodyAPI(wrapper_root).GetRigidBodyEnabledAttr().Get()
             body.GetRigidBodyEnabledAttr().Set(False)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="disabled"):
