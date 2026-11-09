@@ -72,6 +72,18 @@ def test_pose_composition_rotates_inner_translation():
     )
 
 
+def test_pose_relative_to_inverts_composition():
+    quarter_turn_about_z_xyzw = (0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5))
+    T_D_P = Pose(position_xyz=(1.0, 2.0, 0.0), rotation_xyzw=quarter_turn_about_z_xyzw)
+    T_P_O = Pose(position_xyz=(3.0, 0.0, 1.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+    T_D_O = T_D_P.multiply(T_P_O)
+
+    actual = T_D_O.relative_to(T_D_P)
+
+    torch.testing.assert_close(torch.tensor(actual.position_xyz), torch.tensor(T_P_O.position_xyz))
+    torch.testing.assert_close(torch.tensor(actual.rotation_xyzw), torch.tensor(T_P_O.rotation_xyzw))
+
+
 def test_rotate_points_by_yaw_batch_matches_scalar():
     """Batch rotation with per-element yaws produces the same result as scalar rotation per row."""
     points = torch.tensor([[1.0, 2.0, 0.5], [3.0, -1.0, 1.0], [0.0, 4.0, -0.3]])

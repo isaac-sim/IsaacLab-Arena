@@ -65,6 +65,25 @@ class Pose:
     def multiply(self, other: Pose) -> Pose:
         return compose_poses(self, other)
 
+    def relative_to(self, T_D_P: Pose) -> Pose:
+        """Return this pose in parent frame P when both poses are expressed in frame D.
+
+        Args:
+            T_D_P: Pose of parent frame P in source frame D.
+
+        Returns:
+            This object's pose T_P_O in parent frame P.
+        """
+        from isaaclab.utils.math import subtract_frame_transforms
+
+        t_P_O, q_P_O = subtract_frame_transforms(
+            torch.tensor(T_D_P.position_xyz),
+            torch.tensor(T_D_P.rotation_xyzw),
+            torch.tensor(self.position_xyz),
+            torch.tensor(self.rotation_xyzw),
+        )
+        return Pose(position_xyz=tuple(t_P_O.tolist()), rotation_xyzw=tuple(q_P_O.tolist()))
+
     def translate(self, xyz_offset: tuple[float, float, float]) -> Pose:
         """Return this pose shifted by ``xyz_offset`` (rotation unchanged)."""
         return Pose(

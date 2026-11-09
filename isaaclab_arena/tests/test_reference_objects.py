@@ -149,6 +149,9 @@ def _write_scaled_drawer_articulation(
     collider_scale: float = 1.0,
     drawer_physics_in_variant: bool = False,
     repeat_joint_name: bool = False,
+    default_prim_name: str = "Asset",
+    cabinet_yaw_degrees: float = 0.0,
+    sibling_cabinet: bool = False,
 ) -> None:
     """Write a cabinet scaled by 2 whose drawer body is driven by one prismatic or revolute joint.
 
@@ -162,20 +165,26 @@ def _write_scaled_drawer_articulation(
         drawer_physics_in_variant: Author the drawer's rigid body only inside a "Physics" variant that is
             not selected by default, as SimReady assets do.
         repeat_joint_name: Add a second drawer whose joint repeats the first joint's name.
+        default_prim_name: Name of the stage's default prim.
+        cabinet_yaw_degrees: Rotation of the cabinet about the default prim's Z axis.
+        sibling_cabinet: Add another articulation whose joint has the same name.
     """
     from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
     stage = Usd.Stage.CreateNew(str(path))
-    root = UsdGeom.Xform.Define(stage, "/Asset").GetPrim()
+    root_path = f"/{default_prim_name}"
+    cabinet_path = root_path + "/Cabinet"
+    root = UsdGeom.Xform.Define(stage, root_path).GetPrim()
     stage.SetDefaultPrim(root)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
-    cabinet = UsdGeom.Xform.Define(stage, "/Asset/Cabinet")
+    cabinet = UsdGeom.Xform.Define(stage, cabinet_path)
     cabinet.AddScaleOp().Set(Gf.Vec3f(2.0))
+    cabinet.AddRotateZOp().Set(cabinet_yaw_degrees)
     UsdPhysics.ArticulationRootAPI.Apply(cabinet.GetPrim())
 
-    base = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/Base").GetPrim()
+    base = UsdGeom.Xform.Define(stage, cabinet_path + "/Base").GetPrim()
     UsdPhysics.RigidBodyAPI.Apply(base)
-    drawer = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/Drawer")
+    drawer = UsdGeom.Xform.Define(stage, cabinet_path + "/Drawer")
     drawer.AddTranslateOp().Set(Gf.Vec3d(0.1, 0.0, 0.0))
     if drawer_physics_in_variant:
         physics_variants = root.GetVariantSets().AddVariantSet("Physics")
@@ -187,28 +196,41 @@ def _write_scaled_drawer_articulation(
         physics_variants.SetVariantSelection("none")
     else:
         UsdPhysics.RigidBodyAPI.Apply(drawer.GetPrim())
-    collider = UsdGeom.Cube.Define(stage, "/Asset/Cabinet/Drawer/Collider")
+    collider = UsdGeom.Cube.Define(stage, cabinet_path + "/Drawer/Collider")
     collider.CreateExtentAttr([Gf.Vec3f(-0.2, -0.1, -0.05), Gf.Vec3f(0.4, 0.1, 0.05)])
     if collider_scale != 1.0:
         collider.AddScaleOp().Set(Gf.Vec3f(collider_scale))
     UsdPhysics.CollisionAPI.Apply(collider.GetPrim())
 
     joint_schema = UsdPhysics.PrismaticJoint if joint_type == "prismatic" else UsdPhysics.RevoluteJoint
-    joint = joint_schema.Define(stage, "/Asset/Cabinet/drawer_joint")
-    joint.CreateBody0Rel().SetTargets(["/Asset/Cabinet/Base"])
+    joint = joint_schema.Define(stage, cabinet_path + "/drawer_joint")
+    joint.CreateBody0Rel().SetTargets([cabinet_path + "/Base"])
     # Target the collider, as SimReady assets do, rather than the drawer body itself.
-    joint.CreateBody1Rel().SetTargets(["/Asset/Cabinet/Drawer/Collider"])
+    joint.CreateBody1Rel().SetTargets([cabinet_path + "/Drawer/Collider"])
     joint.CreateAxisAttr("X" if joint_type == "prismatic" else "Z")
     joint.CreateLocalPos0Attr(Gf.Vec3f(0.1, 0.0, 0.0))
     joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
 
     if repeat_joint_name:
-        second_drawer = UsdGeom.Xform.Define(stage, "/Asset/Cabinet/SecondDrawer").GetPrim()
+        second_drawer_path = cabinet_path + "/SecondDrawer"
+        second_drawer = UsdGeom.Xform.Define(stage, second_drawer_path).GetPrim()
         UsdPhysics.RigidBodyAPI.Apply(second_drawer)
-        second_joint = UsdPhysics.PrismaticJoint.Define(stage, "/Asset/Cabinet/SecondDrawer/drawer_joint")
-        second_joint.CreateBody0Rel().SetTargets(["/Asset/Cabinet/Base"])
-        second_joint.CreateBody1Rel().SetTargets(["/Asset/Cabinet/SecondDrawer"])
+        second_joint = UsdPhysics.PrismaticJoint.Define(stage, second_drawer_path + "/drawer_joint")
+        second_joint.CreateBody0Rel().SetTargets([cabinet_path + "/Base"])
+        second_joint.CreateBody1Rel().SetTargets([second_drawer_path])
         second_joint.CreateAxisAttr("X")
+    if sibling_cabinet:
+        sibling_path = root_path + "/SiblingCabinet"
+        sibling = UsdGeom.Xform.Define(stage, sibling_path).GetPrim()
+        UsdPhysics.ArticulationRootAPI.Apply(sibling)
+        sibling_base = UsdGeom.Xform.Define(stage, sibling_path + "/Base").GetPrim()
+        UsdPhysics.RigidBodyAPI.Apply(sibling_base)
+        sibling_drawer = UsdGeom.Xform.Define(stage, sibling_path + "/Drawer").GetPrim()
+        UsdPhysics.RigidBodyAPI.Apply(sibling_drawer)
+        sibling_joint = UsdPhysics.PrismaticJoint.Define(stage, sibling_path + "/drawer_joint")
+        sibling_joint.CreateBody0Rel().SetTargets([sibling_path + "/Base"])
+        sibling_joint.CreateBody1Rel().SetTargets([sibling_path + "/Drawer"])
+        sibling_joint.CreateAxisAttr("X")
     stage.GetRootLayer().Save()
 
 
@@ -242,6 +264,153 @@ def _drawer_reference(
         prim_path=f"{{ENV_REGEX_NS}}/cabinet/Cabinet/{body_name}",
         parent_asset=cabinet,
         object_type=ObjectType.BASE,
+    )
+
+
+def _test_articulation_reference_graph_construction(
+    simulation_app, tmp_path: pathlib.Path, reference_class_name: str, affordance_params: dict, joint_positions
+) -> bool:
+    from isaaclab.assets import ArticulationCfg
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ArticulationObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _instantiate_object_reference
+    from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
+
+    usd_path = tmp_path / "articulation_reference.usda"
+    joint_type = "revolute" if "turnable_joint_name" in affordance_params else "prismatic"
+    _write_scaled_drawer_articulation(usd_path, joint_type)
+    workbench = Object(name="workbench", usd_path=str(usd_path), object_type=ObjectType.BASE)
+    params = dict(affordance_params)
+    if joint_positions is not None:
+        params["initial_joint_positions"] = dict(joint_positions)
+    spec = ObjectReferenceSpec(
+        id="cabinet", parent_id="workbench", prim_path="Cabinet", object_type=ObjectType.ARTICULATION, params=params
+    )
+
+    reference = _instantiate_object_reference(spec, workbench)
+
+    assert type(reference).__name__ == reference_class_name
+    assert isinstance(reference, ArticulationObjectReference)
+    assert reference.object_type == ObjectType.ARTICULATION
+    assert isinstance(reference.object_cfg, ArticulationCfg)
+    assert reference.get_prim_path() == "{ENV_REGEX_NS}/workbench/Cabinet"
+    expected_positions = ArticulationCfg.InitialStateCfg().joint_pos if joint_positions is None else joint_positions
+    assert reference.object_cfg.init_state.joint_pos == expected_positions
+    if joint_positions is not None:
+        # Editing the graph parameters later must not silently change the articulation's joint defaults.
+        spec.params["initial_joint_positions"]["drawer_joint"] = 0.9
+        assert reference.object_cfg.init_state.joint_pos == expected_positions
+    for name, value in affordance_params.items():
+        if name.endswith("_joint_name"):
+            assert getattr(reference, name) == value
+    return True
+
+
+@pytest.mark.parametrize("joint_positions", [None, {}, {"drawer_.*": 0.3}], ids=["default", "empty", "configured"])
+@pytest.mark.parametrize(
+    "reference_class_name,affordance_params",
+    [
+        ("ArticulationObjectReference", {}),
+        ("OpenableObjectReference", {"openable_joint_name": "drawer_joint"}),
+        ("PressableObjectReference", {"pressable_joint_name": "drawer_joint"}),
+        (
+            "TurnableObjectReference",
+            {
+                "turnable_joint_name": "drawer_joint",
+                "min_level_angle_deg": 10.0,
+                "max_level_angle_deg": 90.0,
+                "num_levels": 3,
+            },
+        ),
+    ],
+)
+def test_articulation_reference_graph_construction(
+    tmp_path: pathlib.Path, reference_class_name, affordance_params, joint_positions
+):
+    """Graph conversion preserves joint defaults for plain and affordance-specific articulation references."""
+    assert run_function_with_persistent_simulation_app(
+        _test_articulation_reference_graph_construction,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+        reference_class_name=reference_class_name,
+        affordance_params=affordance_params,
+        joint_positions=joint_positions,
+    )
+
+
+def _test_nested_reference_uses_articulation_parent_pose(
+    simulation_app,
+    tmp_path: pathlib.Path,
+    root_scale: tuple[float, float, float],
+    joint_position: float,
+    expected_position: tuple[float, float, float],
+) -> bool:
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import (
+        ArticulationBodyReferenceCfg,
+        ArticulationObjectReference,
+        ObjectReference,
+    )
+    from isaaclab_arena.assets.object_type import ObjectType
+
+    usd_path = tmp_path / "nested_reference.usda"
+    _write_scaled_drawer_articulation(
+        usd_path,
+        "prismatic",
+        default_prim_name="Workbench",
+        cabinet_yaw_degrees=90.0,
+        sibling_cabinet=True,
+    )
+    workbench = Object(
+        name="workbench",
+        usd_path=str(usd_path),
+        object_type=ObjectType.BASE,
+        scale=root_scale,
+    )
+    cabinet = ArticulationObjectReference(
+        name="cabinet",
+        prim_path="{ENV_REGEX_NS}/workbench/Cabinet",
+        parent_asset=workbench,
+        initial_joint_positions={"drawer_joint": joint_position},
+    )
+
+    drawer = ObjectReference(
+        name="drawer",
+        prim_path="{ENV_REGEX_NS}/workbench/Cabinet/Drawer",
+        parent_asset=cabinet,
+        object_type=ObjectType.BASE,
+    )
+
+    assert drawer.get_parent_pose() == cabinet.get_initial_pose()
+    assert drawer.get_initial_pose().position_xyz == pytest.approx(expected_position, abs=1e-7)
+    assert drawer.get_bounding_box_rotation() == Pose.identity().rotation_xyzw
+    assert isinstance(drawer.object_cfg, ArticulationBodyReferenceCfg)
+    assert drawer.object_cfg.articulation_name == "cabinet"
+    return True
+
+
+@pytest.mark.parametrize(
+    "root_scale,joint_position,expected_position",
+    [
+        ((1.0, 1.0, 1.0), 0.3, (0.0, 0.5, 0.0)),
+        ((4.0, 2.0, 1.0), 0.0, (0.0, 0.4, 0.0)),
+    ],
+)
+def test_nested_reference_uses_articulation_parent_pose(
+    tmp_path: pathlib.Path,
+    root_scale: tuple[float, float, float],
+    joint_position: float,
+    expected_position: tuple[float, float, float],
+):
+    assert run_function_with_persistent_simulation_app(
+        _test_nested_reference_uses_articulation_parent_pose,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+        root_scale=root_scale,
+        joint_position=joint_position,
+        expected_position=expected_position,
     )
 
 

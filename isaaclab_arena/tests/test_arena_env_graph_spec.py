@@ -94,6 +94,18 @@ def test_graph_spec_parses_default_physics_backend():
     assert spec.default_physics_backend is PhysicsBackend.NEWTON
 
 
+@pytest.mark.parametrize("object_type", [ObjectType.BASE, ObjectType.RIGID])
+def test_graph_spec_rejects_joint_defaults_on_non_articulation_reference(object_type):
+    data = _minimal_env_graph_data()
+    data["object_references"][0].update({
+        "object_type": object_type.value,
+        "params": {"initial_joint_positions": {"drawer_joint": 0.3}},
+    })
+
+    with pytest.raises(ValidationError, match="initial_joint_positions requires object_type=articulation"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
     data = _minimal_env_graph_data()
     data["embodiment"].setdefault("params", {})["initial_pose"] = {
@@ -429,6 +441,19 @@ def test_graph_spec_rejects_invalid_data():
             "references invalid parent",
         ),
         (
+            "object reference parent declared later",
+            lambda data: data["object_references"].insert(
+                0,
+                {
+                    "id": "table_body",
+                    "parent_id": "table",
+                    "prim_path": "body",
+                    "object_type": "base",
+                },
+            ),
+            "references invalid parent",
+        ),
+        (
             "unknown task kind",
             lambda data: data["task"]["subtasks"][0].update({"kind": "UnknownTask"}),
             "Unknown task kind 'UnknownTask'",
@@ -485,6 +510,21 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     data["object_references"][0].pop("prim_path", None)
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.object_references[0].prim_path is None
+
+
+def test_graph_spec_accepts_reference_to_earlier_reference():
+    data = _minimal_env_graph_data()
+    data["object_references"][0]["object_type"] = "articulation"
+    data["object_references"].append({
+        "id": "table_body",
+        "parent_id": "table",
+        "prim_path": "body",
+        "object_type": "base",
+    })
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+
+    assert spec.object_references[1].parent_id == "table"
 
 
 @pytest.mark.parametrize("empty_reference", ["", "   "])
