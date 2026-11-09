@@ -5,6 +5,32 @@ relations themselves, see [relations](../../../docs/pages/concepts/object_placem
 and for reading rejected layouts, see
 [placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst).
 
+## A simple layout
+
+Most table-top scenes need two relations: anchor the support, then place each object `on` it. From
+the RoboLab [banana and bowl scene](../../../isaaclab_arena_environments/robolab/scenes/banana_bowl.yaml):
+
+```yaml
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: 'on'
+  subject: bowl
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: banana
+  reference: table_oak_robolab
+```
+
+`is_anchor` keeps the table where the background puts it. `on` rests each object on the table's top
+surface, anywhere within its bounds, so each reset gets a new arrangement. Placement keeps the
+objects from overlapping without a separate relation. Quote `'on'`: YAML reads an unquoted `on` as
+true.
+
+Add `next_to` or `align_with` only when objects must be arranged relative to each other. Read the
+sections below when the scene needs more: a background with built-in objects, a placed robot, or
+more variation between resets.
+
 ## Background collision
 
 Give a complex background with many built-in objects, such as a kitchen with trays and utensils on

@@ -62,12 +62,13 @@ Read only the references relevant to the requested behavior:
   [scene_inspector.py](../../../isaaclab_arena_examples/agentic_environment_generation/scene_inspector.py).
   Browse text first, then request scoped JSON only for the relevant subtree. Treat results as
   authored USD data; Arena and Isaac Lab spawn-time overrides are excluded.
-- **Layout:** follow the example's scene composition. Use the existing
+- **Layout:** read [placing objects and the robot](placement.md) to lay out objects with relations,
+  starting from a simple layout, and for background collision, robot placement, reachability, and
+  how to get large variation between resets. For the full design, read
   [relations](../../../docs/pages/concepts/object_placement/relations.rst),
-  [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and
+  [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and the
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
-  Check reachability and physical support. Read [placing objects and the robot](placement.md) for
-  background collision, robot placement, reachability, and how to get large variation between resets.
+  Follow the example's scene composition, and check reachability and physical support.
 - **Placement diagnostics:** the object placer converts the environment's relations into concrete
   object poses: it solves candidate layouts, then checks each one against its relations, collision
   clearance (`no_overlap`) and, when enabled, IK reachability (`ik_reachable`). During the build it
