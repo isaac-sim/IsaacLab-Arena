@@ -264,22 +264,36 @@ you use an ``ObjectReference``.
 The ``parent_asset`` tells the environment which spawned USD the prim path belongs to.
 The prim path uses ``{ENV_REGEX_NS}`` so it resolves correctly across parallel environments.
 
-A reference can also name a link of an ``ARTICULATION`` object, such as a door or a drawer.
-When a revolute or prismatic joint moves the link, the reference is placed where the
-parent's initial joint positions put it, and during simulation it follows the link. Set the
-joint positions before creating the reference, because the reference reads them when it is
-created. Links inside a ``BASE`` background, such as a kitchen's cabinet doors, keep their
-authored poses.
+Use ``ArticulationObjectReference`` to configure initial joints on a referenced articulation:
 
 .. code-block:: python
 
-   microwave = asset_registry.get_asset_by_name("microwave")()
-   # Revolute positions are in radians, prismatic positions in metres of the spawned asset.
-   microwave.object_cfg.init_state.joint_pos = {"microjoint": -0.5}
+   from isaaclab_arena.assets.object_reference import ArticulationObjectReference
+
+   microwave = ArticulationObjectReference(
+       name="microwave",
+       prim_path="{ENV_REGEX_NS}/kitchen/microwave",
+       parent_asset=kitchen,
+       initial_joint_positions={"microjoint": -0.5},
+   )
+
+Joint keys may be exact names or Isaac Lab regex patterns. Values are radians for revolute joints
+and metres for prismatic joints. ``OpenableObjectReference``, ``PressableObjectReference``, and
+``TurnableObjectReference`` inherit this option. In graph YAML, the existing ``object_type: articulation`` and
+``params.initial_joint_positions`` fields select the class automatically.
+
+A reference can also name a link of an ``ARTICULATION`` object, such as a door or a drawer.
+When a revolute or prismatic joint moves the link, the reference is placed where the
+parent's configured initial joint positions put it, and during simulation it follows the link.
+Create the articulation reference before its link references so they use that initial joint
+state. Links inside a ``BASE`` background, such as a kitchen's cabinet doors, keep their authored
+poses.
+
+.. code-block:: python
 
    door = ObjectReference(
        name="microwave_door",
-       prim_path="{ENV_REGEX_NS}/microwave/Microwave039_door",
+       prim_path="{ENV_REGEX_NS}/kitchen/microwave/Microwave039_door",
        parent_asset=microwave,
    )
 

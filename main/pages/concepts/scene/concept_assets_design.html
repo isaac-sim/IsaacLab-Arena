@@ -853,19 +853,30 @@ you use an <code class="docutils literal notranslate"><span class="pre">ObjectRe
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">parent_asset</span></code> tells the environment which spawned USD the prim path belongs to.
 The prim path uses <code class="docutils literal notranslate"><span class="pre">{ENV_REGEX_NS}</span></code> so it resolves correctly across parallel environments.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">ArticulationObjectReference</span></code> to configure initial joints on a referenced articulation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArticulationObjectReference</span>
+
+<span class="n">microwave</span> <span class="o">=</span> <span class="n">ArticulationObjectReference</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"microwave"</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/microwave"</span><span class="p">,</span>
+    <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span>
+    <span class="n">initial_joint_positions</span><span class="o">=</span><span class="p">{</span><span class="s2">"microjoint"</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Joint keys may be exact names or Isaac Lab regex patterns. Values are radians for revolute joints
+and metres for prismatic joints. <code class="docutils literal notranslate"><span class="pre">OpenableObjectReference</span></code>, <code class="docutils literal notranslate"><span class="pre">PressableObjectReference</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">TurnableObjectReference</span></code> inherit this option. In graph YAML, the existing <code class="docutils literal notranslate"><span class="pre">object_type:</span> <span class="pre">articulation</span></code> and
+<code class="docutils literal notranslate"><span class="pre">params.initial_joint_positions</span></code> fields select the class automatically.</p>
 <p>A reference can also name a link of an <code class="docutils literal notranslate"><span class="pre">ARTICULATION</span></code> object, such as a door or a drawer.
 When a revolute or prismatic joint moves the link, the reference is placed where the
-parent’s initial joint positions put it, and during simulation it follows the link. Set the
-joint positions before creating the reference, because the reference reads them when it is
-created. Links inside a <code class="docutils literal notranslate"><span class="pre">BASE</span></code> background, such as a kitchen’s cabinet doors, keep their
-authored poses.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"microwave"</span><span class="p">)()</span>
-<span class="c1"># Revolute positions are in radians, prismatic positions in metres of the spawned asset.</span>
-<span class="n">microwave</span><span class="o">.</span><span class="n">object_cfg</span><span class="o">.</span><span class="n">init_state</span><span class="o">.</span><span class="n">joint_pos</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"microjoint"</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">}</span>
-
-<span class="n">door</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
+parent’s configured initial joint positions put it, and during simulation it follows the link.
+Create the articulation reference before its link references so they use that initial joint
+state. Links inside a <code class="docutils literal notranslate"><span class="pre">BASE</span></code> background, such as a kitchen’s cabinet doors, keep their authored
+poses.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">door</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">"microwave_door"</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/microwave/Microwave039_door"</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/microwave/Microwave039_door"</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">microwave</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
