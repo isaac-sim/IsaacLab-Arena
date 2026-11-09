@@ -24,6 +24,106 @@ relations:
 
 Add `next_to` or `align_with` only when objects must be arranged relative to each other.
 
+## A layout in a larger background
+
+A scene in a larger background, such as a kitchen, also needs references to its support surfaces, a
+placed robot, and objects arranged relative to each other. From the KitchenBench
+[banana and orange in bowl](../../../isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml)
+environment:
+
+```yaml
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_g_shape
+  params:
+    collision_mode: mesh
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: corner_counter
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: corner_counter
+  params:
+    axis: y
+    offset_m: -0.99
+    tolerance_m: 0.05
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: banana
+  reference: corner_counter
+- kind: 'on'
+  subject: orange
+  reference: corner_counter
+- kind: 'on'
+  subject: wooden_bowl
+  reference: corner_counter
+- kind: position_limits_box
+  subject: wooden_bowl
+  params:
+    x_limits: [-1.89, -1.55]
+    y_limits: [2.07, 2.21]
+- kind: align_with
+  subject: banana
+  reference: wooden_bowl
+  params:
+    axis: x
+    offset_m: -0.25
+    tolerance_m: 0.05
+- kind: align_with
+  subject: banana
+  reference: wooden_bowl
+  params:
+    axis: y
+    offset_m: -0.1
+    tolerance_m: 0.06
+- kind: align_with
+  subject: orange
+  reference: banana
+  params:
+    axis: x
+    tolerance_m: 0.1
+- kind: align_with
+  subject: orange
+  reference: banana
+  params:
+    axis: y
+    offset_m: 0.23
+    tolerance_m: 0.05
+- kind: align_with
+  subject: droid
+  reference: wooden_bowl
+  params:
+    axis: x
+    tolerance_m: 0.12
+```
+
+- **Supports:** the kitchen uses mesh collision, so it has no relations. Object references to its
+  floor and corner counter are the anchors instead; see [background collision](#background-collision).
+- **Task objects:** the bowl sits `on` the counter, somewhere within a `position_limits_box`. The
+  banana is aligned to the bowl on both axes and the orange to the banana, so the three move
+  together, and each `tolerance_m` lets them vary around their offsets.
+- **Robot:** the robot stands `on` the floor, at a fixed distance in front of the counter
+  (`align_with` on `y`), turned 90 degrees by `rotate_around_solution`. Aligning it with the bowl
+  on `x` makes it follow the task objects along the counter; see
+  [robot placement](#robot-placement).
+
 ## Background collision
 
 Give a complex background with many built-in objects, such as a kitchen with trays and utensils on
