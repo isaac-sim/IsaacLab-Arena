@@ -42,6 +42,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
+    outputs:
+      runtime_changed: ${{ steps.runtime_changes.outputs.runtime }}
 
     container:
       image: python:3.11-slim
@@ -51,6 +53,31 @@ jobs:
       SKIP: check-executables-have-shebangs
 
     steps:
+      # Keep detection in a required job so API/filter failures block merging.
+      # The PR files API returns at most 3,000 files. Larger PRs run full CI;
+      # an absent output also defaults to running full CI below.
+      - name: Detect runtime changes
+        id: runtime_changes
+        if: github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            runtime:
+              - '!docs/**'
+              - '!README.md'
+              - '!skills/**/*.md'
+
+      - name: Summarize CI selection
+        env:
+          DOCS_ONLY: ${{ github.event_name == 'pull_request' && steps.runtime_changes.outputs.runtime == 'false' }}
+        run: |
+          if [ "$DOCS_ONLY" = "true" ]; then
+            echo "Docs-only PR: run pre-commit and the docs build; skip the Arena image build and GPU test jobs." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Run full Docker CI: runtime changes, a non-PR event, or an incomplete file classification." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - &install_git_step
         name: Install git (and tools needed by hooks)
         run: |
@@ -112,6 +139,9 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [pre_commit]
+    # Skip jobs, rather than the workflow, so required checks still report.
+    # Only an explicit 'false' may skip runtime CI.
+    if: github.event_name != 'pull_request' || needs.pre_commit.outputs.runtime_changed != 'false'
     container:
       image: ubuntu:24.04
     env:
