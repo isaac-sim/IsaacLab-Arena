@@ -6,6 +6,9 @@
 # Placement success benchmark: one Run per RoboLab task spec in isaaclab_arena_environments/robolab/tasks/.
 # Each Run builds its spec for 30 environments, which fills the placement pool, then takes one zero-action step.
 # The Run writes the build's placement diagnostics to arena_run_placement_diagnostics.json in its output directory.
+# KPI exporters (see isaaclab_arena_benchmarking/benchmarks) that write this Experiment's KPI records.
+kpi_exporters: [placement_success, timing]
+
 shared:
   environment_builder:
     num_envs: 30

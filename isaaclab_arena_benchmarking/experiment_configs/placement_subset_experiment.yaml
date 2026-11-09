@@ -1,0 +1,74 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Placement success benchmark on a subset of the specs of robolab_placement_experiment.yaml and
+# kitchen_bench_placement_experiment.yaml: five RoboLab and five KitchenBench specs with different scenes, object
+# counts and relation counts. Each Run builds its spec for 30 environments, which fills the placement pool, then
+# takes one zero-action step. The Run writes the build's placement diagnostics to arena_run_placement_diagnostics.json
+# in its output directory.
+
+# KPI exporters (see isaaclab_arena_benchmarking/benchmarks) that write this Experiment's KPI records.
+kpi_exporters: [placement_success, timing]
+
+shared:
+  environment_builder:
+    num_envs: 30
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 1
+
+# Each Run has its own placement seed, 100000 apart, as in the full suites; see the seed comment there.
+runs:
+  big_pumpkin_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/big_pumpkin_in_bin.yaml
+    environment_builder:
+      placement_seed: 0
+  bbq_sauce_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bbq_sauce_in_bin.yaml
+    environment_builder:
+      placement_seed: 100000
+  clamp_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+    environment_builder:
+      placement_seed: 200000
+  banana_then_rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_then_rubiks_cube.yaml
+    environment_builder:
+      placement_seed: 300000
+  butter_above_raisin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/butter_above_raisin.yaml
+    environment_builder:
+      placement_seed: 400000
+  kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 500000
+  kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian.yaml
+    environment_builder:
+      placement_seed: 600000
+  kitchen_bench_replicator_peninsula_soup_in_far_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_soup_in_far_bowl.yaml
+    environment_builder:
+      placement_seed: 700000
+  kitchen_bench_replicator_l_island_bowl_sink:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_bowl_sink.yaml
+    environment_builder:
+      placement_seed: 800000
+  kitchen_bench_lightwheel_open_fridge:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml
+    environment_builder:
+      placement_seed: 900000

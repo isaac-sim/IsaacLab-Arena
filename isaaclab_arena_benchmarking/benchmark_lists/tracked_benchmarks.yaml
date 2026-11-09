@@ -16,3 +16,9 @@ benchmarks:
       - "~experiment_cfg.runs.change_background_hdr"
       - "~experiment_cfg.runs.parallel_envs"
       - experiment_runner.record_camera_video=false
+
+  # Ten of the placement specs, see the Experiment file. Video recording is disabled for the same reason as above.
+  - name: placement-subset
+    experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/placement_subset_experiment.yaml
+    overrides:
+      - experiment_runner.record_camera_video=false

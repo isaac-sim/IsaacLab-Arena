@@ -5,9 +5,9 @@ The placement success benchmark measures how often relation placement finds
 valid object layouts for the RoboLab and KitchenBench environment specs. Each
 suite is an :doc:`Arena Experiment <../concept_arena_experiments>` with one Run
 per spec. A Run builds its spec, which places the objects, and writes its
-placement diagnostics to its output directory. For each Run, and as a mean over
-the Experiment, the benchmark reports how many candidate layouts were valid and
-how many environments got only valid layouts.
+placement diagnostics to its output directory. The benchmark reports, as a mean
+over the Experiment's Runs, how many candidate layouts were valid and how many
+environments got only valid layouts.
 
 What It Measures
 ----------------
@@ -30,7 +30,7 @@ environment with empty slots after the last batch fails the build.
 
 Each Run writes ``arena_run_placement_diagnostics.json`` to its Run directory,
 with one entry per build that solved relation placement; see
-:doc:`./placement_diagnostics`. From these files the benchmark reports for each completed Run, summing over its
+:doc:`./placement_diagnostics`. From these files the benchmark computes for each completed Run, summing over its
 builds:
 
 * **Valid candidates** (``valid_candidate_rate_first_batch``): the share of
@@ -95,16 +95,18 @@ even when some Runs failed. To change the sample size, add
 allows up to 200 environments. The solver optimizes a batch together, so compare
 only results with the same ``num_envs``.
 
-Then print each Run's placement success and the Experiment's means. This reads
-the output directory and does not start the simulator. Check the scored and
-failed counts in the last row: every spec should be scored. A Run that completed
-without diagnostics solved no relations or replayed recorded layouts; the table
-lists it, and the means leave it out:
+Each Experiment selects the ``placement_success`` and ``timing`` KPI exporters with
+``kpi_exporters``, so the runner writes ``kpis_placement_success.json`` and
+``kpis_timing.json`` to the output directory. The placement success record holds
+the means of the three rates over the Runs that wrote diagnostics. A Run that
+completed without diagnostics solved no relations or replayed recorded layouts,
+and the means leave it out. No KPI file is written when any Run failed. The
+``timing`` file includes ``placement_solve``, the time of each batch the solver
+ran.
 
-.. code-block:: bash
-
-   python -m isaaclab_arena_benchmarking.object_placement.compute_placement_kpis_from_experiment_output \
-     outputs/placement_success/robolab
+The Experiment ``placement_subset_experiment.yaml`` runs five RoboLab and five
+KitchenBench specs with different scenes and object counts, and is the tracked
+benchmark ``placement-subset``.
 
 Add Specs
 ---------
@@ -114,5 +116,6 @@ To benchmark a new spec, add a Run for it to its suite's Experiment, with a
 placement seed 100000 above the largest one there. For a new folder of specs,
 add an Experiment and matching cases to
 ``isaaclab_arena_benchmarking/tests/test_placement_success.py``, which checks
-that each Experiment lists every spec in its folder and that no two Runs share
-candidate seeds.
+that each suite Experiment lists every spec in its folder, that no two Runs of
+an Experiment share candidate seeds, and that each Run of the subset is a Run of
+a suite.
