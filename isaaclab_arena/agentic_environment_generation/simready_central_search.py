@@ -18,7 +18,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadyObjectCandidate,
 )
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS
+from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSX_VARIANTS
 from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
 from isaaclab_arena.utils.usd.object_type import validate_usd_object_type
 
@@ -80,7 +80,7 @@ def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObj
                 continue
             usd_path = source["path"].replace("hf://", "https://", 1)
             local_usd_path = SimReadyCentralUsdSource(usd_path).to_local_usd_path()
-            validate_usd_object_type(local_usd_path, ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
+            validate_usd_object_type(local_usd_path, ObjectType.RIGID, SIMREADY_CENTRAL_PHYSX_VARIANTS)
             candidates.append(
                 SimReadyObjectCandidate(
                     search_phrase=phrase,

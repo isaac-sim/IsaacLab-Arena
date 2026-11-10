@@ -26,8 +26,10 @@ DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
 # PickAndPlace contact sensors fail with "No rigid body found".
 SIMREADY_PHYSICS_VARIANTS: dict[str, str] = {"Physics": "physics"}
 
-SIMREADY_CENTRAL_PHYSICS_VARIANTS: dict[str, str] = {
-    **SIMREADY_PHYSICS_VARIANTS,
-    "PhysX": "Enabled",
-}
-"""Variant selections required to enable physics in SimReady Central assets."""
+# TODO(xinjieyao, 2026-11-10): Select Newton=Enabled and PhysX=Disabled when Arena runs on the Newton backend.
+SIMREADY_CENTRAL_PHYSX_VARIANTS: dict[str, str] = {"PhysX": "Enabled"}
+"""Variant selections that enable the PhysX physics of SimReady Central assets.
+
+Central packages have one variant set per simulator (PhysX, Newton and MuJoCo) and, unlike SimReady GA props,
+no Physics set, so selecting Physics=physics only makes Isaac Lab warn that the set does not exist.
+"""

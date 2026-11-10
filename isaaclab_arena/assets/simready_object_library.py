@@ -17,7 +17,7 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.assets.simready_constants import (
-    SIMREADY_CENTRAL_PHYSICS_VARIANTS,
+    SIMREADY_CENTRAL_PHYSX_VARIANTS,
     SIMREADY_PHYSICS_VARIANTS,
     SIMREADY_SEARCH_REGISTRY_PREFIX,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,
@@ -65,7 +65,7 @@ class SimReadyUsdObject(Object):
         assert usd_path, "simready_usd_object requires params.usd_path"
         is_central = is_central_asset_url(usd_path)
         usd_source = SimReadyCentralUsdSource(usd_path) if is_central else None
-        default_variants = SIMREADY_CENTRAL_PHYSICS_VARIANTS if is_central else SIMREADY_PHYSICS_VARIANTS
+        default_variants = SIMREADY_CENTRAL_PHYSX_VARIANTS if is_central else SIMREADY_PHYSICS_VARIANTS
         spawn_cfg_addon = dict(spawn_cfg_addon or {})
         variants = usd_variant_selections_to_dict(spawn_cfg_addon.get("variants"))
         spawn_cfg_addon["variants"] = {**default_variants, **variants}
