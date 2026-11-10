@@ -1,0 +1,131 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Asset" (
+    prepend references = @structure.usda@</Asset>
+)
+{
+    over "Articulations"
+    {
+        over "DrawerCabinet"
+        {
+            over "Joints"
+            {
+                over "joint_drawersA_01_joint_00"
+                {
+                    float physics:lowerLimit = 0
+                }
+                over "joint_drawersB_01_joint_00"
+                {
+                    float physics:lowerLimit = 0
+                }
+                over "joint_drawersC_01_joint_00"
+                {
+                    float physics:lowerLimit = 0
+                }
+                over "joint_drawersD_01_joint_00"
+                {
+                    float physics:lowerLimit = 0
+                }
+            }
+        }
+    }
+
+    over "Geometry"
+    {
+        over "table_01_obj_00"
+        {
+            over "table_01_mesh_00"
+            {
+                over "Tabletop" (
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxContactReportAPI", "PhysxCollisionAPI"]
+                )
+                {
+                    bool physics:kinematicEnabled = true
+                    bool physics:rigidBodyEnabled = true
+                    custom float physxCollision:contactOffset = 0.001
+                    custom float physxCollision:restOffset = 0
+                    custom float physxContactReport:threshold = 0
+                }
+
+                over "Structure"
+                {
+                    over "HangingBoard" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxContactReportAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:kinematicEnabled = true
+                        bool physics:rigidBodyEnabled = true
+                        custom float physxCollision:contactOffset = 0.001
+                        custom float physxCollision:restOffset = 0
+                        custom float physxContactReport:threshold = 0
+                    }
+                    over "OverheadShelf" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxContactReportAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:kinematicEnabled = true
+                        bool physics:rigidBodyEnabled = true
+                        custom float physxCollision:contactOffset = 0.001
+                        custom float physxCollision:restOffset = 0
+                        custom float physxContactReport:threshold = 0
+                    }
+                    over "BlueContainer01" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxContactReportAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:kinematicEnabled = true
+                        bool physics:rigidBodyEnabled = true
+                        custom float physxCollision:contactOffset = 0.001
+                        custom float physxCollision:restOffset = 0
+                        custom float physxContactReport:threshold = 0
+                    }
+                    over "BlueContainer02" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxContactReportAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:kinematicEnabled = true
+                        bool physics:rigidBodyEnabled = true
+                        custom float physxCollision:contactOffset = 0.001
+                        custom float physxCollision:restOffset = 0
+                        custom float physxContactReport:threshold = 0
+                    }
+                    over "BlueContainer03" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxContactReportAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:kinematicEnabled = true
+                        bool physics:rigidBodyEnabled = true
+                        custom float physxCollision:contactOffset = 0.001
+                        custom float physxCollision:restOffset = 0
+                        custom float physxContactReport:threshold = 0
+                    }
+                    over "BlueContainer04" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxContactReportAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:kinematicEnabled = true
+                        bool physics:rigidBodyEnabled = true
+                        custom float physxCollision:contactOffset = 0.001
+                        custom float physxCollision:restOffset = 0
+                        custom float physxContactReport:threshold = 0
+                    }
+                    over "LowerCrossBrace" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxContactReportAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:kinematicEnabled = true
+                        bool physics:rigidBodyEnabled = true
+                        custom float physxCollision:contactOffset = 0.001
+                        custom float physxCollision:restOffset = 0
+                        custom float physxContactReport:threshold = 0
+                    }
+                }
+            }
+        }
+    }
+}
