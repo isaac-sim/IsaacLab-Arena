@@ -32,10 +32,14 @@ def test_workbench_task_definitions_build():
 def _test_workbench_processed_articulations(simulation_app):
     from pxr import Usd, UsdPhysics
 
-    from isaaclab_arena_environments.workbench_cleanup.assets import _OSCILLOSCOPE, _SOCKET_SET, _WORKBENCH
+    from isaaclab_arena_environments.workbench_cleanup.assets import (
+        WorkbenchCleanupOscilloscope,
+        WorkbenchCleanupSocketSet,
+        WorkbenchCleanupWorkbench,
+    )
 
-    stage = Usd.Stage.Open(_WORKBENCH.process())
-    cabinet = stage.GetPrimAtPath("/Asset/Articulations/Cabinet")
+    stage = Usd.Stage.Open(WorkbenchCleanupWorkbench.processor.process())
+    cabinet = stage.GetPrimAtPath("/Asset/Workbench")
     articulation_roots = [prim for prim in stage.Traverse() if prim.HasAPI(UsdPhysics.ArticulationRootAPI)]
     assert articulation_roots == [cabinet]
     movable_joints = {
@@ -51,16 +55,16 @@ def _test_workbench_processed_articulations(simulation_app):
         "joint_door_01_joint_00",
     }
     for path in (
-        "/Asset/Geometry/table_01_obj_00/table_01_mesh_00/Tabletop",
-        "/Asset/Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf",
+        "/Asset/Workbench/Geometry/table_01_obj_00/table_01_mesh_00/Tabletop",
+        "/Asset/Workbench/Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf",
     ):
         assert stage.GetPrimAtPath(path).HasAPI(UsdPhysics.RigidBodyAPI)
 
-    for source, moving_joint in (
-        (_SOCKET_SET, "Physics/Joints/case_lid"),
-        (_OSCILLOSCOPE, "Joints/joint_button_01_joint_00"),
+    for asset_type, moving_joint in (
+        (WorkbenchCleanupSocketSet, "Physics/Joints/case_lid"),
+        (WorkbenchCleanupOscilloscope, "Joints/joint_button_01_joint_00"),
     ):
-        stage = Usd.Stage.Open(source.process())
+        stage = Usd.Stage.Open(asset_type.processor.process())
         root = stage.GetDefaultPrim()
         articulation_roots = [prim for prim in stage.Traverse() if prim.HasAPI(UsdPhysics.ArticulationRootAPI)]
         assert articulation_roots == [root]
@@ -70,7 +74,7 @@ def _test_workbench_processed_articulations(simulation_app):
             if prim.IsA(UsdPhysics.Joint) and not prim.IsA(UsdPhysics.FixedJoint)
         ]
         assert movable_joints == [moving_joint]
-        if source is _SOCKET_SET:
+        if asset_type is WorkbenchCleanupSocketSet:
             body_names = {prim.GetName() for prim in stage.Traverse() if prim.HasAPI(UsdPhysics.RigidBodyAPI)}
             assert body_names == {"Case_base", "Case_lid"}
     return True
@@ -96,6 +100,7 @@ def test_workbench_task_uses_shared_scene(filename, task_kind):
 
     assert spec.background.registry_name == "workbench_cleanup_workbench"
     assert "usd_path" not in spec.background.params
+    assert spec.background.params["collision_mode"] == "mesh"
     assert spec.task.subtasks[0].kind == task_kind
     socket_set = next(obj for obj in spec.objects if obj.id == "socket_set")
     assert socket_set.registry_name == "workbench_cleanup_socket_set"
@@ -106,6 +111,8 @@ def test_workbench_task_uses_shared_scene(filename, task_kind):
     object_ids = {obj.id for obj in spec.objects}
     assert "slotted_screwdriver" in object_ids
     assert "small_wrench" in object_ids
+    small_wrench = next(obj for obj in spec.objects if obj.id == "small_wrench")
+    assert small_wrench.params["scale"] == [0.75, 0.75, 0.75]
     clutter_relations = {
         relation.subject: relation.reference for relation in spec.relations if relation.kind == "clutter_on"
     }

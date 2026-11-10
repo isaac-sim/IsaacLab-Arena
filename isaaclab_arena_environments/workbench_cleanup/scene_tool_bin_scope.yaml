@@ -18,6 +18,8 @@ embodiment:
 background:
   id: workbench
   registry_name: workbench_cleanup_workbench
+  params:
+    collision_mode: mesh
 objects:
 - id: light
   registry_name: light
@@ -36,6 +38,8 @@ objects:
   registry_name: workbench_cleanup_slotted_screwdriver
 - id: small_wrench
   registry_name: workbench_cleanup_small_wrench
+  params:
+    scale: [0.75, 0.75, 0.75]
 cli_override_specs:
 - arg: robot_control
   target_node_id: droid
@@ -52,37 +56,37 @@ object_references:
   params: {}
 - id: tabletop
   parent_id: workbench
-  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Tabletop
+  prim_path: Workbench/Geometry/table_01_obj_00/table_01_mesh_00/Tabletop
   object_type: base
   params: {}
 - id: overhead_shelf
   parent_id: workbench
-  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf
-  object_type: rigid
+  prim_path: Workbench/Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf
+  object_type: base
   params: {}
 - id: blue_container_01
   parent_id: workbench
-  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer01
-  object_type: rigid
+  prim_path: Workbench/Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer01
+  object_type: base
   params: {}
 - id: blue_container_02
   parent_id: workbench
-  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer02
-  object_type: rigid
+  prim_path: Workbench/Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer02
+  object_type: base
   params: {}
 - id: blue_container_03
   parent_id: workbench
-  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer03
-  object_type: rigid
+  prim_path: Workbench/Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer03
+  object_type: base
   params: {}
 - id: blue_container_04
   parent_id: workbench
-  prim_path: Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer04
-  object_type: rigid
+  prim_path: Workbench/Geometry/table_01_obj_00/table_01_mesh_00/Structure/BlueContainer04
+  object_type: base
   params: {}
 - id: top_drawer
   parent_id: workbench
-  prim_path: Articulations/Cabinet
+  prim_path: Workbench
   object_type: articulation
   params:
     initial_joint_positions:
@@ -90,7 +94,7 @@ object_references:
     openable_joint_name: joint_drawersA_01_joint_00
 - id: top_drawer_body
   parent_id: top_drawer
-  prim_path: drawersA_01_obj_01
+  prim_path: Geometry/drawersA_01_obj_01
   object_type: base
   params: {}
 relations:
