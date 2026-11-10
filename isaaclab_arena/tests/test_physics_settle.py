@@ -231,7 +231,7 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.offline_placement.pool_validation import print_validation_results, validate_pool_layouts
+    from isaaclab_arena.offline_placement.pool_validation import do_all_layouts_pass_and_settle, validate_pool_layouts
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import EnvLayoutPool
@@ -331,7 +331,14 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
             ), f"env {env_id} candidate {candidate_index}: geometric gate should be unaffected by the settle sweep."
 
         # An unsettled layout fails the run even though every required check passes.
-        assert not print_validation_results(results), "A pool with unsettled layouts should fail validation."
+        assert not do_all_layouts_pass_and_settle(results), "A pool with unsettled layouts should fail validation."
+        settled_results = [result for result in results if result[2].validation_results[PlacementCheck.PHYSICS_SETTLED]]
+        assert do_all_layouts_pass_and_settle(settled_results), "A pool of settled layouts should pass validation."
+        # A required check that never ran must not count as passed.
+        settled_results[0][2].required_checks.add(PlacementCheck.IK_REACHABLE)
+        assert not do_all_layouts_pass_and_settle(
+            settled_results
+        ), "A layout missing a required check result should fail validation."
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

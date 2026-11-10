@@ -72,7 +72,11 @@ def main() -> None:
     args_cli, _ = args_parser.parse_known_args()
 
     with SimulationAppContext(args_cli):
-        from isaaclab_arena.offline_placement.pool_validation import print_validation_results, validate_pool_layouts
+        from isaaclab_arena.offline_placement.pool_validation import (
+            do_all_layouts_pass_and_settle,
+            print_validation_results,
+            validate_pool_layouts,
+        )
         from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
@@ -103,7 +107,8 @@ def main() -> None:
             "Recorded replay bypasses the pool; omit recorded placement replay to validate solver candidates. "
             "Pooled placement also requires placement relations and resolve_on_reset=True."
         )
-        all_layouts_valid = print_validation_results(validation_results)
+        print_validation_results(validation_results)
+        all_layouts_valid = do_all_layouts_pass_and_settle(validation_results)
 
         env.close()
         # Raising inside the app context exits non-zero; a normal exit can report success regardless.
