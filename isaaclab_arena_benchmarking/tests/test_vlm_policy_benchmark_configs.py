@@ -35,7 +35,7 @@ def test_vlm_chunk_and_goal_benchmarks_differ_only_by_policy(monkeypatch):
 
     assert chunk_experiment.name == "vlm_chunk_policy_benchmark_experiment"
     assert goal_experiment.name == "vlm_goal_policy_benchmark_experiment"
-    assert chunk_experiment.kpi_exporters == goal_experiment.kpi_exporters == ["success_rate", "timing"]
+    assert chunk_experiment.kpi_exporters == goal_experiment.kpi_exporters == ["success_rate", "timing", "vlm_usage"]
     (chunk_run,) = chunk_experiment.runs.values()
     (goal_run,) = goal_experiment.runs.values()
     assert isinstance(chunk_run.policy, VLMChunkPolicyCfg)

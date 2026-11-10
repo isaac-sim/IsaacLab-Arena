@@ -762,6 +762,29 @@ def test_empty_choices_retry_without_correction_message(backend):
     assert calls[0].kwargs["messages"] == calls[1].kwargs["messages"]
 
 
+def test_rollout_statistics_count_every_request_and_reported_tokens(backend):
+    with_usage = response('{"target": [1, 2]}')
+    with_usage.usage = SimpleNamespace(prompt_tokens=100, completion_tokens=7)
+    backend.client.chat.completions.create.side_effect = [
+        ConnectionError("endpoint unreachable"),  # Retried by the backend.
+        with_usage,
+        response('{"target": [1, 2]}'),  # Reports no usage.
+    ]
+    policy = make_policy(backend)
+    try:
+        policy.get_action(*inputs())
+        assert policy.get_rollout_statistics() == {
+            "endpoint": "internal",
+            "model": "test-model",
+            "num_requests": 3,
+            "num_responses_without_usage": 1,
+            "prompt_tokens": 100,
+            "completion_tokens": 7,
+        }
+    finally:
+        policy.close()
+
+
 def test_missing_camera_keys_fail_before_inference(backend):
     policy = make_policy(backend)
     policy.observation_adapter.camera_keys = ()

@@ -17,6 +17,7 @@ from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
+    ARENA_SINGLE_RUN_POLICY_STATISTICS_FILENAME_TEMPLATE,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg
@@ -45,6 +46,9 @@ class _PolicyCfg(PolicyCfg):
 class _Policy:
     def has_length(self):
         return False
+
+    def get_rollout_statistics(self):
+        return None
 
 
 class _FinitePolicy(_Policy):
@@ -308,6 +312,46 @@ def test_cfg_for_rebuild_offsets_seed_per_rebuild():
     assert run_execution._cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
     # The original config is never mutated.
     assert run.environment_builder.seed == base_seed
+
+
+class _StatisticsPolicy(_Policy):
+    """Reports how many policies were built before it, so each rebuild's statistics differ."""
+
+    num_built = 0
+
+    def __init__(self):
+        self.build_index = _StatisticsPolicy.num_built
+        _StatisticsPolicy.num_built += 1
+
+    def get_rollout_statistics(self):
+        return {"build_index": self.build_index}
+
+
+@pytest.mark.parametrize("policy_type", [_Policy, _StatisticsPolicy])
+def test_build_and_run_writes_policy_statistics_per_rebuild(monkeypatch, tmp_path, policy_type):
+    _StatisticsPolicy.num_built = 0
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", lambda cfg, render_mode, **kwargs: _environment())
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy_type())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
+    monkeypatch.setattr(run_execution, "rollout_policy", lambda env, policy, num_steps, num_episodes: None)
+
+    run_execution.build_and_run(_run(), output_dir=tmp_path)
+
+    statistics_paths = sorted(
+        tmp_path.glob(ARENA_SINGLE_RUN_POLICY_STATISTICS_FILENAME_TEMPLATE.format(rebuild_index="*"))
+    )
+    if policy_type is _Policy:
+        assert statistics_paths == []
+        return
+    assert [path.name for path in statistics_paths] == [
+        ARENA_SINGLE_RUN_POLICY_STATISTICS_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
+        for rebuild_index in range(2)
+    ]
+    assert [json.loads(path.read_text(encoding="utf-8")) for path in statistics_paths] == [
+        {"build_index": 0},
+        {"build_index": 1},
+    ]
 
 
 def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
