@@ -240,6 +240,8 @@ jobs:
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
+      # Lets gdb, strace and py-spy attach to a hung pytest process (see run_with_hang_diagnostics.sh).
+      options: --cap-add=SYS_PTRACE
 
     steps:
       # nvidia-smi
