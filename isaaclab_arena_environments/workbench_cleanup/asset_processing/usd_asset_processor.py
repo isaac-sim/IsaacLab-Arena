@@ -33,8 +33,7 @@ class UsdAssetProcessor:
         UsdAssetProcessor
         ├── retrieve source
         ├── optionally author_structural_layer()
-        │   ├── partition_mesh()
-        │   └── create_fixed_articulation()
+        │   └── partition_mesh()
         └── write final USDA wrapper layer
     """
 

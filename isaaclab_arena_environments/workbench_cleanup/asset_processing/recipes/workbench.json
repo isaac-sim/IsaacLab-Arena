@@ -2,7 +2,8 @@
   "required_prims": [
     "Geometry/table_01_obj_00/table_01_mesh_00/Tabletop",
     "Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf",
-    "Articulations/Cabinet/drawersA_01_obj_01"
+    "Geometry/table_01_obj_00/table_01_mesh_00/CabinetFrame",
+    "Geometry/drawersA_01_obj_01"
   ],
   "variants": {
     "Physics": "physics",
@@ -24,18 +25,6 @@
         "Structure/BlueContainer04": [37],
         "Structure/LowerCrossBrace": [12]
       }
-    },
-    {
-      "operation": "fixed_articulation",
-      "name": "Cabinet",
-      "frame_mesh": "Geometry/table_01_obj_00/table_01_mesh_00/CabinetFrame",
-      "joints": [
-        "Joints/joint_drawersA_01_joint_00",
-        "Joints/joint_drawersB_01_joint_00",
-        "Joints/joint_drawersC_01_joint_00",
-        "Joints/joint_drawersD_01_joint_00",
-        "Joints/joint_door_01_joint_00"
-      ]
     }
   ]
 }

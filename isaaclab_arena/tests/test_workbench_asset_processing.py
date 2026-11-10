@@ -193,7 +193,135 @@ def Xform "Asset" (prepend references = @structure.usda@</Asset>) {}
     assert "points" in structure_text
 
 
-def test_workbench_asset_processing_configuration(monkeypatch):
+@pytest.mark.parametrize("physics_binding", ["inherited", "direct", "none"])
+def test_workbench_wrapper_preserves_bodies_joints_and_materials(tmp_path, monkeypatch, physics_binding):
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
+
+    source = tmp_path / "source.usda"
+    stage = Usd.Stage.CreateNew(str(source))
+    root = UsdGeom.Xform.Define(stage, "/Source").GetPrim()
+    stage.SetDefaultPrim(root)
+    UsdGeom.SetStageMetersPerUnit(stage, 1)
+    body = UsdGeom.Xform.Define(stage, "/Source/Geometry/table_01_obj_00").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(body)
+    UsdPhysics.MassAPI.Apply(body)
+    mesh = UsdGeom.Mesh.Define(stage, body.GetPath().AppendChild("table_01_mesh_00"))
+    # One triangle per component exercises the shipped partition groups without downloading the asset.
+    points = []
+    for index in range(58):
+        points.extend([(2 * index, 0, 0), (2 * index + 1, 0, 0), (2 * index, 1, 0)])
+    mesh.CreatePointsAttr(points)
+    mesh.CreateFaceVertexCountsAttr([3] * 58)
+    mesh.CreateFaceVertexIndicesAttr(list(range(174)))
+    UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+    visual = UsdShade.Material.Define(stage, "/Source/Looks/Paint")
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(visual)
+    if physics_binding != "none":
+        steel = UsdShade.Material.Define(stage, "/Source/Looks/Steel")
+        physics = UsdPhysics.MaterialAPI.Apply(steel.GetPrim())
+        physics.CreateStaticFrictionAttr(0.5)
+        physics.CreateDynamicFrictionAttr(0.4)
+        physics.CreateRestitutionAttr(0.15)
+        binding_owner = body if physics_binding == "inherited" else mesh.GetPrim()
+        UsdShade.MaterialBindingAPI.Apply(binding_owner).Bind(
+            steel, bindingStrength=UsdShade.Tokens.strongerThanDescendants, materialPurpose="physics"
+        )
+    moving_bodies = []
+    joints = []
+    for index, name in enumerate(("drawersA", "drawersB", "drawersC", "drawersD", "door")):
+        moving_body = UsdGeom.Xform.Define(stage, f"/Source/Geometry/{name}_01_obj_01")
+        moving_body.AddTranslateOp().Set(Gf.Vec3d(0.2, -0.5, 0.1 * index))
+        UsdPhysics.RigidBodyAPI.Apply(moving_body.GetPrim())
+        collider = UsdGeom.Cube.Define(stage, moving_body.GetPath().AppendChild(f"{name}_01_mesh_01"))
+        UsdPhysics.CollisionAPI.Apply(collider.GetPrim())
+        joint_type = UsdPhysics.RevoluteJoint if name == "door" else UsdPhysics.PrismaticJoint
+        joint = joint_type.Define(stage, f"/Source/Joints/joint_{name}_01_joint_00")
+        joint.CreateBody0Rel().SetTargets([mesh.GetPath()])
+        joint.CreateBody1Rel().SetTargets([collider.GetPath()])
+        joint.CreateAxisAttr("X")
+        joint.CreateLowerLimitAttr(-0.1)
+        joint.CreateUpperLimitAttr(0.4)
+        joint.CreateLocalPos0Attr(Gf.Vec3f(0.1, 0.2, 0.3))
+        joint.CreateLocalPos1Attr(Gf.Vec3f(0.4, 0.5, 0.6))
+        moving_bodies.append(moving_body)
+        joints.append(joint)
+    stage.GetRootLayer().Save()
+    source_bytes = source.read_bytes()
+
+    specs = importlib.resources.files("isaaclab_arena_environments").joinpath("workbench_cleanup/asset_processing")
+    recipe = json.loads(specs.joinpath("recipes/workbench.json").read_bytes())
+    recipe["steps"][0].pop("expected_geometry_sha256")  # The synthetic fixture has different mesh coordinates.
+    recipe_path = tmp_path / "recipe.json"
+    recipe_path.write_text(json.dumps(recipe))
+    monkeypatch.setattr(f"{MODULE}.get_arena_asset_cache_dir", lambda: tmp_path / "cache")
+    retrieve = _patch_retrieval(monkeypatch, source)
+    processor = UsdAssetProcessor(
+        SOURCE_URL,
+        "package://isaaclab_arena_environments/workbench_cleanup/asset_processing/wrappers/workbench.usda",
+        structural_recipe=str(recipe_path),
+    )
+    output = processor.process()
+    processed = Usd.Stage.Open(output)
+    assert not processed.GetCompositionErrors()
+    asset_path = Sdf.Path("/Asset/Workbench")
+    assert not processed.GetDefaultPrim().HasAPI(UsdPhysics.ArticulationRootAPI)
+    assert processed.GetPrimAtPath(asset_path).HasAPI(UsdPhysics.ArticulationRootAPI)
+    table_path = body.GetPath().ReplacePrefix(root.GetPath(), asset_path)
+    assert not processed.GetPrimAtPath(table_path).HasAPI(UsdPhysics.RigidBodyAPI)
+    assert not processed.GetPrimAtPath(table_path).HasAPI(UsdPhysics.MassAPI)
+    frame_path = table_path.AppendPath("table_01_mesh_00/CabinetFrame")
+    frame = processed.GetPrimAtPath(frame_path)
+    assert frame.HasAPI(UsdPhysics.RigidBodyAPI)
+    assert not UsdPhysics.RigidBodyAPI(frame).GetKinematicEnabledAttr().Get()
+    assert not processed.GetPrimAtPath("/Asset/Articulations")
+    for moving_body, joint in zip(moving_bodies, joints, strict=True):
+        output_body = processed.GetPrimAtPath(moving_body.GetPath().ReplacePrefix(root.GetPath(), asset_path))
+        assert output_body.HasAPI(UsdPhysics.RigidBodyAPI)
+        assert UsdGeom.Xformable(output_body).ComputeLocalToWorldTransform(Usd.TimeCode.Default()) == (
+            moving_body.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        )
+        output_joint = UsdPhysics.Joint(
+            processed.GetPrimAtPath(joint.GetPath().ReplacePrefix(root.GetPath(), asset_path))
+        )
+        assert output_joint.GetPrim().GetTypeName() == joint.GetPrim().GetTypeName()
+        assert output_joint.GetBody0Rel().GetTargets() == [frame_path]
+        assert output_joint.GetBody1Rel().GetTargets() == [
+            joint.GetBody1Rel().GetTargets()[0].ReplacePrefix(root.GetPath(), asset_path)
+        ]
+        for attr in ("axis", "localPos0", "localPos1", "localRot0", "localRot1", "upperLimit"):
+            assert output_joint.GetPrim().GetAttribute(f"physics:{attr}").Get() == (
+                joint.GetPrim().GetAttribute(f"physics:{attr}").Get()
+            )
+        if joint.GetPrim().IsA(UsdPhysics.PrismaticJoint):
+            assert UsdPhysics.PrismaticJoint(output_joint).GetLowerLimitAttr().Get() == 0
+    fixed = UsdPhysics.FixedJoint(processed.GetPrimAtPath(asset_path.AppendPath("Joints/FixedBase")))
+    assert fixed and not fixed.GetBody0Rel().GetTargets()
+    assert fixed.GetBody1Rel().GetTargets() == [frame_path]
+    for support in recipe["steps"][0]["groups"]:
+        if support == "CabinetFrame":
+            continue
+        prim = processed.GetPrimAtPath(table_path.AppendPath(f"table_01_mesh_00/{support}"))
+        assert UsdPhysics.RigidBodyAPI(prim).GetKinematicEnabledAttr().Get()
+        assert "PhysxContactReportAPI" in prim.GetMetadata("apiSchemas").GetAppliedItems()
+
+    binding_api = UsdShade.MaterialBindingAPI(frame)
+    material, relationship = binding_api.ComputeBoundMaterial("physics")
+    if physics_binding == "none":
+        assert not material.GetPrim().HasAPI(UsdPhysics.MaterialAPI)
+    else:
+        physics = UsdPhysics.MaterialAPI(material.GetPrim())
+        assert physics.GetStaticFrictionAttr().Get() == pytest.approx(0.5)
+        assert physics.GetDynamicFrictionAttr().Get() == pytest.approx(0.4)
+        assert physics.GetRestitutionAttr().Get() == pytest.approx(0.15)
+        assert binding_api.GetMaterialBindingStrength(relationship) == UsdShade.Tokens.strongerThanDescendants
+        assert material.GetPath() == asset_path.AppendPath("Looks/Steel")
+    assert binding_api.ComputeBoundMaterial()[0].GetPath() == asset_path.AppendPath("Looks/Paint")
+    assert source.read_bytes() == source_bytes
+    retrieve.side_effect = AssertionError("cache hit must not retrieve the source")
+    assert processor.process() == output
+
+
+def test_workbench_asset_processing_configuration(monkeypatch, source):
     from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
     from isaaclab_arena_environments.workbench_cleanup import assets
 
@@ -214,9 +342,9 @@ def test_workbench_asset_processing_configuration(monkeypatch):
             "/cache/small_wrench.usd",
         ),
     )
-    for source, asset_type, usd_path in tool_assets:
+    for usd_source, asset_type, usd_path in tool_assets:
         assert isinstance(asset_type.usd_source, SimReadyCentralUsdSource)
-        monkeypatch.setattr(source, "to_local_usd_path", lambda path=usd_path: path)
+        monkeypatch.setattr(usd_source, "to_local_usd_path", lambda path=usd_path: path)
         tool = asset_type()
         spawn = tool.object_cfg.spawn
         assert tool.usd_path == usd_path
@@ -236,10 +364,10 @@ def test_workbench_asset_processing_configuration(monkeypatch):
     package_path = assets.WorkbenchCleanupWorkbench.processor.structural_recipe.removeprefix("package://")
     package, relative_path = package_path.split("/", 1)
     recipe = json.loads(importlib.resources.files(package).joinpath(relative_path).read_bytes())
-    assert {step["operation"] for step in recipe["steps"]} == {"partition_mesh", "fixed_articulation"}
-    fixed_articulation = next(step for step in recipe["steps"] if step["operation"] == "fixed_articulation")
-    assert fixed_articulation["name"] == "Cabinet"
-    assert len(fixed_articulation["joints"]) == 5
+    assert [step["operation"] for step in recipe["steps"]] == ["partition_mesh"]
+    monkeypatch.setattr(assets.WorkbenchCleanupWorkbench.processor, "process", lambda: str(source))
+    assert assets.WorkbenchCleanupWorkbench().collision_mode.value == "mesh"
+    assert assets.WorkbenchCleanupWorkbench(collision_mode="bbox").collision_mode.value == "bbox"
 
 
 def test_environment_discovery_defers_asset_registration_and_processing():
