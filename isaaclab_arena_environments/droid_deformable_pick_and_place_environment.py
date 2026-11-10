@@ -77,8 +77,8 @@ def _configure_newton_deformable_physics(
             soft_contact_kd=10.0,
             soft_contact_mu=3.0,
         ),
-        # Refresh proxy contacts at 1920 Hz for the default 120 Hz physics tick.
-        num_substeps=16,
+        # Refresh proxy contacts at 960 Hz for the default 120 Hz physics tick.
+        num_substeps=8,
     )
     return env_cfg
 
