@@ -127,30 +127,7 @@ Choose the tab for your input device.
            --no-reset_sim_buffer_each_episode \
            --dataset_file "${DATASET_DIR}/gear_insertion_teleop_demos.hdf5"
 
-      **Controls**
-
-      .. list-table::
-         :widths: 60 40
-         :header-rows: 1
-
-         * - Action
-           - Input
-         * - Move along the X axis
-           - ``W`` / ``S``
-         * - Move along the Y axis
-           - ``A`` / ``D``
-         * - Move along the Z axis
-           - ``Q`` / ``E``
-         * - Rotate about the X axis
-           - ``Z`` / ``X``
-         * - Rotate about the Y axis
-           - ``T`` / ``G``
-         * - Rotate about the Z axis
-           - ``C`` / ``V``
-         * - Open or close the gripper
-           - ``K``
-         * - Reset the current attempt
-           - ``R``
+      .. include:: ../../_includes/keyboard_controls.rst.inc
 
    .. tab-item:: SpaceMouse
 
@@ -168,22 +145,7 @@ Choose the tab for your input device.
            --no-reset_sim_buffer_each_episode \
            --dataset_file "${DATASET_DIR}/gear_insertion_teleop_demos.hdf5"
 
-      **Controls**
-
-      .. list-table::
-         :widths: 60 40
-         :header-rows: 1
-
-         * - Action
-           - Input
-         * - Move the gripper
-           - Move the cap laterally or vertically
-         * - Change the gripper orientation
-           - Rotate the cap
-         * - Open or close the gripper
-           - Press the left button
-         * - Reset the current attempt
-           - Press the right button
+      .. include:: ../../_includes/spacemouse_controls.rst.inc
 
 Use the selected teleop device to pick up the gear and insert it onto the **middle peg** of the peg board.
 
