@@ -59,10 +59,8 @@ Read only the references relevant to the requested behavior:
 - **Assets:** follow the example's asset ownership and check identity, collision handling, and reset
   requirements. Choose `object_reference.prim_path` values with the scene inspector; see
   "Authoring and validation tools" below.
-- **Layout:** read [placing objects and the robot](placement.md). For every relation's parameters,
-  defaults, validation check and restrictions, read the relation class docstrings in
-  [relations.py](../../../isaaclab_arena/relations/relations.py); each class's `name` is its YAML kind.
-  For the full design, read [relations](../../../docs/pages/concepts/object_placement/relations.rst),
+- **Layout:** read [placing objects and the robot](placement.md). For the full design, read
+  [relations](../../../docs/pages/concepts/object_placement/relations.rst),
   [placement pools](../../../docs/pages/concepts/object_placement/pooled_placement.rst), and the
   [validation workflow](../../../docs/pages/concepts/object_placement/validation.rst).
   Follow the example's scene composition, and check physical support. When placement rejects many
