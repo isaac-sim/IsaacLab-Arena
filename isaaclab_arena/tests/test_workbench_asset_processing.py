@@ -242,26 +242,31 @@ def test_workbench_asset_processing_configuration(monkeypatch):
     assert len(fixed_articulation["joints"]) == 5
 
 
-def test_environment_discovery_registers_workbench_assets_without_processing():
+def test_environment_discovery_defers_asset_registration_and_processing():
     import subprocess
     import sys
 
     code = """
 import sys
-import isaaclab.utils.assets
 from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena_environments.cli import ensure_environments_registered
+from isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor import UsdAssetProcessor
+
+ensure_environments_registered()
+forbidden_prefixes = ('pxr', 'isaaclab.assets', 'isaaclab.scene', 'isaaclab_assets', 'isaaclab_tasks')
+assert not [name for name in sys.modules if name.startswith(forbidden_prefixes)]
 
 registry = AssetRegistry()
 assert not registry.is_registered('workbench_cleanup_workbench', ensure_loaded=False)
+assert 'isaaclab_arena_environments.asset_library' not in sys.modules
 assert 'isaaclab_arena_environments.workbench_cleanup.assets' not in sys.modules
 
 def unexpected_retrieval(*args, **kwargs):
     raise AssertionError('Registration must not retrieve or process assets')
 
+import isaaclab.utils.assets
 isaaclab.utils.assets.retrieve_file_path = unexpected_retrieval
-
-from isaaclab_arena_environments.cli import ensure_environments_registered
-ensure_environments_registered()
+UsdAssetProcessor.process = unexpected_retrieval
 
 expected = {
     'workbench_cleanup_workbench', 'workbench_cleanup_white_bin',

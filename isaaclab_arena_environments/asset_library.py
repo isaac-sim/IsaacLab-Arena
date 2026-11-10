@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Register environment-owned assets during normal environment-library discovery.
+"""Register environment-owned assets when the asset registry loads its libraries.
 
 Only immediate environment-local ``assets.py`` modules are imported. Runtime helpers,
 prebuild scripts, and other nested modules are not registration entry points.
