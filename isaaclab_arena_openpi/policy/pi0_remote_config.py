@@ -37,6 +37,13 @@ class Pi0RemotePolicyCfg(PolicyCfg):
     max_batch_size: int | None = None
     """Largest number of environments per batched request, or None to use the server's advertised limit."""
 
+    batch_sizes: list[int] | None = None
+    """Batch shapes the server pads every batched request to, for example ``[8, 16]``, or None for powers of two.
+
+    Each shape compiles once on the server, so a short list keeps the compilation time down. Only the OSMO
+    pi0 server task reads this field; a locally started server takes the same list as ``--batch-sizes``.
+    """
+
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""
 

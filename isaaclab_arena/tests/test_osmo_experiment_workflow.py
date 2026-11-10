@@ -1033,6 +1033,17 @@ def test_pi0_server_batch_limit_follows_the_client_max_batch_size():
     assert Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(max_batch_size=8)).max_batch_size == 8
 
 
+def test_pi0_server_fixed_batch_sizes_follow_the_client():
+    """The client's batch_sizes become the server's --batch-sizes, and the largest one its batch limit."""
+    task_cfg = Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(batch_sizes=[8, 16]))
+    assert task_cfg.batch_sizes == [8, 16]
+    assert task_cfg.max_batch_size == 16
+    task = Pi0ServerTask(task_cfg, lead=False, task_name="policy-server-0")
+    server_command = _task_file(task.create_task_dict(), "/tmp/entry.sh")["contents"]
+    assert "--max-batch-size=16 --batch-sizes 8 16 " in server_command
+    assert Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg()).batch_sizes is None
+
+
 def test_pi0_server_without_batch_limit_serves_upstream_script():
     """max_batch_size None serves openpi's own serve_policy.py and embeds no Arena script."""
     task = Pi0ServerTask(Pi0ServerTaskCfg(max_batch_size=None), lead=False, task_name="policy-server-0")

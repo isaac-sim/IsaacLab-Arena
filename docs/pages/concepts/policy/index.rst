@@ -178,16 +178,21 @@ policies keep working unchanged.
 
 ``isaaclab_arena_openpi/server/serve_batched_policy.py`` is the batching server. It runs inside the
 openpi server image next to upstream's ``scripts/serve_policy.py``, accepts the same arguments plus
-``--max-batch-size``, applies the policy's input transforms per observation, samples actions once for
-the stacked batch (padded to the next power of two, so JAX compiles a handful of shapes) and applies
-the output transforms per observation. ``isaaclab_arena_openpi/docker/run_openpi_server.sh`` serves it
-by default, ``-b`` sets the batch limit and ``-u`` serves upstream's script instead. On OSMO the pi0
-server task embeds the script into the server container, so Experiments submitted with
-``osmo/submit_arena_experiment.py`` get batched inference without a new server image.
+``--max-batch-size`` and ``--batch-sizes``, applies the policy's input transforms per observation,
+samples actions once for the stacked batch and applies the output transforms per observation. JAX
+compiles the model once per batch shape (a few minutes each for pi0.5), so a batch is padded, by
+repeating its last observation, to the next power of two up to ``--max-batch-size`` by default, or to
+the smallest of the fixed shapes given with ``--batch-sizes`` (for example ``--batch-sizes 8 16``
+compiles two shapes and pads every batch to 8 or 16). ``isaaclab_arena_openpi/docker/run_openpi_server.sh``
+serves it by default, ``-b`` sets the batch limit, ``-s 8,16`` sets fixed shapes and ``-u`` serves
+upstream's script instead. On OSMO the pi0 server task embeds the script into the server container, so
+Experiments submitted with ``osmo/submit_arena_experiment.py`` get batched inference without a new
+server image.
 
 On the client, ``batch_chunk_fetches`` (default ``true``) turns the batched requests off, and
-``max_batch_size`` caps the environments per request below the server's advertised limit. The policy
-prints, when it closes, how many chunk requests it sent in how many server calls.
+``max_batch_size`` caps the environments per request below the server's advertised limit.
+``batch_sizes`` (for example ``[8, 16]``) makes the OSMO server task start the server with those fixed
+shapes. The policy prints, when it closes, how many chunk requests it sent in how many server calls.
 
 .. _vlm-agent-policies:
 
