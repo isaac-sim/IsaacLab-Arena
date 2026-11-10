@@ -173,7 +173,7 @@ class PooledObjectPlacer:
 
             batch_size = max_missing * self._num_envs
             allow_fallback = self._allow_best_loss_fallbacks and batch_idx == max_solve_batches - 1
-            with Timer("placement_solve"):
+            with Timer("placement"):
                 ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
             self._last_fill_diagnostics.batches.append(self._placer.last_batch_validation_diagnostics)
             self._store_env_matched_results(
