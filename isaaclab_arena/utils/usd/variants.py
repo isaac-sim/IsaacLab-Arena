@@ -40,15 +40,20 @@ def usd_variant_selections_to_dict(variants: object | dict[str, str] | None) -> 
 def apply_usd_variant_selections(stage: Usd.Stage, variants: object | dict[str, str] | None) -> None:
     """Select USD variants on the stage's default prim.
 
+    Does nothing when there are no selections: None, an empty dictionary, or a config class without fields.
+
     Args:
         stage: Open USD stage.
         variants: A dictionary or config class mapping variant set names to variant selections, or None.
     """
+    selections = usd_variant_selections_to_dict(variants)
+    if not selections:
+        return
     root = stage.GetDefaultPrim()
     if not root:
         return
     variant_sets = root.GetVariantSets()
-    for set_name, selection in usd_variant_selections_to_dict(variants).items():
+    for set_name, selection in selections.items():
         if set_name in variant_sets.GetNames():
             variant_set = variant_sets.GetVariantSet(set_name)
             if selection in variant_set.GetVariantNames():
