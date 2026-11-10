@@ -169,11 +169,14 @@ def do_all_layouts_pass_and_settle(results: list[tuple[int, int, PlacementValida
     if not results:
         return False
     for _, _, validation_results in results:
+        # A required check with no result fails; do_all_required_validation_checks_pass() would count it as passed.
         required_checks = validation_results.required_checks or set()
         if required_checks - validation_results.validation_results.keys():
             return False
+        # Every required check that ran must have passed.
         if not validation_results.do_all_required_validation_checks_pass():
             return False
+        # The layout must have settled, even when an explicit required_checks set leaves physics_settled out.
         if not validation_results.validation_results.get(PlacementCheck.PHYSICS_SETTLED, False):
             return False
     return True
