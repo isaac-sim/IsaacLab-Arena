@@ -71,7 +71,7 @@ class WorkbenchCleanupSlottedScrewdriver(LibraryObject):
 
 @register_asset
 class WorkbenchCleanupSmallWrench(LibraryObject):
-    """Three-quarter-scale combination wrench with workbench physics settings."""
+    """Combination wrench with workbench physics settings."""
 
     registry_name = "workbench_cleanup_small_wrench"
     tags = ["object", "graspable", "tool", "sim-ready", "workbench"]
@@ -81,7 +81,6 @@ class WorkbenchCleanupSmallWrench(LibraryObject):
         "simready_usd/sm_handTool_wrench_combination_a01_01.usd"
     )
     object_type = ObjectType.RIGID
-    scale = (0.75, 0.75, 0.75)
     spawn_cfg_addon = _make_hand_tool_spawn_cfg_addon()
 
 

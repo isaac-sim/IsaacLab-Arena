@@ -369,7 +369,7 @@ def test_workbench_asset_processing_configuration(monkeypatch, source):
     recipe = json.loads(importlib.resources.files(package).joinpath(relative_path).read_bytes())
     assert [step["operation"] for step in recipe["steps"]] == ["partition_mesh"]
     monkeypatch.setattr(assets.WorkbenchCleanupWorkbench.processor, "process", lambda: str(source))
-    assert assets.WorkbenchCleanupWorkbench().collision_mode.value == "mesh"
+    assert assets.WorkbenchCleanupWorkbench().collision_mode is None
     assert assets.WorkbenchCleanupWorkbench(collision_mode="bbox").collision_mode.value == "bbox"
 
 
