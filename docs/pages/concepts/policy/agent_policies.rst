@@ -84,5 +84,4 @@ execution strategy over the same adapters.
 Next steps
 ----------
 
-Continue to :doc:`code_policies` to see where Arena is heading for models that write programs
-instead of commands.
+Continue to :doc:`code_policies` for policies that run programs instead of commands.
