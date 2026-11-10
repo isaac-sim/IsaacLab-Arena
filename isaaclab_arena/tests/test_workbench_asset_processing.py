@@ -136,7 +136,8 @@ def test_structural_operation_failure_removes_staging_directory(tmp_path, monkey
     assert not [path for path in (cache / "processed").iterdir() if path.is_dir()]
 
 
-def test_structural_recipe_partitions_mesh_without_flattening_source(tmp_path, monkeypatch):
+@pytest.mark.parametrize("group_path,remainder_path", [("Left", "Right"), ("Structure/Left", "Structure/Right")])
+def test_structural_recipe_partitions_mesh_without_flattening_source(tmp_path, monkeypatch, group_path, remainder_path):
     from pxr import Usd, UsdGeom
 
     source = tmp_path / "mesh.usda"
@@ -155,12 +156,12 @@ def test_structural_recipe_partitions_mesh_without_flattening_source(tmp_path, m
     recipe = tmp_path / "structure.json"
     recipe.write_text(
         json.dumps({
-            "required_prims": ["Mesh/Left", "Mesh/Right"],
+            "required_prims": [f"Mesh/{group_path}", f"Mesh/{remainder_path}"],
             "steps": [{
                 "operation": "partition_mesh",
                 "prim": "Mesh",
-                "groups": {"Left": [0]},
-                "remainder": "Right",
+                "groups": {group_path: [0]},
+                "remainder": remainder_path,
                 "expected_geometry_sha256": geometry_hash,
             }],
         })
@@ -181,8 +182,12 @@ def Xform "Asset" (prepend references = @structure.usda@</Asset>) {}
     )
 
     processed = Usd.Stage.Open(str(output))
-    assert processed.GetPrimAtPath("/Asset/Mesh/Left").IsA(UsdGeom.Mesh)
-    assert processed.GetPrimAtPath("/Asset/Mesh/Right").IsA(UsdGeom.Mesh)
+    left = UsdGeom.Mesh(processed.GetPrimAtPath(f"/Asset/Mesh/{group_path}"))
+    right = UsdGeom.Mesh(processed.GetPrimAtPath(f"/Asset/Mesh/{remainder_path}"))
+    assert left and right
+    assert list(left.GetPointsAttr().Get()) == [(0, 0, 0), (1, 0, 0), (0, 1, 0)]
+    assert list(right.GetPointsAttr().Get()) == [(2, 0, 0), (3, 0, 0), (2, 1, 0)]
+    assert left.GetPrim().GetParent().IsA(UsdGeom.Xform)
     structure_text = (output.parent / "structure.usda").read_text()
     assert str(source) in structure_text
     assert "points" in structure_text
@@ -199,6 +204,9 @@ def test_workbench_asset_processing_configuration(monkeypatch):
     package, relative_path = package_path.split("/", 1)
     recipe = json.loads(importlib.resources.files(package).joinpath(relative_path).read_bytes())
     assert {step["operation"] for step in recipe["steps"]} == {"partition_mesh", "fixed_articulations"}
+    fixed_articulations = next(step for step in recipe["steps"] if step["operation"] == "fixed_articulations")
+    assert set(fixed_articulations["groups"]) == {"Cabinet"}
+    assert len(fixed_articulations["groups"]["Cabinet"]["joints"]) == 5
 
 
 def test_environment_discovery_registers_workbench_assets_without_processing():

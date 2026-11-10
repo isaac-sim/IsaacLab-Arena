@@ -2,7 +2,7 @@
   "required_prims": [
     "Geometry/table_01_obj_00/table_01_mesh_00/Tabletop",
     "Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf",
-    "Articulations/DrawerCabinet/drawersA_01_obj_01"
+    "Articulations/Cabinet/drawersA_01_obj_01"
   ],
   "variants": {
     "Physics": "physics",
@@ -15,44 +15,30 @@
       "expected_geometry_sha256": "ec9f1fbdf41f3ed65763add0f05d8a3d2feeb4a0de34c12d02aed974168f02d3",
       "groups": {
         "Tabletop": [9],
-        "DrawerFrame": [1, 2, 3, 4, 10, 11, 13, 14, 49, 50, 51, 52, 53, 54, 55, 56],
-        "DoorFrame": [5, 6, 7, 8, 15, 16, 17, 18, 57]
-      },
-      "remainder": "Structure"
+        "CabinetFrame": [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14, 15, 16, 17, 18, 49, 50, 51, 52, 53, 54, 55, 56, 57],
+        "Structure/HangingBoard": [0, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33],
+        "Structure/OverheadShelf": [38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48],
+        "Structure/BlueContainer01": [34],
+        "Structure/BlueContainer02": [35],
+        "Structure/BlueContainer03": [36],
+        "Structure/BlueContainer04": [37],
+        "Structure/LowerCrossBrace": [12]
+      }
     },
     {
       "operation": "fixed_articulations",
       "groups": {
-        "DrawerCabinet": {
-          "frame_mesh": "Geometry/table_01_obj_00/table_01_mesh_00/DrawerFrame",
+        "Cabinet": {
+          "frame_mesh": "Geometry/table_01_obj_00/table_01_mesh_00/CabinetFrame",
           "joints": [
             "Joints/joint_drawersA_01_joint_00",
             "Joints/joint_drawersB_01_joint_00",
             "Joints/joint_drawersC_01_joint_00",
-            "Joints/joint_drawersD_01_joint_00"
-          ]
-        },
-        "DoorCabinet": {
-          "frame_mesh": "Geometry/table_01_obj_00/table_01_mesh_00/DoorFrame",
-          "joints": [
+            "Joints/joint_drawersD_01_joint_00",
             "Joints/joint_door_01_joint_00"
           ]
         }
       }
-    },
-    {
-      "operation": "partition_mesh",
-      "prim": "Geometry/table_01_obj_00/table_01_mesh_00/Structure",
-      "groups": {
-        "HangingBoard": [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-        "OverheadShelf": [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
-        "BlueContainer01": [17],
-        "BlueContainer02": [18],
-        "BlueContainer03": [19],
-        "BlueContainer04": [20],
-        "LowerCrossBrace": [1]
-      },
-      "expected_geometry_sha256": "15920df847fbfbfb15892a7622058c0de9f8b6bcdcb5e8006b681d014c82cf1f"
     }
   ]
 }

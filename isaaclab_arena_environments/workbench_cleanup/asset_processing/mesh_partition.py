@@ -57,8 +57,8 @@ def inspect_mesh_components(stage, prim_path: str) -> dict[str, Any]:
 
 
 def partition_mesh(stage, prim_path: str, groups: dict[str, list[int]], remainder: str = "Remaining") -> None:
-    """Replace one Mesh with an Xform containing named meshes of complete connected components."""
-    from pxr import Tf
+    """Partition a Mesh into component groups at relative prim paths, creating intermediate Xforms."""
+    from pxr import Tf, UsdGeom
 
     mesh = _mesh(stage, prim_path)
     ancestors = []
@@ -80,8 +80,6 @@ def partition_mesh(stage, prim_path: str, groups: dict[str, list[int]], remainde
     selected_components = set()
     original_children = {child.GetName() for child in mesh.GetPrim().GetChildren()}
     for name, component_ids in groups.items():
-        assert isinstance(name, str) and Tf.IsValidIdentifier(name), f"Invalid child prim name: {name!r}."
-        assert name not in original_children, f"Child prim already exists: {name}."
         assert isinstance(component_ids, list) and component_ids, f"Empty component group: {name}."
         for component_id in component_ids:
             assert (
@@ -92,15 +90,29 @@ def partition_mesh(stage, prim_path: str, groups: dict[str, list[int]], remainde
         selections[name] = np.flatnonzero(np.isin(face_labels, component_ids))
     remaining_faces = np.flatnonzero(~np.isin(face_labels, list(selected_components)))
     if len(remaining_faces):
-        assert isinstance(remainder, str) and Tf.IsValidIdentifier(remainder), "Invalid remainder prim name."
-        assert remainder not in groups and remainder not in original_children, "Remainder prim name already used."
+        assert remainder not in groups, "Remainder prim path already used."
         selections[remainder] = remaining_faces
+
+    piece_paths = []
+    for name in selections:
+        assert isinstance(name, str) and all(
+            Tf.IsValidIdentifier(part) for part in name.split("/")
+        ), f"Invalid relative prim path: {name!r}."
+        assert name.split("/")[0] not in original_children, f"Child prim already exists: {name}."
+        assert not any(
+            name.startswith(other + "/") or other.startswith(name + "/") for other in piece_paths
+        ), f"Mesh output paths overlap: {name}."
+        piece_paths.append(name)
 
     source_path = mesh.GetPath()
     snapshot = stage.Flatten()
     _copy_flattened_prototypes(stage, snapshot)
     for name, faces in selections.items():
-        path = source_path.AppendChild(name)
+        parent = source_path
+        for part in name.split("/")[:-1]:
+            parent = parent.AppendChild(part)
+            UsdGeom.Xform.Define(stage, parent)
+        path = source_path.AppendPath(name)
         _write_piece(stage, snapshot, source_path, path, faces, points_M, counts, indices)
 
     source = stage.GetPrimAtPath(source_path)

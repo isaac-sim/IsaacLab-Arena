@@ -11,7 +11,7 @@ def Xform "Asset" (
 {
     over "Articulations"
     {
-        over "DrawerCabinet"
+        over "Cabinet"
         {
             over "Joints"
             {
