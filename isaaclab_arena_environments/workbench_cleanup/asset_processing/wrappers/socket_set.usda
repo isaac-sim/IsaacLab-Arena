@@ -60,10 +60,10 @@ def Xform "Asset" (
                 prepend apiSchemas = ["PhysicsDriveAPI:angular"]
             )
             {
-                float drive:angular:physics:damping = 0.017453292
-                float drive:angular:physics:maxForce = 3
-                float drive:angular:physics:stiffness = 0.34906584
-                float drive:angular:physics:targetPosition = 105
+                float drive:angular:physics:damping = 0.0005235988
+                float drive:angular:physics:maxForce = 0.2
+                float drive:angular:physics:stiffness = 0
+                float drive:angular:physics:targetPosition = 0
             }
         }
 

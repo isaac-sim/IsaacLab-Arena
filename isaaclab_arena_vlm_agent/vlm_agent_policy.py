@@ -161,11 +161,19 @@ class VLMGoalPolicyCfg(VLMPolicyCfg):
     rotation_tolerance_rad: float = 0.1
     """Maximum rotation error for the configured pose motion generator."""
 
+    prediction_interval_steps: int = 1
+    """Check finished goals every control step, but request replacements on shared step boundaries.
+
+    Larger intervals group parallel requests while holding finished goals until the next boundary.
+    The per-goal step limit still ends execution immediately.
+    """
+
     def __post_init__(self):
         super().__post_init__()
         assert (
             type(self.max_steps_per_goal) is int and self.max_steps_per_goal > 0
         ), "max_steps_per_goal must be a positive integer"
+        assert type(self.prediction_interval_steps) is int and self.prediction_interval_steps > 0
 
 
 class VLMPolicy(PolicyBase[VLMPolicyCfg]):
@@ -173,6 +181,11 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
 
     Each request contains the observations selected by the adapter and the task description.
     """
+
+    @classmethod
+    def default_image_size(cls, config: VLMPolicyCfg) -> tuple[int, int]:
+        """Fit rendered cameras to the image size transmitted to the inference endpoint."""
+        return config.image_max_width_or_height, config.image_max_width_or_height
 
     def __init__(
         self,
@@ -223,6 +236,15 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._request_executor = ThreadPoolExecutor(
             max_workers=config.max_concurrent_requests, thread_name_prefix="vlm_inference"
         )
+        self._last_actions: dict[int, torch.Tensor] = {}
+
+    def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        """Discard held actions for environments starting a new episode."""
+        if env_ids is None:
+            self._last_actions.clear()
+        else:
+            for env_id in env_ids.reshape(-1).tolist():
+                self._last_actions.pop(env_id, None)
 
     def close(self) -> None:
         """Close the inference client and request threads owned by this policy."""
@@ -247,9 +269,18 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         assert self.action_adapter.is_robot_action_space_supported(
             env
         ), "Robot action space is unsupported by this adapter"
+        active_mask = getattr(env.unwrapped, "active_episode_mask", None)
+        inactive_ids = set()
+        if active_mask is not None:
+            for env_id, active in enumerate(active_mask.tolist()):
+                # Establish a valid command once even for an initially unassigned environment.
+                if not active and env_id in self._last_actions:
+                    inactive_ids.add(env_id)
         # Build a request for every environment whose current prediction is used up or finished.
         contents = {}
         for env_id in range(env.unwrapped.num_envs):
+            if env_id in inactive_ids:
+                continue
             self._update_prediction_state(env, env_id)
             if self._needs_new_prediction(env_id):
                 contents[env_id] = self._get_request_content(env, observation, env_id)
@@ -262,12 +293,17 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         # Convert each environment's next command into a native action.
         actions = []
         for env_id in range(env.unwrapped.num_envs):
+            if env_id in inactive_ids:
+                actions.append(self._last_actions[env_id])
+                continue
             command = self._get_next_command(env, env_id)
             action = self.action_adapter.command_to_action(env, command)
             assert (
                 action.ndim == 1 and action.numel() > 0 and torch.isfinite(action).all()
             ), "Expected a finite action vector"
-            actions.append(action.to(device=env.unwrapped.device))
+            action = action.to(device=env.unwrapped.device)
+            self._last_actions[env_id] = action.clone()
+            actions.append(action)
         return torch.stack(actions)
 
     def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
@@ -460,6 +496,7 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending commands for selected environments, or all environments."""
+        super().reset(env_ids)
         if env_ids is None:
             self._chunks.clear()
         else:
@@ -522,6 +559,9 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
         if env_id in self._current_goals:
             current_goal, executed_steps = self._current_goals[env_id]
             outcome = self._get_goal_outcome(env, env_id, current_goal, executed_steps)
+            if self.config.prediction_interval_steps > 1 and executed_steps < self.config.max_steps_per_goal:
+                if env.unwrapped.common_step_counter % self.config.prediction_interval_steps != 0:
+                    return
             if outcome is not GoalOutcome.STILL_EXECUTING:
                 self._previous_goals[env_id] = {
                     "values": [round(value, 4) for value in current_goal.tolist()],
@@ -575,6 +615,7 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending and previous goals for selected environments, or all environments."""
+        super().reset(env_ids)
         if env_ids is None:
             self._current_goals.clear()
             self._previous_goals.clear()
