@@ -29,7 +29,7 @@ def test_workbench_task_definitions_build():
     assert run_function_with_persistent_simulation_app(_test_workbench_task_definitions_build)
 
 
-def _test_workbench_derived_articulations(simulation_app):
+def _test_workbench_processed_articulations(simulation_app):
     from pxr import Usd, UsdPhysics
 
     from isaaclab_arena_environments.workbench_cleanup.assets import _OSCILLOSCOPE, _SOCKET_SET
@@ -38,7 +38,7 @@ def _test_workbench_derived_articulations(simulation_app):
         (_SOCKET_SET, "Physics/Joints/case_lid"),
         (_OSCILLOSCOPE, "Joints/joint_button_01_joint_00"),
     ):
-        stage = Usd.Stage.Open(source.resolve())
+        stage = Usd.Stage.Open(source.process())
         root = stage.GetDefaultPrim()
         articulation_roots = [prim for prim in stage.Traverse() if prim.HasAPI(UsdPhysics.ArticulationRootAPI)]
         assert articulation_roots == [root]
@@ -54,10 +54,10 @@ def _test_workbench_derived_articulations(simulation_app):
     return True
 
 
-def test_workbench_derived_articulations():
+def test_workbench_processed_articulations():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    assert run_function_with_persistent_simulation_app(_test_workbench_derived_articulations)
+    assert run_function_with_persistent_simulation_app(_test_workbench_processed_articulations)
 
 
 @pytest.mark.parametrize(

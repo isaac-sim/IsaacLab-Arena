@@ -13,7 +13,7 @@ isaaclab.sh -p isaaclab_arena_environments/workbench_cleanup/scripts/run_object_
 
 This uses the generic `isaaclab_arena/agentic_tools/object_control_runner.py`
 with seed 42 and the existing task success criteria. DROID stays idle while
-forces and joint efforts act directly on the objects. The prepared assets must
-already be mounted at `/datasets/workbench/assets`; `ffmpeg` converts successful
-recordings to GIFs. See the [demo documentation](../../docs/pages/agentic_tools/workbench_cleanup_assets.rst)
+forces and joint efforts act directly on the objects. Assets are downloaded and
+processed in the local cache on first use; `ffmpeg` converts successful recordings
+to GIFs. See the [demo documentation](../../docs/pages/agentic_tools/workbench_cleanup_assets.rst)
 for individual commands, previews, and output details.
