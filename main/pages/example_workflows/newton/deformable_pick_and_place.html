@@ -609,9 +609,6 @@ for teleoperation</p></td>
 </tbody>
 </table>
 </div>
-<p>Four sampled initial placements are shown below. The placement relations are the same for
-both physics backends.</p>
-<img alt="Four sampled deformable pick-and-place initial placements" class="align-center" src="../../../_images/deformable_pick_and_place_sampled_placements.png" />
 </section>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
@@ -650,6 +647,12 @@ PhysX</label><div class="sd-tab-content docutils">
 </div>
 </div>
 </div>
+<p>The preview exits after 1,000 steps. Increase <code class="docutils literal notranslate"><span class="pre">--num_steps</span></code> for a longer preview, or press
+<code class="docutils literal notranslate"><span class="pre">Ctrl+C</span></code> in the terminal to stop it.</p>
+<p>You should see the DROID robot with a deformable cube and a round plate on the maple table.
+The placement relations are the same for both physics backends, with the initial poses sampled
+as shown below.</p>
+<img alt="Four sampled deformable pick-and-place initial placements" class="align-center" src="../../../_images/deformable_pick_and_place_sampled_placements.png" />
 </section>
 <section id="teleoperate-the-task">
 <h2>Teleoperate the Task<a class="headerlink" href="#teleoperate-the-task" title="Link to this heading">#</a></h2>
@@ -807,6 +810,9 @@ Newton</label><div class="sd-tab-content docutils">
 </div>
 <p>A local 16-episode OpenPI <code class="docutils literal notranslate"><span class="pre">pi05</span></code> validation run succeeded in 9 episodes (56.25%).
 This small stochastic run validates the workflow.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {'num_episodes': 16, 'success_rate': 0.5625, 'object_moved_rate': 1.0}
+</pre></div>
+</div>
 </div>
 <input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-5">
@@ -823,6 +829,9 @@ PhysX</label><div class="sd-tab-content docutils">
 </div>
 <p>A local 16-episode OpenPI <code class="docutils literal notranslate"><span class="pre">pi05</span></code> validation run succeeded in 15 episodes (93.75%).
 This small stochastic run validates the workflow.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {'num_episodes': 16, 'success_rate': 0.9375, 'object_moved_rate': 1.0}
+</pre></div>
+</div>
 </div>
 </div>
 <p>The following rollout shows one successful Newton episode from an external camera and the
