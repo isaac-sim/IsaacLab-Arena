@@ -51,8 +51,7 @@ def add_yaml_kind(app: Sphinx, what: str, name: str, obj: Any, options: Any, lin
         return
     _check_docstring(app, obj, lines)
     kind, *aliases = names
-    text = f"**YAML kind:** ``{kind}``" + "".join(f", or ``{alias}``" for alias in aliases) + "."
-    text += " Takes no ``reference``." if obj.is_unary() else " The YAML ``reference`` is passed as ``parent``."
+    text = f"**YAML kind:** ``{kind}``" + "".join(f", or ``{alias}``" for alias in aliases)
     summary_end = lines.index("") + 1 if "" in lines else len(lines)
     lines[summary_end:summary_end] = [text, ""]
 
