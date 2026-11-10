@@ -480,7 +480,13 @@
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/placement_success_benchmark.html">Placement Success Benchmark</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/in_process_policies.html">In-Process Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/server_client_policies.html">Server–Client Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/agent_policies.html">Agent as Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/code_policies.html">Code as Policy</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/concept_arena_experiments.html">Arena Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/experiment_record_replay.html">Record and Replay Experiments</a></li>
 </ul>
@@ -824,7 +830,7 @@ valid with respect to the task’s success condition.</p>
 <span id="gear-insertion-vlm-agent"></span><h2>Step 4: Evaluate a VLM Agent Policy<a class="headerlink" href="#step-4-evaluate-a-vlm-agent-policy" title="Link to this heading">#</a></h2>
 <p>A hosted VLM can also act as the policy, through <code class="docutils literal notranslate"><span class="pre">VLMGoalPolicy</span></code>. Gear insertion needs the gear
 within 3.5 mm of the peg, a precise test of how well the model locates parts from camera images.
-See <a class="reference internal" href="../../concepts/policy/index.html#vlm-agent-policies"><span class="std std-ref">VLM agent policies</span></a> for how the policy works, and set up an inference API key as in
+See <a class="reference internal" href="../../concepts/policy/agent_policies.html#vlm-agent-policies"><span class="std std-ref">Agent as Policy</span></a> for how the policy works, and set up an inference API key as in
 <a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html"><span class="doc">VLM Agent</span></a>.</p>
 <p>Three experiment configurations run the policy on the <code class="docutils literal notranslate"><span class="pre">droid_abs_ik</span></code> embodiment with the full
 1280x720 camera images. They differ only in what the model is given. Run them from the repository
@@ -851,7 +857,9 @@ gear and peg geometry and a grasp and insertion strategy, but no object position
 </div>
 <p>Add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> to watch a rollout.</p>
 <p>The same layout under each experiment: images only (left), exact object poses (middle), and the
-task prompt (right).</p>
+task prompt (right). These rollouts were run with <code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-6-astra</span></code>. The model is the
+policy: switching to another model or endpoint evaluates a different policy, so its success rate
+will differ.</p>
 <a class="reference internal image-reference" href="../../../_images/gear_insertion_vlm_agent.gif"><img alt="../../../_images/gear_insertion_vlm_agent.gif" class="align-center" src="../../../_images/gear_insertion_vlm_agent.gif" style="width: 100%;" />
 </a>
 </section>
