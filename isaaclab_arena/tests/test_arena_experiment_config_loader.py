@@ -44,7 +44,7 @@ def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
         environment=PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=enable_cameras),
         policy=ZeroActionPolicyCfg(),
     )
-    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg}, name="experiment")
 
 
 def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
@@ -77,6 +77,66 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert runs["baseline"].environment.light_intensity == 750.0
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
     assert all(run.environment_builder.device == "cuda:1" for run in runs.values())
+
+
+def _patch_typed_loader_registries(monkeypatch):
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+    )
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+
+
+def test_name_defaults_to_the_yaml_stem(monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
+
+    assert experiment_cfg.name == "getting_started_experiment"
+
+
+def test_name_in_the_file_wins_over_the_stem(tmp_path, monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        yaml.safe_dump({
+            "name": "named-in-file",
+            "runs": {
+                "baseline": {
+                    "environment": {"type": "pick_and_place_maple_table"},
+                    "policy": {"type": "zero_action"},
+                }
+            },
+        }),
+        encoding="utf-8",
+    )
+
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+    assert experiment_cfg.name == "named-in-file"
+
+
+def test_name_override_wins(monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name=my-benchmark"]
+    )
+
+    assert experiment_cfg.name == "my-benchmark"
+
+
+@pytest.mark.parametrize("name", [None, "", "two\nlines"])
+def test_experiment_cfg_requires_a_non_empty_single_line_name(name):
+    run_cfg = _experiment_cfg().runs["baseline"]
+
+    with pytest.raises(AssertionError, match="name"):
+        ArenaExperimentCfg(runs={"baseline": run_cfg}, name=name)
 
 
 def test_load_typed_yaml_experiment_with_graph_spec_environment(tmp_path, monkeypatch):
@@ -118,6 +178,44 @@ runs:
     assert run.environment_builder.device == "cuda:1"
     assert run.environment_builder.language_instruction == "Pick up the banana."
     assert run.rollout_limit.num_episodes == 4
+
+
+def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch):
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+    from isaaclab_arena_examples.external_environments.basic import ExternalFrankaTableEnvironment
+
+    ensure_environments_registered()
+    registry = EnvironmentRegistry()
+    monkeypatch.setattr(registry, "_components", registry._components.copy())
+    registry.register(ExternalFrankaTableEnvironment, "external_without_config")
+
+    experiment = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
+    assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
+
+    with pytest.raises(AssertionError, match="must register a config"):
+        registry.get_environment_cfg_type(ExternalFrankaTableEnvironment)
+    with pytest.raises(AssertionError, match="unknown environment type 'external_without_config'"):
+        load_arena_experiment_from_config_file(
+            GETTING_STARTED_YAML_PATH,
+            device="cuda:0",
+            overrides=["shared.environment.type=external_without_config"],
+        )
+
+    # Typed loading keeps registered aliases after the legacy lookup is removed.
+    factory = registry.get_component_by_name("pick_and_place_maple_table")
+    registry.register(factory, "maple_alias")
+    # Remove this deletion when the registry's cleanup TODO removes the legacy map.
+    monkeypatch.delattr(registry, "_cfg_types_by_factory_type")
+    configured = registry.get_environment_cfg_types()
+    assert configured["maple_alias"] is configured["pick_and_place_maple_table"]
+    assert "external_without_config" not in configured
+    experiment = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH,
+        device="cuda:0",
+        overrides=["shared.environment.type=maple_alias"],
+    )
+    assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
 
 
 def test_graph_spec_environment_serializes_to_reloadable_yaml(tmp_path, monkeypatch):
@@ -170,7 +268,7 @@ def test_typed_graph_camera_run_requires_prelaunch_camera_flag():
         ),
         policy=ZeroActionPolicyCfg(),
     )
-    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg}, name="experiment")
 
     with pytest.raises(AssertionError, match="enable environment cameras"):
         _assert_camera_support_enabled(experiment_cfg, enable_cameras=False)

@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from abc import abstractmethod
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
@@ -79,6 +80,12 @@ class VLMPolicyCfg(PolicyCfg):
     max_attempts: int = 3
     """Maximum response-validation attempts per environment step."""
 
+    max_concurrent_requests: int = 8
+    """Maximum requests in flight at once when several environments need a prediction on one step.
+
+    Set 1 to send requests one at a time; lower it if the endpoint rate-limits concurrent requests.
+    """
+
     vlm_embodiment_adapter: str | None = None
     """Named action and prompt preset; droid supports the droid_abs_ik embodiment."""
 
@@ -112,6 +119,9 @@ class VLMPolicyCfg(PolicyCfg):
         self.observation_modality = ObservationModality(self.observation_modality)
         assert self.image_max_width_or_height > 0
         assert isinstance(self.max_attempts, int) and self.max_attempts >= 1
+        assert (
+            isinstance(self.max_concurrent_requests, int) and self.max_concurrent_requests >= 1
+        ), "max_concurrent_requests must be a positive integer"
 
 
 @dataclass
@@ -210,13 +220,21 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 base_url=config.base_url,
             )
         )
+        self._request_executor = ThreadPoolExecutor(
+            max_workers=config.max_concurrent_requests, thread_name_prefix="vlm_inference"
+        )
 
     def close(self) -> None:
-        """Close the inference client owned by this policy."""
+        """Close the inference client and request threads owned by this policy."""
+        # Requests still in flight after a failed step are never read, so do not wait for them.
+        self._request_executor.shutdown(wait=False, cancel_futures=True)
         self._inference_backend.client.close()
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return a batch of native actions using the policy execution strategy.
+
+        Environments that need a new prediction on this step request it concurrently, up to
+        max_concurrent_requests at a time; the step returns once every request is validated.
 
         Args:
             env: Arena environment, optionally gym-wrapped.
@@ -229,9 +247,22 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         assert self.action_adapter.is_robot_action_space_supported(
             env
         ), "Robot action space is unsupported by this adapter"
+        # Build a request for every environment whose current prediction is used up or finished.
+        contents = {}
+        for env_id in range(env.unwrapped.num_envs):
+            self._update_prediction_state(env, env_id)
+            if self._needs_new_prediction(env_id):
+                contents[env_id] = self._get_request_content(env, observation, env_id)
+
+        # Request the new predictions concurrently and store them.
+        predictions = self._infer(contents, env.unwrapped.arena_world)
+        for env_id, prediction in predictions.items():
+            self._set_prediction(env_id, prediction)
+
+        # Convert each environment's next command into a native action.
         actions = []
         for env_id in range(env.unwrapped.num_envs):
-            command = self._get_command(env, observation, env_id)
+            command = self._get_next_command(env, env_id)
             action = self.action_adapter.command_to_action(env, command)
             assert (
                 action.ndim == 1 and action.numel() > 0 and torch.isfinite(action).all()
@@ -239,11 +270,26 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             actions.append(action.to(device=env.unwrapped.device))
         return torch.stack(actions)
 
-    @abstractmethod
-    def _get_command(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> np.ndarray:
-        """Return one command using the current observation and any pending prediction."""
+    def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
+        """Update env_id's current prediction from the live environment state.
 
-    def _request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
+        Called once per environment step, before _needs_new_prediction. The default does nothing;
+        a strategy can discard a finished prediction here and record how it ended.
+        """
+
+    @abstractmethod
+    def _needs_new_prediction(self, env_id: int) -> bool:
+        """Return whether env_id has no current prediction left to execute."""
+
+    @abstractmethod
+    def _set_prediction(self, env_id: int, prediction: np.ndarray) -> None:
+        """Store a validated prediction as env_id's current prediction."""
+
+    @abstractmethod
+    def _get_next_command(self, env: gym.Env, env_id: int) -> np.ndarray:
+        """Return env_id's next command from its current prediction."""
+
+    def _get_request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
         """Encode selected images and assemble the task and observation values into chat content."""
         images, prompt_values = self.observation_adapter.extract_vlm_input_from_observation(env, observation, env_id)
         # Injected adapters may reuse calibration dictionaries across predictions.
@@ -269,45 +315,110 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             ])
         return content
 
-    def _infer(self, content: list[dict], arena_world: ArenaWorld, env_id: int) -> np.ndarray:
-        """Request a command, allowing the model to correct locally rejected responses."""
-        messages = [
-            {"role": "system", "content": self._system_prompt},
-            {"role": "user", "content": content},
-        ]
-        rejection: InvalidAgentResponseError | None = None
-        for attempt in range(self.config.max_attempts):
-            payload = self._inference_backend.infer(
+    def _infer(self, contents: dict[int, list[dict]], arena_world: ArenaWorld) -> dict[int, np.ndarray]:
+        """Request a command per environment, allowing the model to correct locally rejected responses.
+
+        Each attempt sends every unresolved environment's request concurrently and then validates the
+        responses on the calling thread, so adapters never read the world from a worker thread.
+        Each environment keeps its own conversation, so corrections never leak across environments.
+
+        Args:
+            contents: User-message content keyed by environment index.
+            arena_world: Live world state passed to the action adapter's decoder.
+
+        Returns:
+            Validated commands keyed by environment index.
+        """
+        # Step 1: one conversation per env. An env leaves this dict once it has a valid command.
+        conversations = {}
+        for env_id, content in contents.items():
+            conversations[env_id] = [
+                {"role": "system", "content": self._system_prompt},
+                {"role": "user", "content": content},
+            ]
+        commands = {}
+        # Last error per env, reported if the env runs out of attempts.
+        rejections: dict[int, InvalidAgentResponseError] = {}
+
+        # Step 2: retry up to max_attempts rounds, stopping when every env has a command.
+        attempts = 0
+        while conversations and attempts < self.config.max_attempts:
+            attempts += 1
+            # Step 2a: send all remaining requests at once.
+            model_outputs = self._get_model_outputs(conversations)
+            # Step 2b: check each output here, on the main thread.
+            for env_id, model_output in model_outputs.items():
+                try:
+                    commands[env_id] = self._model_output_to_command(model_output, arena_world, env_id)
+                except InvalidAgentResponseError as exc:
+                    # Invalid: ask the model to fix it in the next round.
+                    rejections[env_id] = exc
+                    conversations[env_id].append({"role": "assistant", "content": json.dumps(model_output)})
+                    conversations[env_id].append({
+                        "role": "user",
+                        "content": f"Invalid actions: {exc}. Return a corrected prediction.",
+                    })
+                else:
+                    # Valid: this env is done.
+                    del conversations[env_id]
+
+        # Step 3: fail if any env still has no valid command, and list each one's last error.
+        if conversations:
+            failures = []
+            for env_id in sorted(conversations):
+                failures.append(f"env {env_id}: {rejections[env_id]}")
+            raise InvalidAgentResponseError(
+                f"No valid response after {attempts} attempts; " + "; ".join(failures)
+            ) from rejections[min(conversations)]
+        return commands
+
+    def _get_model_outputs(self, conversations: dict[int, list[dict]]) -> dict[int, dict[str, Any]]:
+        """Send one structured-output request per conversation, up to max_concurrent_requests at a time.
+
+        Args:
+            conversations: Chat messages keyed by environment index.
+
+        Returns:
+            Parsed model outputs keyed by environment index.
+        """
+        requests = []
+        for env_id, messages in conversations.items():
+            requests.append(
                 InferenceRequest(
                     messages=messages,
                     response_schema=self._response_schema,
                     schema_name="agent_actions",
-                    retry_label="policy_action",
+                    retry_label=f"policy_action env {env_id}",
                 )
             )
-            try:
-                response = self.action_adapter.response_model.model_validate(payload)
-            except ValidationError as exc:
-                rejection = InvalidAgentResponseError(str(exc))
-            else:
-                try:
-                    command = np.asarray(
-                        self.action_adapter.decode_command(response, arena_world, env_id), dtype=np.float32
-                    )
-                except InvalidAgentResponseError as exc:
-                    rejection = exc
-                else:
-                    # Adapter implementation errors must propagate without asking the model to fix them.
-                    if self.action_adapter.is_command_valid(command):
-                        return command
-                    rejection = InvalidAgentResponseError("Expected finite commands with the adapter's required shape")
-            messages.append({"role": "assistant", "content": json.dumps(payload)})
-            messages.append({
-                "role": "user",
-                "content": f"Invalid actions: {rejection}. Return a corrected prediction.",
-            })
-        assert rejection is not None, "Expected a rejection after exhausting response-validation attempts"
-        raise rejection
+        # Launch all requests at once.
+        pending_outputs = self._request_executor.map(self._inference_backend.infer, requests)
+        # Wait for all requests. This is the slow part of a step.
+        model_outputs = list(pending_outputs)
+        return dict(zip(conversations, model_outputs))
+
+    def _model_output_to_command(
+        self, model_output: dict[str, Any], arena_world: ArenaWorld, env_id: int
+    ) -> np.ndarray:
+        """Validate a model output and decode it into a command for env_id.
+
+        Args:
+            model_output: Parsed JSON output returned by the endpoint.
+            arena_world: Live world state passed to the action adapter's decoder.
+            env_id: Environment index within the batched world state.
+
+        Returns:
+            Command with the adapter's required shape.
+        """
+        try:
+            response = self.action_adapter.response_model.model_validate(model_output)
+        except ValidationError as exc:
+            raise InvalidAgentResponseError(str(exc)) from exc
+        command = np.asarray(self.action_adapter.decode_command(response, arena_world, env_id), dtype=np.float32)
+        # Only InvalidAgentResponseError asks the model for a correction; adapter bugs propagate unchanged.
+        if not self.action_adapter.is_command_valid(command):
+            raise InvalidAgentResponseError("Expected finite commands with the adapter's required shape")
+        return command
 
 
 @register_policy
@@ -338,10 +449,13 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
         )
         self._chunks: dict[int, deque] = {}
 
-    def _get_command(self, env, observation, env_id: int) -> np.ndarray:
-        if not self._chunks.get(env_id):
-            chunk = self._infer(self._request_content(env, observation, env_id), env.unwrapped.arena_world, env_id)
-            self._chunks[env_id] = deque(chunk)
+    def _needs_new_prediction(self, env_id: int) -> bool:
+        return not self._chunks.get(env_id)
+
+    def _set_prediction(self, env_id: int, prediction: np.ndarray) -> None:
+        self._chunks[env_id] = deque(prediction)
+
+    def _get_next_command(self, env: gym.Env, env_id: int) -> np.ndarray:
         return self._chunks[env_id].popleft()
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
@@ -351,6 +465,22 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
         else:
             for env_id in env_ids.reshape(-1).tolist():
                 self._chunks.pop(env_id, None)
+
+
+class GoalOutcome(str, Enum):
+    """State of a goal pose that the motion generator is executing."""
+
+    STILL_EXECUTING = "still_executing"
+    """The goal has not ended yet."""
+
+    REACHED = "reached"
+    """The motion generator reports the goal reached."""
+
+    BLOCKED = "blocked"
+    """The motion generator reports a stall short of the goal."""
+
+    TIMEOUT = "timeout"
+    """The goal used up max_steps_per_goal steps."""
 
 
 @register_policy
@@ -381,48 +511,60 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
             observation_adapter=observation_adapter,
             action_adapter=action_adapter,
         )
-        self._goals: dict[int, tuple[np.ndarray, int]] = {}
-        self._previous_goals: dict[int, dict[str, Any]] = {}
+        self._current_goals: dict[int, tuple[np.ndarray, int]] = {}
+        """Goal pose and executed step count for each environment that is executing a goal."""
 
-    def _get_command(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> np.ndarray:
-        pending = self._goals.get(env_id)
-        outcome = None if pending is None else self._get_goal_outcome(env, env_id, *pending)
-        if pending is None or outcome is not None:
-            if outcome is not None:
+        self._previous_goals: dict[int, dict[str, Any]] = {}
+        """Last finished goal and its outcome for each environment, reported in the next request."""
+
+    def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
+        """Discard env_id's current goal once it has ended, and record how it ended."""
+        if env_id in self._current_goals:
+            current_goal, executed_steps = self._current_goals[env_id]
+            outcome = self._get_goal_outcome(env, env_id, current_goal, executed_steps)
+            if outcome is not GoalOutcome.STILL_EXECUTING:
                 self._previous_goals[env_id] = {
-                    "values": [round(value, 4) for value in pending[0].tolist()],
-                    "outcome": outcome,
-                    "executed_steps": pending[1],
+                    "values": [round(value, 4) for value in current_goal.tolist()],
+                    "outcome": outcome.value,
+                    "executed_steps": executed_steps,
                 }
-            goal = self._infer(self._request_content(env, observation, env_id), env.unwrapped.arena_world, env_id)
-            executed = 0
-        else:
-            goal, executed = pending
+                del self._current_goals[env_id]
+
+    def _needs_new_prediction(self, env_id: int) -> bool:
+        return env_id not in self._current_goals
+
+    def _set_prediction(self, env_id: int, prediction: np.ndarray) -> None:
+        self._current_goals[env_id] = (prediction, 0)
+
+    def _get_next_command(self, env: gym.Env, env_id: int) -> np.ndarray:
+        current_goal, executed_steps = self._current_goals[env_id]
         command = np.asarray(
-            self.action_adapter.motion_generator.compute_command(goal, env, env_id),
+            self.action_adapter.motion_generator.compute_command(current_goal, env, env_id),
             dtype=np.float32,
         )
         expected_dim = env.unwrapped.action_manager.total_action_dim
         assert (
             command.shape == (expected_dim,) and np.isfinite(command).all()
         ), f"Expected a finite goal command with dimension {expected_dim}, got shape {command.shape}"
-        self._goals[env_id] = (goal, executed + 1)
+        self._current_goals[env_id] = (current_goal, executed_steps + 1)
         return command
 
-    def _get_goal_outcome(self, env: gym.Env, env_id: int, goal: np.ndarray, executed: int) -> str | None:
-        """Return how the pending goal ended, or None while it is still executing."""
+    def _get_goal_outcome(
+        self, env: gym.Env, env_id: int, current_goal: np.ndarray, executed_steps: int
+    ) -> GoalOutcome:
+        """Return how env_id's current goal has ended, or GoalOutcome.STILL_EXECUTING while it continues."""
         motion_generator = self.action_adapter.motion_generator
-        if motion_generator.goal_reached(goal, env, env_id):
-            return "reached"
-        if motion_generator.goal_blocked(goal, env, env_id):
-            return "blocked"
-        if executed >= self.config.max_steps_per_goal:
-            return "timeout"
-        return None
+        if motion_generator.goal_reached(current_goal, env, env_id):
+            return GoalOutcome.REACHED
+        if motion_generator.goal_blocked(current_goal, env, env_id):
+            return GoalOutcome.BLOCKED
+        if executed_steps >= self.config.max_steps_per_goal:
+            return GoalOutcome.TIMEOUT
+        return GoalOutcome.STILL_EXECUTING
 
-    def _request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
+    def _get_request_content(self, env: gym.Env, observation: dict[str, Any], env_id: int) -> list[dict[str, Any]]:
         """Report the previous goal and its outcome alongside the task description."""
-        content = super()._request_content(env, observation, env_id)
+        content = super()._get_request_content(env, observation, env_id)
         previous_goal = self._previous_goals.get(env_id)
         if previous_goal is not None:
             content[0] = {
@@ -434,11 +576,11 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending and previous goals for selected environments, or all environments."""
         if env_ids is None:
-            self._goals.clear()
+            self._current_goals.clear()
             self._previous_goals.clear()
         else:
             for env_id in env_ids.reshape(-1).tolist():
-                self._goals.pop(env_id, None)
+                self._current_goals.pop(env_id, None)
                 self._previous_goals.pop(env_id, None)
 
 

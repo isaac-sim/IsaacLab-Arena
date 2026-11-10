@@ -238,6 +238,15 @@ With the Kit window focused, press ``B`` to pause the replayed actions and ``N``
    :align: center
    :height: 400px
 
+.. note::
+
+   Non-determinism may be observed when replaying demonstrations with Newton because
+   physics in Isaac Lab is not deterministically reproducible across ``env.reset()``
+   calls. A demonstration may therefore fail during replay even though it succeeded
+   during recording. Demonstrations with more aggressive actions and borderline grasps
+   are more susceptible to this issue. All recorded demonstrations in the HDF5 remain
+   valid with respect to the task's success condition.
+
 
 .. _gear-insertion-vlm-agent:
 

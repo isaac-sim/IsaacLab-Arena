@@ -6,9 +6,17 @@
 """Check categorical episode counts and success-rate denominators."""
 
 import json
+from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
 from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
+from isaaclab_arena.utils.git_stamp import GitStamp
+
+
+def _result_with_runs(output_dir: Path, runs: dict) -> ArenaExperimentResult:
+    """Return an Experiment result holding the given Runs, each given an end time."""
+    runs_with_end_times = {run_name: {"end_timestamp_ns": 0, **run} for run_name, run in runs.items()}
+    return ArenaExperimentResult(output_dir, "pnp_benchmark", GitStamp("abc1234", "main"), runs_with_end_times)
 
 
 def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_completed_run(tmp_path):
@@ -45,8 +53,8 @@ def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_completed_run(tmp_pat
     for filename, records in records_by_file.items():
         (tmp_path / filename).write_text("".join(json.dumps(record) + "\n" for record in records))
 
-    result = ArenaExperimentResult(tmp_path, metadata)
-    table = build_categorical_variation_table(result.to_dict())
+    result = ArenaExperimentResult.from_run_outputs(tmp_path, metadata, experiment_name="pnp_benchmark")
+    table = build_categorical_variation_table(result)
 
     assert table.rows == [
         ["first", "light.hdr_image", '"hall"', 2, 0, 1, "0.0%"],
@@ -55,7 +63,7 @@ def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_completed_run(tmp_pat
     ]
 
 
-def test_groups_variations_independently_and_keeps_unknown_outcomes():
+def test_groups_variations_independently_and_keeps_unknown_outcomes(tmp_path):
     episodes = [
         {"success": True, "variations": {"hdr": "office", "hidden": True}},
         {"success": False, "variations": {"hdr": "office", "hidden": False}},
@@ -63,7 +71,9 @@ def test_groups_variations_independently_and_keeps_unknown_outcomes():
         {"variations": {"hdr": "hall", "hidden": "true"}},
         {"success": True},
     ]
-    result = {"runs": {"run": {"status": "completed", "rebuilds": [{"index": 0, "episodes": episodes}]}}}
+    result = _result_with_runs(
+        tmp_path, {"run": {"status": "completed", "rebuilds": [{"index": 0, "episodes": episodes}]}}
+    )
 
     assert build_categorical_variation_table(result).rows == [
         ["run", "hdr", '"hall"', 1, 0, 1, "N/A"],
@@ -74,9 +84,22 @@ def test_groups_variations_independently_and_keeps_unknown_outcomes():
     ]
 
 
-def test_omits_continuous_variations_and_handles_empty_results():
+def test_omits_continuous_variations_and_handles_empty_results(tmp_path):
     episodes = [{"success": True, "variations": {"mass": 1, "color": [0.1, 0.2, 0.3]}}]
-    result = {"runs": {"run": {"status": "completed", "rebuilds": [{"index": 0, "episodes": episodes}]}}}
+    result = _result_with_runs(
+        tmp_path, {"run": {"status": "completed", "rebuilds": [{"index": 0, "episodes": episodes}]}}
+    )
 
     assert build_categorical_variation_table(result).rows == []
-    assert build_categorical_variation_table({"runs": {}}).rows == []
+
+    result_without_episodes = _result_with_runs(
+        tmp_path, {"run": {"status": "completed", "rebuilds": [{"index": 0, "episodes": []}]}}
+    )
+
+    assert build_categorical_variation_table(result_without_episodes).rows == []
+    assert (
+        build_categorical_variation_table(
+            _result_with_runs(tmp_path, {"run": {"status": "completed", "rebuilds": []}})
+        ).rows
+        == []
+    )

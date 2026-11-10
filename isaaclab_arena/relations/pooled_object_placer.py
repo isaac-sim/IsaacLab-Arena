@@ -205,21 +205,20 @@ class PooledObjectPlacer:
     ) -> None:
         """Store each env's results into its pool, up to target_num_layouts_per_env unread layouts.
 
-        Valid layouts are preferred; when allow_fallback is set, an env with no
-        valid layout keeps its best-loss results instead of staying empty.
-        An env that has at least one valid layout never falls back to best-loss,
-        even if it has fewer valid layouts than target_num_layouts_per_env.
+        Valid layouts are stored first; when allow_fallback is set, an env that is
+        still short of target_num_layouts_per_env fills its remaining slots with
+        the batch's best-ranked invalid results.
         """
         fallback_envs = []
         for cur_env in range(self._num_envs):
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
             valid_results = [r for r in env_results if r.success]
             missing = target_num_layouts_per_env - self._env_pools[cur_env].available
-            if valid_results:
-                if missing > 0:
-                    self._env_pools[cur_env].extend(valid_results[:missing])
-            elif allow_fallback and missing > 0:
-                fallback = env_results[:missing]
+            if missing > 0:
+                self._env_pools[cur_env].extend(valid_results[:missing])
+            missing_after_valid = missing - len(valid_results)
+            if allow_fallback and missing_after_valid > 0:
+                fallback = [r for r in env_results if not r.success][:missing_after_valid]
                 if fallback:
                     self._env_pools[cur_env].extend(fallback)
                     fallback_envs.append(cur_env)

@@ -20,7 +20,7 @@ import pathlib
 import re
 import socketserver
 
-from isaaclab_arena.visualization.report_data import (
+from isaaclab_arena.evaluation.report_data import (
     DEFAULT_POLICY_SUFFIXES,
     ExperimentSummary,
     RunExecutionReport,

@@ -37,7 +37,8 @@ def _config(cfg_type, modality="image_state"):
     options = {"max_steps_per_goal": 2} if cfg_type is VLMGoalPolicyCfg else {}
     if cfg_type is VLMChunkPolicyCfg:
         options["chunk_size"] = 2
-    cfg = cfg_type(system_prompt="Return absolute targets.", model="test-model", **options)
+    # Serial requests keep the mocked replies in environment order.
+    cfg = cfg_type(system_prompt="Return absolute targets.", model="test-model", max_concurrent_requests=1, **options)
     cfg.observation_modality = modality
     return cfg
 
