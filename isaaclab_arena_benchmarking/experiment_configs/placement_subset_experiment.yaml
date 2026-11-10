@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-kpi_exporters: [placement_solver, timing]
+kpi_exporters: [placement_success, timing]
 
 shared:
   environment_builder:

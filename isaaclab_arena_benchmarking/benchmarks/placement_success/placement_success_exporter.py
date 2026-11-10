@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Export the placement solver KPIs of a finished Arena Experiment as an InfluxDB KPI record."""
+"""Export the placement success of a finished Arena Experiment as an InfluxDB KPI record."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena_benchmarking.benchmarks.registry import register_kpi_exporter
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
 
-PLACEMENT_SOLVER_RECORDS_FILENAME = "kpis_placement_solver.json"
-"""Name of the placement solver KPI records file in an Experiment output directory."""
+PLACEMENT_SUCCESS_RECORDS_FILENAME = "kpis_placement_success.json"
+"""Name of the placement success KPI records file in an Experiment output directory."""
 
 
 @dataclass
@@ -58,10 +58,10 @@ class RunPlacementCounts:
 
 
 @dataclass(kw_only=True)
-class PlacementSolverRecord(InfluxdbKpiRecord):
-    """Placement solver KPIs of the Experiment, the mean over its scored Runs."""
+class PlacementSuccessRecord(InfluxdbKpiRecord):
+    """Placement success of the Experiment, the mean over its scored Runs."""
 
-    record_type: ClassVar[str] = "placement_solver"
+    record_type: ClassVar[str] = "placement_success"
 
     valid_candidate_rate_first_batch: float
     """Mean over the scored Runs of the share of first-batch candidates that pass every required check."""
@@ -96,9 +96,9 @@ def read_run_placement_counts(output_dir: Path) -> list[RunPlacementCounts]:
     return counts_per_run
 
 
-def build_placement_solver_record(
+def build_placement_success_record(
     counts_per_run: list[RunPlacementCounts], *, timestamp_ns: int, git_stamp: GitStamp, benchmark_id: str
-) -> PlacementSolverRecord | None:
+) -> PlacementSuccessRecord | None:
     """Return the record of an Experiment, or None when no Run wrote placement diagnostics.
 
     Runs without diagnostics are left out of the means. Every scored Run has the same weight.
@@ -112,7 +112,7 @@ def build_placement_solver_record(
     scored = [run_counts for run_counts in counts_per_run if run_counts.placement_diagnostics is not None]
     if not scored:
         return None
-    return PlacementSolverRecord(
+    return PlacementSuccessRecord(
         timestamp_ns=timestamp_ns,
         git_sha=git_stamp.git_sha,
         git_branch=git_stamp.git_branch,
@@ -125,17 +125,17 @@ def build_placement_solver_record(
     )
 
 
-@register_kpi_exporter("placement_solver")
-class PlacementSolverKpiExporter(InfluxdbKpiExporter):
-    """Exports the placement solver KPIs of a finished Arena Experiment output directory."""
+@register_kpi_exporter("placement_success")
+class PlacementSuccessKpiExporter(InfluxdbKpiExporter):
+    """Exports the placement success of a finished Arena Experiment output directory."""
 
-    record_types: ClassVar[tuple[str, ...]] = (PlacementSolverRecord.record_type,)
+    record_types: ClassVar[tuple[str, ...]] = (PlacementSuccessRecord.record_type,)
 
     def get_records_filename(self) -> str:
-        return PLACEMENT_SOLVER_RECORDS_FILENAME
+        return PLACEMENT_SUCCESS_RECORDS_FILENAME
 
     def export_to_json(self, output_dir: Path) -> Path | None:
-        """Write the placement solver record and print the placement rates of each Run.
+        """Write the placement success record and print the placement rates of each Run.
 
         Args:
             output_dir: Experiment output root holding the result file and one directory per Run.
@@ -157,11 +157,11 @@ class PlacementSolverKpiExporter(InfluxdbKpiExporter):
         self._print_summary(output_dir, failed_run_names)
 
     def _print_summary(self, output_dir: Path, failed_run_names: list[str]) -> None:
-        print("Placement solver KPIs per Run:")
+        print("Placement success per Run:")
         print(_format_run_placement_counts(read_run_placement_counts(Path(output_dir)), failed_run_names))
 
     def build_records_from_output_dir(self, output_dir: Path) -> list[InfluxdbKpiRecord]:
-        """Build the placement solver record of a finished Experiment output directory.
+        """Build the placement success record of a finished Experiment output directory.
 
         Reads ``arena_experiment_result.json`` for the Runs, timestamp, git stamp and Experiment name, and each
         Run's ``arena_run_placement_diagnostics.json``.
@@ -174,7 +174,7 @@ class PlacementSolverKpiExporter(InfluxdbKpiExporter):
         """
         output_dir = Path(output_dir)
         result = ArenaExperimentResult.from_experiment_output(output_dir)
-        record = build_placement_solver_record(
+        record = build_placement_success_record(
             read_run_placement_counts(output_dir),
             timestamp_ns=result.latest_run_end_timestamp_ns,
             git_stamp=result.git_stamp,

@@ -78,7 +78,7 @@ def test_experiment_cfg_accepts_registered_kpi_exporters_or_none(kpi_exporters):
 @pytest.mark.parametrize(
     ("kpi_exporters", "error"),
     [
-        (["latency"], r"Unknown KPI exporters \['latency'\].*\['placement_solver', 'success_rate', 'timing'\]"),
+        (["latency"], r"Unknown KPI exporters \['latency'\].*\['placement_success', 'success_rate', 'timing'\]"),
         (["timing", "timing"], r"duplicate KPI exporters \['timing'\]"),
         ("timing", "must be a list of names"),
         ([1], "must be a list of names"),

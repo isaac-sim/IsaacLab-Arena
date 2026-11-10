@@ -95,9 +95,9 @@ even when some Runs failed. To change the sample size, add
 allows up to 200 environments. The solver optimizes a batch together, so compare
 only results with the same ``num_envs``.
 
-Each Experiment selects the ``placement_solver`` KPI exporter with
-``kpi_exporters``, so the runner writes ``kpis_placement_solver.json`` to the
-output directory. The placement solver record holds the means of the three
+Each Experiment selects the ``placement_success`` KPI exporter with
+``kpi_exporters``, so the runner writes ``kpis_placement_success.json`` to the
+output directory. The placement success record holds the means of the three
 rates over the Runs that wrote diagnostics. A Run that completed without
 diagnostics solved no relations or replayed recorded layouts, and the means
 leave it out. No KPI file is written when any Run failed.

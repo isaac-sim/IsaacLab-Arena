@@ -17,7 +17,7 @@ benchmarks:
       - "~experiment_cfg.runs.parallel_envs"
       - experiment_runner.record_camera_video=false
 
-  # Placement solver benchmark
+  # Placement success benchmark
   - name: placement-subset
     experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/placement_subset_experiment.yaml
     overrides:
