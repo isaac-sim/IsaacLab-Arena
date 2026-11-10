@@ -74,6 +74,7 @@ def _test_detect_object_type(simulation_app):
 def _test_detect_object_type_for_all_objects(simulation_app):
     from isaaclab_arena.assets.object_utils import detect_object_type
     from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.assets.sources.base import UsdSource
 
     asset_registry = AssetRegistry()
     for object_asset in asset_registry.get_assets_by_tag("object"):
@@ -85,12 +86,17 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         #   applied simultaneously, sometimes in different prim layers.
         # Assets without a USD path on the class cannot be classified without an instance. That
         # covers procedurally generated assets and ones whose path arrives as a graph parameter.
-        has_usd_path = getattr(object_asset, "usd_path", None) is not None
+        usd_path = getattr(object_asset, "usd_path", None)
+        usd_source = getattr(object_asset, "usd_source", None)
+        has_usd_asset = usd_path is not None or usd_source is not None
         is_procedural = "procedural" in getattr(object_asset, "tags", [])
         skipped_names = ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere")
-        if has_usd_path and not is_procedural and object_asset.registry_name not in skipped_names:
+        if has_usd_asset and not is_procedural and object_asset.registry_name not in skipped_names:
             print(f"Automatically classifying: {object_asset.registry_name}")
-            detected_object_type = detect_object_type(usd_path=object_asset.usd_path)
+            if isinstance(usd_source, UsdSource):
+                usd_path = usd_source.to_local_usd_path()
+            assert usd_path is not None
+            detected_object_type = detect_object_type(usd_path=usd_path)
             print(f"database object type: {object_asset.object_type}")
             print(f"detected object type: {detected_object_type}")
             assert detected_object_type == object_asset.object_type

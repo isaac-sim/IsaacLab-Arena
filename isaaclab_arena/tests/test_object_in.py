@@ -49,7 +49,8 @@ def _test_apple_in_microwave(_simulation_app):
     # fixed geometry frame while Scene manages the microwave's nested physics.
     microwave = Background(
         name="microwave",
-        usd_path=registry.get_asset_by_name("microwave").usd_path,
+        usd_path=None,
+        usd_source=registry.get_asset_by_name("microwave").usd_source,
         object_min_z=-1.0,
         initial_pose=Pose(position_xyz=(2.0, 0.0, 1.0)),
     )

@@ -17,11 +17,14 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.assets.simready_constants import (
+    SIMREADY_CENTRAL_PHYSICS_VARIANTS,
     SIMREADY_PHYSICS_VARIANTS,
     SIMREADY_SEARCH_REGISTRY_PREFIX,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,
 )
+from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource, is_central_asset_url
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.variants import usd_variant_selections_to_dict
 
 _NON_IDENTIFIER_CHARACTERS = re.compile(r"[^a-z0-9]+")
 
@@ -44,6 +47,7 @@ class SimReadyUsdObject(Object):
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         scale: tuple[float, float, float] | None = None,
+        spawn_cfg_addon: dict[str, Any] | None = None,
         **kwargs: Any,
     ):
         """Create an object from a SimReady USD file.
@@ -54,24 +58,23 @@ class SimReadyUsdObject(Object):
             prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/<name>``.
             initial_pose: Initial pose of the object.
             scale: Scale of the object. Defaults to ``(1.0, 1.0, 1.0)``.
+            spawn_cfg_addon: Additional USD spawn configuration.
             **kwargs: Extra arguments passed to ``Object``.
         """
         assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
         assert usd_path, "simready_usd_object requires params.usd_path"
-        from isaaclab_arena.assets.simready_central_asset_loader import (
-            download_and_wrap_central_asset,
-            is_central_asset_url,
-        )
-
-        if is_central_asset_url(usd_path):
-            usd_path = download_and_wrap_central_asset(usd_path)
-        spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
-        spawn_cfg_addon.setdefault("variants", dict(SIMREADY_PHYSICS_VARIANTS))
+        is_central = is_central_asset_url(usd_path)
+        usd_source = SimReadyCentralUsdSource(usd_path) if is_central else None
+        default_variants = SIMREADY_CENTRAL_PHYSICS_VARIANTS if is_central else SIMREADY_PHYSICS_VARIANTS
+        spawn_cfg_addon = dict(spawn_cfg_addon or {})
+        variants = usd_variant_selections_to_dict(spawn_cfg_addon.get("variants"))
+        spawn_cfg_addon["variants"] = {**default_variants, **variants}
         super().__init__(
             name=name or self.registry_name,
             prim_path=prim_path,
             tags=self.tags,
-            usd_path=usd_path,
+            usd_path=None if usd_source is not None else usd_path,
+            usd_source=usd_source,
             object_type=self.object_type,
             scale=scale if scale is not None else (1.0, 1.0, 1.0),
             initial_pose=initial_pose,
@@ -107,7 +110,6 @@ def register_searched_simready_object(
     registry = AssetRegistry()
     if registry.is_registered(searched_registry_name, ensure_loaded=False):
         return registry.get_asset_by_name(searched_registry_name)
-    found_usd_path = usd_path
     # Tagged 'object' unlike the generic asset, because this one carries its own usd_path.
     merged_tags = list(dict.fromkeys(["object", *SimReadyUsdObject.tags, *tags]))
 
@@ -118,7 +120,7 @@ def register_searched_simready_object(
         tags = merged_tags
 
         def __init__(self, **kwargs: Any):
-            kwargs.setdefault("usd_path", found_usd_path)
+            kwargs.setdefault("usd_path", usd_path)
             super().__init__(**kwargs)
 
     registry.register(SearchedSimReadyObject, searched_registry_name)

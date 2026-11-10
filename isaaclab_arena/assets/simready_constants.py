@@ -25,3 +25,9 @@ DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
 # Without this selection, Usd.Stage.Open sees geometry but no RigidBodyAPI, and
 # PickAndPlace contact sensors fail with "No rigid body found".
 SIMREADY_PHYSICS_VARIANTS: dict[str, str] = {"Physics": "physics"}
+
+SIMREADY_CENTRAL_PHYSICS_VARIANTS: dict[str, str] = {
+    **SIMREADY_PHYSICS_VARIANTS,
+    "PhysX": "Enabled",
+}
+"""Variant selections required to enable physics in SimReady Central assets."""

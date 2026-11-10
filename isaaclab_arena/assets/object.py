@@ -18,6 +18,7 @@ from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
+from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry, get_geometry_key
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -36,6 +37,7 @@ class Object(RootedObjectBase):
         prim_path: str | None = None,
         object_type: ObjectType | None = None,
         usd_path: str | None = None,
+        usd_source: UsdSource | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
@@ -43,10 +45,17 @@ class Object(RootedObjectBase):
         **kwargs,
     ):
         # Pull out addons (and remove them from kwargs before passing to super)
-        spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
+        # Keep nested addon settings independent when multiple objects reuse the same input mapping.
+        spawn_cfg_addon: dict[str, Any] = deepcopy(kwargs.pop("spawn_cfg_addon", {}) or {})
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
-        assert usd_path is not None or spawner_cfg is not None, "Either usd_path or spawner_cfg must be provided"
-        assert usd_path is None or spawner_cfg is None, "Either usd_path or spawner_cfg must be provided (not both)"
+        asset_inputs = (usd_path, usd_source, spawner_cfg)
+        assert (
+            sum(value is not None for value in asset_inputs) == 1
+        ), "Exactly one of usd_path, usd_source, or spawner_cfg must be provided"
+        if usd_source is not None:
+            usd_path = usd_source.to_local_usd_path()
+        if usd_path is not None:
+            assert usd_path, "usd_path must be a non-empty string"
         if spawner_cfg is not None:
             assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
         # Detect object type if not provided
@@ -58,13 +67,13 @@ class Object(RootedObjectBase):
             object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
+        self.usd_source = usd_source
         self.spawner_cfg = spawner_cfg
         self.scale = scale
         self.initial_pose = initial_pose
         self.relations = list(relations)
         self.reset_pose = True
-        # Keep nested addon settings independent when multiple objects reuse the same input mapping.
-        self.spawn_cfg_addon = deepcopy(spawn_cfg_addon)
+        self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box: AxisAlignedBoundingBox | None = None
         """Explicit local bounds. None derives bounds from object_cfg.spawn."""

@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils.assets import retrieve_file_path
 
+from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
+
 if TYPE_CHECKING:
     from pxr import Usd
 
@@ -86,24 +88,6 @@ def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None =
             apply_usd_variant_selections(stage, variants)
         _RIGID_BODY_PATHS_BY_ASSET[key] = get_all_rigid_body_prim_paths_from_stage(stage)
     return list(_RIGID_BODY_PATHS_BY_ASSET[key])
-
-
-def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> None:
-    """Select USD variants on the stage's default prim.
-
-    Args:
-        stage: Open USD stage.
-        variants: Maps each variant set name to the variant to select from it.
-    """
-    root = stage.GetDefaultPrim()
-    if not root:
-        return
-    variant_sets = root.GetVariantSets()
-    for set_name, selection in variants.items():
-        if set_name in variant_sets.GetNames():
-            variant_set = variant_sets.GetVariantSet(set_name)
-            if selection in variant_set.GetVariantNames():
-                variant_set.SetVariantSelection(selection)
 
 
 def _path_relative_to_default_prim(prim_path: str, default_prim_path: str) -> str:
