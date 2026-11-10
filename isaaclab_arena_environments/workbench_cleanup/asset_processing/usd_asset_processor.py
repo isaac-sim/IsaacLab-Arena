@@ -18,18 +18,23 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import urlsplit
 
 from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 
 PROCESSING_PIPELINE_VERSION = 1
 """Version of the USD asset processing contract."""
 
-PINNED_USD_LOCALIZATION_VERSION = 1
+PINNED_USD_LOCALIZATION_VERSION = 2
 """Version of the persistent pinned-USD localization contract."""
 
 
 def retrieve_pinned_usd_path(path: str) -> str:
     """Return a persistent localized copy of a USD with immutable remote dependencies.
+
+    Wrapper and local dependency edits create new outputs while sharing downloads
+    in the Arena asset cache's ``downloads`` directory. Cached outputs and their
+    existing local dependencies are checked for changes before reuse.
 
     Args:
         path: Local USD wrapper whose remote asset paths are revision-pinned.
@@ -39,12 +44,12 @@ def retrieve_pinned_usd_path(path: str) -> str:
     """
     wrapper_path = Path(path).expanduser().absolute()
     assert wrapper_path.is_file(), f"Pinned USD wrapper does not exist: {wrapper_path}"
-    wrapper_bytes = wrapper_path.read_bytes()
+    source_files = _local_dependency_hashes(wrapper_path)
     digest = hashlib.sha256(
         b"\0".join((
             f"pinned-usd-v{PINNED_USD_LOCALIZATION_VERSION}".encode(),
-            wrapper_path.name.encode(),
-            wrapper_bytes,
+            str(wrapper_path).encode(),
+            json.dumps(source_files, sort_keys=True).encode(),
         ))
     ).hexdigest()
     cache_root = get_arena_asset_cache_dir() / "pinned_usd"
@@ -55,35 +60,65 @@ def retrieve_pinned_usd_path(path: str) -> str:
         with _exclusive_lock(cache_root / f"{digest}.lock"):
             output = _pinned_usd_output(package_dir, digest)
             if output is None:
-                output = _build_pinned_usd(wrapper_path, package_dir, digest)
+                output = _build_pinned_usd(wrapper_path, source_files, package_dir, digest)
     return str(output)
 
 
-def _build_pinned_usd(wrapper_path: Path, package_dir: Path, digest: str) -> Path:
-    """Localize one pinned USD dependency graph into its persistent cache directory."""
+def _build_pinned_usd(wrapper_path: Path, source_files: dict[str, str], package_dir: Path, digest: str) -> Path:
+    """Publish a validated wrapper revision while sharing remote downloads across revisions."""
     from isaaclab.utils.assets import retrieve_file_path
+    from pxr import Ar, Sdf, Usd, UsdUtils
 
-    if package_dir.exists():
-        shutil.rmtree(package_dir)
-    package_dir.mkdir()
+    # Lab stores URL mirrors under download_dir. Keep that directory independent
+    # of wrapper contents so an override edit reuses the same remote downloads.
+    download_dir = get_arena_asset_cache_dir() / "downloads"
+    download_dir.mkdir(parents=True, exist_ok=True)
+    _discard_changed_downloads(package_dir, download_dir)
+    staging_dir = Path(tempfile.mkdtemp(prefix=f".{digest}.", dir=package_dir.parent))
     try:
-        output = Path(retrieve_file_path(str(wrapper_path), download_dir=str(package_dir))).absolute()
-        assert output.is_relative_to(package_dir), "Pinned USD localization must return a cached copy."
-        relative_output = output.relative_to(package_dir)
+        localized = Path(retrieve_file_path(str(wrapper_path), download_dir=str(download_dir))).absolute()
+        layer = Sdf.Layer.OpenAsAnonymous(str(localized))
+        assert layer, f"Cannot read localized USD: {localized}"
+        resolver = Ar.GetResolver()
+
+        def anchor_reference(reference: str) -> str:
+            if not reference or urlsplit(reference).scheme:
+                return reference
+            return resolver.CreateIdentifier(reference, Ar.ResolvedPath(str(localized)))
+
+        # Snapshot the entry layer. Relative references must retain their original
+        # anchors when this file moves from Lab's output into our revision cache.
+        UsdUtils.ModifyAssetPaths(layer, anchor_reference)
+        output = staging_dir / wrapper_path.name
+        exported = layer.Export(str(output))
+        assert exported, f"Cannot export localized USD: {output}"
+        stage = Usd.Stage.Open(str(output))
+        assert stage and stage.GetDefaultPrim(), f"Localized USD requires a default prim: {output}"
+        assert not stage.GetCompositionErrors(), stage.GetCompositionErrors()
+        dependencies = _local_dependency_hashes(output)
+        output_hash = dependencies.pop(str(output))
+        assert source_files == _local_dependency_hashes(
+            wrapper_path
+        ), "Local USD inputs changed during processing; retry."
         manifest = {
             "cache_key": digest,
             "localization_version": PINNED_USD_LOCALIZATION_VERSION,
-            "output_entry": relative_output.as_posix(),
+            "output_entry": output.name,
+            "output_sha256": output_hash,
+            "dependencies": dependencies,
         }
-        (package_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-        return output
+        (staging_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        if package_dir.exists():
+            shutil.rmtree(package_dir)
+        os.replace(staging_dir, package_dir)
+        return package_dir / output.name
     except Exception:
-        shutil.rmtree(package_dir, ignore_errors=True)
+        shutil.rmtree(staging_dir, ignore_errors=True)
         raise
 
 
 def _pinned_usd_output(package_dir: Path, digest: str) -> Path | None:
-    """Return a valid localized entry layer from a pinned USD cache entry."""
+    """Return a localized entry layer whose contents and local dependencies remain intact."""
     manifest_path = package_dir / "manifest.json"
     if not manifest_path.is_file():
         return None
@@ -98,9 +133,73 @@ def _pinned_usd_output(package_dir: Path, digest: str) -> Path | None:
         ):
             return None
         output = package_dir.joinpath(*relative.parts)
-        return output if output.is_file() else None
+        if not output.is_file() or _sha256_file(output) != manifest["output_sha256"]:
+            return None
+        dependencies = manifest["dependencies"]
+        if not isinstance(dependencies, dict):
+            return None
+        for filename, expected_hash in dependencies.items():
+            dependency = Path(filename)
+            if not dependency.is_file() or _sha256_file(dependency) != expected_hash:
+                return None
+        return output
     except (KeyError, OSError, TypeError, ValueError):
         return None
+
+
+def _local_dependency_hashes(entry_path: Path) -> dict[str, str]:
+    """Fingerprint existing local USD layers and assets without fetching remote references."""
+    from pxr import Ar, Sdf, UsdUtils
+
+    resolver = Ar.GetResolver()
+    pending = [entry_path]
+    files = {}
+    while pending:
+        path = pending.pop().absolute()
+        if str(path) in files:
+            continue
+        files[str(path)] = _sha256_file(path)
+        if path.suffix.lower() not in (".usd", ".usda", ".usdc", ".usdz"):
+            continue
+        # Read detached contents so another stage holding this file open cannot
+        # hide edits made on disk between authoring iterations.
+        layer = Sdf.Layer.OpenAsAnonymous(str(path))
+        assert layer, f"Cannot read USD dependency: {path}"
+
+        def collect_reference(reference: str) -> str:
+            if reference and not urlsplit(reference).scheme:
+                identifier = resolver.CreateIdentifier(reference, Ar.ResolvedPath(str(path)))
+                resolved = resolver.Resolve(identifier)
+                if resolved and Path(str(resolved)).is_file():
+                    pending.append(Path(str(resolved)))
+            return reference
+
+        UsdUtils.ModifyAssetPaths(layer, collect_reference)
+    return files
+
+
+def _discard_changed_downloads(package_dir: Path, download_dir: Path) -> None:
+    """Remove damaged managed dependencies so Lab rebuilds or downloads them again."""
+    manifest_path = package_dir / "manifest.json"
+    if not manifest_path.is_file():
+        return
+    try:
+        dependencies = json.loads(manifest_path.read_text())["dependencies"]
+    except (KeyError, OSError, TypeError, ValueError):
+        return
+    if not isinstance(dependencies, dict):
+        return
+    for filename, expected_hash in dependencies.items():
+        if not isinstance(filename, str) or not isinstance(expected_hash, str):
+            continue
+        path = Path(filename)
+        if not path.is_relative_to(download_dir) or not path.is_file():
+            continue
+        # Use the same file lock as Lab's download writer. Never remove
+        # authored local files or unrelated entries from the shared cache.
+        with _exclusive_lock(Path(str(path) + ".lock")):
+            if path.is_file() and _sha256_file(path) != expected_hash:
+                path.unlink()
 
 
 class UsdAssetProcessor:
@@ -182,7 +281,8 @@ def _build_processed_usd(
     """Build and atomically publish one processed USD cache entry."""
     from isaaclab.utils.assets import retrieve_file_path
 
-    source_path = Path(retrieve_file_path(source_url)).expanduser().absolute()
+    download_dir = get_arena_asset_cache_dir() / "downloads"
+    source_path = Path(retrieve_file_path(source_url, download_dir=str(download_dir))).expanduser().absolute()
     assert source_path.is_file(), f"USD source did not resolve to a file: {source_path}"
 
     staging_dir = Path(tempfile.mkdtemp(prefix=f".{digest}.", dir=cache_root))

@@ -10,6 +10,8 @@ from __future__ import annotations
 import numpy as np
 from typing import Any
 
+from isaaclab_arena.utils.usd.prim_paths import get_prim_relative_to_root
+
 
 def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None:
     """Move selected frame meshes and jointed bodies into separate fixed articulations."""
@@ -18,15 +20,6 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None
     root = stage.GetDefaultPrim()
     assert root and isinstance(groups, dict) and groups, "Expected named fixed articulations."
     root_path = root.GetPath()
-
-    def prim_at(path):
-        path = Sdf.Path(path)
-        if not path.IsAbsolutePath():
-            path = root_path.AppendPath(path)
-        assert path.IsPrimPath() and path.HasPrefix(root_path), "Expected an asset-relative prim path."
-        prim = stage.GetPrimAtPath(path)
-        assert prim, f"Missing prim: {path}."
-        return prim
 
     selected_joints = set()
     selected_meshes = set()
@@ -41,14 +34,14 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None
         }, "Each fixed articulation requires frame_mesh and joints."
         destination = root_path.AppendPath(f"Articulations/{name}")
         assert not stage.GetPrimAtPath(destination), f"Destination exists: {destination}."
-        mesh = prim_at(config["frame_mesh"])
+        mesh = get_prim_relative_to_root(root, config["frame_mesh"])
         assert mesh.IsA(UsdGeom.Mesh) and mesh.HasAPI(UsdPhysics.CollisionAPI), "Frame must be a mesh collider."
         assert mesh.GetPath() not in selected_meshes, "Frame mesh selected more than once."
         selected_meshes.add(mesh.GetPath())
         assert isinstance(config["joints"], list) and config["joints"], "Expected existing movable joints."
         joints = []
         for joint_index, path in enumerate(config["joints"]):
-            prim = prim_at(path)
+            prim = get_prim_relative_to_root(root, path)
             assert prim.IsA(UsdPhysics.PrismaticJoint) or prim.IsA(
                 UsdPhysics.RevoluteJoint
             ), "Only prismatic and revolute drawer/door joints are supported."
@@ -75,15 +68,16 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None
         plans.append((destination, mesh.GetPath(), base_path, joints))
 
     assert not source_owners & selected_bodies, "A source frame cannot also be a moving body."
+    affected_bodies = source_owners | selected_bodies
     for prim in stage.Traverse():
         if not prim.IsA(UsdPhysics.Joint) or prim.GetPath() in selected_joints:
             continue
         joint = UsdPhysics.Joint(prim)
         for target in joint.GetBody0Rel().GetTargets() + joint.GetBody1Rel().GetTargets():
-            for owner in source_owners | selected_bodies:
+            for owner in affected_bodies:
                 assert not target.HasPrefix(owner), f"Unselected joint {prim.GetPath()} uses a moved body."
 
-    for path in selected_meshes | selected_bodies | source_owners:
+    for path in selected_meshes | affected_bodies:
         prim = stage.GetPrimAtPath(path)
         ancestors = []
         while prim and not prim.IsPseudoRoot():

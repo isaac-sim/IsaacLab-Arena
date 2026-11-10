@@ -11,6 +11,8 @@ import hashlib
 import numpy as np
 from typing import Any
 
+from isaaclab_arena.utils.usd.prim_paths import get_prim_relative_to_root
+
 
 def inspect_mesh_components(stage, prim_path: str) -> dict[str, Any]:
     """Report connected components, material subsets, and bounds in asset-root meters."""
@@ -130,16 +132,13 @@ def partition_mesh(stage, prim_path: str, groups: dict[str, list[int]], remainde
 
 
 def _mesh(stage, prim_path: str):
-    from pxr import Sdf, UsdGeom
+    from pxr import UsdGeom
 
     root = stage.GetDefaultPrim()
     assert root, "Mesh partitioning requires a default prim."
-    path = Sdf.Path(prim_path)
-    if not path.IsAbsolutePath():
-        path = root.GetPath().AppendPath(path)
-    assert path.IsPrimPath() and path.HasPrefix(root.GetPath()), "Mesh must be beneath the default prim."
-    mesh = UsdGeom.Mesh(stage.GetPrimAtPath(path))
-    assert mesh, f"Expected a Mesh prim at {path}."
+    prim = get_prim_relative_to_root(root, prim_path)
+    mesh = UsdGeom.Mesh(prim)
+    assert mesh, f"Expected a Mesh prim at {prim.GetPath()}."
     return mesh
 
 

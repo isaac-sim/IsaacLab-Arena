@@ -64,18 +64,11 @@ def _patch_retrieval(monkeypatch, source: Path) -> Mock:
     return retrieve
 
 
-def test_pinned_usd_localization_reuses_persistent_cache(tmp_path, monkeypatch):
-    wrapper = tmp_path / "wrapper.usda"
-    wrapper.write_text("#usda 1.0\n")
+def test_pinned_usd_localization_reuses_persistent_cache(tmp_path, monkeypatch, source, wrapper):
+    from isaaclab.utils.assets import retrieve_file_path
+
     monkeypatch.setattr(f"{MODULE}.get_arena_asset_cache_dir", lambda: tmp_path / "cache")
-
-    def localize(path, download_dir):
-        output = Path(download_dir) / "localized" / Path(path).name
-        output.parent.mkdir()
-        output.write_bytes(Path(path).read_bytes())
-        return str(output)
-
-    retrieve = Mock(side_effect=localize)
+    retrieve = Mock(wraps=retrieve_file_path)
     monkeypatch.setattr("isaaclab.utils.assets.retrieve_file_path", retrieve)
 
     first = retrieve_pinned_usd_path(str(wrapper))
@@ -86,9 +79,10 @@ def test_pinned_usd_localization_reuses_persistent_cache(tmp_path, monkeypatch):
     assert retrieve_pinned_usd_path(str(wrapper)) == first
     assert retrieve.call_count == 2
 
-    wrapper.write_text("#usda 1.0\n# changed\n")
+    wrapper.write_text(wrapper.read_text().replace("physics:mass = 2", "physics:mass = 3"))
     assert retrieve_pinned_usd_path(str(wrapper)) != first
     assert retrieve.call_count == 3
+    assert {call.kwargs["download_dir"] for call in retrieve.call_args_list} == {str(tmp_path / "cache/downloads")}
 
 
 def test_wrapper_rewrites_reference_and_reuses_cache(tmp_path, monkeypatch, source, wrapper):
