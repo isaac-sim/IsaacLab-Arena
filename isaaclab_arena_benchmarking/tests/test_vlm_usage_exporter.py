@@ -37,6 +37,9 @@ def _usage(num_requests: int, prompt_tokens: int, completion_tokens: int, **over
         "num_responses_without_usage": 0,
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
+        # Every request takes one second unless overridden.
+        "request_latency_total_ms": 1000.0 * num_requests,
+        "request_latency_max_ms": 1000.0,
     }
     usage.update(overrides)
     return usage
@@ -82,7 +85,10 @@ def test_vlm_usage_sums_runs_that_used_a_vlm(tmp_path: Path):
         {
             "vlm_a": {
                 "num_episodes_per_rebuild": [2, 1],
-                "statistics_per_rebuild": [_usage(10, 4000, 300), _usage(5, 2000, 150)],
+                "statistics_per_rebuild": [
+                    _usage(10, 4000, 300),
+                    _usage(5, 2000, 150, request_latency_total_ms=5500.0, request_latency_max_ms=1500.0),
+                ],
             },
             "vlm_b": {"num_episodes_per_rebuild": [1], "statistics_per_rebuild": [_usage(5, 2000, 150)]},
             # A Run whose policy wrote no statistics adds neither requests nor episodes.
@@ -103,6 +109,8 @@ def test_vlm_usage_sums_runs_that_used_a_vlm(tmp_path: Path):
         "num_requests": 20,
         "num_episodes": 4,
         "requests_per_episode": 5.0,
+        "request_latency_mean_ms": 1025.0,
+        "request_latency_max_ms": 1500.0,
         "prompt_tokens": 8000,
         "completion_tokens": 600,
         "tokens_per_episode": 2150.0,

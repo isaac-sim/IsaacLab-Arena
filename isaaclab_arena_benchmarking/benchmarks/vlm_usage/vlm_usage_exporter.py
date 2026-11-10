@@ -6,7 +6,8 @@
 """Export the VLM requests and tokens of a finished Arena Experiment as an InfluxDB KPI record.
 
 The records file is ``kpis_vlm_usage.json``. It holds one ``vlm_usage`` record with the requests and tokens summed
-over every Run whose policy wrote VLM usage statistics, and the same totals per episode of those Runs. The record is
+over every Run whose policy wrote VLM usage statistics, the same totals per episode of those Runs, and the latency of
+each request, measured per request even when parallel environments send them concurrently. The record is
 timestamped with the latest Run end and tagged with the Arena git commit SHA, branch, benchmark id (the Experiment
 name), and the endpoint and model that served the requests.
 """
@@ -29,7 +30,14 @@ from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiEx
 VLM_USAGE_RECORDS_FILENAME = "kpis_vlm_usage.json"
 """Name of the VLM usage KPI records file in an Experiment output directory."""
 
-VLM_USAGE_STATISTICS_KEYS = ("endpoint", "model", "num_requests", "num_responses_without_usage")
+VLM_USAGE_STATISTICS_KEYS = (
+    "endpoint",
+    "model",
+    "num_requests",
+    "num_responses_without_usage",
+    "request_latency_total_ms",
+    "request_latency_max_ms",
+)
 """Keys a policy statistics file must hold to count as VLM usage; the token totals are read alongside them."""
 
 
@@ -53,6 +61,12 @@ class VLMUsageRecord(InfluxdbKpiRecord):
 
     requests_per_episode: float | None = None
     """VLM requests per episode, or None when there were no episodes."""
+
+    request_latency_mean_ms: float | None = None
+    """Mean wall time of one request in milliseconds, or None when no request was sent."""
+
+    request_latency_max_ms: float | None = None
+    """Wall time of the slowest request in milliseconds, or None when no request was sent."""
 
     prompt_tokens: int | None = None
     """Prompt tokens, or None when a response reported no token usage."""
@@ -108,6 +122,12 @@ def build_vlm_usage_record(
         f" {sorted(endpoints)} and models {sorted(models)}"
     )
     num_requests = sum(statistics["num_requests"] for statistics in statistics_per_rebuild)
+    request_latency_mean_ms = None
+    request_latency_max_ms = None
+    if num_requests > 0:
+        request_latency_total_ms = sum(statistics["request_latency_total_ms"] for statistics in statistics_per_rebuild)
+        request_latency_mean_ms = request_latency_total_ms / num_requests
+        request_latency_max_ms = max(statistics["request_latency_max_ms"] for statistics in statistics_per_rebuild)
     num_responses_without_usage = sum(
         statistics["num_responses_without_usage"] for statistics in statistics_per_rebuild
     )
@@ -129,6 +149,8 @@ def build_vlm_usage_record(
         num_requests=num_requests,
         num_episodes=num_episodes,
         requests_per_episode=num_requests / num_episodes if num_episodes > 0 else None,
+        request_latency_mean_ms=request_latency_mean_ms,
+        request_latency_max_ms=request_latency_max_ms,
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         tokens_per_episode=tokens_per_episode,

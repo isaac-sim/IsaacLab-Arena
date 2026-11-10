@@ -1,0 +1,52 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# VLM agent benchmark with parallel environments: how often the goal policy calls the VLM and how long the
+# rollout waits on it when 4 environments request predictions concurrently.
+# The goal policy drives each predicted goal pose for up to 30 steps before calling the VLM again.
+# It matches vlm_goal_policy_benchmark_experiment.yaml except for num_envs, so their KPIs show the effect of
+# parallel environments. Once all 12 episodes have started, an environment whose episode ends waits for the
+# others without sending VLM requests, so every request belongs to a counted episode.
+#
+# Run inside the Arena runtime with NV_API_KEY set; every episode sends requests to the hosted endpoint:
+# /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py --viz none \
+#   --experiment_config isaaclab_arena_benchmarking/experiment_configs/vlm_goal_policy_parallel_envs_benchmark_experiment.yaml
+#
+# The timing KPIs hold the VLM timers under step/policy_inference:
+# - vlm_inference: one entry per step that waited on the VLM, including response-validation retries.
+# - vlm_inference/vlm_requests: one entry per round of concurrent requests, lasting as long as its slowest one.
+# The vlm_usage KPIs hold the VLM requests and the prompt and completion tokens, in total and per episode, and
+# the latency of each request on its own.
+kpi_exporters: [success_rate, timing, vlm_usage]
+
+shared:
+  environment:
+    type: pick_and_place_maple_table
+    enable_cameras: true
+    embodiment: droid_abs_ik
+    pick_up_object: rubiks_cube_hot3d_robolab
+    destination_location: bowl_ycb_robolab
+    hdr: home_office_robolab
+  environment_builder:
+    # Fewer than the policy's max_concurrent_requests, so every environment's request is sent at once.
+    num_envs: 4
+    seed: 42
+    placement_seed: 42
+    language_instruction: >-
+      Pick up the Rubik's cube and place it in the bowl.
+      Approach with the gripper open, close around the object, lift it,
+      move above the destination, and open to release.
+  policy:
+    type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
+    endpoint: internal
+    vlm_embodiment_adapter: droid
+    observation_modality: image_state
+    max_steps_per_goal: 30
+  rollout_limit:
+    # Three episodes per environment.
+    num_episodes: 12
+
+runs:
+  vlm_goal_pnp_parallel_envs: {}

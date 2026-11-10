@@ -11,6 +11,7 @@ import copy
 import json
 import os
 import threading
+import time
 from dataclasses import dataclass, replace
 from typing import Any, Literal
 
@@ -121,6 +122,12 @@ class InferenceUsage:
     completion_tokens: int = 0
     """Completion tokens summed over the responses that reported usage."""
 
+    request_latency_total_ms: float = 0.0
+    """Wall time of every request, from sending it to its response or failure, summed in milliseconds."""
+
+    request_latency_max_ms: float = 0.0
+    """Wall time of the slowest request in milliseconds."""
+
 
 @dataclass(frozen=True)
 class StructuredOutputRequest:
@@ -216,7 +223,9 @@ class InferenceBackend:
             return replace(self._usage)
 
     def _create_completion(self, messages: list[ChatCompletionMessageParam], request: InferenceRequest) -> Any:
-        """Send one structured-output chat completion and count it, with its tokens, in the usage."""
+        """Send one structured-output chat completion and count it, with its tokens and latency, in the usage."""
+        # Timed on the calling thread, so concurrent requests each record their own latency.
+        start_time = time.perf_counter()
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
@@ -231,18 +240,20 @@ class InferenceBackend:
                 **_completion_options(self._endpoint, self._max_tokens, self._temperature),
             )
         except Exception:
-            self._add_request_usage(None)
+            self._add_request_usage(None, (time.perf_counter() - start_time) * 1e3)
             raise
-        self._add_request_usage(response)
+        self._add_request_usage(response, (time.perf_counter() - start_time) * 1e3)
         return response
 
-    def _add_request_usage(self, response: Any) -> None:
-        """Count one request and the tokens its response reported; response is None for a failed request."""
+    def _add_request_usage(self, response: Any, latency_ms: float) -> None:
+        """Count one request, its latency, and the tokens its response reported; response is None on failure."""
         usage = getattr(response, "usage", None)
         prompt_tokens = getattr(usage, "prompt_tokens", None)
         completion_tokens = getattr(usage, "completion_tokens", None)
         with self._usage_lock:
             self._usage.num_requests += 1
+            self._usage.request_latency_total_ms += latency_ms
+            self._usage.request_latency_max_ms = max(self._usage.request_latency_max_ms, latency_ms)
             if response is None:
                 return
             if prompt_tokens is None or completion_tokens is None:

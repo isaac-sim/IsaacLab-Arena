@@ -16,7 +16,8 @@
 # - vlm_inference: one entry per step that waited on the VLM, including response-validation retries.
 # - vlm_inference/vlm_requests: one entry per round of concurrent requests; with num_envs: 1, one VLM call
 #   plus any transport retries.
-# The vlm_usage KPIs hold the VLM requests and the prompt and completion tokens, in total and per episode.
+# The vlm_usage KPIs hold the VLM requests and the prompt and completion tokens, in total and per episode, and
+# the latency of each request.
 kpi_exporters: [success_rate, timing, vlm_usage]
 
 shared:

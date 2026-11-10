@@ -3,10 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify that the VLM chunk and goal policy benchmark Experiments differ only by their policy."""
+"""Verify that the VLM policy benchmark Experiments differ only by their policy or their number of environments."""
 
 from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 from isaaclab_arena.assets import registries
 from isaaclab_arena.evaluation import arena_experiment_config_loader as loader
@@ -16,22 +18,26 @@ from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMChunkPolicyCfg, VLMGoal
 EXPERIMENT_CONFIGS_DIR = Path(TestConstants.repo_root) / "isaaclab_arena_benchmarking" / "experiment_configs"
 
 
-def test_vlm_chunk_and_goal_benchmarks_differ_only_by_policy(monkeypatch):
+@pytest.fixture
+def load_experiment(monkeypatch):
+    """Return a function loading a benchmark Experiment by file name, without registering assets."""
     from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
-    # Load without registering assets, which needs Isaac Sim.
+    # Registering assets needs Isaac Sim.
     monkeypatch.setattr(registries, "ensure_assets_registered", lambda: None)
     monkeypatch.setattr(
         loader,
         "_registered_environment_cfg_types",
         lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
     )
-    chunk_experiment = loader.load_arena_experiment_from_config_file(
-        EXPERIMENT_CONFIGS_DIR / "vlm_chunk_policy_benchmark_experiment.yaml", device="cpu"
+    return lambda filename: loader.load_arena_experiment_from_config_file(
+        EXPERIMENT_CONFIGS_DIR / filename, device="cpu"
     )
-    goal_experiment = loader.load_arena_experiment_from_config_file(
-        EXPERIMENT_CONFIGS_DIR / "vlm_goal_policy_benchmark_experiment.yaml", device="cpu"
-    )
+
+
+def test_vlm_chunk_and_goal_benchmarks_differ_only_by_policy(load_experiment):
+    chunk_experiment = load_experiment("vlm_chunk_policy_benchmark_experiment.yaml")
+    goal_experiment = load_experiment("vlm_goal_policy_benchmark_experiment.yaml")
 
     assert chunk_experiment.name == "vlm_chunk_policy_benchmark_experiment"
     assert goal_experiment.name == "vlm_goal_policy_benchmark_experiment"
@@ -46,3 +52,24 @@ def test_vlm_chunk_and_goal_benchmarks_differ_only_by_policy(monkeypatch):
     assert chunk_run.policy.model == goal_run.policy.model
     assert chunk_run.policy.observation_modality == goal_run.policy.observation_modality
     assert replace(chunk_run, name=goal_run.name, policy=goal_run.policy) == goal_run
+
+
+@pytest.mark.parametrize("policy", ["chunk", "goal"])
+def test_parallel_envs_benchmarks_differ_only_by_number_of_environments(load_experiment, policy):
+    experiment = load_experiment(f"vlm_{policy}_policy_benchmark_experiment.yaml")
+    parallel_experiment = load_experiment(f"vlm_{policy}_policy_parallel_envs_benchmark_experiment.yaml")
+
+    assert parallel_experiment.name == f"vlm_{policy}_policy_parallel_envs_benchmark_experiment"
+    assert parallel_experiment.kpi_exporters == experiment.kpi_exporters
+    (run,) = experiment.runs.values()
+    (parallel_run,) = parallel_experiment.runs.values()
+    # Every environment's request is sent at once.
+    assert 1 < parallel_run.environment_builder.num_envs <= parallel_run.policy.max_concurrent_requests
+    assert parallel_run.rollout_limit.num_episodes % parallel_run.environment_builder.num_envs == 0
+    expected_parallel_run = replace(
+        run,
+        name=parallel_run.name,
+        environment_builder=replace(run.environment_builder, num_envs=parallel_run.environment_builder.num_envs),
+        rollout_limit=parallel_run.rollout_limit,
+    )
+    assert expected_parallel_run == parallel_run
