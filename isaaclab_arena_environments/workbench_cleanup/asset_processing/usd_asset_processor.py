@@ -22,7 +22,7 @@ from typing import Any
 from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 
 PROCESSING_PIPELINE_VERSION = 1
-"""Version of the USD asset processing contract."""
+"""Cache version; bump when processing code changes the authored USD output."""
 
 
 class UsdAssetProcessor:

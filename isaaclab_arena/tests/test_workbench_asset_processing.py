@@ -14,7 +14,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor import UsdAssetProcessor
+from isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor import (
+    PROCESSING_PIPELINE_VERSION,
+    UsdAssetProcessor,
+)
 
 MODULE = "isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor"
 SOURCE_URL = "https://example.com/revision/item.usda"
@@ -93,7 +96,7 @@ def test_wrapper_name_content_and_pipeline_version_change_cache_key(tmp_path, mo
     changed = UsdAssetProcessor(SOURCE_URL, str(wrapper)).process()
     assert changed != first
 
-    monkeypatch.setattr(f"{MODULE}.PROCESSING_PIPELINE_VERSION", 2)
+    monkeypatch.setattr(f"{MODULE}.PROCESSING_PIPELINE_VERSION", PROCESSING_PIPELINE_VERSION + 1)
     versioned = UsdAssetProcessor(SOURCE_URL, str(wrapper)).process()
     assert versioned != changed
 
