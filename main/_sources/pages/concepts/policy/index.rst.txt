@@ -49,8 +49,8 @@ kind has its own page:
   and receive actions. Examples are Cosmos, π0.5, GR00T, and DreamZero.
 * :doc:`Agent as policy <agent_policies>` asks a hosted foundation model to reason over images
   and state, and then runs the command it returns. Examples are ``vlm_goal`` and ``vlm_chunk``.
-* :doc:`Code as policy <code_policies>` runs a program that a model writes against a skill
-  API. It is coming soon with a new benchmark.
+* :doc:`Code as policy <code_policies>` runs a program against a skill and perception API.
+  An example is VABAR, which runs Graph-as-Policy (GaP) graphs.
 
 
 .. _writing-a-custom-policy:

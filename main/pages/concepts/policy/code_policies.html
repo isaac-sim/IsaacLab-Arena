@@ -580,36 +580,39 @@
                   
   <section id="code-as-policy">
 <h1>Code as Policy<a class="headerlink" href="#code-as-policy" title="Link to this heading">#</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This page is a preview. A new benchmark and its evaluation through Code as Policies (CaP) are
-coming soon. Class names and APIs will be documented with that release.</p>
-</div>
-<p>In code as policy, a model writes a <strong>program</strong> instead of returning actions. The program
-calls a fixed API of perception queries and robot skills, such as finding the bowl or grasping
-at a pose, and then runs in closed loop against the environment. When a skill fails, the error
-goes back to the model so that it can revise the program.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>task + scene ─► code model ─► program ─► skill and perception API ─► robot actions
-                                ▲                                        │
-                                └────────── errors and feedback ◄────────┘
+<p>In code as policy, a program is the controller, often written by a code model and revised from
+execution feedback. The program calls a fixed API of perception queries and robot skills, such as
+finding a gear, grasping at a pose, or planning a motion, and runs in closed loop against the
+environment. Because the policy is a program, you can read it, compare it with another program,
+and run it again. A skill can itself be a motion planner or a
+<a class="reference internal" href="server_client_policies.html"><span class="doc">server–client</span></a> VLA, so a program can coordinate the other kinds of
+policy.</p>
+<p><a class="reference external" href="https://github.com/BerkeleyAutomation/VABAR">VABAR</a> evaluates this kind of policy in Arena on
+gear, tool, syringe, and cable tasks from industrial, medical, and infrastructure settings. Its
+programs are <a class="reference external" href="https://github.com/graph-robots/graph-as-policy">Graph-as-Policy</a> (GaP) graphs,
+whose nodes call perception models and skills from
+<a class="reference external" href="https://github.com/graph-robots/open-robot-skills">open-robot-skills</a>.</p>
+<section id="how-the-program-talks-to-arena">
+<h2>How the program talks to Arena<a class="headerlink" href="#how-the-program-talks-to-arena" title="Link to this heading">#</a></h2>
+<p>In VABAR, the program runs in its own process, next to the simulation, and exchanges one message
+with Arena per control step:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Arena                                          program process
+─────                                          ───────────────
+policy ── camera images, joint state ──────►   graph runtime + skills
+       ◄─ arm and gripper targets ──────────   (perception, IK, motion planning)
 </pre></div>
 </div>
-<p>This makes the decision easy to inspect. The program is the policy, so you can read it, compare
-it with another model’s program, and run it again. It also separates two questions that other
-policies mix together: <em>what</em> to do, which the model writes, and <em>how</em> to do it, which the
-skills carry out. The benchmark fixes the skill API and compares the models that write the code.
-A skill can itself be an in-process controller, a motion planner, or a
-<a class="reference internal" href="server_client_policies.html"><span class="doc">server–client</span></a> VLA, so a program can coordinate the other kinds
-of policy.</p>
-<section id="how-it-fits-the-contract">
-<h2>How it fits the contract<a class="headerlink" href="#how-it-fits-the-contract" title="Link to this heading">#</a></h2>
-<p>To the runners, a code policy is still a <code class="docutils literal notranslate"><span class="pre">PolicyBase</span></code>. <code class="docutils literal notranslate"><span class="pre">get_action(env,</span> <span class="pre">obs)</span></code> advances the
-running program by one step, and <code class="docutils literal notranslate"><span class="pre">reset(env_ids)</span></code> restarts it for those environments. The
-policy runner, the Experiment Runner, metrics, and OSMO workflows need no changes, so code
-policies are evaluated on the same tasks and variations as VLAs and agents.</p>
-<p>You will be able to extend code policies in three places: add skills to give programs new
-capabilities, point the generator at another code model, or change how programs are sandboxed,
-retried, and repaired from feedback.</p>
+<p>On each step, the policy sends the camera images and the robot’s joint state, and the program
+replies with joint targets for the arm and gripper. The program owns perception, kinematics, and
+motion planning. Arena owns the simulation, recording, and scoring, so a program that finishes
+counts as a success only when the task’s success check passes. With several environments, VABAR
+starts one program process for each.</p>
+<p>To the runners, VABAR’s <code class="docutils literal notranslate"><span class="pre">GapRemotePolicy</span></code> (see
+<a class="reference external" href="https://github.com/BerkeleyAutomation/VABAR/blob/main/isaaclab_arena/isaaclab_arena_gap/src/isaaclab_arena_gap/gap_remote_policy.py">gap_remote_policy.py</a>)
+is still a <code class="docutils literal notranslate"><span class="pre">PolicyBase</span></code>. <code class="docutils literal notranslate"><span class="pre">get_action(env,</span> <span class="pre">obs)</span></code> exchanges one step with the program, and
+<code class="docutils literal notranslate"><span class="pre">reset(env_ids)</span></code> restarts the program for those environments. The policy runner, the Experiment
+Runner, metrics, and OSMO workflows need no changes, so code policies are evaluated on the same
+tasks and variations as VLAs and agents.</p>
 </section>
 <section id="next-steps">
 <h2>Next steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
@@ -668,7 +671,7 @@ OSMO.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-it-fits-the-contract">How it fits the contract</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-program-talks-to-arena">How the program talks to Arena</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next steps</a></li>
 </ul>
   </nav></div>
