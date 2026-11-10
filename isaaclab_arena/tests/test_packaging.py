@@ -100,6 +100,16 @@ def test_benchmarking_packages_are_discovered_by_setuptools():
         assert package in discovered_packages, package
 
 
+def test_workbench_packages_are_discovered_by_setuptools():
+    """Wheel installs must include asset registration and the USD processing implementation."""
+    discovered_packages = _discover_packages_like_setuptools()
+    for package in (
+        "isaaclab_arena_environments.workbench_cleanup",
+        "isaaclab_arena_environments.workbench_cleanup.asset_processing",
+    ):
+        assert package in discovered_packages, package
+
+
 def test_benchmarking_directories_with_modules_are_packages():
     benchmarking_root = REPOSITORY_ROOT / "isaaclab_arena_benchmarking"
     for module_path in benchmarking_root.rglob("*.py"):
