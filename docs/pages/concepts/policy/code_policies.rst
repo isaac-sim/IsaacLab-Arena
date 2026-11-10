@@ -2,42 +2,42 @@ Code as Policy
 ==============
 
 In code as policy, a program is the controller. The program calls a fixed API of perception
-queries and robot skills, such as finding a gear or grasping at a pose, and runs in closed loop
-against the environment. Because the policy is a program, you can read it, compare it with
-another program, and run it again. A skill can itself be a motion planner or a
+queries and robot skills, such as finding a gear, grasping at a pose, or planning a motion, and
+runs in closed loop against the environment. Because the policy is a program, you can read it,
+compare it with another program, and run it again. A skill can itself be a motion planner or a
 :doc:`server–client <server_client_policies>` VLA, so a program can coordinate the other kinds of
 policy.
 
-`VABAR <https://github.com/BerkeleyAutomation/VABAR>`__ runs this kind of policy in Arena. Its
-policies are `Graph-as-Policy <https://github.com/graph-robots/graph-as-policy>`__ (GaP) graphs,
-whose nodes call perception models and skills from
+`VABAR <https://github.com/BerkeleyAutomation/VABAR>`__ evaluates this kind of policy in Arena on
+industrial gear, tool, syringe, and cable tasks. Its programs are
+`Graph-as-Policy <https://github.com/graph-robots/graph-as-policy>`__ (GaP) graphs, whose nodes
+call perception models and skills from
 `open-robot-skills <https://github.com/graph-robots/open-robot-skills>`__.
-`VABAR on Isaac Lab Arena <https://github.com/BerkeleyAutomation/VABAR/blob/main/isaaclab_arena/README.md>`__
-covers setup and runs the gear, tool, syringe, and cable tasks.
 
 
-How a program runs
-------------------
+How the program talks to Arena
+------------------------------
+
+The program runs in its own process, next to the simulation, and exchanges one message with Arena
+per control step:
 
 .. code-block:: text
 
-   task + scene ─► program ─► skill and perception API ─► robot actions
-                     ▲                                          │
-                     └──────────────── observations ◄───────────┘
+   Arena                                          program process
+   ─────                                          ───────────────
+   policy ── camera images, joint state ──────►   graph runtime + skills
+          ◄─ arm and gripper targets ──────────   (perception, IK, motion planning)
 
-To the runners, a code policy is still a ``PolicyBase``. ``get_action(env, obs)`` advances the
-running program by one step, and ``reset(env_ids)`` restarts it for those environments. The
-policy runner, the Experiment Runner, metrics, and OSMO workflows need no changes, so code
-policies are evaluated on the same tasks and variations as VLAs and agents. A program that
-finishes counts as a success only when the task's success check passes.
+On each step, the policy sends the camera images and the robot's joint state, and the program
+replies with joint targets for the arm and gripper. The program owns perception, kinematics, and
+motion planning. Arena owns the simulation, recording, and scoring, so a program that finishes
+counts as a success only when the task's success check passes. With several environments, each
+one gets its own program process.
 
-An experiment selects the policy and the graph in YAML:
-
-.. code-block:: yaml
-
-   policy:
-     type: isaaclab_arena_gap.gap_remote_policy.GapRemotePolicy
-     gap_graph: gear_mesh/gap_perception
+To the runners, the policy is still a ``PolicyBase``. ``get_action(env, obs)`` exchanges one step
+with the program, and ``reset(env_ids)`` restarts the program for those environments. The policy
+runner, the Experiment Runner, metrics, and OSMO workflows need no changes, so code policies are
+evaluated on the same tasks and variations as VLAs and agents.
 
 
 Next steps
