@@ -32,7 +32,29 @@ def test_workbench_task_definitions_build():
 def _test_workbench_processed_articulations(simulation_app):
     from pxr import Usd, UsdPhysics
 
-    from isaaclab_arena_environments.workbench_cleanup.assets import _OSCILLOSCOPE, _SOCKET_SET
+    from isaaclab_arena_environments.workbench_cleanup.assets import _OSCILLOSCOPE, _SOCKET_SET, _WORKBENCH
+
+    stage = Usd.Stage.Open(_WORKBENCH.process())
+    cabinet = stage.GetPrimAtPath("/Asset/Articulations/Cabinet")
+    articulation_roots = [prim for prim in stage.Traverse() if prim.HasAPI(UsdPhysics.ArticulationRootAPI)]
+    assert articulation_roots == [cabinet]
+    movable_joints = {
+        prim.GetName()
+        for prim in stage.Traverse()
+        if prim.IsA(UsdPhysics.Joint) and not prim.IsA(UsdPhysics.FixedJoint)
+    }
+    assert movable_joints == {
+        "joint_drawersA_01_joint_00",
+        "joint_drawersB_01_joint_00",
+        "joint_drawersC_01_joint_00",
+        "joint_drawersD_01_joint_00",
+        "joint_door_01_joint_00",
+    }
+    for path in (
+        "/Asset/Geometry/table_01_obj_00/table_01_mesh_00/Tabletop",
+        "/Asset/Geometry/table_01_obj_00/table_01_mesh_00/Structure/OverheadShelf",
+    ):
+        assert stage.GetPrimAtPath(path).HasAPI(UsdPhysics.RigidBodyAPI)
 
     for source, moving_joint in (
         (_SOCKET_SET, "Physics/Joints/case_lid"),

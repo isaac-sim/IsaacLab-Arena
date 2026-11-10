@@ -91,7 +91,7 @@ object_references:
   params: {}
 - id: top_drawer
   parent_id: workbench
-  prim_path: Articulations/DrawerCabinet
+  prim_path: Articulations/Cabinet
   object_type: articulation
   params:
     initial_joint_positions:
