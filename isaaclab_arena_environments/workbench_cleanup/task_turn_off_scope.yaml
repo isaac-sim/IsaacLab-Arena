@@ -5,6 +5,11 @@
 
 env_name: workbench_turn_off_scope
 external_yaml: scene_tool_bin_scope.yaml
+env_cfg_override:
+  viewer:
+    # Show the screen and power button from the front.
+    eye: [1.2, -1.35, 1.35]
+    lookat: [0.03, -0.32, 0.8]
 task:
   composition: atomic
   description: Press the oscilloscope power button to turn its screen off.

@@ -10,19 +10,10 @@ embodiment:
   params:
     concatenate_observation_terms: false
     initial_pose:
-      position_xyz:
-      - 0.78
-      - 0.0
-      - 0.668312669
-      rotation_xyzw:
-      - 0.0
-      - 0.0
-      - 1.0
-      - 0.0
+      position_xyz: [0.78, 0.0, 0.668312669]
+      rotation_xyzw: [0.0, 0.0, 1.0, 0.0]
     stand_height_m: 0.668312669
-    stand_footprint_xy_m:
-    - 0.8
-    - 0.8
+    stand_footprint_xy_m: [0.8, 0.8]
     placement_bbox_stand_only: true
 background:
   id: workbench
@@ -152,21 +143,13 @@ relations:
 - kind: position_limits_box
   subject: oscilloscope
   params:
-    x_limits:
-    - -0.15
-    - 0.3
-    y_limits:
-    - -0.75
-    - 0.75
+    x_limits: [-0.15, 0.3]
+    y_limits: [-0.75, 0.75]
 - kind: position_limits_box
   subject: socket_set
   params:
-    x_limits:
-    - -0.15
-    - 0.3
-    y_limits:
-    - -0.75
-    - 0.75
+    x_limits: [-0.15, 0.3]
+    y_limits: [-0.75, 0.75]
 - kind: position_limits_cylindrical
   subject: oscilloscope
   params:
@@ -196,14 +179,5 @@ placer_params:
     save_position_history: false
   allow_best_loss_fallbacks: false
 env_cfg_override:
-  viewer:
-    eye:
-    - 2.05
-    - 1.6
-    - 2.0
-    lookat:
-    - -0.05
-    - 0.15
-    - 0.95
   sim:
     render_interval: 8

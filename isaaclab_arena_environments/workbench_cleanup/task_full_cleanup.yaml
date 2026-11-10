@@ -5,6 +5,11 @@
 
 env_name: workbench_full_cleanup
 external_yaml: scene_tool_bin_scope.yaml
+env_cfg_override:
+  viewer:
+    # Keep the workbench and oscilloscope screen visible throughout the sequence.
+    eye: [2.05, -1.6, 2.0]
+    lookat: [-0.05, 0.0, 0.95]
 task:
   composition: sequential
   description: Close the drawer and socket toolcase, place the white bin on the
