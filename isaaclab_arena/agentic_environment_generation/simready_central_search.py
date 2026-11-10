@@ -27,7 +27,7 @@ _logger = logging.getLogger(__name__)
 
 
 class CentralSearchBackend:
-    """Search Central and validate downloaded single-rigid-body packages."""
+    """Search Central and validate single-rigid-body assets retrieved through Isaac Lab."""
 
     def search(self, phrases: list[str], max_results: int) -> list[SimReadyObjectCandidate]:
         """Search each phrase independently so one request failure does not discard other hits."""
@@ -76,7 +76,7 @@ def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObj
             if not counts or any(float(count) != 1 for count in counts):
                 continue
             usd_path = source["path"].replace("hf://", "https://", 1)
-            download_and_wrap_central_asset(usd_path)  # Validate and populate the local cache.
+            download_and_wrap_central_asset(usd_path)  # Retrieve through Lab and validate the selected physics.
             candidates.append(
                 SimReadyObjectCandidate(
                     search_phrase=phrase,

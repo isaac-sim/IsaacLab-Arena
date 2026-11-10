@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Download Central asset packages and create validated PhysX USD wrappers."""
+"""Retrieve Central assets through Isaac Lab and create validated PhysX USD wrappers."""
 from __future__ import annotations
 
 import hashlib
@@ -32,47 +32,22 @@ def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:
     assert not path.is_absolute() and ".." not in path.parts, "invalid asset path"
     assert not any(char in filename for char in "*?[]\\"), "invalid asset path"
     assert path.suffix in (".usd", ".usda", ".usdc", ".usdz"), "expected USD asset"
-    # Central packages place the entrypoint in <asset>/simready_usd/. Fetch its
-    # siblings too (physics layers, materials, textures), never the entire dataset.
+    # Central packages place their entrypoint in <asset>/simready_usd/.
     assert "simready_usd" in path.parts, "unsupported Central package layout"
     folder = PurePosixPath(*path.parts[: path.parts.index("simready_usd")])
     assert str(folder) != ".", "asset must have a package folder"
     return repo_id, revision, filename, str(folder)
 
 
-def _download_central_asset_package_to_cache(url: str) -> str:
-    """Download the pinned asset package and return its cached USD entrypoint."""
-    from concurrent.futures import ThreadPoolExecutor
-
-    from huggingface_hub import HfApi, hf_hub_download
-    from huggingface_hub.hf_api import RepoFile
-
-    repo_id, revision, filename, folder = _parse_central_asset_url(url)
-    # List only this package: a dataset-wide snapshot scan is expensive for large libraries.
-    files = [
-        entry.path
-        for entry in HfApi().list_repo_tree(
-            repo_id=repo_id, repo_type="dataset", revision=revision, path_in_repo=folder, recursive=True
-        )
-        if isinstance(entry, RepoFile)
-    ]
-    assert filename in files, "asset package is missing its USD entrypoint"
-
-    def download_file(path: str) -> str:
-        return hf_hub_download(repo_id=repo_id, repo_type="dataset", revision=revision, filename=path)
-
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        cached_paths = dict(zip(files, executor.map(download_file, files), strict=True))
-    return cached_paths[filename]
-
-
 def download_and_wrap_central_asset(url: str) -> str:
-    """Download a Central package, validate its rigid body, and write a cached PhysX USD wrapper."""
+    """Retrieve a Central asset through Isaac Lab and write a validated PhysX USD wrapper."""
+    from isaaclab.utils.assets import retrieve_file_path
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 
-    asset_path = _download_central_asset_package_to_cache(url)
+    repo_id, revision, filename, _ = _parse_central_asset_url(url)
+    asset_path = retrieve_file_path(f"https://huggingface.co/datasets/{repo_id}/resolve/{revision}/{filename}")
     asset_stage = Usd.Stage.Open(asset_path)
     assert asset_stage and asset_stage.GetDefaultPrim(), "asset requires a default prim"
     stage = Usd.Stage.CreateInMemory()

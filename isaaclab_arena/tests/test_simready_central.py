@@ -93,11 +93,14 @@ def _test_central_usd_validation(simulation_app):
         body.CreateRigidBodyEnabledAttr(True)
         stage.GetRootLayer().Save()
         with (
-            patch(f"{LOADER}._download_central_asset_package_to_cache", return_value=str(asset)),
+            patch("isaaclab.utils.assets.retrieve_file_path", return_value=str(asset)) as retrieve,
             patch(f"{LOADER}.Path.home", return_value=folder),
         ):
-            wrapper = download_and_wrap_central_asset(URL)
-            assert Usd.Stage.Open(wrapper).GetDefaultPrim().HasAPI(UsdPhysics.RigidBodyAPI)
+            for url in (URL, URL.replace("hf://", "https://", 1), URL.replace("/resolve/", "/blob/")):
+                retrieve.reset_mock()
+                wrapper = download_and_wrap_central_asset(url)
+                retrieve.assert_called_once_with(URL.replace("hf://", "https://", 1))
+                assert Usd.Stage.Open(wrapper).GetDefaultPrim().HasAPI(UsdPhysics.RigidBodyAPI)
             body.GetRigidBodyEnabledAttr().Set(False)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="disabled"):
@@ -119,29 +122,6 @@ def test_central_usd_validation():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
     assert run_function_with_persistent_simulation_app(_test_central_usd_validation)
-
-
-def test_central_download_lists_only_the_selected_package():
-    from huggingface_hub.hf_api import RepoFile
-
-    from isaaclab_arena.assets.simready_central_asset_loader import _download_central_asset_package_to_cache
-
-    filenames = ["pallet/simready_usd/pallet.usd", "pallet/textures/color.png"]
-    entries = [RepoFile(path=path, size=1, oid="a" * 40) for path in filenames]
-    with (
-        patch("huggingface_hub.HfApi.list_repo_tree", return_value=iter(entries)) as list_tree,
-        patch("huggingface_hub.hf_hub_download", side_effect=lambda **kw: "/cache/" + kw["filename"]) as download,
-    ):
-        assert _download_central_asset_package_to_cache(URL) == "/cache/" + filenames[0]
-    list_tree.assert_called_once_with(
-        repo_id="nvidia/simready-assets",
-        repo_type="dataset",
-        revision=REVISION,
-        path_in_repo="pallet",
-        recursive=True,
-    )
-    assert {call.kwargs["filename"] for call in download.call_args_list} == set(filenames)
-    assert all(call.kwargs["revision"] == REVISION for call in download.call_args_list)
 
 
 @pytest.mark.parametrize("scheme", ["https", "hf"])
