@@ -251,7 +251,9 @@ gear and peg geometry and a grasp and insertion strategy, but no object position
 Add ``--viz kit`` to watch a rollout.
 
 The same layout under each experiment: images only (left), exact object poses (middle), and the
-task prompt (right).
+task prompt (right). These rollouts were run with ``openai/openai/gpt-6-astra``. The model is the
+policy: switching to another model or endpoint evaluates a different policy, so its success rate
+will differ.
 
 .. image:: ../../../images/gear_insertion_vlm_agent.gif
    :align: center
