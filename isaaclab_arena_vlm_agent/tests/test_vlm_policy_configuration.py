@@ -44,6 +44,13 @@ def _config(cfg_type, modality="image_state"):
 
 
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
+def test_camera_resolution_uses_endpoint_image_limit(policy_type, cfg_type):
+    config = _config(cfg_type)
+    config.image_max_width_or_height = 512
+    assert policy_type.default_image_size(config) == (512, 512)
+
+
+@pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
 @pytest.mark.parametrize("modality", ["image", "state", "image_state"])
 def test_configured_execution_and_partial_reset(monkeypatch, policy_type, cfg_type, modality):
     backend = Mock()
@@ -108,6 +115,28 @@ def test_configured_execution_and_partial_reset(monkeypatch, policy_type, cfg_ty
         # Only env 1 has exhausted the two-step goal budget after the partial reset.
         torch.testing.assert_close(policy.get_action(env, observations)[:, 0], torch.tensor([5.0, 7.0]))
         assert backend.infer.call_count == 4
+    # Completed episode slots must not consume requests or commands while other slots run.
+    held_actions = torch.stack([policy._last_actions[i] for i in range(2)])
+    env.unwrapped.active_episode_mask = torch.tensor([False, True])
+    policy.reset(torch.tensor([1]))
+    command = {"values": [9.0, 0, 0, 0, 0, 0, 1, 0]}
+    reply = {"commands": [command, command]} if policy_type is VLMChunkPolicy else command
+    backend.infer.side_effect = [reply]
+    calls_before = backend.infer.call_count
+    actions = policy.get_action(env, observations)
+    torch.testing.assert_close(actions[0], held_actions[0])
+    assert actions[1, 0] == 9.0
+    assert backend.infer.call_count == calls_before + 1
+    held_actions = actions.clone()
+    env.unwrapped.active_episode_mask = torch.tensor([False, False])
+    calls_before = backend.infer.call_count
+    for _ in range(4):
+        torch.testing.assert_close(policy.get_action(env, observations), held_actions)
+    assert backend.infer.call_count == calls_before
+    policy.reset(torch.tensor([0]))
+    assert set(policy._last_actions) == {1}
+    policy.reset()
+    assert not policy._last_actions
     assert constructor.call_args.kwargs["model"] == "test-model"
     policy.close()
     backend.client.close.assert_called_once()

@@ -1,0 +1,38 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Uses camera images, robot state, and explicitly privileged object poses, as in the gear-insertion example.
+runs:
+  close_toolcase:
+    environment:
+      type: isaaclab_arena_environments/workbench_cleanup/task_close_toolcase.yaml
+      enable_cameras: true
+    environment_builder:
+      num_envs: 1
+      seed: 42
+      device: cuda:0
+      camera_resolution_mode: policy_default
+      placement_seed: 17
+      language_instruction: >-
+        Close the open socket toolcase lid while leaving its base on the workbench.
+    policy:
+      type: isaaclab_arena_environments.workbench_cleanup.vlm_policy.WorkbenchVLMGoalPolicy
+      endpoint: internal
+      model: openai/openai/gpt-6-astra
+      vlm_embodiment_adapter: droid
+      observation_modality: image_state
+      image_max_width_or_height: 512
+      max_steps_per_goal: 90
+      prediction_interval_steps: 15
+      translation_speed_m_s: 0.3
+      rotation_speed_rad_s: 0.8
+      goal_history_size: 12
+      position_tolerance_m: 0.002
+      rotation_tolerance_rad: 0.05
+      object_poses: [socket_set, socket_set_lid, tabletop]
+      system_prompt_files:
+        - isaaclab_arena_environments/workbench_cleanup/prompts/close_toolcase.txt
+    rollout_limit:
+      num_episodes: 5
