@@ -126,8 +126,8 @@ design document is required.
 - **Validate the placement layouts:**
   [`run_placement_pool_validation.py`](../../../isaaclab_arena/scripts/run_placement_pool_validation.py).
   Applies every layout stored in the placement pool, as a reset would, and checks that each one
-  settles under physics within `--settle_time_s` of simulated time (default 2 s). Exits non-zero
-  when any stored layout fails its checks or does not settle.
+  settles under physics within `--settle_time_s` of simulated time. Exits non-zero when any stored
+  layout fails its checks or does not settle.
 - **Find why layouts are rejected:**
   [placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst).
   Reports, per check (relations, `no_overlap`, `ik_reachable`), how many candidates passed and why
