@@ -7,7 +7,7 @@
 
 def Xform "Asset" (
     prepend apiSchemas = ["MaterialBindingAPI"]
-    prepend references = @D00814.usd@</World>
+    prepend references = @https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/69a87329036cec0440403351c12230970c4e67d8/D00814/simready_usd/D00814.usd@</World>
 )
 {
     rel material:binding = </Asset/ArenaWhitePlastic> (

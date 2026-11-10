@@ -24,6 +24,84 @@ from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 PROCESSING_PIPELINE_VERSION = 1
 """Version of the USD asset processing contract."""
 
+PINNED_USD_LOCALIZATION_VERSION = 1
+"""Version of the persistent pinned-USD localization contract."""
+
+
+def retrieve_pinned_usd_path(path: str) -> str:
+    """Return a persistent localized copy of a USD with immutable remote dependencies.
+
+    Args:
+        path: Local USD wrapper whose remote asset paths are revision-pinned.
+
+    Returns:
+        Path to the localized USD entry layer.
+    """
+    wrapper_path = Path(path).expanduser().absolute()
+    assert wrapper_path.is_file(), f"Pinned USD wrapper does not exist: {wrapper_path}"
+    wrapper_bytes = wrapper_path.read_bytes()
+    digest = hashlib.sha256(
+        b"\0".join((
+            f"pinned-usd-v{PINNED_USD_LOCALIZATION_VERSION}".encode(),
+            wrapper_path.name.encode(),
+            wrapper_bytes,
+        ))
+    ).hexdigest()
+    cache_root = get_arena_asset_cache_dir() / "pinned_usd"
+    cache_root.mkdir(parents=True, exist_ok=True)
+    package_dir = cache_root / digest
+    output = _pinned_usd_output(package_dir, digest)
+    if output is None:
+        with _exclusive_lock(cache_root / f"{digest}.lock"):
+            output = _pinned_usd_output(package_dir, digest)
+            if output is None:
+                output = _build_pinned_usd(wrapper_path, package_dir, digest)
+    return str(output)
+
+
+def _build_pinned_usd(wrapper_path: Path, package_dir: Path, digest: str) -> Path:
+    """Localize one pinned USD dependency graph into its persistent cache directory."""
+    from isaaclab.utils.assets import retrieve_file_path
+
+    if package_dir.exists():
+        shutil.rmtree(package_dir)
+    package_dir.mkdir()
+    try:
+        output = Path(retrieve_file_path(str(wrapper_path), download_dir=str(package_dir))).absolute()
+        assert output.is_relative_to(package_dir), "Pinned USD localization must return a cached copy."
+        relative_output = output.relative_to(package_dir)
+        manifest = {
+            "cache_key": digest,
+            "localization_version": PINNED_USD_LOCALIZATION_VERSION,
+            "output_entry": relative_output.as_posix(),
+        }
+        (package_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        return output
+    except Exception:
+        shutil.rmtree(package_dir, ignore_errors=True)
+        raise
+
+
+def _pinned_usd_output(package_dir: Path, digest: str) -> Path | None:
+    """Return a valid localized entry layer from a pinned USD cache entry."""
+    manifest_path = package_dir / "manifest.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text())
+        relative = PurePosixPath(manifest["output_entry"])
+        if (
+            manifest["cache_key"] != digest
+            or manifest["localization_version"] != PINNED_USD_LOCALIZATION_VERSION
+            or relative.is_absolute()
+            or ".." in relative.parts
+        ):
+            return None
+        output = package_dir.joinpath(*relative.parts)
+        return output if output.is_file() else None
+    except (KeyError, OSError, TypeError, ValueError):
+        return None
+
 
 class UsdAssetProcessor:
     """Process a pinned remote USD into a local USDA wrapper layer.

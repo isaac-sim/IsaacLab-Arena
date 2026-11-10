@@ -7,7 +7,7 @@
 
 def Xform "Asset" (
     prepend apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
-    prepend references = @ratchet_socket_set.usda@</Model>
+    prepend references = @https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/0573053fa2c9174ca2a4678a462ec4dfd3035d59/ratchet_socket_set/simready_usd/ratchet_socket_set.usda@</Model>
 )
 {
     bool physxArticulation:enabledSelfCollisions = 0

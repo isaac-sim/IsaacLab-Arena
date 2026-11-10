@@ -9,22 +9,22 @@ import argparse
 
 
 def main() -> None:
-    """Process selected workbench assets through the normal runtime cache."""
+    """Cache selected workbench assets through their normal runtime paths."""
     from isaaclab_arena_environments.workbench_cleanup import assets
 
-    processors = {
-        "workbench": assets._WORKBENCH,
-        "white_bin": assets._WHITE_BIN,
-        "socket_set": assets._SOCKET_SET,
-        "oscilloscope": assets._OSCILLOSCOPE,
-        "slotted_screwdriver": assets._SLOTTED_SCREWDRIVER,
-        "small_wrench": assets._SMALL_WRENCH,
+    cache_assets = {
+        "workbench": assets._WORKBENCH.process,
+        "white_bin": lambda: assets._retrieve_wrapper("white_bin.usda"),
+        "socket_set": lambda: assets._retrieve_wrapper("socket_set.usda"),
+        "oscilloscope": lambda: assets._retrieve_wrapper("oscilloscope.usda"),
+        "slotted_screwdriver": lambda: assets._retrieve_wrapper("slotted_screwdriver.usda"),
+        "small_wrench": lambda: assets._retrieve_wrapper("small_wrench.usda"),
     }
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("assets", nargs="*", choices=processors)
+    parser.add_argument("assets", nargs="*", choices=cache_assets)
     args = parser.parse_args()
-    for name in args.assets or processors:
-        print(f"{name}: {processors[name].process()}")
+    for name in args.assets or cache_assets:
+        print(f"{name}: {cache_assets[name]()}")
 
 
 if __name__ == "__main__":

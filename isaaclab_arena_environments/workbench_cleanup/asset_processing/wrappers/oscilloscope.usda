@@ -7,7 +7,7 @@
 
 def Xform "Asset" (
     prepend apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
-    prepend references = @sm_testingTool_oscilloscope_a01_01.usd@</RootNode>
+    prepend references = @https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/testingTool_oscilloscope_a01/simready_usd/sm_testingTool_oscilloscope_a01_01.usd@</RootNode>
     variants = {
         string PhysX = "Enabled"
     }

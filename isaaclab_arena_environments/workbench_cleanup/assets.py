@@ -5,6 +5,8 @@
 
 """Registered workbench assets processed from revision-pinned SimReady packages."""
 
+import importlib.resources
+
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.background_library import LibraryBackground
@@ -12,10 +14,14 @@ from isaaclab_arena.assets.object_library import LibraryObject
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.simready_constants import SIMREADY_PHYSICS_VARIANTS
-from isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor import UsdAssetProcessor
+from isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor import (
+    UsdAssetProcessor,
+    retrieve_pinned_usd_path,
+)
 
 _RECIPE_ROOT = "package://isaaclab_arena_environments/workbench_cleanup/asset_processing/recipes"
 _WRAPPER_ROOT = "package://isaaclab_arena_environments/workbench_cleanup/asset_processing/wrappers"
+_WRAPPER_RESOURCE_ROOT = "workbench_cleanup/asset_processing/wrappers"
 
 _WORKBENCH = UsdAssetProcessor(
     "https://huggingface.co/datasets/nvidia/simready-assets/resolve/"
@@ -24,35 +30,13 @@ _WORKBENCH = UsdAssetProcessor(
     f"{_WRAPPER_ROOT}/workbench.usda",
     structural_recipe=f"{_RECIPE_ROOT}/workbench.json",
 )
-_WHITE_BIN = UsdAssetProcessor(
-    "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
-    "69a87329036cec0440403351c12230970c4e67d8/D00814/simready_usd/D00814.usd",
-    f"{_WRAPPER_ROOT}/white_bin.usda",
-)
-_SOCKET_SET = UsdAssetProcessor(
-    "https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/"
-    "0573053fa2c9174ca2a4678a462ec4dfd3035d59/ratchet_socket_set/"
-    "simready_usd/ratchet_socket_set.usda",
-    f"{_WRAPPER_ROOT}/socket_set.usda",
-)
-_OSCILLOSCOPE = UsdAssetProcessor(
-    "https://huggingface.co/datasets/nvidia/simready-assets/resolve/"
-    "653d91e182011f357cf1644013cc94ddf194d349/testingTool_oscilloscope_a01/"
-    "simready_usd/sm_testingTool_oscilloscope_a01_01.usd",
-    f"{_WRAPPER_ROOT}/oscilloscope.usda",
-)
-_SLOTTED_SCREWDRIVER = UsdAssetProcessor(
-    "https://huggingface.co/datasets/nvidia/simready-assets/resolve/"
-    "653d91e182011f357cf1644013cc94ddf194d349/handTool_screwdriver_slotted_55mm_a01/"
-    "simready_usd/sm_handTool_screwdriver_slotted_55mm_a01_01.usd",
-    f"{_WRAPPER_ROOT}/slotted_screwdriver.usda",
-)
-_SMALL_WRENCH = UsdAssetProcessor(
-    "https://huggingface.co/datasets/nvidia/simready-assets/resolve/"
-    "653d91e182011f357cf1644013cc94ddf194d349/handTool_wrench_combination_a01/"
-    "simready_usd/sm_handTool_wrench_combination_a01_01.usd",
-    f"{_WRAPPER_ROOT}/small_wrench.usda",
-)
+
+
+def _retrieve_wrapper(wrapper_name: str) -> str:
+    """Localize a packaged USDA wrapper and its remote dependencies."""
+    resource = importlib.resources.files("isaaclab_arena_environments").joinpath(_WRAPPER_RESOURCE_ROOT, wrapper_name)
+    with importlib.resources.as_file(resource) as wrapper_path:
+        return retrieve_pinned_usd_path(str(wrapper_path))
 
 
 class _ProcessedLibraryBackground(LibraryBackground):
@@ -63,11 +47,11 @@ class _ProcessedLibraryBackground(LibraryBackground):
         super().__init__(**kwargs)
 
 
-class _ProcessedLibraryObject(LibraryObject):
-    processor: UsdAssetProcessor
+class _RetrievedWrapperLibraryObject(LibraryObject):
+    wrapper_name: str
 
     def __init__(self, **kwargs):
-        self.usd_path = self.processor.process()
+        self.usd_path = _retrieve_wrapper(self.wrapper_name)
         super().__init__(**kwargs)
 
 
@@ -83,23 +67,23 @@ class WorkbenchCleanupWorkbench(_ProcessedLibraryBackground):
 
 
 @register_asset
-class WorkbenchCleanupWhiteBin(_ProcessedLibraryObject):
+class WorkbenchCleanupWhiteBin(_RetrievedWrapperLibraryObject):
     """White plastic bin used by the workbench cleanup tasks."""
 
     registry_name = "workbench_cleanup_white_bin"
     tags = ["object", "container", "sim-ready", "workbench"]
-    processor = _WHITE_BIN
+    wrapper_name = "white_bin.usda"
     object_type = ObjectType.RIGID
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
 
 
 @register_asset
-class WorkbenchCleanupSocketSet(_ProcessedLibraryObject, Openable):
+class WorkbenchCleanupSocketSet(_RetrievedWrapperLibraryObject, Openable):
     """Fixed-base ratchet socket set with a passive openable lid."""
 
     registry_name = "workbench_cleanup_socket_set"
     tags = ["object", "openable", "sim-ready", "workbench"]
-    processor = _SOCKET_SET
+    wrapper_name = "socket_set.usda"
     object_type = ObjectType.ARTICULATION
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
     openable_joint_name = "case_lid"
@@ -113,12 +97,12 @@ class WorkbenchCleanupSocketSet(_ProcessedLibraryObject, Openable):
 
 
 @register_asset
-class WorkbenchCleanupOscilloscope(_ProcessedLibraryObject, Pressable):
+class WorkbenchCleanupOscilloscope(_RetrievedWrapperLibraryObject, Pressable):
     """Fixed oscilloscope with one spring-return power button."""
 
     registry_name = "workbench_cleanup_oscilloscope"
     tags = ["object", "pressable", "sim-ready", "workbench"]
-    processor = _OSCILLOSCOPE
+    wrapper_name = "oscilloscope.usda"
     object_type = ObjectType.ARTICULATION
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
     pressable_joint_name = "joint_button_01_joint_00"
@@ -129,22 +113,22 @@ class WorkbenchCleanupOscilloscope(_ProcessedLibraryObject, Pressable):
 
 
 @register_asset
-class WorkbenchCleanupSlottedScrewdriver(_ProcessedLibraryObject):
+class WorkbenchCleanupSlottedScrewdriver(_RetrievedWrapperLibraryObject):
     """Slotted screwdriver with workbench collision and damping settings."""
 
     registry_name = "workbench_cleanup_slotted_screwdriver"
     tags = ["object", "graspable", "tool", "sim-ready", "workbench"]
-    processor = _SLOTTED_SCREWDRIVER
+    wrapper_name = "slotted_screwdriver.usda"
     object_type = ObjectType.RIGID
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
 
 
 @register_asset
-class WorkbenchCleanupSmallWrench(_ProcessedLibraryObject):
+class WorkbenchCleanupSmallWrench(_RetrievedWrapperLibraryObject):
     """Three-quarter-scale combination wrench with workbench physics settings."""
 
     registry_name = "workbench_cleanup_small_wrench"
     tags = ["object", "graspable", "tool", "sim-ready", "workbench"]
-    processor = _SMALL_WRENCH
+    wrapper_name = "small_wrench.usda"
     object_type = ObjectType.RIGID
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}

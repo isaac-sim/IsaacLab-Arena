@@ -14,7 +14,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor import UsdAssetProcessor
+from isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor import (
+    UsdAssetProcessor,
+    retrieve_pinned_usd_path,
+)
 
 MODULE = "isaaclab_arena_environments.workbench_cleanup.asset_processing.usd_asset_processor"
 SOURCE_URL = "https://example.com/revision/item.usda"
@@ -59,6 +62,33 @@ def _patch_retrieval(monkeypatch, source: Path) -> Mock:
     retrieve = Mock(return_value=str(source))
     monkeypatch.setattr("isaaclab.utils.assets.retrieve_file_path", retrieve)
     return retrieve
+
+
+def test_pinned_usd_localization_reuses_persistent_cache(tmp_path, monkeypatch):
+    wrapper = tmp_path / "wrapper.usda"
+    wrapper.write_text("#usda 1.0\n")
+    monkeypatch.setattr(f"{MODULE}.get_arena_asset_cache_dir", lambda: tmp_path / "cache")
+
+    def localize(path, download_dir):
+        output = Path(download_dir) / "localized" / Path(path).name
+        output.parent.mkdir()
+        output.write_bytes(Path(path).read_bytes())
+        return str(output)
+
+    retrieve = Mock(side_effect=localize)
+    monkeypatch.setattr("isaaclab.utils.assets.retrieve_file_path", retrieve)
+
+    first = retrieve_pinned_usd_path(str(wrapper))
+    assert retrieve_pinned_usd_path(str(wrapper)) == first
+    assert retrieve.call_count == 1
+
+    Path(first).unlink()
+    assert retrieve_pinned_usd_path(str(wrapper)) == first
+    assert retrieve.call_count == 2
+
+    wrapper.write_text("#usda 1.0\n# changed\n")
+    assert retrieve_pinned_usd_path(str(wrapper)) != first
+    assert retrieve.call_count == 3
 
 
 def test_wrapper_rewrites_reference_and_reuses_cache(tmp_path, monkeypatch, source, wrapper):
@@ -196,9 +226,11 @@ def Xform "Asset" (prepend references = @structure.usda@</Asset>) {}
 def test_workbench_asset_processing_configuration(monkeypatch):
     from isaaclab_arena_environments.workbench_cleanup import assets
 
-    monkeypatch.setattr(assets._SOCKET_SET, "process", lambda: "/cache/socket_set.usda")
+    retrieve_wrapper = Mock(return_value="/cache/socket_set.usda")
+    monkeypatch.setattr(assets, "_retrieve_wrapper", retrieve_wrapper)
     socket_set = assets.WorkbenchCleanupSocketSet(initial_joint_positions={"case_lid": 1.5})
     assert socket_set.object_cfg.init_state.joint_pos == {"case_lid": 1.5}
+    retrieve_wrapper.assert_called_once_with("socket_set.usda")
 
     package_path = assets._WORKBENCH.structural_recipe.removeprefix("package://")
     package, relative_path = package_path.split("/", 1)
@@ -207,6 +239,23 @@ def test_workbench_asset_processing_configuration(monkeypatch):
     fixed_articulations = next(step for step in recipe["steps"] if step["operation"] == "fixed_articulations")
     assert set(fixed_articulations["groups"]) == {"Cabinet"}
     assert len(fixed_articulations["groups"]["Cabinet"]["joints"]) == 5
+
+
+@pytest.mark.parametrize(
+    "wrapper_name",
+    ["white_bin.usda", "socket_set.usda", "oscilloscope.usda", "slotted_screwdriver.usda", "small_wrench.usda"],
+)
+def test_non_structural_wrappers_reference_revision_pinned_urls(wrapper_name):
+    resource = importlib.resources.files("isaaclab_arena_environments").joinpath(
+        "workbench_cleanup/asset_processing/wrappers", wrapper_name
+    )
+    wrapper = resource.read_text()
+    reference = wrapper.split("prepend references = @", 1)[1].split("@", 1)[0]
+    revision = reference.split("/resolve/", 1)[1].split("/", 1)[0]
+
+    assert reference.startswith("https://huggingface.co/")
+    assert len(revision) == 40
+    assert all(character in "0123456789abcdef" for character in revision)
 
 
 def test_environment_discovery_registers_workbench_assets_without_processing():
