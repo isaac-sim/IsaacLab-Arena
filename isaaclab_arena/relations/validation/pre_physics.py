@@ -8,14 +8,16 @@ from __future__ import annotations
 import torch
 import trimesh
 from abc import abstractmethod
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
 from isaaclab_arena.relations.geometry.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
+from isaaclab_arena.relations.optimization.initializers.sampling import get_placement_rotation_xyzw
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     SIDE_CONFIGS,
     NotNextToLossStrategy,
+    WithinReachLossStrategy,
     next_to_violations,
     not_next_to_violations,
 )
@@ -29,6 +31,7 @@ from isaaclab_arena.relations.relations import (
     NotNextTo,
     On,
     RelationBase,
+    WithinReach,
     get_relation,
 )
 from isaaclab_arena.relations.validation import base
@@ -478,6 +481,52 @@ class FaceToValidator(PrePhysicsPlacementValidator):
     def _record_failure(rejections: list[Rejection], obj: PlaceableAsset, relation: FaceTo, reason: str) -> None:
         """Record a FaceTo rejection with the reason the facing yaw is missing."""
         rejections.append(Rejection(f"'{obj.name}' face_to({relation.parent.name}): {reason}"))
+
+
+@register_validator
+class WithinReachValidator(PrePhysicsPlacementValidator):
+    """Reject layouts that leave a WithinReach subject outside its robot's scaled reach spheres."""
+
+    check = PlacementCheck.WITHIN_REACH
+
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        return [
+            self._validate(candidate.positions, candidate.orientations, candidate.bboxes)
+            for candidate in batch.candidates
+        ]
+
+    @staticmethod
+    def _iter_within_reach_relations(objects: Iterable[PlaceableAsset]) -> Iterator[tuple[PlaceableAsset, WithinReach]]:
+        """Yield every WithinReach relation with its subject."""
+        for obj in objects:
+            for relation in obj.get_relations():
+                if isinstance(relation, WithinReach):
+                    yield obj, relation
+
+    def _validate(
+        self,
+        positions: dict[PlaceableAsset, tuple[float, float, float]],
+        orientations: dict[PlaceableAsset, float],
+        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> bool:
+        """Check every reach relation against the same geometry as the solver objective."""
+        for obj, relation in self._iter_within_reach_relations(positions):
+            robot = relation.parent
+            device = env_bboxes[obj].min_point.device
+            excess = WithinReachLossStrategy.compute_excess_m(
+                relation,
+                torch.tensor([positions[obj]], dtype=torch.float32, device=device),
+                torch.tensor([positions[robot]], dtype=torch.float32, device=device),
+                get_placement_rotation_xyzw(robot, orientations).to(device).unsqueeze(0),
+            )
+            if not torch.isfinite(excess).all() or excess.item() > relation.tolerance_m:
+                if self._params.verbose:
+                    print(
+                        f"WithinReach: '{obj.name}' within_reach({robot.name}) violated "
+                        f"(distance outside reach={excess.item():.4f} m; tolerance_m={relation.tolerance_m})"
+                    )
+                return False
+        return True
 
 
 @register_validator

@@ -20,7 +20,7 @@ that passes ``is_available()`` and survives ``enabled_checks`` (see
 :ref:`validation-toggle`). Each solved batch then runs in two passes:
 
 1. **Inexpensive checks** (``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
-   ``not_next_to``, ``align_with``, ``face_to``) over every candidate.
+   ``not_next_to``, ``align_with``, ``face_to``, ``within_reach``) over every candidate.
 2. **Expensive checks** (``ik_reachable``) only on candidates that already
    passed every *required* inexpensive check.
 
@@ -106,6 +106,11 @@ Types of Validators
      - Inexpensive
      - Yes
      - Every ``FaceTo`` subject has a well-defined facing yaw.
+   * - ``within_reach``
+     - Build-time
+     - Inexpensive
+     - Yes
+     - Every ``WithinReach`` subject lies inside its robot's scaled reach sphere within tolerance.
    * - ``ik_reachable``
      - Build-time
      - Expensive
@@ -117,7 +122,8 @@ Geometric and Relation Checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
-``not_next_to``, ``align_with``, and ``face_to`` are always registered. The first six mirror the corresponding
+``not_next_to``, ``align_with``, ``face_to``, and ``within_reach`` are always registered. All but ``face_to``
+mirror the corresponding
 relation's loss term, so low-loss solver output and validator verdicts stay
 consistent. ``face_to`` is different: ``FaceTo`` is applied as a post-solve
 heading rather than a continuous loss, and the check only verifies that a

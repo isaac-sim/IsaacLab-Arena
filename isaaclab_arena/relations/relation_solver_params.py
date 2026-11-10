@@ -17,6 +17,7 @@ from isaaclab_arena.relations.optimization.losses.relation_loss_strategies impor
     PositionLimitsCylindricalLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
+    WithinReachLossStrategy,
 )
 from isaaclab_arena.relations.relations import (
     AlignWith,
@@ -28,6 +29,7 @@ from isaaclab_arena.relations.relations import (
     PositionLimitsBox,
     PositionLimitsCylindrical,
     RelationBase,
+    WithinReach,
 )
 
 
@@ -42,6 +44,7 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
         AtPosition: AtPositionLossStrategy(slope=100.0),
         PositionLimitsBox: PositionLimitsBoxLossStrategy(slope=100.0),
         PositionLimitsCylindrical: PositionLimitsCylindricalLossStrategy(slope=100.0),
+        WithinReach: WithinReachLossStrategy(slope=100.0),
     }
 
 

@@ -14,6 +14,7 @@ from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers import EventTermCfg
 
+from isaaclab_arena.embodiments.arm_reach import ArmReach
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.gripper import Gripper
 from isaaclab_arena.relations.collision_mode import CollisionMode
@@ -23,6 +24,7 @@ from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+from isaaclab_arena.utils.sphere import Sphere
 
 if TYPE_CHECKING:
     import trimesh
@@ -53,10 +55,12 @@ class EmbodimentBase(PlaceableAsset):
 
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
+    # Reach declarations keyed by arm name, centred on a USD joint.
+    arm_reaches: dict[str, ArmReach] = {}
+    # Gripper attached to the robot body, when the embodiment defines one.
     gripper: Gripper | None
-    """Gripper attached to the robot body, when the embodiment defines one."""
+    # Define how embodiment USD/geometry is spawned and which schemas/properties are set.
     spawn_cfg_addon: dict[str, dict[str, Any]] = {}
-    """Define how embodiment USD/geometry is spawned and which schemas/properties are set."""
 
     def __init__(
         self,
@@ -75,6 +79,7 @@ class EmbodimentBase(PlaceableAsset):
         self.initial_pose = initial_pose
         self.concatenate_observation_terms = concatenate_observation_terms
         self.arm_mode = arm_mode or self.default_arm_mode
+        self.arm_reaches = dict(self.arm_reaches)
         self.gripper = None
         # Give each robot its own copy so changes don't affect other robots.
         self.spawn_cfg_addon = deepcopy(self.spawn_cfg_addon if spawn_cfg_addon is None else spawn_cfg_addon)
@@ -119,6 +124,22 @@ class EmbodimentBase(PlaceableAsset):
         return compute_local_bounding_box_from_usd_at_joint_pos(
             source.usd_path, source.joint_pos, source.scale, prim_path=prim_path
         )
+
+    def get_reach_spheres(self) -> dict[str, Sphere]:
+        """Return reach spheres in the robot root frame, keyed by arm name."""
+        # Import locally because USD/pxr is available only after simulation initialization.
+        from isaaclab_arena.utils.usd.helpers import compute_joint_origin_from_usd_at_joint_pos
+
+        if not self.arm_reaches:
+            return {}
+        source = self.get_placement_geometry_source()
+        reach_spheres_R = {}
+        for arm_name, arm_reach in self.arm_reaches.items():
+            joint_center_R = compute_joint_origin_from_usd_at_joint_pos(
+                source.usd_path, arm_reach.center_joint_name, tuple(sorted(source.joint_pos.items())), source.scale
+            )
+            reach_spheres_R[arm_name] = Sphere(center_xyz=joint_center_R, radius_m=arm_reach.reach_m)
+        return reach_spheres_R
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the robot mesh from its USD default prim."""

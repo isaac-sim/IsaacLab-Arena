@@ -8,6 +8,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.optimization.initializers.sampling import get_placement_rotation_xyzw
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox
 
@@ -34,6 +35,7 @@ class RelationSolverState:
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
         collision_objects: list[CollisionObject] | None = None,
         collision_bboxes: dict[PlaceableAsset, BoundingBox] | None = None,
+        orientations: list[dict[PlaceableAsset, float]] | None = None,
     ):
         """Initialize optimization state.
 
@@ -49,6 +51,7 @@ class RelationSolverState:
                 constant world bounding box and are not optimized. Must be disjoint from objects.
             collision_bboxes: Collision bounds, oriented or axis-aligned, relative to each movable object origin;
                 omitted entries use the supplied env_bboxes or object bounds, and anchor entries are ignored.
+            orientations: Optional per-env yaw angles (radians about Z) per movable object, fixed during solving.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -110,6 +113,12 @@ class RelationSolverState:
             self._optimizable_positions = None
 
         self._env_bboxes = env_bboxes
+
+        assert (
+            orientations is None or len(orientations) == self._batch_size
+        ), f"orientations must have one dict per env ({self._batch_size}), got {len(orientations)}"
+        self._orientations = orientations
+        self._rotations_xyzw: dict[PlaceableAsset, torch.Tensor] = {}
 
         # Anchors and background collision objects are fixed, so their world bounding boxes are
         # constant during the solve. Cache them once instead of recomputing every gradient step.
@@ -233,6 +242,14 @@ class RelationSolverState:
             obj in self._fixed_obstacle_world_bboxes
         ), f"'{obj.name}' is not a fixed obstacle (anchor or collision object) tracked by this state."
         return self._fixed_obstacle_world_bboxes[obj]
+
+    def get_rotation_xyzw(self, obj: PlaceableAsset) -> torch.Tensor:
+        """Return obj's fixed xyzw rotation into world, shape (batch_size, 4)."""
+        if obj not in self._rotations_xyzw:
+            orientations = self._orientations or [{}] * self._batch_size
+            q_W_O = [get_placement_rotation_xyzw(obj, env_orientations) for env_orientations in orientations]
+            self._rotations_xyzw[obj] = torch.stack(q_W_O).to(dtype=torch.float32, device=self._device)
+        return self._rotations_xyzw[obj]
 
     def get_bbox(self, obj: PlaceableAsset) -> AxisAlignedBoundingBox:
         """Return the local bounding box for obj, moved to the state's device."""
