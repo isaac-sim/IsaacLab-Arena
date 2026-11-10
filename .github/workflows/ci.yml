@@ -286,24 +286,24 @@ jobs:
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
       - name: Run in-process Newton tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
+          .github/scripts/run_with_hang_diagnostics.sh isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process Newton tests with cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
+          .github/scripts/run_with_hang_diagnostics.sh isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+          .github/scripts/run_with_hang_diagnostics.sh isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
             isaaclab_arena_benchmarking/tests/test_placement_success.py \
             isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
+          .github/scripts/run_with_hang_diagnostics.sh isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
             isaaclab_arena_vlm_agent/tests/
 
