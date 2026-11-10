@@ -1,0 +1,72 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Asset" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+    prepend references = @ratchet_socket_set.usda@</Model>
+)
+{
+    bool physxArticulation:enabledSelfCollisions = 0
+
+    over "Geometry"
+    {
+        over "Extension_150_mm" (active = false) {}
+        over "Extension_75_mm" (active = false) {}
+        over "Ratchet_body" (active = false) {}
+        over "Socket_10_mm" (active = false) {}
+        over "Socket_11_mm" (active = false) {}
+        over "Socket_12_mm" (active = false) {}
+        over "Socket_13_mm" (active = false) {}
+        over "Socket_14_mm" (active = false) {}
+        over "Socket_15_mm" (active = false) {}
+        over "Socket_16_mm" (active = false) {}
+        over "Socket_17_mm" (active = false) {}
+        over "Socket_18_mm" (active = false) {}
+        over "Socket_19_mm" (active = false) {}
+        over "Socket_8_mm" (active = false) {}
+        over "Socket_9_mm" (active = false) {}
+
+        over "Case_base" (
+            delete apiSchemas = ["PhysicsArticulationRootAPI"]
+            prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"]
+        )
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+
+            over "Case_lid" (
+                prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"]
+            )
+            {
+                float physxContactReport:threshold = 0
+                float physxRigidBody:sleepThreshold = 0
+            }
+        }
+    }
+
+    over "Physics"
+    {
+        over "Joints"
+        {
+            over "drive" (active = false) {}
+            over "release" (active = false) {}
+            over "direction" (active = false) {}
+
+            over "case_lid" (
+                prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+            )
+            {
+                float drive:angular:physics:damping = 0.017453292
+                float drive:angular:physics:maxForce = 3
+                float drive:angular:physics:stiffness = 0.34906584
+                float drive:angular:physics:targetPosition = 105
+            }
+        }
+
+        over "PhysicsScene" (active = false) {}
+    }
+}

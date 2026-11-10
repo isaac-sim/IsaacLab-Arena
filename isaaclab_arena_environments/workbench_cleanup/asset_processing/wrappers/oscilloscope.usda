@@ -1,0 +1,250 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Asset" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+    prepend references = @sm_testingTool_oscilloscope_a01_01.usd@</RootNode>
+    variants = {
+        string PhysX = "Enabled"
+    }
+)
+{
+    bool physxArticulation:enabledSelfCollisions = 0
+
+    over "Geometry"
+    {
+        over "body_01_obj_00" (
+            prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"]
+            instanceable = false
+        )
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+            over "body_01_mesh_00" (prepend apiSchemas = ["PhysxCollisionAPI"])
+            {
+                float physxCollision:contactOffset = 0.001
+                float physxCollision:restOffset = 0
+            }
+        }
+
+        over "button_01_obj_00" (
+            prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI", "PhysicsMassAPI"]
+            instanceable = false
+        )
+        {
+            float physics:mass = 0.001
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+            over "button_01_mesh_00" (prepend apiSchemas = ["PhysxCollisionAPI"])
+            {
+                float physxCollision:contactOffset = 0.001
+                float physxCollision:restOffset = 0
+            }
+        }
+
+        over "button_02_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_03_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_04_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_05_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_06_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_07_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_08_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_09_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_10_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_11_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_12_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_13_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_14_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_15_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_16_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_17_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_18_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_19_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_20_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "button_21_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "knob_01_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "knob_02_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "knob_03_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "knob_04_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "knob_05_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "knob_06_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+        over "handle_01_obj_00" (prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysxContactReportAPI"])
+        {
+            float physxContactReport:threshold = 0
+            float physxRigidBody:sleepThreshold = 0
+        }
+    }
+
+    over "Joints"
+    {
+        over PhysicsFixedJoint "joint_button_02_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_03_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_04_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_05_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_06_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_07_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_08_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_09_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_10_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_11_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_12_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_13_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_14_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_15_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_16_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_17_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_18_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_19_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_20_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_button_21_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_knob_01_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_knob_02_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_knob_03_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_knob_04_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_knob_05_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_knob_06_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+        over PhysicsFixedJoint "joint_handle_01_joint_00" (delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysxJointStateAPI:angular", "PhysxJointStateAPI:linear"]) {}
+
+        over "joint_button_01_joint_00" (
+            prepend apiSchemas = ["PhysicsDriveAPI:linear"]
+        )
+        {
+            float drive:linear:physics:damping = 0.5
+            float drive:linear:physics:maxForce = 3
+            float drive:linear:physics:stiffness = 800
+            float drive:linear:physics:targetPosition = 0
+            uniform token drive:linear:physics:type = "force"
+        }
+    }
+
+    def PhysicsFixedJoint "ArenaFixedBase"
+    {
+        rel physics:body1 = </Asset/Geometry/body_01_obj_00>
+    }
+
+    def "ArenaMaterials"
+    {
+        def Material "ScreenOff"
+        {
+            token outputs:surface.connect = </Asset/ArenaMaterials/ScreenOff/Surface.outputs:surface>
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0, 0, 0)
+                color3f inputs:emissiveColor = (0, 0, 0)
+                float inputs:roughness = 0.8
+                color3f inputs:specularColor = (0, 0, 0)
+                int inputs:useSpecularWorkflow = 1
+                token outputs:surface
+            }
+        }
+    }
+}

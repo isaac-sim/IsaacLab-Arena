@@ -1,0 +1,29 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Asset" (
+    prepend apiSchemas = ["MaterialBindingAPI"]
+    prepend references = @D00814.usd@</World>
+)
+{
+    rel material:binding = </Asset/ArenaWhitePlastic> (
+        bindMaterialAs = "strongerThanDescendants"
+    )
+
+    def Material "ArenaWhitePlastic"
+    {
+        token outputs:surface.connect = </Asset/ArenaWhitePlastic/Surface.outputs:surface>
+
+        def Shader "Surface"
+        {
+            uniform token info:id = "UsdPreviewSurface"
+            color3f inputs:diffuseColor = (0.85, 0.85, 0.85)
+            float inputs:roughness = 0.5
+            token outputs:surface
+        }
+    }
+}
