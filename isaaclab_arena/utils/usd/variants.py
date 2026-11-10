@@ -13,11 +13,11 @@ if TYPE_CHECKING:
     from pxr import Usd
 
 
-def usd_variant_selections_to_dict(variants: object | None) -> dict[str, str]:
+def usd_variant_selections_to_dict(variants: object | dict[str, str] | None) -> dict[str, str]:
     """Return Isaac Lab USD variant selections as a new dictionary.
 
     Args:
-        variants: Variant selections given as a dictionary, configclass, or ``None``.
+        variants: A dictionary or config class mapping variant set names to variant selections, or None.
 
     Returns:
         A copy of the variant selections, or an empty dictionary when unset.
@@ -27,26 +27,33 @@ def usd_variant_selections_to_dict(variants: object | None) -> dict[str, str]:
     elif isinstance(variants, dict):
         values = dict(variants)
     else:
-        values = variants.to_dict()
-    assert isinstance(values, dict), "configclass variants must convert to a dictionary"
+        # Converted the way Isaac Lab's select_usd_variants does. Imported here because it loads torch.
+        from isaaclab.utils.dict import class_to_dict
+
+        values = class_to_dict(variants)
     assert all(
         isinstance(key, str) and isinstance(value, str) for key, value in values.items()
     ), "variant names and selections must be strings"
     return values
 
 
-def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> None:
+def apply_usd_variant_selections(stage: Usd.Stage, variants: object | dict[str, str] | None) -> None:
     """Select USD variants on the stage's default prim.
+
+    Does nothing when there are no selections: None, an empty dictionary, or a config class without fields.
 
     Args:
         stage: Open USD stage.
-        variants: Maps each variant set name to the variant to select from it.
+        variants: A dictionary or config class mapping variant set names to variant selections, or None.
     """
+    selections = usd_variant_selections_to_dict(variants)
+    if not selections:
+        return
     root = stage.GetDefaultPrim()
     if not root:
         return
     variant_sets = root.GetVariantSets()
-    for set_name, selection in variants.items():
+    for set_name, selection in selections.items():
         if set_name in variant_sets.GetNames():
             variant_set = variant_sets.GetVariantSet(set_name)
             if selection in variant_set.GetVariantNames():

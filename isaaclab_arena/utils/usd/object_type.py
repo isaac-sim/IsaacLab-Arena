@@ -12,14 +12,15 @@ from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
 def validate_usd_object_type(
     usd_path: str,
     expected_type: ObjectType,
-    variants: dict[str, str] | None = None,
+    variants: object | dict[str, str] | None = None,
 ) -> None:
     """Validate that a USD can be used as exactly one object of the expected type.
 
     Args:
         usd_path: Local or remote USD path to inspect.
         expected_type: Object type required by the consumer.
-        variants: Variant selections to apply during inspection.
+        variants: A dictionary or config class mapping variant set names to the variants to select during
+            inspection.
     """
     # Search backends are imported before SimulationApp starts. Load USD only when validating.
     from isaaclab.utils.assets import retrieve_file_path
@@ -30,8 +31,7 @@ def validate_usd_object_type(
         root = stage.DefinePrim("/Asset", "Xform")
         root.GetReferences().AddReference(retrieve_file_path(usd_path))
         stage.SetDefaultPrim(root)
-        if variants:
-            apply_usd_variant_selections(stage, variants)
+        apply_usd_variant_selections(stage, variants)
         if stage.GetCompositionErrors():
             raise ValueError("it has unresolved composition errors")
     except Exception as exc:
