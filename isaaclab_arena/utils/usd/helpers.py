@@ -721,36 +721,24 @@ def _compute_local_bounding_box_from_usd_at_joint_pos(
     )
 
 
+@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
 def compute_joint_origin_from_usd_at_joint_pos(
     usd_path: str,
     joint_name: str,
-    joint_pos: Mapping[str, float],
+    joint_pos_items: tuple[tuple[str, float], ...],
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> tuple[float, float, float]:
-    """Return a movable joint's origin in the articulation's default-prim frame, posed at joint_pos.
+    """Return a movable joint's origin in the articulation's default-prim frame at the specified joint positions.
 
     Args:
         usd_path: Path to the articulation's .usd/.usda/.usdc file.
         joint_name: Name of a revolute or prismatic joint prim under the default prim.
-        joint_pos: Joint positions keyed by exact joint name or Isaac Lab regex, revolute in radians.
+        joint_pos_items: Sorted (joint name or Isaac Lab regex, position) pairs, revolute in radians.
         scale: Spawn-time scale passed to ``UsdFileCfg``.
 
     Returns:
         Joint origin (x, y, z) in metres in the default-prim frame.
     """
-    return _compute_joint_origin_from_usd_at_joint_pos(
-        usd_path, joint_name, tuple(sorted(joint_pos.items())), tuple(scale)
-    )
-
-
-@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
-def _compute_joint_origin_from_usd_at_joint_pos(
-    usd_path: str,
-    joint_name: str,
-    joint_pos_items: tuple[tuple[str, float], ...],
-    scale: tuple[float, float, float],
-) -> tuple[float, float, float]:
-    """Cacheable body of ``compute_joint_origin_from_usd_at_joint_pos``, keyed by hashable args."""
     stage = Usd.Stage.Open(usd_path)
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()

@@ -114,7 +114,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     registry_name = "droid"
     default_arm_mode = ArmMode.SINGLE_ARM
-    arm_reaches = (FRANKA_PANDA_ARM_REACH,)
+    arm_reaches = {"arm": FRANKA_PANDA_ARM_REACH}
 
     def __init__(
         self,

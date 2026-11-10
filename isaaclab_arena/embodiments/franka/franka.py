@@ -34,6 +34,7 @@ from isaaclab_tasks.contrib.stack.mdp import franka_stack_events
 from isaaclab_tasks.contrib.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.embodiments.arm_reach import ArmReach
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
@@ -41,7 +42,6 @@ from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.embodiments.gripper import PandaGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLMimicEnv
-from isaaclab_arena.relations.arm_reach import ArmReach
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
@@ -88,7 +88,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
     """
 
     default_arm_mode = ArmMode.SINGLE_ARM
-    arm_reaches = (FRANKA_PANDA_ARM_REACH,)
+    arm_reaches = {"arm": FRANKA_PANDA_ARM_REACH}
 
     def __init__(
         self,

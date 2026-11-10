@@ -16,8 +16,8 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion
 
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-    from isaaclab_arena.relations.arm_reach import ReachSphere
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.utils.sphere import Sphere
 
 RelationT = TypeVar("RelationT", bound="RelationBase")
 
@@ -158,8 +158,8 @@ class AlignWith(Relation):
 class WithinReach(Relation):
     """Keep the subject's origin inside the reach sphere of one of the robot's arms.
 
-    The robot declares each arm's reach as a USD joint, the sphere centre, and a reach distance,
-    the sphere radius. The loss grows linearly with distance outside the nearest sphere.
+    The robot declares each arm's reach centre and reach distance.
+    The loss grows linearly with distance outside the nearest sphere.
 
     Usage:
         robot.add_relation(IsAnchor())
@@ -194,12 +194,12 @@ class WithinReach(Relation):
         self.reach_scale = reach_scale
         self.tolerance_m = tolerance_m
 
-    def get_reach_spheres(self) -> list[ReachSphere]:
+    def get_reach_spheres(self) -> list[Sphere]:
         """Return the robot's reach spheres this relation accepts, before applying reach_scale."""
-        reach_spheres = self.parent.get_reach_spheres()
-        if self.arm is not None:
-            reach_spheres = [reach_sphere for reach_sphere in reach_spheres if reach_sphere.name == self.arm]
-        return reach_spheres
+        reach_spheres_R = self.parent.get_reach_spheres()
+        if self.arm is None:
+            return list(reach_spheres_R.values())
+        return [reach_spheres_R[self.arm]] if self.arm in reach_spheres_R else []
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
         """Require a movable subject and a participating robot with a fixed heading and a matching reach."""
@@ -215,7 +215,7 @@ class WithinReach(Relation):
         assert (
             get_relation(self.parent, FaceTo) is None
         ), f"WithinReach robot '{self.parent.name}' cannot use FaceTo, which sets its heading after solving"
-        available_arms = [reach_sphere.name for reach_sphere in self.parent.get_reach_spheres()]
+        available_arms = self.parent.get_reach_spheres()
         assert available_arms, f"WithinReach robot '{self.parent.name}' declares no arm_reaches"
         assert (
             self.arm is None or self.arm in available_arms
