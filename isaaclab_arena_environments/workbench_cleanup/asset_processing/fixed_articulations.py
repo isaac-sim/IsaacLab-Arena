@@ -3,23 +3,82 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Create fixed cabinet articulations from partitioned frames and existing joints."""
+"""Create fixed-base articulations from partitioned frame meshes and existing jointed bodies.
+
+The operation selects a partitioned frame collider and prismatic or revolute
+joints that share one source frame. Processing creates one articulation under
+``Articulations``, copies the frame collider and moving rigid bodies into it,
+rewires the copied joints, and fixes the new frame rigid body to the original
+source frame. The selected source mesh, bodies, and joints are then deactivated.
+
+For example, this input:
+
+.. code-block:: text
+
+   /Asset
+     /Geometry/Frame                 (RigidBody)
+       /PanelPartition               (Mesh, Collision)
+       /MovingPanel                  (RigidBody)
+     /Joints/PanelSlide              (PrismaticJoint)
+
+   {
+       "operation": "fixed_articulation",
+       "name": "PanelAssembly",
+       "frame_mesh": "Geometry/Frame/PanelPartition",
+       "joints": ["Joints/PanelSlide"]
+   }
+
+produces:
+
+.. code-block:: text
+
+   /Asset
+     /Geometry/Frame                 (original RigidBody removed)
+       /PanelPartition               (inactive)
+       /MovingPanel                  (inactive)
+     /Joints/PanelSlide              (inactive)
+     /Articulations/PanelAssembly     (ArticulationRoot)
+       /Frame                        (RigidBody)
+         /Geometry                   (copied PanelPartition)
+       /MovingPanel                  (copied RigidBody)
+       /Joints/PanelSlide             (rewired copied joint)
+       /Joints/FixedBase              (FixedJoint to original frame)
+"""
 
 from __future__ import annotations
 
 import numpy as np
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pxr import Gf, Sdf, Usd
 
 
-def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None:
-    """Move selected frame meshes and jointed bodies into separate fixed articulations."""
+def create_fixed_articulation(
+    stage: Usd.Stage,
+    name: str,
+    frame_mesh: str,
+    joints: list[str],
+) -> None:
+    """Create one fixed-base articulation from selected source joints.
+
+    Args:
+        stage: USD stage whose default prim contains the source bodies.
+        name: Name of the articulation created under ``Articulations``.
+        frame_mesh: Asset-relative path to the partitioned frame collider.
+        joints: Asset-relative paths to movable joints sharing one source frame.
+
+    Returns:
+        None.
+    """
     from pxr import Sdf, Tf, UsdGeom, UsdPhysics
 
     root = stage.GetDefaultPrim()
-    assert root and isinstance(groups, dict) and groups, "Expected named fixed articulations."
+    assert root, "Expected an asset default prim."
     root_path = root.GetPath()
 
-    def prim_at(path):
+    def prim_at(path: str | Sdf.Path) -> Usd.Prim:
+        """Return a validated prim beneath the asset root."""
         path = Sdf.Path(path)
         if not path.IsAbsolutePath():
             path = root_path.AppendPath(path)
@@ -28,62 +87,52 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None
         assert prim, f"Missing prim: {path}."
         return prim
 
-    selected_joints = set()
-    selected_meshes = set()
-    selected_bodies = set()
-    source_owners = set()
-    plans = []
-    for name, config in groups.items():
-        assert isinstance(name, str) and Tf.IsValidIdentifier(name), f"Invalid articulation name: {name}."
-        assert isinstance(config, dict) and set(config) == {
-            "frame_mesh",
-            "joints",
-        }, "Each fixed articulation requires frame_mesh and joints."
-        destination = root_path.AppendPath(f"Articulations/{name}")
-        assert not stage.GetPrimAtPath(destination), f"Destination exists: {destination}."
-        mesh = prim_at(config["frame_mesh"])
-        assert mesh.IsA(UsdGeom.Mesh) and mesh.HasAPI(UsdPhysics.CollisionAPI), "Frame must be a mesh collider."
-        assert mesh.GetPath() not in selected_meshes, "Frame mesh selected more than once."
-        selected_meshes.add(mesh.GetPath())
-        assert isinstance(config["joints"], list) and config["joints"], "Expected existing movable joints."
-        joints = []
-        for joint_index, path in enumerate(config["joints"]):
-            prim = prim_at(path)
-            assert prim.IsA(UsdPhysics.PrismaticJoint) or prim.IsA(
-                UsdPhysics.RevoluteJoint
-            ), "Only prismatic and revolute drawer/door joints are supported."
-            assert prim.GetPath() not in selected_joints, "Joint selected more than once."
-            selected_joints.add(prim.GetPath())
-            joint = UsdPhysics.Joint(prim)
-            targets_0, targets_1 = joint.GetBody0Rel().GetTargets(), joint.GetBody1Rel().GetTargets()
-            assert len(targets_0) == len(targets_1) == 1, "Both joint endpoints must be explicit."
-            if joint_index == 0:
-                base_path = targets_0[0]
-            else:
-                assert targets_0[0] == base_path, "All joints must attach directly to the same source frame."
-            owner = _rigid_owner(stage.GetPrimAtPath(targets_1[0]))
-            assert owner.GetPath() not in selected_bodies, "Moving bodies must have exactly one selected joint."
-            selected_bodies.add(owner.GetPath())
-            joints.append((prim.GetPath(), owner.GetPath(), targets_1[0]))
-        base = stage.GetPrimAtPath(base_path)
-        source_owner = _rigid_owner(base)
-        assert mesh.GetPath() != base_path and mesh.GetPath().HasPrefix(
-            base_path
-        ), "Selected frame mesh must be a partition beneath the source joint frame."
-        assert source_owner.GetPath() not in selected_bodies, "Articulated chains are unsupported."
-        source_owners.add(source_owner.GetPath())
-        plans.append((destination, mesh.GetPath(), base_path, joints))
+    assert isinstance(name, str) and Tf.IsValidIdentifier(name), f"Invalid articulation name: {name}."
+    destination = root_path.AppendPath(f"Articulations/{name}")
+    assert not stage.GetPrimAtPath(destination), f"Destination exists: {destination}."
+    mesh = prim_at(frame_mesh)
+    assert mesh.IsA(UsdGeom.Mesh) and mesh.HasAPI(UsdPhysics.CollisionAPI), "Frame must be a mesh collider."
+    assert isinstance(joints, list) and joints, "Expected existing movable joints."
 
-    assert not source_owners & selected_bodies, "A source frame cannot also be a moving body."
+    selected_joints = set()
+    selected_bodies = set()
+    joint_specs = []
+    base_path = None
+    for path in joints:
+        prim = prim_at(path)
+        assert prim.IsA(UsdPhysics.PrismaticJoint) or prim.IsA(
+            UsdPhysics.RevoluteJoint
+        ), "Only prismatic and revolute joints are supported."
+        assert prim.GetPath() not in selected_joints, "Joint selected more than once."
+        selected_joints.add(prim.GetPath())
+        joint = UsdPhysics.Joint(prim)
+        targets_0, targets_1 = joint.GetBody0Rel().GetTargets(), joint.GetBody1Rel().GetTargets()
+        assert len(targets_0) == len(targets_1) == 1, "Both joint endpoints must be explicit."
+        if base_path is None:
+            base_path = targets_0[0]
+        else:
+            assert targets_0[0] == base_path, "All joints must attach directly to the same source frame."
+        owner = _rigid_owner(stage.GetPrimAtPath(targets_1[0]))
+        assert owner.GetPath() not in selected_bodies, "Moving bodies must have exactly one selected joint."
+        selected_bodies.add(owner.GetPath())
+        joint_specs.append((prim.GetPath(), owner.GetPath(), targets_1[0]))
+
+    assert base_path is not None
+    source_owner = _rigid_owner(stage.GetPrimAtPath(base_path))
+    assert mesh.GetPath() != base_path and mesh.GetPath().HasPrefix(
+        base_path
+    ), "Selected frame mesh must be a partition beneath the source joint frame."
+    assert source_owner.GetPath() not in selected_bodies, "Articulated chains are unsupported."
+    affected_bodies = selected_bodies | {source_owner.GetPath()}
     for prim in stage.Traverse():
         if not prim.IsA(UsdPhysics.Joint) or prim.GetPath() in selected_joints:
             continue
         joint = UsdPhysics.Joint(prim)
         for target in joint.GetBody0Rel().GetTargets() + joint.GetBody1Rel().GetTargets():
-            for owner in source_owners | selected_bodies:
+            for owner in affected_bodies:
                 assert not target.HasPrefix(owner), f"Unselected joint {prim.GetPath()} uses a moved body."
 
-    for path in selected_meshes | selected_bodies | source_owners:
+    for path in {mesh.GetPath()} | affected_bodies:
         prim = stage.GetPrimAtPath(path)
         ancestors = []
         while prim and not prim.IsPseudoRoot():
@@ -96,7 +145,8 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None
     cache = UsdGeom.XformCache()
     T_W_R_inverse = cache.GetLocalToWorldTransform(root).GetInverse()
 
-    def pose_R(path):
+    def pose_R(path: Sdf.Path) -> Gf.Matrix4d:
+        """Return a prim transform in the default-prim frame."""
         prim = stage.GetPrimAtPath(path)
         ancestor = prim
         while ancestor and not ancestor.IsPseudoRoot():
@@ -111,43 +161,49 @@ def create_fixed_articulations(stage, groups: dict[str, dict[str, Any]]) -> None
 
     snapshot = stage.Flatten()
     _copy_flattened_prototypes(stage, snapshot)
-    for destination, mesh_path, base_path, joints in plans:
-        T_R_B = pose_R(base_path)
-        articulation = UsdGeom.Xform.Define(stage, destination)
-        articulation.AddTransformOp().Set(T_R_B)
-        UsdPhysics.ArticulationRootAPI.Apply(articulation.GetPrim())
-        frame_path = destination.AppendChild("Frame")
-        frame = UsdGeom.Xform.Define(stage, frame_path)
-        UsdPhysics.RigidBodyAPI.Apply(frame.GetPrim())
-        _copy_at_asset_pose(stage, snapshot, mesh_path, frame_path.AppendChild("Geometry"), pose_R(mesh_path), T_R_B)
-        for joint_path, owner_path, endpoint_path in joints:
-            new_body_path = destination.AppendChild(owner_path.name)
-            assert not stage.GetPrimAtPath(new_body_path), f"Duplicate body name: {new_body_path}."
-            _copy_at_asset_pose(stage, snapshot, owner_path, new_body_path, pose_R(owner_path), T_R_B)
-            new_joint_path = destination.AppendPath(f"Joints/{joint_path.name}")
-            stage.OverridePrim(new_joint_path)
-            assert Sdf.CopySpec(snapshot, joint_path, stage.GetEditTarget().GetLayer(), new_joint_path)
-            joint = UsdPhysics.Joint(stage.GetPrimAtPath(new_joint_path))
-            joint.GetBody0Rel().SetTargets([frame_path])
-            joint.GetBody1Rel().SetTargets([endpoint_path.ReplacePrefix(owner_path, new_body_path)])
-        fixed = UsdPhysics.FixedJoint.Define(stage, destination.AppendPath("Joints/FixedBase"))
-        fixed.CreateBody0Rel().SetTargets([base_path])
-        fixed.CreateBody1Rel().SetTargets([frame_path])
+    T_R_B = pose_R(base_path)
+    articulation = UsdGeom.Xform.Define(stage, destination)
+    articulation.AddTransformOp().Set(T_R_B)
+    UsdPhysics.ArticulationRootAPI.Apply(articulation.GetPrim())
+    frame_path = destination.AppendChild("Frame")
+    frame = UsdGeom.Xform.Define(stage, frame_path)
+    UsdPhysics.RigidBodyAPI.Apply(frame.GetPrim())
+    _copy_at_asset_pose(
+        stage,
+        snapshot,
+        mesh.GetPath(),
+        frame_path.AppendChild("Geometry"),
+        pose_R(mesh.GetPath()),
+        T_R_B,
+    )
+    for joint_path, owner_path, endpoint_path in joint_specs:
+        new_body_path = destination.AppendChild(owner_path.name)
+        assert not stage.GetPrimAtPath(new_body_path), f"Duplicate body name: {new_body_path}."
+        _copy_at_asset_pose(stage, snapshot, owner_path, new_body_path, pose_R(owner_path), T_R_B)
+        new_joint_path = destination.AppendPath(f"Joints/{joint_path.name}")
+        stage.OverridePrim(new_joint_path)
+        assert Sdf.CopySpec(snapshot, joint_path, stage.GetEditTarget().GetLayer(), new_joint_path)
+        joint = UsdPhysics.Joint(stage.GetPrimAtPath(new_joint_path))
+        joint.GetBody0Rel().SetTargets([frame_path])
+        joint.GetBody1Rel().SetTargets([endpoint_path.ReplacePrefix(owner_path, new_body_path)])
+    fixed = UsdPhysics.FixedJoint.Define(stage, destination.AppendPath("Joints/FixedBase"))
+    fixed.CreateBody0Rel().SetTargets([base_path])
+    fixed.CreateBody1Rel().SetTargets([frame_path])
 
-    for path in selected_meshes | selected_bodies | selected_joints:
+    for path in {mesh.GetPath()} | selected_bodies | selected_joints:
         stage.GetPrimAtPath(path).SetActive(False)
-    for path in source_owners:
-        prim = stage.GetPrimAtPath(path)
-        for schema in prim.GetAppliedSchemas():
-            if "RigidBody" in schema or schema == "PhysicsMassAPI":
-                prim.RemoveAppliedSchema(schema)
-        while prim and not prim.IsPseudoRoot():
-            if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
-                prim.RemoveAPI(UsdPhysics.ArticulationRootAPI)
-            prim = prim.GetParent()
+    prim = source_owner
+    for schema in prim.GetAppliedSchemas():
+        if "RigidBody" in schema or schema == "PhysicsMassAPI":
+            prim.RemoveAppliedSchema(schema)
+    while prim and not prim.IsPseudoRoot():
+        if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
+            prim.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+        prim = prim.GetParent()
 
 
-def _rigid_owner(prim):
+def _rigid_owner(prim: Usd.Prim) -> Usd.Prim:
+    """Return the closest rigid-body ancestor of a joint endpoint."""
     from pxr import UsdPhysics
 
     while prim and not prim.IsPseudoRoot():
@@ -157,7 +213,15 @@ def _rigid_owner(prim):
     raise AssertionError("Joint endpoint has no rigid-body owner.")
 
 
-def _copy_at_asset_pose(stage, snapshot, source, destination, T_R_S, T_R_P):
+def _copy_at_asset_pose(
+    stage: Usd.Stage,
+    snapshot: Sdf.Layer,
+    source: Sdf.Path,
+    destination: Sdf.Path,
+    T_R_S: Gf.Matrix4d,
+    T_R_P: Gf.Matrix4d,
+) -> None:
+    """Copy a prim while preserving its transform in the asset frame."""
     from pxr import Sdf, UsdGeom
 
     stage.OverridePrim(destination)
@@ -170,7 +234,8 @@ def _copy_at_asset_pose(stage, snapshot, source, destination, T_R_S, T_R_P):
     UsdGeom.Xformable(prim).AddTransformOp().Set(T_R_S * T_R_P.GetInverse())
 
 
-def _copy_flattened_prototypes(stage, snapshot) -> None:
+def _copy_flattened_prototypes(stage: Usd.Stage, snapshot: Sdf.Layer) -> None:
+    """Copy flattened prototype specs needed by copied instanceable prims."""
     from pxr import Sdf
 
     destination = stage.GetEditTarget().GetLayer()

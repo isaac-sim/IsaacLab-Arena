@@ -67,7 +67,7 @@ def _get_asset_prim(stage, path: str):
 def _apply_structural_step(stage, step: Mapping[str, Any]) -> None:
     """Apply one computed structural operation to a USD stage."""
     from isaaclab_arena_environments.workbench_cleanup.asset_processing.fixed_articulations import (
-        create_fixed_articulations,
+        create_fixed_articulation,
     )
     from isaaclab_arena_environments.workbench_cleanup.asset_processing.mesh_partition import (
         inspect_mesh_components,
@@ -81,7 +81,7 @@ def _apply_structural_step(stage, step: Mapping[str, Any]) -> None:
             report = inspect_mesh_components(stage, step["prim"])
             assert report["geometry_sha256"] == expected, f"Mesh geometry changed: {step['prim']}"
         partition_mesh(stage, step["prim"], step["groups"], remainder=step.get("remainder", "Remaining"))
-    elif operation == "fixed_articulations":
-        create_fixed_articulations(stage, step["groups"])
+    elif operation == "fixed_articulation":
+        create_fixed_articulation(stage, step["name"], step["frame_mesh"], step["joints"])
     else:
         raise AssertionError(f"Unknown structural operation: {operation}")

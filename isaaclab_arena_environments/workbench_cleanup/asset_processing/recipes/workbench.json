@@ -26,19 +26,16 @@
       }
     },
     {
-      "operation": "fixed_articulations",
-      "groups": {
-        "Cabinet": {
-          "frame_mesh": "Geometry/table_01_obj_00/table_01_mesh_00/CabinetFrame",
-          "joints": [
-            "Joints/joint_drawersA_01_joint_00",
-            "Joints/joint_drawersB_01_joint_00",
-            "Joints/joint_drawersC_01_joint_00",
-            "Joints/joint_drawersD_01_joint_00",
-            "Joints/joint_door_01_joint_00"
-          ]
-        }
-      }
+      "operation": "fixed_articulation",
+      "name": "Cabinet",
+      "frame_mesh": "Geometry/table_01_obj_00/table_01_mesh_00/CabinetFrame",
+      "joints": [
+        "Joints/joint_drawersA_01_joint_00",
+        "Joints/joint_drawersB_01_joint_00",
+        "Joints/joint_drawersC_01_joint_00",
+        "Joints/joint_drawersD_01_joint_00",
+        "Joints/joint_door_01_joint_00"
+      ]
     }
   ]
 }

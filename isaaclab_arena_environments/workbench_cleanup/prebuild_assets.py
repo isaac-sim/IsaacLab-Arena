@@ -3,28 +3,28 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Prebuild the cached workbench USD assets used by the canonical scene."""
+"""Prepare the cached workbench USD assets used by the canonical scene."""
 
 import argparse
 
 
 def main() -> None:
-    """Process selected workbench assets through the normal runtime cache."""
+    """Prepare selected workbench assets through the normal runtime cache."""
     from isaaclab_arena_environments.workbench_cleanup import assets
 
-    processors = {
-        "workbench": assets._WORKBENCH,
-        "white_bin": assets._WHITE_BIN,
-        "socket_set": assets._SOCKET_SET,
-        "oscilloscope": assets._OSCILLOSCOPE,
-        "slotted_screwdriver": assets._SLOTTED_SCREWDRIVER,
-        "small_wrench": assets._SMALL_WRENCH,
+    prepare_assets = {
+        "workbench": assets.WorkbenchCleanupWorkbench.processor.process,
+        "white_bin": assets.WorkbenchCleanupWhiteBin.usd_source.to_local_usd_path,
+        "socket_set": assets.WorkbenchCleanupSocketSet.processor.process,
+        "oscilloscope": assets.WorkbenchCleanupOscilloscope.processor.process,
+        "slotted_screwdriver": assets.WorkbenchCleanupSlottedScrewdriver.usd_source.to_local_usd_path,
+        "small_wrench": assets.WorkbenchCleanupSmallWrench.usd_source.to_local_usd_path,
     }
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("assets", nargs="*", choices=processors)
+    parser.add_argument("assets", nargs="*", choices=prepare_assets)
     args = parser.parse_args()
-    for name in args.assets or processors:
-        print(f"{name}: {processors[name].process()}")
+    for name in args.assets or prepare_assets:
+        print(f"{name}: {prepare_assets[name]()}")
 
 
 if __name__ == "__main__":

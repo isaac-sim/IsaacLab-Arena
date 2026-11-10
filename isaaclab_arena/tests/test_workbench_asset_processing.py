@@ -194,19 +194,52 @@ def Xform "Asset" (prepend references = @structure.usda@</Asset>) {}
 
 
 def test_workbench_asset_processing_configuration(monkeypatch):
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
     from isaaclab_arena_environments.workbench_cleanup import assets
 
-    monkeypatch.setattr(assets._SOCKET_SET, "process", lambda: "/cache/socket_set.usda")
+    assert isinstance(assets.WorkbenchCleanupWhiteBin.usd_source, SimReadyCentralUsdSource)
+    monkeypatch.setattr(assets.WorkbenchCleanupWhiteBin.usd_source, "to_local_usd_path", lambda: "/cache/white_bin.usd")
+    white_bin = assets.WorkbenchCleanupWhiteBin()
+    assert white_bin.usd_path == "/cache/white_bin.usd"
+
+    tool_assets = (
+        (
+            assets.WorkbenchCleanupSlottedScrewdriver.usd_source,
+            assets.WorkbenchCleanupSlottedScrewdriver,
+            "/cache/slotted_screwdriver.usd",
+        ),
+        (
+            assets.WorkbenchCleanupSmallWrench.usd_source,
+            assets.WorkbenchCleanupSmallWrench,
+            "/cache/small_wrench.usd",
+        ),
+    )
+    for source, asset_type, usd_path in tool_assets:
+        assert isinstance(asset_type.usd_source, SimReadyCentralUsdSource)
+        monkeypatch.setattr(source, "to_local_usd_path", lambda path=usd_path: path)
+        tool = asset_type()
+        spawn = tool.object_cfg.spawn
+        assert tool.usd_path == usd_path
+        assert spawn.make_uninstanceable
+        assert spawn.activate_contact_sensors
+        assert spawn.rigid_props.linear_damping == 2.0
+        assert spawn.rigid_props.angular_damping == 2.0
+        assert spawn.rigid_props.sleep_threshold == 0.0
+        assert spawn.collision_props.contact_offset == 0.001
+        assert spawn.collision_props.rest_offset == 0.0
+        assert spawn.collision_props.mesh_collision_property.mesh_approximation_name == "convexHull"
+
+    monkeypatch.setattr(assets.WorkbenchCleanupSocketSet.processor, "process", lambda: "/cache/socket_set.usda")
     socket_set = assets.WorkbenchCleanupSocketSet(initial_joint_positions={"case_lid": 1.5})
     assert socket_set.object_cfg.init_state.joint_pos == {"case_lid": 1.5}
 
-    package_path = assets._WORKBENCH.structural_recipe.removeprefix("package://")
+    package_path = assets.WorkbenchCleanupWorkbench.processor.structural_recipe.removeprefix("package://")
     package, relative_path = package_path.split("/", 1)
     recipe = json.loads(importlib.resources.files(package).joinpath(relative_path).read_bytes())
-    assert {step["operation"] for step in recipe["steps"]} == {"partition_mesh", "fixed_articulations"}
-    fixed_articulations = next(step for step in recipe["steps"] if step["operation"] == "fixed_articulations")
-    assert set(fixed_articulations["groups"]) == {"Cabinet"}
-    assert len(fixed_articulations["groups"]["Cabinet"]["joints"]) == 5
+    assert {step["operation"] for step in recipe["steps"]} == {"partition_mesh", "fixed_articulation"}
+    fixed_articulation = next(step for step in recipe["steps"] if step["operation"] == "fixed_articulation")
+    assert fixed_articulation["name"] == "Cabinet"
+    assert len(fixed_articulation["joints"]) == 5
 
 
 def test_environment_discovery_registers_workbench_assets_without_processing():
