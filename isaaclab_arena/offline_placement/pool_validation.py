@@ -164,22 +164,27 @@ def validate_pool_layouts(
     return results
 
 
+def _do_required_checks_pass(validation_results: PlacementValidationResults) -> bool:
+    """Return whether every required check of a layout ran and passed."""
+    # A required check with no result fails; do_all_required_validation_checks_pass() would count it as passed.
+    required_checks = validation_results.required_checks or set()
+    if required_checks - validation_results.validation_results.keys():
+        return False
+    # Every required check that ran must have passed.
+    return validation_results.do_all_required_validation_checks_pass()
+
+
+def _is_settled(validation_results: PlacementValidationResults) -> bool:
+    """Return whether a layout settled, even when an explicit required_checks set leaves physics_settled out."""
+    return validation_results.validation_results.get(PlacementCheck.PHYSICS_SETTLED, False)
+
+
 def do_all_layouts_pass_and_settle(results: list[tuple[int, int, PlacementValidationResults]]) -> bool:
     """Return whether there are layouts and every one ran and passed its required checks and settled."""
-    if not results:
-        return False
-    for _, _, validation_results in results:
-        # A required check with no result fails; do_all_required_validation_checks_pass() would count it as passed.
-        required_checks = validation_results.required_checks or set()
-        if required_checks - validation_results.validation_results.keys():
-            return False
-        # Every required check that ran must have passed.
-        if not validation_results.do_all_required_validation_checks_pass():
-            return False
-        # The layout must have settled, even when an explicit required_checks set leaves physics_settled out.
-        if not validation_results.validation_results.get(PlacementCheck.PHYSICS_SETTLED, False):
-            return False
-    return True
+    return bool(results) and all(
+        _do_required_checks_pass(validation_results) and _is_settled(validation_results)
+        for _, _, validation_results in results
+    )
 
 
 def print_validation_results(results: list[tuple[int, int, PlacementValidationResults]]) -> None:
@@ -192,12 +197,6 @@ def print_validation_results(results: list[tuple[int, int, PlacementValidationRe
     for env_id, episode_index, validation_results in results:
         print(f"env {env_id} episode {episode_index}: {validation_results.report()}")
 
-    num_pass = sum(
-        1 for _, _, validation_results in results if validation_results.do_all_required_validation_checks_pass()
-    )
-    num_settled = sum(
-        1
-        for _, _, validation_results in results
-        if validation_results.validation_results.get(PlacementCheck.PHYSICS_SETTLED)
-    )
+    num_pass = sum(1 for _, _, validation_results in results if _do_required_checks_pass(validation_results))
+    num_settled = sum(1 for _, _, validation_results in results if _is_settled(validation_results))
     print(f"Summary: {num_pass}/{len(results)} pass validation, {num_settled}/{len(results)} physically settled.")
