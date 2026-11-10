@@ -80,11 +80,11 @@ def test_simready_usd_object_resolves_central_url(monkeypatch):
     url = f"hf://huggingface.co/datasets/nvidia/simready-assets/resolve/{'a' * 40}/pallet/simready_usd/pallet.usd"
     resolved_urls = []
 
-    def resolve(source: SimReadyCentralRigidSource) -> str:
+    def to_local_usd_path(source: SimReadyCentralRigidSource) -> str:
         resolved_urls.append(source.url)
         return "/cache/pallet.usda"
 
-    monkeypatch.setattr(SimReadyCentralRigidSource, "resolve", resolve)
+    monkeypatch.setattr(SimReadyCentralRigidSource, "to_local_usd_path", to_local_usd_path)
 
     obj = SimReadyUsdObject(usd_path=url)
 

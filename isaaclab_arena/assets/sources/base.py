@@ -11,8 +11,8 @@ from abc import ABC, abstractmethod
 
 
 class UsdSource(ABC):
-    """Resolve a USD asset without coupling consumers to its acquisition mechanism."""
+    """Acquire a local USD asset without coupling consumers to its source."""
 
     @abstractmethod
-    def resolve(self) -> str:
-        """Return a usable local or remote USD path."""
+    def to_local_usd_path(self) -> str:
+        """Return the local path to the acquired USD asset."""

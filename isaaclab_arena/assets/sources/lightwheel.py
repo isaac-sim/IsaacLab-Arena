@@ -17,13 +17,13 @@ _MISSING = object()
 
 
 class LightwheelUsdSource(UsdSource):
-    """Acquire and memoize one Lightwheel USD on first resolution."""
+    """Acquire and memoize one Lightwheel USD on first use."""
 
     def __init__(self, **acquire_by_registry_kwargs: Any):
         self._kwargs = acquire_by_registry_kwargs
         self._resolved: str | None = None
 
-    def resolve(self) -> str:
+    def to_local_usd_path(self) -> str:
         """Acquire the USD on first use and reuse that path thereafter."""
         if self._resolved is None:
             from lightwheel_sdk.loader import object_loader

@@ -28,19 +28,19 @@ class LibraryBackground(Background):
     """Key of this asset class in the asset registry."""
 
     tags: list[str]
-    usd_path: str | UsdSource | None = None
+    usd_path: str | None = None
+    usd_source: UsdSource | None = None
     initial_pose: Pose | None = None
     object_min_z: float
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
-        # Check lazy USD paths are set by here
-        assert self.usd_path is not None
         super().__init__(
             name=self.registry_name,
             tags=self.tags,
             usd_path=self.usd_path,
+            usd_source=self.usd_source,
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
             spawn_cfg_addon=self.spawn_cfg_addon,

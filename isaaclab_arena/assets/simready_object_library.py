@@ -66,11 +66,13 @@ class SimReadyUsdObject(Object):
         spawn_cfg_addon = dict(spawn_cfg_addon or {})
         variants = usd_variant_selections_to_dict(spawn_cfg_addon.get("variants"))
         spawn_cfg_addon["variants"] = {**SIMREADY_PHYSICS_VARIANTS, **variants}
+        usd_source = _simready_usd_source(usd_path)
         super().__init__(
             name=name or self.registry_name,
             prim_path=prim_path,
             tags=self.tags,
-            usd_path=_simready_usd_source(usd_path),
+            usd_path=None if usd_source is not None else usd_path,
+            usd_source=usd_source,
             object_type=self.object_type,
             scale=scale if scale is not None else (1.0, 1.0, 1.0),
             initial_pose=initial_pose,
@@ -123,8 +125,8 @@ def register_searched_simready_object(
     return SearchedSimReadyObject
 
 
-def _simready_usd_source(usd_path: str) -> str | UsdSource:
-    """Return a rigid Central source for a pinned URL, otherwise preserve the path."""
+def _simready_usd_source(usd_path: str) -> UsdSource | None:
+    """Return a rigid Central source for a pinned URL."""
     if is_central_asset_url(usd_path):
         return SimReadyCentralRigidSource(usd_path)
-    return usd_path
+    return None

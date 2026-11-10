@@ -12,7 +12,7 @@ from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.lightwheel import LightwheelUsdSource
 
 
-def test_object_resolves_usd_source_path(tmp_path):
+def test_object_acquires_usd_source_path(tmp_path):
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
@@ -23,17 +23,18 @@ def test_object_resolves_usd_source_path(tmp_path):
     assert stage.Export(usd_path)
 
     source = Mock(spec=UsdSource)
-    source.resolve.return_value = usd_path
+    source.to_local_usd_path.return_value = usd_path
     spawn_cfg_addon = {"variants": {"Quality": "High"}}
 
     obj = Object(
         name="item",
-        usd_path=source,
+        usd_source=source,
         tags=["object"],
         spawn_cfg_addon=spawn_cfg_addon,
     )
 
     assert obj.usd_path == usd_path
+    assert obj.usd_source is source
     assert obj.object_type == ObjectType.RIGID
     assert obj.spawn_cfg_addon["variants"] == {"Quality": "High"}
     assert obj.tags == ["object"]
@@ -56,8 +57,8 @@ def test_lightwheel_source_is_lazy_and_memoizes_acquisition():
         "sys.modules",
         {"lightwheel_sdk": package, "lightwheel_sdk.loader": loader_module},
     ):
-        first = source.resolve()
-        second = source.resolve()
+        first = source.to_local_usd_path()
+        second = source.to_local_usd_path()
 
     assert first is second
     assert first == "/cache/broccoli.usd"
@@ -90,7 +91,7 @@ def test_library_objects_reuse_their_class_level_lightwheel_source(tmp_path):
     class SourcedObject(LibraryObject):
         registry_name = "sourced_object"
         tags = ["object"]
-        usd_path = source
+        usd_source = source
 
     with patch.dict(
         "sys.modules",
@@ -107,13 +108,13 @@ def test_extract_asset_usd_path_resolves_source_without_constructing_asset():
     from isaaclab_arena.environment_spec.arena_env_graph_types import _extract_asset_usd_path
 
     source = Mock(spec=UsdSource)
-    source.resolve.return_value = "/cache/asset.usd"
+    source.to_local_usd_path.return_value = "/cache/asset.usd"
 
     class SourcedAsset:
-        usd_path = source
+        usd_source = source
 
         def __init__(self):
             raise AssertionError("Extracting the source path must not construct the asset")
 
     assert _extract_asset_usd_path(SourcedAsset) == "/cache/asset.usd"
-    source.resolve.assert_called_once_with()
+    source.to_local_usd_path.assert_called_once_with()

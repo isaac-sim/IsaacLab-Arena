@@ -17,14 +17,14 @@ from isaaclab_arena.assets.sources.base import UsdSource
 
 
 class SimReadyCentralUsdSource(UsdSource):
-    """Download a complete pinned SimReady Central package on first resolution."""
+    """Download a complete pinned SimReady Central package on first use."""
 
     def __init__(self, url: str):
         _parse_central_asset_url(url)
         self.url = url
         self._asset_path: str | None = None
 
-    def resolve(self) -> str:
+    def to_local_usd_path(self) -> str:
         """Download the package and return its original USD entrypoint."""
         if self._asset_path is None:
             self._asset_path = download_central_asset_package(self.url)
@@ -38,10 +38,10 @@ class SimReadyCentralRigidSource(SimReadyCentralUsdSource):
         super().__init__(url)
         self._wrapper_path: str | None = None
 
-    def resolve(self) -> str:
+    def to_local_usd_path(self) -> str:
         """Download the package and return its compatibility wrapper."""
         if self._wrapper_path is None:
-            asset_path = super().resolve()
+            asset_path = super().to_local_usd_path()
             self._wrapper_path = create_central_rigid_wrapper(asset_path, source_url=self.url)
         return self._wrapper_path
 

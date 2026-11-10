@@ -35,7 +35,7 @@ def test_central_requires_single_body_metadata_and_skips_invalid_usd():
         patch(f"{MODULE}.requests.post", return_value=response) as post,
         patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
     ):
-        source.return_value.resolve.side_effect = [ValueError("articulation"), "/cache/pallet.usda"]
+        source.return_value.to_local_usd_path.side_effect = [ValueError("articulation"), "/cache/pallet.usda"]
         candidates = search_central_objects("pallet", max_results=1)
     assert [candidate.usd_path for candidate in candidates] == [URL.replace("hf://", "https://", 1)]
     assert all(call.args == (URL.replace("hf://", "https://", 1),) for call in source.call_args_list)
@@ -78,8 +78,8 @@ def test_central_usd_source_downloads_package_once():
 
     source = SimReadyCentralUsdSource(URL)
     with patch(f"{LOADER}.download_central_asset_package", return_value="/cache/pallet.usd") as download:
-        assert source.resolve() == "/cache/pallet.usd"
-        assert source.resolve() == "/cache/pallet.usd"
+        assert source.to_local_usd_path() == "/cache/pallet.usd"
+        assert source.to_local_usd_path() == "/cache/pallet.usd"
     download.assert_called_once_with(URL)
 
 
@@ -88,11 +88,13 @@ def test_central_rigid_source_wraps_package_once():
 
     source = SimReadyCentralRigidSource(URL)
     with (
-        patch.object(SimReadyCentralUsdSource, "resolve", return_value="/cache/pallet.usd") as resolve_package,
+        patch.object(
+            SimReadyCentralUsdSource, "to_local_usd_path", return_value="/cache/pallet.usd"
+        ) as resolve_package,
         patch(f"{LOADER}.create_central_rigid_wrapper", return_value="/cache/pallet.usda") as create_wrapper,
     ):
-        assert source.resolve() == "/cache/pallet.usda"
-        assert source.resolve() == "/cache/pallet.usda"
+        assert source.to_local_usd_path() == "/cache/pallet.usda"
+        assert source.to_local_usd_path() == "/cache/pallet.usda"
     resolve_package.assert_called_once_with()
     create_wrapper.assert_called_once_with("/cache/pallet.usd", source_url=URL)
 
@@ -125,7 +127,7 @@ def _test_central_usd_validation(simulation_app):
             patch(f"{LOADER}.download_central_asset_package", return_value=str(asset)),
             patch(f"{LOADER}.Path.home", return_value=folder),
         ):
-            wrapper = SimReadyCentralRigidSource(URL).resolve()
+            wrapper = SimReadyCentralRigidSource(URL).to_local_usd_path()
             wrapper_stage = Usd.Stage.Open(wrapper)
             wrapper_root = wrapper_stage.GetDefaultPrim()
             assert wrapper_root.GetVariantSet("PhysX").GetVariantSelection() == "Enabled"
@@ -133,17 +135,17 @@ def _test_central_usd_validation(simulation_app):
             body.GetRigidBodyEnabledAttr().Set(False)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="disabled"):
-                SimReadyCentralRigidSource(URL).resolve()
+                SimReadyCentralRigidSource(URL).to_local_usd_path()
             body.GetRigidBodyEnabledAttr().Set(True)
             UsdPhysics.ArticulationRootAPI.Apply(root)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="articulation root"):
-                SimReadyCentralRigidSource(URL).resolve()
+                SimReadyCentralRigidSource(URL).to_local_usd_path()
             root.RemoveAPI(UsdPhysics.ArticulationRootAPI)
             UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(stage, "/Pallet/Other").GetPrim())
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="found 2"):
-                SimReadyCentralRigidSource(URL).resolve()
+                SimReadyCentralRigidSource(URL).to_local_usd_path()
     return True
 
 
@@ -212,7 +214,7 @@ def test_central_rejects_unrelated_hit_before_download_and_tries_next(caplog):
         candidates = search_central_objects("grey bin", max_results=1)
     assert [candidate.usd_path for candidate in candidates] == [bin_url.replace("hf://", "https://", 1)]
     source.assert_called_once_with(candidates[0].usd_path)
-    source.return_value.resolve.assert_called_once_with()
+    source.return_value.to_local_usd_path.assert_called_once_with()
     assert "asset name does not match the object" in caplog.text
 
 
@@ -253,4 +255,4 @@ def test_central_accepts_matching_asset_names(phrase, filename):
         candidates = search_central_objects(phrase, max_results=1)
     assert [candidate.usd_path for candidate in candidates] == [path.replace("hf://", "https://", 1)]
     source.assert_called_once_with(candidates[0].usd_path)
-    source.return_value.resolve.assert_called_once_with()
+    source.return_value.to_local_usd_path.assert_called_once_with()

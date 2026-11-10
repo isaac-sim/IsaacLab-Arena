@@ -30,8 +30,9 @@ class Background(Object):
     def __init__(
         self,
         name: str,
-        usd_path: str | UsdSource,
         object_min_z: float,
+        usd_path: str | None = None,
+        usd_source: UsdSource | None = None,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         reset_nested_physics: bool = True,
@@ -41,6 +42,7 @@ class Background(Object):
         super().__init__(
             name=name,
             usd_path=usd_path,
+            usd_source=usd_source,
             initial_pose=initial_pose,
             prim_path=prim_path,
             # The background root is non-physical, though nested prims may have physics.

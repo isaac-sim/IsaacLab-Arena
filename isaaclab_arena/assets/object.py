@@ -36,7 +36,8 @@ class Object(RootedObjectBase):
         name: str,
         prim_path: str | None = None,
         object_type: ObjectType | None = None,
-        usd_path: str | UsdSource | None = None,
+        usd_path: str | None = None,
+        usd_source: UsdSource | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
@@ -47,12 +48,14 @@ class Object(RootedObjectBase):
         # Keep nested addon settings independent when multiple objects reuse the same input mapping.
         spawn_cfg_addon: dict[str, Any] = deepcopy(kwargs.pop("spawn_cfg_addon", {}) or {})
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
-        assert usd_path is not None or spawner_cfg is not None, "Either usd_path or spawner_cfg must be provided"
-        assert usd_path is None or spawner_cfg is None, "Either usd_path or spawner_cfg must be provided (not both)"
+        asset_inputs = (usd_path, usd_source, spawner_cfg)
+        assert (
+            sum(value is not None for value in asset_inputs) == 1
+        ), "Exactly one of usd_path, usd_source, or spawner_cfg must be provided"
+        if usd_source is not None:
+            usd_path = usd_source.to_local_usd_path()
         if usd_path is not None:
-            if isinstance(usd_path, UsdSource):
-                usd_path = usd_path.resolve()
-            assert isinstance(usd_path, str) and usd_path, "usd_path must be a non-empty string"
+            assert usd_path, "usd_path must be a non-empty string"
         if spawner_cfg is not None:
             assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
         # Detect object type if not provided
@@ -64,6 +67,7 @@ class Object(RootedObjectBase):
             object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
+        self.usd_source = usd_source
         self.spawner_cfg = spawner_cfg
         self.scale = scale
         self.initial_pose = initial_pose

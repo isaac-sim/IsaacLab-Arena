@@ -22,10 +22,11 @@ from isaaclab_arena.assets.sources.base import UsdSource
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     """Return the asset's root USD path or URL, or ``None`` if not extractable."""
     class_usd = getattr(asset_cls, "usd_path", None)
-    if isinstance(class_usd, UsdSource):
-        class_usd = class_usd.resolve()
     if isinstance(class_usd, str) and class_usd:
         return class_usd
+    class_source = getattr(asset_cls, "usd_source", None)
+    if isinstance(class_source, UsdSource):
+        return class_source.to_local_usd_path()
 
     # Defer conversion imports until runtime; conversion utilities also import these schema types.
     from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import parse_asset_params

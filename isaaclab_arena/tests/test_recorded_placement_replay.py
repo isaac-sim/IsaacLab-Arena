@@ -219,7 +219,7 @@ def _test_recorded_root_replay_preserves_articulation_joint_reset(simulation_app
     online_path = tmp_path / "online_asset.usd"
     _create_background_usds(str(background_path), str(online_path), include_joint_network=False)
     key = "referenced_articulation"
-    background = Background("background", str(background_path), object_min_z=0.0)
+    background = Background(name="background", object_min_z=0.0, usd_path=str(background_path))
     reference = ObjectReference(
         name=key,
         prim_path="{ENV_REGEX_NS}/background/referenced_articulation",

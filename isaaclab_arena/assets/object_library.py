@@ -44,7 +44,8 @@ class LibraryObject(Object):
     """Key of this asset class in the asset registry. An asset selection may set it on the object."""
 
     tags: list[str]
-    usd_path: str | UsdSource | None = None
+    usd_path: str | None = None
+    usd_source: UsdSource | None = None
     object_type: ObjectType = ObjectType.RIGID
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
     spawn_cfg_addon: dict[str, Any] = {}
@@ -75,6 +76,7 @@ class LibraryObject(Object):
             prim_path=prim_path,
             tags=list(self.tags),
             usd_path=self.usd_path,
+            usd_source=self.usd_source,
             object_type=self.object_type,
             scale=scale,
             initial_pose=initial_pose,
@@ -145,7 +147,7 @@ class Microwave(LibraryObject, Openable):
 
     registry_name = "microwave"
     tags = ["object", "openable"]
-    usd_path = LightwheelUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -170,7 +172,7 @@ class CoffeeMachine(LibraryObject, Pressable):
 
     registry_name = "coffee_machine"
     tags = ["object", "pressable"]
-    usd_path = LightwheelUsdSource(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -758,7 +760,7 @@ class Broccoli(LibraryObject):
 
     registry_name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
-    usd_path = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
 
 
 @register_asset
@@ -769,7 +771,7 @@ class SweetPotato(LibraryObject):
 
     registry_name = "sweet_potato"
     tags = ["object", "vegetable", "graspable"]
-    usd_path = LightwheelUsdSource(registry_type="objects", file_name="SweetPotato005", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="SweetPotato005", file_type="USD")
     scale = (1.5, 1.5, 1.5)
 
 
@@ -781,7 +783,7 @@ class Jug(LibraryObject):
 
     registry_name = "jug"
     tags = ["object", "graspable"]
-    usd_path = LightwheelUsdSource(registry_type="objects", file_name="Jug005", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="Jug005", file_type="USD")
     scale = (2.0, 2.0, 2.0)
 
 
@@ -793,7 +795,7 @@ class BeerBottle(LibraryObject):
 
     registry_name = "beer_bottle"
     tags = ["object", "graspable"]
-    usd_path = LightwheelUsdSource(registry_type="objects", file_name="beer016", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="beer016", file_type="USD")
     scale = (1.2, 1.2, 1.2)
 
 
