@@ -654,13 +654,13 @@ PhysX</label><div class="sd-tab-content docutils">
 <section id="teleoperate-the-task">
 <h2>Teleoperate the Task<a class="headerlink" href="#teleoperate-the-task" title="Link to this heading">#</a></h2>
 <p>The Isaac Lab teleoperation script can control the task through Arena’s interop callback.
-The commands below use keyboard control; replace <code class="docutils literal notranslate"><span class="pre">keyboard</span></code> with <code class="docutils literal notranslate"><span class="pre">spacemouse</span></code> to use a
-SpaceMouse. Press <code class="docutils literal notranslate"><span class="pre">K</span></code> to open or close the gripper and <code class="docutils literal notranslate"><span class="pre">R</span></code> to reset an attempt.</p>
+Choose the tab for your input device, then run the command for the simulation backend.</p>
 <p>See <a class="reference internal" href="gear_insertion.html#spacemouse-setup"><span class="std std-ref">SpaceMouse Setup (Optional)</span></a> for the required host permissions and Docker setup.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-2">
-Newton</label><div class="sd-tab-content docutils">
+Keyboard</label><div class="sd-tab-content docutils">
+<p><strong>Newton</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/environments/teleoperation/teleop_se3_agent.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>droid_deformable_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
@@ -670,10 +670,7 @@ Newton</label><div class="sd-tab-content docutils">
 <span class="w">  </span>--embodiment<span class="w"> </span>droid_differential_ik
 </pre></div>
 </div>
-</div>
-<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-3">
-PhysX</label><div class="sd-tab-content docutils">
+<p><strong>PhysX</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/environments/teleoperation/teleop_se3_agent.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>droid_deformable_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
@@ -682,6 +679,96 @@ PhysX</label><div class="sd-tab-content docutils">
 <span class="w">  </span>--pick_object<span class="w"> </span>deformable_cube_physx<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>droid_differential_ik
 </pre></div>
+</div>
+<p><strong>Controls</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 60.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Action</p></th>
+<th class="head"><p>Input</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Move along the X axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">W</span></code> / <code class="docutils literal notranslate"><span class="pre">S</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Move along the Y axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">A</span></code> / <code class="docutils literal notranslate"><span class="pre">D</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Move along the Z axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Q</span></code> / <code class="docutils literal notranslate"><span class="pre">E</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Rotate about the X axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Z</span></code> / <code class="docutils literal notranslate"><span class="pre">X</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Rotate about the Y axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">T</span></code> / <code class="docutils literal notranslate"><span class="pre">G</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Rotate about the Z axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">C</span></code> / <code class="docutils literal notranslate"><span class="pre">V</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Open or close the gripper</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">K</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Reset the current attempt</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">R</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+SpaceMouse</label><div class="sd-tab-content docutils">
+<p><strong>Newton</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/environments/teleoperation/teleop_se3_agent.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>droid_deformable_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--pick_object<span class="w"> </span>deformable_cube_newton<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>droid_differential_ik
+</pre></div>
+</div>
+<p><strong>PhysX</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/environments/teleoperation/teleop_se3_agent.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>droid_deformable_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--pick_object<span class="w"> </span>deformable_cube_physx<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>droid_differential_ik
+</pre></div>
+</div>
+<p><strong>Controls</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 60.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Action</p></th>
+<th class="head"><p>Input</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Move the gripper</p></td>
+<td><p>Move the cap laterally or vertically</p></td>
+</tr>
+<tr class="row-odd"><td><p>Change the gripper orientation</p></td>
+<td><p>Rotate the cap</p></td>
+</tr>
+<tr class="row-even"><td><p>Open or close the gripper</p></td>
+<td><p>Press the left button</p></td>
+</tr>
+<tr class="row-odd"><td><p>Reset the current attempt</p></td>
+<td><p>Press the right button</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 </div>

@@ -76,15 +76,16 @@ Teleoperate the Task
 --------------------
 
 The Isaac Lab teleoperation script can control the task through Arena's interop callback.
-The commands below use keyboard control; replace ``keyboard`` with ``spacemouse`` to use a
-SpaceMouse. Press ``K`` to open or close the gripper and ``R`` to reset an attempt.
+Choose the tab for your input device, then run the command for the simulation backend.
 
 See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
 
 .. tab-set::
 
-   .. tab-item:: Newton
+   .. tab-item:: Keyboard
       :selected:
+
+      **Newton**
 
       .. code-block:: bash
 
@@ -96,7 +97,7 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
            --pick_object deformable_cube_newton \
            --embodiment droid_differential_ik
 
-   .. tab-item:: PhysX
+      **PhysX**
 
       .. code-block:: bash
 
@@ -107,6 +108,36 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
            --viz kit \
            --pick_object deformable_cube_physx \
            --embodiment droid_differential_ik
+
+      .. include:: ../../_includes/keyboard_controls.rst.inc
+
+   .. tab-item:: SpaceMouse
+
+      **Newton**
+
+      .. code-block:: bash
+
+         python submodules/IsaacLab/scripts/environments/teleoperation/teleop_se3_agent.py \
+           --task droid_deformable_pick_and_place \
+           --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+           --teleop_device spacemouse \
+           --viz kit \
+           --pick_object deformable_cube_newton \
+           --embodiment droid_differential_ik
+
+      **PhysX**
+
+      .. code-block:: bash
+
+         python submodules/IsaacLab/scripts/environments/teleoperation/teleop_se3_agent.py \
+           --task droid_deformable_pick_and_place \
+           --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+           --teleop_device spacemouse \
+           --viz kit \
+           --pick_object deformable_cube_physx \
+           --embodiment droid_differential_ik
+
+      .. include:: ../../_includes/spacemouse_controls.rst.inc
 
 .. note::
 
