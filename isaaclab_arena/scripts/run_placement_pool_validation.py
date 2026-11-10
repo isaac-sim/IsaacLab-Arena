@@ -36,11 +36,7 @@ def add_pool_validation_arguments(parser: argparse.ArgumentParser) -> None:
         "--settle_time_s",
         type=float,
         default=2.0,
-        help=(
-            "Simulated time (s) to advance before reading back object velocities for each layout. "
-            "Rounded up to whole environment steps of the env's control rate. The default gives objects "
-            "released with placement clearance time to land and come to rest."
-        ),
+        help="Simulated time (s) to advance before reading back object velocities for each layout.",
     )
     group.add_argument(
         "--lin_vel_thresh",
