@@ -24,7 +24,9 @@ Task Overview
    * - **Task**
      - Pick up the cube, place it on the plate, and let it settle
    * - **Physics**
-     - Newton by default; select the backend-specific deformable asset for PhysX
+     - Newton by default; select the backend-specific deformable asset for PhysX. See Newton's
+       `VBD solver tuning guide <https://newton-physics.github.io/newton/latest/concepts/simulation_tuning_vbd.html>`_
+       for deformable simulation parameters.
 
 Prerequisites
 -------------

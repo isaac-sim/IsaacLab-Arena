@@ -39,7 +39,7 @@ def _configure_newton_deformable_physics(
         r"/World/envs/env_[^/]+/plate(?:/.*)?",
     ]
     soft_solver_cfg = VBDSolverCfg(
-        iterations=15,
+        iterations=30,
         rigid_body_contact_buffer_size=1024,
         rigid_body_particle_contact_buffer_size=8192,
     )
@@ -71,11 +71,14 @@ def _configure_newton_deformable_physics(
             iterations=1,
         ),
         soft_contact_cfg=NewtonSoftContactCfg(
-            soft_contact_ke=1.0e3,
+            # Rigid-soft contact averages this with the rigid shape's stiffness.
+            # Keep it comparable to the cube's elastic stiffness under gripper loads.
+            soft_contact_ke=1.0e5,
             soft_contact_kd=10.0,
             soft_contact_mu=3.0,
         ),
-        num_substeps=8,
+        # Refresh proxy contacts at 1920 Hz for the default 120 Hz physics tick.
+        num_substeps=16,
     )
     return env_cfg
 
