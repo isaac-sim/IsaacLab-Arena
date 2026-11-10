@@ -39,6 +39,7 @@ def _write_physics_variant_usd(path: Path) -> None:
 
 def _test_object_accepts_configclass_variants(simulation_app, asset_dir: Path) -> bool:
     from isaaclab.utils.configclass import configclass
+    from pxr import Usd
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
@@ -49,10 +50,15 @@ def _test_object_accepts_configclass_variants(simulation_app, asset_dir: Path) -
 
     usd_path = asset_dir / "prop.usda"
     _write_physics_variant_usd(usd_path)
+    # Opened first, so type detection below shares this stage's copy of the asset layer.
+    other_stage = Usd.Stage.Open(str(usd_path))
 
     # The rigid body exists only under the selected variant, so detecting RIGID shows the selection was applied.
     prop = Object(name="prop", usd_path=str(usd_path), spawn_cfg_addon={"variants": PhysicsVariantsCfg()})
     assert prop.object_type == ObjectType.RIGID
+    # Detection selects the variant without editing the shared asset layer.
+    assert not other_stage.GetRootLayer().dirty
+    assert other_stage.GetDefaultPrim().GetVariantSet("Physics").GetVariantSelection() == "none"
 
     # A contact sensor against a static object filters on the body nested under the selected variant.
     shelf = Object(

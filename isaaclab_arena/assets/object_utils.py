@@ -40,7 +40,9 @@ def detect_object_type(
     if usd_path is not None:
         # Open a stage to inspect the USD.
         stage = Usd.Stage.Open(usd_path)
-    apply_usd_variant_selections(stage, variants)
+    # Select variants in the session layer, so the asset's layer, which other open stages share, stays unedited.
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        apply_usd_variant_selections(stage, variants)
     # We do a Breadth First Search (BFS) through the prims, until we find either
     # a rigid body or an articulation root. At that point, we continue searching
     # the rest of the prims at that depth, to ensure that there's nothing else.
