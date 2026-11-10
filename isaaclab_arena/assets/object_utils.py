@@ -16,7 +16,7 @@ from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
 def detect_object_type(
     usd_path: str | None = None,
     stage: Usd.Stage | None = None,
-    variants: object | None = None,
+    variants: object | dict[str, str] | None = None,
 ) -> ObjectType:
     """Detect the object type of the asset
 
@@ -29,8 +29,8 @@ def detect_object_type(
     Args:
         usd_path: The path to the USD file to inspect. Either this or stage must be provided.
         stage: The stage to inspect. Either this or usd_path must be provided.
-        variants: USD variants to select before looking at the asset, as a dictionary or a
-            configclass. SimReady props need ``{"Physics": "physics"}``, or they have no physics at all.
+        variants: A dictionary or config class mapping variant set names to the variants to select before
+            looking at the asset. SimReady props need ``{"Physics": "physics"}``, or they have no physics at all.
 
     Returns:
         The object type of the asset.
@@ -40,8 +40,7 @@ def detect_object_type(
     if usd_path is not None:
         # Open a stage to inspect the USD.
         stage = Usd.Stage.Open(usd_path)
-    if variants:
-        apply_usd_variant_selections(stage, variants)
+    apply_usd_variant_selections(stage, variants)
     # We do a Breadth First Search (BFS) through the prims, until we find either
     # a rigid body or an articulation root. At that point, we continue searching
     # the rest of the prims at that depth, to ensure that there's nothing else.

@@ -59,7 +59,7 @@ _RIGID_BODY_PATHS_BY_ASSET: dict[tuple[str, tuple[tuple[str, str], ...]], list[s
 """Rigid body paths already read, keyed by asset path and variant selection."""
 
 
-def read_asset_rigid_body_paths(usd_path: str, variants: object | None = None) -> list[str]:
+def read_asset_rigid_body_paths(usd_path: str, variants: object | dict[str, str] | None = None) -> list[str]:
     """Get the prim paths of the rigid bodies in an asset, fetching it first if it is remote.
 
     The asset is referenced into a throwaway stage instead of being opened, so selecting a variant
@@ -68,8 +68,8 @@ def read_asset_rigid_body_paths(usd_path: str, variants: object | None = None) -
 
     Args:
         usd_path: Path to the USD file to analyze, local or remote.
-        variants: USD variants to select before looking for rigid bodies, as a dictionary or a
-            configclass. SimReady props need ``{"Physics": "physics"}``, or they have no physics at all.
+        variants: A dictionary or config class mapping variant set names to the variants to select before
+            looking for rigid bodies. SimReady props need ``{"Physics": "physics"}``, or they have no physics at all.
 
     Returns:
         Prim paths of the asset's rigid bodies, empty if it has none.
@@ -84,8 +84,7 @@ def read_asset_rigid_body_paths(usd_path: str, variants: object | None = None) -
         root = stage.DefinePrim("/Asset", "Xform")
         root.GetReferences().AddReference(retrieve_file_path(usd_path))
         stage.SetDefaultPrim(root)
-        if variants:
-            apply_usd_variant_selections(stage, variants)
+        apply_usd_variant_selections(stage, variants)
         _RIGID_BODY_PATHS_BY_ASSET[key] = get_all_rigid_body_prim_paths_from_stage(stage)
     return list(_RIGID_BODY_PATHS_BY_ASSET[key])
 

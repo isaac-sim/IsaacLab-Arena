@@ -15,7 +15,11 @@ HEADLESS = True
 
 
 def _write_physics_variant_usd(path: Path) -> None:
-    """Write a USD whose only rigid body, /Asset/Body, exists under the 'physics' variant of its 'Physics' set."""
+    """Write a USD whose only rigid body, /Asset/Body, exists under the 'physics' variant of its 'Physics' set.
+
+    Args:
+        path: File to write.
+    """
     from pxr import Usd, UsdGeom, UsdPhysics
 
     stage = Usd.Stage.CreateNew(str(path))
