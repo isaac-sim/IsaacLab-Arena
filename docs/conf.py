@@ -27,6 +27,10 @@ import sys
 sys.path.insert(0, os.path.abspath("."))
 from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired, version_sort
 
+# autodoc imports isaaclab_arena from this checkout, ahead of any installed copy, so that each
+# sphinx-multiversion build documents its own version of the code.
+sys.path.insert(0, os.path.abspath(".."))
+
 # NOTE(alexmillane, 2025-04-24): This file is in a separate folder to avoid
 # duplicate configuration errors coming from mypy. The only way I could find
 # to solve this was to add this new folder.
@@ -63,6 +67,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_multiversion",
     "isaaclab_arena_doc_tools",
+    "relation_docs",
 ]
 
 source_suffix = {
@@ -77,9 +82,11 @@ myst_allow_insecure_html = True
 myst_all_links_external = True
 
 # put type hints inside the description instead of the signature (easier to read)
-# autodoc_typehints = 'description'
+autodoc_typehints = "description"
 # document class *and* __init__ methods
-# autoclass_content = 'both'    #
+autoclass_content = "both"
+add_module_names = False
+napoleon_custom_sections = ["Validation", "Restrictions"]
 
 todo_include_todos = True
 
@@ -98,7 +105,10 @@ exclude_patterns = ["_build", "_templates", "Thumbs.db", ".DS_Store", "venv_docs
 
 # Be picky about missing references
 nitpicky = True  # warns on broken references
-nitpick_ignore: list[str] = []  # can exclude known bad refs
+nitpick_ignore = [
+    # Imported only under TYPE_CHECKING in the relation modules, so autodoc cannot link it.
+    ("py:class", "PlaceableAsset"),
+]
 
 # -- Options for HTML output -------------------------------------------------
 

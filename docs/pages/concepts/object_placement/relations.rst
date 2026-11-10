@@ -23,7 +23,7 @@ This describes the intended arrangement without requiring coordinates derived
 from the dimensions of the table, mug, and bowl.
 
 For every relation's YAML ``kind``, parameters, defaults, validation check and
-restrictions, see the generated :doc:`relations_reference`.
+restrictions, see :doc:`relations_reference`.
 
 .. _relations-anchors:
 

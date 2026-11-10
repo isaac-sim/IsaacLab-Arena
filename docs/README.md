@@ -1,33 +1,31 @@
 # `isaaclab_arena` Docs - Developer Guide
 
-The docs are built on the **host machine** (not inside Docker) using a dedicated Python 3.12 venv.
-
-## Prerequisites
-
-`python3.12` and `python3.12-venv` must be installed on the host:
-
-```bash
-sudo apt-get install -y python3.12 python3.12-venv
-```
+The docs are built **inside the Arena Docker container**. Reference pages are generated with autodoc from
+the `isaaclab_arena` docstrings, so the build imports the package and its dependencies.
 
 ## First-time setup
 
-From the repo root, create the venv and install dependencies:
+In the container (see the `dev-container` skill), create a docs venv that installs the Sphinx
+requirements and also sees the container's Isaac Lab environment:
 
 ```bash
-cd docs
-python3.12 -m venv venv_docs
-source venv_docs/bin/activate
-pip install -r requirements.txt
+cd /workspaces/isaaclab_arena/docs
+uv venv --python /opt/isaaclab-venv/bin/python /tmp/arena_docs_venv
+uv pip install --python /tmp/arena_docs_venv/bin/python -r requirements.txt
+echo "import site; site.addsitedir('/opt/isaaclab-venv/lib/python3.12/site-packages')" \
+    > /tmp/arena_docs_venv/lib/python3.12/site-packages/zz_isaaclab_venv.pth
 ```
+
+The separate venv keeps Sphinx and its dependencies out of the container's Isaac Lab environment.
 
 
 ## Build and view (current branch/changes)
 
 ```bash
-make html
-xdg-open _build/current/html/index.html
+make html SPHINXBUILD=/tmp/arena_docs_venv/bin/sphinx-build
 ```
+
+Then open `docs/_build/current/html/index.html` on the host.
 
 
 ## Multi-version docs
@@ -35,6 +33,7 @@ xdg-open _build/current/html/index.html
 Builds docs for committed branches only (e.g. `main`, `release`). Local uncommitted changes are **not** reflected.
 
 ```bash
-make multi-docs
-xdg-open _build/index.html
+PATH=/tmp/arena_docs_venv/bin:$PATH make multi-docs
 ```
+
+Then open `docs/_build/index.html` on the host.

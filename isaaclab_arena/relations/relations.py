@@ -89,11 +89,11 @@ class FaceTo(RelationBase):
     any random yaw from ``random_yaw_init``.
 
     Validation:
-        the ``face_to`` check rejects layouts where the subject and reference share an XY
+        The ``face_to`` check rejects layouts where the subject and reference share an XY
         position, so that no facing direction is defined.
 
     Restrictions:
-        a subject can have only one FaceTo and cannot combine it with
+        A subject can have only one FaceTo and cannot combine it with
         RotateAroundSolution. An anchor cannot use FaceTo, and the reference must take part in placement.
         The turn is about the subject's origin, so if the subject's placement bounds are not centred on
         its origin, such as a robot on an offset stand, the turn moves the bounds' centre. A horizontal
@@ -138,11 +138,11 @@ class AlignWith(Relation):
     the other, or use two AlignWith relations for a target region relative to the reference's centre.
 
     Validation:
-        the ``align_with`` check rejects layouts whose centre error along ``axis`` exceeds
+        The ``align_with`` check rejects layouts whose centre error along ``axis`` exceeds
         ``tolerance_m``.
 
     Restrictions:
-        the subject cannot be an anchor, and the reference must be a different object that
+        The subject cannot be an anchor, and the reference must be a different object that
         takes part in placement. Horizontal alignment cannot use an object that FaceTo turns if that
         object's placement bounds are off-centre; see FaceTo.
     """
@@ -157,8 +157,7 @@ class AlignWith(Relation):
         tolerance_m: float = 0.02,
         relation_loss_weight: float = 1.0,
     ):
-        """Align the subject's bounding-box centre with the reference centre plus offset_m along axis, within tolerance_m.
-
+        """
         Args:
             parent: Reference asset participating in placement.
             axis: World axis to align along.
@@ -193,7 +192,7 @@ class NextTo(Relation):
     initializer starts the subject on the requested side within ``tolerance_m``.
 
     Validation:
-        the ``next_to`` check rejects layouts where the subject is on the wrong side, or its
+        The ``next_to`` check rejects layouts where the subject is on the wrong side, or its
         gap differs from ``distance_m`` by more than ``tolerance_m``, including when it is closer than
         requested. ``cross_position_ratio`` is not checked.
     """
@@ -245,7 +244,7 @@ class On(Relation):
     For L-shaped, hollow or concave supports, anchor an ObjectReference to the actual support surface.
 
     Validation:
-        the ``on_relation`` check rejects layouts where the subject's bottom is not within
+        The ``on_relation`` check rejects layouts where the subject's bottom is not within
         ``clearance_m`` above the reference's top, give or take ``ObjectPlacerParams.on_relation_z_tolerance_m``,
         or where its footprint leaves the inset support (or, with ``overlap=True``, does not overlap it).
     """
@@ -293,7 +292,7 @@ class ClutterOn(On):
     limit. The support may be an anchor or positioned through its own relations.
 
     Validation:
-        the ``clutter_on_relation`` check rejects layouts whose footprint leaves the release
+        The ``clutter_on_relation`` check rejects layouts whose footprint leaves the release
         region or whose bottom is below the minimum clearance. It does not check the settled pile.
 
     Restrictions:
@@ -317,8 +316,7 @@ class ClutterOn(On):
         edge_margin_m: float = 0.0,
         relation_loss_weight: float = 1.0,
     ):
-        """Declare a clutter release.
-
+        """
         Args:
             parent: Support fixed with IsAnchor or positioned through its own relations.
             spread: Fraction of support width and depth available for release, centered on the support.
@@ -391,7 +389,7 @@ class NotNextTo(Relation):
     ``RelationSolverParams.strategies``.
 
     Validation:
-        the ``not_next_to`` check rejects layouts where the subject has not cleared the
+        The ``not_next_to`` check rejects layouts where the subject has not cleared the
         keep-out region, to within ``tolerance_m``.
     """
 
@@ -428,21 +426,21 @@ class IsAnchor(RelationBase):
     objects can be anchors. Anchoring does not make an object static or kinematic in physics.
 
     Validation:
-        none; anchors are not moved.
+        None; anchors are not moved.
 
     Restrictions:
-        an anchor's root rotation must be a multiple of 90 degrees about world Z, with no
+        An anchor's root rotation must be a multiple of 90 degrees about world Z, with no
         tilt.
 
-    Usage:
-        table.set_initial_pose(Pose(position_xyz=(1.0, 0.0, 0.0), ...))
-        table.add_relation(IsAnchor())  # Mark as anchor
+    Example:
+        >>> table.set_initial_pose(Pose(position_xyz=(1.0, 0.0, 0.0), ...))
+        >>> table.add_relation(IsAnchor())  # Mark as anchor
 
-        chair.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), ...))
-        chair.add_relation(IsAnchor())  # Another anchor
+        >>> chair.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), ...))
+        >>> chair.add_relation(IsAnchor())  # Another anchor
 
-        mug.add_relation(On(table))
-        bin.add_relation(NextTo(chair, side=Side.POSITIVE_X))
+        >>> mug.add_relation(On(table))
+        >>> bin.add_relation(NextTo(chair, side=Side.POSITIVE_X))
     """
 
     name = "is_anchor"
@@ -461,12 +459,12 @@ class RequiresReachability(RelationBase):
     objects they need the robot to grasp.
 
     Validation:
-        the ``ik_reachable`` check solves cuRobo IK for a top-down grasp at the subject from
+        The ``ik_reachable`` check solves cuRobo IK for a top-down grasp at the subject from
         the robot's placed base, and rejects layouts where it fails. The check runs only when
         ``ObjectPlacerParams.reachability_config.embodiment`` has a cuRobo configuration.
 
-    Usage:
-        banana.add_relation(RequiresReachability())  # IK-check reachability of the banana
+    Example:
+        >>> banana.add_relation(RequiresReachability())  # IK-check reachability of the banana
     """
 
     name = "requires_reachability"
@@ -488,16 +486,16 @@ class RotateAroundSolution(RelationBase):
     A ClutterOn subject keeps it as its base rotation.
 
     Validation:
-        none.
+        None.
 
     Restrictions:
-        cannot be combined with FaceTo on the same subject.
+        Cannot be combined with FaceTo on the same subject.
 
-    Usage:
-        import math
-        box.add_relation(On(desk))
-        box.add_relation(RotateAroundSolution(yaw_rad=math.pi / 4))
-        # -> ObjectPlacer sets a Pose with solved position and 45° yaw rotation
+    Example:
+        >>> import math
+        >>> box.add_relation(On(desk))
+        >>> box.add_relation(RotateAroundSolution(yaw_rad=math.pi / 4))
+        >>> # -> ObjectPlacer sets a Pose with solved position and 45° yaw rotation
     """
 
     name = "rotate_around_solution"
@@ -547,12 +545,12 @@ class AtPosition(UnaryRelation):
     Axes left as None stay free, so another relation such as On can set them.
 
     Validation:
-        none; this is a solver objective only, so a valid layout can miss the target slightly.
+        None; this is a solver objective only, so a valid layout can miss the target slightly.
 
-    Usage:
-        # Pin object to x=0.5, y=1.0 in world coords (z controlled by On relation)
-        mug.add_relation(On(table))
-        mug.add_relation(AtPosition(x=0.5, y=1.0))
+    Example:
+        >>> # Pin object to x=0.5, y=1.0 in world coords (z controlled by On relation)
+        >>> mug.add_relation(On(table))
+        >>> mug.add_relation(AtPosition(x=0.5, y=1.0))
     """
 
     name = "at_position"
@@ -588,12 +586,12 @@ class PositionLimitsBox(UnaryRelation):
     free.
 
     Validation:
-        none; this is a solver objective only, so a valid layout can exceed the limits
+        None; this is a solver objective only, so a valid layout can exceed the limits
         slightly.
 
-    Usage:
-        mug.add_relation(PositionLimitsBox(x_limits=(-0.5, 0.5), y_limits=(-0.5, 0.5)))
-        mug.add_relation(PositionLimitsBox(z_limits=(0.8, None)))  # only constrain Z
+    Example:
+        >>> mug.add_relation(PositionLimitsBox(x_limits=(-0.5, 0.5), y_limits=(-0.5, 0.5)))
+        >>> mug.add_relation(PositionLimitsBox(z_limits=(0.8, None)))  # only constrain Z
     """
 
     name = "position_limits_box"
@@ -641,11 +639,11 @@ class PositionLimitsCylindrical(UnaryRelation):
     axis-aligned XY limits.
 
     Validation:
-        none; this is a solver objective only, so a valid layout can exceed the limits
+        None; this is a solver objective only, so a valid layout can exceed the limits
         slightly.
 
-    Usage:
-        mug.add_relation(PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=0.5))
+    Example:
+        >>> mug.add_relation(PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=0.5))
     """
 
     name = "position_limits_cylindrical"
