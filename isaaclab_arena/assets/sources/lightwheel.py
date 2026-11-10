@@ -21,11 +21,11 @@ class LightwheelUsdSource(UsdSource):
 
     def __init__(self, **acquire_by_registry_kwargs: Any):
         self._kwargs = acquire_by_registry_kwargs
-        self._resolved: str | None = None
+        self._local_file_path: str | None = None
 
     def to_local_usd_path(self) -> str:
         """Acquire the USD on first use and reuse that path thereafter."""
-        if self._resolved is None:
+        if self._local_file_path is None:
             from lightwheel_sdk.loader import object_loader
 
             file_path, _, _ = acquire_lightwheel_asset(
@@ -34,8 +34,9 @@ class LightwheelUsdSource(UsdSource):
                 description=f"Lightwheel asset {self._kwargs}",
                 **self._kwargs,
             )
-            self._resolved = str(file_path)
-        return self._resolved
+            assert file_path, f"Lightwheel did not return a USD path for {self._kwargs}"
+            self._local_file_path = str(file_path)
+        return self._local_file_path
 
 
 class LightwheelFloorplanUsdSource(UsdSource):
@@ -48,11 +49,11 @@ class LightwheelFloorplanUsdSource(UsdSource):
             "style_id": style_id,
             "backend": backend,
         }
-        self._resolved: str | None = None
+        self._local_file_path: str | None = None
 
     def to_local_usd_path(self) -> str:
         """Acquire the floorplan USD on first use and reuse that path thereafter."""
-        if self._resolved is None:
+        if self._local_file_path is None:
             from lightwheel_sdk.loader import floorplan_loader
 
             file_path = acquire_lightwheel_asset(
@@ -61,8 +62,9 @@ class LightwheelFloorplanUsdSource(UsdSource):
                 description=f"Lightwheel floorplan {self._kwargs}",
                 **self._kwargs,
             )[0]
-            self._resolved = str(file_path)
-        return self._resolved
+            assert file_path, f"Lightwheel did not return a floorplan USD path for {self._kwargs}"
+            self._local_file_path = str(file_path)
+        return self._local_file_path
 
 
 def acquire_lightwheel_asset(

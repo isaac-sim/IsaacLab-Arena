@@ -17,17 +17,20 @@ _ASSET_PATH_BY_URL: dict[str, str] = {}
 
 
 class SimReadyCentralUsdSource(UsdSource):
-    """Download and reuse a complete pinned SimReady Central package by URL."""
+    """Retrieve and reuse a pinned SimReady Central USD through Isaac Lab's asset cache."""
 
     def __init__(self, url: str):
-        _parse_central_asset_url(url)
+        repo_id, revision, filename, _ = _parse_central_asset_url(url)
         self.url = url
+        self._download_url = f"https://huggingface.co/datasets/{repo_id}/resolve/{revision}/{filename}"
 
     def to_local_usd_path(self) -> str:
-        """Download the package and return its original USD entrypoint."""
-        if self.url not in _ASSET_PATH_BY_URL:
-            _ASSET_PATH_BY_URL[self.url] = download_central_asset_package(self.url)
-        return _ASSET_PATH_BY_URL[self.url]
+        """Return the USD with its dependencies localized by Isaac Lab."""
+        from isaaclab.utils.assets import retrieve_file_path
+
+        if self._download_url not in _ASSET_PATH_BY_URL:
+            _ASSET_PATH_BY_URL[self._download_url] = retrieve_file_path(self._download_url)
+        return _ASSET_PATH_BY_URL[self._download_url]
 
 
 def is_central_asset_url(url: str) -> bool:
@@ -36,32 +39,6 @@ def is_central_asset_url(url: str) -> bool:
     return (
         parsed.scheme in ("https", "hf") and parsed.netloc == "huggingface.co" and parsed.path.startswith("/datasets/")
     )
-
-
-def download_central_asset_package(url: str) -> str:
-    """Download every file in a pinned asset package and return its cached USD entrypoint."""
-    from concurrent.futures import ThreadPoolExecutor
-
-    from huggingface_hub import HfApi, hf_hub_download
-    from huggingface_hub.hf_api import RepoFile
-
-    repo_id, revision, filename, folder = _parse_central_asset_url(url)
-    # List only the selected package, avoiding a scan of the entire dataset.
-    files = [
-        entry.path
-        for entry in HfApi().list_repo_tree(
-            repo_id=repo_id, repo_type="dataset", revision=revision, path_in_repo=folder, recursive=True
-        )
-        if isinstance(entry, RepoFile)
-    ]
-    assert filename in files, "asset package is missing its USD entrypoint"
-
-    def download_file(path: str) -> str:
-        return hf_hub_download(repo_id=repo_id, repo_type="dataset", revision=revision, filename=path)
-
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        cached_paths = dict(zip(files, executor.map(download_file, files), strict=True))
-    return cached_paths[filename]
 
 
 def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:
@@ -77,7 +54,7 @@ def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:
     assert not any(char in filename for char in "*?[]\\"), "invalid asset path"
     assert path.suffix in (".usd", ".usda", ".usdc", ".usdz"), "expected USD asset"
     assert "simready_usd" in path.parts, "unsupported Central package layout"
-    # Central keeps the entrypoint in <asset>/simready_usd/; fetch that asset's package and dependencies.
+    # Central keeps the entrypoint in <asset>/simready_usd/.
     folder = PurePosixPath(*path.parts[: path.parts.index("simready_usd")])
     assert str(folder) != ".", "asset must have a package folder"
     return repo_id, revision, filename, str(folder)

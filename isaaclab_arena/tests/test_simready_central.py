@@ -75,17 +75,38 @@ def test_central_rejects_unpinned_or_unbounded_packages(url):
         _parse_central_asset_url(url)
 
 
-def test_central_usd_source_downloads_package_once():
-    from isaaclab_arena.assets.sources.simready_central import _ASSET_PATH_BY_URL, SimReadyCentralUsdSource
+@pytest.mark.parametrize("scheme", ["https", "hf"])
+@pytest.mark.parametrize("endpoint", ["resolve", "blob"])
+def test_central_usd_source_retrieves_canonical_url_once(scheme, endpoint, monkeypatch):
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
 
-    _ASSET_PATH_BY_URL.clear()
-    first_source = SimReadyCentralUsdSource(URL)
-    second_source = SimReadyCentralUsdSource(URL)
-    with patch(f"{LOADER}.download_central_asset_package", return_value="/cache/pallet.usd") as download:
+    monkeypatch.setattr(f"{LOADER}._ASSET_PATH_BY_URL", {})
+    url = URL.replace("hf://", f"{scheme}://").replace("/resolve/", f"/{endpoint}/")
+    canonical_url = URL.replace("hf://", "https://")
+    with patch("isaaclab.utils.assets.retrieve_file_path", return_value="/cache/pallet.usd") as retrieve:
+        first_source = SimReadyCentralUsdSource(url)
+        second_source = SimReadyCentralUsdSource(canonical_url)
+        retrieve.assert_not_called()
+        assert first_source.url == url
         assert first_source.to_local_usd_path() == "/cache/pallet.usd"
         assert second_source.to_local_usd_path() == "/cache/pallet.usd"
-    download.assert_called_once_with(URL)
-    _ASSET_PATH_BY_URL.clear()
+        assert first_source.to_local_usd_path() == "/cache/pallet.usd"
+    retrieve.assert_called_once_with(canonical_url)
+
+
+def test_central_usd_source_retries_after_retrieval_failure(monkeypatch):
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
+
+    monkeypatch.setattr(f"{LOADER}._ASSET_PATH_BY_URL", {})
+    source = SimReadyCentralUsdSource(URL)
+    with patch(
+        "isaaclab.utils.assets.retrieve_file_path", side_effect=[FileNotFoundError("offline"), "/cache/pallet.usd"]
+    ) as retrieve:
+        with pytest.raises(FileNotFoundError, match="offline"):
+            source.to_local_usd_path()
+        assert source.to_local_usd_path() == "/cache/pallet.usd"
+        assert source.to_local_usd_path() == "/cache/pallet.usd"
+    assert retrieve.call_count == 2
 
 
 def _test_central_usd_validation():
@@ -137,29 +158,6 @@ def _test_central_usd_validation():
 
 def test_central_usd_validation():
     assert _test_central_usd_validation()
-
-
-def test_central_download_lists_only_the_selected_package():
-    from huggingface_hub.hf_api import RepoFile
-
-    from isaaclab_arena.assets.sources.simready_central import download_central_asset_package
-
-    filenames = ["pallet/simready_usd/pallet.usd", "pallet/textures/color.png"]
-    entries = [RepoFile(path=path, size=1, oid="a" * 40) for path in filenames]
-    with (
-        patch("huggingface_hub.HfApi.list_repo_tree", return_value=iter(entries)) as list_tree,
-        patch("huggingface_hub.hf_hub_download", side_effect=lambda **kw: "/cache/" + kw["filename"]) as download,
-    ):
-        assert download_central_asset_package(URL) == "/cache/" + filenames[0]
-    list_tree.assert_called_once_with(
-        repo_id="nvidia/simready-assets",
-        repo_type="dataset",
-        revision=REVISION,
-        path_in_repo="pallet",
-        recursive=True,
-    )
-    assert {call.kwargs["filename"] for call in download.call_args_list} == set(filenames)
-    assert all(call.kwargs["revision"] == REVISION for call in download.call_args_list)
 
 
 @pytest.mark.parametrize("scheme", ["https", "hf"])

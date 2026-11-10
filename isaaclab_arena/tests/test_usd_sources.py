@@ -5,8 +5,11 @@
 
 """Unit tests for source-neutral USD acquisition."""
 
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
+
+import pytest
 
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource, LightwheelUsdSource
@@ -101,6 +104,29 @@ def test_lightwheel_floorplan_source_is_lazy_and_memoizes_acquisition():
         style_id=10,
         backend="robocasa",
     )
+
+
+@pytest.mark.parametrize("file_path", [None, ""])
+@pytest.mark.parametrize("kind", ["object", "floorplan"])
+def test_lightwheel_source_rejects_missing_path_without_caching_it(kind, file_path):
+    valid_path = Path("/cache/asset.usd")
+    acquire = Mock(side_effect=[(file_path, "asset", {}), (valid_path, "asset", {})])
+    loader_module = ModuleType("lightwheel_sdk.loader")
+    if kind == "object":
+        loader_module.object_loader = SimpleNamespace(acquire_by_registry=acquire)
+        source = LightwheelUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
+    else:
+        loader_module.floorplan_loader = SimpleNamespace(get_usd=acquire)
+        source = LightwheelFloorplanUsdSource(scene="robocasakitchen", layout_id=6, style_id=10, backend="robocasa")
+    package = ModuleType("lightwheel_sdk")
+    package.loader = loader_module
+
+    with patch.dict("sys.modules", {"lightwheel_sdk": package, "lightwheel_sdk.loader": loader_module}):
+        with pytest.raises(AssertionError, match="Lightwheel did not return"):
+            source.to_local_usd_path()
+        assert source.to_local_usd_path() == str(valid_path)
+        assert source.to_local_usd_path() == str(valid_path)
+    assert acquire.call_count == 2
 
 
 def test_library_objects_reuse_their_class_level_lightwheel_source(tmp_path):
