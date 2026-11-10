@@ -155,6 +155,7 @@ jobs:
       - name: Describe cache inputs
         run: |
           echo "Cache: ${ARENA_IMAGE}:buildcache-main-${ARENA_TARGET}"
+          echo "PR cache: ${ARENA_IMAGE}:buildcache-pr-${{ github.event.pull_request.number }}-${ARENA_TARGET}"
           docker buildx version
           git rev-parse HEAD
           git submodule status
@@ -176,12 +177,22 @@ jobs:
           # Keep candidate images as single-platform manifests for NGC.
           provenance: false
           tags: ${{ env.ARENA_IMAGE }}:ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.ARENA_TARGET }}
-          cache-from: type=registry,ref=${{ env.ARENA_IMAGE }}:buildcache-main-${{ env.ARENA_TARGET }}
-          # PRs read the shared cache; only a push to main may replace it.
+          # Read the shared main cache and, on a PR, that PR's own cache (empty line otherwise).
+          cache-from: |
+            type=registry,ref=${{ env.ARENA_IMAGE }}:buildcache-main-${{ env.ARENA_TARGET }}
+            ${{ github.event_name == 'pull_request'
+                && format('type=registry,ref={0}:buildcache-pr-{1}-{2}',
+                          env.ARENA_IMAGE, github.event.pull_request.number, env.ARENA_TARGET) || '' }}
+          # Only a push to main may replace the shared cache. A PR writes its own cache ref, so reruns
+          # and later pushes to the same PR reuse the layers it already built.
           cache-to: >-
             ${{ github.event_name == 'push' && github.ref == 'refs/heads/main'
                 && format('type=registry,ref={0}:buildcache-main-{1},mode=max,oci-mediatypes=true,image-manifest=true',
-                          env.ARENA_IMAGE, env.ARENA_TARGET) || '' }}
+                          env.ARENA_IMAGE, env.ARENA_TARGET)
+                || github.event_name == 'pull_request'
+                && format('type=registry,ref={0}:buildcache-pr-{1}-{2},mode=max,oci-mediatypes=true,image-manifest=true',
+                          env.ARENA_IMAGE, github.event.pull_request.number, env.ARENA_TARGET)
+                || '' }}
 
       # Show cache hits and step timings in the job log and GitHub Actions run summary
       # to help explain unexpected rebuilds or slow cache downloads.
@@ -318,6 +329,26 @@ jobs:
         run: |
           MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
             isaaclab_arena_curobo/tests/
+
+      # A Kit crash can leave a crash dump behind. Dumps contain the process environment (CI secrets), so
+      # they are encrypted to the recipient's GitHub SSH keys and only the encrypted archive is uploaded.
+      # Nothing is uploaded when there is no dump or no usable key.
+      - name: Encrypt Kit crash dumps
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          CRASH_DUMP_RECIPIENT_GITHUB_USER: david-tingdahl-nvidia
+        run: .github/scripts/encrypt_crash_dumps.sh crash_dumps_encrypted
+
+      - name: Upload encrypted Kit crash dumps
+        if: ${{ always() && hashFiles('crash_dumps_encrypted/*.age') != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: kit-crash-dumps-encrypted-${{ github.run_attempt }}
+          path: crash_dumps_encrypted/*.age
+          retention-days: 3
+          if-no-files-found: ignore
 
 
   tests_with_subprocess:

@@ -23,8 +23,9 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubc
 apt-get update
 apt-get install -y gh
 
-# Native debuggers for inspecting a hung or crashed Isaac Sim process in CI and locally.
-apt-get install -y gdb strace lsof
+# Native debuggers for inspecting a hung or crashed Isaac Sim process in CI and locally, and age to
+# encrypt crash dumps (which contain CI secrets) before they are uploaded.
+apt-get install -y gdb strace lsof age
 
 # Add a shortcut that waits for a debugger to connect on port 5678.
 # The quoted SHELL marker writes the following lines literally into the shell configuration.
