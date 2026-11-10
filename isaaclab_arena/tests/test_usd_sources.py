@@ -9,7 +9,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
 
 from isaaclab_arena.assets.sources.base import UsdSource
-from isaaclab_arena.assets.sources.lightwheel import LightwheelUsdSource
+from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource, LightwheelUsdSource
 
 
 def test_object_acquires_usd_source_path(tmp_path):
@@ -66,6 +66,40 @@ def test_lightwheel_source_is_lazy_and_memoizes_acquisition():
         registry_type="objects",
         registry_name=["broccoli"],
         file_type="USD",
+    )
+
+
+def test_lightwheel_floorplan_source_is_lazy_and_memoizes_acquisition():
+    loader = SimpleNamespace(
+        get_usd=Mock(return_value=("/cache/kitchen.usd", {})),
+        client=SimpleNamespace(base_timeout=10),
+    )
+    loader_module = ModuleType("lightwheel_sdk.loader")
+    loader_module.floorplan_loader = loader
+    package = ModuleType("lightwheel_sdk")
+    package.loader = loader_module
+    source = LightwheelFloorplanUsdSource(
+        scene="robocasakitchen",
+        layout_id=6,
+        style_id=10,
+        backend="robocasa",
+    )
+
+    assert loader.get_usd.call_count == 0
+    with patch.dict(
+        "sys.modules",
+        {"lightwheel_sdk": package, "lightwheel_sdk.loader": loader_module},
+    ):
+        first = source.to_local_usd_path()
+        second = source.to_local_usd_path()
+
+    assert first is second
+    assert first == "/cache/kitchen.usd"
+    loader.get_usd.assert_called_once_with(
+        scene="robocasakitchen",
+        layout_id=6,
+        style_id=10,
+        backend="robocasa",
     )
 
 

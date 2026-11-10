@@ -38,6 +38,33 @@ class LightwheelUsdSource(UsdSource):
         return self._resolved
 
 
+class LightwheelFloorplanUsdSource(UsdSource):
+    """Acquire and memoize one Lightwheel floorplan USD on first use."""
+
+    def __init__(self, scene: str, layout_id: int, style_id: int, backend: str):
+        self._kwargs = {
+            "scene": scene,
+            "layout_id": layout_id,
+            "style_id": style_id,
+            "backend": backend,
+        }
+        self._resolved: str | None = None
+
+    def to_local_usd_path(self) -> str:
+        """Acquire the floorplan USD on first use and reuse that path thereafter."""
+        if self._resolved is None:
+            from lightwheel_sdk.loader import floorplan_loader
+
+            file_path = acquire_lightwheel_asset(
+                floorplan_loader,
+                floorplan_loader.get_usd,
+                description=f"Lightwheel floorplan {self._kwargs}",
+                **self._kwargs,
+            )[0]
+            self._resolved = str(file_path)
+        return self._resolved
+
+
 def acquire_lightwheel_asset(
     loader: Any,
     acquire_fn: Callable,

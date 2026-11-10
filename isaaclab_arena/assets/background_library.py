@@ -14,7 +14,7 @@ from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.sources.base import UsdSource
-from isaaclab_arena.assets.sources.lightwheel import acquire_lightwheel_asset
+from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -171,24 +171,16 @@ class LightwheelKitchenBackground(LibraryBackground):
         style_id: int | None = None,
         **kwargs,
     ):
-        from lightwheel_sdk.loader import floorplan_loader
-
         if layout_id is None:
             layout_id = self.layout_id
         if style_id is None:
             style_id = self.style_id
 
-        # Lazily download the USD
-        self.usd_path = str(
-            acquire_lightwheel_asset(
-                floorplan_loader,
-                floorplan_loader.get_usd,
-                description=f"{self.registry_name} background layout={layout_id} style={style_id}",
-                scene="robocasakitchen",
-                layout_id=layout_id,
-                style_id=style_id,
-                backend="robocasa",
-            )[0]
+        self.usd_source = LightwheelFloorplanUsdSource(
+            scene="robocasakitchen",
+            layout_id=layout_id,
+            style_id=style_id,
+            backend="robocasa",
         )
         super().__init__(**kwargs)
 
