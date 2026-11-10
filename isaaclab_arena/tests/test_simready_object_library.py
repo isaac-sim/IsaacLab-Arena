@@ -75,20 +75,22 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
 
 def test_simready_usd_object_resolves_central_url(monkeypatch):
     from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
-    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource
+    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
 
     url = f"hf://huggingface.co/datasets/nvidia/simready-assets/resolve/{'a' * 40}/pallet/simready_usd/pallet.usd"
     resolved_urls = []
 
-    def to_local_usd_path(source: SimReadyCentralRigidSource) -> str:
+    def to_local_usd_path(source: SimReadyCentralUsdSource) -> str:
         resolved_urls.append(source.url)
-        return "/cache/pallet.usda"
+        return "/cache/pallet.usd"
 
-    monkeypatch.setattr(SimReadyCentralRigidSource, "to_local_usd_path", to_local_usd_path)
+    monkeypatch.setattr(SimReadyCentralUsdSource, "to_local_usd_path", to_local_usd_path)
 
     obj = SimReadyUsdObject(usd_path=url)
 
-    assert obj.usd_path == "/cache/pallet.usda"
+    assert obj.usd_path == "/cache/pallet.usd"
+    assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics", "PhysX": "Enabled"}
+    assert obj._get_spawn_cfg().variants == {"Physics": "physics", "PhysX": "Enabled"}
     assert resolved_urls == [url]
 
 

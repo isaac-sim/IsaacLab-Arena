@@ -7,43 +7,27 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from urllib.parse import urlsplit
 
-from isaaclab_arena.assets.simready_constants import SIMREADY_PHYSICS_VARIANTS
 from isaaclab_arena.assets.sources.base import UsdSource
+
+_ASSET_PATH_BY_URL: dict[str, str] = {}
 
 
 class SimReadyCentralUsdSource(UsdSource):
-    """Download a complete pinned SimReady Central package on first use."""
+    """Download and reuse a complete pinned SimReady Central package by URL."""
 
     def __init__(self, url: str):
         _parse_central_asset_url(url)
         self.url = url
-        self._asset_path: str | None = None
 
     def to_local_usd_path(self) -> str:
         """Download the package and return its original USD entrypoint."""
-        if self._asset_path is None:
-            self._asset_path = download_central_asset_package(self.url)
-        return self._asset_path
-
-
-class SimReadyCentralRigidSource(SimReadyCentralUsdSource):
-    """Return a validated single-rigid-body wrapper for a Central package."""
-
-    def __init__(self, url: str):
-        super().__init__(url)
-        self._wrapper_path: str | None = None
-
-    def to_local_usd_path(self) -> str:
-        """Download the package and return its compatibility wrapper."""
-        if self._wrapper_path is None:
-            asset_path = super().to_local_usd_path()
-            self._wrapper_path = create_central_rigid_wrapper(asset_path, source_url=self.url)
-        return self._wrapper_path
+        if self.url not in _ASSET_PATH_BY_URL:
+            _ASSET_PATH_BY_URL[self.url] = download_central_asset_package(self.url)
+        return _ASSET_PATH_BY_URL[self.url]
 
 
 def is_central_asset_url(url: str) -> bool:
@@ -78,37 +62,6 @@ def download_central_asset_package(url: str) -> str:
     with ThreadPoolExecutor(max_workers=8) as executor:
         cached_paths = dict(zip(files, executor.map(download_file, files), strict=True))
     return cached_paths[filename]
-
-
-def create_central_rigid_wrapper(asset_path: str, *, source_url: str) -> str:
-    """Validate a Central USD as one rigid body and cache its PhysX wrapper."""
-    from pxr import Usd, UsdGeom, UsdPhysics
-
-    from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
-
-    asset_stage = Usd.Stage.Open(asset_path)
-    assert asset_stage and asset_stage.GetDefaultPrim(), "asset requires a default prim"
-    stage = Usd.Stage.CreateInMemory()
-    UsdGeom.SetStageMetersPerUnit(stage, UsdGeom.GetStageMetersPerUnit(asset_stage))
-    UsdGeom.SetStageUpAxis(stage, UsdGeom.GetStageUpAxis(asset_stage))
-    root = stage.DefinePrim("/Asset")
-    root.GetReferences().AddReference(asset_path)
-    stage.SetDefaultPrim(root)
-    # TODO(xinjieyao, 20261022): Support Newton.
-    apply_usd_variant_selections(stage, {**SIMREADY_PHYSICS_VARIANTS, "PhysX": "Enabled"})
-    assert not stage.GetCompositionErrors(), "USD has unresolved composition errors"
-    bodies = []
-    for prim in Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()):
-        assert not prim.HasAPI(UsdPhysics.ArticulationRootAPI), "asset has an articulation root"
-        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
-            bodies.append(prim)
-    assert len(bodies) == 1, f"expected one rigid body, found {len(bodies)}"
-    assert UsdPhysics.RigidBodyAPI(bodies[0]).GetRigidBodyEnabledAttr().Get(), "rigid body is disabled"
-    cache = Path.home() / ".cache" / "isaaclab_arena" / "simready-central"
-    cache.mkdir(parents=True, exist_ok=True)
-    wrapper = cache / f"{hashlib.sha256(source_url.encode()).hexdigest()}.usda"
-    assert stage.GetRootLayer().Export(str(wrapper)), f"failed to export Central wrapper to {wrapper}"
-    return str(wrapper)
 
 
 def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:

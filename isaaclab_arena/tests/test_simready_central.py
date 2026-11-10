@@ -33,13 +33,15 @@ def test_central_requires_single_body_metadata_and_skips_invalid_usd():
     response.json.return_value = {"hits": [_hit(None), _hit(2), _hit(1), _hit(1)]}
     with (
         patch(f"{MODULE}.requests.post", return_value=response) as post,
-        patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
+        patch(f"{MODULE}.SimReadyCentralUsdSource") as source,
+        patch(f"{MODULE}.validate_usd_object_type", side_effect=[ValueError("articulation"), None]) as validate,
     ):
-        source.return_value.to_local_usd_path.side_effect = [ValueError("articulation"), "/cache/pallet.usda"]
+        source.return_value.to_local_usd_path.side_effect = ["/cache/first.usd", "/cache/second.usd"]
         candidates = search_central_objects("pallet", max_results=1)
     assert [candidate.usd_path for candidate in candidates] == [URL.replace("hf://", "https://", 1)]
     assert all(call.args == (URL.replace("hf://", "https://", 1),) for call in source.call_args_list)
     assert source.call_count == 2
+    assert validate.call_count == 2
     assert post.call_args.kwargs["json"]["filter_by_properties_numeric"] == "simready_metadata_rigid_body_count=1"
     assert post.call_args.kwargs["timeout"] == 30
 
@@ -74,38 +76,27 @@ def test_central_rejects_unpinned_or_unbounded_packages(url):
 
 
 def test_central_usd_source_downloads_package_once():
-    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
+    from isaaclab_arena.assets.sources.simready_central import _ASSET_PATH_BY_URL, SimReadyCentralUsdSource
 
-    source = SimReadyCentralUsdSource(URL)
+    _ASSET_PATH_BY_URL.clear()
+    first_source = SimReadyCentralUsdSource(URL)
+    second_source = SimReadyCentralUsdSource(URL)
     with patch(f"{LOADER}.download_central_asset_package", return_value="/cache/pallet.usd") as download:
-        assert source.to_local_usd_path() == "/cache/pallet.usd"
-        assert source.to_local_usd_path() == "/cache/pallet.usd"
+        assert first_source.to_local_usd_path() == "/cache/pallet.usd"
+        assert second_source.to_local_usd_path() == "/cache/pallet.usd"
     download.assert_called_once_with(URL)
+    _ASSET_PATH_BY_URL.clear()
 
 
-def test_central_rigid_source_wraps_package_once():
-    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource, SimReadyCentralUsdSource
-
-    source = SimReadyCentralRigidSource(URL)
-    with (
-        patch.object(
-            SimReadyCentralUsdSource, "to_local_usd_path", return_value="/cache/pallet.usd"
-        ) as resolve_package,
-        patch(f"{LOADER}.create_central_rigid_wrapper", return_value="/cache/pallet.usda") as create_wrapper,
-    ):
-        assert source.to_local_usd_path() == "/cache/pallet.usda"
-        assert source.to_local_usd_path() == "/cache/pallet.usda"
-    resolve_package.assert_called_once_with()
-    create_wrapper.assert_called_once_with("/cache/pallet.usd", source_url=URL)
-
-
-def _test_central_usd_validation(simulation_app):
+def _test_central_usd_validation():
     import tempfile
     from pathlib import Path
 
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS
+    from isaaclab_arena.utils.usd.object_type import validate_usd_object_type
 
     with tempfile.TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -123,36 +114,29 @@ def _test_central_usd_validation(simulation_app):
                 body.CreateRigidBodyEnabledAttr(enabled)
         physx_variants.SetVariantSelection("Disabled")
         stage.GetRootLayer().Save()
-        with (
-            patch(f"{LOADER}.download_central_asset_package", return_value=str(asset)),
-            patch(f"{LOADER}.Path.home", return_value=folder),
-        ):
-            wrapper = SimReadyCentralRigidSource(URL).to_local_usd_path()
-            wrapper_stage = Usd.Stage.Open(wrapper)
-            wrapper_root = wrapper_stage.GetDefaultPrim()
-            assert wrapper_root.GetVariantSet("PhysX").GetVariantSelection() == "Enabled"
-            assert UsdPhysics.RigidBodyAPI(wrapper_root).GetRigidBodyEnabledAttr().Get()
+        validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
+        physx_variants.SetVariantSelection("Enabled")
+        with physx_variants.GetVariantEditContext():
             body.GetRigidBodyEnabledAttr().Set(False)
-            stage.GetRootLayer().Save()
-            with pytest.raises(AssertionError, match="disabled"):
-                SimReadyCentralRigidSource(URL).to_local_usd_path()
+        stage.GetRootLayer().Save()
+        with pytest.raises(ValueError, match="disabled"):
+            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
+        with physx_variants.GetVariantEditContext():
             body.GetRigidBodyEnabledAttr().Set(True)
-            UsdPhysics.ArticulationRootAPI.Apply(root)
-            stage.GetRootLayer().Save()
-            with pytest.raises(AssertionError, match="articulation root"):
-                SimReadyCentralRigidSource(URL).to_local_usd_path()
-            root.RemoveAPI(UsdPhysics.ArticulationRootAPI)
-            UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(stage, "/Pallet/Other").GetPrim())
-            stage.GetRootLayer().Save()
-            with pytest.raises(AssertionError, match="found 2"):
-                SimReadyCentralRigidSource(URL).to_local_usd_path()
+        UsdPhysics.ArticulationRootAPI.Apply(root)
+        stage.GetRootLayer().Save()
+        with pytest.raises(ValueError, match="articulation root"):
+            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
+        root.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+        UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(stage, "/Pallet/Other").GetPrim())
+        stage.GetRootLayer().Save()
+        with pytest.raises(ValueError, match="2 rigid bodies"):
+            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
     return True
 
 
 def test_central_usd_validation():
-    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-
-    assert run_function_with_persistent_simulation_app(_test_central_usd_validation)
+    assert _test_central_usd_validation()
 
 
 def test_central_download_lists_only_the_selected_package():
@@ -208,7 +192,8 @@ def test_central_rejects_unrelated_hit_before_download_and_tries_next(caplog):
     response.json.return_value = {"hits": [_hit(1, cabinet), _hit(1, bin_url)]}
     with (
         patch(f"{MODULE}.requests.post", return_value=response),
-        patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
+        patch(f"{MODULE}.SimReadyCentralUsdSource") as source,
+        patch(f"{MODULE}.validate_usd_object_type"),
         caplog.at_level(logging.INFO, logger=MODULE),
     ):
         candidates = search_central_objects("grey bin", max_results=1)
@@ -226,7 +211,7 @@ def test_central_unrelated_hits_leave_phrase_unmatched(filename):
     response.json.return_value = {"hits": [_hit(1, path)]}
     with (
         patch(f"{MODULE}.requests.post", return_value=response),
-        patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
+        patch(f"{MODULE}.SimReadyCentralUsdSource") as source,
     ):
         result = search_simready_objects(["grey bin"], SimReadySearchConfig(sources=[SimReadySourceKind.CENTRAL]))
     assert result.candidates == []
@@ -250,7 +235,8 @@ def test_central_accepts_matching_asset_names(phrase, filename):
     response.json.return_value = {"hits": [_hit(1, path)]}
     with (
         patch(f"{MODULE}.requests.post", return_value=response),
-        patch(f"{MODULE}.SimReadyCentralRigidSource") as source,
+        patch(f"{MODULE}.SimReadyCentralUsdSource") as source,
+        patch(f"{MODULE}.validate_usd_object_type"),
     ):
         candidates = search_central_objects(phrase, max_results=1)
     assert [candidate.usd_path for candidate in candidates] == [path.replace("hf://", "https://", 1)]

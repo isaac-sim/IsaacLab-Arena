@@ -17,12 +17,12 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.assets.simready_constants import (
+    SIMREADY_CENTRAL_PHYSICS_VARIANTS,
     SIMREADY_PHYSICS_VARIANTS,
     SIMREADY_SEARCH_REGISTRY_PREFIX,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,
 )
-from isaaclab_arena.assets.sources.base import UsdSource
-from isaaclab_arena.assets.sources.simready_central import SimReadyCentralRigidSource, is_central_asset_url
+from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource, is_central_asset_url
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.variants import usd_variant_selections_to_dict
 
@@ -63,10 +63,12 @@ class SimReadyUsdObject(Object):
         """
         assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
         assert usd_path, "simready_usd_object requires params.usd_path"
+        is_central = is_central_asset_url(usd_path)
+        usd_source = SimReadyCentralUsdSource(usd_path) if is_central else None
+        default_variants = SIMREADY_CENTRAL_PHYSICS_VARIANTS if is_central else SIMREADY_PHYSICS_VARIANTS
         spawn_cfg_addon = dict(spawn_cfg_addon or {})
         variants = usd_variant_selections_to_dict(spawn_cfg_addon.get("variants"))
-        spawn_cfg_addon["variants"] = {**SIMREADY_PHYSICS_VARIANTS, **variants}
-        usd_source = _simready_usd_source(usd_path)
+        spawn_cfg_addon["variants"] = {**default_variants, **variants}
         super().__init__(
             name=name or self.registry_name,
             prim_path=prim_path,
@@ -123,10 +125,3 @@ def register_searched_simready_object(
 
     registry.register(SearchedSimReadyObject, searched_registry_name)
     return SearchedSimReadyObject
-
-
-def _simready_usd_source(usd_path: str) -> UsdSource | None:
-    """Return a rigid Central source for a pinned URL."""
-    if is_central_asset_url(usd_path):
-        return SimReadyCentralRigidSource(usd_path)
-    return None
