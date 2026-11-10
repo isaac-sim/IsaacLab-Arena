@@ -8,7 +8,7 @@ from __future__ import annotations
 import gymnasium as gym
 import torch
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from gymnasium.spaces.dict import Dict as GymSpacesDict
 from typing import Generic, TypeVar
 
@@ -16,6 +16,17 @@ from typing import Generic, TypeVar
 @dataclass
 class PolicyCfg:
     """Mark a typed Arena policy configuration."""
+
+    inference_latency_ms: float = field(default=0.0, kw_only=True)
+    """Time the deployment needs between capturing an observation and applying the first action
+    computed from it, in milliseconds.
+
+    Modeled in simulation time as ``ceil(inference_latency_ms / control_step_dt)`` control steps: an action
+    computed from the observation of step ``t`` is applied at step ``t + d``, and the robot holds its pose
+    until the first action of an episode is available. The result does not depend on how fast the
+    simulation or the policy actually run. 0 keeps inference instantaneous, which is the behavior
+    without this setting.
+    """
 
 
 PolicyCfgT = TypeVar("PolicyCfgT", bound=PolicyCfg)
@@ -75,4 +86,13 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     @property
     def is_remote(self) -> bool:
         """Check if policy is run remotely."""
+        return False
+
+    @property
+    def handles_inference_latency(self) -> bool:
+        """Whether ``get_action`` already applies ``config.inference_latency_ms`` itself.
+
+        Chunked policies schedule their requests around the latency. For every other policy the
+        rollout loop delays the returned actions by the configured number of control steps.
+        """
         return False

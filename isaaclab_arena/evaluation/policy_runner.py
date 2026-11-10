@@ -19,6 +19,11 @@ from isaaclab_arena.evaluation.policy_runner_cli import (
     build_policy_from_cli,
 )
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
+from isaaclab_arena.policy.inference_latency import (
+    PerStepInferenceLatency,
+    hold_action_from_action_manager,
+    inference_latency_steps,
+)
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -81,6 +86,7 @@ def rollout_policy(
         obs, _ = env.reset()
         policy.reset()
         policy.set_task_description(env.unwrapped.get_language_instruction())
+        per_step_latency = _per_step_inference_latency(env, policy)
 
         # Setup progress bar based on num_steps or num_episodes
         if num_steps is not None:
@@ -94,6 +100,8 @@ def rollout_policy(
             with torch.inference_mode(), Timer("step"):
                 with Timer("policy_inference"):
                     actions = policy.get_action(env, obs)
+                    if per_step_latency is not None:
+                        actions = per_step_latency.delay(actions, hold_action_from_action_manager(env))
                 with Timer("env_step"):
                     obs, _, terminated, truncated, _ = env.step(actions)
 
@@ -101,6 +109,8 @@ def rollout_policy(
                 if reset_env_ids.numel() > 0:
                     print(f"Resetting policy state for env_ids: {reset_env_ids}")
                     policy.reset(env_ids=reset_env_ids)
+                    if per_step_latency is not None:
+                        per_step_latency.reset(reset_env_ids)
 
                 if terminated.any() or truncated.any():
                     if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
@@ -135,6 +145,21 @@ def rollout_policy(
         if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
             return env.unwrapped.compute_metrics()
         return None
+
+
+def _per_step_inference_latency(env, policy: PolicyBase) -> PerStepInferenceLatency | None:
+    """Return the action delay the rollout loop applies for a policy that does not model its own latency.
+
+    Chunked policies schedule requests around ``inference_latency_ms`` themselves and return None here,
+    as does any policy configured without latency.
+    """
+    if policy.handles_inference_latency:
+        return None
+    latency_steps = inference_latency_steps(policy.config.inference_latency_ms, env.unwrapped.step_dt)
+    if latency_steps == 0:
+        return None
+    print(f"Applying an inference latency of {latency_steps} control steps to {type(policy).__name__} actions")
+    return PerStepInferenceLatency(env.unwrapped.num_envs, latency_steps, device=env.unwrapped.device)
 
 
 def list_variations(args_parser: argparse.ArgumentParser) -> None:

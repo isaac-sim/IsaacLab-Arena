@@ -23,7 +23,7 @@ from isaaclab_arena_cosmos.policy.droid_adapter import CosmosDroidAdapter
 
 
 def _fake_env(num_envs: int = 1):
-    return types.SimpleNamespace(unwrapped=types.SimpleNamespace(num_envs=num_envs))
+    return types.SimpleNamespace(unwrapped=types.SimpleNamespace(num_envs=num_envs, step_dt=1.0 / 15.0))
 
 
 def _fake_observation(num_envs: int = 1) -> dict:

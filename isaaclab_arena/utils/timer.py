@@ -38,6 +38,12 @@ _reservoir_random_generator = random.Random()
 # Timing statistics accumulated over the process lifetime, keyed by qualified timer name.
 _timer_registry: dict[str, TimerStats] = {}
 
+# Timers may close on worker threads, so registry updates are serialized.
+_timer_registry_lock = threading.Lock()
+
+# Wall-clock origin for the Load column; reset together with the registry.
+_timer_start_time = time.perf_counter()
+
 
 class _OpenTimerNames(threading.local):
     """Names of the timers currently open on one thread."""
@@ -106,12 +112,13 @@ class TimerStats:
 
 def _update_stats(name: str, elapsed_ms: float) -> None:
     """Create or update the registry entry for the given timer name."""
-    if name in _timer_registry:
-        _timer_registry[name].update(elapsed_ms)
-    else:
-        timer_stats = TimerStats()
-        timer_stats.update(elapsed_ms)
-        _timer_registry[name] = timer_stats
+    with _timer_registry_lock:
+        if name in _timer_registry:
+            _timer_registry[name].update(elapsed_ms)
+        else:
+            timer_stats = TimerStats()
+            timer_stats.update(elapsed_ms)
+            _timer_registry[name] = timer_stats
 
 
 class Timer:
@@ -279,11 +286,13 @@ def print_timer_stats() -> None:
         f"{'p50':>10}",
         f"{'p90':>10}",
         f"{'Max':>10}",
+        f"{'Load':>10}",
     ]
     header = " ".join(cols)
     print(f"{'(all times in ms)':>30}")
     print(header)
     print("-" * len(header))
+    wall_ms = 1000.0 * (time.perf_counter() - _timer_start_time)
     for name, s in sorted(stats.items()):
         p10 = s.percentile(10)
         p50 = s.percentile(50)
@@ -298,10 +307,13 @@ def print_timer_stats() -> None:
             f"{p50:>10.3f}" if p50 is not None else f"{'-':>10}",
             f"{p90:>10.3f}" if p90 is not None else f"{'-':>10}",
             f"{s.max_ms:>10.3f}",
+            f"{100.0 * s.total_ms / wall_ms:>9.2f}%",
         ]
         print(" ".join(vals))
 
 
 def reset_timer_stats() -> None:
-    """Clear the timer registry."""
+    """Clear the timer registry and restart the wall-clock origin used for the Load column."""
+    global _timer_start_time
     _timer_registry.clear()
+    _timer_start_time = time.perf_counter()

@@ -21,7 +21,7 @@ from __future__ import annotations
 import numpy as np
 import sys
 import torch
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -102,8 +102,10 @@ class _FakePolicyClient:
     def get_action(self, observation: dict[str, Any]):
         self.last_observation = observation
         self.get_action_calls += 1
+        # One action chunk per observation row, as the server does.
+        num_envs = next(iter(observation["state"].values())).shape[0]
         # Match the real PolicyClient return signature: (action_dict, latency_or_meta).
-        return _make_action_response(NUM_ENVS, ACTION_HORIZON), None
+        return _make_action_response(num_envs, ACTION_HORIZON), None
 
     def reset(self):
         self.reset_called = True
@@ -312,3 +314,102 @@ def test_default_image_size_keeps_gr00t_padding_in_the_loop():
     assert processed[0, :35].max() == 0
     assert processed[0, 45:85].min() == 255
     assert processed[0, 95:].max() == 0
+
+
+# ---------------- latency scheduler tests ---------------- #
+
+
+def _fake_env(step_dt: float = 1.0 / 15.0):
+    return SimpleNamespace(unwrapped=SimpleNamespace(num_envs=NUM_ENVS, step_dt=step_dt))
+
+
+def test_latency_scheduler_serves_requests_on_one_worker(policy_config_yaml, fake_client_factory):
+    """Select the latency scheduler and queue its requests on a single thread, as the GR00T client is not shared."""
+    fake_client_factory(ping_ok=True)
+
+    policy = _build_policy(policy_config_yaml, scheduler="latency")
+
+    assert isinstance(policy._chunking_state, action_scheduling.LatencyActionScheduler)
+    assert policy._chunking_state._max_workers == 1
+    assert policy.handles_inference_latency
+
+
+def test_inference_latency_requires_the_latency_scheduler(policy_config_yaml, fake_client_factory):
+    """Reject a non-zero latency with a scheduler that cannot model it instead of ignoring the setting."""
+    fake_client_factory(ping_ok=True)
+    cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
+        policy_config_yaml_path=policy_config_yaml,
+        policy_device="cpu",
+        num_envs=NUM_ENVS,
+        remote_host="unused",
+        remote_port=0,
+        scheduler="chunk",
+        inference_latency_ms=100.0,
+    )
+
+    with pytest.raises(AssertionError, match="requires scheduler='latency'"):
+        gr00t_policy.Gr00tRemoteClosedloopPolicy(cfg)
+
+
+def test_latency_scheduler_holds_joint_positions_until_the_first_chunk_is_due(
+    policy_config_yaml, synthetic_observation, fake_client_factory
+):
+    """Hold every env on its joint positions for the latency, then replay the chunk requested on step 0."""
+    clients = fake_client_factory(ping_ok=True)
+    cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
+        policy_config_yaml_path=policy_config_yaml,
+        policy_device="cpu",
+        num_envs=NUM_ENVS,
+        remote_host="unused",
+        remote_port=0,
+        scheduler="latency",
+        inference_latency_ms=100.0,  # 1.5 control steps at 15 Hz, rounded up to 2
+    )
+    policy = gr00t_policy.Gr00tRemoteClosedloopPolicy(cfg)
+    policy.set_task_description("pick up the brown box")
+    env = _fake_env()
+    expected_hold = policy._extract_hold_action(synthetic_observation)
+
+    held_actions = [policy.get_action(env, synthetic_observation) for _ in range(2)]
+    first_chunk_action = policy.get_action(env, synthetic_observation)
+
+    assert policy._chunking_state.latency_steps == 2
+    for action in held_actions:
+        torch.testing.assert_close(action, expected_hold)
+    assert clients[0].get_action_calls == 1  # one batched request for both envs on step 0
+    assert first_chunk_action.shape == (NUM_ENVS, EXPECTED_ACTION_DIM)
+    torch.testing.assert_close(first_chunk_action, policy._chunking_state.current_action_chunk[:, 0])
+    assert policy._chunking_state.hold_steps.tolist() == [2, 2]
+    policy.close()
+
+
+def test_latency_scheduler_requests_chunks_for_the_due_envs_only(
+    policy_config_yaml, synthetic_observation, fake_client_factory
+):
+    """After a partial reset only the reset env requests a chunk, and the request carries that env alone."""
+    clients = fake_client_factory(ping_ok=True)
+    cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
+        policy_config_yaml_path=policy_config_yaml,
+        policy_device="cpu",
+        num_envs=NUM_ENVS,
+        remote_host="unused",
+        remote_port=0,
+        scheduler="latency",
+        inference_latency_ms=100.0,
+    )
+    policy = gr00t_policy.Gr00tRemoteClosedloopPolicy(cfg)
+    policy.set_task_description("pick up the brown box")
+    env = _fake_env()
+
+    for _ in range(3):
+        policy.get_action(env, synthetic_observation)  # both envs request on step 0 and replay from step 2
+    policy.reset(env_ids=torch.tensor([1]))
+    policy.get_action(env, synthetic_observation)  # env 1 requests alone on step 3
+
+    assert clients[0].get_action_calls == 2
+    sent = clients[0].last_observation
+    assert all(array.shape[0] == 1 for array in sent["state"].values())
+    assert all(array.shape[0] == 1 for array in sent["video"].values())
+    assert all(len(instructions) == 1 for instructions in sent["language"].values())
+    assert policy._chunking_state.current_action_index.tolist() == [2, -1]
+    policy.close()
