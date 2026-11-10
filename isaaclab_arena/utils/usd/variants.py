@@ -35,18 +35,19 @@ def usd_variant_selections_to_dict(variants: object | None) -> dict[str, str]:
     return values
 
 
-def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> None:
+def apply_usd_variant_selections(stage: Usd.Stage, variants: object | None) -> None:
     """Select USD variants on the stage's default prim.
 
     Args:
         stage: Open USD stage.
-        variants: Maps each variant set name to the variant to select from it.
+        variants: Variant selections as Isaac Lab accepts them: a dictionary mapping each variant set
+            name to the variant to select, a configclass with one field per set, or ``None``.
     """
     root = stage.GetDefaultPrim()
     if not root:
         return
     variant_sets = root.GetVariantSets()
-    for set_name, selection in variants.items():
+    for set_name, selection in usd_variant_selections_to_dict(variants).items():
         if set_name in variant_sets.GetNames():
             variant_set = variant_sets.GetVariantSet(set_name)
             if selection in variant_set.GetVariantNames():

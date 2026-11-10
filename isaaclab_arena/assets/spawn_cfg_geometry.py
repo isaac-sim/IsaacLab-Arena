@@ -113,7 +113,7 @@ class SpawnCfgGeometry:
         root = stage.DefinePrim("/Asset")
         root.GetReferences().AddReference(usd_path)
         stage.SetDefaultPrim(root)
-        apply_usd_variant_selections(stage, usd_variant_selections_to_dict(self.spawn_cfg.variants))
+        apply_usd_variant_selections(stage, self.spawn_cfg.variants)
         return stage
 
 
