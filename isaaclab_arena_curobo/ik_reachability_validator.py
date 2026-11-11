@@ -85,8 +85,8 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         self._include_background = config.include_background_obstacles
         # Joined from the placer's fixed background meshes on the first batch; it does not change between layouts.
         self._background_mesh_W: trimesh.Trimesh | None = None
-        # Robot base pose the loaded background was last placed for; it is re-placed only when the base moves.
-        self._background_placed_for_base_pose_w: Pose | None = None
+        # Robot base pose the background mesh pose was last updated for; it is updated again only when the base moves.
+        self._background_mesh_pose_base_pose_w: Pose | None = None
         self._solver = CuroboIKSolver(
             get_embodiment_curobo_cfg(config.embodiment),
             position_threshold=self._ik_pos_threshold,
@@ -198,7 +198,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             )
             for obj in targets
         ])
-        background_mesh_W = self._place_background_for(robot_base_pose_w)
+        self._update_background_mesh_pose(robot_base_pose_w)
         ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
         if self._rerun_layer is not None:
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
@@ -214,7 +214,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                 # The pose the arm ended up in is what explains a rejection, so it is drawn alongside it.
                 robot_spheres=robot_collision_spheres(self._solver, ik.joint_positions),
                 muted_sphere_mask=hand_sphere_mask(self._solver) if self._require_collision_free else None,
-                background_mesh_W=background_mesh_W,
+                background_mesh_W=self._background_mesh_W,
             )
         self._record_failure(rejections, targets, ik)
         return bool(ik.feasible.all().item())
@@ -277,21 +277,19 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             joint_positions=torch.cat([ik.joint_positions for ik in per_target]),
         )
 
-    def _place_background_for(self, robot_base_pose_w: Pose) -> trimesh.Trimesh | None:
-        """Place the loaded background mesh for the robot base pose, and return it.
+    def _update_background_mesh_pose(self, robot_base_pose_w: Pose) -> None:
+        """Update the loaded background mesh's pose relative to the robot base; its vertices are not touched.
 
-        Updates only the mesh pose, and only when the base pose differs from the last layout's. Returns None when the
-        background is off or the scene has none.
+        Skipped when the base pose equals the last layout's, or when the background is off or the scene has none.
 
         Args:
             robot_base_pose_w: World pose of the robot base.
         """
         if self._background_mesh_W is None or len(self._background_mesh_W.faces) == 0:
-            return None
-        if robot_base_pose_w != self._background_placed_for_base_pose_w:
+            return
+        if robot_base_pose_w != self._background_mesh_pose_base_pose_w:
             self._solver.set_background_mesh_pose(robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
-            self._background_placed_for_base_pose_w = robot_base_pose_w
-        return self._background_mesh_W
+            self._background_mesh_pose_base_pose_w = robot_base_pose_w
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""
