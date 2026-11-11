@@ -13,23 +13,24 @@ Each atomic task has a separate experiment under `experiment_config/`:
 
 These use `VLMGoalPolicy` and the DROID adapter, following
 `droid_gear_insertion_vlm_goal_object_poses_experiment.yaml`. Inputs include camera
-images, robot state, and **privileged simulator object poses**. The toolcase, oscilloscope, and bin
-experiments extend this with `WorkbenchVLMGoalPolicy`: gradual pose commands,
-recent-goal history, and explicitly labeled simulator joint positions and local
-object bounds. For the bin, it also reports grasp-motion measurements, live
-side-wall contact estimates, tabletop and overhead-edge clearances, and the
-same bounds-center check used by placement. Shelf seating estimates assume
-the measured grasp stays fixed; a front-bay alternative reduces reach.
-The VLM still chooses every goal; the extension does not supply
-a scripted task sequence or alter success conditions. The files under
-`prompts/` identify the object origins and describe task geometry; they do not
+images, robot state, and **privileged simulator object poses**. The drawer and
+experimental bin tasks use the stock policy. The toolcase and oscilloscope use
+`WorkbenchVLMGoalPolicy`, which adds the selected articulation's joint positions;
+the toolcase also gets its live lid contact point, outward normal, and closing
+tangent. Goal execution and previous-goal feedback use the standard VLM policy.
+There is no workbench motion interpolation, extended goal history, or bin grasp
+helper. The VLM chooses each goal, and task success conditions are unchanged.
+The files under `prompts/` identify the object origins and describe task geometry; they do not
 replace the policy's action-format prompt. They describe this environment's
 registry assets, so different geometry requires updating them. The runtime scene
 uses the `simready_central_*` asset registrations. Prepared workbench, toolcase,
 and oscilloscope assets currently require access to Arena's staging storage;
-the remaining assets use their registered SimReady Central sources. This VLM
-extension does not reauthor or override those assets. In particular, the old
-local toolcase hinge fix is not applied to the runtime asset.
+the remaining assets use their registered SimReady Central sources. The socket
+set's `spawn_cfg_addon.prim_physics` applies the passive lid drive settings to
+`Physics/Joints/case_lid` after loading the remote USD and before cloning. The
+authored angular drive values are damping `0.0005235988`, max force `0.2`,
+stiffness `0`, and target position `0`. The task reset sets the initial opening;
+the remote source asset is unchanged.
 
 The shared scene defaults to `droid_abs_ik`: unscaled absolute XYZ/XYZW commands
 in the robot root frame, followed by a gripper command (0 opens, 1 closes).
@@ -52,8 +53,8 @@ Each experiment defaults to five episodes in one environment, using GPU simulati
 and the internal endpoint's `openai/openai/gpt-6-astra` model. Credentials are read
 from the environment. To evaluate five environments concurrently, append
 `runs.close_drawer.environment_builder.num_envs=5` (replace the run name for another
-experiment). Goal replacement requests are grouped every 15 control steps;
-finished episode slots hold their last action without further inference.
+experiment). Finished episode slots hold their last action without further
+inference. Active slots use the standard goal-completion and timeout behavior.
 Override `runs.close_drawer.policy.endpoint`, `.model`, or `.base_url` when
 using another service. Replace the run name for another experiment.
 
@@ -70,20 +71,34 @@ Add `--record_camera_video` when video recording is wanted.
 
 ### Validation status
 
-The following results are historical, from the direct-assets branch on
-2026-11-10, before retargeting to the runtime registry assets. Five parallel
-environments used seed 42, placement seed 17, and the configured Astra model:
+On 2026-11-11, five parallel environments used seed 42, placement seed 17,
+GPU simulation, and the configured Astra model. The reduced policy completed:
 
-| Task | Successes / episodes |
-| --- | --- |
-| Close drawer | 5 / 5 |
-| Close toolcase | 3 / 5 |
-| Turn off oscilloscope | 5 / 5 |
-| Bin to shelf | 0 / 5 |
+| Task | Successes / episodes | Control steps |
+| --- | --- | --- |
+| Close drawer, stock goal policy | 5 / 5 | 291, 294, 335, 348, 374 |
+| Close toolcase, contact observations only | 5 / 5 | 92, 98, 109, 204, 216 |
+| Press oscilloscope button, joint observations only | 5 / 5 | 77, 79, 92, 96, 350 |
 
-The bin experiment remains unfinished: it grasps and lifts the bin but loses
-the grasp during reorientation or transfer. A separate five-episode CPU trial,
-using a 6 mm motion-goal tolerance and a 60-step goal limit, also returned 0 / 5.
-Neither trial changed the placement success criteria. These results use the
-privileged observations described above; they are not an image-only benchmark.
-Interrupted development episodes are excluded from the counts.
+These runs removed gradual pose interpolation, extended goal history, general
+object-bound observations, and the 15-step replacement cadence. The standard
+previous-goal outcome remains. Camera sizing and completed-slot action holding
+remain as runtime support. The drawer comparison also disabled completed-slot
+holding and made 11 unnecessary requests after individual episodes succeeded.
+
+The stock-toolcase comparison had no completions and all five hinges still at
+the open limit after step 216, when the policy with contact feedback had completed
+all five. It was stopped around step 222. The scope baseline without joint feedback
+was interrupted around step 99 with no completed episodes. These bounded
+comparisons support retaining contact feedback; unfinished episodes are not
+counted as failures. Retained prompt details and tolerances have not each been
+ablated independently. Five episodes demonstrate
+capability on these sampled placements, not a general success-rate guarantee.
+The scope result verifies the PressButtonTask joint predicate; screen-material
+switching was not separately validated.
+
+The bin task remains experimental. Earlier experiments with the removed grasp
+and seating helpers returned 0 / 5 on GPU and 0 / 5 on CPU. The simplified bin
+configuration has been checked for loading but has not been reevaluated for
+success. None of these results changes the task success conditions, and the
+privileged observations mean they are not an image-only benchmark.

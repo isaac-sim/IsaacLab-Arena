@@ -520,35 +520,6 @@ def test_goal_outcomes_are_reported_in_the_next_request(backend):
     assert previous_goals() == [None, {"values": [1.0, 2.0], "outcome": "blocked", "executed_steps": 1}]
 
 
-@pytest.mark.parametrize("reached", [True, False])
-def test_parallel_goal_updates_wait_for_shared_boundary_without_delaying_timeouts(backend, reached):
-    backend.client.chat.completions.create.return_value = response('{"target": [1, 2]}')
-    generator = JointMotionGenerator()
-    generator.goal_reached = Mock(return_value=reached)
-    generator.goal_blocked = Mock(return_value=not reached)
-    policy = make_multi_step_policy(backend, JointGoalAdapter(motion_generator=generator), max_steps_per_goal=5)
-    policy.config.prediction_interval_steps = 3
-    env, observation = inputs()
-    env.unwrapped.common_step_counter = 0
-    policy.get_action(env, observation)
-    for step in (1, 2):
-        env.unwrapped.common_step_counter = step
-        policy.get_action(env, observation)
-    assert backend.client.chat.completions.create.call_count == 2
-    assert generator.goal_reached.call_count == 4  # Both environments still measure progress on every step.
-    env.unwrapped.common_step_counter = 3
-    policy.get_action(env, observation)
-    assert backend.client.chat.completions.create.call_count == 4
-    assert policy._previous_goals[0]["outcome"] == ("reached" if reached else "blocked")
-    generator.goal_reached.return_value = False
-    generator.goal_blocked.return_value = False
-    for step in range(4, 9):
-        env.unwrapped.common_step_counter = step
-        policy.get_action(env, observation)
-    assert backend.client.chat.completions.create.call_count == 6
-    assert policy._previous_goals[0]["outcome"] == "timeout"
-
-
 @pytest.mark.parametrize("mode", ["step", "goal"])
 def test_actions_use_live_world_without_joint_positions_in_prompt(backend, mode):
     backend.client.chat.completions.create.return_value = response('{"target": [1, 2]}')

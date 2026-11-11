@@ -161,19 +161,11 @@ class VLMGoalPolicyCfg(VLMPolicyCfg):
     rotation_tolerance_rad: float = 0.1
     """Maximum rotation error for the configured pose motion generator."""
 
-    prediction_interval_steps: int = 1
-    """Check finished goals every control step, but request replacements on shared step boundaries.
-
-    Larger intervals group parallel requests while holding finished goals until the next boundary.
-    The per-goal step limit still ends execution immediately.
-    """
-
     def __post_init__(self):
         super().__post_init__()
         assert (
             type(self.max_steps_per_goal) is int and self.max_steps_per_goal > 0
         ), "max_steps_per_goal must be a positive integer"
-        assert type(self.prediction_interval_steps) is int and self.prediction_interval_steps > 0
 
 
 class VLMPolicy(PolicyBase[VLMPolicyCfg]):
@@ -559,9 +551,6 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
         if env_id in self._current_goals:
             current_goal, executed_steps = self._current_goals[env_id]
             outcome = self._get_goal_outcome(env, env_id, current_goal, executed_steps)
-            if self.config.prediction_interval_steps > 1 and executed_steps < self.config.max_steps_per_goal:
-                if env.unwrapped.common_step_counter % self.config.prediction_interval_steps != 0:
-                    return
             if outcome is not GoalOutcome.STILL_EXECUTING:
                 self._previous_goals[env_id] = {
                     "values": [round(value, 4) for value in current_goal.tolist()],

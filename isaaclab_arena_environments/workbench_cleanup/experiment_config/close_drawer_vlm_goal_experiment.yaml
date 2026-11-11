@@ -25,7 +25,6 @@ runs:
       observation_modality: image_state
       image_max_width_or_height: 512
       max_steps_per_goal: 90
-      prediction_interval_steps: 15
       position_tolerance_m: 0.005
       rotation_tolerance_rad: 0.08
       object_poses: [top_drawer_body, tabletop]
