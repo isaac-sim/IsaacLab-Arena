@@ -53,8 +53,9 @@ Each experiment defaults to five episodes in one environment, using GPU simulati
 and the internal endpoint's `openai/openai/gpt-6-astra` model. Credentials are read
 from the environment. To evaluate five environments concurrently, append
 `runs.close_drawer.environment_builder.num_envs=5` (replace the run name for another
-experiment). Finished episode slots hold their last action without further
-inference. Active slots use the standard goal-completion and timeout behavior.
+experiment). Goal execution uses the standard completion and timeout behavior.
+Skipping inference for completed environments is covered separately by
+[PR #1648](https://github.com/isaac-sim/IsaacLab-Arena/pull/1648).
 Override `runs.close_drawer.policy.endpoint`, `.model`, or `.base_url` when
 using another service. Replace the run name for another experiment.
 
@@ -82,9 +83,11 @@ GPU simulation, and the configured Astra model. The reduced policy completed:
 
 These runs removed gradual pose interpolation, extended goal history, general
 object-bound observations, and the 15-step replacement cadence. The standard
-previous-goal outcome remains. Camera sizing and completed-slot action holding
-remain as runtime support. The drawer comparison also disabled completed-slot
-holding and made 11 unnecessary requests after individual episodes succeeded.
+previous-goal outcome and policy camera sizing remain. The recorded scope and
+toolcase runs included completed-environment action holding; that duplicate
+implementation was subsequently removed in favor of PR #1648. The drawer
+comparison disabled it and made 11 unnecessary requests after individual
+episodes succeeded.
 
 The stock-toolcase comparison had no completions and all five hinges still at
 the open limit after step 216, when the policy with contact feedback had completed
