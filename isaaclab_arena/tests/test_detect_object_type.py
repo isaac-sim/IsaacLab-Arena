@@ -87,6 +87,10 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         # Assets without a USD path on the class cannot be classified without an instance. That
         # covers procedurally generated assets and ones whose path arrives as a graph parameter.
         usd_path = getattr(object_asset, "usd_path", None)
+        # Internal staging layers need Storage API access unavailable in public CI.
+        if usd_path is not None and usd_path.startswith("ovstorage://"):
+            print(f"Skipping staging-only asset: {object_asset.registry_name}")
+            continue
         usd_source = getattr(object_asset, "usd_source", None)
         has_usd_asset = usd_path is not None or usd_source is not None
         is_procedural = "procedural" in getattr(object_asset, "tags", [])
