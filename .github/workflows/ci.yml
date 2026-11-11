@@ -303,16 +303,25 @@ jobs:
       #
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
       - name: Run in-process Newton tests without cameras
+        # Experiment: resolve all symbols at load time so a crash-dump writer never needs the loader lock.
+        env:
+          LD_BIND_NOW: 1
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process Newton tests with cameras
+        # Experiment: resolve all symbols at load time so a crash-dump writer never needs the loader lock.
+        env:
+          LD_BIND_NOW: 1
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
+        # Experiment: resolve all symbols at load time so a crash-dump writer never needs the loader lock.
+        env:
+          LD_BIND_NOW: 1
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
@@ -320,6 +329,9 @@ jobs:
             isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
+        # Experiment: resolve all symbols at load time so a crash-dump writer never needs the loader lock.
+        env:
+          LD_BIND_NOW: 1
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
