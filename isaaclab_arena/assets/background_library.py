@@ -11,7 +11,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel_kitchens
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ARENA_STAGING_STORAGE_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource
@@ -310,3 +310,13 @@ class ReplicatorKitchenUShape(ReplicatorKitchenBackground):
 
     registry_name = "replicator_kitchen_u_shape"
     usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_u_shape.usda"
+
+
+@register_asset
+class SimReadyCentralWorkbench(LibraryBackground):
+    """An articulated workbench from SimReady Central."""
+
+    registry_name = "simready_central_workbench"
+    tags = ["background", "sim-ready", "workbench"]
+    usd_path = f"{ARENA_STAGING_STORAGE_DIR}/Arena/assets/object_library/workbench/workbench.usda"
+    object_min_z = 0.0

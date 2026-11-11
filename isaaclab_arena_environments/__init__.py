@@ -8,8 +8,7 @@ import pkgutil
 
 import isaaclab_arena_environments
 
-# Asset libraries depend on simulation modules and are loaded by ensure_assets_registered().
-_NON_ENVIRONMENT_MODULES = {"asset_library", "cli", "example_environment_base"}
+_NON_ENVIRONMENT_MODULES = {"cli", "example_environment_base"}
 
 for _importer, _modname, _ispkg in pkgutil.iter_modules(isaaclab_arena_environments.__path__):
     if not _ispkg and _modname not in _NON_ENVIRONMENT_MODULES:

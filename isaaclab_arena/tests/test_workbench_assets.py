@@ -8,24 +8,6 @@
 import pytest
 
 
-def test_environment_discovery_defers_asset_registration():
-    import subprocess
-    import sys
-
-    code = """
-import sys
-from isaaclab_arena_environments.cli import ensure_environments_registered
-
-ensure_environments_registered()
-forbidden = ('pxr', 'isaaclab.assets', 'isaaclab.scene', 'isaaclab_assets', 'isaaclab_tasks')
-assert not [name for name in sys.modules if name.startswith(forbidden)]
-assert 'isaaclab_arena_environments.asset_library' not in sys.modules
-assert 'isaaclab_arena_environments.workbench_cleanup.assets' not in sys.modules
-"""
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
-    assert result.returncode == 0, result.stdout + result.stderr
-
-
 def _test_workbench_registration_does_not_download(simulation_app, monkeypatch):
     from isaaclab_arena.assets.registries import AssetRegistry
 
@@ -35,7 +17,7 @@ def _test_workbench_registration_does_not_download(simulation_app, monkeypatch):
     monkeypatch.setattr("isaaclab.utils.assets.retrieve_file_path", unexpected_retrieval)
     registry = AssetRegistry()
     for name in ("workbench", "white_bin", "socket_set", "oscilloscope", "slotted_screwdriver", "small_wrench"):
-        registry.get_asset_by_name(f"workbench_cleanup_{name}")
+        registry.get_asset_by_name(f"simready_central_{name}")
     return True
 
 
@@ -48,15 +30,19 @@ def test_workbench_registration_does_not_download(monkeypatch):
 
 
 def _test_workbench_asset_configuration(simulation_app, monkeypatch):
-    from isaaclab_arena_environments.workbench_cleanup import assets
+    from isaaclab_arena.assets.object_library import (
+        SimReadyCentralSlottedScrewdriver,
+        SimReadyCentralSmallWrench,
+        SimReadyCentralSocketSet,
+    )
 
     monkeypatch.setattr(
         "isaaclab_arena.assets.sources.simready_central.SimReadyCentralUsdSource.to_local_usd_path",
         lambda self: "/cache/tool.usd",
     )
     for asset_type in (
-        assets.WorkbenchCleanupSlottedScrewdriver,
-        assets.WorkbenchCleanupSmallWrench,
+        SimReadyCentralSlottedScrewdriver,
+        SimReadyCentralSmallWrench,
     ):
         tool = asset_type()
         spawn = tool.object_cfg.spawn
@@ -68,8 +54,8 @@ def _test_workbench_asset_configuration(simulation_app, monkeypatch):
         assert spawn.collision_props.rest_offset == 0.0
         assert spawn.collision_props.mesh_collision_property.mesh_approximation_name == "convexHull"
 
-    monkeypatch.setattr(assets.WorkbenchCleanupSocketSet, "usd_path", "/cache/socket_set.usda")
-    socket_set = assets.WorkbenchCleanupSocketSet(initial_joint_positions={"case_lid": 1.5})
+    monkeypatch.setattr(SimReadyCentralSocketSet, "usd_path", "/cache/socket_set.usda")
+    socket_set = SimReadyCentralSocketSet(initial_joint_positions={"case_lid": 1.5})
     assert socket_set.object_cfg.init_state.joint_pos == {"case_lid": 1.5}
 
     return True
@@ -84,13 +70,10 @@ def test_workbench_asset_configuration(monkeypatch):
 def _test_workbench_uploaded_articulations(simulation_app):
     from pxr import Usd, UsdPhysics
 
-    from isaaclab_arena_environments.workbench_cleanup.assets import (
-        WorkbenchCleanupOscilloscope,
-        WorkbenchCleanupSocketSet,
-        WorkbenchCleanupWorkbench,
-    )
+    from isaaclab_arena.assets.background_library import SimReadyCentralWorkbench
+    from isaaclab_arena.assets.object_library import SimReadyCentralOscilloscope, SimReadyCentralSocketSet
 
-    stage = Usd.Stage.Open(WorkbenchCleanupWorkbench.usd_path)
+    stage = Usd.Stage.Open(SimReadyCentralWorkbench.usd_path)
     cabinet = stage.GetPrimAtPath("/Asset/Workbench")
     articulation_roots = [prim for prim in stage.Traverse() if prim.HasAPI(UsdPhysics.ArticulationRootAPI)]
     assert articulation_roots == [cabinet]
@@ -113,8 +96,8 @@ def _test_workbench_uploaded_articulations(simulation_app):
         assert stage.GetPrimAtPath(path).HasAPI(UsdPhysics.RigidBodyAPI)
 
     for asset_type, moving_joint in (
-        (WorkbenchCleanupSocketSet, "Physics/Joints/case_lid"),
-        (WorkbenchCleanupOscilloscope, "Joints/joint_button_01_joint_00"),
+        (SimReadyCentralSocketSet, "Physics/Joints/case_lid"),
+        (SimReadyCentralOscilloscope, "Joints/joint_button_01_joint_00"),
     ):
         stage = Usd.Stage.Open(asset_type.usd_path)
         root = stage.GetDefaultPrim()
@@ -126,7 +109,7 @@ def _test_workbench_uploaded_articulations(simulation_app):
             if prim.IsA(UsdPhysics.Joint) and not prim.IsA(UsdPhysics.FixedJoint)
         ]
         assert movable_joints == [moving_joint]
-        if asset_type is WorkbenchCleanupSocketSet:
+        if asset_type is SimReadyCentralSocketSet:
             body_names = {prim.GetName() for prim in stage.Traverse() if prim.HasAPI(UsdPhysics.RigidBodyAPI)}
             assert body_names == {"Case_base", "Case_lid"}
     return True

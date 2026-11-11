@@ -7,7 +7,7 @@
 
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
-ARENA_STAGING_NUCLEUS_DIR: str = "ovstorage://isaac/Isaac/IsaacLab"
+ARENA_STAGING_STORAGE_DIR: str = "ovstorage://isaac/Isaac/IsaacLab"
 """Internal Storage API upload root, available before publication to the S3 mirror."""
 
 # TODO(2026.07.14, Point Arena assets to the production bucket before release)
