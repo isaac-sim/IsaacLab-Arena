@@ -116,7 +116,7 @@ def _test_central_usd_validation():
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS
+    from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSX_VARIANTS
     from isaaclab_arena.utils.usd.object_type import validate_usd_object_type
 
     with tempfile.TemporaryDirectory() as directory:
@@ -135,24 +135,24 @@ def _test_central_usd_validation():
                 body.CreateRigidBodyEnabledAttr(enabled)
         physx_variants.SetVariantSelection("Disabled")
         stage.GetRootLayer().Save()
-        validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
+        validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSX_VARIANTS)
         physx_variants.SetVariantSelection("Enabled")
         with physx_variants.GetVariantEditContext():
             body.GetRigidBodyEnabledAttr().Set(False)
         stage.GetRootLayer().Save()
         with pytest.raises(ValueError, match="disabled"):
-            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
+            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSX_VARIANTS)
         with physx_variants.GetVariantEditContext():
             body.GetRigidBodyEnabledAttr().Set(True)
         UsdPhysics.ArticulationRootAPI.Apply(root)
         stage.GetRootLayer().Save()
         with pytest.raises(ValueError, match="articulation root"):
-            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
+            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSX_VARIANTS)
         root.RemoveAPI(UsdPhysics.ArticulationRootAPI)
         UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(stage, "/Pallet/Other").GetPrim())
         stage.GetRootLayer().Save()
         with pytest.raises(ValueError, match="2 rigid bodies"):
-            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSICS_VARIANTS)
+            validate_usd_object_type(str(asset), ObjectType.RIGID, SIMREADY_CENTRAL_PHYSX_VARIANTS)
     return True
 
 

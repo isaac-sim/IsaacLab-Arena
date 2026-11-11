@@ -89,8 +89,8 @@ def test_simready_usd_object_resolves_central_url(monkeypatch):
     obj = SimReadyUsdObject(usd_path=url)
 
     assert obj.usd_path == "/cache/pallet.usd"
-    assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics", "PhysX": "Enabled"}
-    assert obj._get_spawn_cfg().variants == {"Physics": "physics", "PhysX": "Enabled"}
+    assert obj.spawn_cfg_addon["variants"] == {"PhysX": "Enabled"}
+    assert obj._get_spawn_cfg().variants == {"PhysX": "Enabled"}
     assert resolved_urls == [url]
 
 
