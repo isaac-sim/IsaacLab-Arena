@@ -43,7 +43,5 @@ def test_workbench_task_and_recipe_load(task_path):
     recipe_name = task_path.stem.removeprefix("task_")
     recipe = load_object_control_recipe(_ENVIRONMENT_DIR / "object_control" / f"{recipe_name}.jsonl")
 
-    subtask_indices = {
-        command.index for command in recipe.commands if isinstance(command, (MarkCommand, CheckCommand))
-    }
+    subtask_indices = {command.index for command in recipe.commands if isinstance(command, (MarkCommand, CheckCommand))}
     assert subtask_indices == set(range(len(spec.task.subtasks)))
