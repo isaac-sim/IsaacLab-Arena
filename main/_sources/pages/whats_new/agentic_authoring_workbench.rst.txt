@@ -29,29 +29,19 @@ The agent's task
 ^^^^^^^^^^^^^^^^
 
 The agent receives a single natural-language prompt describing a workbench cleanup evaluation environment:
-open the cabinet’s top drawer, place five tools from the workbench into it one by one, and close the drawer.
+open the cabinet's top drawer, place five tools from the workbench into it one by one, and close the drawer.
 
 .. dropdown:: The prompt given to the agent
 
-   Set up an environment for evaluation of a workbench cleanup task using PhysX simulation.
+   Set up an environment for evaluation of a workbench cleanup task.
+   Use the simready_central workbench assets registered in
+   isaaclab_arena/assets/background_library.py and
+   isaaclab_arena/assets/object_library.py.
 
-   Use the following SimReady Central assets from Hugging Face:
+   There is a white bin, an oscilloscope and an open toolbox on the workbench tabletop.
+   The workbench's top drawer is open with two tools cluttered inside.
 
-   - ``furniture_workbench_standard_e01``
-   - ``fixture_cabinet_b01``
-   - ``testingTool_oscilloscope_a01``
-   - ``handTool_screwdriver_slotted_55mm_a01``
-   - ``handTool_screwdriver_torx_t10_a01``
-   - ``handTool_screwdriver_phillips_ph2_a01``
-   - ``handTool_wrench_combination_a01``
-
-   Five tools, such as wrenches and screwdrivers, are scattered across the center of the workbench,
-   with an oscilloscope on the left. An open toolbox sits on the cabinet to the left of the workbench.
-
-   Task: open the top drawer of the cabinet, put the tools into the drawer one by one, then close
-   the drawer.
-
-   Validate task success correctly with a force-based demo script.
+   Task: close the drawer and toolbox, put the bin on the overhead sehlf of the workbench, and turn off the oscilloscope.
 
 The agent's process
 ^^^^^^^^^^^^^^^^^^^

@@ -383,6 +383,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../example_workflows/multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/agentic_authoring/index.html">Agentic Authoring</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/agentic_authoring/workbench.html">Author a Workbench Environment with Codex</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/newton/index.html">Newton Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../example_workflows/newton/gear_insertion.html">Gear Insertion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../example_workflows/newton/deformable_pick_and_place.html">Deformable Pick and Place</a></li>
@@ -610,22 +614,13 @@ open the cabinet’s top drawer, place five tools from the workbench into it one
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">The prompt given to the agent</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">Set up an environment for evaluation of a workbench cleanup task using PhysX simulation.</p>
-<p class="sd-card-text">Use the following SimReady Central assets from Hugging Face:</p>
-<ul class="simple">
-<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">furniture_workbench_standard_e01</span></code></p></li>
-<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">fixture_cabinet_b01</span></code></p></li>
-<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">testingTool_oscilloscope_a01</span></code></p></li>
-<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">handTool_screwdriver_slotted_55mm_a01</span></code></p></li>
-<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">handTool_screwdriver_torx_t10_a01</span></code></p></li>
-<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">handTool_screwdriver_phillips_ph2_a01</span></code></p></li>
-<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">handTool_wrench_combination_a01</span></code></p></li>
-</ul>
-<p class="sd-card-text">Five tools, such as wrenches and screwdrivers, are scattered across the center of the workbench,
-with an oscilloscope on the left. An open toolbox sits on the cabinet to the left of the workbench.</p>
-<p class="sd-card-text">Task: open the top drawer of the cabinet, put the tools into the drawer one by one, then close
-the drawer.</p>
-<p class="sd-card-text">Validate task success correctly with a force-based demo script.</p>
+<p class="sd-card-text">Set up an environment for evaluation of a workbench cleanup task.
+Use the simready_central workbench assets registered in
+isaaclab_arena/assets/background_library.py and
+isaaclab_arena/assets/object_library.py.</p>
+<p class="sd-card-text">There is a white bin, an oscilloscope and an open toolbox on the workbench tabletop.
+The workbench’s top drawer is open with two tools cluttered inside.</p>
+<p class="sd-card-text">Task: close the drawer and toolbox, put the bin on the overhead sehlf of the workbench, and turn off the oscilloscope.</p>
 </div>
 </details></section>
 <section id="the-agent-s-process">
