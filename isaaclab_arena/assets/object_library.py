@@ -15,8 +15,6 @@ if TYPE_CHECKING:
 
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
-from isaaclab.utils.configclass import configclass
-from pxr import UsdPhysics
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
@@ -30,7 +28,6 @@ from isaaclab_arena.assets.object_utils import (
     RIGID_BODY_PROPS_HIGH_PRECISION,
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
-from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS, SIMREADY_PHYSICS_VARIANTS
 from isaaclab_arena.assets.sources.base import UsdSource
@@ -2199,35 +2196,6 @@ class SimReadyCentralSmallWrench(LibraryObject):
     spawn_cfg_addon = _make_simready_central_hand_tool_spawn_cfg_addon()
 
 
-@configclass
-class _SocketSetLidDriveCfg(UsdPrimSpawnPhysicsCfg):
-    """Set the lid drive using authored USD angular units, without radian conversion."""
-
-    damping: float = 0.0005235988
-    """Angular damping in USD torque units per degree/second."""
-
-    max_force: float = 0.2
-    """Maximum drive torque in USD torque units."""
-
-    stiffness: float = 0.0
-    """Angular stiffness in USD torque units per degree."""
-
-    target_position: float = 0.0
-    """Angular drive target in degrees; zero stiffness leaves the hinge passive."""
-
-    def validate_target(self, prim, root):
-        """Require a revolute lid joint."""
-        assert prim.IsA(UsdPhysics.RevoluteJoint), "Socket-set lid must be a revolute joint."
-
-    def apply(self, prim, root):
-        """Override the spawned lid's drive attributes."""
-        drive = UsdPhysics.DriveAPI.Apply(prim, "angular")
-        drive.CreateDampingAttr(self.damping)
-        drive.CreateMaxForceAttr(self.max_force)
-        drive.CreateStiffnessAttr(self.stiffness)
-        drive.CreateTargetPositionAttr(self.target_position)
-
-
 @register_asset
 class SimReadyCentralSocketSet(LibraryObject, Openable):
     """A fixed-base ratchet socket set with a passive lid drive."""
@@ -2237,10 +2205,7 @@ class SimReadyCentralSocketSet(LibraryObject, Openable):
     # TODO(qianl, 2026.11.11): Point this prepared asset to ARENA_NUCLEUS_DIR after it is published to S3.
     usd_path = f"{ARENA_STAGING_STORAGE_DIR}/Arena/assets/object_library/workbench/socket_set.usda"
     object_type = ObjectType.ARTICULATION
-    spawn_cfg_addon = {
-        "variants": SIMREADY_PHYSICS_VARIANTS,
-        "prim_physics": {"Physics/Joints/case_lid": _SocketSetLidDriveCfg()},
-    }
+    spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
     openable_joint_name = "case_lid"
 
     def __init__(self, initial_joint_positions: dict[str, float] | None = None, **kwargs):
