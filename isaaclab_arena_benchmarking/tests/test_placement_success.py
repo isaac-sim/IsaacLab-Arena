@@ -87,7 +87,7 @@ def test_placement_experiment_runs_solve_separate_candidate_seeds(experiment_con
 
 
 def test_placement_subset_experiment_runs_are_runs_of_the_suites():
-    """Each Run of the placement subset Experiment is a Run of a suite Experiment, with the same spec."""
+    """Each Run of the placement subset Experiment is identical to the Run of the same name in a suite Experiment."""
     suite_runs = {}
     for suite_config in ("robolab_placement_experiment.yaml", "kitchen_bench_placement_experiment.yaml"):
         suite_runs.update(yaml.safe_load((EXPERIMENT_CONFIGS_DIR / suite_config).read_text())["runs"])
@@ -95,7 +95,7 @@ def test_placement_subset_experiment_runs_are_runs_of_the_suites():
     assert len(subset_runs) == 10
     for run_name, run in subset_runs.items():
         assert run_name in suite_runs, f"{run_name} is not a Run of a placement suite"
-        assert run["environment"] == suite_runs[run_name]["environment"]
+        assert run == suite_runs[run_name]
 
 
 @pytest.mark.parametrize(
