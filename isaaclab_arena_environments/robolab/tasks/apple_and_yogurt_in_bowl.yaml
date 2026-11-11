@@ -10,6 +10,8 @@ external_yaml:
 task:
   composition: parallel
   description: Put the apple and yogurt in the bowl
+  # Both objects must still be in the bowl when the task succeeds.
+  desired_subtask_success_state: [true, true]
   subtasks:
   - kind: PickAndPlaceTask
     params:

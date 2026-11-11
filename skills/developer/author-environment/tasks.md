@@ -33,13 +33,12 @@ writing a new task.
 By default a subtask stays complete once it succeeds, even if its object later leaves the
 destination. For example, with "put the banana and the orange in their bowls", knocking the banana
 out while placing the orange would still count as success. To require every subtask's condition
-to hold when the task ends, set the final state in the environment configuration override, one
+to hold when the task ends, set the final state directly under `task`, one
 entry per subtask in `subtasks` order:
 
 ```yaml
-env_cfg_override:
-  task_progress:
-    desired_subtask_success_state: [true, true]
+task:
+  desired_subtask_success_state: [true, true]
 ```
 
 `true` requires the subtask to have completed and its condition to hold now, `false` requires it

@@ -225,9 +225,18 @@ class CompositeTaskSpec(BaseModel):
         default_factory=list,
         description="Atomic registered tasks that compose this root task.",
     )
+    desired_subtask_success_state: list[bool | None] | None = Field(
+        default=None,
+        description="Final condition required for each completed subtask; null ignores its current condition.",
+    )
 
     @model_validator(mode="after")
     def _validate_composition_task_count(self) -> CompositeTaskSpec:
+        if self.desired_subtask_success_state is not None:
+            assert self.composition is not TaskCompositionType.ATOMIC, "Final subtask states require a composite task"
+            assert len(self.desired_subtask_success_state) == len(
+                self.subtasks
+            ), "One final state is required per subtask"
         if self.composition is TaskCompositionType.ATOMIC:
             assert len(self.subtasks) == 1, (
                 f"composition 'atomic' requires exactly one atomic task, got {len(self.subtasks)}."
