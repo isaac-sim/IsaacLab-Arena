@@ -1,0 +1,81 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Validate the workbench cleanup scene and tasks."""
+
+from pathlib import Path
+
+import pytest
+
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+
+_ENVIRONMENT_DIR = Path(__file__).resolve().parents[2] / "isaaclab_arena_environments/workbench_cleanup"
+
+
+def _test_workbench_task_definitions_build(simulation_app) -> bool:
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
+
+    for path in sorted(_ENVIRONMENT_DIR.glob("task_*.yaml")):
+        environment = build_arena_env_from_graph_spec(ArenaEnvGraphSpec.from_yaml(path))
+        assert environment.name
+    return True
+
+
+def test_workbench_task_definitions_build():
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    assert run_function_with_persistent_simulation_app(_test_workbench_task_definitions_build)
+
+
+@pytest.mark.parametrize(
+    "filename,task_kind",
+    [
+        ("task_bin_shelf.yaml", "PickAndPlaceTask"),
+        ("task_turn_off_scope.yaml", "PressButtonTask"),
+        ("task_close_toolcase.yaml", "CloseDoorTask"),
+        ("task_close_drawer.yaml", "CloseDoorTask"),
+    ],
+)
+def test_workbench_task_uses_shared_scene(filename, task_kind):
+    spec = ArenaEnvGraphSpec.from_yaml(_ENVIRONMENT_DIR / filename)
+
+    assert spec.background.registry_name == "workbench_cleanup_workbench"
+    assert "usd_path" not in spec.background.params
+    assert spec.background.params["collision_mode"] == "mesh"
+    assert spec.task.subtasks[0].kind == task_kind
+    socket_set = next(obj for obj in spec.objects if obj.id == "socket_set")
+    assert socket_set.registry_name == "workbench_cleanup_socket_set"
+    for obj in spec.objects:
+        if obj.id != "light":
+            assert obj.registry_name == f"workbench_cleanup_{obj.id}"
+            assert "usd_path" not in obj.params
+    object_ids = {obj.id for obj in spec.objects}
+    assert "slotted_screwdriver" in object_ids
+    assert "small_wrench" in object_ids
+    small_wrench = next(obj for obj in spec.objects if obj.id == "small_wrench")
+    assert small_wrench.params["scale"] == [0.75, 0.75, 0.75]
+    clutter_relations = {
+        relation.subject: relation.reference for relation in spec.relations if relation.kind == "clutter_on"
+    }
+    assert clutter_relations == {
+        "slotted_screwdriver": "top_drawer_body",
+        "small_wrench": "top_drawer_body",
+    }
+    references = {reference.id: reference for reference in spec.object_references}
+    assert references["socket_set_lid"].parent_id == "socket_set"
+    assert references["top_drawer_body"].parent_id == "top_drawer"
+    assert references["top_drawer"].params["initial_joint_positions"] == {"joint_drawersA_01_joint_00": 0.251816005}
+
+
+def test_workbench_full_cleanup_is_sequential():
+    spec = ArenaEnvGraphSpec.from_yaml(_ENVIRONMENT_DIR / "task_full_cleanup.yaml")
+
+    assert spec.task.composition.value == "sequential"
+    assert [subtask.kind for subtask in spec.task.subtasks] == [
+        "CloseDoorTask",
+        "CloseDoorTask",
+        "PickAndPlaceTask",
+        "PressButtonTask",
+    ]
