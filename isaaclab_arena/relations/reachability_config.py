@@ -37,10 +37,10 @@ class ReachabilityConfig:
 
     include_background_obstacles: bool = True
     """If True, the IK collision world also holds the fixed background mesh (e.g. kitchen cabinets and walls), cropped
-    to the triangles within ``background_obstacle_radius_m`` of the robot base. Scenes without one load nothing."""
+    to the part within ``background_obstacle_radius_m`` of the robot base. Scenes without one load nothing."""
 
     # NOTE(xinjieyao): DROID's full reach is about 1.36 m, so 1.4 m keeps everything the arm can touch.
     # TODO(xinjieyao, 2026-11-10): Extend to other robots: derive the radius from the embodiment's reach instead of
     # this DROID default.
     background_obstacle_radius_m: float = 1.4
-    """Distance (m) from the robot base within which background triangles are kept as obstacles."""
+    """Distance (m) from the robot base within which the background mesh is kept as an obstacle."""
