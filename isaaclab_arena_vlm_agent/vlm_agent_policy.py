@@ -227,8 +227,11 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._last_actions: dict[int, torch.Tensor] = {}
         """Last action returned for each environment, held while its environment waits without an episode."""
 
-    def get_rollout_statistics(self) -> dict[str, Any]:
-        """Return the endpoint, model, and the VLM requests and tokens used since the policy was created."""
+    def get_inference_usage(self) -> dict[str, Any]:
+        """Return the endpoint, model, and the VLM requests, tokens and latency since the policy was created.
+
+        After each rollout, the Run writes this usage to its output directory for KPI exporters to read.
+        """
         return {
             "endpoint": self._inference_backend.endpoint.name,
             "model": self._inference_backend.model,

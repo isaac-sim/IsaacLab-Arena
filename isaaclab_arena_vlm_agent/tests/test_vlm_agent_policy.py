@@ -763,7 +763,7 @@ def test_empty_choices_retry_without_correction_message(backend):
     assert calls[0].kwargs["messages"] == calls[1].kwargs["messages"]
 
 
-def test_rollout_statistics_count_every_request_and_reported_tokens(backend):
+def test_inference_usage_counts_every_request_and_reported_tokens(backend):
     with_usage = response('{"target": [1, 2]}')
     with_usage.usage = SimpleNamespace(prompt_tokens=100, completion_tokens=7)
     backend.client.chat.completions.create.side_effect = [
@@ -774,10 +774,10 @@ def test_rollout_statistics_count_every_request_and_reported_tokens(backend):
     policy = make_policy(backend)
     try:
         policy.get_action(*inputs())
-        statistics = policy.get_rollout_statistics()
-        request_latency_total_ms = statistics.pop("request_latency_total_ms")
-        request_latency_max_ms = statistics.pop("request_latency_max_ms")
-        assert statistics == {
+        usage = policy.get_inference_usage()
+        request_latency_total_ms = usage.pop("request_latency_total_ms")
+        request_latency_max_ms = usage.pop("request_latency_max_ms")
+        assert usage == {
             "endpoint": "internal",
             "model": "test-model",
             "num_requests": 3,
@@ -790,7 +790,7 @@ def test_rollout_statistics_count_every_request_and_reported_tokens(backend):
         policy.close()
 
 
-def test_rollout_statistics_time_concurrent_requests_one_by_one(backend):
+def test_inference_usage_times_concurrent_requests_one_by_one(backend):
     request_seconds = 0.05
     # Each request waits for the other, so both are in flight at once.
     both_requests_sent = threading.Barrier(2)
@@ -804,11 +804,11 @@ def test_rollout_statistics_time_concurrent_requests_one_by_one(backend):
     policy = make_policy(backend, max_concurrent_requests=2)
     try:
         policy.get_action(*inputs())
-        statistics = policy.get_rollout_statistics()
-        assert statistics["num_requests"] == 2
+        usage = policy.get_inference_usage()
+        assert usage["num_requests"] == 2
         # Both requests count their own latency, though they overlap in time.
-        assert statistics["request_latency_max_ms"] >= request_seconds * 1e3
-        assert statistics["request_latency_total_ms"] >= 2 * request_seconds * 1e3
+        assert usage["request_latency_max_ms"] >= request_seconds * 1e3
+        assert usage["request_latency_total_ms"] >= 2 * request_seconds * 1e3
     finally:
         policy.close()
 
