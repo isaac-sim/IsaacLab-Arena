@@ -9,8 +9,13 @@ and :doc:`Arena's agentic tools <../../agentic_tools/index>`.
 * :doc:`workbench` covers accessing the uploaded assets, viewing an existing agent-authored
   environment, prompting Codex to author a new task, and running a force-based
   reference demonstration.
+* :doc:`kitchen` covers viewing a maintained kitchen environment, prompting
+  Codex to author a two-bowl pick-and-place task in a different kitchen, and
+  reviewing the result, with the environment produced in a recorded run as an
+  example.
 
 .. toctree::
    :maxdepth: 1
 
    workbench
+   kitchen
