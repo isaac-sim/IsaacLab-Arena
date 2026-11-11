@@ -30,8 +30,8 @@ Adding assets
 -------------
 
 For immediate access to new uploads, use ``ARENA_STAGING_NUCLEUS_DIR`` from
-``isaaclab_arena.assets.nucleus``. It points to the internal Storage API location
-``ovstorage://isaac/Isaac/IsaacLab`` and requires internal access.
+``isaaclab_arena.assets.nucleus``. It points to the internal Nucleus location
+``omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab`` and requires internal access.
 Append ``/Arena/assets/...`` to build an asset path. ``ARENA_NUCLEUS_DIR`` uses the
 public S3 mirror, where uploads become available after synchronization.
 

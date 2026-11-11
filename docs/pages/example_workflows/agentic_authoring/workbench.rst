@@ -22,55 +22,33 @@ Run the commands below from the repository root in that runtime. Install and
 authenticate the Codex CLI on the host, then start it from the repository root
 so it can inspect Arena's source and project guidance.
 
-Step 1: Access the Workbench Assets
------------------------------------
-
 The registered workbench, socket set, and oscilloscope load prepared USD layers
 from ``ovstorage://isaac/Isaac/IsaacLab/Arena/assets/object_library/workbench``.
 Their source geometry and textures reference public Isaac Sim S3 assets. The
 bin, screwdriver, and wrench use pinned Hugging Face packages through Isaac
 Lab's download cache. No asset-processing command is required.
 
-The uploaded layers currently require internal NVIDIA Storage API access.
-Authenticate as the user running Arena using the
-`Storage API device-login quickstart
-<https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md>`_.
-The runtime needs ``omni.client`` 2.74.0 or newer and the credentials in
-``~/.nvidia-omniverse/config/auth.toml``; for Docker, these must be available
-inside the container.
+.. note::
 
-Standalone Python entrypoints also need a live Storage discovery registration.
-Save the following launcher as ``/tmp/with_workbench_storage.py`` in the runtime.
-It retains that registration while running a standard Arena module:
+   The assets currently require internal NVIDIA Storage API access.
+   Authenticate as the user running Arena using the
+   `Storage API device-login quickstart
+   <https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md>`_.
+   The runtime needs ``omni.client`` 2.74.0 or newer and the credentials in
+   ``~/.nvidia-omniverse/config/auth.toml``; for Docker, these must be available
+   inside the container.
 
-.. code-block:: python
+   Enable Storage discovery in the shell where you run the commands below:
 
-   import os
-   import runpy
-   import sys
-   from pathlib import Path
+   .. code-block:: bash
 
-   import isaacsim  # Initializes ISAAC_PATH for this runtime.
+      export OMNI_STORAGE_DISCOVERY=https://rc.storage.omni.nvidia.com
 
-   # Locate the bundled client in either a native install or the Arena container.
-   sys.path.insert(0, str(Path(os.environ["ISAAC_PATH"]) / "kit/extscore/omni.client.lib"))
-   import omni.client as client
 
-   module = sys.argv.pop(1)
-   initialized = client.initialize()
-   assert initialized, "Could not initialize the Storage client"
-   registration = client.register_storage_from_discovery("https://rc.storage.omni.nvidia.com")
-   assert registration is not None and registration.result == client.Result.OK
-   try:
-       runpy.run_module(module, run_name="__main__")
-   finally:
-       registration.stop()
-       client.shutdown()
-
-Step 2: Viewing an Existing Agent-Authored Environment
+Step 1: Viewing an Existing Agent-Authored Environment
 ------------------------------------------------------
 
-Arena includes a reviewed workbench scene and full cleanup task:
+Arena includes a agent-generated workbench scene and task:
 
 * ``isaaclab_arena_environments/workbench_cleanup/scene_tool_bin_scope.yaml``
 * ``isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml``
@@ -80,16 +58,16 @@ oscilloscope, and a white bin. Preview it in Kit:
 
 .. code-block:: bash
 
-   python /tmp/with_workbench_storage.py isaaclab_arena.scripts.environment_runner \
+   python -m isaaclab_arena.scripts.environment_runner \
      --env_spec isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml \
      --viz kit \
      --device cpu
 
-The checked-in force-based recipe validates all four task steps:
+The checked-in object-control recipe validates all four task steps:
 
 .. code-block:: bash
 
-   python /tmp/with_workbench_storage.py isaaclab_arena.agentic_tools.object_control_runner \
+   python -m isaaclab_arena.agentic_tools.object_control_runner \
      --env_spec isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml \
      --commands isaaclab_arena_environments/workbench_cleanup/object_control/full_cleanup.jsonl \
      --output /eval/workbench/full_cleanup_demo \
@@ -110,7 +88,7 @@ task predicate and the final sequential-task success condition.
 
    Complete all four workbench cleanup subtasks.
 
-Step 3: Authoring a New Workbench Environment
+Step 2: Authoring a New Workbench Environment
 ---------------------------------------------
 
 Start Codex from the repository root:
@@ -119,14 +97,14 @@ Start Codex from the repository root:
 
    codex
 
-Paste a concise task description like the prompt used for Arena's agentic
-authoring examples:
+Enter a task description like the one below:
 
 .. code-block:: text
 
-   Set up an environment for evaluation of a workbench cleanup task using
-   PhysX simulation. Use the prepared workbench assets registered in
-   isaaclab_arena_environments/workbench_cleanup/assets.py.
+   Set up an environment for evaluation of a workbench cleanup task.
+   Use the simready_central workbench assets registered in
+   isaaclab_arena/assets/background_library.py and
+   isaaclab_arena/assets/object_library.py.
 
    On the tabletop of the workbench, there is a clutter of five tools, such as
    wrenches and screwdrivers, at the center. The top drawer of the workbench is
