@@ -56,18 +56,3 @@ To add your own assets to Isaac Lab Arena's *staging* S3 bucket, you can follow 
 3. Request synchronization to the staging S3 bucket on `ISIM-5044 <https://nvidia.atlassian.net/browse/ISIM-5044>`__.
 
 4. Run Isaac Lab Arena to verify that the assets are loaded correctly.
-
-Syncing assets from Storage API to S3
--------------------------------------
-
-.. note::
-
-   To request a sync from internal Storage API to staging S3, comment on
-   `ISIM-5044 <https://nvidia.atlassian.net/browse/ISIM-5044>`__ with the exact source
-   and destination paths and target release version. Specify staging only and ask
-   Sheikh Dawood to confirm the ticket applies to your release. See the
-   `staging request instructions <https://nvidia.enterprise.slack.com/archives/CBDM22E5P/p1784656973875429>`__.
-
-   Staging S3 is publicly accessible. Request production promotion separately;
-   `ISIM-5254 <https://nvidia.atlassian.net/browse/ISIM-5254>`__ covers staging to
-   production for Isaac Sim 6.1.
