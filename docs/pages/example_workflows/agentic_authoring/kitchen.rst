@@ -1,5 +1,5 @@
-Author a Kitchen Environment with a Coding Agent
-================================================
+Author a ``kitchen_bench`` Environment with a Coding Agent
+==========================================================
 
 This workflow uses a coding agent to generate a new environment that extends
 Arena's :doc:`KitchenBench <../kitchen_bench_catalog>` benchmark with a new environment.
@@ -23,8 +23,8 @@ Install and authenticate your favourite coding agent on the host,
 then start it from the repository root.
 In our example, we use Codex with ``GPT-6-Astra-high``.
 
-Viewing an Existing Kitchen Environment
----------------------------------------
+Viewing an Existing ``kitchen_bench`` Environment
+-------------------------------------------------
 
 A similar existing environment is
 ``kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl``, from the
@@ -50,8 +50,8 @@ Preview the existing scene by running it with some zero actions using:
    A π0.5 policy placing the banana and the orange in the wooden bowl.
 
 
-Authoring a New Kitchen Environment
------------------------------------
+Authoring a New ``kitchen_bench`` Environment
+---------------------------------------------
 
 In this example, we ask the agent to author a new environment in which the
 DROID robot is required to place a banana and an orange in two bowls, in a
@@ -291,23 +291,21 @@ server:
 .. code-block:: text
 
     Evaluate the pi05 DROID policy on the environment at
-    `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml`.
-    Write the Experiment at
-    `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls_pi05.yaml`,
-    serve the policy with a local OpenPI server, run three episodes, and report
-    the overall and per-subtask success rates.
+    `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml` for 3 episodes
 
 The repository's ``run-experiment`` and ``serve-openpi-policy`` skills guide
 the agent through the evaluation. Expect it to:
 
-1. Write a one-Run Experiment that points at your environment and uses
-   ``Pi0RemotePolicy`` with the ``pi05`` variant and the DROID adapter.
-2. Reuse a running OpenPI server for that variant and port, or start one with
-   ``./isaaclab_arena_openpi/docker/run_openpi_server.sh``. The first start
-   builds the ``isaaclab_arena:openpi_server`` image (~3 min, ~19 GB) and
-   downloads the ~11 GB checkpoint, so the agent should ask before starting it.
-3. Run the Experiment with ``isaaclab_arena/evaluation/experiment_runner.py``
-   and report the results.
+1. **Write the Experiment:** write a one-Run Experiment that points at your
+   environment and uses ``Pi0RemotePolicy`` with the ``pi05`` variant and the
+   DROID adapter.
+2. **Start pi0.5:** reuse a running OpenPI server for that variant and port, or
+   start one with ``./isaaclab_arena_openpi/docker/run_openpi_server.sh``. The
+   first start builds the ``isaaclab_arena:openpi_server`` image (~3 min,
+   ~19 GB) and downloads the ~11 GB checkpoint, so the agent should ask before
+   starting it.
+3. **Run the evaluation:** run the Experiment with
+   ``isaaclab_arena/evaluation/experiment_runner.py`` and report the results.
 
 An episode only counts as a success when both fruits are in their bowls. The
 results also include ``subtask_success_rate``, the success rate for each fruit,
