@@ -16,7 +16,7 @@ from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironme
 from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
-    ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME_TEMPLATE,
+    ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME,
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
@@ -324,29 +324,40 @@ class _InferenceUsagePolicy(_Policy):
         return {"build_index": self.build_index}
 
 
-@pytest.mark.parametrize("policy_type", [_Policy, _InferenceUsagePolicy])
-def test_build_and_run_writes_inference_usage_per_rebuild(monkeypatch, tmp_path, policy_type):
+def _patch_build_and_run(monkeypatch, policy_type, rollout_policy):
     _InferenceUsagePolicy.num_built = 0
     monkeypatch.setattr(run_execution, "_build_environment_from_cfg", lambda cfg, render_mode, **kwargs: _environment())
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy_type())
     monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
-    monkeypatch.setattr(run_execution, "rollout_policy", lambda env, policy, num_steps, num_episodes: None)
+    monkeypatch.setattr(run_execution, "rollout_policy", rollout_policy)
+
+
+@pytest.mark.parametrize("policy_type", [_Policy, _InferenceUsagePolicy])
+def test_build_and_run_writes_inference_usage_of_every_rebuild(monkeypatch, tmp_path, policy_type):
+    _patch_build_and_run(monkeypatch, policy_type, lambda env, policy, num_steps, num_episodes: None)
 
     run_execution.build_and_run(_run(), output_dir=tmp_path)
 
-    usage_paths = sorted(tmp_path.glob(ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME_TEMPLATE.format(rebuild_index="*")))
+    usage_path = tmp_path / ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME
     if policy_type is _Policy:
-        assert usage_paths == []
+        assert not usage_path.exists()
         return
-    assert [path.name for path in usage_paths] == [
-        ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME_TEMPLATE.format(rebuild_index=rebuild_index)
-        for rebuild_index in range(2)
-    ]
-    assert [json.loads(path.read_text(encoding="utf-8")) for path in usage_paths] == [
-        {"build_index": 0},
-        {"build_index": 1},
-    ]
+    assert json.loads(usage_path.read_text(encoding="utf-8")) == [{"build_index": 0}, {"build_index": 1}]
+
+
+def test_build_and_run_writes_inference_usage_of_a_failed_rollout(monkeypatch, tmp_path):
+    def rollout_policy(env, policy, num_steps, num_episodes):
+        if policy.build_index == 1:
+            raise RuntimeError("rollout failed")
+
+    _patch_build_and_run(monkeypatch, _InferenceUsagePolicy, rollout_policy)
+
+    with pytest.raises(RuntimeError, match="rollout failed"):
+        run_execution.build_and_run(_run(), output_dir=tmp_path)
+
+    usage_path = tmp_path / ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME
+    assert json.loads(usage_path.read_text(encoding="utf-8")) == [{"build_index": 0}, {"build_index": 1}]
 
 
 def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
