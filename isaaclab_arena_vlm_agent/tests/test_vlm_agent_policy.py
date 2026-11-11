@@ -23,6 +23,7 @@ from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from isaaclab_arena.inference.backend import InferenceBackend, build_strict_schema
+from isaaclab_arena.utils.timer import get_timer_stats, reset_timer_stats
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 from isaaclab_arena_vlm_agent.motion_generator import MotionGenerator
@@ -376,15 +377,17 @@ class JointMotionGenerator(MotionGenerator):
         return np.clip(goal - positions, -self.max_step, self.max_step)
 
 
-def make_multi_step_policy(backend, adapter, *, max_steps_per_goal=2):
+def make_multi_step_policy(backend, adapter, *, max_steps_per_goal=2, max_attempts=1):
     if isinstance(adapter, ChunkActionAdapter):
         policy_type = VLMChunkPolicy
-        config = VLMPolicyCfg(system_prompt="Control these joints.", max_attempts=1, max_concurrent_requests=1)
+        config = VLMPolicyCfg(
+            system_prompt="Control these joints.", max_attempts=max_attempts, max_concurrent_requests=1
+        )
     else:
         policy_type = VLMGoalPolicy
         config = VLMGoalPolicyCfg(
             system_prompt="Control these joints.",
-            max_attempts=1,
+            max_attempts=max_attempts,
             max_concurrent_requests=1,
             max_steps_per_goal=max_steps_per_goal,
         )
@@ -502,6 +505,32 @@ def test_waiting_environment_keeps_its_unfinished_goal_without_requests(backend)
     assert backend.client.chat.completions.create.call_count == 3
     assert policy._current_goals[1][1] == 1
     assert 1 not in policy._previous_goals
+
+
+def test_vlm_timers_count_steps_that_wait_and_request_rounds(backend):
+    chunk = response('{"actions": [[1, 2], [3, 4]]}')
+    short_chunk = response('{"actions": [[1, 2]]}')
+    # Requests are serial, so responses arrive in environment order within each round.
+    backend.client.chat.completions.create.side_effect = [chunk, chunk, short_chunk, chunk, chunk]
+    policy = make_multi_step_policy(backend, JointChunkAdapter(chunk_size=2), max_attempts=2)
+    env, observation = inputs()
+    reset_timer_stats()
+    try:
+        # The first step requests a chunk; the second replays it without waiting on the VLM.
+        policy.get_action(env, observation)
+        policy.get_action(env, observation)
+        timer_stats = get_timer_stats()
+        assert timer_stats["vlm_inference"].count == 1
+        assert timer_stats["vlm_inference/vlm_requests"].count == 1
+
+        # The third step waits once, through env 0's rejected response and its correction.
+        policy.get_action(env, observation)
+        timer_stats = get_timer_stats()
+        assert timer_stats["vlm_inference"].count == 2
+        assert timer_stats["vlm_inference/vlm_requests"].count == 3
+    finally:
+        reset_timer_stats()
+        policy.close()
 
 
 @pytest.mark.parametrize(
