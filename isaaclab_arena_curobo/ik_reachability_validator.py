@@ -198,7 +198,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             )
             for obj in targets
         ])
-        self._update_background_mesh_pose(robot_base_pose_w)
+        self._update_background_mesh_pose_using_robot_base(robot_base_pose_w)
         ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
         if self._rerun_layer is not None:
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
@@ -277,7 +277,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             joint_positions=torch.cat([ik.joint_positions for ik in per_target]),
         )
 
-    def _update_background_mesh_pose(self, robot_base_pose_w: Pose) -> None:
+    def _update_background_mesh_pose_using_robot_base(self, robot_base_pose_w: Pose) -> None:
         """Update the loaded background mesh's pose relative to the robot base; its vertices are not touched.
 
         Skipped when the base pose equals the last layout's, or when the background is off or the scene has none.
@@ -288,7 +288,9 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         if self._background_mesh_W is None or len(self._background_mesh_W.faces) == 0:
             return
         if robot_base_pose_w != self._background_mesh_pose_base_pose_w:
-            self._solver.set_background_mesh_pose(robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
+            self._solver.update_background_mesh_pose_using_robot_base(
+                robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw
+            )
             self._background_mesh_pose_base_pose_w = robot_base_pose_w
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:

@@ -193,8 +193,9 @@ class CuroboIKSolver:
     def load_background_mesh_obstacle(self, mesh_W: trimesh.Trimesh) -> None:
         """Load the whole background mesh as one obstacle, replacing any loaded before; ``update_world`` leaves it.
 
-        Its collision structure (BVH) is built here, once. Call ``set_background_mesh_pose`` before solving to place
-        it for the robot base. An empty mesh only clears it. Requires a ``"mesh"`` slot in ``collision_cache_size``.
+        Its collision structure (BVH) is built here, once. Call ``update_background_mesh_pose_using_robot_base`` before
+        solving to place it for the robot base. An empty mesh only clears it. Requires a ``"mesh"`` slot in
+        ``collision_cache_size``.
 
         Args:
             mesh_W: Background mesh in world coordinates.
@@ -207,7 +208,7 @@ class CuroboIKSolver:
         if len(mesh_W.faces) > 0:
             mesh = Mesh(
                 name=BACKGROUND_MESH_NAME,
-                # Identity pose (x, y, z, qw, qx, qy, qz) until set_background_mesh_pose places it.
+                # Identity pose (x, y, z, qw, qx, qy, qz) until update_background_mesh_pose_using_robot_base places it.
                 pose=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
                 vertices=np.asarray(mesh_W.vertices, dtype=np.float32),
                 faces=np.asarray(mesh_W.faces, dtype=np.int32),
@@ -218,7 +219,7 @@ class CuroboIKSolver:
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
-    def set_background_mesh_pose(
+    def update_background_mesh_pose_using_robot_base(
         self,
         robot_base_pos_w: tuple[float, float, float],
         robot_base_quat_w_xyzw: tuple[float, float, float, float],

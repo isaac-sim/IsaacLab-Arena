@@ -130,12 +130,12 @@ def test_background_mesh_blocks_a_solve_only_where_the_base_pose_places_it(droid
     block_W = block_B.copy().apply_transform(T_W_B)
     droid_solver.load_background_mesh_obstacle(block_W)
     try:
-        droid_solver.set_background_mesh_pose(t_W_B, q_W_B_xyzw)
+        droid_solver.update_background_mesh_pose_using_robot_base(t_W_B, q_W_B_xyzw)
         assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [False]
         # Moving the base 3 m leaves the world-fixed box out of reach, without reloading it.
-        droid_solver.set_background_mesh_pose((t_W_B[0] + 3.0, t_W_B[1], t_W_B[2]), q_W_B_xyzw)
+        droid_solver.update_background_mesh_pose_using_robot_base((t_W_B[0] + 3.0, t_W_B[1], t_W_B[2]), q_W_B_xyzw)
         assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]
-        droid_solver.set_background_mesh_pose(t_W_B, q_W_B_xyzw)
+        droid_solver.update_background_mesh_pose_using_robot_base(t_W_B, q_W_B_xyzw)
     finally:
         droid_solver.load_background_mesh_obstacle(trimesh.Trimesh())
     assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]

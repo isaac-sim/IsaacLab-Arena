@@ -95,7 +95,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
         def load_background_mesh_obstacle(self, mesh_W):
             captured.setdefault("background_meshes", []).append(mesh_W)
 
-        def set_background_mesh_pose(self, base_pos, base_quat):
+        def update_background_mesh_pose_using_robot_base(self, base_pos, base_quat):
             captured.setdefault("background_base_poses", []).append((tuple(base_pos), tuple(base_quat)))
 
     captured = {}
