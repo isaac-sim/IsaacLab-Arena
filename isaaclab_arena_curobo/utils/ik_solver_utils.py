@@ -100,6 +100,12 @@ def curobo_mesh_in_robot_frame(
     """Return a world-frame mesh as a cuRobo ``Mesh`` obstacle with its vertices in the robot base frame.
 
     The vertices are moved rather than the pose set, so the obstacle sits at the identity pose.
+
+    Args:
+        mesh_W: Mesh in world coordinates.
+        name: Obstacle name in the cuRobo collision world.
+        robot_base_pos_w: Robot base position in the world frame.
+        robot_base_quat_w_xyzw: Robot base orientation in the world frame.
     """
     # Frames: W = world, R = robot base.
     t_W_R = np.asarray(robot_base_pos_w, dtype=np.float64)
