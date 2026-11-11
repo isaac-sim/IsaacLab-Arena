@@ -4,18 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # VLM agent benchmark: how often the chunk policy calls the VLM and how long the rollout waits on it.
-# The chunk policy executes each predicted chunk of 3 commands before calling the VLM again.
-# The chunk and goal VLM policy benchmark Experiments share the scene, seeds, model and episodes,
-# so their KPIs compare the two execution strategies.
-#
-# Run inside the Arena runtime with NV_API_KEY set; every episode sends requests to the hosted endpoint:
-# /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py --viz none \
-#   --experiment_config isaaclab_arena_benchmarking/experiment_configs/vlm_chunk_policy_benchmark_experiment.yaml
-#
-# The timing KPIs hold the VLM timers under step/policy_inference:
-# - vlm_inference: one entry per step that waited on the VLM, including response-validation retries.
-# - vlm_inference/vlm_requests: one entry per round of concurrent requests; with num_envs: 1, one VLM call
-#   plus any transport retries.
 kpi_exporters: [success_rate, timing]
 
 shared:
