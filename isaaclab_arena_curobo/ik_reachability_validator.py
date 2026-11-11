@@ -29,7 +29,7 @@ from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
-from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
+from isaaclab_arena_curobo.ik_solver import BACKGROUND_MESH_SLOTS, CUBOID_OBSTACLE_SLOTS, CuroboIKSolver
 from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_world_poses
 from isaaclab_arena_curobo.utils.ik_solver_utils import (
     AABBCollisionCuboid,
@@ -47,10 +47,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
-
-
-# Obstacle slots when the background is loaded: the layout's objects as cuboids, plus one mesh for the background.
-_COLLISION_CACHE_WITH_BACKGROUND = {"cuboid": 150, "mesh": 1}
 
 
 def get_object_world_pose_from_layout(
@@ -98,7 +94,10 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             get_embodiment_curobo_cfg(config.embodiment),
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
-            collision_cache_size=_COLLISION_CACHE_WITH_BACKGROUND if self._include_background else None,
+            # With the background: the layout's objects as cuboids, plus one mesh for the background.
+            collision_cache_size=(
+                {"cuboid": CUBOID_OBSTACLE_SLOTS, "mesh": BACKGROUND_MESH_SLOTS} if self._include_background else None
+            ),
         )
         self._embodiment = config.embodiment
         # Used only when the robot is not itself relation-placed, in which case it never appears in a layout.

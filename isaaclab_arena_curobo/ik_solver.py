@@ -33,6 +33,12 @@ if TYPE_CHECKING:
 BACKGROUND_MESH_NAME = "background"
 """Name of the mesh obstacle ``set_background_mesh`` loads."""
 
+CUBOID_OBSTACLE_SLOTS = 150
+"""Cuboid obstacle slots in the collision cache: one per layout object."""
+
+BACKGROUND_MESH_SLOTS = 1
+"""Mesh obstacle slots ``set_background_mesh`` needs: the background is loaded as one mesh."""
+
 
 class CuroboIKSolver:
     """Sim-free cuRobo IK-reachability oracle with no Isaac Sim / Isaac Lab env.
@@ -81,8 +87,8 @@ class CuroboIKSolver:
             num_seeds: IK seeds optimized in parallel per pose.
             position_threshold: cuRobo internal IK position convergence threshold (m).
             rotation_threshold: cuRobo internal IK rotation convergence threshold (rad, geodesic angle).
-            collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": 150}``. A world with more
-                obstacles than its slots fails to load, and ``set_background_mesh`` needs a ``"mesh"`` slot.
+            collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": CUBOID_OBSTACLE_SLOTS}``. A world
+                with more obstacles than its slots fails to load, and ``set_background_mesh`` needs a ``"mesh"`` slot.
             max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
             use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
             debug: Enable cuRobo/planner debug logging.
@@ -103,7 +109,7 @@ class CuroboIKSolver:
             robot=self.robot_cfg,
             # cuRobo only builds a collision checker when given a scene; update_world() fills it per layout.
             scene_model=Scene(cuboid=[]),
-            collision_cache=collision_cache_size or {"cuboid": 150},
+            collision_cache=collision_cache_size or {"cuboid": CUBOID_OBSTACLE_SLOTS},
             device_cfg=self.device_cfg,
             num_seeds=num_seeds,
             position_tolerance=position_threshold,
@@ -202,7 +208,10 @@ class CuroboIKSolver:
             robot_base_quat_w_xyzw: Robot base orientation in the world frame.
         """
         meshes = self.ik_solver.scene_collision_checker.data.meshes
-        assert meshes is not None, "The solver was built without a mesh slot; pass {'mesh': 1} in collision_cache_size."
+        assert meshes is not None, (
+            f"The solver was built without a mesh slot; pass {{'mesh': {BACKGROUND_MESH_SLOTS}}} in"
+            " collision_cache_size."
+        )
         # Also free the previous mesh's BVH; cuRobo would otherwise reuse the cached mesh of the same name.
         meshes.clear(env_idx=0, clear_warp_cache=True)
         if len(mesh_W.faces) > 0:

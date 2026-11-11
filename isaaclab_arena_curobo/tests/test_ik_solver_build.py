@@ -21,9 +21,13 @@ pytestmark = pytest.mark.curobo_deps
 def droid_solver():
     """Real cuRobo IK solver for the Droid embodiment, built once per module."""
     from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_by_name
-    from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
+    from isaaclab_arena_curobo.ik_solver import BACKGROUND_MESH_SLOTS, CUBOID_OBSTACLE_SLOTS, CuroboIKSolver
 
-    return CuroboIKSolver(get_curobo_cfg_by_name("droid"), num_seeds=8, collision_cache_size={"cuboid": 150, "mesh": 1})
+    return CuroboIKSolver(
+        get_curobo_cfg_by_name("droid"),
+        num_seeds=8,
+        collision_cache_size={"cuboid": CUBOID_OBSTACLE_SLOTS, "mesh": BACKGROUND_MESH_SLOTS},
+    )
 
 
 def _default_ee_pose(solver):
