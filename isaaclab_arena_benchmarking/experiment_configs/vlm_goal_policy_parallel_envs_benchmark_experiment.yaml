@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # VLM agent benchmark: how often the goal policy calls the VLM and how long it waits, with 4 environments.
-kpi_exporters: [success_rate, timing]
+kpi_exporters: [success_rate, timing, vlm_usage]
 
 shared:
   environment:

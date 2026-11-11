@@ -23,6 +23,7 @@ from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiEx
 _EXPORTER_MODULE_NAMES = (
     "isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter",
     "isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter",
+    "isaaclab_arena_benchmarking.benchmarks.vlm_usage.vlm_usage_exporter",
 )
 """Modules whose import registers the KPI exporters; add new exporter modules here."""
 

@@ -95,7 +95,7 @@ class _SecondFailingExporter(_FailingExporter):
 
 
 def test_registry_lists_the_default_exporters():
-    assert set(get_exporters_by_name()) == {"success_rate", "timing"}
+    assert set(get_exporters_by_name()) == {"success_rate", "timing", "vlm_usage"}
 
 
 def test_registry_lists_the_exporters_in_a_fresh_process_without_importing_torch_or_isaaclab():
@@ -112,7 +112,7 @@ def test_registry_lists_the_exporters_in_a_fresh_process_without_importing_torch
         [sys.executable, "-c", code], capture_output=True, text=True, check=True, cwd=REPO_ROOT, timeout=120
     )
 
-    assert result.stdout.splitlines()[-2:] == ["['success_rate', 'timing']", "[]"]
+    assert result.stdout.splitlines()[-2:] == ["['success_rate', 'timing', 'vlm_usage']", "[]"]
 
 
 def test_completed_experiment_writes_every_default_file(tmp_path: Path):
