@@ -1,0 +1,8 @@
+{"action":"setup_joint","name":"top_drawer","joint_name":"joint_drawersA_01_joint_00","effort_limit":70.0,"replace_existing":true,"settle_hold":{"gain":300.0,"damping":50.0,"limit":70.0}}
+{"action":"mark","index":0,"boundary":"start","title":"Close top-left drawer"}
+{"action":"joint","name":"top_drawer","joint_name":"joint_drawersA_01_joint_00","normalized_goal":0.0,"seconds":4.0,"gain":300.0,"damping":50.0,"limit":70.0}
+{"action":"check","index":0}
+{"action":"wait","seconds":1.0}
+{"action":"mark","index":0,"boundary":"end","title":"Close top-left drawer"}
+{"action":"wait_final"}
+{"action":"finish"}
