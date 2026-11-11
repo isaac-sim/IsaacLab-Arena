@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
+import toml
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -29,13 +31,48 @@ def _request_json(url: str, values: dict[str, str] | None = None) -> dict[str, A
         with urllib.request.urlopen(url, data=data, timeout=30) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
+        # OAuth POSTs report pending and failed device logins as JSON error bodies.
+        if values is None:
+            raise
         return json.load(error)
 
 
+def _read_auth_config() -> dict[str, Any]:
+    """Read saved credentials, or return an empty config when the file is absent."""
+    try:
+        return toml.loads(_AUTH_PATH.read_text())
+    except FileNotFoundError:
+        return {}
+
+
+def _save_refresh_token(refresh_token: str) -> None:
+    """Save this stack's token atomically while preserving other configuration entries."""
+    assert isinstance(refresh_token, str) and refresh_token.strip(), "Login returned no refresh token"
+    config = _read_auth_config()
+    stack_config = config.setdefault(_STORAGE_STACK, {})
+    assert isinstance(stack_config, dict), f"Expected a table for {_STORAGE_STACK} in {_AUTH_PATH}"
+    stack_config["refreshToken"] = refresh_token
+    credentials = toml.dumps(config)
+    _AUTH_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = None
+    try:
+        # NamedTemporaryFile creates an owner-only file in the destination directory.
+        with tempfile.NamedTemporaryFile(mode="w", dir=_AUTH_PATH.parent, prefix=".auth-", delete=False) as output:
+            temporary_path = Path(output.name)
+            output.write(credentials)
+        os.replace(temporary_path, _AUTH_PATH)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 def _sign_in_if_needed() -> None:
-    """Run device login unless credentials already exist."""
-    if _AUTH_PATH.exists():
-        print(f"Using existing credentials at {_AUTH_PATH}")
+    """Run device login unless this stack already has a nonempty refresh token."""
+    stack_config = _read_auth_config().get(_STORAGE_STACK, {})
+    assert isinstance(stack_config, dict), f"Expected a table for {_STORAGE_STACK} in {_AUTH_PATH}"
+    refresh_token = stack_config.get("refreshToken")
+    if isinstance(refresh_token, str) and refresh_token.strip():
+        print(f"Using existing credentials for {_STORAGE_STACK} at {_AUTH_PATH}")
         return
 
     config = _request_json(f"{_STORAGE_STACK}/api/v1/auth-config")
@@ -67,11 +104,7 @@ def _sign_in_if_needed() -> None:
             interval += 5
             continue
         assert not error, tokens.get("error_description", error)
-        _AUTH_PATH.parent.mkdir(parents=True, exist_ok=True)
-        descriptor = os.open(_AUTH_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(descriptor, "w") as output:
-            output.write(f"[{json.dumps(_STORAGE_STACK)}]\n")
-            output.write(f'refreshToken = {json.dumps(tokens["refresh_token"])}\n')
+        _save_refresh_token(tokens["refresh_token"])
         print(f"Saved credentials to {_AUTH_PATH} (mode 600)")
         return
     raise RuntimeError("Device code expired; run setup again.")
@@ -83,16 +116,23 @@ def _verify_access() -> None:
 
     assert client.initialize(), "Failed to initialize omni.client"
     registration = None
+    renewal_hint = (
+        "If saved credentials are invalid or expired, renew the login using "
+        "https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/"
+        "-/blob/master/doc/user/kit/kit-vm-quickstart.md"
+    )
     try:
         registration = client.register_storage_from_discovery(_STORAGE_STACK)
-        assert registration is not None and registration.result == client.Result.OK, "Storage registration failed"
+        assert (
+            registration is not None and registration.result == client.Result.OK
+        ), f"Storage registration failed. {renewal_hint}"
         url = f"{ARENA_STAGING_STORAGE_DIR}/Arena"
         result, entry = client.stat(url)
-        assert result == client.Result.OK, f"Cannot access {url}: {result}"
+        assert result == client.Result.OK, f"Cannot access {url}: {result}. {renewal_hint}"
         print(f"Folder: {url}")
         print(f"Write access: {bool(entry.access & client.AccessFlags.WRITE)}")
         result, entries = client.list(url)
-        assert result == client.Result.OK, f"Cannot list {url}: {result}"
+        assert result == client.Result.OK, f"Cannot list {url}: {result}. {renewal_hint}"
         for child in entries:
             print(child.relative_path)
     finally:
