@@ -7,16 +7,14 @@
 
 from __future__ import annotations
 
-import numpy as np
 import torch
-import trimesh
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-from curobo.scene import Cuboid, Mesh, Scene
+from curobo.scene import Cuboid, Scene
 from curobo.types import JointState
 
 from isaaclab_arena.assets.object_base import ObjectBase
@@ -61,61 +59,6 @@ def get_aabb_collision_cuboid_for_object(
             position_xyz=tuple(float(v) for v in center_world.tolist()),
             rotation_xyzw=tuple(float(v) for v in quat_w_xyzw),
         ),
-    )
-
-
-def crop_mesh_near_point(mesh_W: trimesh.Trimesh, t_W: Sequence[float], radius_m: float) -> trimesh.Trimesh:
-    """Return the triangles of a world-frame mesh whose bounding boxes come within ``radius_m`` of a point.
-
-    Triangles are kept or dropped whole, so the crop covers every surface within the radius and keeps large
-    triangles (e.g. a floor) that only pass through it. Returns an empty mesh when nothing is that close.
-
-    Args:
-        mesh_W: Mesh in world coordinates.
-        t_W: Center of the crop, in the world frame.
-        radius_m: Crop radius (m).
-    """
-    # (num_faces, 3 corners, xyz)
-    triangles_W = mesh_W.triangles
-    # Each triangle's bounding box: per-axis min and max over its three corners.
-    # Element-wise over the three corners; a min/max reduction along axis 1 is ~10x slower on kitchen meshes.
-    lower_W = np.minimum(np.minimum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
-    upper_W = np.maximum(np.maximum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
-    point_W = np.asarray(t_W, dtype=np.float64)
-    # Point-to-box distance: per axis, how far the point lies outside the box (0 when inside that axis's range).
-    distances = np.linalg.norm(np.maximum(np.maximum(lower_W - point_W, point_W - upper_W), 0.0), axis=1)
-    # Keep whole triangles whose box comes within the radius.
-    kept_faces = mesh_W.faces[distances < radius_m]
-    # Keep only the vertices the kept faces use, and renumber the faces to index into that smaller vertex list.
-    kept_vertex_ids, faces = np.unique(kept_faces, return_inverse=True)
-    return trimesh.Trimesh(vertices=mesh_W.vertices[kept_vertex_ids], faces=faces.reshape(-1, 3), process=False)
-
-
-def curobo_mesh_in_robot_frame(
-    mesh_W: trimesh.Trimesh,
-    name: str,
-    robot_base_pos_w: tuple[float, float, float],
-    robot_base_quat_w_xyzw: tuple[float, float, float, float],
-) -> Mesh:
-    """Return a world-frame mesh as a cuRobo ``Mesh`` obstacle with its vertices in the robot base frame.
-
-    The vertices are moved rather than the pose set, so the obstacle sits at the identity pose.
-
-    Args:
-        mesh_W: Mesh in world coordinates.
-        name: Obstacle name in the cuRobo collision world.
-        robot_base_pos_w: Robot base position in the world frame.
-        robot_base_quat_w_xyzw: Robot base orientation in the world frame.
-    """
-    # Frames: W = world, R = robot base.
-    t_W_R = np.asarray(robot_base_pos_w, dtype=np.float64)
-    R_W_R = math_utils.matrix_from_quat(torch.tensor(robot_base_quat_w_xyzw, dtype=torch.float64)).numpy()
-    vertices_R = (np.asarray(mesh_W.vertices) - t_W_R) @ R_W_R
-    return Mesh(
-        name=name,
-        pose=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-        vertices=vertices_R.astype(np.float32),
-        faces=np.asarray(mesh_W.faces, dtype=np.int32),
     )
 
 

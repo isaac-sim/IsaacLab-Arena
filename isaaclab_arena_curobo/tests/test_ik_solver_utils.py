@@ -288,51 +288,6 @@ def test_unknown_hand_link_is_reported_against_the_robot_config():
         solve_ik_feasibility(host, _identity_grasps(), require_collision_free=True)
 
 
-def test_mesh_crop_keeps_the_triangles_near_the_point():
-    """A crop keeps a box within the radius, drops one beyond it, and keeps a large floor passing through it."""
-    import trimesh
-
-    from isaaclab_arena_curobo.utils.ik_solver_utils import crop_mesh_near_point
-
-    near_box = trimesh.creation.box(
-        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((0.5, 0, 0))
-    )
-    far_box = trimesh.creation.box(
-        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((3.0, 0, 0))
-    )
-    # Two triangles spanning 10 m; their vertices are all far from the point, but the floor runs under it.
-    floor = trimesh.Trimesh(
-        vertices=[(-5.0, -5.0, 0.0), (5.0, -5.0, 0.0), (5.0, 5.0, 0.0), (-5.0, 5.0, 0.0)], faces=[(0, 1, 2), (0, 2, 3)]
-    )
-    mesh_W = trimesh.util.concatenate([near_box, far_box, floor])
-
-    crop_W = crop_mesh_near_point(mesh_W, (0.0, 0.0, 0.5), radius_m=1.0)
-
-    assert len(crop_W.faces) == len(near_box.faces) + len(floor.faces)
-    assert crop_W.vertices[:, 0].max() == pytest.approx(5.0)
-    assert len(crop_mesh_near_point(mesh_W, (0.0, 0.0, 50.0), radius_m=1.0).faces) == 0
-
-
-def test_curobo_mesh_vertices_are_expressed_in_the_robot_base_frame():
-    """A world-frame vertex comes out at its robot-base-frame position, with the obstacle at the identity pose."""
-    import math
-    import trimesh
-
-    from isaaclab_arena_curobo.utils.ik_solver_utils import curobo_mesh_in_robot_frame
-
-    # The base sits at (1, 2, 0) turned 90 degrees about z, so world +y is base-frame +x.
-    t_W_R = (1.0, 2.0, 0.0)
-    q_W_R_xyzw = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
-    mesh_W = trimesh.Trimesh(vertices=[(1.0, 3.0, 0.5), (0.0, 2.0, 0.0), (1.0, 2.0, 1.0)], faces=[(0, 1, 2)])
-
-    mesh_R = curobo_mesh_in_robot_frame(mesh_W, "background", t_W_R, q_W_R_xyzw)
-
-    expected_vertices_R = torch.tensor([(1.0, 0.0, 0.5), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)])
-    assert torch.allclose(torch.as_tensor(mesh_R.vertices), expected_vertices_R, atol=1e-6)
-    assert mesh_R.pose == [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-    assert mesh_R.name == "background"
-
-
 def test_scene_cuboids_are_expressed_in_the_robot_base_frame():
     """Batch conversion matches the single-pose world-to-base transform, rotation included."""
     import math

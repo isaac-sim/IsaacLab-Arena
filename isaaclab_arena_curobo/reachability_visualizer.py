@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.validation.placement_visualizer import ROBOT_ENTITY, PlacementRerunVisualizer
@@ -46,7 +47,11 @@ SPHERES_ENTITY = f"{BASE_ENTITY}/collision_spheres"
 """Entity path of the robot's collision spheres, one child per grasp the check solved."""
 
 LOADED_BACKGROUND_ENTITY = f"{ROBOT_ENTITY}/background_obstacles"
-"""Entity path of the background mesh loaded for one layout; under the robot so a skipped layout clears it."""
+"""Entity path of the background mesh drawn for one layout; under the robot so a skipped layout clears it."""
+
+# NOTE(xinjieyao): DROID's full reach is about 1.36 m, so 1.4 m draws everything the arm can touch.
+DRAWN_BACKGROUND_RADIUS_M = 1.4
+"""Distance (m) from the robot base within which the background is drawn; the IK check uses the whole mesh."""
 
 LOADED_BACKGROUND_COLOR = (160, 170, 190, 70)
 """Color of the background mesh loaded as an obstacle for the layout's solves."""
@@ -101,8 +106,8 @@ class ReachabilityRerunLayer:
                 one set per grasp; omitted when the check did not compute them.
             muted_sphere_mask: ``(n,)`` mask of the spheres excluded from collision checking, drawn
                 apart from the rest. None means none were.
-            background_mesh_W: Background mesh loaded as an obstacle for this layout's solves, in the world
-                frame; omitted when the background is not loaded.
+            background_mesh_W: Background mesh this layout's solves checked against, in the world frame; only the
+                part within ``DRAWN_BACKGROUND_RADIUS_M`` of the robot base is drawn. Omitted when it is not loaded.
         """
         import rerun as rr
 
@@ -184,18 +189,20 @@ class ReachabilityRerunLayer:
         robot_spheres: torch.Tensor | None,
         muted_sphere_mask: torch.Tensor | None,
     ) -> None:
-        """Draw the loaded background mesh see-through and highlight the triangles the robot hits or nearly hits.
+        """Draw the background near the robot base see-through and highlight the triangles the robot (nearly) hits.
 
         Each sphere marks only its closest triangle, by unsigned distance: a sphere whose center sits inside a closed
         part, farther than its radius from every face, collides for cuRobo but is not highlighted.
 
         Args:
-            mesh_W: Background mesh loaded for the layout, in the world frame.
+            mesh_W: Background mesh the layout's solves checked against, in the world frame.
             robot_base_pos_w: Robot base frame position in the world frame.
             robot_base_quat_w_xyzw: Robot base frame orientation in the world frame.
             robot_spheres: ``(b, n, 4)`` collision spheres in the robot base frame, one set per grasp, or None.
             muted_sphere_mask: ``(n,)`` mask of the spheres excluded from collision checking, or None for none.
         """
+        # A whole kitchen is too large to log per layout; the arm cannot reach beyond the radius anyway.
+        mesh_W = crop_mesh_near_point(mesh_W, robot_base_pos_w, DRAWN_BACKGROUND_RADIUS_M)
         _log_triangles(f"{LOADED_BACKGROUND_ENTITY}/surface", mesh_W, LOADED_BACKGROUND_COLOR)
         if robot_spheres is not None:
             spheres_W = _checked_spheres_in_world(
@@ -210,6 +217,35 @@ class ReachabilityRerunLayer:
                 if selected.any():
                     faces = np.unique(triangle_ids[selected])
                     _log_triangles(f"{LOADED_BACKGROUND_ENTITY}/{name}", mesh_W.submesh([faces], append=True), color)
+
+
+def crop_mesh_near_point(mesh_W: trimesh.Trimesh, t_W: Sequence[float], radius_m: float) -> trimesh.Trimesh:
+    """Return the triangles of a world-frame mesh whose bounding boxes come within ``radius_m`` of a point.
+
+    Triangles are kept or dropped whole, so the crop covers every surface within the radius and keeps large
+    triangles (e.g. a floor) that only pass through it. Returns an empty mesh when nothing is that close.
+
+    Args:
+        mesh_W: Mesh in world coordinates.
+        t_W: Center of the crop, in the world frame.
+        radius_m: Crop radius (m).
+    """
+    import trimesh
+
+    # (num_faces, 3 corners, xyz)
+    triangles_W = mesh_W.triangles
+    # Each triangle's bounding box: per-axis min and max over its three corners.
+    # Element-wise over the three corners; a min/max reduction along axis 1 is ~10x slower on kitchen meshes.
+    lower_W = np.minimum(np.minimum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
+    upper_W = np.maximum(np.maximum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
+    point_W = np.asarray(t_W, dtype=np.float64)
+    # Point-to-box distance: per axis, how far the point lies outside the box (0 when inside that axis's range).
+    distances = np.linalg.norm(np.maximum(np.maximum(lower_W - point_W, point_W - upper_W), 0.0), axis=1)
+    # Keep whole triangles whose box comes within the radius.
+    kept_faces = mesh_W.faces[distances < radius_m]
+    # Keep only the vertices the kept faces use, and renumber the faces to index into that smaller vertex list.
+    kept_vertex_ids, faces = np.unique(kept_faces, return_inverse=True)
+    return trimesh.Trimesh(vertices=mesh_W.vertices[kept_vertex_ids], faces=faces.reshape(-1, 3), process=False)
 
 
 def _log_triangles(entity: str, mesh_W: trimesh.Trimesh, color: tuple[int, ...]) -> None:

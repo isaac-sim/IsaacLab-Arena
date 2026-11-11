@@ -34,7 +34,6 @@ from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_wor
 from isaaclab_arena_curobo.utils.ik_solver_utils import (
     AABBCollisionCuboid,
     IKFeasibility,
-    crop_mesh_near_point,
     get_aabb_collision_cuboid_for_object,
     hand_sphere_mask,
     robot_collision_spheres,
@@ -84,12 +83,10 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         self._ik_rot_threshold = config.ik_rotation_threshold_rad
         self._require_collision_free = config.require_collision_free
         self._include_background = config.include_background_obstacles
-        self._background_radius = config.background_obstacle_radius_m
         # Joined from the placer's fixed background meshes on the first batch; it does not change between layouts.
         self._background_mesh_W: trimesh.Trimesh | None = None
-        # The crop loaded into the solver and the robot base pose it was cropped around; re-cropped when the base moves.
-        self._loaded_background_crop_W: trimesh.Trimesh | None = None
-        self._loaded_background_base_pose_w: Pose | None = None
+        # Robot base pose the loaded background was last placed for; it is re-placed only when the base moves.
+        self._background_placed_for_base_pose_w: Pose | None = None
         self._solver = CuroboIKSolver(
             get_embodiment_curobo_cfg(config.embodiment),
             position_threshold=self._ik_pos_threshold,
@@ -132,6 +129,8 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
     ) -> list[bool]:
         if self._include_background and self._background_mesh_W is None:
             self._background_mesh_W = _join_background_meshes(collision_objects)
+            # The whole mesh is loaded once; each layout only moves it relative to the robot base.
+            self._solver.load_background_mesh_obstacle(self._background_mesh_W)
         return [
             self._validate(candidate.positions, candidate.orientations, rejections, layout_index_within_batch=i)
             for i, candidate in enumerate(batch.candidates)
@@ -148,7 +147,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
 
         Rebuilds each object's world pose, builds a collision cuboid per object -- what makes them block a
         grasp when collision checking is on -- then IK-solves each target's top-down grasp against a world
-        holding every other object and, when enabled, the background near the robot base. A layout with nothing to
+        holding every other object and, when enabled, the background. A layout with nothing to
         grasp (anchor-only, or no target present) is trivially reachable. The robot stands where this layout puts it
         when it is relation-placed too, so the grasps are solved from the base pose the layout would actually spawn.
 
@@ -199,7 +198,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             )
             for obj in targets
         ])
-        background_crop_W = self._load_background_near(robot_base_pose_w)
+        background_mesh_W = self._place_background_for(robot_base_pose_w)
         ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
         if self._rerun_layer is not None:
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
@@ -215,7 +214,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                 # The pose the arm ended up in is what explains a rejection, so it is drawn alongside it.
                 robot_spheres=robot_collision_spheres(self._solver, ik.joint_positions),
                 muted_sphere_mask=hand_sphere_mask(self._solver) if self._require_collision_free else None,
-                background_mesh_W=background_crop_W,
+                background_mesh_W=background_mesh_W,
             )
         self._record_failure(rejections, targets, ik)
         return bool(ik.feasible.all().item())
@@ -278,27 +277,21 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             joint_positions=torch.cat([ik.joint_positions for ik in per_target]),
         )
 
-    def _load_background_near(self, robot_base_pose_w: Pose) -> trimesh.Trimesh | None:
-        """Load the part of the background mesh near the robot base into the solver, and return it.
+    def _place_background_for(self, robot_base_pose_w: Pose) -> trimesh.Trimesh | None:
+        """Place the loaded background mesh for the robot base pose, and return it.
 
-        Re-crops and reloads only when the base pose differs from the last layout's, so a robot that is not
-        relation-placed loads the background once. Returns None when the background is off or the scene has none.
+        Updates only the mesh pose, and only when the base pose differs from the last layout's. Returns None when the
+        background is off or the scene has none.
 
         Args:
             robot_base_pose_w: World pose of the robot base.
         """
         if self._background_mesh_W is None or len(self._background_mesh_W.faces) == 0:
             return None
-        if robot_base_pose_w != self._loaded_background_base_pose_w:
-            crop_W = crop_mesh_near_point(
-                self._background_mesh_W, robot_base_pose_w.position_xyz, self._background_radius
-            )
-            self._solver.replace_background_mesh_obstacle(
-                crop_W, robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw
-            )
-            self._loaded_background_crop_W = crop_W
-            self._loaded_background_base_pose_w = robot_base_pose_w
-        return self._loaded_background_crop_W
+        if robot_base_pose_w != self._background_placed_for_base_pose_w:
+            self._solver.set_background_mesh_pose(robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
+            self._background_placed_for_base_pose_w = robot_base_pose_w
+        return self._background_mesh_W
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""

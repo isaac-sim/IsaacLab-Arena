@@ -71,7 +71,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
     ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility. The fake solver records the
     cuboids passed to ``update_world`` and which of them are switched off, and each solve records the enabled
     world it ran against, so a test can assert which objects were obstacles to which grasp. Every background mesh
-    loaded is recorded in order.
+    loaded and every base pose it is placed for are recorded in order.
     """
     import isaaclab_arena_curobo.ik_reachability_validator as mod
 
@@ -92,8 +92,11 @@ def _patch_curobo(monkeypatch, feasible_fn):
             else:
                 self.disabled_names.add(name)
 
-        def replace_background_mesh_obstacle(self, mesh_W, base_pos, base_quat):
+        def load_background_mesh_obstacle(self, mesh_W):
             captured.setdefault("background_meshes", []).append(mesh_W)
+
+        def set_background_mesh_pose(self, base_pos, base_quat):
+            captured.setdefault("background_base_poses", []).append((tuple(base_pos), tuple(base_quat)))
 
     captured = {}
 
@@ -303,6 +306,31 @@ def test_reachability_layer_records_to_rrd(tmp_path):
     assert {f"/{LOADED_BACKGROUND_ENTITY}/surface", f"/{LOADED_BACKGROUND_ENTITY}/hit"} <= entity_paths
 
 
+def test_mesh_crop_keeps_the_triangles_near_the_point():
+    """A crop keeps a box within the radius, drops one beyond it, and keeps a large floor passing through it."""
+    import trimesh
+
+    from isaaclab_arena_curobo.reachability_visualizer import crop_mesh_near_point
+
+    near_box = trimesh.creation.box(
+        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((0.5, 0, 0))
+    )
+    far_box = trimesh.creation.box(
+        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((3.0, 0, 0))
+    )
+    # Two triangles spanning 10 m; their vertices are all far from the point, but the floor runs under it.
+    floor = trimesh.Trimesh(
+        vertices=[(-5.0, -5.0, 0.0), (5.0, -5.0, 0.0), (5.0, 5.0, 0.0), (-5.0, 5.0, 0.0)], faces=[(0, 1, 2), (0, 2, 3)]
+    )
+    mesh_W = trimesh.util.concatenate([near_box, far_box, floor])
+
+    crop_W = crop_mesh_near_point(mesh_W, (0.0, 0.0, 0.5), radius_m=1.0)
+
+    assert len(crop_W.faces) == len(near_box.faces) + len(floor.faces)
+    assert crop_W.vertices[:, 0].max() == pytest.approx(5.0)
+    assert len(crop_mesh_near_point(mesh_W, (0.0, 0.0, 50.0), radius_m=1.0).faces) == 0
+
+
 def test_background_triangles_are_highlighted_by_their_gap_to_the_checked_spheres():
     """In a turned robot base frame, each checked sphere finds its closest triangle within the margin, if any."""
     import math
@@ -445,8 +473,8 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
 
 
 @pytest.mark.curobo_deps
-def test_background_is_cropped_near_the_robot_and_loaded_once(monkeypatch):
-    """A fixed background mesh is loaded once, cropped to the part within reach of the robot base."""
+def test_background_is_loaded_whole_once_and_placed_once_per_base_pose(monkeypatch):
+    """A fixed background mesh is loaded whole, once, and placed again only when the robot base moves."""
     import trimesh
 
     from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
@@ -467,10 +495,10 @@ def test_background_is_cropped_near_the_robot_and_loaded_once(monkeypatch):
     )
     validator.validate_batch(batch, [background])
 
-    # The robot base does not move between layouts, so the crop is loaded once.
-    (crop_W,) = captured["background_meshes"]
-    assert len(crop_W.faces) == len(near_wall.faces)
-    assert crop_W.bounds[1][0] < 1.0
+    # The whole mesh, far wall included, is loaded once; the base does not move between layouts, so it is placed once.
+    (mesh_W,) = captured["background_meshes"]
+    assert len(mesh_W.faces) == len(near_wall.faces) + len(far_wall.faces)
+    assert len(captured["background_base_poses"]) == 1
     assert all(world == ["desk"] for world in captured["worlds_per_solve"])
 
 
