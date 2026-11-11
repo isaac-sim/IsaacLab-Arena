@@ -11,8 +11,8 @@ and :doc:`Arena's agentic tools <../../agentic_tools/index>`.
   reference demonstration.
 * :doc:`kitchen` covers viewing a maintained kitchen environment, prompting
   Codex to author a two-bowl pick-and-place task in a different kitchen, and
-  following the agent's build and placement validation, with the environment
-  produced in a recorded run as an example result.
+  reviewing the result, with the environment produced in a recorded run as an
+  example.
 
 .. toctree::
    :maxdepth: 1
