@@ -148,9 +148,9 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
 
         Rebuilds each object's world pose, builds a collision cuboid per object -- what makes them block a
         grasp when collision checking is on -- then IK-solves each target's top-down grasp against a world
-        holding every other object and, when enabled, the background near the robot base. A layout with nothing to grasp (anchor-only, or no target present) is
-        trivially reachable. The robot stands where this layout puts it when it is relation-placed too,
-        so the grasps are solved from the base pose the layout would actually spawn.
+        holding every other object and, when enabled, the background near the robot base. A layout with nothing to
+        grasp (anchor-only, or no target present) is trivially reachable. The robot stands where this layout puts it
+        when it is relation-placed too, so the grasps are solved from the base pose the layout would actually spawn.
 
         Args:
             positions: Solved (x, y, z) per object.
