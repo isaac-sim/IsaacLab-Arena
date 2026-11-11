@@ -5,8 +5,6 @@
 
 """Registered workbench assets from SimReady packages and prepared USD layers."""
 
-import os
-
 import isaaclab.sim as sim_utils
 
 from isaaclab_arena.affordances.openable import Openable
@@ -90,10 +88,8 @@ class WorkbenchCleanupSmallWrench(LibraryObject):
 # Prepared assets
 # -----------------------------------------------------------------------------
 
-WORKBENCH_ASSET_ROOT = os.environ.get(
-    "ARENA_WORKBENCH_ASSET_ROOT", f"{ARENA_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/workbench"
-).rstrip("/")
-"""Uploaded bundle root; override with a local directory when testing rebuilt layers."""
+WORKBENCH_ASSET_ROOT = f"{ARENA_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/workbench"
+"""Uploaded workbench asset bundle root."""
 
 
 @register_asset
