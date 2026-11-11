@@ -458,7 +458,8 @@ class ObjectCommandExecutor:
             self.video.close()
             report["video_frames"] = self.video.frames
             (self.output / "validation.json").write_text(json.dumps(report, indent=2))
-        print("TASK_SUCCESS" if all(success) else "TASK_INCOMPLETE", json.dumps(report), flush=True)
+        summary = {"success": success, "report": str(self.output / "validation.json")}
+        print("TASK_SUCCESS" if all(success) else "TASK_INCOMPLETE", json.dumps(summary), flush=True)
         return report
 
     def _hold_reset_joint_positions(self, joint_setups: Sequence[SetupJointCommand]) -> None:
