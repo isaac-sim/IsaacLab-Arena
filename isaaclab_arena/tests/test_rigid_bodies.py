@@ -11,11 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.utils.usd.rigid_bodies import (
-    apply_usd_variant_selections,
-    find_shallowest_rigid_body_from_stage,
-    read_asset_rigid_body_paths,
-)
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body_from_stage, read_asset_rigid_body_paths
+from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
 
 
 def _write_physics_variant_usd(path: Path) -> None:

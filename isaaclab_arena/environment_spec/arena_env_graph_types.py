@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.sources.base import UsdSource
 
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
@@ -23,6 +24,9 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     class_usd = getattr(asset_cls, "usd_path", None)
     if isinstance(class_usd, str) and class_usd:
         return class_usd
+    class_source = getattr(asset_cls, "usd_source", None)
+    if isinstance(class_source, UsdSource):
+        return class_source.to_local_usd_path()
 
     # Defer conversion imports until runtime; conversion utilities also import these schema types.
     from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import parse_asset_params

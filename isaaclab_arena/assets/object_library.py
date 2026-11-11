@@ -13,7 +13,6 @@ import isaaclab.sim as sim_utils
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
 
-from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
@@ -21,7 +20,6 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
-from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
@@ -31,6 +29,8 @@ from isaaclab_arena.assets.object_utils import (
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.sources.base import UsdSource
+from isaaclab_arena.assets.sources.lightwheel import LightwheelUsdSource
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -45,6 +45,7 @@ class LibraryObject(Object):
 
     tags: list[str]
     usd_path: str | None = None
+    usd_source: UsdSource | None = None
     object_type: ObjectType = ObjectType.RIGID
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
     spawn_cfg_addon: dict[str, Any] = {}
@@ -73,8 +74,9 @@ class LibraryObject(Object):
         super().__init__(
             name=name,
             prim_path=prim_path,
-            tags=self.tags,
+            tags=list(self.tags),
             usd_path=self.usd_path,
+            usd_source=self.usd_source,
             object_type=self.object_type,
             scale=scale,
             initial_pose=initial_pose,
@@ -145,8 +147,7 @@ class Microwave(LibraryObject, Openable):
 
     registry_name = "microwave"
     tags = ["object", "openable"]
-    # Resolved lazily on first attribute access — see isaaclab_arena.assets.lightwheel_lazy.
-    usd_path = LightwheelLazyPath(registry_type="fixtures", file_name="Microwave039", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -171,7 +172,7 @@ class CoffeeMachine(LibraryObject, Pressable):
 
     registry_name = "coffee_machine"
     tags = ["object", "pressable"]
-    usd_path = LightwheelLazyPath(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -759,7 +760,7 @@ class Broccoli(LibraryObject):
 
     registry_name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
-    usd_path = LightwheelLazyPath(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
 
 
 @register_asset
@@ -770,7 +771,7 @@ class SweetPotato(LibraryObject):
 
     registry_name = "sweet_potato"
     tags = ["object", "vegetable", "graspable"]
-    usd_path = LightwheelLazyPath(registry_type="objects", file_name="SweetPotato005", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="SweetPotato005", file_type="USD")
     scale = (1.5, 1.5, 1.5)
 
 
@@ -782,7 +783,7 @@ class Jug(LibraryObject):
 
     registry_name = "jug"
     tags = ["object", "graspable"]
-    usd_path = LightwheelLazyPath(registry_type="objects", file_name="Jug005", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="Jug005", file_type="USD")
     scale = (2.0, 2.0, 2.0)
 
 
@@ -794,7 +795,7 @@ class BeerBottle(LibraryObject):
 
     registry_name = "beer_bottle"
     tags = ["object", "graspable"]
-    usd_path = LightwheelLazyPath(registry_type="objects", file_name="beer016", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="beer016", file_type="USD")
     scale = (1.2, 1.2, 1.2)
 
 
@@ -2023,17 +2024,9 @@ class ProceduralTable(Object):
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawner_cfg=_PROCEDURAL_TABLE_SPAWN_CFG,
             initial_pose=initial_pose,
         )
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=_PROCEDURAL_TABLE_SPAWN_CFG,
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(cfg)
 
 
 _PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
@@ -2075,17 +2068,9 @@ class ProceduralCube(Object):
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawner_cfg=_PROCEDURAL_CUBE_SPAWN_CFG,
             initial_pose=initial_pose,
         )
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=_PROCEDURAL_CUBE_SPAWN_CFG,
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(cfg)
 
 
 def _newton_gear_insertion_spawn_cfg(*, mass: float, kinematic: bool, friction: float) -> dict[str, Any]:

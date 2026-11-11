@@ -11,9 +11,10 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel_kitchens
-from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.sources.base import UsdSource
+from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -28,18 +29,18 @@ class LibraryBackground(Background):
 
     tags: list[str]
     usd_path: str | None = None
+    usd_source: UsdSource | None = None
     initial_pose: Pose | None = None
     object_min_z: float
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
-        # Check lazy USD paths are set by here
-        assert self.usd_path is not None
         super().__init__(
             name=self.registry_name,
             tags=self.tags,
             usd_path=self.usd_path,
+            usd_source=self.usd_source,
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
             spawn_cfg_addon=self.spawn_cfg_addon,
@@ -170,24 +171,16 @@ class LightwheelKitchenBackground(LibraryBackground):
         style_id: int | None = None,
         **kwargs,
     ):
-        from lightwheel_sdk.loader import floorplan_loader
-
         if layout_id is None:
             layout_id = self.layout_id
         if style_id is None:
             style_id = self.style_id
 
-        # Lazily download the USD
-        self.usd_path = str(
-            acquire_lightwheel_asset(
-                floorplan_loader,
-                floorplan_loader.get_usd,
-                description=f"{self.registry_name} background layout={layout_id} style={style_id}",
-                scene="robocasakitchen",
-                layout_id=layout_id,
-                style_id=style_id,
-                backend="robocasa",
-            )[0]
+        self.usd_source = LightwheelFloorplanUsdSource(
+            scene="robocasakitchen",
+            layout_id=layout_id,
+            style_id=style_id,
+            backend="robocasa",
         )
         super().__init__(**kwargs)
 

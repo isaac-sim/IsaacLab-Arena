@@ -125,11 +125,7 @@ def _test_background_physics_discovery_and_reset(
         assert "Prop_PlacementEnvelope" not in records
         assert not any(path.startswith("articulation/") for path in records)
 
-        background = Background(
-            "background",
-            background_path,
-            object_min_z=0.0,
-        )
+        background = Background(name="background", usd_path=background_path, object_min_z=0.0)
         assert background.reset_nested_physics
         referenced_free_body = ObjectReference(
             name="referenced_free_body",

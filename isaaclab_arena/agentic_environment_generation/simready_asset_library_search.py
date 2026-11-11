@@ -21,12 +21,13 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadyObjectCandidate,
     SimReadySourceKind,
 )
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.simready_constants import (
     DEFAULT_SIMREADY_SERVICE_URL,
     ISAAC_SIMREADY_GA_S3_URL,
     SIMREADY_PHYSICS_VARIANTS,
 )
-from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
+from isaaclab_arena.utils.usd.object_type import validate_usd_object_type
 
 if TYPE_CHECKING:
     from simready.search import AssetLibrary
@@ -140,15 +141,10 @@ def _has_single_rigid_body(usd_path: str) -> tuple[bool, str]:
         "it has no rigid body". The phrase is empty when the asset is usable.
     """
     try:
-        rigid_body_paths = read_asset_rigid_body_paths(usd_path, SIMREADY_PHYSICS_VARIANTS)
+        validate_usd_object_type(usd_path, ObjectType.RIGID, SIMREADY_PHYSICS_VARIANTS)
     except Exception as exc:
-        return False, f"its USD could not be read: {exc}"
-    # Only one RigidBodyAPI is allowed on a USD asset.
-    if len(rigid_body_paths) == 1:
-        return True, ""
-    if not rigid_body_paths:
-        return False, "it has no rigid body"
-    return False, f"it has {len(rigid_body_paths)} rigid bodies"
+        return False, str(exc)
+    return True, ""
 
 
 def _build_simready_object_candidate_from_match(match: Any, phrase: str) -> SimReadyObjectCandidate:

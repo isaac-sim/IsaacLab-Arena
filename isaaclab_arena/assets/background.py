@@ -14,6 +14,7 @@ from isaaclab.sim.utils import clone
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
 
@@ -29,8 +30,9 @@ class Background(Object):
     def __init__(
         self,
         name: str,
-        usd_path: str,
         object_min_z: float,
+        usd_path: str | None = None,
+        usd_source: UsdSource | None = None,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         reset_nested_physics: bool = True,
@@ -40,6 +42,7 @@ class Background(Object):
         super().__init__(
             name=name,
             usd_path=usd_path,
+            usd_source=usd_source,
             initial_pose=initial_pose,
             prim_path=prim_path,
             # The background root is non-physical, though nested prims may have physics.

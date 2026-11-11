@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils.assets import retrieve_file_path
 
+from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections, usd_variant_selections_to_dict
+
 if TYPE_CHECKING:
     from pxr import Usd
 
@@ -57,7 +59,7 @@ _RIGID_BODY_PATHS_BY_ASSET: dict[tuple[str, tuple[tuple[str, str], ...]], list[s
 """Rigid body paths already read, keyed by asset path and variant selection."""
 
 
-def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None = None) -> list[str]:
+def read_asset_rigid_body_paths(usd_path: str, variants: object | dict[str, str] | None = None) -> list[str]:
     """Get the prim paths of the rigid bodies in an asset, fetching it first if it is remote.
 
     The asset is referenced into a throwaway stage instead of being opened, so selecting a variant
@@ -66,8 +68,8 @@ def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None =
 
     Args:
         usd_path: Path to the USD file to analyze, local or remote.
-        variants: USD variants to select before looking for rigid bodies. SimReady props need
-            ``{"Physics": "physics"}``, or they have no physics at all.
+        variants: A dictionary or config class mapping variant set names to the variants to select before
+            looking for rigid bodies. SimReady props need ``{"Physics": "physics"}``, or they have no physics at all.
 
     Returns:
         Prim paths of the asset's rigid bodies, empty if it has none.
@@ -75,35 +77,16 @@ def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None =
     # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
     from pxr import Usd
 
-    variants = variants or {}
+    variants = usd_variant_selections_to_dict(variants)
     key = (usd_path, tuple(sorted(variants.items())))
     if key not in _RIGID_BODY_PATHS_BY_ASSET:
         stage = Usd.Stage.CreateInMemory()
         root = stage.DefinePrim("/Asset", "Xform")
         root.GetReferences().AddReference(retrieve_file_path(usd_path))
         stage.SetDefaultPrim(root)
-        if variants:
-            apply_usd_variant_selections(stage, variants)
+        apply_usd_variant_selections(stage, variants)
         _RIGID_BODY_PATHS_BY_ASSET[key] = get_all_rigid_body_prim_paths_from_stage(stage)
     return list(_RIGID_BODY_PATHS_BY_ASSET[key])
-
-
-def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> None:
-    """Select USD variants on the stage's default prim.
-
-    Args:
-        stage: Open USD stage.
-        variants: Maps each variant set name to the variant to select from it.
-    """
-    root = stage.GetDefaultPrim()
-    if not root:
-        return
-    variant_sets = root.GetVariantSets()
-    for set_name, selection in variants.items():
-        if set_name in variant_sets.GetNames():
-            variant_set = variant_sets.GetVariantSet(set_name)
-            if selection in variant_set.GetVariantNames():
-                variant_set.SetVariantSelection(selection)
 
 
 def _path_relative_to_default_prim(prim_path: str, default_prim_path: str) -> str:

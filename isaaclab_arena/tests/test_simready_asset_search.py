@@ -27,7 +27,8 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadySourceKind,
     simready_search_config_from_cli,
 )
-from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.simready_constants import SIMREADY_PHYSICS_VARIANTS, SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 SEARCH_LOGGER = "isaaclab_arena.agentic_environment_generation.simready_asset_library_search"
 """Where the search reports its progress, now that the agent's traces carry only errors."""
@@ -42,8 +43,8 @@ RIGID_BODY_CHECK_TARGET = (
 )
 # Patched where it is looked up, not where it is defined: simready_asset_library_search binds the name at
 # import time, so patching the defining module would leave that binding untouched.
-RIGID_BODY_PATHS_TARGET = (
-    "isaaclab_arena.agentic_environment_generation.simready_asset_library_search.read_asset_rigid_body_paths"
+VALIDATE_USD_OBJECT_TYPE_TARGET = (
+    "isaaclab_arena.agentic_environment_generation.simready_asset_library_search.validate_usd_object_type"
 )
 PATH_FILTERS_TARGET = (
     "isaaclab_arena.agentic_environment_generation.simready_asset_library_search._build_path_filters_from_phrase"
@@ -108,23 +109,27 @@ def test_filter_and_rank_path_matches_rejects_an_asset_that_only_shares_a_descri
 
 
 def test_has_single_rigid_body_accepts_a_single_rigid_body():
-    with patch(RIGID_BODY_PATHS_TARGET, return_value=["/Asset/bottle"]):
+    with patch(VALIDATE_USD_OBJECT_TYPE_TARGET) as validate:
         assert _has_single_rigid_body("s3://bucket/bottle.usd") == (True, "")
+    validate.assert_called_once_with("s3://bucket/bottle.usd", ObjectType.RIGID, SIMREADY_PHYSICS_VARIANTS)
 
 
 def test_has_single_rigid_body_turns_down_several_rigid_bodies():
     # A bottle and its cap are two bodies even though a fixed joint holds them together.
-    with patch(RIGID_BODY_PATHS_TARGET, return_value=["/Asset/bottle", "/Asset/cap"]):
+    with patch(VALIDATE_USD_OBJECT_TYPE_TARGET, side_effect=ValueError("it has 2 rigid bodies")):
         assert _has_single_rigid_body("s3://bucket/bottle.usd") == (False, "it has 2 rigid bodies")
 
 
 def test_has_single_rigid_body_turns_down_an_asset_without_physics():
-    with patch(RIGID_BODY_PATHS_TARGET, return_value=[]):
+    with patch(VALIDATE_USD_OBJECT_TYPE_TARGET, side_effect=ValueError("it has no rigid body")):
         assert _has_single_rigid_body("s3://bucket/decoration.usd") == (False, "it has no rigid body")
 
 
 def test_has_single_rigid_body_turns_down_an_unreadable_asset():
-    with patch(RIGID_BODY_PATHS_TARGET, side_effect=FileNotFoundError("no such file")):
+    with patch(
+        VALIDATE_USD_OBJECT_TYPE_TARGET,
+        side_effect=ValueError("its USD could not be read: no such file"),
+    ):
         is_valid, reason = _has_single_rigid_body("s3://bucket/missing.usd")
     assert not is_valid
     assert "could not be read" in reason

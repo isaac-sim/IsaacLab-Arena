@@ -26,7 +26,8 @@ from pxr import Sdf, Usd
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_stage
-from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections, find_shallowest_rigid_body_from_stage
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body_from_stage
+from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections, usd_variant_selections_to_dict
 
 
 def get_geometry_key(spawn_cfg: SpawnerCfg) -> tuple:
@@ -43,7 +44,7 @@ def get_geometry_key(spawn_cfg: SpawnerCfg) -> tuple:
     _assert_single_spawn_cfg(spawn_cfg)
     if isinstance(spawn_cfg, UsdFileCfg):
         scale = tuple(spawn_cfg.scale) if spawn_cfg.scale is not None else None
-        variant_selections = tuple(sorted(_get_usd_variant_selections(spawn_cfg).items()))
+        variant_selections = tuple(sorted(usd_variant_selections_to_dict(spawn_cfg.variants).items()))
         return ("UsdFileCfg", str(spawn_cfg.usd_path), scale, variant_selections)
     if isinstance(spawn_cfg, ShapeCfg):
         has_rigid_body = spawn_cfg.rigid_props is not None
@@ -112,23 +113,8 @@ class SpawnCfgGeometry:
         root = stage.DefinePrim("/Asset")
         root.GetReferences().AddReference(usd_path)
         stage.SetDefaultPrim(root)
-        apply_usd_variant_selections(stage, _get_usd_variant_selections(self.spawn_cfg))
+        apply_usd_variant_selections(stage, self.spawn_cfg.variants)
         return stage
-
-
-def _get_usd_variant_selections(spawn_cfg: UsdFileCfg) -> dict[str, str]:
-    """Return the USD variant selections in ``spawn_cfg.variants``, empty when none are set.
-
-    A USD variant set holds named alternatives of a prim, and a selection picks one of them. For example,
-    SimReady props have no physics unless the ``physics`` variant of their ``Physics`` set is selected.
-    Isaac Lab accepts the selections as a dictionary or as a configclass with one field per set.
-    """
-    variants = spawn_cfg.variants
-    if variants is None:
-        return {}
-    if isinstance(variants, dict):
-        return variants
-    return variants.to_dict()
 
 
 def _get_shape_half_extents(spawn_cfg: SpawnerCfg) -> tuple[float, float, float]:
