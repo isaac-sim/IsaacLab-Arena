@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import torch
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
@@ -182,14 +184,21 @@ class CuroboIKSolver:
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
-    def set_obstacle_collision_enabled(self, name: str, enabled: bool) -> None:
-        """Turn collision checking against one loaded obstacle off or back on; the obstacle stays loaded.
+    @contextmanager
+    def obstacle_collision_disabled(self, name: str) -> Iterator[None]:
+        """Skip collision checking against one loaded obstacle for the duration of the block, then restore it.
+
+        The obstacle stays loaded, so nothing is reloaded on either side of the block.
 
         Args:
             name: The obstacle's cuboid name, as passed to ``update_world``.
-            enabled: Whether solves check collisions against it.
         """
-        self.ik_solver.scene_collision_checker.enable_obstacle(name, enabled)
+        collision_checker = self.ik_solver.scene_collision_checker
+        collision_checker.enable_obstacle(name, False)
+        try:
+            yield
+        finally:
+            collision_checker.enable_obstacle(name, True)
 
     def replace_background_mesh_obstacle(
         self,
@@ -208,10 +217,7 @@ class CuroboIKSolver:
             robot_base_quat_w_xyzw: Robot base orientation in the world frame.
         """
         meshes = self.ik_solver.scene_collision_checker.data.meshes
-        assert meshes is not None, (
-            f"The solver was built without a mesh slot; pass {{'mesh': {BACKGROUND_MESH_SLOTS}}} in"
-            " collision_cache_size."
-        )
+        assert meshes is not None, "Build the solver with a 'mesh' slot in collision_cache_size."
         # Also free the previous mesh's BVH; cuRobo would otherwise reuse the cached mesh of the same name.
         meshes.clear(env_idx=0, clear_warp_cache=True)
         if len(mesh_W.faces) > 0:

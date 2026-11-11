@@ -14,6 +14,7 @@ reconstruction runs for real on CPU.
 
 from __future__ import annotations
 
+import contextlib
 import torch
 from unittest.mock import MagicMock
 
@@ -86,11 +87,13 @@ def _patch_curobo(monkeypatch, feasible_fn):
             self.disabled_names = set()
             captured.setdefault("base_poses_per_world_update", []).append((tuple(base_pos), tuple(base_quat)))
 
-        def set_obstacle_collision_enabled(self, name, enabled):
-            if enabled:
+        @contextlib.contextmanager
+        def obstacle_collision_disabled(self, name):
+            self.disabled_names.add(name)
+            try:
+                yield
+            finally:
                 self.disabled_names.discard(name)
-            else:
-                self.disabled_names.add(name)
 
         def replace_background_mesh_obstacle(self, mesh_W, base_pos, base_quat):
             captured.setdefault("background_meshes", []).append(mesh_W)
