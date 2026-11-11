@@ -667,25 +667,12 @@ even when some Runs failed. To change the sample size, add
 <code class="docutils literal notranslate"><span class="pre">shared.environment_builder.num_envs=&lt;n&gt;</span></code> to the command; the seed spacing
 allows up to 200 environments. The solver optimizes a batch together, so compare
 only results with the same <code class="docutils literal notranslate"><span class="pre">num_envs</span></code>.</p>
-<p>Then print each Run’s placement success and the Experiment’s means. This reads
-the output directory and does not start the simulator. Check the scored and
-failed counts in the last row: every spec should be scored. A Run that completed
-without diagnostics solved no relations or replayed recorded layouts; the table
-lists it, and the means leave it out:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena_benchmarking.object_placement.compute_placement_kpis_from_experiment_output<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>outputs/placement_success/robolab
-</pre></div>
-</div>
-</section>
-<section id="add-specs">
-<h2>Add Specs<a class="headerlink" href="#add-specs" title="Link to this heading">#</a></h2>
-<p>A placement Experiment lists one Run per spec, named after the spec’s file stem.
-To benchmark a new spec, add a Run for it to its suite’s Experiment, with a
-placement seed 100000 above the largest one there. For a new folder of specs,
-add an Experiment and matching cases to
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_benchmarking/tests/test_placement_success.py</span></code>, which checks
-that each Experiment lists every spec in its folder and that no two Runs share
-candidate seeds.</p>
+<p>Each Experiment selects the <code class="docutils literal notranslate"><span class="pre">placement_success</span></code> KPI exporter with
+<code class="docutils literal notranslate"><span class="pre">kpi_exporters</span></code>, so the runner writes <code class="docutils literal notranslate"><span class="pre">kpis_placement_success.json</span></code> to the
+output directory. The placement success record holds the means of the three
+rates over the Runs that wrote diagnostics. A Run that completed without
+diagnostics solved no relations or replayed recorded layouts, and the means
+leave it out. No KPI file is written when any Run failed.</p>
 </section>
 </section>
 
@@ -740,7 +727,6 @@ candidate seeds.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-it-measures">What It Measures</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-benchmark">Run the Benchmark</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#add-specs">Add Specs</a></li>
 </ul>
   </nav></div>
 
