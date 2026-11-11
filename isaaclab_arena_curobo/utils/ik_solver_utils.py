@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-from curobo.scene import Cuboid, Scene
+from curobo.scene import Cuboid, Mesh, Scene
 from curobo.types import JointState
 
 from isaaclab_arena.assets.object_base import ObjectBase
@@ -64,54 +64,49 @@ def get_aabb_collision_cuboid_for_object(
     )
 
 
-def cuboids_from_mesh(mesh: trimesh.Trimesh, name_prefix: str, voxel_size_m: float = 0.05) -> list[AABBCollisionCuboid]:
-    """Cover a world-frame mesh's surface with world-axis-aligned cuboids built on a voxel grid.
+def crop_mesh_near_point(mesh_W: trimesh.Trimesh, t_W: Sequence[float], radius_m: float) -> trimesh.Trimesh:
+    """Return the triangles of a world-frame mesh whose bounding boxes come within ``radius_m`` of a point.
 
-    Points sampled on the surface mark the voxels it passes through, and runs of marked voxels are merged greedily
-    (along x, then y, then z) into boxes, so a flat panel becomes a few cuboids however it is triangulated. The
-    cuboids inflate the surface by up to one voxel, and closed volumes stay hollow.
+    Triangles are kept or dropped whole, so the crop covers every surface within the radius and keeps large
+    triangles (e.g. a floor) that only pass through it. Returns an empty mesh when nothing is that close.
 
     Args:
-        mesh: Mesh in world coordinates.
-        name_prefix: Prefix of the cuboid names, which are numbered per box.
-        voxel_size_m: Voxel edge length; the coarser, the fewer cuboids and the more the surface is inflated.
-
-    Returns:
-        The merged cuboids.
+        mesh_W: Mesh in world coordinates.
+        t_W: Center of the crop, in the world frame.
+        radius_m: Crop radius (m).
     """
-    # About four samples per voxel of surface area, so every voxel the surface crosses gets at least one.
-    num_samples = int(np.ceil(4.0 * mesh.area / voxel_size_m**2))
-    samples, _ = trimesh.sample.sample_surface(mesh, num_samples, seed=0)
-    points = np.vstack([samples, mesh.vertices])
-    origin = points.min(axis=0)
-    voxel_indices = np.floor((points - origin) / voxel_size_m).astype(np.int64)
-    occupied = np.zeros(voxel_indices.max(axis=0) + 1, dtype=bool)
-    occupied[tuple(voxel_indices.T)] = True
+    triangles_W = mesh_W.triangles
+    # Element-wise over the three corners; a min/max reduction along axis 1 is ~10x slower on kitchen meshes.
+    lower_W = np.minimum(np.minimum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
+    upper_W = np.maximum(np.maximum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
+    point_W = np.asarray(t_W, dtype=np.float64)
+    distances = np.linalg.norm(np.maximum(np.maximum(lower_W - point_W, point_W - upper_W), 0.0), axis=1)
+    kept_faces = mesh_W.faces[distances < radius_m]
+    # Keep only the vertices the kept faces use.
+    kept_vertex_ids, faces = np.unique(kept_faces, return_inverse=True)
+    return trimesh.Trimesh(vertices=mesh_W.vertices[kept_vertex_ids], faces=faces.reshape(-1, 3), process=False)
 
-    unmerged = occupied.copy()
-    cuboids = []
-    for i, j, k in np.argwhere(occupied):
-        if unmerged[i, j, k]:
-            i_end = i + 1
-            while i_end < unmerged.shape[0] and unmerged[i_end, j, k]:
-                i_end += 1
-            j_end = j + 1
-            while j_end < unmerged.shape[1] and unmerged[i:i_end, j_end, k].all():
-                j_end += 1
-            k_end = k + 1
-            while k_end < unmerged.shape[2] and unmerged[i:i_end, j:j_end, k_end].all():
-                k_end += 1
-            unmerged[i:i_end, j:j_end, k:k_end] = False
-            lower = origin + voxel_size_m * np.array([i, j, k])
-            upper = origin + voxel_size_m * np.array([i_end, j_end, k_end])
-            cuboids.append(
-                AABBCollisionCuboid(
-                    name=f"{name_prefix}_{len(cuboids)}",
-                    dims_xyz=tuple(float(v) for v in upper - lower),
-                    pose_W_O=Pose(position_xyz=tuple(float(v) for v in (lower + upper) / 2.0)),
-                )
-            )
-    return cuboids
+
+def curobo_mesh_in_robot_frame(
+    mesh_W: trimesh.Trimesh,
+    name: str,
+    robot_base_pos_w: tuple[float, float, float],
+    robot_base_quat_w_xyzw: tuple[float, float, float, float],
+) -> Mesh:
+    """Return a world-frame mesh as a cuRobo ``Mesh`` obstacle with its vertices in the robot base frame.
+
+    The vertices are moved rather than the pose set, so the obstacle sits at the identity pose.
+    """
+    # Frames: W = world, R = robot base.
+    t_W_R = np.asarray(robot_base_pos_w, dtype=np.float64)
+    R_W_R = math_utils.matrix_from_quat(torch.tensor(robot_base_quat_w_xyzw, dtype=torch.float64)).numpy()
+    vertices_R = (np.asarray(mesh_W.vertices) - t_W_R) @ R_W_R
+    return Mesh(
+        name=name,
+        pose=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+        vertices=vertices_R.astype(np.float32),
+        faces=np.asarray(mesh_W.faces, dtype=np.int32),
+    )
 
 
 def scene_from_cuboids(

@@ -288,23 +288,49 @@ def test_unknown_hand_link_is_reported_against_the_robot_config():
         solve_ik_feasibility(host, _identity_grasps(), require_collision_free=True)
 
 
-def test_mesh_cuboids_cover_a_box_and_merge_its_faces():
-    """A 1 m box's surface is covered within one voxel of its bounds by far fewer cuboids than voxels."""
-    import numpy as np
+def test_mesh_crop_keeps_the_triangles_near_the_point():
+    """A crop keeps a box within the radius, drops one beyond it, and keeps a large floor passing through it."""
     import trimesh
 
-    from isaaclab_arena_curobo.utils.ik_solver_utils import cuboids_from_mesh
+    from isaaclab_arena_curobo.utils.ik_solver_utils import crop_mesh_near_point
 
-    voxel_size = 0.1
-    cuboids = cuboids_from_mesh(trimesh.creation.box(extents=(1.0, 1.0, 1.0)), "box", voxel_size_m=voxel_size)
+    near_box = trimesh.creation.box(
+        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((0.5, 0, 0))
+    )
+    far_box = trimesh.creation.box(
+        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((3.0, 0, 0))
+    )
+    # Two triangles spanning 10 m; their vertices are all far from the point, but the floor runs under it.
+    floor = trimesh.Trimesh(
+        vertices=[(-5.0, -5.0, 0.0), (5.0, -5.0, 0.0), (5.0, 5.0, 0.0), (-5.0, 5.0, 0.0)], faces=[(0, 1, 2), (0, 2, 3)]
+    )
+    mesh_W = trimesh.util.concatenate([near_box, far_box, floor])
 
-    centers = np.array([cuboid.pose_W_O.position_xyz for cuboid in cuboids])
-    half_dims = np.array([cuboid.dims_xyz for cuboid in cuboids]) / 2.0
-    lower, upper = (centers - half_dims).min(axis=0), (centers + half_dims).max(axis=0)
-    assert np.all(lower <= -0.5) and np.all(lower >= -0.5 - voxel_size - 1e-9)
-    assert np.all(upper >= 0.5) and np.all(upper <= 0.5 + voxel_size + 1e-9)
-    # Six faces of 10x10 voxels merge into a few dozen boxes at most, not hundreds.
-    assert len(cuboids) < 60
+    crop_W = crop_mesh_near_point(mesh_W, (0.0, 0.0, 0.5), radius_m=1.0)
+
+    assert len(crop_W.faces) == len(near_box.faces) + len(floor.faces)
+    assert crop_W.vertices[:, 0].max() == pytest.approx(5.0)
+    assert len(crop_mesh_near_point(mesh_W, (0.0, 0.0, 50.0), radius_m=1.0).faces) == 0
+
+
+def test_curobo_mesh_vertices_are_expressed_in_the_robot_base_frame():
+    """A world-frame vertex comes out at its robot-base-frame position, with the obstacle at the identity pose."""
+    import math
+    import trimesh
+
+    from isaaclab_arena_curobo.utils.ik_solver_utils import curobo_mesh_in_robot_frame
+
+    # The base sits at (1, 2, 0) turned 90 degrees about z, so world +y is base-frame +x.
+    t_W_R = (1.0, 2.0, 0.0)
+    q_W_R_xyzw = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
+    mesh_W = trimesh.Trimesh(vertices=[(1.0, 3.0, 0.5), (0.0, 2.0, 0.0), (1.0, 2.0, 1.0)], faces=[(0, 1, 2)])
+
+    mesh_R = curobo_mesh_in_robot_frame(mesh_W, "background", t_W_R, q_W_R_xyzw)
+
+    expected_vertices_R = torch.tensor([(1.0, 0.0, 0.5), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)])
+    assert torch.allclose(torch.as_tensor(mesh_R.vertices), expected_vertices_R, atol=1e-6)
+    assert mesh_R.pose == [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+    assert mesh_R.name == "background"
 
 
 def test_scene_cuboids_are_expressed_in_the_robot_base_frame():

@@ -36,14 +36,9 @@ class ReachabilityConfig:
     """If True, it's also collision-free with the robot itself."""
 
     include_background_obstacles: bool = True
-    """If True, the IK collision world also holds the fixed background mesh (e.g. kitchen cabinets and walls),
-    covered by world-axis-aligned cuboids on a voxel grid. Each layout loads only the cuboids within
-    ``background_obstacle_radius_m`` of its robot base. Scenes without a background mesh load none."""
+    """If True, the IK collision world also holds the fixed background mesh (e.g. kitchen cabinets and walls), cropped
+    to the triangles within ``background_obstacle_radius_m`` of the robot base. Scenes without one load nothing."""
 
-    background_voxel_size_m: float = 0.05
-    """Voxel edge length (m) the background mesh is covered at; coarser means fewer cuboids and more inflation."""
-
-    # NOTE(xinjieyao): For DROID, 1.2 m covers the arm unless it is raised high; its full reach is about 1.36 m.
-    # A larger radius can exceed the 500 obstacle slots in a kitchen, and top-down grasps rarely raise the arm that high.
-    background_obstacle_radius_m: float = 1.2
-    """Distance (m) from the robot base within which a background piece is loaded as an obstacle."""
+    # NOTE(xinjieyao): DROID's full reach is about 1.36 m, so 1.4 m keeps everything the arm can touch.
+    background_obstacle_radius_m: float = 1.4
+    """Distance (m) from the robot base within which background triangles are kept as obstacles."""

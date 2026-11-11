@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import torch
+from typing import TYPE_CHECKING
 
 from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
 from curobo.logging import setup_logger
@@ -19,8 +20,18 @@ from curobo.types import Pose as CuroboPose
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
-from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, scene_from_cuboids
+from isaaclab_arena_curobo.utils.ik_solver_utils import (
+    AABBCollisionCuboid,
+    curobo_mesh_in_robot_frame,
+    scene_from_cuboids,
+)
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
+
+if TYPE_CHECKING:
+    import trimesh
+
+BACKGROUND_MESH_NAME = "background"
+"""Name of the mesh obstacle ``set_background_mesh`` loads."""
 
 
 class CuroboIKSolver:
@@ -71,7 +82,7 @@ class CuroboIKSolver:
             position_threshold: cuRobo internal IK position convergence threshold (m).
             rotation_threshold: cuRobo internal IK rotation convergence threshold (rad, geodesic angle).
             collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": 150}``. A world with more
-                obstacles than its slots fails to load.
+                obstacles than its slots fails to load, and ``set_background_mesh`` needs a ``"mesh"`` slot.
             max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
             use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
             debug: Enable cuRobo/planner debug logging.
@@ -173,3 +184,30 @@ class CuroboIKSolver:
             enabled: Whether solves check collisions against it.
         """
         self.ik_solver.scene_collision_checker.enable_obstacle(name, enabled)
+
+    def set_background_mesh(
+        self,
+        mesh_W: trimesh.Trimesh,
+        robot_base_pos_w: tuple[float, float, float],
+        robot_base_quat_w_xyzw: tuple[float, float, float, float],
+    ) -> None:
+        """Replace the background mesh obstacle; ``update_world`` leaves it in place.
+
+        The mesh is baked into the robot base frame, so it must be set again whenever the robot base moves. An empty
+        mesh removes it. Requires a ``"mesh"`` slot in ``collision_cache_size``.
+
+        Args:
+            mesh_W: Background mesh in world coordinates.
+            robot_base_pos_w: Robot base position in the world frame.
+            robot_base_quat_w_xyzw: Robot base orientation in the world frame.
+        """
+        meshes = self.ik_solver.scene_collision_checker.data.meshes
+        assert meshes is not None, "The solver was built without a mesh slot; pass {'mesh': 1} in collision_cache_size."
+        # Also free the previous mesh's BVH; cuRobo would otherwise reuse the cached mesh of the same name.
+        meshes.clear(env_idx=0, clear_warp_cache=True)
+        if len(mesh_W.faces) > 0:
+            mesh_R = curobo_mesh_in_robot_frame(mesh_W, BACKGROUND_MESH_NAME, robot_base_pos_w, robot_base_quat_w_xyzw)
+            # Writes the new mesh id into the existing tensors in place, so captured CUDA graphs stay valid.
+            meshes.load_batch([mesh_R], env_idx=0)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()

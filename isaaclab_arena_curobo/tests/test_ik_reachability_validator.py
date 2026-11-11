@@ -70,7 +70,8 @@ def _patch_curobo(monkeypatch, feasible_fn):
 
     ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility. The fake solver records the
     cuboids passed to ``update_world`` and which of them are switched off, and each solve records the enabled
-    world it ran against, so a test can assert which objects were obstacles to which grasp.
+    world it ran against, so a test can assert which objects were obstacles to which grasp. Every background mesh
+    loaded is recorded in order.
     """
     import isaaclab_arena_curobo.ik_reachability_validator as mod
 
@@ -90,6 +91,9 @@ def _patch_curobo(monkeypatch, feasible_fn):
                 self.disabled_names.discard(name)
             else:
                 self.disabled_names.add(name)
+
+        def set_background_mesh(self, mesh_W, base_pos, base_quat):
+            captured.setdefault("background_meshes", []).append(mesh_W)
 
     captured = {}
 
@@ -266,12 +270,12 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
 
 def test_reachability_layer_records_to_rrd(tmp_path):
     """The layer's grasps, verdicts and background reach a recording without a viewer or cuRobo."""
+    import trimesh
+
     import rerun as rr
 
     from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena_curobo.reachability_visualizer import LOADED_BACKGROUND_ENTITY, ReachabilityRerunLayer
-    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
 
     rrd_path = tmp_path / "placement.rrd"
     visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(rrd_path))
@@ -288,7 +292,9 @@ def test_reachability_layer_records_to_rrd(tmp_path):
         rotation_error=torch.tensor([0.1]),
         robot_spheres=torch.tensor([[[0.1, 0.0, 0.2, 0.05], [0.2, 0.0, 0.3, 0.04]]]),
         muted_sphere_mask=torch.tensor([False, True]),
-        background_cuboids=[AABBCollisionCuboid("wall", (0.1, 0.1, 0.1), Pose(position_xyz=(0.1, 0.0, 0.2)))],
+        background_mesh_W=trimesh.creation.box(
+            extents=(0.1, 0.1, 0.1), transform=trimesh.transformations.translation_matrix((0.1, 0.0, 0.2))
+        ),
     )
     visualizer.close()
 
@@ -297,43 +303,33 @@ def test_reachability_layer_records_to_rrd(tmp_path):
     assert {f"/{LOADED_BACKGROUND_ENTITY}/surface", f"/{LOADED_BACKGROUND_ENTITY}/hit"} <= entity_paths
 
 
-def test_background_cuboids_are_outlined_by_their_gap_to_the_checked_spheres():
-    """In a turned robot base frame, a penetrated cuboid is a hit, one a few cm off is near, and muted spheres do not count."""
+def test_background_triangles_are_highlighted_by_their_gap_to_the_checked_spheres():
+    """In a turned robot base frame, spheres are measured against the closest triangle, and muted spheres do not count."""
     import math
+    import trimesh
 
-    from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena_curobo.reachability_visualizer import (
-        NEAR_BACKGROUND_MARGIN_M,
-        _checked_spheres_in_world,
-        _cuboid_sphere_gaps,
-    )
-    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
+    from isaaclab_arena_curobo.reachability_visualizer import _checked_spheres_in_world, _closest_triangle_gaps
 
     # The base sits at x = 1 turned 90 degrees about z, so base-frame +x points along world +y.
     t_W_B = (1.0, 0.0, 0.0)
     q_W_B_xyzw = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
-    # Checked sphere at world (1, 0.1, 0.2), radius 0.05; muted sphere at world (1, 0.2, 0.3), radius 0.04.
-    robot_spheres = torch.tensor([[[0.1, 0.0, 0.2, 0.05], [0.2, 0.0, 0.3, 0.04], [0.0, 0.0, 0.0, -1.0]]])
-    spheres_W = _checked_spheres_in_world(robot_spheres, torch.tensor([False, True, False]), t_W_B, q_W_B_xyzw)
-    assert spheres_W.shape == (1, 4)
-
-    def cube(name, center):
-        return AABBCollisionCuboid(name, (0.1, 0.1, 0.1), Pose(position_xyz=center))
-
-    gaps = _cuboid_sphere_gaps(
-        [
-            cube("hit", (1.0, 0.1, 0.2)),
-            # Face at y = 0.17: 0.02 m past the checked sphere's surface.
-            cube("near", (1.0, 0.22, 0.2)),
-            # Penetrated only by the muted sphere.
-            cube("muted_only", (1.0, 0.2, 0.37)),
-            cube("far", (3.0, 3.0, 3.0)),
-        ],
-        spheres_W,
+    # Checked spheres at world (1, 0.1, 0.2) and (1, 0.1, 0.4), radius 0.05; muted sphere at world (1, 0.2, 0.3).
+    robot_spheres = torch.tensor(
+        [[[0.1, 0.0, 0.2, 0.05], [0.1, 0.0, 0.4, 0.05], [0.2, 0.0, 0.3, 0.04], [0.0, 0.0, 0.0, -1.0]]]
     )
-    assert gaps[0] < 0.0
-    assert gaps[1] == pytest.approx(0.02)
-    assert gaps[2] >= NEAR_BACKGROUND_MARGIN_M and gaps[3] >= NEAR_BACKGROUND_MARGIN_M
+    spheres_W = _checked_spheres_in_world(robot_spheres, torch.tensor([False, False, True, False]), t_W_B, q_W_B_xyzw)
+    assert spheres_W.shape == (2, 4)
+
+    # A 1 x 0.3 m wall in the plane y = 0.12, from z = 0 to z = 0.3.
+    wall = trimesh.Trimesh(
+        vertices=[(0.5, 0.12, 0.0), (1.5, 0.12, 0.0), (1.5, 0.12, 0.3), (0.5, 0.12, 0.3)], faces=[(0, 1, 2), (0, 2, 3)]
+    )
+    triangle_ids, gaps = _closest_triangle_gaps(wall, spheres_W)
+    assert triangle_ids.shape == (2,)
+    # First sphere: center 0.02 m from the wall, radius 0.05 -> penetrates by 0.03 m.
+    assert gaps[0] == pytest.approx(-0.03)
+    # Second sphere: center (1, 0.1, 0.4) is 0.1 m above the wall's top edge and 0.02 m off its plane.
+    assert gaps[1] == pytest.approx(math.hypot(0.1, 0.02) - 0.05)
 
 
 @pytest.mark.curobo_deps
@@ -438,7 +434,7 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
 
 @pytest.mark.curobo_deps
 def test_background_near_the_robot_obstructs_grasps_by_default(monkeypatch):
-    """A fixed background mesh joins the collision world, but only the part within reach of the robot base."""
+    """A fixed background mesh is loaded once, cropped to the part within reach of the robot base."""
     import trimesh
 
     from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
@@ -453,13 +449,17 @@ def test_background_near_the_robot_obstructs_grasps_by_default(monkeypatch):
     far_wall.apply_translation((3.0, 0.0, 0.25))
     background = FixedCollisionObject(trimesh.util.concatenate([near_wall, far_wall]))
 
-    layout = _make_desk_box_pool().layouts_per_env()[0][0]
-    validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), [background])
+    layouts = _make_desk_box_pool().layouts_per_env()[0]
+    batch = make_candidate_batch(
+        [layout.positions for layout in layouts], [layout.orientations for layout in layouts], [{}] * len(layouts)
+    )
+    validator.validate_batch(batch, [background])
 
-    (world,) = captured["worlds_per_solve"]
-    background_cuboids = [captured["solver"].world_cuboids[world.index(name)] for name in world if name != "desk"]
-    assert "desk" in world and background_cuboids
-    assert all(cuboid.pose_W_O.position_xyz[0] < 1.0 for cuboid in background_cuboids)
+    # The robot base does not move between layouts, so the crop is loaded once.
+    (crop_W,) = captured["background_meshes"]
+    assert len(crop_W.faces) == len(near_wall.faces)
+    assert crop_W.bounds[1][0] < 1.0
+    assert all(world == ["desk"] for world in captured["worlds_per_solve"])
 
 
 @pytest.mark.curobo_deps

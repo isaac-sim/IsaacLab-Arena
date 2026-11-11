@@ -23,7 +23,7 @@ def droid_solver():
     from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_by_name
     from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 
-    return CuroboIKSolver(get_curobo_cfg_by_name("droid"), num_seeds=8)
+    return CuroboIKSolver(get_curobo_cfg_by_name("droid"), num_seeds=8, collision_cache_size={"cuboid": 150, "mesh": 1})
 
 
 def _default_ee_pose(solver):
@@ -106,3 +106,26 @@ def test_disabled_obstacle_stops_blocking_until_enabled_again(droid_solver):
         assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [False]
     finally:
         droid_solver.update_world([], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+
+
+def test_background_mesh_blocks_a_collision_free_solve_until_removed(droid_solver):
+    """A mesh box around the default end-effector pose blocks a collision-free solve until an empty mesh replaces it."""
+    import trimesh
+
+    from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
+
+    T_B_E = _default_ee_pose(droid_solver)
+    t_B_E = T_B_E[0, :3, 3].tolist()
+    # The base is moved and turned so that the mesh's world-to-base-frame transform is exercised too.
+    t_W_B = (1.0, -0.5, 0.2)
+    q_W_B_xyzw = (0.0, 0.0, 0.70710678, 0.70710678)
+    block_B = trimesh.creation.box(extents=(0.4, 0.4, 0.4), transform=trimesh.transformations.translation_matrix(t_B_E))
+    T_W_B = trimesh.transformations.quaternion_matrix((q_W_B_xyzw[3], *q_W_B_xyzw[:3]))
+    T_W_B[:3, 3] = t_W_B
+    block_W = block_B.copy().apply_transform(T_W_B)
+    droid_solver.set_background_mesh(block_W, t_W_B, q_W_B_xyzw)
+    try:
+        assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [False]
+    finally:
+        droid_solver.set_background_mesh(trimesh.Trimesh(), t_W_B, q_W_B_xyzw)
+    assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]
