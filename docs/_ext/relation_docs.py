@@ -57,9 +57,15 @@ def add_yaml_kind(app: Sphinx, what: str, name: str, obj: Any, options: Any, lin
 
 
 def check_all_relations_documented(app: Sphinx, env: BuildEnvironment) -> None:
-    """Warn for each registered relation that no page documents."""
+    """Warn for each registered relation that no page documents.
+
+    Skipped when no page documents any relation, as in older versions built by sphinx-multiversion.
+    """
+    documented_names = env.get_domain("py").objects
+    if not any(name.startswith("isaaclab_arena.relations.relations.") for name in documented_names):
+        return
     for relation_cls in _get_relation_names_by_class():
-        if f"{relation_cls.__module__}.{relation_cls.__qualname__}" not in env.get_domain("py").objects:
+        if f"{relation_cls.__module__}.{relation_cls.__qualname__}" not in documented_names:
             logger.warning("Relation %s is registered but not documented with autoclass.", relation_cls.__name__)
 
 

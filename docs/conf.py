@@ -27,10 +27,6 @@ import sys
 sys.path.insert(0, os.path.abspath("."))
 from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired, version_sort
 
-# autodoc imports isaaclab_arena from this checkout, ahead of any installed copy, so that each
-# sphinx-multiversion build documents its own version of the code.
-sys.path.insert(0, os.path.abspath(".."))
-
 # NOTE(alexmillane, 2025-04-24): This file is in a separate folder to avoid
 # duplicate configuration errors coming from mypy. The only way I could find
 # to solve this was to add this new folder.
@@ -181,6 +177,9 @@ isaaclab_arena_docs_config = {
 
 def setup(app):
     """Register the version filter and page-specific landing assets."""
+    # autodoc imports isaaclab_arena from the checkout being documented, ahead of any installed copy.
+    # sphinx-multiversion builds every version with this conf.py, so use the source tree, not this file.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(app.srcdir)))
 
     def register_filters(app):
         app.builder.templates.environment.filters["version_sort"] = version_sort
