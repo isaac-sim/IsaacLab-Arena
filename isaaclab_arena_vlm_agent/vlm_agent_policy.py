@@ -30,6 +30,7 @@ from isaaclab_arena.inference.backend import (
     build_strict_schema,
 )
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
 from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
@@ -254,6 +255,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
 
         Environments that need a new prediction on this step request it concurrently, up to
         max_concurrent_requests at a time; the step returns once every request is validated.
+        A step that waits on the VLM records its wait under the "vlm_inference" timer.
         An environment without an active episode, whose rollout used up its episode budget, sends no
         request and holds its last action until the rollout ends. Holding keeps the robot still only
         when the adapter's actions are absolute targets.
@@ -286,9 +288,11 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 contents[env_id] = self._get_request_content(env, observation, env_id)
 
         # Request the new predictions concurrently and store them.
-        predictions = self._infer(contents, env.unwrapped.arena_world)
-        for env_id, prediction in predictions.items():
-            self._set_prediction(env_id, prediction)
+        if contents:
+            with Timer("vlm_inference"):
+                predictions = self._infer(contents, env.unwrapped.arena_world)
+            for env_id, prediction in predictions.items():
+                self._set_prediction(env_id, prediction)
 
         # Convert each active environment's next command into a native action.
         actions = []
@@ -357,6 +361,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         Each attempt sends every unresolved environment's request concurrently and then validates the
         responses on the calling thread, so adapters never read the world from a worker thread.
         Each environment keeps its own conversation, so corrections never leak across environments.
+        Each attempt's wait for its responses records under the "vlm_requests" timer.
 
         Args:
             contents: User-message content keyed by environment index.
@@ -381,7 +386,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         while conversations and attempts < self.config.max_attempts:
             attempts += 1
             # Step 2a: send all remaining requests at once.
-            model_outputs = self._get_model_outputs(conversations)
+            with Timer("vlm_requests"):
+                model_outputs = self._get_model_outputs(conversations)
             # Step 2b: check each output here, on the main thread.
             for env_id, model_output in model_outputs.items():
                 try:
