@@ -67,11 +67,6 @@ It retains that registration while running a standard Arena module:
        registration.stop()
        client.shutdown()
 
-Alternatively, set ``ARENA_WORKBENCH_ASSET_ROOT`` to an existing local bundle
-containing ``workbench.usda``, ``workbench_structure.usdc``, ``socket_set.usda``,
-and ``oscilloscope.usda``. With that override, run the modules below directly
-with ``python -m`` instead of the Storage launcher.
-
 Step 2: Viewing an Existing Agent-Authored Environment
 ------------------------------------------------------
 
