@@ -489,26 +489,29 @@ jobs:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
-    needs: [pre_commit]
+    needs: [pre_commit, build_and_push_image]
+    # Docs-only PRs skip the image build; their docs build in the latest published main image.
+    if: ${{ !cancelled() && needs.pre_commit.result == 'success' && needs.build_and_push_image.result != 'failure' }}
 
+    # autodoc imports isaaclab_arena, so the docs build in the Arena image, which installs the docs extra.
     container:
-      image: python:3.11-slim
+      image: ${{ needs.build_and_push_image.outputs.image || 'nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest' }}
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
 
     steps:
       # Setup.
       - *install_git_step
-      - *mark_repo_safe_step
       - *cleanup_step
-
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *install_project_step
 
       # Build docs for the current branch (validates PR changes)
       - name: Build docs
         working-directory: ./docs
-        run: |
-          pip3 install -r requirements.txt
-          make SPHINXOPTS=-W html
+        run: make SPHINXOPTS=-W html
 
   build_and_push_image_post_merge:
     name: Publish tested NGC image (post-merge)

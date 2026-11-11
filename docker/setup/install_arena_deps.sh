@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Install the Arena package and developer dependencies from its frozen lock. The
+# Install the Arena package, developer and docs dependencies from its frozen lock. The
 # default dependency groups are disabled because Isaac Lab was already installed
 # from its own lock; --inexact retains that editable workspace and its dependencies.
 uv sync --project /tmp/arena-project --frozen --inexact \
-    --no-default-groups --group openpi --extra dev --no-install-project
+    --no-default-groups --group openpi --extra dev --extra docs --no-install-project
 bash /tmp/repair_venv_permissions.sh
 
 # HuggingFace CLI for downloading datasets and models.
