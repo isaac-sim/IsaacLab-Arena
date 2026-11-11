@@ -127,7 +127,7 @@ class WorkbenchCleanupWorkbench(_ProcessedLibraryBackground):
 
 @register_asset
 class WorkbenchCleanupSocketSet(_ProcessedLibraryObject, Openable):
-    """Fixed-base ratchet socket set with a passive openable lid."""
+    """Ratchet socket set with a passive openable lid."""
 
     registry_name = "workbench_cleanup_socket_set"
     tags = ["object", "openable", "sim-ready", "workbench"]
