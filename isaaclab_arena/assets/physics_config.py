@@ -12,7 +12,7 @@ from collections.abc import Callable
 from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.utils.configclass import configclass
-from pxr import Usd
+from pxr import Gf, Usd
 
 
 @configclass
@@ -35,6 +35,19 @@ class UsdPrimSpawnPhysicsCfg:
             root: Spawned asset root for resolving any asset-relative relationships.
         """
         raise NotImplementedError("Concrete UsdPrimSpawnPhysicsCfg subclasses must implement apply().")
+
+
+@configclass
+class ZeroVelocityCfg(UsdPrimSpawnPhysicsCfg):
+    """Set a body's initial linear and angular velocity to zero."""
+
+    def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        """Set `physics:velocity` and `physics:angularVelocity` on the prim to zero where they exist."""
+
+        for name in ("physics:velocity", "physics:angularVelocity"):
+            attribute = prim.GetAttribute(name)
+            if attribute.IsValid():
+                attribute.Set(Gf.Vec3f(0.0, 0.0, 0.0))
 
 
 @configclass
