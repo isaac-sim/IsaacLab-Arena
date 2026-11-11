@@ -259,16 +259,18 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         )
         per_target = []
         for target_index, target in enumerate(targets):
-            with self._solver.obstacle_collision_disabled(cuboid_per_object[target].name):
-                per_target.append(
-                    solve_ik_feasibility(
-                        self._solver,
-                        grasp_poses[target_index : target_index + 1],
-                        position_threshold=self._ik_pos_threshold,
-                        rotation_threshold=self._ik_rot_threshold,
-                        require_collision_free=self._require_collision_free,
-                    )
+            target_cuboid_name = cuboid_per_object[target].name
+            self._solver.set_obstacle_collision_enabled(target_cuboid_name, False)
+            per_target.append(
+                solve_ik_feasibility(
+                    self._solver,
+                    grasp_poses[target_index : target_index + 1],
+                    position_threshold=self._ik_pos_threshold,
+                    rotation_threshold=self._ik_rot_threshold,
+                    require_collision_free=self._require_collision_free,
                 )
+            )
+            self._solver.set_obstacle_collision_enabled(target_cuboid_name, True)
         return IKFeasibility(
             feasible=torch.cat([ik.feasible for ik in per_target]),
             position_error=torch.cat([ik.position_error for ik in per_target]),

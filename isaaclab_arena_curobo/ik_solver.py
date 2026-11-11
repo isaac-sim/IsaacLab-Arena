@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import logging
 import torch
-from collections.abc import Iterator
-from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
@@ -184,22 +182,14 @@ class CuroboIKSolver:
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
-    @contextmanager
-    def obstacle_collision_disabled(self, name: str) -> Iterator[None]:
-        """Skip collision checking against one loaded obstacle for the duration of the block, then restore it.
-
-        The obstacle stays loaded, so nothing is reloaded on either side of the block.
+    def set_obstacle_collision_enabled(self, name: str, enabled: bool) -> None:
+        """Turn collision checking against one loaded obstacle off or back on; the obstacle stays loaded.
 
         Args:
             name: The obstacle's cuboid name, as passed to ``update_world``.
+            enabled: Whether solves check collisions against it.
         """
-        collision_checker = self.ik_solver.scene_collision_checker
-        collision_checker.enable_obstacle(name, False)
-        try:
-            yield
-        finally:
-            # Re-enabled even if the block raises, so later solves never miss this obstacle.
-            collision_checker.enable_obstacle(name, True)
+        self.ik_solver.scene_collision_checker.enable_obstacle(name, enabled)
 
     def replace_background_mesh_obstacle(
         self,
