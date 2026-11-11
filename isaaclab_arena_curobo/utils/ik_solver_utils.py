@@ -126,15 +126,19 @@ def scene_from_cuboids(
     if not cuboids:
         return Scene(cuboid=[])
     # Frames: W = world, R = robot base, O = obstacle.
+    # Stack every obstacle's world pose into (N, 3) positions and (N, 4) quaternions.
     t_W_O = torch.tensor([c.pose_W_O.position_xyz for c in cuboids], dtype=torch.float64)
     q_W_O_xyzw = torch.tensor([c.pose_W_O.rotation_xyzw for c in cuboids], dtype=torch.float64)
     t_W_R = torch.tensor(robot_base_pos_w, dtype=torch.float64)
     q_W_R_xyzw = torch.tensor(robot_base_quat_w_xyzw, dtype=torch.float64)
+    # T_R_O = T_W_R^-1 * T_W_O. Position: offset from the base, rotated into the base frame.
     R_R_W = math_utils.matrix_from_quat(q_W_R_xyzw).T
     t_R_O = (t_W_O - t_W_R) @ R_R_W.T
+    # Orientation: undo the base rotation.
     q_R_O_xyzw = math_utils.quat_mul(math_utils.quat_inv(q_W_R_xyzw).expand_as(q_W_O_xyzw), q_W_O_xyzw)
     # cuRobo Cuboid pose is [x, y, z, qw, qx, qy, qz].
     poses = torch.cat([t_R_O, math_utils.convert_quat(q_R_O_xyzw, to="wxyz")], dim=1).tolist()
+    # Cuboid dims are the full side lengths of the object's bounding box; the pose sits at its center.
     return Scene(cuboid=[Cuboid(name=c.name, pose=pose, dims=list(c.dims_xyz)) for c, pose in zip(cuboids, poses)])
 
 
