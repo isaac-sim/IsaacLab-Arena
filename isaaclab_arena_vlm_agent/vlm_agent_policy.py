@@ -15,7 +15,7 @@ from abc import abstractmethod
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -235,6 +235,14 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         )
         self._last_actions: dict[int, torch.Tensor] = {}
         """Last action returned for each environment."""
+
+    def get_rollout_statistics(self) -> dict[str, Any]:
+        """Return the endpoint, model, and the VLM requests and tokens used since the policy was created."""
+        return {
+            "endpoint": self._inference_backend.endpoint.name,
+            "model": self._inference_backend.model,
+            **asdict(self._inference_backend.usage),
+        }
 
     def close(self) -> None:
         """Close the inference client and request threads owned by this policy."""
