@@ -89,6 +89,11 @@ class FaceTo(RelationBase):
 
     Validation:
         The ``face_to`` check rejects a subject at the target's XY position.
+
+    Restrictions:
+        - A subject can have only one ``FaceTo``, cannot be an anchor, and cannot also use
+          ``RotateAroundSolution``.
+        - The target must also be placed by relations.
     """
 
     name = "face_to"
@@ -124,6 +129,11 @@ class AlignWith(Relation):
 
     Validation:
         The ``align_with`` check rejects a centre error along ``axis`` above ``tolerance_m``.
+
+    Restrictions:
+        - The subject cannot be an anchor, and the reference must be a different asset placed by relations.
+        - With ``FaceTo`` on the subject or reference, X or Y alignment requires that asset's placement-box
+          centre to lie on its yaw axis.
     """
 
     name = "align_with"
@@ -275,6 +285,14 @@ class ClutterOn(On):
 
     Validation:
         The ``clutter_on_relation`` check rejects a footprint outside the release region or too little clearance.
+
+    Restrictions:
+        - It must be the object's only spatial relation; ``RotateAroundSolution`` may set its base rotation.
+        - Roll or pitch requires ``collision_mode="bbox"`` on the object; ``mesh`` supports yaw only.
+        - The support must be placed by relations and cannot itself use ``ClutterOn``. It must stay upright, with
+          a fixed yaw that is a multiple of 90 degrees, so a movable support cannot use ``FaceTo`` or
+          ``ObjectPlacerParams.random_yaw_init``.
+        - For recording, other objects with placement relations must be anchors or kinematic rigid bodies.
     """
 
     name = "clutter_on"
@@ -401,6 +419,12 @@ class IsAnchor(RelationBase):
 
     Validation:
         None; anchors are not moved.
+
+    Restrictions:
+        - The anchor's root rotation must be a multiple of 90 degrees about world Z, with no tilt. For an
+          ``ObjectReference``, this applies to its parent asset's pose.
+        - A background with mesh collision cannot have relations, ``IsAnchor`` included. Anchor an
+          ``ObjectReference`` to its support prim instead.
     """
 
     name = "is_anchor"

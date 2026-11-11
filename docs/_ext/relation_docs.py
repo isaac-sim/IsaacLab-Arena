@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Sphinx extension that adds each autodoc'd relation's YAML kind and checks the relation docstrings."""
+"""Sphinx extension that adds each autodoc'd relation's "YAML kind" and checks the relation docstrings."""
 
 import inspect
 from typing import Any
@@ -14,6 +14,11 @@ from sphinx.ext.napoleon.docstring import GoogleDocstring
 from sphinx.util import logging
 
 logger = logging.getLogger(__name__)
+
+_SECTION_RUBRICS = (".. rubric:: Validation", ".. rubric:: Restrictions")
+
+_sections_by_class: dict[type, list[str]] = {}
+"""Validation and Restrictions lines cut from each class docstring, until its ``__init__`` docstring arrives."""
 
 
 def _get_relation_names_by_class() -> dict[type, list[str]]:
@@ -40,20 +45,37 @@ def _check_docstring(app: Sphinx, relation_cls: type, class_lines: list[str]) ->
             logger.warning("Relation %s does not describe '%s' under 'Args:'.", relation_cls.__name__, name)
 
 
-def add_yaml_kind(app: Sphinx, what: str, name: str, obj: Any, options: Any, lines: list[str]) -> None:
-    """Add a relation's YAML kind below its summary line, and check its docstring.
+def _cut_sections(lines: list[str]) -> list[str]:
+    """Remove the Validation and Restrictions sections, which end a relation docstring, and return them."""
+    start = min((lines.index(rubric) for rubric in _SECTION_RUBRICS if rubric in lines), default=len(lines))
+    sections = lines[start:]
+    del lines[start:]
+    return sections
+
+
+def process_relation_docstring(app: Sphinx, what: str, name: str, obj: Any, options: Any, lines: list[str]) -> None:
+    """Add a relation's YAML kind, check its docstring, and move its Validation and Restrictions below its parameters.
 
     Runs on ``autodoc-process-docstring`` after napoleon. With ``autoclass_content = "both"`` the event fires
-    for the class and the ``__init__`` docstrings, both with the class as ``obj``; only the class one changes.
+    for the class docstring and then the ``__init__`` docstring, both with the class as ``obj``.
     """
     names = _get_relation_names_by_class().get(obj) if what == "class" else None
-    if names is None or not lines or lines[0] != inspect.getdoc(obj).split("\n", 1)[0]:
+    if names is None or not lines:
+        return
+    if lines[0] != inspect.getdoc(obj).split("\n", 1)[0]:
+        sections = _sections_by_class.pop(obj, [])
+        if sections and lines[-1] != "":
+            lines.append("")
+        lines.extend(sections)
         return
     _check_docstring(app, obj, lines)
     kind, *aliases = names
     text = f"**YAML kind:** ``{kind}``" + "".join(f", or ``{alias}``" for alias in aliases)
     summary_end = lines.index("") + 1 if "" in lines else len(lines)
     lines[summary_end:summary_end] = [text, ""]
+    # Without an __init__ docstring there are no parameters, so the sections stay in place.
+    if obj.__init__ is not object.__init__ and inspect.getdoc(obj.__init__):
+        _sections_by_class[obj] = _cut_sections(lines)
 
 
 def check_all_relations_documented(app: Sphinx, env: BuildEnvironment) -> None:
@@ -71,6 +93,6 @@ def check_all_relations_documented(app: Sphinx, env: BuildEnvironment) -> None:
 
 def setup(app: Sphinx) -> dict[str, Any]:
     # Napoleon converts docstrings at the default priority of 500; run after it.
-    app.connect("autodoc-process-docstring", add_yaml_kind, priority=600)
+    app.connect("autodoc-process-docstring", process_relation_docstring, priority=600)
     app.connect("env-check-consistency", check_all_relations_documented)
     return {"parallel_read_safe": True, "parallel_write_safe": True}

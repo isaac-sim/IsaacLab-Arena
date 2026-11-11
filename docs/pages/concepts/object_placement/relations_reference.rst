@@ -1,8 +1,7 @@
 Relations Reference
 ===================
 
-The relations an environment graph YAML can use, generated from their docstrings. Constructor
-arguments go under ``params``; for how to combine relations, see :doc:`relations`.
+The page documents the spatial relations available in Isaac Lab - Arena
 
 .. currentmodule:: isaaclab_arena.relations.relations
 

@@ -82,9 +82,7 @@ autodoc_typehints = "description"
 # document class *and* __init__ methods
 autoclass_content = "both"
 add_module_names = False
-# napoleon converts Google-style docstrings (Args:, Note:, ...) into the reStructuredText autodoc renders.
-# Listed custom sections render as headings.
-napoleon_custom_sections = ["Validation"]
+napoleon_custom_sections = ["Validation", "Restrictions"]
 
 todo_include_todos = True
 
