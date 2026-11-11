@@ -75,14 +75,18 @@ def crop_mesh_near_point(mesh_W: trimesh.Trimesh, t_W: Sequence[float], radius_m
         t_W: Center of the crop, in the world frame.
         radius_m: Crop radius (m).
     """
+    # (num_faces, 3 corners, xyz)
     triangles_W = mesh_W.triangles
+    # Each triangle's bounding box: per-axis min and max over its three corners.
     # Element-wise over the three corners; a min/max reduction along axis 1 is ~10x slower on kitchen meshes.
     lower_W = np.minimum(np.minimum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
     upper_W = np.maximum(np.maximum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
     point_W = np.asarray(t_W, dtype=np.float64)
+    # Point-to-box distance: per axis, how far the point lies outside the box (0 when inside that axis's range).
     distances = np.linalg.norm(np.maximum(np.maximum(lower_W - point_W, point_W - upper_W), 0.0), axis=1)
+    # Keep whole triangles whose box comes within the radius.
     kept_faces = mesh_W.faces[distances < radius_m]
-    # Keep only the vertices the kept faces use.
+    # Keep only the vertices the kept faces use, and renumber the faces to index into that smaller vertex list.
     kept_vertex_ids, faces = np.unique(kept_faces, return_inverse=True)
     return trimesh.Trimesh(vertices=mesh_W.vertices[kept_vertex_ids], faces=faces.reshape(-1, 3), process=False)
 
