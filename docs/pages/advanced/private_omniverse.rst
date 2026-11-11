@@ -35,16 +35,29 @@ and the credential-file setup from the
 
    .. tab-item:: Docker
 
-      Run inside the Arena container:
+      Before creating the container, run from the repository root on the host:
+
+      .. code-block:: bash
+
+         mkdir -p "$HOME/.nvidia-omniverse"
+         unset OMNI_PASS
+         ./docker/run_docker.sh
+
+      With ``OMNI_PASS`` unset, the launcher bind-mounts the existing host
+      ``~/.nvidia-omniverse`` directory into the container.
+
+      Inside the container, run as your normal host user:
 
       .. code-block:: bash
 
          python tools/internal/setup_storage_access.py
 
-Credentials are saved at ``~/.nvidia-omniverse/config/auth.toml`` with mode
-``600``. Host and container credentials are separate because each runtime uses
-its own home directory. The client refreshes access tokens automatically. Keep
-this file private.
+      The script writes ``config/auth.toml`` through the mount to the host.
+      Credentials survive container removal and are reused by new containers
+      launched with the same ``~/.nvidia-omniverse`` directory mount.
+
+Credentials are saved at ``~/.nvidia-omniverse/config/auth.toml``.
+``omni.client`` refreshes access tokens automatically.
 
 For renewing an existing login, follow the internal
 `device-login guide <https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md>`__.
