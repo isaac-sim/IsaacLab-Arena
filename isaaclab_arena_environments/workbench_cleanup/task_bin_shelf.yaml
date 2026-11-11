@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: workbench_white_bin_to_shelf
+external_yaml: scene_tool_bin_scope.yaml
+env_cfg_override:
+  viewer:
+    eye: [2.05, 1.6, 2.0]
+    lookat: [-0.05, 0.15, 0.95]
+task:
+  composition: atomic
+  description: Pick up the white bin from the workbench and place it on the empty
+    overhead shelf between the blue containers.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: white_bin
+      destination_location: overhead_shelf
+      background_scene: workbench
+      episode_length_s: 90.0
+      force_threshold: 0.1
+      velocity_threshold: 0.02
+      placement_consecutive_steps: 10
