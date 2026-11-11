@@ -6,6 +6,28 @@ arguments go under ``params``; for how to combine relations, see :doc:`relations
 
 .. currentmodule:: isaaclab_arena.relations.relations
 
+Summary
+-------
+
+.. autosummary::
+   :nosignatures:
+
+   AlignWith
+   AtPosition
+   ClutterOn
+   FaceTo
+   IsAnchor
+   NextTo
+   NotNextTo
+   On
+   PositionLimitsBox
+   PositionLimitsCylindrical
+   RequiresReachability
+   RotateAroundSolution
+
+API reference
+-------------
+
 .. autoclass:: AlignWith
 .. autoclass:: AtPosition
 .. autoclass:: ClutterOn
@@ -31,3 +53,8 @@ Enum parameters take their string values, for example ``side: positive_x``.
    :undoc-members:
    :member-order: bysource
    :exclude-members: index
+
+.. py:class:: PlaceableAsset
+   :module: isaaclab_arena.relations.placement_asset
+
+   An asset that relations can place. In YAML, a relation's ``parent`` is its ``reference`` node.

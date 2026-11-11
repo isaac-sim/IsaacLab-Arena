@@ -1,7 +1,6 @@
 # `isaaclab_arena` Docs - Developer Guide
 
-autodoc imports `isaaclab_arena`, so the docs are built **inside the Arena container**, whose image
-installs the `docs` extra.
+The docs are built **inside the Arena container**.
 
 
 ## Build and view (current branch/changes)

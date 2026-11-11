@@ -83,3 +83,27 @@ table.arena-value-table td p {
     font-size: 0.85em;
     font-weight: 700;
 }
+
+/* Separate autodoc classes: a bordered block per class with a tinted signature bar. */
+dl.py.class {
+    margin: 2rem 0;
+    border: 2px solid var(--pst-color-border);
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+/* Replace the theme's own bordered, rounded signature box, which doubles the block's border. */
+dl.py.class > dt {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--pst-color-surface);
+    border: 0;
+    border-radius: 0;
+    border-left: 6px solid var(--pst-color-primary);
+    border-bottom: 1px solid var(--pst-color-border);
+}
+
+dl.py.class > dd {
+    margin: 0;
+    padding: 0.75rem 1rem 0.25rem;
+}

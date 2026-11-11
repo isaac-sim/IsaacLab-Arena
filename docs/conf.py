@@ -107,10 +107,7 @@ exclude_patterns = ["_build", "_templates", "Thumbs.db", ".DS_Store", "venv_docs
 
 # Be picky about missing references
 nitpicky = True  # warns on broken references
-nitpick_ignore = [
-    # Imported only under TYPE_CHECKING in the relation modules, so autodoc cannot link it.
-    ("py:class", "PlaceableAsset"),
-]
+nitpick_ignore: list[str] = []  # can exclude known bad refs
 
 # -- Options for HTML output -------------------------------------------------
 

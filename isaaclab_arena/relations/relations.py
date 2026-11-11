@@ -120,7 +120,7 @@ class FaceTo(RelationBase):
 @agent_ready
 @register_object_relation
 class AlignWith(Relation):
-    """Align bounding-box centres along one world axis, leaving other axes unconstrained.
+    """Align bounding-box centres along one world axis, within a band, leaving other axes unconstrained.
 
     Validation:
         The ``align_with`` check rejects a centre error along ``axis`` above ``tolerance_m``.
@@ -162,7 +162,7 @@ class AlignWith(Relation):
 @agent_ready
 @register_object_relation
 class NextTo(Relation):
-    """Represents a 'next to' relationship between objects.
+    """Indicates that an object should be placed next to a parent object, on a specified side.
 
     This relation specifies that a child object should be placed adjacent to
     the parent object on a specified side, at a given distance. The gap may be anywhere within
@@ -216,7 +216,7 @@ class NextTo(Relation):
 @agent_ready
 @register_object_relation
 class On(Relation):
-    """Represents an 'on top of' relationship between objects.
+    """Indicates that an object should be placed on top of a parent object.
 
     This relation specifies that a child object should be placed on top of
     the parent object, with X/Y bounded within the parent's extent (optionally
@@ -268,7 +268,7 @@ class On(Relation):
 
 @register_object_relation
 class ClutterOn(On):
-    """An object above its support, with its footprint inside the release region.
+    """Indicates that an object should be dropped on top of a parent object.
 
     The object's bottom must clear the support surface; contact is not required.
     The support may be an anchor or positioned jointly through its own relations.
@@ -393,7 +393,7 @@ class NotNextTo(Relation):
 @agent_ready
 @register_object_relation
 class IsAnchor(RelationBase):
-    """Marker indicating this object is an anchor for relation solving.
+    """Indicates that this object is an anchor (unmovable) for relation solving.
 
     Anchor objects are fixed references that won't be optimized during
     relation solving. Multiple objects can be marked as anchors.
@@ -413,7 +413,7 @@ class IsAnchor(RelationBase):
 
 @register_object_relation
 class RequiresReachability(RelationBase):
-    """Indicates the robot shall be able to reach this object.
+    """Indicates that the robot must be able to reach this object.
 
     It does not affect placement geometry during optimization, but rejects unreachable placements.
 
@@ -432,7 +432,7 @@ class RequiresReachability(RelationBase):
 @agent_ready
 @register_object_relation
 class RotateAroundSolution(RelationBase):
-    """Marker specifying an explicit rotation to apply on top of the solver solution.
+    """Specifies an explicit rotation to apply on top of the solver solution.
 
     When ObjectPlacer applies positions, objects with this marker will have the
     specified rotation applied on top of the solved position to create a fixed Pose.
