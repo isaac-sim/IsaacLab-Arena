@@ -2198,7 +2198,7 @@ class SimReadyCentralSmallWrench(LibraryObject):
 
 @register_asset
 class SimReadyCentralSocketSet(LibraryObject, Openable):
-    """A fixed-base ratchet socket set with a passive lid drive."""
+    """A fixed-base ratchet socket set from SimReady Central."""
 
     registry_name = "simready_central_socket_set"
     tags = ["object", "openable", "sim-ready", "workbench"]
