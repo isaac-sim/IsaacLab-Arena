@@ -5,12 +5,9 @@
 
 name: GitHub Pages
 
-# Deploy after CI passes on a push to main, once CI has published that commit's image as latest.
 on:
-  workflow_run:
-    workflows: ["IsaacLab Arena CI"]
+  push:
     branches: [ "main" ]
-    types: [ completed ]
 
 # Concurrency control to prevent parallel runs on the same PR
 concurrency:
@@ -31,7 +28,6 @@ env:
 jobs:
   deploy_docs:
     name: Deploy the docs
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: [self-hosted, gpu]
     timeout-minutes: 30
 
@@ -53,7 +49,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           clean: true
           submodules: true
           fetch-depth: 0
@@ -63,8 +58,10 @@ jobs:
       - name: Mark repo as safe for git
         run: git config --global --add safe.directory "$PWD"
 
-      - name: Install project and link isaac-sim
+      # The latest image comes from an earlier main commit, so install this commit's docs extra.
+      - name: Install project, docs dependencies and link isaac-sim
         run: |
+          uv sync --frozen --inexact --no-default-groups --extra docs --no-install-project
           uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
