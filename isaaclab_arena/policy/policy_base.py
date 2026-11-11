@@ -10,7 +10,7 @@ import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from gymnasium.spaces.dict import Dict as GymSpacesDict
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 
 @dataclass
@@ -58,6 +58,14 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     def close(self) -> None:
         """Release resources held by the policy."""
         pass
+
+    def get_rollout_statistics(self) -> dict[str, Any] | None:
+        """Return JSON-serializable statistics of the policy's rollout, or None when the policy keeps none.
+
+        Called once after each completed rollout, before the policy is closed; the Run writes the statistics
+        to a policy statistics file for that rollout.
+        """
+        return None  # noqa: R501 - subclasses that keep statistics return them
 
     def set_task_description(self, task_description: str | None) -> str:
         """Set the task description of the task being evaluated."""

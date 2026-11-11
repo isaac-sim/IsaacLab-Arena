@@ -10,7 +10,9 @@ from __future__ import annotations
 import copy
 import json
 import os
-from dataclasses import dataclass
+import threading
+import time
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 from openai import OpenAI
@@ -104,6 +106,29 @@ class InferenceRequest:
     retry_label: str = "inference"
 
 
+@dataclass
+class InferenceUsage:
+    """Chat-completion requests an inference backend sent and the tokens their responses reported."""
+
+    num_requests: int = 0
+    """Requests sent, including retries and requests that failed; the connection check is not counted."""
+
+    num_responses_without_usage: int = 0
+    """Responses that reported no token usage, so their tokens are missing from the totals."""
+
+    prompt_tokens: int = 0
+    """Prompt tokens summed over the responses that reported usage."""
+
+    completion_tokens: int = 0
+    """Completion tokens summed over the responses that reported usage."""
+
+    request_latency_total_ms: float = 0.0
+    """Wall time of every request, from sending it to its response or failure, summed in milliseconds."""
+
+    request_latency_max_ms: float = 0.0
+    """Wall time of the slowest request in milliseconds."""
+
+
 @dataclass(frozen=True)
 class StructuredOutputRequest:
     """One JSON-schema structured-output chat completion."""
@@ -167,6 +192,9 @@ class InferenceBackend:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
+        # Requests run concurrently on worker threads, so their usage is added under a lock.
+        self._usage = InferenceUsage()
+        self._usage_lock = threading.Lock()
         try:
             _ping(client, inference_endpoint, resolved_model)
         except Exception:
@@ -187,6 +215,52 @@ class InferenceBackend:
     def client(self) -> OpenAI:
         """OpenAI-compatible client used for completion requests."""
         return self._client
+
+    @property
+    def usage(self) -> InferenceUsage:
+        """Copy of the requests sent and tokens used since the backend was created."""
+        with self._usage_lock:
+            return replace(self._usage)
+
+    def _create_completion(self, messages: list[ChatCompletionMessageParam], request: InferenceRequest) -> Any:
+        """Send one structured-output chat completion and count it, with its tokens and latency, in the usage."""
+        # Timed on the calling thread, so concurrent requests each record their own latency.
+        start_time = time.perf_counter()
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": request.schema_name,
+                        "schema": request.response_schema,
+                    },
+                },
+                **_completion_options(self._endpoint, self._max_tokens, self._temperature),
+            )
+        except Exception:
+            self._add_request_usage(None, (time.perf_counter() - start_time) * 1e3)
+            raise
+        self._add_request_usage(response, (time.perf_counter() - start_time) * 1e3)
+        return response
+
+    def _add_request_usage(self, response: Any, latency_ms: float) -> None:
+        """Count one request, its latency, and the tokens its response reported; response is None on failure."""
+        usage = getattr(response, "usage", None)
+        prompt_tokens = getattr(usage, "prompt_tokens", None)
+        completion_tokens = getattr(usage, "completion_tokens", None)
+        with self._usage_lock:
+            self._usage.num_requests += 1
+            self._usage.request_latency_total_ms += latency_ms
+            self._usage.request_latency_max_ms = max(self._usage.request_latency_max_ms, latency_ms)
+            if response is None:
+                return
+            if prompt_tokens is None or completion_tokens is None:
+                self._usage.num_responses_without_usage += 1
+                return
+            self._usage.prompt_tokens += prompt_tokens
+            self._usage.completion_tokens += completion_tokens
 
     def run_json(self, request: StructuredOutputRequest) -> dict[str, Any]:
         """Call a JSON-schema structured-output endpoint and parse the response as JSON.
@@ -224,18 +298,7 @@ class InferenceBackend:
             if attempt > 0:
                 print(f"[{request.retry_label}] retry {attempt}/{self._max_retries} after: {last_exc}", flush=True)
             try:
-                resp = self._client.chat.completions.create(
-                    model=self._model,
-                    messages=messages,
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": request.schema_name,
-                            "schema": request.response_schema,
-                        },
-                    },
-                    **_completion_options(self._endpoint, self._max_tokens, self._temperature),
-                )
+                resp = self._create_completion(messages, request)
                 choices = getattr(resp, "choices", None) or []
                 assert choices, (
                     f"Model {self._model!r} returned HTTP 200 with no choices "
