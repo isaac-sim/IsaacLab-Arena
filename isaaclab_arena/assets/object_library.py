@@ -29,7 +29,7 @@ from isaaclab_arena.assets.object_utils import (
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.assets.simready_constants import SIMREADY_PHYSICS_VARIANTS
+from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS, SIMREADY_PHYSICS_VARIANTS
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.lightwheel import LightwheelUsdSource
 from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
@@ -2137,7 +2137,7 @@ class GearInsertionMediumGear(_NewtonGearInsertionObject):
 def _make_simready_central_hand_tool_spawn_cfg_addon() -> dict[str, object]:
     """Create common spawn overrides for SimReady Central hand tools."""
     return {
-        "variants": SIMREADY_PHYSICS_VARIANTS,
+        "variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS,
         "make_uninstanceable": True,
         "rigid_props": sim_utils.RigidBodyPropertiesCfg(
             linear_damping=2.0,
@@ -2163,7 +2163,7 @@ class SimReadyCentralWhiteBin(LibraryObject):
         "69a87329036cec0440403351c12230970c4e67d8/D00814/simready_usd/D00814.usd"
     )
     object_type = ObjectType.RIGID
-    spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
+    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
 
 
 @register_asset
@@ -2202,13 +2202,13 @@ class SimReadyCentralSocketSet(LibraryObject, Openable):
 
     registry_name = "simready_central_socket_set"
     tags = ["object", "openable", "sim-ready", "workbench"]
+    # TODO(qianl, 2026.11.11): Point this prepared asset to ARENA_NUCLEUS_DIR after it is published to S3.
     usd_path = f"{ARENA_STAGING_STORAGE_DIR}/Arena/assets/object_library/workbench/socket_set.usda"
     object_type = ObjectType.ARTICULATION
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
     openable_joint_name = "case_lid"
 
-    def __init__(self, **kwargs):
-        initial_joint_positions = kwargs.pop("initial_joint_positions", None)
+    def __init__(self, initial_joint_positions: dict[str, float] | None = None, **kwargs):
         kwargs.setdefault("openable_joint_name", self.openable_joint_name)
         super().__init__(**kwargs)
         if initial_joint_positions is not None:
@@ -2221,6 +2221,7 @@ class SimReadyCentralOscilloscope(LibraryObject, Pressable):
 
     registry_name = "simready_central_oscilloscope"
     tags = ["object", "pressable", "sim-ready", "workbench"]
+    # TODO(qianl, 2026.11.11): Point this prepared asset to ARENA_NUCLEUS_DIR after it is published to S3.
     usd_path = f"{ARENA_STAGING_STORAGE_DIR}/Arena/assets/object_library/workbench/oscilloscope.usda"
     object_type = ObjectType.ARTICULATION
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}

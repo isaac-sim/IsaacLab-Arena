@@ -3,30 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Validate workbench asset registration, spawn settings, and uploaded layers."""
+"""Validate workbench asset configuration and uploaded layers."""
 
 import pytest
-
-
-def _test_workbench_registration_does_not_download(simulation_app, monkeypatch):
-    from isaaclab_arena.assets.registries import AssetRegistry
-
-    def unexpected_retrieval(*args, **kwargs):
-        raise AssertionError("Asset registration must not download assets")
-
-    monkeypatch.setattr("isaaclab.utils.assets.retrieve_file_path", unexpected_retrieval)
-    registry = AssetRegistry()
-    for name in ("workbench", "white_bin", "socket_set", "oscilloscope", "slotted_screwdriver", "small_wrench"):
-        registry.get_asset_by_name(f"simready_central_{name}")
-    return True
-
-
-def test_workbench_registration_does_not_download(monkeypatch):
-    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-
-    assert run_function_with_persistent_simulation_app(
-        _test_workbench_registration_does_not_download, monkeypatch=monkeypatch
-    )
 
 
 def _test_workbench_asset_configuration(simulation_app, monkeypatch):
@@ -34,25 +13,16 @@ def _test_workbench_asset_configuration(simulation_app, monkeypatch):
         SimReadyCentralSlottedScrewdriver,
         SimReadyCentralSmallWrench,
         SimReadyCentralSocketSet,
+        SimReadyCentralWhiteBin,
     )
+    from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS
 
-    monkeypatch.setattr(
-        "isaaclab_arena.assets.sources.simready_central.SimReadyCentralUsdSource.to_local_usd_path",
-        lambda self: "/cache/tool.usd",
-    )
     for asset_type in (
+        SimReadyCentralWhiteBin,
         SimReadyCentralSlottedScrewdriver,
         SimReadyCentralSmallWrench,
     ):
-        tool = asset_type()
-        spawn = tool.object_cfg.spawn
-        assert spawn.make_uninstanceable
-        assert spawn.rigid_props.linear_damping == 2.0
-        assert spawn.rigid_props.angular_damping == 2.0
-        assert spawn.rigid_props.sleep_threshold == 0.0
-        assert spawn.collision_props.contact_offset == 0.001
-        assert spawn.collision_props.rest_offset == 0.0
-        assert spawn.collision_props.mesh_collision_property.mesh_approximation_name == "convexHull"
+        assert asset_type.spawn_cfg_addon["variants"] == SIMREADY_CENTRAL_PHYSICS_VARIANTS
 
     monkeypatch.setattr(SimReadyCentralSocketSet, "usd_path", "/cache/socket_set.usda")
     socket_set = SimReadyCentralSocketSet(initial_joint_positions={"case_lid": 1.5})

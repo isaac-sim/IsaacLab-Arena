@@ -318,5 +318,6 @@ class SimReadyCentralWorkbench(LibraryBackground):
 
     registry_name = "simready_central_workbench"
     tags = ["background", "sim-ready", "workbench"]
+    # TODO(qianl, 2026.11.11): Point this prepared asset to ARENA_NUCLEUS_DIR after it is published to S3.
     usd_path = f"{ARENA_STAGING_STORAGE_DIR}/Arena/assets/object_library/workbench/workbench.usda"
     object_min_z = 0.0
