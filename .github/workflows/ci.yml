@@ -493,7 +493,6 @@ jobs:
     # Docs-only PRs skip the image build; their docs build in the latest published main image.
     if: ${{ !cancelled() && needs.pre_commit.result == 'success' && needs.build_and_push_image.result != 'failure' }}
 
-    # autodoc imports isaaclab_arena, so the docs build in the Arena image, which installs the docs extra.
     container:
       image: ${{ needs.build_and_push_image.outputs.image || 'nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest' }}
       credentials:
