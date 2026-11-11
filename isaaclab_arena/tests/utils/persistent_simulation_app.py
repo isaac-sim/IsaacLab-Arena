@@ -80,10 +80,11 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
         simulation_app_args = parser.parse_args([])
         simulation_app_args.enable_cameras = enable_cameras
 
-        # Disable the crash reporter to avoid deadlocks on the dynamic loader when the sim app
-        # crashes during startup. With the reporter disabled the process dies immediately. Disable
-        # lazy dynlib binding (LD_BIND_NOW=1) has the same effect, but is more intrusive; can be
-        # tried out similar problems appear elsewhere.
+        # NOTE(dtingdahl, 2026.11.11): Disable the crash reporter to avoid deadlocks on the dynamic loader
+        # when the sim app crashes during startup. With the reporter disabled the process dies immediately.
+        # Disabling lazy dynlib binding (LD_BIND_NOW=1) has the same effect, but is more intrusive; it can
+        # be tried if similar problems appear elsewhere.
+        # TODO(dtingdahl, 2026.11.11): Can potentially be removed in later versions of Kit.
         existing_kit_args = getattr(simulation_app_args, "kit_args", None) or ""
         simulation_app_args.kit_args = f"{existing_kit_args} {_DISABLE_CRASH_REPORTER_KIT_ARG}".strip()
 
