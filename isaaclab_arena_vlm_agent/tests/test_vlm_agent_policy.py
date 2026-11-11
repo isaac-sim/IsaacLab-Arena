@@ -143,7 +143,10 @@ def make_policy(backend, **kwargs):
 def inputs(action_dim=2, num_envs=2):
     env = SimpleNamespace(
         unwrapped=SimpleNamespace(
-            num_envs=num_envs, device="cpu", action_manager=SimpleNamespace(total_action_dim=action_dim)
+            num_envs=num_envs,
+            device="cpu",
+            action_manager=SimpleNamespace(total_action_dim=action_dim),
+            active_episode_mask=torch.ones(num_envs, dtype=torch.bool),
         )
     )
     positions = torch.arange(num_envs * action_dim, dtype=torch.float32).reshape(num_envs, action_dim)
@@ -430,6 +433,32 @@ def test_chunks_replay_in_order_and_reset_independently(backend, action_dim):
     policy.reset()
     policy.get_action(env, observation)
     assert len(calls) == 6
+
+
+def test_environments_without_an_active_episode_hold_their_last_action_without_requests(backend):
+    targets = iter([[1, 2], [3, 4], [5, 6], [7, 8]])
+    backend.client.chat.completions.create.side_effect = lambda **kwargs: response(
+        json.dumps({"target": next(targets)})
+    )
+    policy = make_policy(backend)
+    env, observation = inputs()
+    try:
+        # Env 1 never had an episode, so it still needs one action, which it then holds.
+        env.unwrapped.active_episode_mask = torch.tensor([True, False])
+        first_actions = policy.get_action(env, observation)
+        assert backend.client.chat.completions.create.call_count == 2
+
+        second_actions = policy.get_action(env, observation)
+        assert backend.client.chat.completions.create.call_count == 3
+        torch.testing.assert_close(second_actions[1], first_actions[1])
+
+        # Env 0's episode ends without a replacement, so it waits too.
+        env.unwrapped.active_episode_mask = torch.tensor([False, False])
+        third_actions = policy.get_action(env, observation)
+        assert backend.client.chat.completions.create.call_count == 3
+        torch.testing.assert_close(third_actions, second_actions)
+    finally:
+        policy.close()
 
 
 @pytest.mark.parametrize(
