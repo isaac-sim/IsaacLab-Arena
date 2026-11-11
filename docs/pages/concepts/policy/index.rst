@@ -80,7 +80,7 @@ To add a policy, define a typed configuration, subclass ``PolicyBase`` with it, 
    class MyPolicy(PolicyBase[MyPolicyCfg]):
        name = "my_policy"
 
-       def get_action(self, env, observation) -> torch.Tensor:
+       def _get_action(self, env, observation, active_env_mask) -> torch.Tensor:
            return torch.zeros(env.action_space.shape, device=env.unwrapped.device)
 
 Registration makes the policy available to both runners. ``policy_runner.py --policy_type

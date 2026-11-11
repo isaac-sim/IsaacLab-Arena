@@ -137,7 +137,7 @@ def _test_builder_applies_camera_resolution_mode(simulation_app):
         def default_image_size(cls, config):
             return (224, 224)
 
-        def get_action(self, env, observation):
+        def _get_action(self, env, observation, active_env_mask):
             raise NotImplementedError
 
     class FakePolicyRegistry:

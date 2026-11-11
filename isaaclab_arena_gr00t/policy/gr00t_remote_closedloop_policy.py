@@ -161,7 +161,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         self.task_description = task_description
         return self.task_description
 
-    def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
+    def _get_action(self, env: gym.Env, observation: dict[str, Any], active_env_mask: torch.Tensor) -> torch.Tensor:
         assert self._chunking_state is not None, "GR00T remote policy has been closed"
 
         def fetch_chunk() -> torch.Tensor:
@@ -224,6 +224,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         return action_tensor
 
     def reset(self, env_ids: torch.Tensor | None = None):
+        super().reset(env_ids)
         if env_ids is None:
             env_ids = slice(None)
         assert self._client is not None, "GR00T remote policy has been closed"

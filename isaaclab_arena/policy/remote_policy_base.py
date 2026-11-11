@@ -90,7 +90,7 @@ class RemoteChunkReplayPolicy:
         self._next_chunk_steps: list[int] | None = None
         self.task_description: str | None = None
 
-    def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
+    def _get_action(self, env: gym.Env, observation: dict[str, Any], active_env_mask: torch.Tensor) -> torch.Tensor:
         assert self.task_description, (
             f"{type(self).__name__} requires a non-empty language instruction"
             " (set via --language_instruction or on the task definition)."
@@ -101,6 +101,10 @@ class RemoteChunkReplayPolicy:
 
         actions = []
         for env_id in range(num_envs):
+            # An inactive environment holds its last action, so it fetches no chunk and keeps its place in it.
+            if not active_env_mask[env_id]:
+                actions.append(self._last_actions[env_id].cpu().numpy())
+                continue
             chunk_exhausted = (
                 self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
             )
@@ -114,6 +118,7 @@ class RemoteChunkReplayPolicy:
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        super().reset(env_ids)
         if self._cached_action_chunks is None:
             return  # not yet initialized; nothing to clear
         ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()

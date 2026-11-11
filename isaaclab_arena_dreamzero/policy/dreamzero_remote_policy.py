@@ -214,15 +214,16 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
         return cls(DreamZeroRemotePolicyConfig(**config_dict), dreamzero_embodiment_adapter=adapter)
 
     # TODO(tstuyck, 2026-07-01): add a RemotePolicy base class
-    def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
+    def _get_action(self, env: gym.Env, observation: dict[str, Any], active_env_mask: torch.Tensor) -> torch.Tensor:
         """Return the next scheduled action for every parallel environment.
 
-        Fetches a new action chunk from the server only for environments whose
+        Fetches a new action chunk from the server only for active environments whose
         current chunk is exhausted. Non-stale environments replay from cache.
 
         Args:
             env: Gymnasium-wrapped Isaac Lab environment.
             observation: Arena observation dict with 'camera_obs' and 'policy' sub-dicts.
+            active_env_mask: Boolean (num_envs,) mask of environments that need a new action.
 
         Returns:
             Float32 tensor of shape (num_envs, action_dim) on self.device.
@@ -239,6 +240,10 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
 
         actions = []
         for env_id in range(num_envs):
+            # An inactive environment holds its last action, so it fetches no chunk and keeps its place in it.
+            if not active_env_mask[env_id]:
+                actions.append(self._last_actions[env_id].cpu().numpy())
+                continue
             chunk_exhausted = (
                 self._cached_action_chunks[env_id] is None
                 or self._next_chunk_steps[env_id] >= self.config.open_loop_horizon
@@ -253,6 +258,7 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        super().reset(env_ids)
         if self._cached_action_chunks is None:
             return
         ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()

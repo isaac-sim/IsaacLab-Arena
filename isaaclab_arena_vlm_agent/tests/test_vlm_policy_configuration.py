@@ -283,5 +283,5 @@ def test_droid_preset_rejects_incompatible_controller_before_inference(monkeypat
     policy = policy_type(_config(cfg_type), inference_backend=backend)
     policy.set_task_description("Move DROID")
     with pytest.raises(AssertionError, match="unsupported"):
-        policy.get_action(SimpleNamespace(), {})
+        policy.get_action(SimpleNamespace(unwrapped=SimpleNamespace(num_envs=1)), {})
     backend.infer.assert_not_called()

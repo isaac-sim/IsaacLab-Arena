@@ -21,7 +21,7 @@ from __future__ import annotations
 import numpy as np
 import sys
 import torch
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -34,6 +34,7 @@ from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTes
 pytestmark = pytest.mark.gr00t_policy
 
 NUM_ENVS = 2
+ENV = SimpleNamespace(unwrapped=SimpleNamespace(num_envs=NUM_ENVS))
 ORIGINAL_HEIGHT = 480
 ORIGINAL_WIDTH = 640
 NUM_CHANNELS = 3
@@ -259,7 +260,7 @@ def test_get_action_returns_correct_shape_for_each_scheduler(
     assert isinstance(policy._chunking_state, scheduler_cls)
     policy.set_task_description("pick up the brown box")
 
-    action = policy.get_action(env=None, observation=synthetic_observation)
+    action = policy.get_action(env=ENV, observation=synthetic_observation)
 
     assert isinstance(action, torch.Tensor)
     assert action.shape == (NUM_ENVS, EXPECTED_ACTION_DIM)
@@ -276,13 +277,13 @@ def test_synced_batch_holds_joint_position_for_env_after_partial_reset(
     policy.set_task_description("pick up the brown box")
 
     # Step 1: every env needs a chunk → exactly one fetch.
-    policy.get_action(env=None, observation=synthetic_observation)
+    policy.get_action(env=ENV, observation=synthetic_observation)
     assert clients[0].get_action_calls == 1
 
     # Reset env 1 only; env 0 still has its chunk.
     policy.reset(env_ids=torch.tensor([1]))
 
-    action = policy.get_action(env=None, observation=synthetic_observation)
+    action = policy.get_action(env=ENV, observation=synthetic_observation)
     # No new chunk fetched (env 0 not yet exhausted, so .all() is False).
     assert clients[0].get_action_calls == 1
     expected_hold = policy._extract_hold_action(synthetic_observation)

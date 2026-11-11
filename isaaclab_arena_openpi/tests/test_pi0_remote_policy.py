@@ -168,6 +168,33 @@ def test_get_action_parallel_envs_loops_per_env(monkeypatch):
         assert second_action[env_id, -1].item() == pytest.approx(0.7)
 
 
+def test_inactive_env_holds_its_last_action_without_fetching(monkeypatch):
+    """An env whose episode ended without a replacement fetches no chunk and keeps its place in it."""
+    call_count = {"n": 0}
+
+    def counting_infer(self, request):
+        call_count["n"] += 1
+        return {"actions": _synthetic_chunk()}
+
+    _patch_websocket_client(monkeypatch, infer_impl=counting_infer)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
+    # A one-step horizon makes every active env refetch on every step.
+    policy._open_loop_horizon = 1
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=2)
+    env.unwrapped.active_episode_mask = torch.tensor([True, True])
+    obs = _fake_observation(num_envs=2)
+    first_action = policy.get_action(env, obs)
+
+    env.unwrapped.active_episode_mask = torch.tensor([True, False])
+    second_action = policy.get_action(env, obs)
+
+    # Env 0 refetches after its one-step horizon; env 1 holds row 0 of its chunk.
+    assert call_count["n"] == 3
+    torch.testing.assert_close(second_action[1], first_action[1])
+    assert policy._next_chunk_steps == [1, 1]
+
+
 def test_reset_honors_env_ids(monkeypatch):
     """reset(env_ids) clears only those envs' caches; others keep replaying."""
     _patch_websocket_client(monkeypatch)

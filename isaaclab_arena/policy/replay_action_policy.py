@@ -66,7 +66,9 @@ class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
         """Return the number of actions in the episode."""
         return len(self.episode_data.data["actions"])
 
-    def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor | None:
+    def _get_action(
+        self, env: gym.Env, observation: GymSpacesDict, active_env_mask: torch.Tensor
+    ) -> torch.Tensor | None:
         """Get the action of the next current index from the dataset."""
         action = self.get_action_from_index(self.current_action_index)
         if action.dim() == 1:
