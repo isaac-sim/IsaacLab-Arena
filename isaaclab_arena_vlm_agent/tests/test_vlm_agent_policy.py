@@ -461,6 +461,49 @@ def test_environments_without_an_active_episode_hold_their_last_action_without_r
         policy.close()
 
 
+def test_waiting_environment_keeps_its_unfinished_chunk_without_requests(backend):
+    chunks = iter([
+        [[1, 1], [2, 2], [3, 3]],
+        [[4, 4], [5, 5], [6, 6]],
+        [[7, 7], [8, 8], [9, 9]],
+    ])
+    backend.client.chat.completions.create.side_effect = lambda **kwargs: response(
+        json.dumps({"actions": next(chunks)})
+    )
+    policy = make_multi_step_policy(backend, JointChunkAdapter(chunk_size=3))
+    env, observation = inputs()
+    policy.get_action(env, observation)
+    assert backend.client.chat.completions.create.call_count == 2
+
+    # Env 1's episode ends with two commands of its chunk left, and env 0 runs past its own chunk.
+    env.unwrapped.active_episode_mask = torch.tensor([True, False])
+    for env_0_action in ([2.0, 2.0], [3.0, 3.0], [7.0, 7.0], [8.0, 8.0]):
+        torch.testing.assert_close(policy.get_action(env, observation), torch.tensor([env_0_action, [4.0, 4.0]]))
+    assert backend.client.chat.completions.create.call_count == 3
+    assert [command.tolist() for command in policy._chunks[1]] == [[5.0, 5.0], [6.0, 6.0]]
+
+
+def test_waiting_environment_keeps_its_unfinished_goal_without_requests(backend):
+    def create(**kwargs):
+        state = json.loads(kwargs["messages"][1]["content"][1]["text"])
+        return response(json.dumps({"target": (np.asarray(state["joint_positions"]) + 1).tolist()}))
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_multi_step_policy(backend, JointGoalAdapter(), max_steps_per_goal=2)
+    env, observation = inputs()
+    torch.testing.assert_close(policy.get_action(env, observation), torch.full((2, 2), 0.25))
+    assert backend.client.chat.completions.create.call_count == 2
+
+    # Env 1's episode ends at its goal, which an acting env would report as reached; env 0's goal times out.
+    env.unwrapped.active_episode_mask = torch.tensor([True, False])
+    observation["position"][1] += 1
+    for _ in range(2):
+        torch.testing.assert_close(policy.get_action(env, observation), torch.full((2, 2), 0.25))
+    assert backend.client.chat.completions.create.call_count == 3
+    assert policy._current_goals[1][1] == 1
+    assert 1 not in policy._previous_goals
+
+
 @pytest.mark.parametrize(
     "commands",
     [

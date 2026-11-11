@@ -238,7 +238,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         Environments that need a new prediction on this step request it concurrently, up to
         max_concurrent_requests at a time; the step returns once every request is validated.
         An environment without an active episode, whose rollout used up its episode budget, sends no
-        request and holds its last action until the rollout ends.
+        request and holds its last action until the rollout ends. Holding keeps the robot still only
+        when the adapter's actions are absolute targets.
 
         Args:
             env: Arena environment, optionally gym-wrapped.
