@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME_TEMPLATE,
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
-    ARENA_SINGLE_RUN_POLICY_STATISTICS_FILENAME_TEMPLATE,
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
@@ -158,7 +158,7 @@ def build_and_run(
             metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
-            _write_policy_statistics(policy, output_dir, rebuild_index)
+            _write_inference_usage(policy, output_dir, rebuild_index)
         except Exception as error:
             # A failed fill leaves no pool to read its diagnostics from, so they are taken from its error.
             if isinstance(error, PlacementPoolFillError):
@@ -179,16 +179,19 @@ def build_and_run(
     )
 
 
-def _write_policy_statistics(policy: PolicyBase, output_dir: str | Path, rebuild_index: int) -> None:
-    """Write the policy's statistics of one rebuild's rollout into the Run's output directory, if it keeps any."""
-    policy_statistics = policy.get_rollout_statistics()
-    if policy_statistics is None:
+def _write_inference_usage(policy: PolicyBase, output_dir: str | Path, rebuild_index: int) -> None:
+    """Write the inference usage of one rebuild's rollout into the Run's output directory, if the policy reports it.
+
+    A policy that calls remote inference, such as a VLM agent policy, reports its usage with get_inference_usage().
+    """
+    if not hasattr(policy, "get_inference_usage"):
         return
-    statistics_path = Path(output_dir) / ARENA_SINGLE_RUN_POLICY_STATISTICS_FILENAME_TEMPLATE.format(
+    inference_usage = policy.get_inference_usage()
+    usage_path = Path(output_dir) / ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME_TEMPLATE.format(
         rebuild_index=rebuild_index
     )
-    statistics_path.parent.mkdir(parents=True, exist_ok=True)
-    statistics_path.write_text(json.dumps(policy_statistics, allow_nan=False, indent=2) + "\n", encoding="utf-8")
+    usage_path.parent.mkdir(parents=True, exist_ok=True)
+    usage_path.write_text(json.dumps(inference_usage, allow_nan=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _aggregate_and_write_placement_diagnostics(

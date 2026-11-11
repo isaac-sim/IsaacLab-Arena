@@ -29,8 +29,8 @@ ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 ARENA_SINGLE_RUN_TIMINGS_FILENAME = "arena_run_timings.json"
 ARENA_AGGREGATED_TIMINGS_FILENAME = "arena_experiment_timings.json"
 ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME = "arena_run_placement_diagnostics.json"
-ARENA_SINGLE_RUN_POLICY_STATISTICS_FILENAME_TEMPLATE = "arena_run_policy_statistics_rebuild{rebuild_index}.json"
-"""Name of a Run's policy statistics file for one rebuild; format it with the rebuild index, or "*" to match all."""
+ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME_TEMPLATE = "arena_run_inference_usage_rebuild{rebuild_index}.json"
+"""Name of a Run's inference usage file for one rebuild; format it with the rebuild index, or "*" to match all."""
 
 
 class ArenaEpisodeResultData(TypedDict):
