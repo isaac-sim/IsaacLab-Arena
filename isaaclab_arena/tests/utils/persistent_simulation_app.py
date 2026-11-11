@@ -85,8 +85,7 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
         # Disabling lazy dynlib binding (LD_BIND_NOW=1) has the same effect, but is more intrusive; it can
         # be tried if similar problems appear elsewhere.
         # TODO(dtingdahl, 2026.11.11): Can potentially be removed in later versions of Kit.
-        existing_kit_args = getattr(simulation_app_args, "kit_args", None) or ""
-        simulation_app_args.kit_args = f"{existing_kit_args} {_DISABLE_CRASH_REPORTER_KIT_ARG}".strip()
+        simulation_app_args.kit_args = _DISABLE_CRASH_REPORTER_KIT_ARG
 
         if not headless:
             simulation_app_args.visualizer = ["kit"]
