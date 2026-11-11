@@ -56,6 +56,9 @@ and the credential-file setup from the
       Credentials survive container removal and are reused by new containers
       launched with the same ``~/.nvidia-omniverse`` directory mount.
 
+When prompted, open https://login.microsoft.com/device in a browser, enter the
+code printed by the script, and complete your NVIDIA sign-in.
+
 Credentials are saved at ``~/.nvidia-omniverse/config/auth.toml``.
 ``omni.client`` refreshes access tokens automatically.
 
