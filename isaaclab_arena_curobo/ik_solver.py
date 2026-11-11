@@ -198,6 +198,7 @@ class CuroboIKSolver:
         try:
             yield
         finally:
+            # Re-enabled even if the block raises, so later solves never miss this obstacle.
             collision_checker.enable_obstacle(name, True)
 
     def replace_background_mesh_obstacle(
@@ -216,13 +217,16 @@ class CuroboIKSolver:
             robot_base_pos_w: Robot base position in the world frame.
             robot_base_quat_w_xyzw: Robot base orientation in the world frame.
         """
+        # cuRobo's mesh obstacle store; None when the solver was built without a mesh slot.
         meshes = self.ik_solver.scene_collision_checker.data.meshes
         assert meshes is not None, "Build the solver with a 'mesh' slot in collision_cache_size."
         # Also free the previous mesh's BVH; cuRobo would otherwise reuse the cached mesh of the same name.
         meshes.clear(env_idx=0, clear_warp_cache=True)
+        # An empty mesh (nothing within the crop radius) leaves the slot cleared.
         if len(mesh_W.faces) > 0:
             mesh_R = curobo_mesh_in_robot_frame(mesh_W, BACKGROUND_MESH_NAME, robot_base_pos_w, robot_base_quat_w_xyzw)
             # Writes the new mesh id into the existing tensors in place, so captured CUDA graphs stay valid.
             meshes.load_batch([mesh_R], env_idx=0)
+        # Finish the GPU writes before the next solve, as update_world does.
         if torch.cuda.is_available():
             torch.cuda.synchronize()
