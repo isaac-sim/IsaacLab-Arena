@@ -100,6 +100,11 @@ def test_benchmarking_packages_are_discovered_by_setuptools():
         assert package in discovered_packages, package
 
 
+def test_workbench_package_is_discovered_by_setuptools():
+    """Wheel installs must include the registered workbench asset classes."""
+    assert "isaaclab_arena_environments.workbench_cleanup" in _discover_packages_like_setuptools()
+
+
 def test_benchmarking_directories_with_modules_are_packages():
     benchmarking_root = REPOSITORY_ROOT / "isaaclab_arena_benchmarking"
     for module_path in benchmarking_root.rglob("*.py"):
