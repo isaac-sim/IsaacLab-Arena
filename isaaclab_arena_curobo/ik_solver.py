@@ -31,13 +31,13 @@ if TYPE_CHECKING:
     import trimesh
 
 BACKGROUND_MESH_NAME = "background"
-"""Name of the mesh obstacle ``set_background_mesh`` loads."""
+"""Name of the mesh obstacle ``replace_background_mesh_obstacle`` loads."""
 
 CUBOID_OBSTACLE_SLOTS = 150
 """Cuboid obstacle slots in the collision cache: one per layout object."""
 
 BACKGROUND_MESH_SLOTS = 1
-"""Mesh obstacle slots ``set_background_mesh`` needs: the background is loaded as one mesh."""
+"""Mesh obstacle slots ``replace_background_mesh_obstacle`` needs: the background is loaded as one mesh."""
 
 
 class CuroboIKSolver:
@@ -88,7 +88,7 @@ class CuroboIKSolver:
             position_threshold: cuRobo internal IK position convergence threshold (m).
             rotation_threshold: cuRobo internal IK rotation convergence threshold (rad, geodesic angle).
             collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": CUBOID_OBSTACLE_SLOTS}``. A world
-                with more obstacles than its slots fails to load, and ``set_background_mesh`` needs a ``"mesh"`` slot.
+                with more obstacles than its slots fails to load, and ``replace_background_mesh_obstacle`` needs a ``"mesh"`` slot.
             max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
             use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
             debug: Enable cuRobo/planner debug logging.
@@ -182,8 +182,8 @@ class CuroboIKSolver:
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
-    def set_obstacle_enabled(self, name: str, enabled: bool) -> None:
-        """Turn collision checking against one loaded obstacle off or back on, without reloading the world.
+    def set_obstacle_collision_enabled(self, name: str, enabled: bool) -> None:
+        """Turn collision checking against one loaded obstacle off or back on; the obstacle stays loaded.
 
         Args:
             name: The obstacle's cuboid name, as passed to ``update_world``.
@@ -191,16 +191,16 @@ class CuroboIKSolver:
         """
         self.ik_solver.scene_collision_checker.enable_obstacle(name, enabled)
 
-    def set_background_mesh(
+    def replace_background_mesh_obstacle(
         self,
         mesh_W: trimesh.Trimesh,
         robot_base_pos_w: tuple[float, float, float],
         robot_base_quat_w_xyzw: tuple[float, float, float, float],
     ) -> None:
-        """Replace the background mesh obstacle; ``update_world`` leaves it in place.
+        """Clear the background mesh obstacle and load ``mesh_W`` in its place; ``update_world`` leaves it untouched.
 
-        The mesh is baked into the robot base frame, so it must be set again whenever the robot base moves. An empty
-        mesh removes it. Requires a ``"mesh"`` slot in ``collision_cache_size``.
+        The vertices are baked into the robot base frame, so call this again whenever the robot base moves. An empty
+        mesh only clears it. Requires a ``"mesh"`` slot in ``collision_cache_size``.
 
         Args:
             mesh_W: Background mesh in world coordinates.

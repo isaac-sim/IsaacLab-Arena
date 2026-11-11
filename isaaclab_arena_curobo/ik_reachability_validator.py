@@ -260,7 +260,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         per_target = []
         for target_index, target in enumerate(targets):
             target_cuboid_name = cuboid_per_object[target].name
-            self._solver.set_obstacle_enabled(target_cuboid_name, False)
+            self._solver.set_obstacle_collision_enabled(target_cuboid_name, False)
             per_target.append(
                 solve_ik_feasibility(
                     self._solver,
@@ -270,7 +270,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                     require_collision_free=self._require_collision_free,
                 )
             )
-            self._solver.set_obstacle_enabled(target_cuboid_name, True)
+            self._solver.set_obstacle_collision_enabled(target_cuboid_name, True)
         return IKFeasibility(
             feasible=torch.cat([ik.feasible for ik in per_target]),
             position_error=torch.cat([ik.position_error for ik in per_target]),
@@ -293,7 +293,9 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             crop_W = crop_mesh_near_point(
                 self._background_mesh_W, robot_base_pose_w.position_xyz, self._background_radius
             )
-            self._solver.set_background_mesh(crop_W, robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
+            self._solver.replace_background_mesh_obstacle(
+                crop_W, robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw
+            )
             self._loaded_background_crop_W = crop_W
             self._loaded_background_base_pose_w = robot_base_pose_w
         return self._loaded_background_crop_W

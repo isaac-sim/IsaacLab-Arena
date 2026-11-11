@@ -104,9 +104,9 @@ def test_disabled_obstacle_stops_blocking_until_enabled_again(droid_solver):
     block = AABBCollisionCuboid(name="block", dims_xyz=(0.4, 0.4, 0.4), pose_W_O=Pose(position_xyz=t_B_E))
     droid_solver.update_world([block], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
     try:
-        droid_solver.set_obstacle_enabled("block", False)
+        droid_solver.set_obstacle_collision_enabled("block", False)
         assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]
-        droid_solver.set_obstacle_enabled("block", True)
+        droid_solver.set_obstacle_collision_enabled("block", True)
         assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [False]
     finally:
         droid_solver.update_world([], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
@@ -127,9 +127,9 @@ def test_background_mesh_blocks_a_collision_free_solve_until_removed(droid_solve
     T_W_B = trimesh.transformations.quaternion_matrix((q_W_B_xyzw[3], *q_W_B_xyzw[:3]))
     T_W_B[:3, 3] = t_W_B
     block_W = block_B.copy().apply_transform(T_W_B)
-    droid_solver.set_background_mesh(block_W, t_W_B, q_W_B_xyzw)
+    droid_solver.replace_background_mesh_obstacle(block_W, t_W_B, q_W_B_xyzw)
     try:
         assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [False]
     finally:
-        droid_solver.set_background_mesh(trimesh.Trimesh(), t_W_B, q_W_B_xyzw)
+        droid_solver.replace_background_mesh_obstacle(trimesh.Trimesh(), t_W_B, q_W_B_xyzw)
     assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]

@@ -86,13 +86,13 @@ def _patch_curobo(monkeypatch, feasible_fn):
             self.disabled_names = set()
             captured.setdefault("base_poses_per_world_update", []).append((tuple(base_pos), tuple(base_quat)))
 
-        def set_obstacle_enabled(self, name, enabled):
+        def set_obstacle_collision_enabled(self, name, enabled):
             if enabled:
                 self.disabled_names.discard(name)
             else:
                 self.disabled_names.add(name)
 
-        def set_background_mesh(self, mesh_W, base_pos, base_quat):
+        def replace_background_mesh_obstacle(self, mesh_W, base_pos, base_quat):
             captured.setdefault("background_meshes", []).append(mesh_W)
 
     captured = {}
