@@ -304,7 +304,7 @@ def test_reachability_layer_records_to_rrd(tmp_path):
 
 
 def test_background_triangles_are_highlighted_by_their_gap_to_the_checked_spheres():
-    """In a turned robot base frame, spheres are measured against the closest triangle, and muted spheres do not count."""
+    """In a turned robot base frame, each checked sphere finds its closest triangle within the margin, if any."""
     import math
     import trimesh
 
@@ -313,23 +313,35 @@ def test_background_triangles_are_highlighted_by_their_gap_to_the_checked_sphere
     # The base sits at x = 1 turned 90 degrees about z, so base-frame +x points along world +y.
     t_W_B = (1.0, 0.0, 0.0)
     q_W_B_xyzw = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
-    # Checked spheres at world (1, 0.1, 0.2) and (1, 0.1, 0.4), radius 0.05; muted sphere at world (1, 0.2, 0.3).
-    robot_spheres = torch.tensor(
-        [[[0.1, 0.0, 0.2, 0.05], [0.1, 0.0, 0.4, 0.05], [0.2, 0.0, 0.3, 0.04], [0.0, 0.0, 0.0, -1.0]]]
-    )
-    spheres_W = _checked_spheres_in_world(robot_spheres, torch.tensor([False, False, True, False]), t_W_B, q_W_B_xyzw)
-    assert spheres_W.shape == (2, 4)
+    # Checked spheres of radius 0.05 at world (1, 0.1, 0.2), (1, 0.05, 0.2) and (1, 0.1, 0.9); a muted sphere at
+    # world (1, 0.2, 0.3) and an unused one (negative radius).
+    robot_spheres = torch.tensor([[
+        [0.1, 0.0, 0.2, 0.05],
+        [0.05, 0.0, 0.2, 0.05],
+        [0.1, 0.0, 0.9, 0.05],
+        [0.2, 0.0, 0.3, 0.04],
+        [0.0, 0.0, 0.0, -1.0],
+    ]])
+    muted = torch.tensor([False, False, False, True, False])
+    spheres_W = _checked_spheres_in_world(robot_spheres, muted, t_W_B, q_W_B_xyzw)
+    assert spheres_W.shape == (3, 4)
 
-    # A 1 x 0.3 m wall in the plane y = 0.12, from z = 0 to z = 0.3.
+    # A 1 x 0.3 m wall in the plane y = 0.12, from z = 0 to z = 0.3, among far-away triangles the search skips.
     wall = trimesh.Trimesh(
         vertices=[(0.5, 0.12, 0.0), (1.5, 0.12, 0.0), (1.5, 0.12, 0.3), (0.5, 0.12, 0.3)], faces=[(0, 1, 2), (0, 2, 3)]
     )
-    triangle_ids, gaps = _closest_triangle_gaps(wall, spheres_W)
-    assert triangle_ids.shape == (2,)
-    # First sphere: center 0.02 m from the wall, radius 0.05 -> penetrates by 0.03 m.
-    assert gaps[0] == pytest.approx(-0.03)
-    # Second sphere: center (1, 0.1, 0.4) is 0.1 m above the wall's top edge and 0.02 m off its plane.
-    assert gaps[1] == pytest.approx(math.hypot(0.1, 0.02) - 0.05)
+    far_box = trimesh.creation.box(
+        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((5, 5, 5))
+    )
+    mesh_W = trimesh.util.concatenate([wall, far_box])
+    triangle_ids, gaps = _closest_triangle_gaps(mesh_W, spheres_W, margin_m=0.05)
+
+    # Center 0.02 m from the wall, radius 0.05: penetrates by 0.03 m.
+    assert gaps[0] == pytest.approx(-0.03) and triangle_ids[0] in (0, 1)
+    # Center 0.07 m from the wall: 0.02 m short of touching it, within the margin.
+    assert gaps[1] == pytest.approx(0.02) and triangle_ids[1] in (0, 1)
+    # 0.6 m above the wall: beyond the margin, so no triangle.
+    assert triangle_ids[2] == -1 and gaps[2] == math.inf
 
 
 @pytest.mark.curobo_deps
@@ -433,7 +445,7 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
 
 
 @pytest.mark.curobo_deps
-def test_background_near_the_robot_obstructs_grasps_by_default(monkeypatch):
+def test_background_is_cropped_near_the_robot_and_loaded_once(monkeypatch):
     """A fixed background mesh is loaded once, cropped to the part within reach of the robot base."""
     import trimesh
 

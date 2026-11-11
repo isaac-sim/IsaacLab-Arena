@@ -149,7 +149,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
 
         Rebuilds each object's world pose, builds a collision cuboid per object -- what makes them block a
         grasp when collision checking is on -- then IK-solves each target's top-down grasp against a world
-        holding every other object. A layout with nothing to grasp (anchor-only, or no target present) is
+        holding every other object and, when enabled, the background near the robot base. A layout with nothing to grasp (anchor-only, or no target present) is
         trivially reachable. The robot stands where this layout puts it when it is relation-placed too,
         so the grasps are solved from the base pose the layout would actually spawn.
 
@@ -283,12 +283,12 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         """Load the part of the background mesh near the robot base into the solver, and return it.
 
         Re-crops and reloads only when the base pose differs from the last layout's, so a robot that is not
-        relation-placed loads the background once. Returns None when the background is not loaded.
+        relation-placed loads the background once. Returns None when the background is off or the scene has none.
 
         Args:
             robot_base_pose_w: World pose of the robot base.
         """
-        if self._background_mesh_W is None:
+        if self._background_mesh_W is None or len(self._background_mesh_W.faces) == 0:
             return None
         if robot_base_pose_w != self._loaded_background_base_pose_w:
             crop_W = crop_mesh_near_point(

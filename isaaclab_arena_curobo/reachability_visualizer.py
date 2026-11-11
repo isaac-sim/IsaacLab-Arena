@@ -186,6 +186,9 @@ class ReachabilityRerunLayer:
     ) -> None:
         """Draw the loaded background mesh see-through and highlight the triangles the robot hits or nearly hits.
 
+        Each sphere marks only its closest triangle, by unsigned distance: a sphere whose center sits inside a closed
+        part, farther than its radius from every face, collides for cuRobo but is not highlighted.
+
         Args:
             mesh_W: Background mesh loaded for the layout, in the world frame.
             robot_base_pos_w: Robot base frame position in the world frame.
@@ -193,26 +196,20 @@ class ReachabilityRerunLayer:
             robot_spheres: ``(b, n, 4)`` collision spheres in the robot base frame, one set per grasp, or None.
             muted_sphere_mask: ``(n,)`` mask of the spheres excluded from collision checking, or None for none.
         """
-        import rerun as rr
-
         _log_triangles(f"{LOADED_BACKGROUND_ENTITY}/surface", mesh_W, LOADED_BACKGROUND_COLOR)
         if robot_spheres is not None:
             spheres_W = _checked_spheres_in_world(
                 robot_spheres, muted_sphere_mask, robot_base_pos_w, robot_base_quat_w_xyzw
             )
-            triangle_ids, gaps = _closest_triangle_gaps(mesh_W, spheres_W)
+            triangle_ids, gaps = _closest_triangle_gaps(mesh_W, spheres_W, NEAR_BACKGROUND_MARGIN_M)
             highlights = (
                 ("hit", gaps < 0.0, HIT_BACKGROUND_COLOR),
                 ("near", (gaps >= 0.0) & (gaps < NEAR_BACKGROUND_MARGIN_M), NEAR_BACKGROUND_COLOR),
             )
             for name, selected, color in highlights:
-                entity = f"{LOADED_BACKGROUND_ENTITY}/{name}"
                 if selected.any():
                     faces = np.unique(triangle_ids[selected])
-                    _log_triangles(entity, mesh_W.submesh([faces], append=True), color)
-                else:
-                    # Otherwise the previous layout's highlight would still show on this one.
-                    rr.log(entity, rr.Clear(recursive=False))
+                    _log_triangles(f"{LOADED_BACKGROUND_ENTITY}/{name}", mesh_W.submesh([faces], append=True), color)
 
 
 def _log_triangles(entity: str, mesh_W: trimesh.Trimesh, color: tuple[int, ...]) -> None:
@@ -255,19 +252,48 @@ def _checked_spheres_in_world(
     return torch.cat([t_W, spheres_B[:, 3:]], dim=1).numpy()
 
 
-def _closest_triangle_gaps(mesh_W: trimesh.Trimesh, spheres_W: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Return, per sphere, the mesh triangle closest to it and the gap (m) to it; negative where the sphere penetrates.
+def _closest_triangle_gaps(
+    mesh_W: trimesh.Trimesh, spheres_W: np.ndarray, margin_m: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return, per sphere, its closest triangle within ``margin_m`` of its surface and the unsigned gap (m) to it.
+
+    Only triangles whose bounding boxes come within the sphere radius plus ``margin_m`` are searched, so a kitchen-sized
+    mesh costs no more than the few triangles near the robot. A sphere with none that close gets triangle -1 and an
+    infinite gap.
 
     Args:
         mesh_W: Mesh in the world frame.
         spheres_W: ``(k, 4)`` world-frame spheres ``(x, y, z, radius)``.
+        margin_m: Largest gap (m) a returned triangle may have.
 
     Returns:
-        ``(k,)`` closest triangle indices and ``(k,)`` gaps between the sphere surface and that triangle.
+        ``(k,)`` closest triangle indices into ``mesh_W.faces`` and ``(k,)`` gaps; negative where the sphere penetrates.
     """
     import trimesh
 
+    triangle_ids = np.full(len(spheres_W), -1, dtype=np.int64)
+    gaps = np.full(len(spheres_W), np.inf)
     if len(spheres_W) == 0:
-        return np.zeros(0, dtype=np.int64), np.zeros(0)
-    _, distances, triangle_ids = trimesh.proximity.closest_point(mesh_W, spheres_W[:, :3])
-    return np.asarray(triangle_ids), distances - spheres_W[:, 3]
+        return triangle_ids, gaps
+    triangles_W = mesh_W.triangles
+    lower_W = np.minimum(np.minimum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
+    upper_W = np.maximum(np.maximum(triangles_W[:, 0], triangles_W[:, 1]), triangles_W[:, 2])
+    reach = spheres_W[:, 3] + margin_m
+    # Cheap first pass against the box around all spheres, then per sphere on what is left.
+    in_reach_of_any = np.all(
+        (lower_W <= (spheres_W[:, :3] + reach[:, None]).max(axis=0))
+        & (upper_W >= (spheres_W[:, :3] - reach[:, None]).min(axis=0)),
+        axis=1,
+    )
+    candidate_faces = np.flatnonzero(in_reach_of_any)
+    t_W = spheres_W[None, :, :3]
+    outside = np.maximum(np.maximum(lower_W[candidate_faces, None] - t_W, t_W - upper_W[candidate_faces, None]), 0.0)
+    candidate_faces = candidate_faces[(np.linalg.norm(outside, axis=2) < reach[None]).any(axis=1)]
+    if len(candidate_faces) == 0:
+        return triangle_ids, gaps
+    nearby_W = trimesh.Trimesh(vertices=mesh_W.vertices, faces=mesh_W.faces[candidate_faces], process=False)
+    _, distances, nearby_ids = trimesh.proximity.closest_point(nearby_W, spheres_W[:, :3])
+    found = distances - spheres_W[:, 3] < margin_m
+    triangle_ids[found] = candidate_faces[np.asarray(nearby_ids)[found]]
+    gaps[found] = (distances - spheres_W[:, 3])[found]
+    return triangle_ids, gaps
