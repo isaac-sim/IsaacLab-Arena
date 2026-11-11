@@ -95,7 +95,7 @@ class _SecondFailingExporter(_FailingExporter):
 
 
 def test_registry_lists_the_default_exporters():
-    assert set(get_exporters_by_name()) == {"success_rate", "timing"}
+    assert set(get_exporters_by_name()) == {"placement_success", "success_rate", "timing"}
 
 
 def test_registry_lists_the_exporters_in_a_fresh_process_without_importing_torch_or_isaaclab():
@@ -112,7 +112,7 @@ def test_registry_lists_the_exporters_in_a_fresh_process_without_importing_torch
         [sys.executable, "-c", code], capture_output=True, text=True, check=True, cwd=REPO_ROOT, timeout=120
     )
 
-    assert result.stdout.splitlines()[-2:] == ["['success_rate', 'timing']", "[]"]
+    assert result.stdout.splitlines()[-2:] == ["['placement_success', 'success_rate', 'timing']", "[]"]
 
 
 def test_completed_experiment_writes_every_default_file(tmp_path: Path):
@@ -223,6 +223,27 @@ def test_register_kpi_exporter_adds_the_class_under_its_name(monkeypatch):
 
     assert decorated_type is _FailingExporter
     assert registry._EXPORTERS_BY_NAME == {"failing": _FailingExporter}
+
+
+class _ReportingExporter(_FailingExporter):
+    record_types: ClassVar[tuple[str, ...]] = ("reporting",)
+    incomplete_calls: ClassVar[list[tuple[Path, list[str]]]] = []
+
+    def on_experiment_incomplete(self, output_dir: Path, failed_run_names: list[str]) -> None:
+        self.incomplete_calls.append((output_dir, failed_run_names))
+
+
+def test_exporters_are_told_about_the_failed_runs(tmp_path: Path, monkeypatch):
+    """When a Run failed, every exporter's on_experiment_incomplete gets the failed Run names and no file is
+    written."""
+    _ReportingExporter.incomplete_calls.clear()
+    monkeypatch.setitem(get_exporters_by_name(), "reporting", _ReportingExporter)
+    output_dir = _write_experiment(tmp_path / "experiment", {"good_run": "completed", "bad_run": "failed"})
+
+    assert export_kpis(output_dir, ("reporting", "timing")) == []
+
+    assert _ReportingExporter.incomplete_calls == [(output_dir, ["bad_run"])]
+    assert _kpi_filenames(output_dir) == set()
 
 
 def test_unknown_exporter_name_is_rejected(tmp_path: Path):

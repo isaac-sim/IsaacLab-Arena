@@ -21,6 +21,7 @@ from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter
 
 _EXPORTER_MODULE_NAMES = (
+    "isaaclab_arena_benchmarking.benchmarks.placement_success.placement_success_exporter",
     "isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter",
     "isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter",
 )
@@ -81,7 +82,8 @@ def export_kpis(
     """Write the KPI records files of a finished Experiment, unless any of the Runs in the Experiment failed.
 
     Every selected exporter runs even if an earlier one raises. When any of the Runs in the Experiment failed, the
-    failed Runs are printed and no KPI file is written. With no exporter selected, nothing is read or written.
+    failed Runs are printed, each exporter's ``on_experiment_incomplete`` is called and no KPI file is written. With no exporter selected,
+    nothing is read or written.
 
     Args:
         output_dir: Experiment output root holding ``arena_experiment_result.json``.
@@ -116,6 +118,8 @@ def export_kpis(
             if run_result["status"] != RunStatus.COMPLETED.value
         ]
         print(f"Skipping KPI export because these Runs did not complete: {', '.join(failed_run_names)}")
+        for exporter in exporters.values():
+            exporter.on_experiment_incomplete(output_dir, failed_run_names)
         return []
 
     written_paths: list[Path] = []

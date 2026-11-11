@@ -95,24 +95,9 @@ even when some Runs failed. To change the sample size, add
 allows up to 200 environments. The solver optimizes a batch together, so compare
 only results with the same ``num_envs``.
 
-Then print each Run's placement success and the Experiment's means. This reads
-the output directory and does not start the simulator. Check the scored and
-failed counts in the last row: every spec should be scored. A Run that completed
-without diagnostics solved no relations or replayed recorded layouts; the table
-lists it, and the means leave it out:
-
-.. code-block:: bash
-
-   python -m isaaclab_arena_benchmarking.object_placement.compute_placement_kpis_from_experiment_output \
-     outputs/placement_success/robolab
-
-Add Specs
----------
-
-A placement Experiment lists one Run per spec, named after the spec's file stem.
-To benchmark a new spec, add a Run for it to its suite's Experiment, with a
-placement seed 100000 above the largest one there. For a new folder of specs,
-add an Experiment and matching cases to
-``isaaclab_arena_benchmarking/tests/test_placement_success.py``, which checks
-that each Experiment lists every spec in its folder and that no two Runs share
-candidate seeds.
+Each Experiment selects the ``placement_success`` KPI exporter with
+``kpi_exporters``, so the runner writes ``kpis_placement_success.json`` to the
+output directory. The placement success record holds the means of the three
+rates over the Runs that wrote diagnostics. A Run that completed without
+diagnostics solved no relations or replayed recorded layouts, and the means
+leave it out. No KPI file is written when any Run failed.

@@ -15,6 +15,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.utils.random import derive_seed, get_rngs
+from isaaclab_arena.utils.timer import Timer
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.geometry.collision_object import CollisionObject
@@ -172,7 +173,8 @@ class PooledObjectPlacer:
 
             batch_size = max_missing * self._num_envs
             allow_fallback = self._allow_best_loss_fallbacks and batch_idx == max_solve_batches - 1
-            ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
+            with Timer("placement"):
+                ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
             self._last_fill_diagnostics.batches.append(self._placer.last_batch_validation_diagnostics)
             self._store_env_matched_results(
                 ranked_results_per_env,
