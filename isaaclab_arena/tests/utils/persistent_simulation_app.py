@@ -76,6 +76,9 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
         parser = get_isaaclab_arena_cli_parser()
         simulation_app_args = parser.parse_args([])
         simulation_app_args.enable_cameras = enable_cameras
+        # Experiment: do not load the Kit telemetry extension, whose startup task (running on a carb.tasking
+        # worker) is suspected to crash in getenv() inside XOpenDisplay during startup.
+        simulation_app_args.kit_args = "--/app/extensions/excluded/0=omni.kit.telemetry"
         if not headless:
             simulation_app_args.visualizer = ["kit"]
         with _IsolatedArgv([]):
