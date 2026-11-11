@@ -17,7 +17,7 @@ embodiment:
     placement_bbox_stand_only: true
 background:
   id: workbench
-  registry_name: workbench_cleanup_workbench
+  registry_name: simready_central_workbench
   params:
     collision_mode: mesh
 objects:
@@ -26,18 +26,18 @@ objects:
   params:
     hdr: aerodynamics_workshop_robolab
 - id: socket_set
-  registry_name: workbench_cleanup_socket_set
+  registry_name: simready_central_socket_set
   params:
     initial_joint_positions:
       case_lid: 1.832595715
 - id: oscilloscope
-  registry_name: workbench_cleanup_oscilloscope
+  registry_name: simready_central_oscilloscope
 - id: white_bin
-  registry_name: workbench_cleanup_white_bin
+  registry_name: simready_central_white_bin
 - id: slotted_screwdriver
-  registry_name: workbench_cleanup_slotted_screwdriver
+  registry_name: simready_central_slotted_screwdriver
 - id: small_wrench
-  registry_name: workbench_cleanup_small_wrench
+  registry_name: simready_central_small_wrench
   params:
     scale: [0.75, 0.75, 0.75]
 cli_override_specs:

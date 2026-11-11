@@ -65,6 +65,7 @@ from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.timer import Timer, get_timer_stats_json
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 
 def main() -> None:
@@ -85,12 +86,6 @@ def main() -> None:
     with SimulationAppContext(app_args):
         startup_seconds = time.perf_counter() - startup_started
         try:
-            # Environment-local asset libraries can import USD; Kit must choose its USD libraries first.
-            from isaaclab_arena_environments.cli import (
-                get_arena_builder_from_cli,
-                get_isaaclab_arena_environments_cli_parser,
-            )
-
             with Timer("scene_spec"):
                 parser = get_isaaclab_arena_environments_cli_parser(parser)
                 args, hydra_overrides = parser.parse_known_args(original_cli_args)

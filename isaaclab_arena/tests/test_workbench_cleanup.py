@@ -23,6 +23,8 @@ def _test_workbench_task_definitions_build(simulation_app) -> bool:
     return True
 
 
+# TODO(qianl, 2026.11.11): Re-enable after the workbench assets are published to public S3.
+@pytest.mark.skip(reason="Workbench staging assets require ovstorage access unavailable in CI")
 def test_workbench_task_definitions_build():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -41,15 +43,15 @@ def test_workbench_task_definitions_build():
 def test_workbench_task_uses_shared_scene(filename, task_kind):
     spec = ArenaEnvGraphSpec.from_yaml(_ENVIRONMENT_DIR / filename)
 
-    assert spec.background.registry_name == "workbench_cleanup_workbench"
+    assert spec.background.registry_name == "simready_central_workbench"
     assert "usd_path" not in spec.background.params
     assert spec.background.params["collision_mode"] == "mesh"
     assert spec.task.subtasks[0].kind == task_kind
     socket_set = next(obj for obj in spec.objects if obj.id == "socket_set")
-    assert socket_set.registry_name == "workbench_cleanup_socket_set"
+    assert socket_set.registry_name == "simready_central_socket_set"
     for obj in spec.objects:
         if obj.id != "light":
-            assert obj.registry_name == f"workbench_cleanup_{obj.id}"
+            assert obj.registry_name == f"simready_central_{obj.id}"
             assert "usd_path" not in obj.params
     object_ids = {obj.id for obj in spec.objects}
     assert "slotted_screwdriver" in object_ids
