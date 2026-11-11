@@ -436,7 +436,7 @@ def test_chunks_replay_in_order_and_reset_independently(backend, action_dim):
 
 
 def test_environments_without_an_active_episode_hold_their_last_action_without_requests(backend):
-    targets = iter([[1, 2], [3, 4], [5, 6], [7, 8]])
+    targets = iter([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
     backend.client.chat.completions.create.side_effect = lambda **kwargs: response(
         json.dumps({"target": next(targets)})
     )
@@ -452,16 +452,23 @@ def test_environments_without_an_active_episode_hold_their_last_action_without_r
         assert backend.client.chat.completions.create.call_count == 3
         torch.testing.assert_close(second_actions[1], first_actions[1])
 
-        # Env 0's episode ends without a replacement, so it waits too.
+        # Env 0's episode ends without a replacement, so it is inactive too.
         env.unwrapped.active_episode_mask = torch.tensor([False, False])
         third_actions = policy.get_action(env, observation)
         assert backend.client.chat.completions.create.call_count == 3
         torch.testing.assert_close(third_actions, second_actions)
+
+        # Resetting env 1 discards its last action, so it needs a new one.
+        policy.reset(torch.tensor([1]))
+        fourth_actions = policy.get_action(env, observation)
+        assert backend.client.chat.completions.create.call_count == 4
+        torch.testing.assert_close(fourth_actions[0], third_actions[0])
+        assert not torch.equal(fourth_actions[1], third_actions[1])
     finally:
         policy.close()
 
 
-def test_waiting_environment_keeps_its_unfinished_chunk_without_requests(backend):
+def test_inactive_environment_keeps_its_unfinished_chunk_without_requests(backend):
     chunks = iter([
         [[1, 1], [2, 2], [3, 3]],
         [[4, 4], [5, 5], [6, 6]],
@@ -483,7 +490,7 @@ def test_waiting_environment_keeps_its_unfinished_chunk_without_requests(backend
     assert [command.tolist() for command in policy._chunks[1]] == [[5.0, 5.0], [6.0, 6.0]]
 
 
-def test_waiting_environment_keeps_its_unfinished_goal_without_requests(backend):
+def test_inactive_environment_keeps_its_unfinished_goal_without_requests(backend):
     def create(**kwargs):
         state = json.loads(kwargs["messages"][1]["content"][1]["text"])
         return response(json.dumps({"target": (np.asarray(state["joint_positions"]) + 1).tolist()}))
@@ -494,7 +501,7 @@ def test_waiting_environment_keeps_its_unfinished_goal_without_requests(backend)
     torch.testing.assert_close(policy.get_action(env, observation), torch.full((2, 2), 0.25))
     assert backend.client.chat.completions.create.call_count == 2
 
-    # Env 1's episode ends at its goal, which an acting env would report as reached; env 0's goal times out.
+    # Env 1's episode ends at its goal, which an active env would report as reached; env 0's goal times out.
     env.unwrapped.active_episode_mask = torch.tensor([True, False])
     observation["position"][1] += 1
     for _ in range(2):
