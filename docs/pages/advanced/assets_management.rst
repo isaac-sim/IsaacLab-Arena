@@ -56,3 +56,11 @@ To add your own assets to Isaac Lab Arena's *staging* S3 bucket, you can follow 
 3. Request synchronization to the staging S3 bucket on `ISIM-5044 <https://nvidia.atlassian.net/browse/ISIM-5044>`__.
 
 4. Run Isaac Lab Arena to verify that the assets are loaded correctly.
+
+Syncing assets from OV Nucleus to S3 production
+-----------------------------------------------
+
+.. note::
+
+   Syncing assets from the OV Nucleus Server to the *production* S3 bucket requires filing a ticket:
+   https://jirasw.nvidia.com/browse/ISIM-5044
