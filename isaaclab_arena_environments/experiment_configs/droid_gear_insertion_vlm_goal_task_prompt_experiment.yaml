@@ -20,7 +20,9 @@ runs:
         so the gear slides down the peg and sits flat on the base.
     policy:
       type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
-      endpoint: internal
+      endpoint: internal  # internal, public, or openai
+      # The model must be served by the endpoint; null selects the endpoint's default model.
+      model: openai/openai/gpt-6-astra
       vlm_embodiment_adapter: droid
       observation_modality: image_state
       # Send the DROID cameras' full 1280x720 images.

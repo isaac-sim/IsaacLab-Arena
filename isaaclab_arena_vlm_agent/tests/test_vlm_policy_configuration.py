@@ -38,7 +38,13 @@ def _config(cfg_type, modality="image_state"):
     if cfg_type is VLMChunkPolicyCfg:
         options["chunk_size"] = 2
     # Serial requests keep the mocked replies in environment order.
-    cfg = cfg_type(system_prompt="Return absolute targets.", model="test-model", max_concurrent_requests=1, **options)
+    cfg = cfg_type(
+        system_prompt="Return absolute targets.",
+        endpoint="internal",
+        model="test-model",
+        max_concurrent_requests=1,
+        **options,
+    )
     cfg.observation_modality = modality
     return cfg
 
@@ -176,7 +182,7 @@ def test_example_yaml_policy_selectors_and_round_trip(monkeypatch, tmp_path, pol
     assert set(experiment.runs) == {run_name}
     run = experiment.runs[run_name]
     assert isinstance(run.policy, cfg_type)
-    assert run.policy.endpoint == "internal" and run.policy.model is None
+    assert run.policy.endpoint == "internal" and run.policy.model == "openai/openai/gpt-6-astra"
     assert run.environment_builder.device == "cpu"
     assert registries.PolicyRegistry().get_policy_type_for_cfg(run.policy) is policy_type
     if policy_type is VLMGoalPolicy:

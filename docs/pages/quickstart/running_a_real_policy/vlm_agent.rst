@@ -51,7 +51,7 @@ Each Run selects its endpoint with ``policy.endpoint`` in the experiment configu
        policy:
          type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
          endpoint: internal  # internal, public, or openai
-         # model: <model>    # Optional: another model on the same endpoint
+         model: openai/openai/gpt-6-astra  # Must be served by the endpoint; null selects its default
          # base_url: <url>   # Optional: any OpenAI-compatible URL
 
 .. list-table::
@@ -71,19 +71,22 @@ Each Run selects its endpoint with ``policy.endpoint`` in the experiment configu
      - ``OPENAI_API_KEY``
      - OpenAI API, billed to the OpenAI account that owns the key.
 
-``policy.endpoint`` is the only setting that selects the endpoint; the ``ARENA_INFERENCE_ENDPOINT``
-environment variable is ignored. A Run that omits the field uses ``public``. The example
-configurations set ``endpoint: internal``, which is accessible by NVIDIA employees only. To switch
-one Run without editing the YAML, override the field on the command line:
+``policy.endpoint`` is the only setting that selects the endpoint. The field defaults to ``null``,
+and a Run that leaves it unset fails before the simulation starts. The example configurations set
+``endpoint: internal``, which is accessible by NVIDIA employees only, and
+``model: openai/openai/gpt-6-astra``, which only the internal endpoint serves. To switch one Run
+without editing the YAML, override both fields on the command line. ``null`` selects the
+endpoint's default model:
 
 .. code-block:: bash
 
-   runs.droid_pnp_vlm_goal.policy.endpoint=public  # internal, public, or openai
+   runs.droid_pnp_vlm_goal.policy.endpoint=internal  # or public, openai
+   runs.droid_pnp_vlm_goal.policy.model=null
 
-Each endpoint has a default model. The defaults for ``internal``, ``public``, and ``openai``
-are defined by ``INFERENCE_ENDPOINTS`` in
+Each endpoint has a default model, used when ``policy.model`` is ``null``. The defaults for
+``internal``, ``public``, and ``openai`` are defined by ``INFERENCE_ENDPOINTS`` in
 `isaaclab_arena/inference/backend.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/inference/backend.py>`_.
-Two more policy fields override the connection:
+Two policy fields override the connection:
 
 * ``policy.model``: another model on the same endpoint.
 * ``policy.base_url``: any OpenAI-compatible URL. The API key still comes from the endpoint's
@@ -133,7 +136,8 @@ Run the goal policy:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml \
+     runs.droid_pnp_vlm_goal.policy.endpoint=internal  # or public, openai
 
 The runner prints the endpoint and model it connects to, then steps the episode. Each request
 takes several seconds, and the simulation waits while a request is in flight. Run the chunk
@@ -152,7 +156,7 @@ Override settings for one Run on the command line. Each line below is one exampl
    # Four parallel environments, whose requests are sent concurrently
    runs.droid_pnp_vlm_chunk.environment_builder.num_envs=4
    # Another endpoint and model
-   runs.droid_pnp_vlm_goal.policy.endpoint=openai
+   runs.droid_pnp_vlm_goal.policy.endpoint=internal  # or public, openai
    runs.droid_pnp_vlm_goal.policy.model=<model>
 
 For example, to run the step policy:
@@ -162,7 +166,8 @@ For example, to run the step policy:
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_chunk_experiment.yaml \
-     runs.droid_pnp_vlm_chunk.policy.chunk_size=1
+     runs.droid_pnp_vlm_chunk.policy.chunk_size=1 \
+     runs.droid_pnp_vlm_chunk.policy.endpoint=internal  # or public, openai
 
 Add ``--output_base_dir ./output --record_camera_video`` to save one video per camera, and add
 ``--serve_evaluation_report`` to browse them, as for the :doc:`OpenPI <openpi>` policy.

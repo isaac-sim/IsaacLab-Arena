@@ -25,7 +25,6 @@ from pydantic import ValidationError
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.inference.backend import (
     INFERENCE_ENDPOINTS,
-    PUBLIC_ENDPOINT,
     InferenceBackend,
     InferenceRequest,
     build_strict_schema,
@@ -98,8 +97,8 @@ class VLMPolicyCfg(PolicyCfg):
     observation_modality: ObservationModality = ObservationModality.image_state
     """One of image, state, or image_state; ignored when an observation adapter is injected."""
 
-    endpoint: str = PUBLIC_ENDPOINT.name
-    """Inference endpoint preset: internal, public, or openai. ARENA_INFERENCE_ENDPOINT is ignored."""
+    endpoint: str | None = None
+    """Inference endpoint preset: internal, public, or openai. Required unless a backend is injected."""
 
     model: str | None = None
     """Optional model override; image observations require a vision-capable model."""
@@ -121,7 +120,7 @@ class VLMPolicyCfg(PolicyCfg):
             assert isinstance(self.system_prompt, str) and self.system_prompt.strip(), "Set policy.system_prompt"
         assert self.vlm_embodiment_adapter in (None, "droid"), "Unknown vlm_embodiment_adapter; expected 'droid'"
         assert (
-            self.endpoint in INFERENCE_ENDPOINTS
+            self.endpoint is None or self.endpoint in INFERENCE_ENDPOINTS
         ), f"Unknown policy.endpoint {self.endpoint!r}; expected one of {sorted(INFERENCE_ENDPOINTS)}"
         for path in self.system_prompt_files:
             assert Path(path).is_file(), f"System prompt file does not exist: '{path}'"
@@ -220,6 +219,9 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._system_prompt = "\n\n".join(part.strip() for part in prompt_parts if part.strip())
         self.task_description = None
         # Construct the client last so invalid adapters or schemas cannot leak a connection.
+        assert (
+            inference_backend is not None or config.endpoint is not None
+        ), f"Set policy.endpoint to one of {sorted(INFERENCE_ENDPOINTS)}"
         self._inference_backend = (
             inference_backend
             if inference_backend is not None
