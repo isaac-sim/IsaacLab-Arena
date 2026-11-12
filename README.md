@@ -260,6 +260,7 @@ The ecosystem extends beyond pick-and-place to contact-rich, dexterous, and defo
 - **[RoboDojo](https://github.com/RoboDojo-Benchmark/RoboDojo/tree/RoboDojo-IsaacLabArena)** — A Unified Sim-and-Real Benchmark for Comprehensive Evaluation of Generalist Robot Manipulation Policies.
 - **[VABAR](https://berkeleyautomation.github.io/vabar-website/)** — A benchmark for robots that repeat one job across a known distribution of variation.
 - **[DexBench](https://dexbench.ai)** — Measuring dexterity where it matters.
+- **[X2Real](https://github.com/X-Square-Robot/x2real)** — An eXtensive simulation benchmark for real-world generalist policies.
 
 ### Coming Soon
 
