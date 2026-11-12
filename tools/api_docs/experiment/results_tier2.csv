@@ -1,0 +1,41 @@
+id,arm,tokens,tool_uses,duration_s,facts_hit,facts_total,note
+M01,A,54883,6,16.513,4.5,5,no 15s retry interval
+M01,B,54691,5,13.426,4.5,5,no 15s retry interval
+M02,A,54418,5,14.873,3.5,4,said NGC API key instead of NVIDIA_API_KEY
+M02,B,55320,4,13.350,4,4,
+M03,A,54699,4,12.106,4,4,answered from docs only
+M03,B,56529,4,11.814,4,4,
+M04,A,53203,5,13.516,3,4,missed approved _target_ prefixes
+M04,B,52537,4,12.345,3,4,missed approved _target_ prefixes
+M05,A,59125,5,17.551,4,4,
+M05,B,59130,5,16.278,4,4,
+M06,A,54420,6,15.816,4,4,
+M06,B,56785,4,15.849,4,4,
+M07,A,54681,6,16.941,4,4,
+M07,B,54215,6,14.750,3,4,missed clamp
+M08,A,51977,5,12.890,4,5,missed args copy
+M08,B,52390,4,10.560,4.5,5,
+M10,A,57589,6,17.688,5,5,
+M10,B,58004,5,15.227,5,5,
+M11,A,54706,5,13.604,5,5,
+M11,B,53718,4,12.086,5,5,
+M12,A,53511,4,13.566,3,4,missed second user of the helper
+M12,B,54119,5,14.820,3.5,4,
+M13,A,59507,5,21.862,5,5,
+M14,A,54959,7,18.945,4,4,
+M14,B,56530,8,21.508,4,4,
+M15,A,61409,8,24.281,3,4,no default threshold/velocity values
+M15,B,57437,4,19.026,4,4,
+M16,A,55695,6,16.946,4,4,
+M16,B,52680,5,14.639,4,4,
+M17,A,52793,5,16.344,4,5,missed unique-record-type assert
+M17,B,52527,5,15.061,4,5,missed unique-record-type assert
+M18,A,61956,8,24.257,4,4,
+M18,B,56350,5,16.101,4,4,
+M19,A,55857,5,14.679,4,4,
+M19,B,55006,4,13.477,4,4,
+M20,A,52551,5,12.668,3,4,missed variant assert
+M20,B,53865,5,13.562,3,4,missed variant assert
+M13,B,69713,14,44.031,5,5,
+M21,A,57514,8,21.278,4,5,missed tar newest-run-dir fact
+M21,B,58473,4,13.143,4,5,missed tar newest-run-dir fact

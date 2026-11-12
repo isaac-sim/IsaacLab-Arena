@@ -45,6 +45,13 @@ Common part, followed by one arm-specific paragraph and the question:
 - Arm B: "The repository is at `/tmp/arena_snapshot`. Only read files inside that directory; do not look elsewhere on
   the filesystem."
 
+## Harder tiers
+
+Two further sets of 20 questions were run the same way: tier 2 (discovery without a known name, `questions_tier2.md`) and tier 3
+(multi-file tracing, precedence, checklists, differences, error paths and counting, `questions_tier3.md`). Ground truth is a list of
+atomic facts per question (`answers_tier2.md`, `answers_tier3.md`). Each agent was given a prompt file with the same text as the
+tier 1 prompt, the arm paragraph and the question. Results: `results_tiers_2_3.md`, `results_tier2.csv`, `results_tier3.csv`.
+
 ## Results
 
 See `results.md` (summary, per-question table and caveats) and `results.csv` (raw per-run numbers). The agents ran on Sonnet; the repository snapshot was the docstring commit `2c5139b53f`.

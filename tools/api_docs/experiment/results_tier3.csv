@@ -1,0 +1,41 @@
+id,arm,tokens,tool_uses,duration_s,facts_hit,facts_total,note
+H01,A,70353,8,30.420,4.5,6,no mimic-mode note; policy_runner gating not stated
+H01,B,65555,8,30.505,4.5,6,no mimic-mode note; policy_runner gating not stated
+H02,A,55181,5,15.292,4,5,missed step()/policy reset masking
+H02,B,52882,4,12.128,4,5,missed step()/policy reset masking
+H04,A,60245,6,19.882,4,5,missed rebuild_index to env builder and aggregation
+H04,B,62202,5,21.455,4,5,missed rebuild_index to env builder and aggregation
+H05,A,57087,9,23.119,4,5,
+H05,B,59212,8,21.280,4.5,5,
+H06,A,69449,5,34.402,5,5,
+H06,B,67436,5,35.131,5,5,
+H07,A,56280,5,23.633,4,5,missed combined num_steps+num_episodes case
+H07,B,55348,5,20.307,4,5,missed combined num_steps+num_episodes case
+H09,A,65059,7,22.006,3.5,5,did not read is_complete; no logical-mode detail
+H09,B,63471,7,21.028,4.5,5,
+H10,A,67320,8,31.372,4,5,
+H10,B,65025,8,26.737,4.25,5,
+H11,A,61847,7,22.530,4.5,5,
+H11,B,68353,11,39.369,5,5,
+H12,A,56946,7,19.202,4,5,
+H12,B,55559,6,16.634,5,5,
+H13,A,56640,6,20.170,5,5,
+H13,B,58290,7,23.758,5,5,
+H14,A,61448,7,23.042,4.25,5,geometry flag not stated
+H14,B,57604,5,25.756,3.5,5,did not check default-disabled; geometry flag not stated
+H15,A,57917,7,19.870,4,5,missed name/kpi_exporters/JSON-rejects detail
+H15,B,59101,7,25.783,4,5,missed name/kpi_exporters/JSON-rejects detail
+H17,A,65505,8,28.587,5,5,
+H17,B,63319,6,33.259,5,5,
+H18,A,67967,6,31.738,5.25,6,missed shared get_action details
+H18,B,61873,7,23.387,5.25,6,missed shared get_action details
+H19,A,59061,6,26.209,4,5,missed nested-include and placement_validators rejection
+H19,B,58774,6,23.909,4,5,missed nested-include and placement_validators rejection
+H20,A,58405,5,19.913,4.25,5,
+H20,B,62694,4,27.912,4.75,5,
+H21,B,62612,6,23.831,4.75,6,
+H16,A,64012,9,41.474,4.75,5,
+H16,B,65777,7,37.380,5,5,
+H21,A,67665,10,34.789,5.5,6,
+H22,A,64725,7,24.418,5,5,
+H22,B,63067,8,27.865,3,5,wrong registration order (no_overlap is last, not first); missed ik-runs-after-cheap-checks
