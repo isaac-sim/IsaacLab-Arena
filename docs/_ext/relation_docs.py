@@ -23,6 +23,8 @@ _sections_by_class: dict[type, list[str]] = {}
 
 def _get_relation_names_by_class() -> dict[type, list[str]]:
     """Return every registered relation class with its registered names, primary name first."""
+    # Imported here, not at module level: Sphinx loads this extension before conf.py's setup()
+    # puts the documented checkout first on sys.path.
     from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 
     registry = ObjectRelationLibraryRegistry()

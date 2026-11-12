@@ -442,7 +442,8 @@ class RequiresReachability(RelationBase):
     It does not affect placement geometry during optimization, but rejects unreachable placements.
 
     Validation:
-        The ``ik_reachable`` check rejects placements the robot cannot reach.
+        The ``ik_reachable`` check rejects placements the robot cannot reach. It runs only when the
+        embodiment has a cuRobo config.
     """
 
     name = "requires_reachability"

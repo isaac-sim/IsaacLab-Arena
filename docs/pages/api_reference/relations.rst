@@ -1,7 +1,8 @@
 Relations Reference
 ===================
 
-The page documents the spatial relations available in Isaac Lab - Arena
+The page documents the spatial relations available in Isaac Lab - Arena.
+For the placement checks named in each *Validation* section, see :doc:`/pages/concepts/object_placement/validation`.
 
 .. currentmodule:: isaaclab_arena.relations.relations
 
