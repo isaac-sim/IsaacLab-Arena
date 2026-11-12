@@ -16,3 +16,9 @@ benchmarks:
       - "~experiment_cfg.runs.change_background_hdr"
       - "~experiment_cfg.runs.parallel_envs"
       - experiment_runner.record_camera_video=false
+
+  # Placement success benchmark
+  - name: placement-subset
+    experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/placement_subset_experiment.yaml
+    overrides:
+      - experiment_runner.record_camera_video=false

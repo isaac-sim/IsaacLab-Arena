@@ -1,0 +1,8 @@
+{"action":"setup_joint","name":"socket_set","joint_name":"case_lid","effort_limit":1.0,"replace_existing":true,"settle_hold":{"gain":1.0,"damping":0.06,"limit":0.5}}
+{"action":"mark","index":0,"boundary":"start","title":"Close socket toolcase lid"}
+{"action":"joint","name":"socket_set","joint_name":"case_lid","normalized_goal":0.0,"seconds":4.0,"gain":1.0,"damping":0.06,"limit":0.5}
+{"action":"check","index":0,"timeout_steps":1200}
+{"action":"wait","seconds":1.0}
+{"action":"mark","index":0,"boundary":"end","title":"Close socket toolcase lid"}
+{"action":"wait_final"}
+{"action":"finish"}

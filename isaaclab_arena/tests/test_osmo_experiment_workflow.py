@@ -593,7 +593,9 @@ def test_empty_kpi_exporters_override_gives_the_collector_no_exporters():
 
 def test_unknown_kpi_exporter_fails_submission_with_the_valid_names():
     """Reject an exporter name that is not in the registry, listing the valid names."""
-    with pytest.raises(AssertionError, match=r"Unknown KPI exporters \['latency'\].*\['success_rate', 'timing'\]"):
+    with pytest.raises(
+        AssertionError, match=r"Unknown KPI exporters \['latency'\].*\['placement_success', 'success_rate', 'timing'\]"
+    ):
         _compose_submission(
             ["experiment_cfg.kpi_exporters=[success_rate,latency]"],
             experiment_cfg_path=GETTING_STARTED_EXPERIMENT_CFG_PATH,

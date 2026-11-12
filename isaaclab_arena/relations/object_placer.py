@@ -25,6 +25,7 @@ from isaaclab_arena.relations.validation.placement_validation_runner import Plac
 from isaaclab_arena.relations.validation.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.validation.pre_physics import build_validators
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw_toward_positions
 
 if TYPE_CHECKING:
@@ -224,10 +225,12 @@ class ObjectPlacer:
         batch = self._candidate_generator.generate_candidates(
             objects, anchor_objects_set, env_bboxes, candidates_per_env, generator, collision_objects
         )
-        self._solver.solve_candidates(objects, batch, collision_objects)
-        self._finish_candidate_geometry(batch, env_bboxes)
-        self._assert_finite_solver_output(batch)
-        self.last_batch_validation_diagnostics = self._validation.validate_candidates(batch, collision_objects)
+        with Timer("optimize"):
+            self._solver.solve_candidates(objects, batch, collision_objects)
+            self._finish_candidate_geometry(batch, env_bboxes)
+            self._assert_finite_solver_output(batch)
+        with Timer("validate"):
+            self.last_batch_validation_diagnostics = self._validation.validate_candidates(batch, collision_objects)
         ranked_batches = self._rank_candidates(batch, num_envs)
 
         results = []

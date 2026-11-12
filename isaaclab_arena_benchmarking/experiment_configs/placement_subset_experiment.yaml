@@ -1,0 +1,67 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+kpi_exporters: [placement_success, timing]
+
+shared:
+  environment_builder:
+    num_envs: 30
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 1
+
+# Each Run keeps the placement seed of the same Run in its suite.
+runs:
+  big_pumpkin_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/big_pumpkin_in_bin.yaml
+    environment_builder:
+      placement_seed: 600000
+  bbq_sauce_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bbq_sauce_in_bin.yaml
+    environment_builder:
+      placement_seed: 500000
+  clamp_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+    environment_builder:
+      placement_seed: 1100000
+  banana_then_rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_then_rubiks_cube.yaml
+    environment_builder:
+      placement_seed: 400000
+  butter_above_raisin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/butter_above_raisin.yaml
+    environment_builder:
+      placement_seed: 900000
+  kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 1300000
+  kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_three_fruits_in_wooden_bowl_l_shaped_scandinavian.yaml
+    environment_builder:
+      placement_seed: 1700000
+  kitchen_bench_replicator_peninsula_soup_in_far_bowl:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_soup_in_far_bowl.yaml
+    environment_builder:
+      placement_seed: 3800000
+  kitchen_bench_replicator_l_island_bowl_sink:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_bowl_sink.yaml
+    environment_builder:
+      placement_seed: 3100000
+  kitchen_bench_lightwheel_open_fridge:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml
+    environment_builder:
+      placement_seed: 200000
