@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+import re
 import shlex
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from isaaclab_arena.policy.policy_base import PolicyCfg
@@ -16,10 +18,20 @@ from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
 from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.policy_server_task import PolicyServerTask
 from osmo.workflows.server_task_registry import register_server_task
+from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 OPENPI_APP_DIR = "/app"
-XLA_PYTHON_CLIENT_MEM_FRACTION = "0.5"
+DEFAULT_GPU_MEMORY = "0.5"
+"""GPU memory the server reserves for JAX when the client policy does not set ``server_gpu_memory``."""
+GPU_MEMORY_PATTERN = re.compile(r"^(0?\.\d*[1-9]\d*|1(\.0+)?|\d+(\.\d+)?\s*(G|GB|GiB|M|MB|MiB))$")
+"""A fraction of the GPU memory in (0, 1] such as ``0.75`` or a size such as ``12GB`` or ``6000MB``."""
+GPU_MEMORY_FRACTION_SCRIPT_PATH = (
+    Path(__file__).resolve().parents[2] / "isaaclab_arena_openpi" / "server" / "gpu_memory_fraction.sh"
+)
+"""Shell helper that converts ``gpu_memory`` into ``XLA_PYTHON_CLIENT_MEM_FRACTION`` against the node's GPU."""
+REMOTE_GPU_MEMORY_FRACTION_SCRIPT_PATH = "/tmp/gpu_memory_fraction.sh"
+"""Where OSMO creates that helper inside the server container."""
 PI0_POLICY_VARIANTS = frozenset({"pi0", "pi05"})
 PI0_VARIANT_BY_POLICY_CONFIG = {
     "pi0_droid_jointpos_polaris": "pi0",
@@ -49,7 +61,15 @@ class Pi0ServerTaskCfg(TaskCfg):
     policy_dir: str = "gs://openpi-assets-simeval/pi05_droid_jointpos"
     """openpi checkpoint directory."""
 
+    gpu_memory: str = DEFAULT_GPU_MEMORY
+    """GPU memory JAX reserves on the server node: a fraction of the GPU such as ``0.75`` or a size such as
+    ``12GB`` or ``6000MB`` (read as GiB and MiB), converted to ``XLA_PYTHON_CLIENT_MEM_FRACTION`` on the node."""
+
     def __post_init__(self) -> None:
+        assert GPU_MEMORY_PATTERN.match(self.gpu_memory), (
+            "pi0 server gpu_memory must be a fraction in (0, 1] such as '0.75' or a size such as '12GB', got"
+            f" {self.gpu_memory!r}"
+        )
         assert (
             self.policy_variant in PI0_POLICY_VARIANTS
         ), f"pi0 server policy_variant must be one of {sorted(PI0_POLICY_VARIANTS)}, got {self.policy_variant!r}"
@@ -65,8 +85,8 @@ class Pi0ServerTaskCfg(TaskCfg):
         )
 
     @classmethod
-    def for_policy_variant(cls, policy_variant: str) -> Pi0ServerTaskCfg:
-        """Build the default server deployment for a client ``policy_variant``."""
+    def for_policy_variant(cls, policy_variant: str, gpu_memory: str = DEFAULT_GPU_MEMORY) -> Pi0ServerTaskCfg:
+        """Build the default server deployment for a client ``policy_variant`` and GPU memory reservation."""
         assert (
             policy_variant in PI0_POLICY_VARIANTS
         ), f"pi0 server policy_variant must be one of {sorted(PI0_POLICY_VARIANTS)}, got {policy_variant!r}"
@@ -74,6 +94,7 @@ class Pi0ServerTaskCfg(TaskCfg):
             policy_variant=policy_variant,
             policy_config=PI0_POLICY_CONFIG_BY_VARIANT[policy_variant],
             policy_dir=PI0_POLICY_DIR_BY_VARIANT[policy_variant],
+            gpu_memory=gpu_memory,
         )
 
 
@@ -86,9 +107,11 @@ class Pi0ServerTask(PolicyServerTask):
 
     @classmethod
     def task_cfg_for_policy(cls, policy_cfg: PolicyCfg) -> Pi0ServerTaskCfg:
-        """Derive the server checkpoint from the client policy variant."""
+        """Derive the server checkpoint from the client policy variant and its GPU memory reservation from
+        ``server_gpu_memory``."""
         assert isinstance(policy_cfg, Pi0RemotePolicyCfg)
-        return cls.task_cfg_type.for_policy_variant(policy_cfg.policy_variant)
+        gpu_memory = policy_cfg.server_gpu_memory if policy_cfg.server_gpu_memory is not None else DEFAULT_GPU_MEMORY
+        return cls.task_cfg_type.for_policy_variant(policy_cfg.policy_variant, gpu_memory=gpu_memory)
 
     def __init__(
         self,
@@ -108,7 +131,19 @@ class Pi0ServerTask(PolicyServerTask):
     def _get_outputs(self) -> list[dict[str, Any]]:
         return []
 
+    def _get_files_to_create(self) -> list[dict[str, Any]]:
+        """Also create the GPU memory helper, which converts the reservation against the node's GPU."""
+        files = super()._get_files_to_create()
+        script_source = GPU_MEMORY_FRACTION_SCRIPT_PATH.read_text(encoding="utf-8")
+        files.append({"path": REMOTE_GPU_MEMORY_FRACTION_SCRIPT_PATH, "contents": block_literal_str(script_source)})
+        return files
+
     def _get_run_script(self) -> str:
+        memory_fraction_command = shlex.join([
+            "bash",
+            REMOTE_GPU_MEMORY_FRACTION_SCRIPT_PATH,
+            self.task_cfg.gpu_memory,
+        ])
         serve_command = shlex.join([
             "uv",
             "run",
@@ -121,7 +156,7 @@ class Pi0ServerTask(PolicyServerTask):
         return (
             "set -euxo pipefail\n"
             "nvidia-smi\n"
-            f"export XLA_PYTHON_CLIENT_MEM_FRACTION={XLA_PYTHON_CLIENT_MEM_FRACTION}\n"
+            f'export XLA_PYTHON_CLIENT_MEM_FRACTION="$({memory_fraction_command})"\n'
             f"cd {shlex.quote(OPENPI_APP_DIR)}\n"
             f"exec {serve_command}\n"
         )

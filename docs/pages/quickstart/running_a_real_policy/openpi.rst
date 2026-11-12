@@ -28,6 +28,20 @@ subsequent invocations reuse the cached image. Pass ``-r`` to force a rebuild,
 ``-v pi0`` to serve the pi0 variant instead of pi05, or ``-p <port>`` to bind
 the server to a non-default port.
 
+The server reserves half of the GPU memory for JAX by default, leaving the rest
+for a simulation on the same GPU. ``-m`` changes the reservation, either as a
+fraction of the GPU or as an absolute size (read as GiB or MiB, the units
+``nvidia-smi`` reports):
+
+.. code-block:: bash
+
+   ./isaaclab_arena_openpi/docker/run_openpi_server.sh -m 0.75   # 75 % of the GPU
+   ./isaaclab_arena_openpi/docker/run_openpi_server.sh -m 12GB   # 12 GiB
+
+On OSMO the pi0 server task applies the same setting from the client policy's
+``server_gpu_memory`` field (for example ``policy.server_gpu_memory: 12GB`` in
+an Experiment Definition), converting it against the GPU of the node it lands on.
+
 By default, the wrapper binds to port ``8000``. If OpenPI reports that the
 address is already in use, stop the existing process or choose another port:
 

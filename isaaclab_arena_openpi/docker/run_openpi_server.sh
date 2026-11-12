@@ -6,6 +6,8 @@
 #   ./run_openpi_server.sh -r                           # force rebuild, then run
 #   ./run_openpi_server.sh -p 8001                      # run on a non-default port
 #   ./run_openpi_server.sh -v pi0                       # run the pi0 variant
+#   ./run_openpi_server.sh -m 0.75                      # reserve 75% of the GPU memory (default 0.5)
+#   ./run_openpi_server.sh -m 12GB                      # reserve 12 GiB of the GPU memory
 #   ./run_openpi_server.sh -h                           # help
 #
 # The pinned commit lives in the OPENPI_COMMIT file next to this script. To bump
@@ -21,6 +23,8 @@ IMAGE_TAG="openpi_server"
 VARIANT="pi05"
 PORT="8000"
 FORCE_REBUILD=false
+GPU_MEMORY="0.5"
+SERVER_DIR="$(cd "${SCRIPT_DIR}/../server" && pwd)"
 
 print_help() {
     cat <<EOF
@@ -33,15 +37,19 @@ Options:
   -r              Force rebuilding of the server image.
   -p <port>       Port to serve on. Defaults to 8000.
   -v <variant>    Policy variant to serve: pi05 (default) or pi0.
+  -m <memory>     GPU memory JAX reserves for the model: a fraction of the GPU such as 0.75, or a size
+                  such as 12GB or 6000MB (read as GiB and MiB). Defaults to 0.5. The rest stays free for
+                  a simulation on the same GPU.
   -h              Show this help and exit.
 EOF
 }
 
-while getopts ":rp:v:h" opt; do
+while getopts ":rp:v:m:h" opt; do
     case "$opt" in
         r) FORCE_REBUILD=true ;;
         p) PORT="$OPTARG" ;;
         v) VARIANT="$OPTARG" ;;
+        m) GPU_MEMORY="$OPTARG" ;;
         h) print_help; exit 0 ;;
         \?) echo "unknown option: -$OPTARG" >&2; print_help; exit 1 ;;
         :) echo "option -$OPTARG requires an argument" >&2; exit 1 ;;
@@ -62,6 +70,10 @@ case "$VARIANT" in
         exit 1
         ;;
 esac
+
+# shellcheck source=../server/gpu_memory_fraction.sh
+source "${SERVER_DIR}/gpu_memory_fraction.sh"
+MEM_FRACTION="$(gpu_memory_fraction "$GPU_MEMORY")"
 
 # Cache the ~11GB checkpoint that openpi pulls from gs:// across runs.
 OPENPI_CACHE_DIR="${OPENPI_CACHE_DIR:-$HOME/.cache/openpi}"
@@ -84,14 +96,14 @@ else
     echo "Image ${IMAGE_NAME}:${IMAGE_TAG} already exists. Not rebuilding (use -r to force)."
 fi
 
-echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT})"
+echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT}, GPU memory: ${GPU_MEMORY} -> fraction ${MEM_FRACTION})"
 
 mkdir -p "$OPENPI_CACHE_DIR"
 SERVER_RAN=true
 
 docker run --rm -it --gpus all --network=host \
     -e OPENPI_DATA_HOME=/cache/openpi \
-    -e XLA_PYTHON_CLIENT_MEM_FRACTION=0.5 \
+    -e XLA_PYTHON_CLIENT_MEM_FRACTION="${MEM_FRACTION}" \
     -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
     "${IMAGE_NAME}:${IMAGE_TAG}" \
     uv run scripts/serve_policy.py --port="${PORT}" policy:checkpoint \
