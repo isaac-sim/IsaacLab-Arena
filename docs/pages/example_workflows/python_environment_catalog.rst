@@ -458,45 +458,6 @@ the :doc:`reinforcement_learning/index` workflow.
      - ``--object``, ``--embodiment``, ``--teleop_device``, ``--rl_training_mode``
 
 
-dexsuite_lift
-^^^^^^^^^^^^^
-
-**Task ID:** ``dexsuite_lift``
-
-**Class:** ``DexsuiteLiftEnvironment`` (``isaaclab_arena_environments/dexsuite_lift_environment.py``)
-
-**Task Description:** Evaluation wrapper around the Isaac Lab
-``Isaac-Lift-KukaAllegro`` MDP. The Kuka arm with an Allegro
-dexterous hand lifts a procedurally generated cuboid to a commanded target
-position. Featured in the
-:doc:`dexsuite_lift/index` workflow.
-
-.. list-table::
-   :widths: 30 70
-   :header-rows: 1
-
-   * - Property
-     - Value
-   * - **Tags**
-     - Dexterous manipulation, contact-rich, RL evaluation
-   * - **Skills**
-     - Reach, Grasp, Lift (multi-finger)
-   * - **Embodiment**
-     - ``kuka_allegro`` (fixed)
-   * - **Scene**
-     - ``procedural_table`` background, ``ground_plane``, ``light``
-   * - **Objects**
-     - ``procedural_cube`` (randomized initial pose with a wide ``PoseRange``)
-   * - **Task Class**
-     - ``DexsuiteLiftTask`` (object_pose command, position-only, resampled every 2–3 s)
-   * - **Training Method**
-     - Pre-trained in Isaac Lab via ``KukaAllegroPPORunnerCfg`` (RSL-RL PPO)
-   * - **Physics Backend**
-     - Newton (default) or PhysX (``--presets physx``)
-   * - **CLI Args**
-     - *(none environment-specific; uses common ``ArenaEnvBuilder`` flags)*
-
-
 Sandbox
 -------
 
