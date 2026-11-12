@@ -123,7 +123,7 @@ class EnvironmentGenerationAgent:
             relation_catalog: Pre-built relation vocabulary. When ``None``, built
                 from the live ``ObjectRelationLibraryRegistry``.
             task_catalog: Pre-built task vocabulary. When ``None``, built from
-                ``TaskRegistry`` tasks marked ``@agent_ready``.
+                the live ``TaskRegistry``.
 
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and

@@ -17,9 +17,7 @@ Use `rg --files` to find relevant concepts under `docs/pages/concepts/`, example
 `isaaclab_arena/` or the relevant first-party extension. Inspect the checked-out source when docs
 and examples differ; Arena's APIs are evolving.
 
-Use any relevant Arena feature, including untagged classes and Python APIs outside registries.
-`@agent_ready` filters the built-in environment generator's prompt catalogues; it does not restrict
-coding agents. The references below are starting points, not an exhaustive feature inventory.
+Use any relevant Arena feature. The references below are starting points, not an exhaustive feature inventory.
 Inspect the [registries](../../../isaaclab_arena/assets/registries.py) for registered components.
 Load registries only in the supported runtime after SimulationApp startup; imports can require USD.
 

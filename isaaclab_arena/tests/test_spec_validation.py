@@ -11,7 +11,7 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
     RelationCatalogueEntry,
     TaskCatalogue,
 )
-from isaaclab_arena.agentic_environment_generation.spec_validation import collect_agent_ready_validation_trace
+from isaaclab_arena.agentic_environment_generation.spec_validation import collect_catalogue_validation_trace
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     catalog,
@@ -25,8 +25,8 @@ def _minimal_spec() -> ArenaEnvGraphSpec:
     return ArenaEnvGraphSpec.model_validate(minimal_spec_dict())
 
 
-def test_collect_agent_ready_validation_trace_accepts_catalogued_spec():
-    traces = collect_agent_ready_validation_trace(
+def test_collect_catalogue_validation_trace_accepts_catalogued_spec():
+    traces = collect_catalogue_validation_trace(
         _minimal_spec(),
         asset_catalog=catalog("ASSETS"),
         task_catalog=task_catalog("TASKS"),
@@ -36,8 +36,8 @@ def test_collect_agent_ready_validation_trace_accepts_catalogued_spec():
     assert traces == []
 
 
-def test_collect_agent_ready_validation_trace_rejects_assets_outside_subcatalogs():
-    traces = collect_agent_ready_validation_trace(
+def test_collect_catalogue_validation_trace_rejects_assets_outside_subcatalogs():
+    traces = collect_catalogue_validation_trace(
         _minimal_spec(),
         asset_catalog=AssetCatalogue(),
         task_catalog=task_catalog("TASKS"),
@@ -50,11 +50,11 @@ def test_collect_agent_ready_validation_trace_rejects_assets_outside_subcatalogs
     assert "Object 'bowl_ycb_robolab' registry_name 'bowl_ycb_robolab'" in " ".join(traces)
 
 
-def test_collect_agent_ready_validation_trace_rejects_unknown_missing_and_unsupported_task_params():
+def test_collect_catalogue_validation_trace_rejects_unknown_missing_and_unsupported_task_params():
     spec = _minimal_spec()
     task = spec.task.subtasks[0]
 
-    unknown_traces = collect_agent_ready_validation_trace(
+    unknown_traces = collect_catalogue_validation_trace(
         spec,
         asset_catalog=catalog("ASSETS"),
         task_catalog=TaskCatalogue(),
@@ -64,7 +64,7 @@ def test_collect_agent_ready_validation_trace_rejects_unknown_missing_and_unsupp
 
     del task.params["pick_up_object"]
     task.params["hallucinated_param"] = True
-    param_traces = collect_agent_ready_validation_trace(
+    param_traces = collect_catalogue_validation_trace(
         spec,
         asset_catalog=catalog("ASSETS"),
         task_catalog=task_catalog("TASKS"),
@@ -74,9 +74,9 @@ def test_collect_agent_ready_validation_trace_rejects_unknown_missing_and_unsupp
     assert any("Task 'PickAndPlaceTask' has unsupported param 'hallucinated_param'" in trace for trace in param_traces)
 
 
-def test_collect_agent_ready_validation_trace_rejects_unknown_missing_and_unsupported_relation_params():
+def test_collect_catalogue_validation_trace_rejects_unknown_missing_and_unsupported_relation_params():
     spec = _minimal_spec()
-    unknown_traces = collect_agent_ready_validation_trace(
+    unknown_traces = collect_catalogue_validation_trace(
         spec,
         asset_catalog=catalog("ASSETS"),
         task_catalog=task_catalog("TASKS"),
@@ -92,7 +92,7 @@ def test_collect_agent_ready_validation_trace_rejects_unknown_missing_and_unsupp
             RelationCatalogueEntry("on", False, ["distance_m"], [], {}, ""),
         ]
     )
-    param_traces = collect_agent_ready_validation_trace(
+    param_traces = collect_catalogue_validation_trace(
         spec,
         asset_catalog=catalog("ASSETS"),
         task_catalog=task_catalog("TASKS"),

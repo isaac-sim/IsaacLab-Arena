@@ -62,7 +62,6 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
     registry = registry or AssetRegistry()
     catalogue = AssetCatalogue()
     # TODO(qianl): handle optional lights and hdr images.
-    # TODO(qianl): add tag to filter out validated/agent-ready assets only.
     # Classify by registry tags, not issubclass(Background/Object/EmbodimentBase): importing those
     # types pulls in pxr before SimulationApp and breaks unit tests.
     for name in registry.get_all_keys():
@@ -130,14 +129,12 @@ class RelationCatalogue:
 def build_relation_catalogue(
     registry: ObjectRelationLibraryRegistry | None = None,
 ) -> RelationCatalogue:
-    """Collect agent-ready object relations from ``ObjectRelationLibraryRegistry``."""
+    """Collect all registered object relations from ``ObjectRelationLibraryRegistry``."""
     registry = registry or ObjectRelationLibraryRegistry()
     catalogue = RelationCatalogue()
     for name in registry.get_all_keys():
         relation_cls = registry.get_object_relation_by_name(name)
         assert issubclass(relation_cls, RelationBase), f"{name!r} is not a RelationBase subclass"
-        if not getattr(relation_cls, "agent_ready", False):
-            continue
         required_params, optional_params, enum_options = _collect_init_params(
             relation_cls,
             excluded_params=set(_RELATION_CATALOGUE_EXCLUDED_PARAMS),
@@ -162,7 +159,7 @@ def build_relation_catalogue(
 
 @dataclass
 class TaskCatalogueEntry:
-    """One agent_ready task exposed to the agent."""
+    """One registered task exposed to the agent."""
 
     name: str
     required_params: list[str]
@@ -173,7 +170,7 @@ class TaskCatalogueEntry:
 
 @dataclass
 class TaskCatalogue:
-    """Agent-ready task vocabulary for the agent prompt."""
+    """Registered task vocabulary for the agent prompt."""
 
     tasks: list[TaskCatalogueEntry] = field(default_factory=list)
 
@@ -193,19 +190,11 @@ class TaskCatalogue:
         return f"TASKS ({len(self.tasks)}):\n" + "\n".join(lines)
 
 
-def agent_ready_task_names(registry: TaskRegistry | None = None) -> frozenset[str]:
-    """Return ``TaskRegistry`` keys for tasks marked with ``@agent_ready``."""
-    registry = registry or TaskRegistry()
-    return frozenset(
-        name for name in registry.get_all_keys() if getattr(registry.get_task_by_name(name), "agent_ready", False)
-    )
-
-
 def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
-    """Collect agent_ready tasks from ``TaskRegistry``."""
+    """Collect all registered tasks from ``TaskRegistry``."""
     registry = registry or TaskRegistry()
     catalogue = TaskCatalogue()
-    for name in sorted(agent_ready_task_names(registry)):
+    for name in sorted(registry.get_all_keys()):
         task_cls = registry.get_task_by_name(name)
         required_params, optional_params, enum_options = _collect_init_params(
             task_cls,

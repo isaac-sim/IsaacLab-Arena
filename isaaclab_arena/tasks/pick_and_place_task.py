@@ -17,7 +17,7 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.register import agent_ready, register_task
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
@@ -35,7 +35,6 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.configclass import make_configclass
 
 
-@agent_ready
 @register_task
 class PickAndPlaceTask(TaskBase):
     """Pick an object up and place it on or in a destination.

@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, TypeVar
 
-from isaaclab_arena.assets.register import agent_ready, register_object_relation
+from isaaclab_arena.assets.register import register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
@@ -122,7 +122,6 @@ class FaceTo(RelationBase):
         ), f"Object '{subject.name}' cannot combine FaceTo with RotateAroundSolution."
 
 
-@agent_ready
 @register_object_relation
 class AlignWith(Relation):
     """Align bounding-box centres along one world axis, within a band, leaving other axes unconstrained.
@@ -169,7 +168,6 @@ class AlignWith(Relation):
         assert self.parent in objects, f"AlignWith reference '{self.parent.name}' must participate in placement"
 
 
-@agent_ready
 @register_object_relation
 class NextTo(Relation):
     """Indicates that an object should be placed next to a parent object, on a specified side.
@@ -223,7 +221,6 @@ class NextTo(Relation):
         self.tolerance_m = tolerance_m
 
 
-@agent_ready
 @register_object_relation
 class On(Relation):
     """Indicates that an object should be placed on top of a parent object.
@@ -296,8 +293,6 @@ class ClutterOn(On):
     """
 
     name = "clutter_on"
-    agent_ready = False
-    """Excluded from agentic generation; overrides On's inherited opt-in."""
 
     def __init__(
         self,
@@ -369,7 +364,6 @@ class ClutterOn(On):
                     raise AssertionError(f"ClutterOn support '{support.name}': {error}") from error
 
 
-@agent_ready
 @register_object_relation
 class NotNextTo(Relation):
     """Forbids placing the child next to the parent on the given side.
@@ -408,7 +402,6 @@ class NotNextTo(Relation):
         self.tolerance_m = tolerance_m
 
 
-@agent_ready
 @register_object_relation
 class IsAnchor(RelationBase):
     """Indicates that this object is an anchor (unmovable) for relation solving.
@@ -454,7 +447,6 @@ class RequiresReachability(RelationBase):
         return True
 
 
-@agent_ready
 @register_object_relation
 class RotateAroundSolution(RelationBase):
     """Specifies an explicit rotation to apply on top of the solver solution.

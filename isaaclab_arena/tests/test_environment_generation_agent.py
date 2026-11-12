@@ -22,7 +22,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
 )
-from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
@@ -50,8 +50,6 @@ class _TestTaskMode(Enum):
 
 class _TestTask:
     """Test task."""
-
-    agent_ready = True
 
     def __init__(self, target, mode: _TestTaskMode = _TestTaskMode.FAST, retries: int = 1):
         pass
@@ -89,7 +87,8 @@ def test_task_catalogue_excludes_structural_graph_fields():
     catalogue = build_task_catalogue()
     entries = {entry.name: entry for entry in catalogue.tasks}
 
-    assert "PickAndPlaceTask" in entries
+    assert set(entries) == set(TaskRegistry().get_all_keys())
+    assert entries["PressButtonTask"].required_params == ["pressable_object"]
     pick_params = entries["PickAndPlaceTask"].required_params + entries["PickAndPlaceTask"].optional_params
     assert "task_description" not in pick_params
     assert "max_separation" not in pick_params
@@ -100,14 +99,11 @@ def test_relation_catalogue_collects_required_optional_and_enum_params():
     catalogue = build_relation_catalogue()
     entries = {entry.name: entry for entry in catalogue.relations}
 
-    assert set(entries) == {
-        "align_with",
-        "is_anchor",
-        "next_to",
-        "not_next_to",
-        "on",
-        "rotate_around_solution",
-    }
+    assert set(entries) == set(ObjectRelationLibraryRegistry().get_all_keys())
+    assert entries["face_to"].required_params == []
+    assert not entries["face_to"].unary
+    assert "spread" in entries["clutter_on"].optional_params
+    assert entries["position_limits_box"].unary
     assert entries["align_with"].required_params == ["axis"]
     assert entries["align_with"].optional_params == ["offset_m", "tolerance_m", "relation_loss_weight"]
     assert entries["align_with"].enum_options == {"axis": ["x", "y", "z"]}

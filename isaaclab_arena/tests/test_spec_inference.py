@@ -159,7 +159,7 @@ def test_infer_feeds_catalog_validation_errors_back_and_recovers(spec_inference)
     assert "Embodiment registry_name 'franka_ik' is not in the EMBODIMENTS catalog" in critic_message
 
 
-def test_infer_retries_agent_ready_task_validation_errors(spec_inference):
+def test_infer_retries_task_catalogue_validation_errors(spec_inference):
     inference, client = spec_inference
     invalid = minimal_spec_dict()
     del invalid["task"]["subtasks"][0]["params"]["pick_up_object"]

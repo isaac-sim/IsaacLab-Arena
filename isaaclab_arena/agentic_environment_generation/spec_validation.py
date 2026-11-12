@@ -41,7 +41,7 @@ def format_validation_error(exc: ValidationError) -> list[str]:
     return lines
 
 
-def collect_agent_ready_validation_trace(
+def collect_catalogue_validation_trace(
     spec: ArenaEnvGraphSpec,
     asset_catalog: AssetCatalogue,
     task_catalog: TaskCatalogue,
