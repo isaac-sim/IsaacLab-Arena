@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T08,7,7,0,Clean SidedRelation base; behaviour preserved
+c2-T08,4,7,1,Base passes wrong args to Relation init; crashes and logic missing
+c3-T08,7,7,0,Clean obfuscated base class; behaviour preserved
+c4-T08,7,7,0,Clean SidedRelation base; behaviour preserved

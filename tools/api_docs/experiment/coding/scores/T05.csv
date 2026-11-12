@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T05,5.5,6,0,Both fixes correct; extra valid fixes beyond scope; tests cover both
+c2-T05,5.5,6,0,Both fixes correct; extra valid fixes beyond scope; tests cover both
+c3-T05,6,6,0,Both fixes correct; tests added; only small extra yaml path fix
+c4-T05,5.5,6,0,Both fixes correct; several extra valid fixes beyond scope; tests added

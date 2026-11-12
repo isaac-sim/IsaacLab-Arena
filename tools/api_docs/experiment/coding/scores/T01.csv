@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T01,8,8,0,All checks met with Args docstrings and registry test
+c2-T01,7.5,8,0,Correct; get_action lacks Args docstring
+c3-T01,7.5,8,0,Correct after name mapping; docstring lacks Args
+c4-T01,8,8,0,All checks met with Args docstrings and registry test

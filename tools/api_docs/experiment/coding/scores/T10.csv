@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T10,7,7,0,Complete with docstrings and extra validation and behavioural test
+c2-T10,6,7,0,Correct wiring and test but new fields lack docstrings
+c3-T10,7,7,0,Complete with docstrings and a working retry test
+c4-T10,7,7,0,Complete with docstrings and thorough defaults and retry tests

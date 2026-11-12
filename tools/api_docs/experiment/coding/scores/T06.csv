@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T06,7,7,0,Mocks isaaclab on import; thorough and correct expected values
+c2-T06,7,7,0,Mocks isaaclab at module import; thorough and correct tests
+c3-T06,7,7,0,Mocks isaaclab; correct values and messages; obfuscated names translate fine
+c4-T06,5,7,1,Starts simulator via persistent app; error checks type only

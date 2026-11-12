@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T09,6,6,0,Explicit tensor branch; thorough tests; annotation and docstring updated
+c2-T09,6,6,0,Explicit tensor branch; equivalence and edge tests; docstring notes pi to -pi
+c3-T09,6,6,0,Compact tensor branch; one-line docstring; tests cover all required values
+c4-T09,6,6,0,No code change needed since modulo already works on tensors; docstring and tests added

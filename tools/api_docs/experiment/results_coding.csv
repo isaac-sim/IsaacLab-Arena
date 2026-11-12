@@ -1,0 +1,41 @@
+cond,task,category,tokens,tools,secs,score,defects,note
+c1,T01,feature,65091,11,35.652,1.0,0,All checks met with Args docstrings and registry test
+c2,T01,feature,65007,12,37.572,0.9375,0,Correct; get_action lacks Args docstring
+c3,T01,feature,61066,11,28.53,0.9375,0,Correct after name mapping; docstring lacks Args
+c4,T01,feature,65728,11,33.111,1.0,0,All checks met with Args docstrings and registry test
+c1,T02,feature,100547,11,94.092,1.0,1,Complete and tested but breaks relation catalogue test by omitting far_from
+c2,T02,feature,104832,12,98.33,0.9375,1,Chebyshev-style grown-box distance not Euclidean; breaks relation catalogue test
+c3,T02,feature,98516,9,67.069,1.0,0,Complete with own test file and catalogue test updated
+c4,T02,feature,107953,13,99.46,1.0,0,Complete with Euclidean gap shared by loss and validator; catalogue test updated
+c1,T03,feature,58725,8,21.256,0.9375,0,Correct conjugate and translation; relative_to unchanged; one-line docstring only
+c2,T03,feature,59711,11,25.149,0.9375,0,Uses quat_inv and quat_apply; relative_to simplified correctly; minimal docstring
+c3,T03,feature,61923,5,26.251,0.9375,0,Rotation via matrix transpose and quat_from_matrix; correct; relative_to unchanged
+c4,T03,feature,59626,5,19.203,1.0,0,Conjugate plus R_B_A translation; relative_to simplified; docstring keeps unit-quaternion caveat
+c1,T04,fix,70931,9,42.157,1.0,0,Check before validators; both conflicts plus negative tests; sound
+c2,T04,fix,67288,11,44.881,1.0,0,Check before validators; both conflicts plus negative tests; sound
+c3,T04,fix,70140,7,31.964,1.0,0,Inline check after validators; tests for both conflicts; no negative test
+c4,T04,fix,71846,9,39.139,0.9375,1,On plus ClutterOn test hits earlier existing assertion so message match fails
+c1,T05,fix,70733,8,35.54,0.9166666666666666,0,Both fixes correct; extra valid fixes beyond scope; tests cover both
+c2,T05,fix,71478,17,44.63,0.9166666666666666,0,Both fixes correct; extra valid fixes beyond scope; tests cover both
+c3,T05,fix,70488,8,45.655,1.0,0,Both fixes correct; tests added; only small extra yaml path fix
+c4,T05,fix,75802,20,46.361,0.9166666666666666,0,Both fixes correct; several extra valid fixes beyond scope; tests added
+c1,T06,tests,79440,10,76.47,1.0,0,Mocks isaaclab on import; thorough and correct expected values
+c2,T06,tests,69719,7,51.645,1.0,0,Mocks isaaclab at module import; thorough and correct tests
+c3,T06,tests,73909,5,61.141,1.0,0,Mocks isaaclab; correct values and messages; obfuscated names translate fine
+c4,T06,tests,84358,11,82.327,0.7142857142857143,1,Starts simulator via persistent app; error checks type only
+c1,T07,refactor,52952,3,11.802,1.0,0,Clean rename of both defs and the single caller
+c2,T07,refactor,52822,3,12.392,1.0,0,Clean rename of both defs and the single caller
+c3,T07,refactor,51986,3,12.062,1.0,0,Clean rename with obfuscated names; caller and defs updated
+c4,T07,refactor,53485,3,9.772,1.0,0,Clean rename of both defs and the single caller
+c1,T08,refactor,63707,6,25.458,1.0,0,Clean SidedRelation base; behaviour preserved
+c2,T08,refactor,62169,8,25.419,0.5714285714285714,1,Base passes wrong args to Relation init; crashes and logic missing
+c3,T08,refactor,61835,5,21.798,1.0,0,Clean obfuscated base class; behaviour preserved
+c4,T08,refactor,62710,7,29.066,1.0,0,Clean SidedRelation base; behaviour preserved
+c1,T09,feature,57981,6,30.303,1.0,0,Explicit tensor branch; thorough tests; annotation and docstring updated
+c2,T09,feature,56829,4,22.484,1.0,0,Explicit tensor branch; equivalence and edge tests; docstring notes pi to -pi
+c3,T09,feature,57169,5,22.147,1.0,0,Compact tensor branch; one-line docstring; tests cover all required values
+c4,T09,feature,57492,4,20.854,1.0,0,No code change needed since modulo already works on tensors; docstring and tests added
+c1,T10,feature,65386,6,30.111,1.0,0,Complete with docstrings and extra validation and behavioural test
+c2,T10,feature,62935,5,24.034,0.8571428571428571,0,Correct wiring and test but new fields lack docstrings
+c3,T10,feature,66912,6,34.932,1.0,0,Complete with docstrings and a working retry test
+c4,T10,feature,65409,5,24.731,1.0,0,Complete with docstrings and thorough defaults and retry tests

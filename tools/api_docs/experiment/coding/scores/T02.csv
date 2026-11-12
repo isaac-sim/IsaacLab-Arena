@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T02,8,8,1,Complete and tested but breaks relation catalogue test by omitting far_from
+c2-T02,7.5,8,1,Chebyshev-style grown-box distance not Euclidean; breaks relation catalogue test
+c3-T02,8,8,0,Complete with own test file and catalogue test updated
+c4-T02,8,8,0,Complete with Euclidean gap shared by loss and validator; catalogue test updated

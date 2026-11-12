@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T07,7,7,0,Clean rename of both defs and the single caller
+c2-T07,7,7,0,Clean rename of both defs and the single caller
+c3-T07,7,7,0,Clean rename with obfuscated names; caller and defs updated
+c4-T07,7,7,0,Clean rename of both defs and the single caller

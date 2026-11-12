@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T04,8,8,0,Check before validators; both conflicts plus negative tests; sound
+c2-T04,8,8,0,Check before validators; both conflicts plus negative tests; sound
+c3-T04,8,8,0,Inline check after validators; tests for both conflicts; no negative test
+c4-T04,7.5,8,1,On plus ClutterOn test hits earlier existing assertion so message match fails

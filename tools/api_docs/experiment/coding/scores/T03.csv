@@ -1,0 +1,5 @@
+run,checks_hit,checks_total,defects,note
+c1-T03,7.5,8,0,Correct conjugate and translation; relative_to unchanged; one-line docstring only
+c2-T03,7.5,8,0,Uses quat_inv and quat_apply; relative_to simplified correctly; minimal docstring
+c3-T03,7.5,8,0,Rotation via matrix transpose and quat_from_matrix; correct; relative_to unchanged
+c4-T03,8,8,0,Conjugate plus R_B_A translation; relative_to simplified; docstring keeps unit-quaternion caveat
