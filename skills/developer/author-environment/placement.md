@@ -1,9 +1,13 @@
 # Placing objects and the robot
 
-Read this when laying out an environment's objects and robot with spatial relations. For the
-relations themselves, see [relations](../../../docs/pages/concepts/object_placement/relations.rst),
-and for reading rejected layouts, see
+Read this when laying out an environment's objects and robot with spatial relations. For reading
+rejected layouts, see
 [placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst).
+
+Look up each relation in [relations.py](../../../isaaclab_arena/relations/relations.py). A relation
+class's `name` is its YAML `kind`, and its `__init__` arguments go under `params`, except `parent`,
+which is the YAML `reference`. Its `Validation:` section names the check that rejects bad
+placements, and its `Restrictions:` section, where present, lists the combinations it rejects.
 
 ## A simple layout
 

@@ -316,7 +316,7 @@ limits.
    * - Unsupported support orientation or tilted mesh release
      - Keep supports upright at multiples of 90 degrees in yaw. For clutter
        with roll or pitch, set the object's ``collision_mode="bbox"``; see
-       :ref:`ClutterOn settings <clutter-on-relation>`.
+       :class:`ClutterOn settings <isaaclab_arena.relations.relations.ClutterOn>`.
    * - Release footprint cannot fit
      - Compare the rotated object bounds with ``spread`` and ``edge_margin_m``.
        Enlarge the release region or use smaller objects; also inspect neighboring
