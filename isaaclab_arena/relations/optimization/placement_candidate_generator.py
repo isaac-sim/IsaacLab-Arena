@@ -14,7 +14,7 @@ from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.geometry.bounding_box_helpers import rotate_candidate_bboxes
 from isaaclab_arena.relations.optimization.initializers.initializer_factory import create_initializer
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
-from isaaclab_arena.relations.relations import AlignWith, ClutterOn, FaceTo, RotateAroundSolution, get_relation
+from isaaclab_arena.relations.relations import AlignWith, Around, ClutterOn, FaceTo, RotateAroundSolution, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.random import derive_seed, get_random_rotation
 from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw
@@ -86,10 +86,11 @@ class PlacementCandidateGenerator:
     def _validate_alignment_headings(
         objects: list[PlaceableAsset], bounds: dict[PlaceableAsset, AxisAlignedBoundingBox]
     ) -> None:
-        """Reject horizontal alignment when a later FaceTo turn can move either box centre."""
+        """Reject horizontal alignment or Around when a later FaceTo turn can move either box centre."""
         for subject in objects:
             for relation in subject.get_relations():
-                if not isinstance(relation, AlignWith) or relation.axis.value == "z":
+                is_horizontal_align_with = isinstance(relation, AlignWith) and relation.axis.value != "z"
+                if not (is_horizontal_align_with or isinstance(relation, Around)):
                     continue
                 for asset in (subject, relation.parent):
                     if get_relation(asset, FaceTo) is None:
@@ -98,7 +99,7 @@ class PlacementCandidateGenerator:
                     oriented_bounds = rotate_candidate_bboxes([asset], {asset: bounds[asset]}, [{}])
                     centre_xy = oriented_bounds[asset].center[:, :2]
                     assert torch.all(centre_xy.abs() <= 1e-6), (
-                        f"AlignWith on '{subject.name}' cannot use FaceTo on '{asset.name}': "
+                        f"{type(relation).__name__} on '{subject.name}' cannot use FaceTo on '{asset.name}': "
                         "its off-centre bounds move when FaceTo applies yaw after solving. "
                         "Use a fixed RotateAroundSolution heading or centre the asset's placement bounds."
                     )

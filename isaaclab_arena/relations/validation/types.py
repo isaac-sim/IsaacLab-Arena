@@ -24,6 +24,9 @@ class PlacementCheck(StrEnum):
     ALIGN_WITH = "align_with"
     """Build-time check: centre alignment errors are within each relation's tolerance."""
 
+    AROUND = "around"
+    """Build-time check: every ``Around`` subject's centre lies within the relation's radius of its reference."""
+
     NEXT_TO = "next_to"
     """Build-time check: every ``NextTo`` relation holds — child on the requested side at the target
     offset, within the relation's ``tolerance_m``."""

@@ -18,7 +18,15 @@ from isaaclab_arena.relations.optimization.initializers.sampling import (
     sample_position_in_bbox,
 )
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import SIDE_CONFIGS, Direction
-from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLimitsBox, RelationBase, get_relation
+from isaaclab_arena.relations.relations import (
+    AlignWith,
+    Around,
+    NextTo,
+    On,
+    PositionLimitsBox,
+    RelationBase,
+    get_relation,
+)
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -239,6 +247,21 @@ class AlignWithToAABBStrategy(RelationToAABBStrategy):
         return _bounds_from_align_with(relation, subject_bbox, sampled_world_bboxes[relation.parent])
 
 
+class AroundToAABBStrategy(RelationToAABBStrategy):
+    """Narrow origins to the square enclosing an Around radius after its reference has been sampled."""
+
+    def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
+        return (relation.parent,)
+
+    def get_bounds(
+        self,
+        relation: RelationBase,
+        subject_bbox: AxisAlignedBoundingBox,
+        sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> AxisAlignedBoundingBox:
+        return _bounds_from_around(relation, subject_bbox, sampled_world_bboxes[relation.parent])
+
+
 class NextToToAABBStrategy(RelationToAABBStrategy):
     """Narrow origins to the requested side and gap after the reference has been sampled."""
 
@@ -257,6 +280,7 @@ class NextToToAABBStrategy(RelationToAABBStrategy):
 RELATION_TO_AABB_STRATEGIES: dict[type[RelationBase], RelationToAABBStrategy] = {
     PositionLimitsBox: PositionLimitsBoxToAABBStrategy(),
     AlignWith: AlignWithToAABBStrategy(),
+    Around: AroundToAABBStrategy(),
     NextTo: NextToToAABBStrategy(),
 }
 
@@ -321,6 +345,29 @@ def _bounds_from_align_with(
     lower[axis_index] = target_origin_W - relation.tolerance_m
     upper[axis_index] = target_origin_W + relation.tolerance_m
     return _bounding_box_from_partial_limits(tuple(lower), tuple(upper))
+
+
+def _bounds_from_around(
+    relation: Around,
+    child_bbox: AxisAlignedBoundingBox,
+    reference_world_bbox: AxisAlignedBoundingBox,
+) -> AxisAlignedBoundingBox:
+    """Return origin bounds for the XY square enclosing an Around radius about the reference centre.
+
+    Samples in the square's corners lie outside the radius and are pulled inside by the solve.
+
+    Args:
+        relation: Radius of the Around relation.
+        child_bbox: Subject bounds relative to its origin, expressed along world axes.
+        reference_world_bbox: Reference bounds at its sampled world position.
+
+    Returns:
+        Bounds on the subject origin, unbounded along Z.
+    """
+    target_origin_xy_W = (reference_world_bbox.center[0, :2] - child_bbox.center[0, :2]).tolist()
+    lower = (target_origin_xy_W[0] - relation.radius_m, target_origin_xy_W[1] - relation.radius_m, None)
+    upper = (target_origin_xy_W[0] + relation.radius_m, target_origin_xy_W[1] + relation.radius_m, None)
+    return _bounding_box_from_partial_limits(lower, upper)
 
 
 def _bounds_from_next_to(

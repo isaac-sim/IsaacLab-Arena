@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     AlignWithLossStrategy,
+    AroundLossStrategy,
     AtPositionLossStrategy,
     ClutterOnLossStrategy,
     NextToLossStrategy,
@@ -20,6 +21,7 @@ from isaaclab_arena.relations.optimization.losses.relation_loss_strategies impor
 )
 from isaaclab_arena.relations.relations import (
     AlignWith,
+    Around,
     AtPosition,
     ClutterOn,
     NextTo,
@@ -35,6 +37,7 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
     """Factory for default loss strategies."""
     return {
         AlignWith: AlignWithLossStrategy(slope=100.0),
+        Around: AroundLossStrategy(slope=100.0),
         NextTo: NextToLossStrategy(slope=100.0),
         On: OnLossStrategy(slope=100.0),
         ClutterOn: ClutterOnLossStrategy(slope=100.0),

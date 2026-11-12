@@ -155,6 +155,35 @@ class AlignWith(Relation):
 
 @agent_ready
 @register_object_relation
+class Around(Relation):
+    """Keep the subject's bounding-box centre within a world-XY radius of the reference's centre."""
+
+    name = "around"
+
+    def __init__(self, parent: PlaceableAsset, radius_m: float, relation_loss_weight: float = 1.0):
+        """Place the subject's bounding-box centre within radius_m of the reference centre in world XY.
+
+        Z is unconstrained; combine with ``On`` to choose a support surface.
+
+        Args:
+            parent: Reference asset participating in placement.
+            radius_m: Maximum horizontal centre-to-centre distance, also accepted by placement validation.
+            relation_loss_weight: Weight of the distance objective during solving.
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert math.isfinite(radius_m) and radius_m > 0, "radius_m must be finite and positive"
+        assert math.isfinite(relation_loss_weight) and relation_loss_weight > 0, "Around weight must be positive"
+        self.radius_m = radius_m
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Require a movable subject and a distinct reference that participates in placement."""
+        assert self.parent is not subject, "Around requires a different reference asset"
+        assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have an Around relation"
+        assert self.parent in objects, f"Around reference '{self.parent.name}' must participate in placement"
+
+
+@agent_ready
+@register_object_relation
 class NextTo(Relation):
     """Represents a 'next to' relationship between objects.
 
