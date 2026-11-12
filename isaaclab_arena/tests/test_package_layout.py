@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check that every directory of Python code in the installed packages has an ``__init__.py``."""
+"""Check that every directory of Python code in the installed packages has an ``__init__.py``.
+
+The ``__init__.py`` is what makes a directory part of the built wheel; setuptools skips directories without one.
+"""
 
 import os
 import pathlib
