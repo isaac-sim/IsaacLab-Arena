@@ -9,7 +9,6 @@ The workflow:
 
 * Previews a checked-in agent-authored environment and its force-based demonstration.
 * Prompts Codex to author a related workbench cleanup task.
-* Evaluates the checked-in atomic tasks with a VLM policy and DROID.
 
 Prerequisites
 -------------
@@ -124,73 +123,3 @@ After Codex finishes (expect 10~20 minutes), it should return a successful force
    :muted:
    :playsinline:
    :caption: Successful five-tool drawer cleanup using bounded forces and joint efforts.
-
-Step 3: Evaluating the Atomic Tasks with a VLM
------------------------------------------------
-
-The checked-in workbench includes four Experiment Definitions under
-``isaaclab_arena_environments/workbench_cleanup/experiment_config/``:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 55 45
-
-   * - Experiment filename
-     - Task
-   * - ``close_drawer_vlm_goal_experiment.yaml``
-     - Push the top-left drawer closed.
-   * - ``close_toolcase_vlm_goal_experiment.yaml``
-     - Close the socket case lid.
-   * - ``turn_off_scope_vlm_goal_experiment.yaml``
-     - Press the oscilloscope power button.
-   * - ``bin_shelf_vlm_goal_experiment.yaml``
-     - Pick up the white bin and place it on the overhead shelf.
-
-These experiments use ``VLMGoalPolicy`` with the DROID embodiment adapter,
-following the gear-insertion VLM example. The policy receives camera images,
-robot state, and **privileged simulator object poses**. The drawer and bin use
-the standard policy. The toolcase and oscilloscope use
-``WorkbenchVLMGoalPolicy``.
-
-Set ``NV_API_KEY`` in the runtime for the configured internal endpoint and
-``openai/openai/gpt-6-astra`` model. Start with the drawer task:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config isaaclab_arena_environments/workbench_cleanup/experiment_config/close_drawer_vlm_goal_experiment.yaml \
-     --viz none --device cuda:0 \
-     --record_camera_video \
-     --output_base_dir artifacts/workbench_vlm_results \
-     runs.close_drawer.rollout_limit.num_episodes=1
-
-Replace both ``close_drawer`` occurrences with ``close_toolcase``,
-``turn_off_scope``, or ``bin_shelf`` to run another task.
-
-Each GIF shows two synchronized external robot cameras from one episode.
-Playback follows simulation time, so time spent waiting for model responses
-does not appear as pauses.
-
-.. figure:: ../../../images/workbench_cleanup_assets/vlm/close_drawer_success.gif
-   :width: 100%
-   :alt: DROID closes the top-left drawer, shown from two robot cameras
-
-   Close drawer: success in 346 control steps.
-
-.. figure:: ../../../images/workbench_cleanup_assets/vlm/close_toolcase_success.gif
-   :width: 100%
-   :alt: DROID pushes the socket case lid closed, shown from two robot cameras
-
-   Close toolcase: success in 105 control steps.
-
-.. figure:: ../../../images/workbench_cleanup_assets/vlm/turn_off_scope_success.gif
-   :width: 100%
-   :alt: DROID presses the oscilloscope power button, shown from two robot cameras
-
-   Press oscilloscope button: success in 74 control steps.
-
-.. figure:: ../../../images/workbench_cleanup_assets/vlm/bin_shelf_failure.gif
-   :width: 100%
-   :alt: DROID lifts the white bin but drops it before placing it on the overhead shelf
-
-   White bin to shelf: failure after 151 control steps.

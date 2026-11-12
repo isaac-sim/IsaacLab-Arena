@@ -42,7 +42,7 @@ def _test_workbench_vlm_experiment_configs(simulation_app):
     from isaaclab_arena_vlm_agent.vlm_agent_policy import ObservationModality, VLMGoalPolicyCfg
 
     paths = sorted((_ENVIRONMENT_DIR / "experiment_config").glob("*_vlm_goal_experiment.yaml"))
-    assert len(paths) == 4
+    assert len(paths) == 5
     covered_tasks = set()
     for path in paths:
         experiment = load_arena_experiment_from_config_file(path, device="cpu")
@@ -55,7 +55,11 @@ def _test_workbench_vlm_experiment_configs(simulation_app):
         assert run.environment_builder.num_envs == 1
         assert run.rollout_limit.num_episodes == 5
         spec = ArenaEnvGraphSpec.from_yaml(run.environment.env_spec_path)
-        assert spec.task.composition.value == "atomic"
+        if Path(run.environment.env_spec_path).name == "task_full_cleanup.yaml":
+            assert spec.task.composition.value == "sequential"
+            assert len(spec.task.subtasks) == 4
+        else:
+            assert spec.task.composition.value == "atomic"
         assert spec.embodiment.registry_name == "droid_abs_ik"
         assert spec.embodiment.params["concatenate_observation_terms"] is False
         scene_keys = {
@@ -71,6 +75,7 @@ def _test_workbench_vlm_experiment_configs(simulation_app):
         "task_close_drawer.yaml",
         "task_close_toolcase.yaml",
         "task_turn_off_scope.yaml",
+        "task_full_cleanup.yaml",
     }
     return True
 

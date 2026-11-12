@@ -1,0 +1,50 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Uses the existing sequential task and privileged observations for all four subtasks.
+runs:
+  full_cleanup:
+    environment:
+      type: isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml
+      enable_cameras: true
+    environment_builder:
+      num_envs: 1
+      seed: 42
+      device: cuda:0
+      camera_resolution_mode: policy_default
+      placement_seed: 17
+      language_instruction: >-
+        Complete the workbench cleanup in order: close the top-left drawer,
+        close the socket toolcase lid, pick up the white bin and place it on
+        the overhead shelf, then press the oscilloscope power button to turn
+        it off. Release placed objects and withdraw after each interaction.
+    policy:
+      type: isaaclab_arena_environments.workbench_cleanup.vlm_policy.WorkbenchVLMGoalPolicy
+      endpoint: internal
+      model: openai/openai/gpt-6-astra
+      vlm_embodiment_adapter: droid
+      observation_modality: image_state
+      image_max_width_or_height: 512
+      max_steps_per_goal: 90
+      position_tolerance_m: 0.001
+      rotation_tolerance_rad: 0.02
+      object_poses:
+        - top_drawer
+        - top_drawer_body
+        - socket_set
+        - socket_set_lid
+        - white_bin
+        - overhead_shelf
+        - oscilloscope
+        - oscilloscope_power_button
+        - tabletop
+      system_prompt_files:
+        - isaaclab_arena_environments/workbench_cleanup/prompts/full_cleanup.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/close_drawer.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/close_toolcase.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/bin_shelf.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/turn_off_scope.txt
+    rollout_limit:
+      num_episodes: 5
