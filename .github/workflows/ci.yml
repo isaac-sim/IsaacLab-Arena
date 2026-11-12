@@ -507,7 +507,6 @@ jobs:
       - *checkout_step
       - *install_project_step
 
-      # Build docs for the current branch (validates PR changes)
       - name: Build docs
         working-directory: ./docs
         run: make SPHINXOPTS=-W html
@@ -517,7 +516,7 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
     needs: [build_and_push_image]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # TODO(alexmillane): temporarily runs on PRs to test the docs build; restore the main-only condition before merging.
     permissions:
       contents: write
 
@@ -544,6 +543,7 @@ jobs:
           touch ./_build/.nojekyll
 
       - name: Deploy to gh-pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
