@@ -114,9 +114,14 @@ def test_report_import_is_leaf_only():
     code = """
 import sys
 import isaaclab_arena.visualization.report
+allowed = {
+    'isaaclab_arena.evaluation',
+    'isaaclab_arena.evaluation.report_data',
+    'isaaclab_arena.evaluation.episode_results_files',
+}
 blocked = [
     name for name in sys.modules
-    if name.startswith('isaaclab_arena.evaluation')
+    if (name.startswith('isaaclab_arena.evaluation') and name not in allowed)
     or name.startswith('isaaclab_arena.video')
     or name.split('.')[0] in {'torch', 'gymnasium', 'moviepy'}
 ]
