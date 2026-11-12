@@ -227,3 +227,105 @@ def test_pi0_remote_policy_declares_the_adapter_image_size():
     """Report the 224x224 box the DROID adapter resizes camera frames into, for camera_resolution_mode policy_default."""
     assert Pi0RemotePolicy.default_image_size(Pi0RemotePolicyCfg(openpi_embodiment_adapter="droid")) == (224, 224)
     assert Pi0DroidAdapter.target_image_size == (224, 224)
+
+
+OPEN_LOOP_HORIZON = 15
+
+
+def _patch_batching_server(monkeypatch, max_batch_size: int, calls: list[int]) -> None:
+    """Fake a server that advertises batch_inference and answers batched requests, recording each batch size."""
+    monkeypatch.setattr(
+        WebsocketClientPolicy,
+        "_wait_for_server",
+        lambda self: (None, {"batch_inference": True, "max_batch_size": max_batch_size}),
+    )
+
+    def batched_infer(self, request):
+        assert "batch" in request, "a batching server must receive batched requests"
+        calls.append(len(request["batch"]))
+        return {"batch": [{"actions": _synthetic_chunk()} for _ in request["batch"]]}
+
+    monkeypatch.setattr(WebsocketClientPolicy, "infer", batched_infer)
+
+
+def test_envs_requesting_on_the_same_step_share_one_request_when_the_server_batches(monkeypatch):
+    calls: list[int] = []
+    _patch_batching_server(monkeypatch, max_batch_size=32, calls=calls)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=16)
+    observation = _fake_observation(num_envs=16)
+
+    assert policy.server_batches_requests()
+    actions = policy.get_action(env, observation)
+    assert calls == [16]
+    assert actions.shape == (16, 8)
+    assert actions[:, -1].tolist() == pytest.approx([0.2] * 16)
+    for _ in range(OPEN_LOOP_HORIZON - 1):
+        policy.get_action(env, observation)
+    assert calls == [16], "replaying the chunk sends nothing"
+    policy.get_action(env, observation)
+    assert calls == [16, 16]
+    assert policy.server_calls == 2
+    assert policy.chunk_requests == 32
+
+
+def test_batched_requests_are_split_at_the_server_limit(monkeypatch):
+    calls: list[int] = []
+    _patch_batching_server(monkeypatch, max_batch_size=8, calls=calls)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
+    policy.set_task_description("pick up the block")
+    policy.get_action(_fake_env(num_envs=20), _fake_observation(num_envs=20))
+    assert calls == [8, 8, 4]
+
+
+def test_config_max_batch_size_caps_the_request_below_the_server_limit(monkeypatch):
+    calls: list[int] = []
+    _patch_batching_server(monkeypatch, max_batch_size=32, calls=calls)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu", max_batch_size=4))
+    policy.set_task_description("pick up the block")
+    policy.get_action(_fake_env(num_envs=10), _fake_observation(num_envs=10))
+    assert calls == [4, 4, 2]
+
+
+def test_only_the_envs_that_request_on_a_step_are_batched(monkeypatch):
+    """After a partial reset only the reset envs request, as one batch; the others keep replaying."""
+    calls: list[int] = []
+    _patch_batching_server(monkeypatch, max_batch_size=32, calls=calls)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=4)
+    observation = _fake_observation(num_envs=4)
+    policy.get_action(env, observation)
+    policy.reset(env_ids=torch.tensor([1, 3]))
+    action = policy.get_action(env, observation)
+    assert calls == [4, 2]
+    assert action[:, -1].tolist() == pytest.approx([0.7, 0.2, 0.7, 0.2])
+
+
+def test_batching_can_be_disabled_in_the_config(monkeypatch):
+    monkeypatch.setattr(
+        WebsocketClientPolicy, "_wait_for_server", lambda self: (None, {"batch_inference": True, "max_batch_size": 32})
+    )
+    single_calls = {"n": 0}
+
+    def single_infer(self, request):
+        assert "batch" not in request
+        single_calls["n"] += 1
+        return {"actions": _synthetic_chunk()}
+
+    monkeypatch.setattr(WebsocketClientPolicy, "infer", single_infer)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu", batch_chunk_fetches=False))
+    policy.set_task_description("pick up the block")
+    assert not policy.server_batches_requests()
+    policy.get_action(_fake_env(num_envs=3), _fake_observation(num_envs=3))
+    assert single_calls["n"] == 3
+
+
+def test_server_without_batch_metadata_gets_one_request_per_env(make_policy):
+    policy = make_policy()
+    assert not policy.server_batches_requests()
+    policy.set_task_description("pick up the block")
+    policy.get_action(_fake_env(num_envs=3), _fake_observation(num_envs=3))
+    assert policy.server_calls == 3
+    assert policy.chunk_requests == 3
