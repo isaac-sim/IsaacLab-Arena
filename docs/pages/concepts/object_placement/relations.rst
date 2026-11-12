@@ -220,6 +220,7 @@ Most environments can be described with a small set of relations:
    sets the front clearance and ``AlignWith`` fixes lateral alignment. Two
    ``AlignWith`` relations instead define a centre-relative X/Y target region;
    that does not preserve an edge clearance when either object's size changes.
+   Use ``Around`` when that region is a circle centred on the reference.
 
    Neither relation chooses a facing direction or a support surface; use
    ``FaceTo`` or ``RotateAroundSolution`` for heading and ``On`` for support.
@@ -228,6 +229,24 @@ Most environments can be described with a small set of relations:
    Otherwise placement raises an error: the post-solve turn would move the centre.
    Use a fixed heading or centred placement bounds for that case. Z alignment is
    unaffected by a yaw-only turn.
+
+``Around(parent, radius_m)``
+   Keeps the subject's placement bounding-box centre within ``radius_m`` of the
+   reference's centre in world X/Y. Z and both objects' orientations remain
+   unconstrained, so combine it with ``On`` to choose a support surface. The
+   solver applies zero penalty inside the radius and a linear penalty outside
+   it; the ``around`` check rejects candidates beyond the radius.
+
+   .. code-block:: yaml
+
+      - kind: around
+        subject: banana
+        reference: wooden_bowl
+        params:
+          radius_m: 0.3
+
+   Like horizontal ``AlignWith``, combining ``Around`` with ``FaceTo`` requires
+   the turning asset's placement-box centre to lie on its yaw axis.
 
 ``NotNextTo(parent)``
    Defines a side-specific keep-out region next to the parent. The region

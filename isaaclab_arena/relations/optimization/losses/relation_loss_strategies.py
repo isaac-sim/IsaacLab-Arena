@@ -24,6 +24,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 if TYPE_CHECKING:
     from isaaclab_arena.relations.relations import (
         AlignWith,
+        Around,
         AtPosition,
         ClutterOn,
         NextTo,
@@ -229,6 +230,48 @@ class AlignWithLossStrategy(RelationLossStrategy):
         )
         loss = relation.relation_loss_weight * linear_band_loss(
             center_distance, -relation.tolerance_m, relation.tolerance_m, slope=self.slope
+        )
+        return loss.squeeze(0) if child_pos.ndim == 1 else loss
+
+
+def around_center_distance_xy(
+    child_pos: torch.Tensor, child_bbox: AxisAlignedBoundingBox, parent_world_bbox: AxisAlignedBoundingBox
+) -> torch.Tensor:
+    """World-XY distance (meters) between the child's and parent's bounding-box centres for an Around relation.
+
+    Shared by AroundLossStrategy and the placement validator so loss and validation agree on the geometry.
+
+    Args:
+        child_pos: Child position, shape (3,) or (N, 3), in world coords.
+        child_bbox: Child local bounding box.
+        parent_world_bbox: Parent bounding box in world coords.
+
+    Returns:
+        Distance tensor of shape (N,).
+    """
+    p_W_child_center = child_pos.reshape(-1, 3) + child_bbox.center
+    t_P_C_W = p_W_child_center[:, :2] - parent_world_bbox.center[:, :2]
+    return torch.linalg.vector_norm(t_P_C_W, dim=-1)
+
+
+class AroundLossStrategy(RelationLossStrategy):
+    """Penalize horizontal centre distance only beyond the relation's radius."""
+
+    def __init__(self, slope: float = 100.0):
+        """Set the loss increase per metre beyond the radius."""
+        self.slope = slope
+
+    def compute_loss(
+        self,
+        relation: Around,
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Return the radius loss with the same scalar or batch shape as other relations."""
+        distance = around_center_distance_xy(child_pos, child_bbox, parent_world_bbox)
+        loss = relation.relation_loss_weight * single_boundary_linear_loss(
+            distance, relation.radius_m, slope=self.slope, penalty_side="greater"
         )
         return loss.squeeze(0) if child_pos.ndim == 1 else loss
 

@@ -102,6 +102,7 @@ def test_relation_catalogue_collects_required_optional_and_enum_params():
 
     assert set(entries) == {
         "align_with",
+        "around",
         "is_anchor",
         "next_to",
         "not_next_to",

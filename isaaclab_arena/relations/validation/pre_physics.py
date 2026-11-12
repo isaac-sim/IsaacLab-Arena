@@ -16,6 +16,7 @@ from isaaclab_arena.relations.geometry.warp_sdf_kernels import has_sdf_sentinel,
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     SIDE_CONFIGS,
     NotNextToLossStrategy,
+    around_center_distance_xy,
     next_to_violations,
     not_next_to_violations,
 )
@@ -23,6 +24,7 @@ from isaaclab_arena.relations.optimization.placement_candidate_batch import Plac
 from isaaclab_arena.relations.placement_diagnostics import Rejection
 from isaaclab_arena.relations.relations import (
     AlignWith,
+    Around,
     ClutterOn,
     FaceTo,
     NextTo,
@@ -301,6 +303,49 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
             Rejection(
                 f"'{obj.name}' align_with({relation.parent.name}, {relation.axis.value}): centre outside tolerance",
                 detail=f"centre error {center_error_m:+.3f} m, tolerance {relation.tolerance_m} m",
+            )
+        )
+
+
+@register_validator
+class AroundValidator(PrePhysicsPlacementValidator):
+    """Reject layouts whose horizontal centre distance exceeds an Around relation's radius."""
+
+    check = PlacementCheck.AROUND
+
+    def _validate_batch(
+        self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
+    ) -> list[bool]:
+        return [self._validate(candidate.positions, candidate.bboxes, rejections) for candidate in batch.candidates]
+
+    def _validate(
+        self,
+        positions: dict[PlaceableAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        rejections: list[Rejection],
+    ) -> bool:
+        """Check every Around relation against the same geometry as the solver objective."""
+        for obj, t_W_C in positions.items():
+            for relation in obj.get_relations():
+                if not isinstance(relation, Around):
+                    continue
+                child_bbox = env_bboxes[obj]
+                parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
+                distance_m = around_center_distance_xy(
+                    child_bbox.min_point.new_tensor(t_W_C), child_bbox, parent_world
+                ).item()
+                if not distance_m <= relation.radius_m:
+                    self._record_failure(rejections, obj, relation, distance_m)
+                    return False
+        return True
+
+    @staticmethod
+    def _record_failure(rejections: list[Rejection], obj: PlaceableAsset, relation: Around, distance_m: float) -> None:
+        """Record a rejection for a bounding-box centre outside the radius."""
+        rejections.append(
+            Rejection(
+                f"'{obj.name}' around({relation.parent.name}): centre outside radius",
+                detail=f"centre distance {distance_m:.3f} m, radius {relation.radius_m} m",
             )
         )
 
