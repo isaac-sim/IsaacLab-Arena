@@ -66,6 +66,7 @@ def test_droid_adapter_composes_cosmos_concat_view():
 
 def test_policy_reads_singular_action_response_key(monkeypatch):
     """The Cosmos server returns its chunk under "action" (singular), unlike openpi's "actions"."""
+    assert CosmosRemotePolicy.requires_camera_observations
     assert CosmosRemotePolicy.server_response_actions_key == "action"
 
     chunk = np.tile(np.arange(8, dtype=np.float32), (32, 1))
