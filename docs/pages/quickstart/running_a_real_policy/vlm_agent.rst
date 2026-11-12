@@ -71,9 +71,11 @@ Each Run selects its endpoint with ``policy.endpoint`` in the experiment configu
      - ``OPENAI_API_KEY``
      - OpenAI API, billed to the OpenAI account that owns the key.
 
-The example configurations set ``endpoint: internal``. If a Run omits ``policy.endpoint``, it uses
-the endpoint named by ``ARENA_INFERENCE_ENDPOINT``, or ``public`` when that variable is unset.
-To switch one Run without editing the YAML, override the field on the command line:
+The example configurations set ``endpoint: internal``, which is accessible by NVIDIA employees
+only. ``ARENA_INFERENCE_ENDPOINT`` applies only to a Run that omits ``policy.endpoint``; a Run that
+omits it and runs without the variable uses ``public``. Exporting ``ARENA_INFERENCE_ENDPOINT=public``
+therefore has no effect on the example configurations. To switch one Run without editing the
+YAML, override the field on the command line:
 
 .. code-block:: bash
 
