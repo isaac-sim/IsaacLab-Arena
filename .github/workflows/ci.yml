@@ -512,6 +512,43 @@ jobs:
         working-directory: ./docs
         run: make SPHINXOPTS=-W html
 
+  deploy_docs_post_merge:
+    name: Deploy the docs (post-merge)
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 30
+    needs: [build_and_push_image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    container:
+      image: ${{ needs.build_and_push_image.outputs.image }}
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    steps:
+      - *install_git_step
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
+          fetch-tags: true
+      - *mark_repo_safe_step
+
+      - name: Build docs
+        working-directory: ./docs
+        run: |
+          make SPHINXOPTS=-W multi-docs
+          touch ./_build/.nojekyll
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/_build
+
   build_and_push_image_post_merge:
     name: Publish tested NGC image (post-merge)
     runs-on: [self-hosted, gpu-arena]
