@@ -1,0 +1,21 @@
+id,facts_hit,facts_total,note
+M01,4.5,5,missing 15s retry interval
+M02,4,4,all correct
+M03,4,4,all correct
+M04,3,4,missed approved target prefixes
+M05,4,4,all correct
+M06,4,4,all correct
+M07,4,4,all correct
+M08,5,5,all correct
+M10,5,5,all correct
+M11,3.5,5,vague percentile index; no dedicated Random
+M12,3,4,missed floorplan and object source usage
+M13,5,5,all correct
+M14,4,4,all correct
+M15,3.5,4,default thresholds not stated
+M16,4,4,all correct
+M17,4,5,missed record type uniqueness assert
+M18,4,4,all correct
+M19,4,4,all correct
+M20,3,4,missed variant assertion
+M21,4.5,5,tar newest run dir only partial

@@ -1,0 +1,21 @@
+id,facts_hit,facts_total,note
+H01,4.5,6,missed mimic mode; vague on aggregate
+H02,4,5,missed step mask and reset_env_ids
+H04,4.5,5,rebuild_index propagation details missing
+H05,3,5,missed continue_on_error semantics and default list
+H06,5,5,complete
+H07,4,5,missed mutual exclusion case
+H09,4.5,5,missed record_post_step call
+H10,3.5,5,missed default thresholds and builder embodiment
+H11,4,5,missed runner filenames and timing detail
+H12,4,5,missed post_init string conversion
+H13,4.5,5,missed JSONL record
+H14,4.5,5,missed changes_object_geometry
+H15,4,5,missed name and kpi_exporters rules
+H16,5,5,complete
+H17,5,5,complete
+H18,5,6,missed shared base get_action behaviour
+H19,4,5,missed nested includes rejection
+H20,5,5,complete
+H21,5,6,vague on task_library and mimic
+H22,3.5,5,missed enum count and run_after_inexpensive

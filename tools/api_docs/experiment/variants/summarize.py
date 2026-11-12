@@ -77,6 +77,7 @@ def main(d: Path) -> None:
         "c1": "original docstrings, python only",
         "c2": "no docstrings, python only",
         "c3": "no docstrings, no comments, obfuscated names, python only",
+        "c4": "original docstrings + generated API reference, python only",
     }
     titles = {
         "1": "Tier 1 (20 lookup questions)",
@@ -89,7 +90,7 @@ def main(d: Path) -> None:
         by_cond["A"] += a
         by_cond["B"] += b
         rows = [["A", descriptions["A"]] + stats(a), ["B", descriptions["B"]] + stats(b)]
-        for v in ("c0", "c1", "c2", "c3"):
+        for v in ("c0", "c1", "c2", "c3", "c4"):
             tier_rows = variants[(v, tier)]
             by_cond[v] += [
                 {

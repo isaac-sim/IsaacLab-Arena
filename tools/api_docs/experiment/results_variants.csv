@@ -79,6 +79,26 @@ c3,1,Q17,51734,4,10.498,0.75,could not confirm parser.error mechanism
 c3,1,Q18,52072,3,7.467,1,
 c3,1,Q19,51392,4,8.887,1,
 c3,1,Q20,55671,4,18.855,1,identified all nine decorators by behaviour
+c4,1,Q01,53902,5,12.855,1.0000,correct; omits optional asserts
+c4,1,Q02,58769,7,18.901,1.0000,correct
+c4,1,Q03,53736,6,15.793,1.0000,correct
+c4,1,Q04,53010,5,14.146,1.0000,correct
+c4,1,Q05,53826,5,15.825,1.0000,correct
+c4,1,Q06,64142,6,19.294,1.0000,all 20 classes listed; total miscounted as 21
+c4,1,Q07,56738,5,16.247,1.0000,correct
+c4,1,Q08,52173,5,14.499,1.0000,correct
+c4,1,Q09,53702,4,11.833,1.0000,correct
+c4,1,Q10,56643,6,19.166,1.0000,correct
+c4,1,Q11,53547,4,12.351,1.0000,correct
+c4,1,Q12,52560,3,10.837,1.0000,correct
+c4,1,Q13,52062,4,13.475,1.0000,correct
+c4,1,Q14,54238,5,14.733,1.0000,correct
+c4,1,Q15,57833,4,14.179,1.0000,correct
+c4,1,Q16,54786,4,12.441,1.0000,correct
+c4,1,Q17,52963,4,11.859,1.0000,correct
+c4,1,Q18,53992,5,13.467,1.0000,correct
+c4,1,Q19,53309,4,13.539,1.0000,correct
+c4,1,Q20,55162,4,12.296,1.0000,correct
 c0,2,M01,55231,4,12.509,0.9,
 c0,2,M02,55486,5,12.97,1,
 c0,2,M03,58782,7,20.147,1,
@@ -159,6 +179,26 @@ c3,2,M18,57523,6,19.452,0.8750,parse function not named
 c3,2,M19,57379,7,19.497,1.0000,all facts correct
 c3,2,M20,56624,6,16.083,0.8750,variant assert only implied
 c3,2,M21,58860,4,14.326,0.9000,tar newest-run rule vague
+c4,2,M01,59497,6,16.849,0.9000,missing 15s retry interval
+c4,2,M02,57578,6,17.991,1.0000,all correct
+c4,2,M03,57301,4,11.585,1.0000,all correct
+c4,2,M04,54425,7,13.278,0.7500,missed approved target prefixes
+c4,2,M05,62470,5,18.264,1.0000,all correct
+c4,2,M06,56865,9,16.843,1.0000,all correct
+c4,2,M07,58145,6,16.495,1.0000,all correct
+c4,2,M08,54527,4,13.434,1.0000,all correct
+c4,2,M10,58150,6,18.568,1.0000,all correct
+c4,2,M11,54933,4,12.494,0.7000,vague percentile index; no dedicated Random
+c4,2,M12,54444,5,14.248,0.7500,missed floorplan and object source usage
+c4,2,M13,58635,5,15.668,1.0000,all correct
+c4,2,M14,55223,6,16.98,1.0000,all correct
+c4,2,M15,57749,6,17.171,0.8750,default thresholds not stated
+c4,2,M16,55705,6,15.052,1.0000,all correct
+c4,2,M17,55927,8,19.754,0.8000,missed record type uniqueness assert
+c4,2,M18,59392,8,20.516,1.0000,all correct
+c4,2,M19,55213,5,13.897,1.0000,all correct
+c4,2,M20,54428,5,12.676,0.7500,missed variant assertion
+c4,2,M21,57548,6,16.747,0.9000,tar newest run dir only partial
 c0,3,H01,68517,7,27.941,0.7500,missed mimic-mode and aggregate_metrics detail
 c0,3,H02,54035,4,13.209,0.8000,missed step mask and reset_env_ids policy reset
 c0,3,H04,58304,5,16.457,0.8000,missed rebuild_index passing and finally close
@@ -239,3 +279,23 @@ c3,3,H19,57328,6,19.156,0.8000,missing nested include and placement_validators
 c3,3,H20,63344,6,24.961,0.9000,output dir details partial
 c3,3,H21,69774,10,38.15,1.0000,complete
 c3,3,H22,64551,7,24.915,0.7000,missing required_checks and ordering flag
+c4,3,H01,68592,8,28.291,0.7500,missed mimic mode; vague on aggregate
+c4,3,H02,57453,6,16.353,0.8000,missed step mask and reset_env_ids
+c4,3,H04,60267,6,19.932,0.9000,rebuild_index propagation details missing
+c4,3,H05,60262,9,23.157,0.6000,missed continue_on_error semantics and default list
+c4,3,H06,70458,7,26.106,1.0000,complete
+c4,3,H07,57501,5,16.535,0.8000,missed mutual exclusion case
+c4,3,H09,70821,10,32.371,0.9000,missed record_post_step call
+c4,3,H10,68365,6,26.079,0.7000,missed default thresholds and builder embodiment
+c4,3,H11,68722,10,30.673,0.8000,missed runner filenames and timing detail
+c4,3,H12,58412,6,19.553,0.8000,missed post_init string conversion
+c4,3,H13,64660,7,24.667,0.9000,missed JSONL record
+c4,3,H14,74874,9,31.289,0.9000,missed changes_object_geometry
+c4,3,H15,60595,11,18.691,0.8000,missed name and kpi_exporters rules
+c4,3,H16,65429,9,30.017,1.0000,complete
+c4,3,H17,61168,6,18.853,1.0000,complete
+c4,3,H18,61596,5,18.214,0.8333,missed shared base get_action behaviour
+c4,3,H19,59033,8,20.542,0.8000,missed nested includes rejection
+c4,3,H20,63910,9,22.251,1.0000,complete
+c4,3,H21,72135,10,32.573,0.8333,vague on task_library and mimic
+c4,3,H22,63446,6,18.545,0.7000,missed enum count and run_after_inexpensive

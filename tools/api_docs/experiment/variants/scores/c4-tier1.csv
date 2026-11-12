@@ -1,0 +1,21 @@
+id,facts_hit,facts_total,note
+Q01,1,1,correct; omits optional asserts
+Q02,1,1,correct
+Q03,1,1,correct
+Q04,1,1,correct
+Q05,1,1,correct
+Q06,1,1,all 20 classes listed; total miscounted as 21
+Q07,1,1,correct
+Q08,1,1,correct
+Q09,1,1,correct
+Q10,1,1,correct
+Q11,1,1,correct
+Q12,1,1,correct
+Q13,1,1,correct
+Q14,1,1,correct
+Q15,1,1,correct
+Q16,1,1,correct
+Q17,1,1,correct
+Q18,1,1,correct
+Q19,1,1,correct
+Q20,1,1,correct

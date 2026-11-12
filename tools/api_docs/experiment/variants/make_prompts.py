@@ -5,8 +5,9 @@
 
 """Write one prompt file per (variant, question) for the source-variant experiment.
 
-Usage: ``python make_prompts.py <variants_dir> <prompts_dir> <experiment_dir> <tier> [<answers_dir>]`` where tier is 1,
-2 or 3. With ``answers_dir`` each prompt also tells the agent to write its final message to ``<answers_dir>/<ID>.txt``.
+Usage: ``python make_prompts.py <variants_dir> <prompts_dir> <experiment_dir> <tier> [<answers_dir> [<api_docs_dir>]]``
+where tier is 1, 2 or 3. With ``answers_dir`` each prompt also tells the agent to write its final message to
+``<answers_dir>/<ID>.txt``. With ``api_docs_dir`` only the c4 prompts are written (c1 tree plus the API reference).
 For variant c3 the backticked identifiers of the question are replaced by their obfuscated names.
 """
 
@@ -48,16 +49,33 @@ def translate(question: str, mapping: dict[str, str]) -> str:
     return re.sub(r"`([^`]*)`", repl_span, question)
 
 
-def main(variants_dir: Path, prompts_dir: Path, experiment_dir: Path, tier: str, answers_dir: Path | None) -> None:
+def main(
+    variants_dir: Path,
+    prompts_dir: Path,
+    experiment_dir: Path,
+    tier: str,
+    answers_dir: Path | None,
+    api_docs_dir: Path | None = None,
+) -> None:
     prompts_dir.mkdir(parents=True, exist_ok=True)
     mapping = json.loads((variants_dir / "obfuscation_map.json").read_text())
     questions = load_questions(experiment_dir, tier)
-    for variant in ("c0", "c1", "c2", "c3"):
-        repo = variants_dir / variant
+    # With api_docs_dir only the c4 prompts are written: the c1 tree plus a generated API reference.
+    variants = ("c4",) if api_docs_dir is not None else ("c0", "c1", "c2", "c3")
+    for variant in variants:
+        repo = variants_dir / ("c1" if variant == "c4" else variant)
         para = (
             f"The repository is at {repo} . Only read files inside that directory (apart from this prompt file); do not"
             " look elsewhere on the filesystem.\n\n"
         )
+        if variant == "c4":
+            para = (
+                f"The repository is at {repo} . A generated API reference (plain-text files, one directory per module"
+                " under api/<package>/<module>/index.txt; every entry ends with a `Source: path:lines` line giving the"
+                f" repo-relative source location) is at {api_docs_dir} . Start from the API reference; open source"
+                " files only if you need to. Only read files inside those two directories (apart from this prompt"
+                " file); do not look elsewhere on the filesystem.\n\n"
+            )
         for qid, text in questions.items():
             q = translate(text, mapping) if variant == "c3" else text
             name = f"{variant.upper()}-{qid}"
@@ -68,7 +86,7 @@ def main(variants_dir: Path, prompts_dir: Path, experiment_dir: Path, tier: str,
                     " the Write tool, then reply with the single word: done.\n"
                 )
             (prompts_dir / f"{name}.md").write_text(HEADER + para + "Question: " + q + "\n\n" + FORMAT + tail)
-    print(len(questions), "questions x 4 variants")
+    print(len(questions), "questions x", len(variants), "variants")
 
 
 if __name__ == "__main__":
@@ -78,4 +96,5 @@ if __name__ == "__main__":
         Path(sys.argv[3]),
         sys.argv[4],
         Path(sys.argv[5]) if len(sys.argv) > 5 else None,
+        Path(sys.argv[6]) if len(sys.argv) > 6 else None,
     )
