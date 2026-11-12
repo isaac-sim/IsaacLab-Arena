@@ -29,6 +29,9 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher,
 _DISABLE_CRASH_REPORTER_KIT_ARG = "--/crashreporter/enabled=false"
 """Kit argument that disables the Breakpad crash reporter."""
 
+_DISABLE_TELEMETRY_KIT_ARG = "--/app/extensions/excluded/0=omni.kit.telemetry"
+"""Kit argument that excludes the telemetry extension from loading."""
+
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
 
@@ -80,12 +83,13 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
         simulation_app_args = parser.parse_args([])
         simulation_app_args.enable_cameras = enable_cameras
 
-        # NOTE(dtingdahl, 2026.11.11): Disable the crash reporter to avoid deadlocks on the dynamic loader
+        # NOTE(dtingdahl, 2026.11.11): Disable crash reporter and telemetry to avoid deadlocks on the dynamic loader
         # when the sim app crashes during startup. With the reporter disabled the process dies immediately.
         # Disabling lazy dynlib binding (LD_BIND_NOW=1) has the same effect, but is more intrusive; it can
         # be tried if similar problems appear elsewhere.
         # TODO(dtingdahl, 2026.11.11): Can potentially be removed in later versions of Kit.
         simulation_app_args.kit_args = _DISABLE_CRASH_REPORTER_KIT_ARG
+        simulation_app_args.kit_args += f" {_DISABLE_TELEMETRY_KIT_ARG}"
 
         if not headless:
             simulation_app_args.visualizer = ["kit"]
