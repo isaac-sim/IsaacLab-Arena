@@ -25,12 +25,16 @@ def _configure_newton_deformable_physics(
     """Couple Newton rigid bodies to the VBD deformable solver."""
     from isaaclab_contrib.coupling import CouplerEntryCfg, CouplerProxyCfg, CouplerProxyMappingCfg
     from isaaclab_newton.physics import NewtonCfg, NewtonSoftContactCfg, VBDSolverCfg
+    from isaaclab_newton.sim.schemas import NewtonCollisionCfg
 
     physics_cfg = env_cfg.sim.physics
     assert isinstance(physics_cfg, NewtonCfg), (
         "Newton deformable pick objects need the Newton backend. Omit --presets, or use a PhysX asset such as "
         "--pick_object deformable_cube_physx."
     )
+    # Vertex-only soft contacts can leave cube faces crossing the thin plate rim between nodes.
+    # Inflate only the plate collider to give those faces clearance without more solver steps.
+    env_cfg.scene.plate.spawn.collision_props = [NewtonCollisionCfg(contact_margin=0.002)]
     rigid_solver_cfg = physics_cfg.solver_cfg
     all_environment_bodies = [r"/World/envs/env_[^/]+/.*"]
     deformable_contact_bodies = [

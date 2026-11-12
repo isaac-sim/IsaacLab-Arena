@@ -28,6 +28,10 @@ Task Overview
        `VBD solver tuning guide <https://newton-physics.github.io/newton/latest/concepts/simulation_tuning_vbd.html>`_
        for deformable simulation parameters.
 
+The Newton plate uses a 2 mm collision margin to help keep coarse deformable faces clear of its
+thin rim between contact vertices. This expands the collision surface without changing the visual
+mesh, physics timestep, substeps, or solver iterations.
+
 Prerequisites
 -------------
 

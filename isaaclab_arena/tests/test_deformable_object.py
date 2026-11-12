@@ -359,6 +359,18 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
     env = builder.make_registered(env_cfg, env_kwargs)
     try:
         env.reset()
+        if physics_backend == "newton":
+            from isaaclab_newton.physics import NewtonManager
+
+            model = NewtonManager.backend.model
+            soft_model = NewtonManager._solver._entries["soft"].view
+            # Coupling caches shape properties separately. Check the spawned margin reaches both
+            # solvers in every environment, rather than checking only the spawn configuration.
+            for env_id in range(env.unwrapped.num_envs):
+                plate_shape_ids = [i for i, label in enumerate(model.shape_label) if f"/env_{env_id}/plate/" in label]
+                assert plate_shape_ids
+                for contact_model in (model, soft_model):
+                    assert contact_model.shape_margin.numpy()[plate_shape_ids] == pytest.approx(0.002)
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         deformable = env.unwrapped.scene.deformable_objects["pick_object"]
         assert isinstance(deformable.cfg.spawn.deformable_props, expected_deformable_props_type)
