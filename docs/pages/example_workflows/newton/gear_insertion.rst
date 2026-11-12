@@ -228,10 +228,9 @@ See :ref:`vlm-agent-policies` for how the policy works, and set up an inference 
 
    All three configurations below set ``policy.endpoint: internal``, whose default model is
    ``openai/openai/gpt-6-astra``. The internal endpoint is accessible by NVIDIA employees only and
-   reads ``NV_API_KEY``. ``export ARENA_INFERENCE_ENDPOINT=public`` has **no effect** on these
-   runs, because a ``policy.endpoint`` set in the configuration takes precedence over the
-   environment variable. To use the ``public`` or ``openai`` endpoint, append the override for the
-   Run to the command, or change ``policy.endpoint`` in the YAML:
+   reads ``NV_API_KEY``. ``policy.endpoint`` is the only setting that selects the endpoint;
+   ``ARENA_INFERENCE_ENDPOINT`` is ignored. To use the ``public`` or ``openai`` endpoint, append the
+   override for the Run to the command, or change ``policy.endpoint`` in the YAML:
 
    .. code-block:: bash
 

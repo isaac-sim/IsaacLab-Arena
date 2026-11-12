@@ -319,6 +319,31 @@ def test_goal_config_rejects_invalid_step_budget(max_steps):
         VLMGoalPolicyCfg(system_prompt="Control joints", max_steps_per_goal=max_steps)
 
 
+@pytest.mark.parametrize("endpoint", [None, "", "unknown"])
+def test_config_rejects_unknown_endpoint(endpoint):
+    with pytest.raises(AssertionError, match="policy.endpoint"):
+        VLMPolicyCfg(system_prompt="Control joints", endpoint=endpoint)
+
+
+@pytest.mark.parametrize(("config_endpoint", "expected_endpoint"), [(None, "public"), ("internal", "internal")])
+def test_policy_endpoint_ignores_environment_variable(monkeypatch, config_endpoint, expected_endpoint):
+    import isaaclab_arena.inference.backend as backend_module
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=Mock())), close=Mock())
+    client.chat.completions.create.return_value = response("OK")
+    monkeypatch.setattr(backend_module, "OpenAI", Mock(return_value=client))
+    monkeypatch.setenv(backend_module.INFERENCE_ENDPOINT_ENV_VAR, "openai")
+    for endpoint in backend_module.INFERENCE_ENDPOINTS.values():
+        monkeypatch.setenv(endpoint.api_key_env_var, "test-only")
+    endpoint_kwargs = {} if config_endpoint is None else {"endpoint": config_endpoint}
+    config = VLMPolicyCfg(system_prompt="Control joints", max_concurrent_requests=1, **endpoint_kwargs)
+    policy = SingleCommandPolicy(config, observation_adapter=ObservationAdapter(), action_adapter=ActionAdapter())
+    try:
+        assert policy._inference_backend.endpoint.name == expected_endpoint
+    finally:
+        policy.close()
+
+
 class JointChunkAdapter(ChunkActionAdapter):
 
     def is_robot_action_space_supported(self, env):

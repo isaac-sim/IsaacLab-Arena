@@ -23,7 +23,13 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from isaaclab_arena.assets.register import register_policy
-from isaaclab_arena.inference.backend import InferenceBackend, InferenceRequest, build_strict_schema
+from isaaclab_arena.inference.backend import (
+    INFERENCE_ENDPOINTS,
+    PUBLIC_ENDPOINT,
+    InferenceBackend,
+    InferenceRequest,
+    build_strict_schema,
+)
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
@@ -92,8 +98,8 @@ class VLMPolicyCfg(PolicyCfg):
     observation_modality: ObservationModality = ObservationModality.image_state
     """One of image, state, or image_state; ignored when an observation adapter is injected."""
 
-    endpoint: str | None = None
-    """Inference endpoint preset, or None to use ARENA_INFERENCE_ENDPOINT."""
+    endpoint: str = PUBLIC_ENDPOINT.name
+    """Inference endpoint preset: internal, public, or openai. ARENA_INFERENCE_ENDPOINT is ignored."""
 
     model: str | None = None
     """Optional model override; image observations require a vision-capable model."""
@@ -114,6 +120,9 @@ class VLMPolicyCfg(PolicyCfg):
         else:
             assert isinstance(self.system_prompt, str) and self.system_prompt.strip(), "Set policy.system_prompt"
         assert self.vlm_embodiment_adapter in (None, "droid"), "Unknown vlm_embodiment_adapter; expected 'droid'"
+        assert (
+            self.endpoint in INFERENCE_ENDPOINTS
+        ), f"Unknown policy.endpoint {self.endpoint!r}; expected one of {sorted(INFERENCE_ENDPOINTS)}"
         for path in self.system_prompt_files:
             assert Path(path).is_file(), f"System prompt file does not exist: '{path}'"
         self.observation_modality = ObservationModality(self.observation_modality)
