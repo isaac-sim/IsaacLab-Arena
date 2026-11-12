@@ -1,0 +1,41 @@
+id,arm,tokens,tool_uses,duration_s,grade,note
+Q01,A,53085,3,9.787,correct,
+Q01,B,52011,3,8.754,correct,
+Q02,A,50577,3,7.358,wrong,answered Axis (X/Y/Z) not Side; question ambiguous
+Q02,B,51287,4,10.633,correct,found Side and noted Axis
+Q03,A,53757,7,16.984,correct,
+Q03,B,51046,3,8.248,correct,
+Q04,A,51625,4,13.113,correct,docs only say "periodically"; needed source
+Q04,B,51030,3,9.924,correct,
+Q05,A,52038,5,13.842,correct,
+Q05,B,51106,3,9.519,correct,
+Q06,B,52559,2,11.297,correct,found all 20 via grep of class lines
+Q07,A,55462,4,10.813,correct,docs did not state assert behaviour; read source
+Q07,B,50850,3,7.547,correct,
+Q08,A,50770,3,7.865,correct,
+Q08,B,50756,3,8.252,correct,
+Q09,A,51329,4,9.843,correct,
+Q09,B,53413,3,8.153,correct,
+Q10,A,56121,4,10.330,correct,docs had no entry for CLI flags; read source
+Q10,B,53846,4,12.244,correct,
+Q06,A,60887,5,17.351,correct,docs list no base classes; verified in source
+Q11,A,51076,3,8.804,correct,
+Q11,B,52473,3,8.682,correct,
+Q12,A,51141,3,7.649,correct,
+Q13,B,51590,3,8.561,correct,
+Q14,A,54150,3,8.100,correct,docs lack env var names; read source
+Q14,B,51319,3,8.644,correct,
+Q15,A,53407,2,7.361,partial,did not open source; missed numeric threshold 1e-6
+Q15,B,52772,3,8.881,correct,
+Q12,B,52821,3,9.742,correct,
+Q13,A,51375,5,13.262,correct,
+Q19,A,50663,2,5.795,partial,found location and precondition; did not open source so violation behaviour unknown
+Q20,B,51123,2,6.632,correct,asset_factory mapping flagged unverified but right
+Q16,A,54102,3,9.207,correct,
+Q16,B,51189,3,8.499,correct,
+Q17,A,51418,3,8.667,correct,
+Q17,B,50728,3,8.498,correct,
+Q18,A,51701,4,11.193,correct,
+Q18,B,51872,3,8.647,correct,
+Q19,B,50871,3,8.356,correct,
+Q20,A,53400,4,13.312,correct,
