@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers that read recorded metric data from an environment's dataset file."""
+
 import h5py
 import numpy as np
 import pathlib

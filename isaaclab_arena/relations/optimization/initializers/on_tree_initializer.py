@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Initializer that seeds objects by walking the tree of On relations, plus relation-to-AABB strategies."""
+
 from __future__ import annotations
 
 import math
@@ -39,6 +41,17 @@ class OnTreeInitializer(PlacementInitializerBase):
         generator: torch.Generator | None = None,
     ) -> dict[PlaceableAsset, tuple[float, float, float]]:
         # Getting the first anchor's center, which will act as a fallback.
+        """Generate a start position for every object by sampling inside bounds implied by its relations.
+
+        Args:
+            objects: All placement objects.
+            anchor_objects: Objects with fixed poses.
+            asset_to_bbox: Local bounding box of each object.
+            generator: Random generator for reproducible sampling, or None for the global generator.
+
+        Returns:
+            Start position (x, y, z) in the world frame for every object.
+        """
         first_anchor = next(obj for obj in objects if obj in anchor_objects)
         fallback_center = get_world_bbox_at_initial_pose(first_anchor, asset_to_bbox).center[0]
         fallback_position = (float(fallback_center[0]), float(fallback_center[1]), float(fallback_center[2]))
@@ -191,7 +204,11 @@ class RelationToAABBStrategy(ABC):
 
     @abstractmethod
     def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
-        """Return references whose world bounds must be available before get_bounds."""
+        """Return references whose world bounds must be available before get_bounds.
+
+        Args:
+            relation: Relation to inspect.
+        """
 
     @abstractmethod
     def get_bounds(
@@ -213,6 +230,11 @@ class PositionLimitsBoxToAABBStrategy(RelationToAABBStrategy):
     """Narrow origins to absolute position limits without reference dependencies."""
 
     def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
+        """Return no references, since a position-limits box is independent of other objects.
+
+        Args:
+            relation: Position-limits relation.
+        """
         return ()
 
     def get_bounds(
@@ -221,6 +243,13 @@ class PositionLimitsBoxToAABBStrategy(RelationToAABBStrategy):
         subject_bbox: AxisAlignedBoundingBox,
         sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
+        """Return the position-limits box as world bounds.
+
+        Args:
+            relation: Position-limits relation.
+            subject_bbox: Local bounding box of the constrained object.
+            sampled_world_bboxes: World bounding boxes of objects sampled so far.
+        """
         return _bounds_from_position_limits_box(relation)
 
 
@@ -228,6 +257,11 @@ class AlignWithToAABBStrategy(RelationToAABBStrategy):
     """Narrow origins to an alignment band after its reference has been sampled."""
 
     def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
+        """Return the relation's parent, whose world bounds must be known first.
+
+        Args:
+            relation: Align-with relation.
+        """
         return (relation.parent,)
 
     def get_bounds(
@@ -236,6 +270,13 @@ class AlignWithToAABBStrategy(RelationToAABBStrategy):
         subject_bbox: AxisAlignedBoundingBox,
         sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
+        """Return bounds that align the object with its parent along the relation's axis.
+
+        Args:
+            relation: Align-with relation.
+            subject_bbox: Local bounding box of the constrained object.
+            sampled_world_bboxes: World bounding boxes of objects sampled so far.
+        """
         return _bounds_from_align_with(relation, subject_bbox, sampled_world_bboxes[relation.parent])
 
 
@@ -243,6 +284,11 @@ class NextToToAABBStrategy(RelationToAABBStrategy):
     """Narrow origins to the requested side and gap after the reference has been sampled."""
 
     def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
+        """Return the relation's parent, whose world bounds must be known first.
+
+        Args:
+            relation: Next-to relation.
+        """
         return (relation.parent,)
 
     def get_bounds(
@@ -251,6 +297,13 @@ class NextToToAABBStrategy(RelationToAABBStrategy):
         subject_bbox: AxisAlignedBoundingBox,
         sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
+        """Return bounds that place the object beside its parent on the relation's side.
+
+        Args:
+            relation: Next-to relation.
+            subject_bbox: Local bounding box of the constrained object.
+            sampled_world_bboxes: World bounding boxes of objects sampled so far.
+        """
         return _bounds_from_next_to(relation, subject_bbox, sampled_world_bboxes[relation.parent])
 
 
@@ -262,7 +315,11 @@ RELATION_TO_AABB_STRATEGIES: dict[type[RelationBase], RelationToAABBStrategy] = 
 
 
 def get_relation_to_aabb_strategy(relation: RelationBase) -> RelationToAABBStrategy | None:
-    """Find the registered strategy for the relation's most specific supported base class."""
+    """Find the registered strategy for the relation's most specific supported base class.
+
+    Args:
+        relation: Relation to look up a strategy for.
+    """
     for relation_type in type(relation).__mro__:
         if relation_type in RELATION_TO_AABB_STRATEGIES:
             return RELATION_TO_AABB_STRATEGIES[relation_type]

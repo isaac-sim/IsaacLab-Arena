@@ -35,12 +35,16 @@ class DataIssue:
 
 @dataclass(frozen=True)
 class ParsedEpisodeResultsName:
+    """Rebuild and rank indices parsed from an episode results filename."""
+
     rebuild_index: int
     rank_index: int | None
 
 
 @dataclass(frozen=True)
 class ParsedEpisodeVideoName:
+    """Fields parsed from a recorder mp4 filename."""
+
     prefix: str
     rebuild_index: int
     env_index: int
@@ -49,7 +53,11 @@ class ParsedEpisodeVideoName:
 
 
 def parse_episode_results_filename(filename: str) -> ParsedEpisodeResultsName | None:
-    """Parse an episode results filename, or return ``None`` when it is not one."""
+    """Parse an episode results filename, or return `None` when it is not one.
+
+    Args:
+        filename: Base name of the file, without directories.
+    """
     match = EPISODE_RESULTS_FILENAME_PATTERN.match(filename)
     if match is None:
         return None
@@ -62,7 +70,11 @@ def parse_episode_results_filename(filename: str) -> ParsedEpisodeResultsName | 
 
 
 def parse_episode_video_filename(filename: str) -> ParsedEpisodeVideoName | None:
-    """Parse a recorder mp4 filename, or return ``None`` if it does not match the recorder format."""
+    """Parse a recorder mp4 filename, or return `None` if it does not match the recorder format.
+
+    Args:
+        filename: Base name of the file, without directories.
+    """
     match = EPISODE_VIDEO_FILENAME_PATTERN.match(filename)
     if match is None:
         return None
@@ -77,7 +89,19 @@ def parse_episode_video_filename(filename: str) -> ParsedEpisodeVideoName | None
 
 
 def format_episode_video_filename(name_prefix: str, env_index: int, camera_name: str, episode_index: int) -> str:
-    """Build the mp4 filename for one ``(env, camera, episode)`` in tests and small utilities."""
+    """Build the mp4 filename for one `(env, camera, episode)`.
+
+    Path separators in the camera name are replaced with underscores.
+
+    Args:
+        name_prefix: Filename prefix.
+        env_index: Index of the environment.
+        camera_name: Name of the camera.
+        episode_index: Index of the episode.
+
+    Returns:
+        The mp4 filename.
+    """
     safe_camera_name = camera_name.replace("/", "_").replace("\\", "_")
     return f"{name_prefix}-env{env_index}-{safe_camera_name}-episode-{episode_index}.mp4"
 
@@ -91,7 +115,11 @@ def _is_under_generated_report(path: Path, root: Path) -> bool:
 
 
 def find_episode_results_files(root: str | Path) -> list[Path]:
-    """Return every per-episode results file under ``root``, excluding generated report pages."""
+    """Return every per-episode results file under `root`, excluding generated report pages.
+
+    Args:
+        root: Directory searched recursively.
+    """
     root = Path(root)
     return sorted(
         path
@@ -101,7 +129,11 @@ def find_episode_results_files(root: str | Path) -> list[Path]:
 
 
 def find_episode_video_files(root: str | Path) -> list[Path]:
-    """Return every recorder mp4 under ``root``, excluding generated report pages."""
+    """Return every recorder mp4 under `root`, excluding generated report pages.
+
+    Args:
+        root: Directory searched recursively.
+    """
     root = Path(root)
     return sorted(
         path
@@ -111,7 +143,12 @@ def find_episode_video_files(root: str | Path) -> list[Path]:
 
 
 def read_episode_results(path: str | Path, root: str | Path | None = None) -> tuple[list[dict], list[DataIssue]]:
-    """Return valid JSON object records from one results file plus recoverable read issues."""
+    """Return valid JSON object records from one results file plus recoverable read issues.
+
+    Args:
+        path: Results file to read.
+        root: Directory that reported issue paths are made relative to, when the file is under it.
+    """
     path = Path(path)
     display_path = _display_path(path, root)
     records: list[dict] = []

@@ -54,7 +54,11 @@ class PlacementCandidateBatch:
         return len(self.candidates)
 
     def select(self, indices: list[int]) -> PlacementCandidateBatch:
-        """Select or reorder layouts by batch index, sharing the candidates and copying their collision rows."""
+        """Select or reorder layouts by batch index, sharing the candidates and copying their collision rows.
+
+        Args:
+            indices: Batch indices of the layouts to keep, in the desired order.
+        """
         selected = PlacementCandidateBatch([self.candidates[i] for i in indices])
         if self.collision_bboxes is not None and indices:
             selected.collision_bboxes = {}

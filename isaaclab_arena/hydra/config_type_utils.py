@@ -17,7 +17,12 @@ from typing import Any, Literal, Union, get_args, get_origin, get_type_hints
 
 @cache
 def field_annotation(owner: type, field_name: str) -> Any:
-    """Resolve one inherited dataclass field annotation without resolving unrelated fields."""
+    """Resolve one inherited dataclass field annotation without resolving unrelated fields.
+
+    Args:
+        owner: Dataclass type that declares or inherits the field.
+        field_name: Name of the field.
+    """
     for cls in owner.__mro__:
         # Isaac Lab copies inherited annotations into each configclass. Use its
         # original field declarations to find the module that owns the imports.
@@ -36,7 +41,11 @@ def field_annotation(owner: type, field_name: str) -> Any:
 
 
 def list_element_type(annotation: Any) -> Any | None:
-    """Return the element annotation for ``list[T]``, or ``None`` when the annotation is not a list."""
+    """Return the element annotation for ``list[T]``, or ``None`` when the annotation is not a list.
+
+    Args:
+        annotation: Type annotation to inspect.
+    """
     if get_origin(annotation) is list:
         args = get_args(annotation)
         return args[0] if args else Any
@@ -44,7 +53,11 @@ def list_element_type(annotation: Any) -> Any | None:
 
 
 def concrete_dataclass_type(annotation: Any) -> type | None:
-    """Return a single dataclass type annotation, or ``None`` for unions and non-dataclass fields."""
+    """Return a single dataclass type annotation, or ``None`` for unions and non-dataclass fields.
+
+    Args:
+        annotation: Type annotation to inspect.
+    """
     if union_members(annotation) is not None:
         return None
     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
@@ -53,7 +66,11 @@ def concrete_dataclass_type(annotation: Any) -> type | None:
 
 
 def union_members(annotation: Any) -> tuple[Any, ...] | None:
-    """Return union member annotations, or ``None`` when the annotation is not a union."""
+    """Return union member annotations, or ``None`` when the annotation is not a union.
+
+    Args:
+        annotation: Type annotation to inspect.
+    """
     origin = get_origin(annotation)
     if origin in (types.UnionType, Union):
         return get_args(annotation)
@@ -61,7 +78,12 @@ def union_members(annotation: Any) -> tuple[Any, ...] | None:
 
 
 def annotation_accepts_type(annotation: Any, target_cls: type) -> bool:
-    """Return whether ``target_cls`` is compatible with a field annotation."""
+    """Return whether ``target_cls`` is compatible with a field annotation.
+
+    Args:
+        annotation: Field annotation.
+        target_cls: Class to test.
+    """
     members = union_members(annotation)
     if members is not None:
         return any(annotation_accepts_type(member, target_cls) for member in members)
@@ -69,7 +91,12 @@ def annotation_accepts_type(annotation: Any, target_cls: type) -> bool:
 
 
 def annotation_accepts_value(annotation: Any, value: Any) -> bool:
-    """Return whether a plain value is compatible with an annotation."""
+    """Return whether a plain value is compatible with an annotation.
+
+    Args:
+        annotation: Field annotation.
+        value: Value to test.
+    """
     members = union_members(annotation)
     if members is not None:
         return any(annotation_accepts_value(member, value) for member in members)
@@ -101,7 +128,12 @@ def annotation_accepts_value(annotation: Any, value: Any) -> bool:
 
 
 def convert_override_value(annotation: Any, value: Any) -> Any:
-    """Convert one serialized override value to a safe annotation-compatible runtime value."""
+    """Convert one serialized override value to a safe annotation-compatible runtime value.
+
+    Args:
+        annotation: Field annotation that the value should satisfy.
+        value: Serialized override value.
+    """
     members = union_members(annotation)
     if members is not None:
         for member in members:
@@ -134,7 +166,11 @@ def convert_override_value(annotation: Any, value: Any) -> Any:
 
 
 def annotation_contains_dataclass(annotation: Any) -> bool:
-    """Return whether an annotation contains a dataclass type."""
+    """Return whether an annotation contains a dataclass type.
+
+    Args:
+        annotation: Type annotation to inspect.
+    """
     members = union_members(annotation)
     if members is not None:
         return any(annotation_contains_dataclass(member) for member in members)

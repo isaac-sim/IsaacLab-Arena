@@ -33,10 +33,10 @@ A rollout limit is one choice among exclusive fields, so merging two limits of d
 
 
 def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
-    """Initialize Hydra only when composition has no caller-owned context.
+    """Initialize Hydra only when no Hydra context is already initialized.
 
-    Arena composes Experiments both standalone and from callers already using
-    Hydra. Existing caller state must remain intact.
+    Arena composes Experiments both standalone and inside an existing Hydra context.
+    Existing Hydra state remains intact.
     """
     if GlobalHydra.instance().is_initialized():
         return nullcontext()
@@ -58,7 +58,7 @@ def load_arena_experiment_from_yaml(
     Hydra overrides can update shared Run defaults or fields on Runs declared in YAML, but cannot add Runs.
     Shared defaults are applied before Run overrides. The Experiment name is the file's top-level ``name`` or,
     when it has none, the file stem. The optional top-level ``kpi_exporters`` list selects the KPI exporters; an override
-    ``kpi_exporters=[<x>,<y>]`` replaces it, and the default applies when the file has none.
+    ``kpi_exporters=[<x>,<y>]`` replaces it, and the standard exporters apply when the file has none.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.

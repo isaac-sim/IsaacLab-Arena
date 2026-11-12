@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Object placer that solves relation constraints and returns validated placements."""
+
 from __future__ import annotations
 
 import math
@@ -56,6 +58,11 @@ class ObjectPlacer:
     """
 
     def __init__(self, params: ObjectPlacerParams | None = None):
+        """Create a placer with its candidate generator, solver and validators.
+
+        Args:
+            params: Placement configuration; None selects standard placement settings.
+        """
         self.params = params or ObjectPlacerParams()
         self._candidate_generator = PlacementCandidateGenerator(self.params)
         self._solver = RelationSolver(params=self.params.solver_params)

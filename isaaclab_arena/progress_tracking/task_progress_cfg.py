@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration of task progress tracking."""
+
 from dataclasses import dataclass, field
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria

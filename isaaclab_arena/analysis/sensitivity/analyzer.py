@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Neural posterior estimation of how varied factors relate to episode outcomes."""
+
 from __future__ import annotations
 
 import torch
@@ -33,6 +35,11 @@ class SensitivityAnalyzer:
     """
 
     def __init__(self, dataset: SensitivityDataset):
+        """Create an analyzer for a dataset.
+
+        Args:
+            dataset: Factors and outcomes of the episodes to analyze.
+        """
         self.dataset = dataset
         self.posterior = None
         continuous_factors = [factor for factor in dataset.factors if factor.type == "continuous"]
@@ -82,7 +89,11 @@ class SensitivityAnalyzer:
         return denormalized
 
     def fit(self, training_batch_size: int = 50):
-        """Train the estimator on the full (theta, x); store and return the fitted posterior."""
+        """Train the estimator on the full (theta, x); store and return the fitted posterior.
+
+        Args:
+            training_batch_size: Batch size used to train the density estimator.
+        """
         print(
             f"[INFO] SensitivityAnalyzer: fitting {self._select_inference_class().__name__} on"
             f" {self.dataset.num_episodes} episodes"
@@ -97,9 +108,13 @@ class SensitivityAnalyzer:
     def sample_posterior(self, observation: torch.Tensor | None = None, num_samples: int = 5000) -> torch.Tensor:
         """Sample the joint posterior over all factors at observation.
 
-        Defaults to the dataset's default observation (condition on success). Returns a
+        Conditions on success unless an observation is given. Returns a
         (num_samples, num_factors) tensor laid out like theta — continuous columns first
         (in original, denormalized units), then integer-coded categorical columns.
+
+        Args:
+            observation: Outcome values to condition on; None conditions on success.
+            num_samples: Number of samples to draw.
         """
         assert self.posterior is not None, "Call fit() before sampling the posterior"
         if observation is None:

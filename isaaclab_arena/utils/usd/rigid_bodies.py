@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Helpers for finding rigid bodies in USD stages and files."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

@@ -177,7 +177,12 @@ def object_is_moving_slowly(
     object_linear_velocity_w: torch.Tensor,
     velocity_threshold: float,
 ) -> torch.Tensor:
-    """Check whether object linear speed is below the threshold."""
+    """Check whether object linear speed is below the threshold.
+
+    Args:
+        object_linear_velocity_w: Object linear velocity in the world frame, with shape (num_envs, 3).
+        velocity_threshold: Linear speed threshold in meters per second.
+    """
     return torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
 
 
@@ -240,8 +245,8 @@ def lateral_in_proximity(
         receiver_name: Receiver asset name.
         target_offset_xyz: Target point in the receiver frame.
         tolerance_lateral: Maximum perpendicular distance from the target axis.
-        subject_offset_xyz: Point in the subject frame; defaults to its origin.
-        receiver_axis: Plane normal in the receiver frame; defaults to +Z.
+        subject_offset_xyz: Point in the subject frame; the subject origin when omitted.
+        receiver_axis: Plane normal in the receiver frame; the receiver Z axis when omitted.
 
     Returns:
         One Boolean result per environment.
@@ -272,8 +277,8 @@ def depth_in_range(
         target_offset_xyz: Target point in the receiver frame.
         depth_min: Inclusive minimum signed depth.
         depth_max: Inclusive maximum signed depth, or None for no upper limit.
-        subject_offset_xyz: Point in the subject frame; defaults to its origin.
-        receiver_axis: Depth axis in the receiver frame; defaults to +Z.
+        subject_offset_xyz: Point in the subject frame; the subject origin when omitted.
+        receiver_axis: Depth axis in the receiver frame; the receiver Z axis when omitted.
 
     Returns:
         One Boolean result per environment.
@@ -300,7 +305,17 @@ def tilt_axis_aligned(
     *,
     allow_antiparallel: bool = False,
 ) -> torch.Tensor:
-    """Check the angle between configured axes, optionally accepting opposite directions."""
+    """Check the angle between configured axes, optionally accepting opposite directions.
+
+    Args:
+        env: The environment.
+        subject_name: Scene key of the object whose axis is checked.
+        receiver_name: Scene key of the object whose axis the subject axis is compared with.
+        max_tilt_rad: Maximum allowed angle between the two axes, in radians.
+        subject_axis: Axis in the subject's local frame.
+        receiver_axis: Axis in the receiver's local frame.
+        allow_antiparallel: Whether an axis pointing in the opposite direction also counts as aligned.
+    """
     assert 0.0 <= max_tilt_rad <= math.pi, f"max_tilt_rad must be in [0, pi], got {max_tilt_rad}."
     arena_world = env.arena_world
     T_W_S = arena_world.get_pose_w(subject_name)
@@ -321,7 +336,14 @@ def velocity_below_threshold(
     linear_velocity_threshold: float,
     angular_velocity_threshold: float | None = None,
 ) -> torch.Tensor:
-    """Check subject root linear speed and, optionally, angular speed."""
+    """Check subject root linear speed and, optionally, angular speed.
+
+    Args:
+        env: The environment.
+        subject_name: Scene key of the object to check.
+        linear_velocity_threshold: Maximum linear speed in meters per second.
+        angular_velocity_threshold: Maximum angular speed in radians per second; not checked when None.
+    """
     arena_world = env.arena_world
     linear_velocity_w = arena_world.get_root_linear_velocity_w(subject_name)
     result = torch.linalg.vector_norm(linear_velocity_w, dim=-1) <= linear_velocity_threshold
@@ -345,6 +367,13 @@ def object_is_above_height(
     has been recorded, the result is always False.
 
     Returns True when ``object_name`` is at least ``distance`` m above a height reference.
+
+    Args:
+        env: The environment.
+        object_name: Scene key of the object to check.
+        surface_height: Fixed reference height in meters; must be given unless `use_settled_state` is set.
+        use_settled_state: Whether to use the object's recorded resting height as the reference.
+        distance: Required height in meters above the reference.
     """
 
     assert (
@@ -368,6 +397,11 @@ def object_moving(
     """Check whether an object is moving above a velocity threshold.
 
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
+
+    Args:
+        env: The environment.
+        object_name: Scene key of the object to check.
+        velocity_threshold: Linear speed threshold in meters per second.
     """
 
     arena_world = env.arena_world
@@ -387,6 +421,14 @@ def objects_in_proximity(
     """Determine if two objects are within a certain proximity of each other.
 
     Returns True when the object is within a certain proximity of the target object.
+
+    Args:
+        env: The environment.
+        object_cfg: Scene entity of the object.
+        target_object_cfg: Scene entity of the target object.
+        max_y_separation: Exclusive upper bound on the absolute y separation of the world positions, in meters.
+        max_x_separation: Exclusive upper bound on the absolute x separation of the world positions, in meters.
+        max_z_separation: Exclusive upper bound on the absolute z separation of the world positions, in meters.
     """
 
     arena_world = env.arena_world
@@ -415,7 +457,7 @@ def object_supported_by(
     """Check whether a large fraction of object's lowest vertices are close to the destination's top surface.
 
     This is a geometric-only implementation to replace contact-sensor based contact_force_is_upward_support.
-    Use this for deformable objects which don't have contact sensor support yet, see
+    It needs no contact sensor, which deformable objects don't support yet, see
     https://github.com/isaac-sim/IsaacLab/issues/4410
 
     Args:

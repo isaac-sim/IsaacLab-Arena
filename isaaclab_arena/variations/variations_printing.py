@@ -201,7 +201,7 @@ def _cfg_to_plain(obj: Any) -> Any:
     """Recursively convert configclass / dataclass instances to plain Python types.
 
     Normalises the many cfg representations (configclass, dataclass, list, dict)
-    into nested dicts/lists/scalars so :func:`_flatten_paths` has one shape to walk.
+    into nested dicts/lists/scalars so ``_flatten_paths`` has one shape to walk.
     """
     if hasattr(obj, "to_dict"):  # Isaac Lab configclass.
         return obj.to_dict()

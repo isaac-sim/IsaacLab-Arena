@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Press-button environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -26,12 +28,17 @@ class PressButtonEnvironmentCfg(ArenaEnvironmentCfg):
 
 @register_environment
 class PressButtonEnvironment(ArenaEnvironmentFactory[PressButtonEnvironmentCfg]):
+    """Press-button environment."""
 
     name: str = "press_button"
     _legacy_argparse_cfg_type = PressButtonEnvironmentCfg
 
     def build(self, cfg: PressButtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.press_button_task import PressButtonTask

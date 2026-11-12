@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Recorder of the samples drawn by variations and the placement sampler, keyed by env and episode."""
+
 from __future__ import annotations
 
 import torch
@@ -30,6 +32,12 @@ class VariationRecord:
     """Per-variation record of the values drawn for it."""
 
     def __init__(self, name: str, cfg: VariationBaseCfg | None = None) -> None:
+        """Initialize an empty record.
+
+        Args:
+            name: Name of the recorded variation.
+            cfg: Cfg of the recorded variation, if any.
+        """
         self.name = name
         self.cfg = cfg
         # Run-time draw, one per (env id, episode index).
@@ -55,7 +63,11 @@ class VariationRecord:
             self._samples_by_env_episode[key] = sample[row]
 
     def record_buildtime_sample(self, sample: Any) -> None:
-        """Record the all-envs (build-time) ``sample``; it applies to every episode of every env."""
+        """Record the all-envs (build-time) ``sample``; it applies to every episode of every env.
+
+        Args:
+            sample: The drawn sample; must hold exactly one value.
+        """
         assert (
             len(sample) == 1
         ), f"Variation '{self.name}' build-time draw expected a single sample for all envs; got {len(sample)}."
@@ -66,6 +78,13 @@ class VariationRecord:
 
         A build-time (all-envs) draw applies to every episode; otherwise the run-time draw made
         during that episode is returned.
+
+        Args:
+            env_id: Id of the env.
+            episode_idx: Index of the episode of that env.
+
+        Returns:
+            The recorded value, or ``None`` if none was drawn.
         """
         key = EnvEpisodeKey(env_id, episode_idx)
         if key in self._samples_by_env_episode:
@@ -77,7 +96,12 @@ class VariationRecord:
         self._samples_by_env_episode.clear()
 
     def release_episode(self, env_id: int, episode_idx: int) -> None:
-        """Release the run-time sample retained for a finished episode."""
+        """Release the run-time sample retained for a finished episode.
+
+        Args:
+            env_id: Id of the env.
+            episode_idx: Index of the finished episode of that env.
+        """
         self._samples_by_env_episode.pop(EnvEpisodeKey(env_id, episode_idx), None)
 
 
@@ -92,7 +116,11 @@ class VariationRecorder:
         self._env: Any = None
 
     def bind_env(self, env: Any) -> None:
-        """Start recording for a new env, retaining build-time draws and clearing prior runtime samples."""
+        """Start recording for a new env, retaining build-time draws and clearing prior runtime samples.
+
+        Args:
+            env: The env whose episode indices attribute per-env draws. Held by weak reference.
+        """
         for record in self.records.values():
             record.clear_runtime_samples()
         if self.placement_record is not None:
@@ -108,14 +136,23 @@ class VariationRecorder:
         return key in self.records
 
     def release_episode(self, env_id: int, episode_idx: int) -> None:
-        """Release all run-time variation and placement samples for a finished episode."""
+        """Release all run-time variation and placement samples for a finished episode.
+
+        Args:
+            env_id: Id of the env.
+            episode_idx: Index of the finished episode of that env.
+        """
         for record in self.records.values():
             record.release_episode(env_id, episode_idx)
         if self.placement_record is not None:
             self.placement_record.release_episode(env_id, episode_idx)
 
     def attach(self, variations: dict[str, list[VariationBase]]) -> None:
-        """Attach every enabled variation in ``variations`` under "{asset_name}.{variation_name}"."""
+        """Attach every enabled variation in ``variations`` under "{asset_name}.{variation_name}".
+
+        Args:
+            variations: Variations of each asset, keyed by asset name.
+        """
         for variation_key, variation in get_enabled_variations_by_key(variations).items():
             assert (
                 variation_key not in self.records
@@ -131,7 +168,12 @@ class VariationRecorder:
         sampler: SamplerBase,
         serializer: Callable[[Any], Any],
     ) -> None:
-        """Attach a placement sampler without representing it as a variation."""
+        """Attach a placement sampler without representing it as a variation.
+
+        Args:
+            sampler: The placement sampler whose draws are recorded.
+            serializer: Converts each drawn sample into the value that is recorded.
+        """
         assert self.placement_record is None, "VariationRecorder already has an attached placement sampler."
         self.placement_record = VariationRecord(name="placement")
         sampler.add_listener(self._make_listener(self.placement_record, serializer))

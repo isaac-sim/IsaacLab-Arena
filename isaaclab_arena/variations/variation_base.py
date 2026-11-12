@@ -5,14 +5,14 @@
 
 """Variation abstract base classes.
 
-A :class:`VariationBase` pairs a target asset with a sampler and a hook that
+A ``VariationBase`` pairs a target asset with a sampler and a hook that
 realises one tweak to the scene. Variations attach to any
-:class:`~isaaclab_arena.assets.asset.Asset` and start disabled. Concrete
+``isaaclab_arena.assets.asset.Asset`` and start disabled. Concrete
 variations subclass one of two flavors:
 
-* :class:`RunTimeVariationBase` — realised via an event term during simulation
+* ``RunTimeVariationBase`` — realised via an event term during simulation
   (e.g. per-reset randomization).
-* :class:`BuildTimeVariationBase` — sampled once and applied to asset configs
+* ``BuildTimeVariationBase`` — sampled once and applied to asset configs
   before the env cfg is composed (e.g. picking a dome-light HDR).
 """
 
@@ -33,10 +33,10 @@ from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 
 @configclass
 class VariationBaseCfg:
-    """Base configclass for :class:`VariationBase` instances."""
+    """Base configclass for ``VariationBase`` instances."""
 
     enabled: bool = False
-    """Whether the variation is applied. Opt in via :meth:`VariationBase.enable` or a cfg override."""
+    """Whether the variation is applied. Opt in via ``VariationBase.enable`` or a cfg override."""
 
     sampler_cfg: SamplerBaseCfg = field(default_factory=SamplerBaseCfg)
     """Declarative sampler driving this variation. Subclasses set a concrete default."""
@@ -57,6 +57,12 @@ class VariationBase(ABC):
     """Identifier under which this variation is registered on its asset."""
 
     def __init__(self, cfg: VariationBaseCfg, name: str):
+        """Initialize the variation and build its sampler from ``cfg``.
+
+        Args:
+            cfg: The cfg holding this variation's tunable parameters, including its sampler cfg.
+            name: Identifier under which this variation is registered on its asset.
+        """
         self.name = name
         self._sampler: SamplerBase
         self._sample_listeners: list[Callable[[Any, Any], None]] = []
@@ -87,6 +93,9 @@ class VariationBase(ABC):
 
         Listeners are stored on the variation, so ``apply_cfg`` re-binds them onto the
         rebuilt sampler and they survive cfg/sampler swaps.
+
+        Args:
+            listener: Callable invoked as ``listener(sample, env_ids)`` for every drawn sample.
         """
         self._sample_listeners.append(listener)
         self._sampler.add_listener(listener)
@@ -95,19 +104,24 @@ class VariationBase(ABC):
         self,
         replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None,
     ) -> None:
-        """Route future draws through an optional replay sampler."""
+        """Route future draws through an optional replay sampler.
+
+        Args:
+            replay_sampler: Callable taking the sample count and env ids and returning recorded rows or ``None``
+                to keep random sampling; ``None`` removes any replay sampler.
+        """
         self._replay_sampler = replay_sampler
         self._sampler.set_replay_sampler(replay_sampler)
 
     def _prepare_at_build_time(self) -> None:
-        """Configure prerequisites required before environment construction. Default: no-op.
+        """Configure prerequisites required before environment construction. Does nothing unless overridden.
 
         A run-time variation overrides this when its later event needs a build-time
         precondition (e.g. forcing its camera untiled so per-env edits take effect).
         """
 
     def _realize_at_build_time(self) -> None:
-        """Sample and mutate the bound asset config(s) in place during construction. Default: no-op.
+        """Sample and mutate the bound asset config(s) in place during construction.
 
         A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
         """
@@ -154,7 +168,11 @@ class VariationBase(ABC):
 
 
 def get_enabled_variations_by_key(variations: dict[str, list[VariationBase]]) -> dict[str, VariationBase]:
-    """Return the enabled variations in ``variations`` keyed by ``<asset_name>.<variation_name>``."""
+    """Return the enabled variations keyed by ``<asset_name>.<variation_name>``.
+
+    Args:
+        variations: Variations of each asset, keyed by asset name.
+    """
     enabled_variations_by_key: dict[str, VariationBase] = {}
     for asset_name, asset_variations in variations.items():
         for variation in asset_variations:

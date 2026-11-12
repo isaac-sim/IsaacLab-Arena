@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Proportional controller for G1 turning and navigation."""
+
 import torch
 
 import isaaclab.utils.math as math_utils
@@ -38,6 +40,20 @@ class PController:
         num_envs: int = 1,
         inplace_turning_flag: bool = False,
     ):
+        """Create the controller with its thresholds, gains and velocity limits.
+
+        Args:
+            distance_error_threshold: Position error below which the target position counts as reached, in meters.
+            heading_diff_threshold: Heading error below which the target heading counts as reached, in radians.
+            kp_angular_turning_only: Proportional gain of the angular velocity when only turning.
+            kp_linear_x: Proportional gain of the forward velocity.
+            kp_linear_y: Proportional gain of the lateral velocity.
+            kp_angular: Proportional gain of the angular velocity while navigating.
+            min_vel: Lower limit of each commanded velocity.
+            max_vel: Upper limit of each commanded velocity.
+            num_envs: Number of environments; position and heading inputs must have this many rows.
+            inplace_turning_flag: Whether the controller starts in the turn-in-place state.
+        """
         self._distance_error_threshold = distance_error_threshold
         self._heading_diff_threshold = heading_diff_threshold
         self._kp_angular_turning_only = kp_angular_turning_only
@@ -52,22 +68,42 @@ class PController:
 
     @property
     def inplace_turning_flag(self) -> bool:
+        """Whether the controller is in the turn-in-place state, where only the heading is controlled."""
         return self._inplace_turning_flag
 
     @property
     def navigation_step_counter(self) -> int:
+        """Number of control steps taken while a target was not yet reached."""
         return self._navigation_step_counter
 
     def set_navigation_step_counter(self, navigation_step_counter: int) -> None:
+        """Set the navigation step counter.
+
+        Args:
+            navigation_step_counter: The new counter value.
+        """
         self._navigation_step_counter = navigation_step_counter
 
     def set_inplace_turning_flag(self, inplace_turning_flag: bool) -> None:
+        """Set whether the controller is in the turn-in-place state.
+
+        Args:
+            inplace_turning_flag: The new flag value.
+        """
         self._inplace_turning_flag = inplace_turning_flag
 
     def get_pos_diff(
         self, target_xy: torch.Tensor, current_xy: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Get the position difference between the target and current position."""
+        """Get the position difference between the target and current position.
+
+        Args:
+            target_xy: Target (x, y) position.
+            current_xy: Current (x, y) positions of shape (num_envs, 2).
+
+        Returns:
+            The x difference, the y difference and the Euclidean distance error.
+        """
         # NOTE(xinjieyao, 2025-09-24): only developed for single env as Mimic runs in single env mode
         assert (
             current_xy.shape[0] == self._num_envs
@@ -78,7 +114,15 @@ class PController:
         return dx, dy, distance_error
 
     def get_heading_diff(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> torch.Tensor:
-        """Get the heading difference between the target and current heading."""
+        """Get the heading difference between the target and current heading, wrapped to [-pi, pi].
+
+        Args:
+            target_heading: Target heading, in radians.
+            current_heading: Current headings of shape (num_envs,), in radians.
+
+        Returns:
+            The wrapped heading error.
+        """
         # NOTE(xinjieyao, 2025-09-24): only developed for single env as Mimic runs in single env mode
         assert (
             current_heading.shape[0] == self._num_envs
@@ -87,15 +131,35 @@ class PController:
         return heading_error
 
     def check_xy_within_threshold(self, target_xy: torch.Tensor, current_xy: torch.Tensor) -> bool:
+        """Check whether the position error is below the distance threshold.
+
+        Args:
+            target_xy: Target (x, y) position.
+            current_xy: Current (x, y) positions of shape (num_envs, 2).
+        """
         dx, dy, distance_error = self.get_pos_diff(target_xy, current_xy)
         return distance_error < self._distance_error_threshold
 
     def check_heading_within_threshold(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> bool:
+        """Check whether the absolute heading error is below the heading threshold.
+
+        Args:
+            target_heading: Target heading, in radians.
+            current_heading: Current headings of shape (num_envs,), in radians.
+        """
         heading_error = self.get_heading_diff(target_heading, current_heading)
         return torch.abs(heading_error) < self._heading_diff_threshold
 
     def turning_p_controller(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> torch.Tensor:
-        """P-controller for (theoretically) in-place turning."""
+        """P-controller for (theoretically) in-place turning.
+
+        Args:
+            target_heading: Target heading, in radians.
+            current_heading: Current heading, in radians.
+
+        Returns:
+            The angular velocity command, limited to the velocity range.
+        """
         heading_error = math_utils.wrap_to_pi(target_heading - current_heading)
         angular_velocity = self._kp_angular_turning_only * heading_error
         ang_vel = max(min(angular_velocity[0], self._max_vel), self._min_vel)
@@ -104,7 +168,16 @@ class PController:
     def navigation_p_controller(
         self, target_xy: torch.Tensor, current_xy: torch.Tensor, current_theta: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """P-controller for x & y & yaw control."""
+        """P-controller for x, y and yaw control.
+
+        Args:
+            target_xy: Target (x, y) position in the world frame.
+            current_xy: Current (x, y) position in the world frame.
+            current_theta: Current heading, in radians.
+
+        Returns:
+            The forward, lateral and angular velocity commands, each limited to the velocity range.
+        """
         # apply a P controller such that the robot can stay along the command velocity
         dx, dy, distance_error = self.get_pos_diff(target_xy, current_xy)
         wrapped_theta = math_utils.wrap_to_pi(current_theta)
@@ -140,7 +213,20 @@ class PController:
         current_heading: torch.Tensor,
         current_xy: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Run the P-controller for navigatiion and/or turning."""
+        """Run the P-controller for navigation and/or turning.
+
+        Navigates toward the target position until it is reached, then turns to the target heading. Returns zero
+        velocities once both are reached.
+
+        Args:
+            target_heading: Target heading, in radians.
+            target_xy: Target (x, y) position.
+            current_heading: Current heading, in radians.
+            current_xy: Current (x, y) position.
+
+        Returns:
+            The forward, lateral and angular velocity commands.
+        """
 
         lin_vel_x = 0.0
         lin_vel_y = 0.0

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Task in which a robot opens a door-like openable object."""
+
 from functools import partial
 
 from isaaclab.managers import SceneEntityCfg
@@ -81,6 +83,11 @@ class OpenDoorTask(RotateRevoluteJointTask):
         )
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
+        """Return the Isaac Lab Mimic environment configuration for rotating the door.
+
+        Args:
+            arm_mode: Which arm or arms the Mimic subtasks are generated for.
+        """
         return RotateDoorMimicEnvCfg(
             arm_mode=arm_mode,
             openable_object_name=self.openable_object.name,

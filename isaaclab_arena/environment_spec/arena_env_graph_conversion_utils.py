@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Conversion of an environment graph spec into live Arena assets."""
+
 from __future__ import annotations
 
 from functools import partial
@@ -41,7 +43,11 @@ if TYPE_CHECKING:
 
 
 def parse_asset_params(params: dict[str, Any]) -> dict[str, Any]:
-    """Convert an asset's serialized initial pose without modifying its graph parameters."""
+    """Convert an asset's serialized initial pose without modifying its graph parameters.
+
+    Args:
+        params: Serialized asset parameters.
+    """
     parsed = dict(params)
     if isinstance(parsed.get("initial_pose"), dict):
         parsed["initial_pose"] = Pose.from_dict(parsed["initial_pose"])
@@ -86,7 +92,7 @@ def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dic
 
     Injects:
     - dome light
-    - directional light (default turned off). For lighting variations to act on.
+    - directional light, turned off, for lighting variations to act on.
     """
     if _scene_already_has_light(graph_spec, assets_by_node_id):
         return
@@ -171,7 +177,13 @@ def _instantiate_object_reference(
 def instantiate_assets_from_spec(
     graph_spec: ArenaEnvGraphSpec, asset_registry: Any, enable_cameras: bool = False
 ) -> dict[str, PlaceableAsset]:
-    """Return ``{asset.id: live_asset}`` after materializing the typed graph spec."""
+    """Return ``{asset.id: live_asset}`` after materializing the typed graph spec.
+
+    Args:
+        graph_spec: Environment graph spec that lists the assets.
+        asset_registry: Registry that provides the asset classes by name.
+        enable_cameras: Whether the embodiment is created with cameras enabled.
+    """
     assets_by_node_id: dict[str, PlaceableAsset] = {}
 
     embodiment_params = parse_asset_params(graph_spec.embodiment.params)

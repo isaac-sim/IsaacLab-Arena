@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Warp kernels and helpers that track peak contact and constraint counts of the Newton solver."""
+
 from typing import TYPE_CHECKING
 
 import warp as wp

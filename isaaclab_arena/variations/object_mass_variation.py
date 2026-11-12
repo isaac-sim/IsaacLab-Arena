@@ -64,10 +64,18 @@ class ObjectMassVariation(RunTimeVariationBase):
         cfg: ObjectMassVariationCfg | None = None,
         name: str = "mass",
     ):
+        """Initialize the variation.
+
+        Args:
+            asset_name: Scene-entity name of the target object.
+            cfg: Tunable parameters; ``None`` selects the standard cfg.
+            name: Identifier under which this variation is registered on the asset.
+        """
         super().__init__(cfg=cfg if cfg is not None else ObjectMassVariationCfg(), name=name)
         self.asset_name = asset_name
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        """Return the reset event term that sets the object's mass from sampler draws."""
         assert self._sampler is not None, (
             f"ObjectMassVariation on '{self.asset_name}' is enabled but no sampler is set; "
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."
@@ -94,6 +102,13 @@ class ApplyObjectMassFromSampler(ManagerTermBase):
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        """Bind the target asset and validate the sampler.
+
+        Args:
+            cfg: Event term cfg whose ``params`` hold ``asset_cfg`` (the object), ``sampler`` (a sampler of one
+                absolute mass per environment) and ``recompute_inertia``.
+            env: The environment owning the object.
+        """
         super().__init__(cfg, env)
 
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Scene class that holds the assets of an environment and builds the Isaac Lab configurations they contribute."""
+
 import pathlib
 from typing import Any, Union
 
@@ -28,8 +30,14 @@ AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg
 
 
 class Scene:
+    """A set of assets, keyed by name, that together form the simulated scene of an environment."""
 
     def __init__(self, assets: list[Asset, RigidObjectSet] | None = None):
+        """Create a scene, optionally adding assets.
+
+        Args:
+            assets: Assets to add to the scene.
+        """
         self.assets: dict[str, Asset | RigidObjectSet] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
@@ -60,6 +68,11 @@ class Scene:
         self.assets[asset.name] = asset
 
     def add_assets(self, assets: list[Asset | RigidObjectSet]):
+        """Add several assets, adding object references after the assets they refer to.
+
+        Args:
+            assets: Assets to add; every object reference must have its parent asset in the list.
+        """
         all_assets = set(assets)
         for asset in assets:
             if isinstance(asset, ObjectReference):
@@ -115,9 +128,11 @@ class Scene:
         return dict(self._background_physics_prim_paths)
 
     def get_observation_cfg(self) -> Any:
+        """Return the observation configuration, or None when none is set."""
         return self.observation_cfg
 
     def get_events_cfg(self) -> Any:
+        """Return an event configuration containing the events of every asset."""
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
         for asset in self.assets.values():
@@ -128,12 +143,15 @@ class Scene:
         return event_cfg
 
     def get_rewards_cfg(self) -> Any:
+        """Return the rewards configuration, or None when none is set."""
         return self.rewards_cfg
 
     def get_curriculum_cfg(self) -> Any:
+        """Return the curriculum configuration, or None when none is set."""
         return self.curriculum_cfg
 
     def get_commands_cfg(self) -> Any:
+        """Return the commands configuration, or None when none is set."""
         return self.commands_cfg
 
     def get_asset_variations(self) -> dict[str, list[VariationBase]]:
@@ -170,7 +188,11 @@ class Scene:
         export_scene_to_usd(self, output_path, root_prim_path)
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
-        """Validate the resolved simulation configuration against every asset the scene spawns."""
+        """Validate the resolved simulation configuration against every asset the scene spawns.
+
+        Args:
+            sim_cfg: Simulation configuration to validate.
+        """
         for asset in self.assets.values():
             asset.get_spawned_asset().validate_simulation_cfg(sim_cfg)
 

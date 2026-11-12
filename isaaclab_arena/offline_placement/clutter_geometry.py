@@ -21,13 +21,26 @@ if TYPE_CHECKING:
 
 
 def fixed_poses_match(expected: torch.Tensor, current: torch.Tensor) -> bool:
-    """Compare fixed xyz/xyzw poses (..., 7) in the same frame, allowing float32 roundoff."""
+    """Compare fixed xyz/xyzw poses (..., 7) in the same frame, allowing float32 roundoff.
+
+    Args:
+        expected: Reference poses, shaped (..., 7).
+        current: Poses to compare, shaped (..., 7).
+
+    Returns:
+        Whether the position and rotation drift are within the tolerance.
+    """
     drift = get_pose_drift(expected, current)
     return drift is not None and drift[0] <= 1e-5 and drift[1] <= 1e-3
 
 
 def assert_support_reference_transform(scene: InteractiveScene, scene_key: str) -> None:
-    """Require reference transforms that can be read without changing live collider operations."""
+    """Require reference transforms that can be read without changing live collider operations.
+
+    Args:
+        scene: Interactive scene that holds the spawned assets.
+        scene_key: Name of the scene entity to inspect.
+    """
     if scene_key not in scene.extras:
         return
 
@@ -45,8 +58,12 @@ def assert_support_reference_transform(scene: InteractiveScene, scene_key: str) 
 def assert_flat_support_surface(scene: InteractiveScene, scene_key: str) -> None:
     """Require the support bounds' top face to be covered by a flat collision surface.
 
-    Used for supports without an explicit minimum resting height. Check each
-    spawned geometry group before collecting any layouts.
+    Applies to supports without an explicit minimum resting height. Checks each
+    spawned geometry group.
+
+    Args:
+        scene: Interactive scene that holds the spawned assets.
+        scene_key: Name of the scene entity to inspect.
     """
     import numpy as np
     import trimesh
@@ -129,14 +146,24 @@ def prim_geometry_is_fixed(prim: Usd.Prim) -> bool:
 
 
 def spawned_geometry_is_fixed(scene: InteractiveScene, scene_key: str) -> bool:
-    """Check support mobility from spawned physics properties for every asset variant."""
+    """Check support mobility from spawned physics properties for every asset variant.
+
+    Args:
+        scene: Interactive scene that holds the spawned assets.
+        scene_key: Name of the scene entity to inspect.
+    """
     from isaaclab_arena.environments.arena_world_scene_access import get_representative_geometry_prim_groups
 
     return all(prim_geometry_is_fixed(prim) for prim, _ in get_representative_geometry_prim_groups(scene, scene_key))
 
 
 def spawned_rigid_body_is_dynamic(scene: InteractiveScene, scene_key: str) -> bool:
-    """Whether every spawned variant has an enabled, non-kinematic rigid body."""
+    """Whether every spawned variant has an enabled, non-kinematic rigid body.
+
+    Args:
+        scene: Interactive scene that holds the spawned assets.
+        scene_key: Name of the scene entity to inspect.
+    """
     from isaaclab_arena.environments.arena_world_scene_access import get_representative_rigid_body_prims
     from isaaclab_arena.utils.usd.helpers import is_enabled_dynamic_rigid_body
 
@@ -144,7 +171,12 @@ def spawned_rigid_body_is_dynamic(scene: InteractiveScene, scene_key: str) -> bo
 
 
 def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> bool:
-    """Whether all variants of a spawned rigid object participate in gravity."""
+    """Whether all variants of a spawned rigid object participate in gravity.
+
+    Args:
+        scene: Interactive scene that holds the spawned assets.
+        scene_key: Name of the scene entity to inspect.
+    """
     from isaaclab_arena.environments.arena_world_scene_access import get_representative_rigid_body_prims
 
     # Both backends import this USD attribute despite its PhysX namespace.

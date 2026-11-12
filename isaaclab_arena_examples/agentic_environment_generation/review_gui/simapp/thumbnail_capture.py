@@ -73,7 +73,16 @@ def render_thumbnails_with_app(
     *,
     background_panorama: bool = False,
 ) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
-    """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
+    """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters.
+
+    Args:
+        app: The Kit application.
+        spec: The environment graph spec whose assets are rendered.
+        background_panorama: Whether to render the background as a panorama.
+
+    Returns:
+        PNG paths keyed by node id, and axis-aligned bounding box sizes in meters keyed by node id.
+    """
     assets_by_node_id = instantiate_assets_from_spec(spec, AssetRegistry())
     # Exclude embodiment from thumbnail rendering.
     assets_by_node_id.pop(spec.embodiment.id)

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Recorder manager that keeps recordings aligned with Arena's active episodes, and an environment ID helper."""
+
 from __future__ import annotations
 
 import torch

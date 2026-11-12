@@ -22,7 +22,11 @@ EXPERIMENT_RUNNER_APP_NAME = "experiment_runner"
 
 
 def write_run_timings(run_output_directory: Path) -> Path:
-    """Write the timers recorded so far into one Run's output directory, returning the path written."""
+    """Write the timers recorded so far into one Run's output directory, returning the path written.
+
+    Args:
+        run_output_directory: Output directory of the Run; created if missing.
+    """
     run_output_directory.mkdir(parents=True, exist_ok=True)
     return write_timer_stats_json(
         run_output_directory / ARENA_SINGLE_RUN_TIMINGS_FILENAME,

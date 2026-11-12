@@ -77,7 +77,11 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
     _legacy_argparse_cfg_type = GearInsertionEnvironmentCfg
 
     def build(self, cfg: GearInsertionEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from registered Arena components."""
+        """Build the environment from registered Arena components.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_type import ObjectType
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Gear-mesh assembly environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -39,7 +41,11 @@ class GearMeshEnvironment(ArenaEnvironmentFactory[GearMeshEnvironmentCfg]):
     _legacy_argparse_cfg_type = GearMeshEnvironmentCfg
 
     def build(self, cfg: GearMeshEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         import isaaclab.sim as sim_utils
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

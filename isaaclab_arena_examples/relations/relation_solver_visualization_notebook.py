@@ -76,7 +76,20 @@ def create_loss_heatmap_2d(
 
 
 def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
-    """Plot a 2D heatmap of loss values."""
+    """Plot a 2D heatmap of the NextTo relation loss over child positions, with the parent and ideal child boxes.
+
+    Args:
+        X: Grid of child x positions, in meters.
+        Y: Grid of child y positions, in meters.
+        losses: Loss values on the (X, Y) grid.
+        parent: The parent object the child is placed next to.
+        child: The child object.
+        side: The side of the parent the child is placed on.
+        distance_m: The requested distance between parent and child, in meters.
+
+    Returns:
+        The matplotlib figure and axes.
+    """
     fig, ax = plt.subplots(figsize=(12, 10))
 
     # Create heatmap

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Per-asset card data built from an environment graph spec for the visualization panel."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,7 +25,12 @@ class AssetCard:
 
 
 def object_set_member_key(object_set_id: str, registry_name: str) -> str:
-    """Return the thumbnail and AABB lookup key for one member of an object set."""
+    """Return the thumbnail and AABB lookup key for one member of an object set.
+
+    Args:
+        object_set_id: Id of the object set.
+        registry_name: Registry name of the member.
+    """
     return f"{object_set_id}::{registry_name}"
 
 
@@ -33,7 +40,14 @@ def build_asset_cards(
     aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
     panorama_node_ids: set[str] | None = None,
 ) -> list[AssetCard]:
-    """Build one AssetCard per node (background, object references, objects, object-set members) for native rendering."""
+    """Build one AssetCard per node (background, object references, objects, object-set members) for native rendering.
+
+    Args:
+        spec: The environment graph spec.
+        thumbnails: Thumbnail PNG bytes keyed by node id.
+        aabb_dimensions_m: Axis-aligned bounding box sizes in meters keyed by node id.
+        panorama_node_ids: Ids of nodes whose thumbnail is a panorama.
+    """
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
     panorama_node_ids = panorama_node_ids or set()

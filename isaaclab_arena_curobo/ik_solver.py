@@ -63,14 +63,14 @@ class CuroboIKSolver:
 
         Args:
             curobo_cfg: The embodiment's registered ``CuroboEmbodimentCfg`` (robot yaml + URDF paths).
-            device: Explicit CUDA device (e.g. ``"cuda:0"``); defaults to the current device.
+            device: Explicit CUDA device (e.g. ``"cuda:0"``); the current device when omitted.
             collision_activation_distance: Distance (m) at which cuRobo starts penalizing collisions. A positive margin
                 holds the arm that far off every obstacle, so grasps near a support surface stall about that far from
                 the goal and read as unreachable even though a collision-free solution exists.
             num_seeds: IK seeds optimized in parallel per pose.
             position_threshold: cuRobo internal IK position convergence threshold (m).
             rotation_threshold: cuRobo internal IK rotation convergence threshold (rad, geodesic angle).
-            collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": 150}``. A world with more
+            collision_cache_size: Obstacle slots per type. A world with more
                 obstacles than its slots fails to load.
             max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
             use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
@@ -123,6 +123,10 @@ class CuroboIKSolver:
 
         Convenience wrapper for callers that already hold an embodiment (importing the embodiment may
         pull in heavier Isaac Lab modules than passing a ``CuroboEmbodimentCfg`` directly).
+
+        Args:
+            embodiment: Embodiment whose registered cuRobo config is used.
+            **kwargs: Additional keyword arguments passed to the constructor.
         """
         return cls(get_embodiment_curobo_cfg(embodiment), **kwargs)
 
@@ -158,6 +162,11 @@ class CuroboIKSolver:
         cuRobo reloads the collision model rather than only moving obstacle poses, so this handles both
         moved objects and a changed object set per layout, as long as the obstacle count stays within the
         collision cache.
+
+        Args:
+            cuboids: Axis-aligned collision cuboids in the world frame.
+            robot_base_pos_w: Robot base position in the world frame.
+            robot_base_quat_w_xyzw: Robot base XYZW rotation into the world frame.
         """
         scene = scene_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw, self.device)
         self.ik_solver.update_world(scene)

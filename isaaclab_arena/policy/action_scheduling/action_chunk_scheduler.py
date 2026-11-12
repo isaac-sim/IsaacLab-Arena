@@ -29,6 +29,16 @@ class ActionChunkScheduler(ActionScheduler):
         device: str | torch.device,
         dtype: torch.dtype = torch.float32,
     ) -> None:
+        """Create a scheduler that replays each fetched action chunk per environment.
+
+        Args:
+            num_envs: Number of environments.
+            action_chunk_length: Number of actions replayed from a chunk before fetching a new one.
+            action_horizon: Number of actions stored per environment.
+            action_dim: Dimension of a single action.
+            device: Device of the stored chunks.
+            dtype: Data type of the stored chunks.
+        """
         self.num_envs = num_envs
         self.action_chunk_length = action_chunk_length
         self.action_horizon = action_horizon
@@ -64,6 +74,13 @@ class ActionChunkScheduler(ActionScheduler):
         ``hold_action`` is part of the base ``ActionScheduler`` API for schedulers that
         need a fallback for waiting envs; this scheduler doesn't have a waiting state
         so the argument is accepted and ignored.
+
+        Args:
+            fetch_action_tensor_fn: Function that returns a new chunk of actions.
+            hold_action: Ignored.
+
+        Returns:
+            Actions shaped (num_envs, action_dim).
         """
         del hold_action
         if self.env_requires_new_chunk.any():
@@ -100,7 +117,11 @@ class ActionChunkScheduler(ActionScheduler):
         return action
 
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
-        """Reset chunking state for the given envs (all if None)."""
+        """Reset chunking state for the given envs (all if None).
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
+        """
         if env_ids is None:
             env_ids = slice(None)
         self.current_action_chunk[env_ids] = 0.0

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Task in which a robot picks up an object and places it on or in a destination."""
+
 import math
 import numpy as np
 from collections.abc import Callable
@@ -44,23 +46,6 @@ class PickAndPlaceTask(TaskBase):
     with support and low linear speed for the required consecutive steps. Rigid objects use contact
     force to check support; deformable objects use their geometry. Failure occurs when the object
     falls below the background.
-
-    Args:
-        pick_up_object: Object or rigid object set to pick up.
-        destination_location: Non-deformable destination whose live pose and spawned geometry
-            define placement. It must be included in the environment scene.
-        background_scene: Background whose minimum object height defines the drop failure.
-        destination_object: Destination asset used by the default Mimic configuration.
-        episode_length_s: Maximum episode duration in seconds.
-        task_description: Natural-language task instruction. When omitted, get_task_description() names the
-            pick-up object and the destination by their registry_name, or by their name when they have none.
-        force_threshold: Minimum filtered normal force exerted on the object by the destination, in newtons.
-        velocity_threshold: Object linear-speed threshold in meters per second. Speed must be below it.
-        mimic_env_cfg_factory: Optional factory for a custom Mimic environment configuration.
-        support_cone_half_angle_rad: Maximum angle in radians between the filtered contact force and
-            world +Z. Smaller values require the support force to be more vertical.
-        placement_consecutive_steps: Number of consecutive control steps for which placement must hold.
-
     """
 
     def __init__(
@@ -77,6 +62,25 @@ class PickAndPlaceTask(TaskBase):
         support_cone_half_angle_rad: float = math.pi / 4,
         placement_consecutive_steps: int = 1,
     ):
+        """Initialize the pick-and-place task.
+
+        Args:
+            pick_up_object: Object or rigid object set to pick up.
+            destination_location: Non-deformable destination whose live pose and spawned geometry
+                define placement. It must be included in the environment scene.
+            background_scene: Background whose minimum object height defines the drop failure.
+            destination_object: Destination asset for the standard Mimic configuration.
+            episode_length_s: Maximum episode duration in seconds.
+            task_description: Natural-language task instruction. When None, get_task_description() names the
+                pick-up object and the destination by their registry_name, or by their name when they have none.
+            force_threshold: Minimum filtered normal force exerted on the object by the destination, in newtons.
+            velocity_threshold: Object linear-speed threshold in meters per second. Speed must be below it.
+            mimic_env_cfg_factory: Factory that takes the arm mode and returns a custom Mimic environment
+                configuration; None selects the standard pick-and-place configuration.
+            support_cone_half_angle_rad: Maximum angle in radians between the filtered contact force and
+                world +Z. Smaller values require the support force to be more vertical.
+            placement_consecutive_steps: Number of consecutive control steps for which placement must hold.
+        """
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         assert (
             destination_location.object_type != ObjectType.DEFORMABLE
@@ -121,6 +125,10 @@ class PickAndPlaceTask(TaskBase):
         self._apply_reachability_constraints([self.pick_up_object, self.destination_location])
 
     def get_scene_cfg(self):
+        """Return a scene configuration with a contact sensor between the picked object and the destination.
+
+        Returns None when the picked object is deformable, since no contact sensor is used.
+        """
         if self.contact_sensor_cfg is None:
             return None
         sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
@@ -133,14 +141,18 @@ class PickAndPlaceTask(TaskBase):
         return scene_cfg_type()
 
     def get_events_cfg(self):
+        """Return None; the task defines no events."""
         return self.events_cfg
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         """Build the Mimic env cfg for this task.
 
         If ``mimic_env_cfg_factory`` was passed at construction, invoke it with
-        ``arm_mode`` and return its result. Otherwise build the default
+        ``arm_mode`` and return its result. Otherwise build
         ``PickPlaceMimicEnvCfg``.
+
+        Args:
+            arm_mode: Which arm or arms the Mimic subtasks are generated for.
         """
         if self.mimic_env_cfg_factory is not None:
             return self.mimic_env_cfg_factory(arm_mode)
@@ -151,9 +163,14 @@ class PickAndPlaceTask(TaskBase):
         )
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the success rate and the rate at which the picked object is moved."""
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination for picking the object up and placing it on the destination.
+
+        The episode fails if the object drops below the background's minimum object height.
+        """
         object_dropped = TerminationTermCfg(
             func=mdp_isaac_lab.root_height_below_minimum,
             params={
@@ -197,6 +214,7 @@ class PickAndPlaceTask(TaskBase):
         )
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a viewer camera configuration that looks at the picked object."""
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object,
             offset=np.array([-1.5, -1.5, 1.5]),
@@ -204,7 +222,12 @@ class PickAndPlaceTask(TaskBase):
 
     @classmethod
     def success_state_transition(cls, pick_up_object: str, destination_location: str, **_) -> TaskTransition:
-        """Relate the picked object to the destination after geometric placement succeeds."""
+        """Relate the picked object to the destination after geometric placement succeeds.
+
+        Args:
+            pick_up_object: Name of the picked object.
+            destination_location: Name of the destination the object ends up on or in.
+        """
         # Note: with the current AABB-based object solver, placing an object ``on`` an open container
         # and letting it fall is equivalent to it being ``in`` the container, so a single ``on``
         # relation covers both surfaces and containers.
@@ -331,8 +354,7 @@ class G1PickAndPlaceMimicEnvCfg(MimicEnvCfg):
     Encodes G1-specific cfg shape: 3 subtasks per arm
     (idle / grasp_and_idle / final), a 4-phase nav body subtask sequence
     (navigate_to_table / navigate_turn_inplace / navigate_to_bin / final), and
-    G1-specific per-subtask numerical tunings. Used by the locomanip env via
-    ``PickAndPlaceTask(mimic_env_cfg_factory=...)``.
+    G1-specific per-subtask numerical tunings.
     """
 
     pick_up_object_name: str = MISSING

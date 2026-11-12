@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base class for a task made of a flat list of subtasks, with metrics for per-subtask success."""
+
 from __future__ import annotations
 
 import copy
@@ -38,10 +40,17 @@ class SubtaskSuccessStateRecorder(RecorderTerm):
     """Records the subtask success state just before the environment is reset."""
 
     def __init__(self, cfg, env):
+        """Initialize the recorder.
+
+        Args:
+            cfg: Recorder term configuration; its `name` is the key the success state is recorded under.
+            env: The environment being recorded.
+        """
         super().__init__(cfg, env)
         self.name = cfg.name
 
     def record_post_step(self):
+        """Return the recorder name and the current per-subtask completion state after each step."""
         progress_tracker = self._env.progress_tracker
         assert progress_tracker is not None, "Task progress must be configured before recording."
         return self.name, progress_tracker.get_subtask_completion()
@@ -49,6 +58,8 @@ class SubtaskSuccessStateRecorder(RecorderTerm):
 
 @configclass
 class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
+    """Configuration for `SubtaskSuccessStateRecorder`."""
+
     class_type: type[RecorderTerm] = SubtaskSuccessStateRecorder
     name: str = "subtask_success_rate"
 
@@ -100,19 +111,7 @@ class SubtaskSuccessRateMetric(MetricBase):
 
 
 class CompositeTaskBase(TaskBase):
-    """Combine a flat list of tasks, optionally requiring completion in order.
-
-    Args:
-        subtasks: List of TaskBase instances representing the subtasks that compose this composite task.
-        episode_length_s: Maximum duration of a single episode in seconds. Defaults to the sum of the
-            subtasks' configured timeouts, giving one overall budget for completing the task.
-        task_description: (Optional) Natural-language summary of the overall composite task.
-        desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
-            True or False requires recorded completion and a matching current final condition.
-            None entries exclude that subtask from the success check.
-        subtasks_are_sequential: Whether each subtask waits for the preceding subtask to complete.
-            Defaults to False, allowing subtasks to complete in any order.
-    """
+    """Combine a flat list of tasks, optionally requiring completion in order."""
 
     def __init__(
         self,
@@ -122,6 +121,19 @@ class CompositeTaskBase(TaskBase):
         desired_subtask_success_state: list[bool | None] | None = None,
         subtasks_are_sequential: bool = False,
     ):
+        """Initialize the composite task.
+
+        Args:
+            subtasks: Flat list of tasks that make up this composite task; nested composite tasks are not allowed.
+            episode_length_s: Maximum duration of a single episode in seconds. The sum of the
+                subtasks' configured timeouts when omitted, giving one overall budget for completing the task.
+            task_description: Natural-language summary of the overall composite task.
+            desired_subtask_success_state: Required success state for each subtask at the final time step.
+                True or False requires recorded completion and a matching current final condition.
+                None entries exclude that subtask from the success check.
+            subtasks_are_sequential: Whether each subtask waits for the preceding subtask to complete.
+                When False, subtasks may complete in any order.
+        """
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
         assert not any(
             isinstance(subtask, CompositeTaskBase) for subtask in subtasks
@@ -164,7 +176,11 @@ class CompositeTaskBase(TaskBase):
             subtask.apply_reachability_constraints()
 
     def configure_for_embodiment(self, embodiment: EmbodimentBase) -> None:
-        """Configure every child task for the same embodiment."""
+        """Configure every child task for the same embodiment.
+
+        Args:
+            embodiment: The embodiment every subtask is configured with.
+        """
         for subtask in self.subtasks:
             subtask.configure_for_embodiment(embodiment)
 
@@ -289,7 +305,14 @@ class CompositeTaskBase(TaskBase):
         return mimic_eef_names
 
     def combine_mimic_subtask_configs(self, arm_mode: ArmMode) -> dict[str, list[SubTaskConfig]]:
-        "Combine the Mimic subtask configs for all subtasks."
+        """Combine the Mimic subtask configs for all subtasks.
+
+        Args:
+            arm_mode: Which arm or arms the Mimic subtasks are generated for.
+
+        Returns:
+            Mapping from end-effector name to the subtasks' Mimic subtask configs, in subtask order.
+        """
         mimic_eef_names = self._validate_consistent_mimic_eef_names(arm_mode)
 
         combined_mimic_subtask_configs = {eef_name: [] for eef_name in mimic_eef_names}
@@ -315,7 +338,11 @@ class CompositeTaskBase(TaskBase):
         return combined_mimic_subtask_configs
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode) -> MimicEnvCfg:
-        "Get the Mimic environment configuration for the sequential task."
+        """Get the Mimic environment configuration for the sequential task.
+
+        Args:
+            arm_mode: Which arm or arms the Mimic subtasks are generated for.
+        """
         mimic_env_cfg = MimicEnvCfg()
 
         # Assign all default config values to mimic_env_cfg.datagen_config

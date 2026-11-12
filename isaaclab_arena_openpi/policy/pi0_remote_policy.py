@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Remote closed-loop policy that queries an openpi inference server."""
+
 from __future__ import annotations
 
 from isaaclab_arena.assets.register import register_policy
@@ -42,6 +44,11 @@ class Pi0RemotePolicy(RemoteChunkReplayPolicy, PolicyBase[Pi0RemotePolicyCfg]):
     server_response_actions_key = "actions"
 
     def __init__(self, config: Pi0RemotePolicyCfg) -> None:
+        """Create the policy with the embodiment adapter selected by the config.
+
+        Args:
+            config: Policy configuration including the embodiment adapter and policy variant.
+        """
         adapter = _resolve_openpi_embodiment_adapter(config.openpi_embodiment_adapter)
         assert config.policy_variant in adapter.open_loop_horizon_by_variant, (
             f"Unknown policy_variant {config.policy_variant!r} for adapter"
@@ -51,7 +58,11 @@ class Pi0RemotePolicy(RemoteChunkReplayPolicy, PolicyBase[Pi0RemotePolicyCfg]):
 
     @classmethod
     def default_image_size(cls, config: Pi0RemotePolicyCfg) -> tuple[int, int]:
-        """Return the (height, width) the selected openpi adapter resizes camera images to."""
+        """Return the (height, width) the selected openpi adapter resizes camera images to.
+
+        Args:
+            config: Policy configuration that selects the embodiment adapter.
+        """
         return _resolve_openpi_embodiment_adapter(config.openpi_embodiment_adapter).target_image_size
 
 

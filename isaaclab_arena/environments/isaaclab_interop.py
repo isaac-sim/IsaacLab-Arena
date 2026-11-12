@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers that let Isaac Lab's own CLI tools discover and register Arena environments."""
+
 import argparse
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry

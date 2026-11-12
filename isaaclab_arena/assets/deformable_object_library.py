@@ -45,8 +45,8 @@ class LibraryDeformableObject(DeformableObject):
         """Create a deformable object of this asset class.
 
         Args:
-            name: Name of the object in the scene. Defaults to the registry name.
-            prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/<name>``.
+            name: Name of the object in the scene; derived from the registry name when omitted.
+            prim_path: Prim path of the object; derived from the name when omitted.
             initial_pose: Initial pose of the object.
             **kwargs: Extra arguments passed to ``DeformableObject``.
         """
@@ -63,7 +63,7 @@ class LibraryDeformableObject(DeformableObject):
 
 @register_asset
 class DeformableCubePhysx(LibraryDeformableObject):
-    """PhysX deformable cube used by the DROID pick-and-place environment."""
+    """PhysX deformable cube."""
 
     registry_name = "deformable_cube_physx"
     tags = ["object", "deformable", "physx"]

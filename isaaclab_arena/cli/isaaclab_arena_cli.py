@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Command-line argument definitions shared by the Arena runner scripts."""
+
 import argparse
 
 from isaaclab.app import AppLauncher
@@ -40,7 +42,11 @@ def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
 
 
 def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add the existing Isaac Lab builder and distributed CLI flags."""
+    """Add the existing Isaac Lab builder and distributed CLI flags.
+
+    Args:
+        parser: Parser that receives the flags.
+    """
 
     isaac_lab_group = parser.add_argument_group("Isaac Lab Arguments", "Arguments specific to Isaac Lab framework")
 
@@ -66,7 +72,11 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
 
 
 def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add Isaac Lab Arena specific command line arguments to the given parser."""
+    """Add Isaac Lab Arena specific command line arguments to the given parser.
+
+    Args:
+        parser: Parser that receives the flags.
+    """
     arena_group = parser.add_argument_group(
         "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
     )
@@ -121,7 +131,11 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
 
 
 def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add environment graph spec specific command line arguments to the given parser."""
+    """Add environment graph spec specific command line arguments to the given parser.
+
+    Args:
+        parser: Parser that receives the flags.
+    """
     env_graph_spec_group = parser.add_argument_group(
         "Environment Graph Spec Arguments", "Arguments specific to environment graph spec"
     )
@@ -138,7 +152,11 @@ def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
 
 
 def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add external environments specific command line arguments to the given parser."""
+    """Add external environments specific command line arguments to the given parser.
+
+    Args:
+        parser: Parser that receives the flags.
+    """
     external_environments_group = parser.add_argument_group(
         "External Environments Arguments", "Arguments specific to external environments"
     )

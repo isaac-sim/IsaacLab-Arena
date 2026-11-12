@@ -32,7 +32,11 @@ def _clean_validation_msg(msg: str) -> str:
 
 
 def format_validation_error(exc: ValidationError) -> list[str]:
-    """Flatten a Pydantic ``ValidationError`` into human-readable trace lines."""
+    """Flatten a Pydantic ``ValidationError`` into human-readable trace lines.
+
+    Args:
+        exc: Validation error to flatten.
+    """
     lines: list[str] = []
     for err in exc.errors():
         msg = _clean_validation_msg(err["msg"])
@@ -47,7 +51,14 @@ def collect_agent_ready_validation_trace(
     task_catalog: TaskCatalogue,
     relation_catalog: RelationCatalogue,
 ) -> list[str]:
-    """Return spec violations against the exact catalogues exposed to the agent."""
+    """Return spec violations against the exact catalogues exposed to the agent.
+
+    Args:
+        spec: Environment graph spec to check.
+        asset_catalog: Catalogue of assets the agent could choose from.
+        task_catalog: Catalogue of tasks the agent could choose from.
+        relation_catalog: Catalogue of relations the agent could choose from.
+    """
     traces: list[str] = []
 
     # Check every registry_name against the asset catalogue the agent was given.

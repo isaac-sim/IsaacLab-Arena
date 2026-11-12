@@ -27,6 +27,12 @@ class ObjectInitialRestPoseRecorder:
     """
 
     def __init__(self, num_envs: int, device):
+        """Initialize the recorder.
+
+        Args:
+            num_envs: Number of environments to record for.
+            device: Torch device the recorded tensors are stored on.
+        """
         self._num_envs = num_envs
         self._device = device
         self._entries: dict[str, dict[str, torch.Tensor]] = {}
@@ -44,7 +50,13 @@ class ObjectInitialRestPoseRecorder:
         return entry
 
     def record(self, name: str, positions: torch.Tensor, settled: torch.Tensor) -> None:
-        """Record object's world position for envs that just settled and weren't recorded yet."""
+        """Record object's world position for envs that just settled and weren't recorded yet.
+
+        Args:
+            name: Object scene key.
+            positions: Current object world positions with shape (num_envs, 3).
+            settled: Mask with shape (num_envs,) that is True for environments where the object is at rest.
+        """
 
         entry = self._entry(name)
         new = settled & ~entry["settled"]
@@ -53,13 +65,21 @@ class ObjectInitialRestPoseRecorder:
             entry["settled"] = entry["settled"] | new
 
     def get(self, name: str) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return ``(position, settled)`` for object's recorded initial rest pose."""
+        """Return ``(position, settled)`` for object's recorded initial rest pose.
+
+        Args:
+            name: Object scene key.
+        """
 
         entry = self._entry(name)
         return entry["position"], entry["settled"]
 
     def reset(self, env_ids=None) -> None:
-        """Clear recorded rest poses for ``env_ids``."""
+        """Clear recorded rest poses for ``env_ids``.
+
+        Args:
+            env_ids: Environment indices to clear, or a slice; all environments when None.
+        """
 
         if env_ids is None:
             ids = slice(None)
@@ -73,13 +93,22 @@ class ObjectInitialRestPoseRecorder:
 
 
 def get_rest_pose_recorder(env: IsaacLabArenaManagerBasedRLEnv) -> ObjectInitialRestPoseRecorder:
-    """Return the ``ObjectInitialRestPoseRecorder`` owned by the Arena environment."""
+    """Return the ``ObjectInitialRestPoseRecorder`` owned by the Arena environment.
+
+    Args:
+        env: The environment.
+    """
 
     return env.object_initial_rest_pose_recorder
 
 
 def reset_rest_pose_recorder(env: IsaacLabArenaManagerBasedRLEnv, env_ids=None) -> None:
-    """Clear every recorded initial rest pose for ``env_ids``."""
+    """Clear every recorded initial rest pose for ``env_ids``.
+
+    Args:
+        env: The environment.
+        env_ids: Environment indices to clear, or a slice; all environments when None.
+    """
 
     env.object_initial_rest_pose_recorder.reset(env_ids)
 
@@ -91,6 +120,10 @@ def get_object_initial_rest_state(
     """Return ``(position, settled)`` for an object's recorded initial rest pose.
 
     ``position`` (num_envs, 3) is meaningful only for envs whose ``settled`` mask (num_envs,) is True.
+
+    Args:
+        env: The environment.
+        name: Object scene key.
     """
 
     return get_rest_pose_recorder(env).get(name)
@@ -148,6 +181,15 @@ def objects_settled(
     Rigid objects use root linear and angular speed. Deformable objects use the 90th percentile of
     nodal linear speeds and have no angular-speed condition. Recorded rest poses are readable via
     ``get_object_initial_rest_state``.
+
+    Args:
+            env: The environment.
+            object_names: Object scene keys to check.
+            lin_vel_threshold: Linear speed threshold in meters per second.
+            ang_vel_threshold: Angular speed threshold in radians per second (rigid objects only).
+
+        Returns:
+            Boolean mask with shape (num_envs,) that is True where all objects are at rest.
     """
 
     settled = objects_below_velocity_thresholds(
@@ -174,6 +216,12 @@ def objects_below_velocity_thresholds(
     """Return whether all named objects meet their speed limits in each environment.
 
     This check does not record resting positions or count consecutive steps.
+
+    Args:
+        env: The environment.
+        object_names: Object scene keys to check.
+        lin_vel_threshold: Linear speed threshold in meters per second.
+        ang_vel_threshold: Angular speed threshold in radians per second (rigid objects only).
     """
 
     return compute_objects_settled_mask(

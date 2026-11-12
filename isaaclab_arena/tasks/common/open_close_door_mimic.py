@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Isaac Lab Mimic environment configuration for rotating a door open or closed."""
+
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.utils.configclass import configclass
 

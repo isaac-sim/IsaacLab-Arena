@@ -176,12 +176,20 @@ class AggregatedPlacementDiagnostics:
         return batches
 
     def save(self, path: str | Path) -> None:
-        """Write the diagnostics of every fill to a JSON file, replacing any existing file."""
+        """Write the diagnostics of every fill to a JSON file, replacing any existing file.
+
+        Args:
+            path: Destination JSON file.
+        """
         Path(path).write_text(json.dumps(asdict(self), indent=2) + "\n", encoding="utf-8")
 
     @classmethod
     def load(cls, path: str | Path) -> AggregatedPlacementDiagnostics:
-        """Return the diagnostics that save() wrote to path."""
+        """Return the diagnostics that save() wrote to path.
+
+        Args:
+            path: JSON file to read.
+        """
         content = json.loads(Path(path).read_text(encoding="utf-8"))
         fills = [_json_to_placement_diagnostics(fill) for fill in content["fills"]]
         return cls(fills=fills)

@@ -41,7 +41,11 @@ class GitStamp:
 
     @classmethod
     def from_dict(cls, git_stamp: Mapping[str, str]) -> GitStamp:
-        """Return the git stamp stored as a JSON object with exactly ``git_sha`` and ``git_branch``."""
+        """Return the git stamp stored as a JSON object with exactly ``git_sha`` and ``git_branch``.
+
+        Args:
+            git_stamp: Mapping with the keys `git_sha` and `git_branch`.
+        """
         expected_keys = {git_stamp_field.name for git_stamp_field in fields(cls)}
         assert (
             set(git_stamp) == expected_keys

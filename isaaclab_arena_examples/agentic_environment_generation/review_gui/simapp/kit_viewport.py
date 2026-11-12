@@ -20,7 +20,11 @@ SIM_PREVIEW_CACHE_SUBDIR = "agentic_env_gen_sim_preview"
 
 
 def review_gui_cache_dir(subdir: str) -> Path:
-    """Return a mkdir'd cache directory for review GUI SimApp viewport PNGs."""
+    """Return a mkdir'd cache directory for review GUI SimApp viewport PNGs.
+
+    Args:
+        subdir: Name of the cache subdirectory next to the asset cache directory.
+    """
     cache_dir = get_arena_asset_cache_dir().parent / subdir
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
@@ -37,7 +41,12 @@ def sim_preview_cache_dir() -> Path:
 
 
 def pump_app(app, *, count: int = 1) -> None:
-    """Pump Kit render/UI updates without advancing physics simulation."""
+    """Pump Kit render/UI updates without advancing physics simulation.
+
+    Args:
+        app: The Kit application.
+        count: Number of updates to pump.
+    """
     import carb.settings
 
     settings = carb.settings.get_settings()
@@ -52,7 +61,13 @@ def pump_app(app, *, count: int = 1) -> None:
 
 
 def wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
-    """Pump frames until stage loading settles (plus a short post-settle tail)."""
+    """Pump frames until stage loading settles (plus a short post-settle tail).
+
+    Args:
+        app: The Kit application.
+        usd_context: The USD context whose stage loading status is polled.
+        max_updates: Maximum number of frames to pump.
+    """
     settled = 0
     for _ in range(max_updates):
         pump_app(app)
@@ -69,7 +84,13 @@ def wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
 
 
 def wait_for_capture(app, cache_path: Path, max_updates: int = CAPTURE_WAIT_MAX_UPDATES) -> None:
-    """Pump render updates until the capture PNG exists or the budget expires."""
+    """Pump render updates until the capture PNG exists or the budget expires.
+
+    Args:
+        app: The Kit application.
+        cache_path: Path of the PNG file being written.
+        max_updates: Maximum number of updates to pump.
+    """
     for _ in range(max_updates):
         pump_app(app)
         if cache_path.exists() and cache_path.stat().st_size > 0:
@@ -81,10 +102,15 @@ def set_viewport_camera_eye_lookat(
     eye: tuple[float, float, float] | list[float],
     lookat: tuple[float, float, float] | list[float],
 ) -> None:
-    """Point a Kit-only stage's viewport camera at ``eye`` / ``lookat``.
+    """Point a Kit-only stage's viewport camera at `eye` / `lookat`.
 
-    This mirrors ``KitVisualizer._set_viewport_camera`` for thumbnail stages
-    that do not have an Isaac Lab ``SimulationContext``.
+    This mirrors `KitVisualizer._set_viewport_camera` for thumbnail stages
+    that do not have an Isaac Lab `SimulationContext`.
+
+    Args:
+        viewport: The viewport whose active camera is moved.
+        eye: Camera position in the world frame.
+        lookat: Point in the world frame the camera looks at.
     """
     from omni.kit.viewport.utility.camera_state import ViewportCameraState
     from pxr import Gf
@@ -106,7 +132,17 @@ def capture_viewport_png(
     max_updates: int = CAPTURE_WAIT_MAX_UPDATES,
     pre_capture_updates: int = PRE_CAPTURE_UPDATES,
 ) -> bytes | None:
-    """Capture the active Kit viewport to ``cache_path`` and return PNG bytes."""
+    """Capture the active Kit viewport to `cache_path` and return PNG bytes.
+
+    Args:
+        app: The Kit application.
+        cache_path: Path the PNG is written to.
+        max_updates: Maximum number of updates to pump while waiting for the capture.
+        pre_capture_updates: Number of updates to pump before capturing.
+
+    Returns:
+        The PNG bytes, or None if no capture was written.
+    """
     from omni.kit.viewport.utility import capture_viewport_to_file, get_active_viewport
 
     viewport = get_active_viewport()

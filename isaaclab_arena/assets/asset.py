@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base class for assets that can be added to an environment."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -23,6 +25,13 @@ class Asset:
     selection may set it on the object."""
 
     def __init__(self, name: str, tags: list[str] | None = None, **kwargs):
+        """Create an asset with a name, optional tags and no variations.
+
+        Args:
+            name: Unique name of the asset. Required.
+            tags: Optional labels attached to the asset.
+            **kwargs: Passed on to the next class in the method resolution order.
+        """
         # NOTE: Cooperative Multiple Inheritance Pattern.
         # Calling super even though this is a base class to support
         # multiple inheritance of inheriting classes.
@@ -37,6 +46,9 @@ class Asset:
 
         Subclasses call this from their ``__init__`` to declare the variations
         they support.
+
+        Args:
+            variation: Variation to attach.
         """
         assert (
             variation.name not in self.variations
@@ -44,7 +56,11 @@ class Asset:
         self.variations[variation.name] = variation
 
     def get_variation(self, name: str) -> VariationBase:
-        """Return the variation with the given name."""
+        """Return the variation with the given name.
+
+        Args:
+            name: Name of an attached variation.
+        """
         assert (
             name in self.variations
         ), f"Asset '{self.name}' ({type(self).__name__}) does not have variation '{name}' attached."
@@ -63,4 +79,8 @@ class Asset:
         return self
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
-        """Validate that a resolved simulation configuration supports this asset."""
+        """Validate that a resolved simulation configuration supports this asset.
+
+        Args:
+            sim_cfg: Simulation configuration the asset will run under.
+        """

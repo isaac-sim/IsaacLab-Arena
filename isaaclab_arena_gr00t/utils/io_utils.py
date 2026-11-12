@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Conversion and YAML loading helpers for the GR00T policy configuration."""
+
 import collections
 import json
 import numpy as np
@@ -17,7 +19,11 @@ ConfigType = TypeVar("ConfigType")
 
 
 def to_numpy(value: Any) -> np.ndarray:
-    """Convert tensor or array-like to numpy; pass through if already numpy."""
+    """Convert tensor or array-like to numpy; pass through if already numpy.
+
+    Args:
+        value: The value to convert.
+    """
     if isinstance(value, np.ndarray):
         return value
     if isinstance(value, torch.Tensor):
@@ -26,7 +32,12 @@ def to_numpy(value: Any) -> np.ndarray:
 
 
 def to_tensor(value: Any, device: str | torch.device | None = None) -> torch.Tensor:
-    """Convert numpy or array-like to torch float tensor; pass through if already tensor. Optionally move to device."""
+    """Convert numpy or array-like to torch float tensor; pass through if already tensor. Optionally move to device.
+
+    Args:
+        value: The value to convert.
+        device: Device to move the result to. If None, the device is left unchanged.
+    """
     if isinstance(value, torch.Tensor):
         out = value.float() if value.dtype != torch.float32 else value
     elif isinstance(value, np.ndarray):
@@ -91,7 +102,11 @@ def load_json(file_path: str | Path, **kwargs) -> dict[str, Any]:
 
 
 def load_dict_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
-    """Load dictionary from YAML file"""
+    """Load a dictionary from a YAML file, returning an empty dictionary for an empty file.
+
+    Args:
+        yaml_path: Path to the YAML file, which must exist.
+    """
     assert yaml_path.exists(), f"{yaml_path} does not exist"
     # also return empty dict if the file is empty
     if yaml_path.stat().st_size == 0:
@@ -102,13 +117,22 @@ def load_dict_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
 
 
 def load_robot_joints_config_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
-    """Load robot joint configuration from YAML file"""
+    """Load the robot joint configuration, the `joints` entry, from a YAML file.
+
+    Args:
+        yaml_path: Path to the YAML file.
+    """
     config = load_dict_from_yaml(yaml_path)
     return config.get("joints", {})
 
 
 def convert_yaml_value(field_type: type, value: Any) -> Any:
-    """Convert YAML value to the appropriate type based on field type annotation."""
+    """Convert a YAML value to the type given by a dataclass field type annotation.
+
+    Args:
+        field_type: The type annotation of the field.
+        value: The value loaded from YAML.
+    """
     # Handle Path fields
     if field_type == Path or (
         hasattr(field_type, "__origin__") and field_type.__origin__ is Union and Path in field_type.__args__

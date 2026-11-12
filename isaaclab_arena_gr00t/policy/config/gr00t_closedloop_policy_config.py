@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration dataclass of the GR00T closed-loop policy."""
+
 from dataclasses import dataclass, field
 from pathlib import Path
 

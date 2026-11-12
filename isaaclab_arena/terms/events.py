@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Event terms that reset the poses and joint states of assets in the scene."""
+
 import torch
 from dataclasses import dataclass
 from typing import Any
@@ -65,7 +67,15 @@ def set_deformable_object_pose(
     pose: Pose,
     velocity: Velocity | None = None,
 ) -> None:
-    """Restore a deformable by transforming its default nodal state."""
+    """Restore a deformable by transforming its default nodal state.
+
+    Args:
+        env: The environment.
+        env_ids: Indices of the environments to reset; nothing happens when None.
+        asset_cfg: Scene entity of the deformable object.
+        pose: Target pose, expressed in the local frame of each environment.
+        velocity: Linear velocity assigned to every node; zero when None.
+    """
     if env_ids is None:
         return
     asset = env.scene[asset_cfg.name]
@@ -80,7 +90,15 @@ def set_deformable_object_pose_per_env(
     asset_cfg: SceneEntityCfg,
     pose_list: list[Pose],
 ) -> None:
-    """Restore selected deformable instances from absolute environment-indexed poses."""
+    """Restore selected deformable instances from absolute environment-indexed poses.
+
+    Args:
+        env: The environment.
+        env_ids: One-dimensional indices of the environments to reset; nothing happens when None.
+        asset_cfg: Scene entity of the deformable object.
+        pose_list: Target pose for each environment, indexed by environment index and expressed in the local frame
+            of that environment. Must contain one pose per environment in the scene.
+    """
     if env_ids is None:
         return
     assert env_ids.ndim == 1, "env_ids must be one-dimensional"
@@ -139,6 +157,13 @@ class ResetBackgroundPhysics(ManagerTermBase):
     """Restore unreferenced background physics roots through deferred runtime views."""
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        """Initialize the term from its event configuration.
+
+        Args:
+            cfg: Event term configuration. Its `params` hold `background_prim_paths`, `physics_paths` and
+                `referenced_paths`, which describe the background prims and the physics roots in them.
+            env: The environment.
+        """
         super().__init__(cfg, env)
         self._background_prim_paths: dict[str, str] = cfg.params["background_prim_paths"]
         self._physics_paths: dict[str, dict[str, ObjectType]] = cfg.params["physics_paths"]
@@ -324,6 +349,15 @@ def set_object_pose(
     pose: Pose,
     velocity: Velocity | None = None,
 ) -> None:
+    """Set the root pose and velocity of an object in the given environments.
+
+    Args:
+        env: The environment.
+        env_ids: Indices of the environments to reset; nothing happens when None.
+        asset_cfg: Scene entity of the object.
+        pose: Target pose, expressed in the local frame of each environment.
+        velocity: Target velocity; zero when None.
+    """
     if env_ids is None:
         return
     # Grab the object
@@ -346,7 +380,13 @@ def reset_cable_to_default(
     env_ids: torch.Tensor | None,
     asset_cfg: SceneEntityCfg,
 ) -> None:
-    """Restore selected cable instances to their configured default segment state."""
+    """Restore selected cable instances to their configured default segment state.
+
+    Args:
+        env: The environment.
+        env_ids: Indices of the environments to reset; nothing happens when None.
+        asset_cfg: Scene entity of the cable.
+    """
     if env_ids is None:
         return
     cable = env.scene[asset_cfg.name]
@@ -361,7 +401,13 @@ def reset_articulation_joints(
     env_ids: torch.Tensor,
     asset_cfg: SceneEntityCfg,
 ) -> None:
-    """Restore default joint positions and velocities for selected articulation instances."""
+    """Restore default joint positions and velocities for selected articulation instances.
+
+    Args:
+        env: The environment.
+        env_ids: Indices of the environments to reset; nothing happens when None.
+        asset_cfg: Scene entity of the articulation.
+    """
     if env_ids is None:
         return
     asset = env.scene[asset_cfg.name]
@@ -377,6 +423,15 @@ def set_object_pose_per_env(
     asset_cfg: SceneEntityCfg,
     pose_list: list[Pose],
 ) -> None:
+    """Set the root pose of an object in each given environment from its own pose, with zero velocity.
+
+    Args:
+        env: The environment.
+        env_ids: One-dimensional indices of the environments to reset; nothing happens when None.
+        asset_cfg: Scene entity of the object.
+        pose_list: Target pose for each environment, indexed by environment index and expressed in the local
+            frame of that environment.
+    """
     if env_ids is None:
         return
 
@@ -416,6 +471,12 @@ def reset_placement_asset_pose(
 
     Each ``(scene entity name, pose)`` in ``scene_writes`` is written to every resetting env,
     letting a compound asset place several prims (e.g. a robot and its stand) together.
+
+    Args:
+        env: The environment.
+        env_ids: Indices of the environments to reset; nothing happens when None.
+        scene_writes: Pairs of scene entity name and pose, with poses expressed in the local frame of each
+            environment.
     """
     if env_ids is None:
         return
@@ -432,6 +493,12 @@ def reset_placement_asset_pose_per_env(
 
     ``write_pose_list[env]`` holds that env's ``(scene entity name, pose)`` writes, so different
     environments can hold different solved layouts for the same asset (and its auxiliary prims).
+
+    Args:
+        env: The environment.
+        env_ids: One-dimensional indices of the environments to reset; nothing happens when None.
+        write_pose_list: For each environment in the scene, pairs of scene entity name and pose, with poses
+            expressed in the local frame of that environment.
     """
     if env_ids is None:
         return
@@ -448,7 +515,12 @@ def reset_placement_asset_pose_per_env(
 
 
 def reset_all_articulation_joints(env: ManagerBasedEnv, env_ids: torch.Tensor):
-    """Reset the articulation joints to the initial state."""
+    """Reset the articulation joints to the initial state.
+
+    Args:
+        env: The environment.
+        env_ids: Indices of the environments to reset.
+    """
     for articulation_asset in env.scene.articulations.values():
         # obtain default and deal with the offset for env origins
         default_root_state = wp.to_torch(articulation_asset.data.default_root_state)[env_ids].clone()

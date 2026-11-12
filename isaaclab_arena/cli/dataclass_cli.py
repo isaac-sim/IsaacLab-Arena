@@ -25,7 +25,13 @@ def add_dataclass_cli_args(
     *,
     excluded_fields: Collection[str] = (),
 ) -> None:
-    """Generate CLI flags for the selected fields of a config dataclass."""
+    """Generate CLI flags for the selected fields of a config dataclass.
+
+    Args:
+        parser: Parser that receives the flags.
+        cfg_type: Config dataclass whose fields become flags.
+        excluded_fields: Names of fields that get no flag.
+    """
     assert is_dataclass(cfg_type), f"{cfg_type.__name__} must be a dataclass"
     resolved_field_types = get_type_hints(cfg_type)
     for config_field in fields(cfg_type):
@@ -45,7 +51,13 @@ def assert_cli_defaults_match_dataclass(
     cfg_type: type[CfgT],
     field_names: Collection[str],
 ) -> None:
-    """Assert that existing parser flags retain their dataclass defaults."""
+    """Assert that existing parser flags retain their dataclass defaults.
+
+    Args:
+        parser: Parser holding the existing flags.
+        cfg_type: Config dataclass providing the expected defaults.
+        field_names: Names of the fields whose flags are checked.
+    """
     assert is_dataclass(cfg_type), f"{cfg_type.__name__} must be a dataclass"
     config_fields = {config_field.name: config_field for config_field in fields(cfg_type)}
     for field_name in field_names:
@@ -62,7 +74,12 @@ def assert_cli_defaults_match_dataclass(
 
 
 def dataclass_from_cli(cfg_type: type[CfgT], args_cli: argparse.Namespace) -> CfgT:
-    """Create a config dataclass from matching values in an argparse Namespace."""
+    """Create a config dataclass from matching values in an argparse Namespace.
+
+    Args:
+        cfg_type: Config dataclass to create.
+        args_cli: Parsed arguments; attributes matching field names are used.
+    """
     assert is_dataclass(cfg_type), f"{cfg_type.__name__} must be a dataclass"
     config_values = {
         config_field.name: getattr(args_cli, config_field.name)

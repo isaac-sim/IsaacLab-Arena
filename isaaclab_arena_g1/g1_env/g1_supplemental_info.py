@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Supplemental joint, body and controller information for the G1 robot."""
+
 from dataclasses import dataclass, field
 
 import isaaclab_arena_g1.g1_env.g1_constants as g1_constants

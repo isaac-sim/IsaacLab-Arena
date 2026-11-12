@@ -41,5 +41,12 @@ class ArenaEnvironmentFactory(ABC, Generic[ArenaEnvironmentCfgT]):
 
     @abstractmethod
     def build(self, cfg: ArenaEnvironmentCfgT) -> IsaacLabArenaEnvironment:
-        """Build an Arena environment from its typed configuration."""
+        """Build an Arena environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration describing the environment to build.
+
+        Returns:
+            The built Arena environment.
+        """
         pass

@@ -8,6 +8,8 @@
 # including at pytest-collection time, and the cascade pulls in pxr/USD modules before
 # SimulationApp() is created — which segfaults the sim. Instead it is imported lazily by
 # ensure_assets_registered() (called after the sim app is up), mirroring object_library.
+"""Imports every task module so that the tasks register themselves."""
+
 from isaaclab_arena.tasks import (  # noqa: F401
     assembly_task,
     close_door_task,

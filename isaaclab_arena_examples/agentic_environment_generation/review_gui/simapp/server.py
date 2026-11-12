@@ -196,6 +196,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Parse the command-line arguments, serve the SimApp socket and return the process exit code."""
     args = _parse_args()
     return _serve_socket(args.socket)
 

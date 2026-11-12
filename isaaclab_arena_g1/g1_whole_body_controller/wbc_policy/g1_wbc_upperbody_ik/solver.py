@@ -3,18 +3,32 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Abstract base class for solvers that map a target to a robot configuration."""
+
 from abc import ABC, abstractmethod
 from typing import Any
 
 
 class Solver(ABC):
+    """Abstract base class for solvers that compute a result from a target when called."""
+
     def __init__(self):
         pass
 
     def register_robot(self, robot):
+        """Register the robot model to solve for. The base implementation does nothing.
+
+        Args:
+            robot: The robot model.
+        """
         pass
 
     def calibrate(self, data):
+        """Calibrate the solver from data. The base implementation does nothing.
+
+        Args:
+            data: Calibration data.
+        """
         pass
 
     @abstractmethod

@@ -26,7 +26,12 @@ if TYPE_CHECKING:
 
 
 def prepare_clutter_settling(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
-    """Check support mobility, gravity and placement coverage before any scene writes."""
+    """Check support mobility, gravity and placement coverage before any scene writes.
+
+    Args:
+        env: Environment that contains the clutter assets.
+        assets: Placeable assets of the scene.
+    """
     clutter_assets = [asset for asset in assets if get_relation(asset, ClutterOn) is not None]
     if not clutter_assets:
         return

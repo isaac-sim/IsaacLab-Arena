@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Arena's manager-based RL environment classes, with per-episode bookkeeping, progress tracking and recording."""
+
 from __future__ import annotations
 
 import torch
@@ -44,6 +46,15 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variation_replay_scheduler: VariationReplayScheduler | None = None,
         **kwargs,
     ):
+        """Create the environment and apply Arena's global settings.
+
+        Args:
+            cfg: Arena environment configuration.
+            render_mode: Gymnasium render mode.
+            variation_recorder: Optional recorder that logs variation values drawn during the run.
+            variation_replay_scheduler: Optional scheduler that replays previously recorded variation values.
+            **kwargs: Additional keyword arguments forwarded to the Isaac Lab base environment.
+        """
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
 
         apply_arena_global_settings()
@@ -115,6 +126,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         return self._reset_env_ids
 
     def load_managers(self) -> None:
+        """Load the Isaac Lab managers, then create the Arena world, progress tracker and recorder managers."""
         assert self._arena_world is None, "ArenaWorld is already initialized."
         self._arena_world = ArenaWorld(self.scene)
         # Isaac Lab hardcodes RecorderManager. Defer its configuration so only the Arena
@@ -160,7 +172,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         return self.cfg.task_description
 
     def get_episode_index(self, env_id: int) -> int:
-        """Return the current episode index, retaining the last index when an environment becomes inactive."""
+        """Return the current episode index, retaining the last index when an environment becomes inactive.
+
+        Args:
+            env_id: Index of the environment instance.
+        """
         return self._episode_indices.get(env_id, 0)
 
     def configure_episode_limit(self, num_episodes: int) -> None:
@@ -180,7 +196,16 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         seed: int | None = None,
         options: dict | None = None,
     ) -> tuple[VecEnvObs, dict]:
-        """Initialize episodes, allowing subsequent explicit resets only without an episode limit."""
+        """Initialize episodes, allowing subsequent explicit resets only without an episode limit.
+
+        Args:
+            env_ids: Environments to reset.
+            seed: Random seed for the reset.
+            options: Additional reset options forwarded to the base environment.
+
+        Returns:
+            The observations and the info dictionary.
+        """
         assert (
             self._episode_limit is None or self._started_episode_count == 0
         ), "Episode-limited rollouts use one initial reset and automatic replacements during step()."
@@ -188,7 +213,14 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         return super().reset(seed=seed, env_ids=env_ids, options=options)
 
     def step(self, action: torch.Tensor) -> VecEnvStepReturn:
-        """Step all environments and report completions only for assigned episodes."""
+        """Step all environments and report completions only for assigned episodes.
+
+        Args:
+            action: Actions for all environments, shaped (num_envs, action_dim).
+
+        Returns:
+            The observations, rewards, terminated flags, truncated flags and extras.
+        """
         active_before_step = self._active_episode_mask.clone()
         self._reset_env_ids = self._reset_env_ids[:0]
         observations, rewards, terminated, truncated, extras = super().step(action)

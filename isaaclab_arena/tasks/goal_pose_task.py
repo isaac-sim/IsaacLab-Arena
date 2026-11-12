@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Task in which an object is moved into a target pose region."""
+
 import numpy as np
 from functools import partial
 
@@ -24,6 +26,8 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 @register_task
 class GoalPoseTask(TaskBase):
+    """Task that succeeds when an object is within target position ranges and orientation tolerance."""
+
     def __init__(
         self,
         object: Asset,
@@ -42,7 +46,7 @@ class GoalPoseTask(TaskBase):
             target_y_range: Success zone y-range [min, max] in meters.
             target_z_range: Success zone z-range [min, max] in meters.
             target_orientation_xyzw: Target quaternion [x, y, z, w].
-            target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
+            target_orientation_tolerance_rad: Angular tolerance in radians.
         """
         super().__init__(episode_length_s=episode_length_s)
         self.object = object
@@ -56,9 +60,14 @@ class GoalPoseTask(TaskBase):
         self.events_cfg = None
 
     def get_scene_cfg(self):
+        """Return the interactive scene configuration, which sets the spacing between environments."""
         return self.scene_config
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination that triggers when the object reaches the goal pose.
+
+        Only the target ranges and orientation that were provided are checked.
+        """
         params: dict = {"object_cfg": SceneEntityCfg(self.object.name)}
         if self.target_x_range is not None:
             params["target_x_range"] = self.target_x_range
@@ -81,19 +90,28 @@ class GoalPoseTask(TaskBase):
         )
 
     def get_events_cfg(self):
+        """Return None; the task defines no events."""
         return self.events_cfg
 
     def get_prompt(self):
+        """Not implemented; always raises NotImplementedError."""
         raise NotImplementedError("Function not implemented yet.")
 
     def get_mimic_env_cfg(self, embodiment_name: str):
+        """Not implemented; always raises NotImplementedError.
+
+        Args:
+            embodiment_name: Name of the embodiment.
+        """
         raise NotImplementedError("Function not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the success rate and the rate at which the object is moved."""
         return [
             SuccessRateMetric(),
             ObjectMovedRateMetric(self.object),
         ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a viewer camera configuration that looks at the object."""
         return get_viewer_cfg_look_at_object(lookat_object=self.object, offset=np.array([1.5, 1.5, 1.5]))

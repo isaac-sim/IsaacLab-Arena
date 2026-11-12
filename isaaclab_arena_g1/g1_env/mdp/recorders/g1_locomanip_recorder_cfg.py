@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Recorder terms and recorder manager configuration for G1 locomanipulation data."""
+
 from isaaclab.envs.mdp.recorders.recorders_cfg import (
     InitialStateRecorderCfg,
     PostStepProcessedActionsRecorderCfg,
@@ -19,17 +21,28 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constan
 
 
 class PostStepG1ObservationsActionRecorder(RecorderTerm):
+    """Recorder term that records the action observation group after each step."""
+
     def record_post_step(self):
+        """Return the action observation entry under the key `action`."""
         return "action", self._env.obs_buf["action"]
 
 
 @configclass
 class PostStepG1ObservationsActionRecorderCfg(RecorderTermCfg):
+    """Configuration for the post-step G1 action observation recorder term."""
+
     class_type: type[RecorderTerm] = PostStepG1ObservationsActionRecorder
 
 
 class PreStepG1LocomanipActionRecorder(RecorderTerm):
+    """Recorder term that records the pre-step actions with the navigation command taken from the action terms."""
+
     def record_pre_step(self):
+        """Return the current actions under the key `actions`.
+
+        The navigation slice is replaced by the navigation command of any action term that exposes one.
+        """
         actions = self._env.action_manager.action.clone()
         for term_name in self._env.action_manager.active_terms:
             if hasattr(self._env.action_manager.get_term(term_name), "navigate_cmd"):
@@ -50,6 +63,7 @@ class PreStepFlatCameraObservationsRecorder(RecorderTerm):
     """Recorder term that records the camera observations in each step."""
 
     def record_pre_step(self):
+        """Return the camera observations under the key `camera_obs`."""
         return "camera_obs", self._env.obs_buf["camera_obs"]
 
 

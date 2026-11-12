@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""RSL-RL runner configuration for Arena environments."""
+
 from dataclasses import field
 
 from isaaclab.utils.configclass import configclass
@@ -11,11 +13,7 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 @configclass
 class RLPolicyCfg(RslRlOnPolicyRunnerCfg):
-    """Default RSL-RL runner configuration for Arena environments.
-
-    Used as the ``rsl_rl_cfg_entry_point`` when registering environments with gym,
-    allowing IsaacLab's ``train.py`` to load it via ``@hydra_task_config``.
-    """
+    """RSL-RL runner configuration for Arena environments."""
 
     num_steps_per_env: int = 24
     max_iterations: int = 4000

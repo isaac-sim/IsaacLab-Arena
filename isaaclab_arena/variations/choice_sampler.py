@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Sampler drawing uniformly from a per-call sequence of choices."""
+
 from __future__ import annotations
 
 import torch
@@ -21,6 +23,7 @@ class ChoiceSamplerCfg(SamplerBaseCfg):
     """Config for ChoiceSampler (empty; ``choices`` is supplied per call)."""
 
     def build(self) -> ChoiceSampler:
+        """Return the ChoiceSampler described by this cfg."""
         return ChoiceSampler()
 
 

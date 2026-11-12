@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Task in which a robot presses a button."""
+
 import numpy as np
 from dataclasses import MISSING
 from functools import partial
@@ -24,6 +26,8 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 @register_task
 class PressButtonTask(TaskBase):
+    """Task that succeeds when a pressable object is pressed."""
+
     def __init__(
         self,
         pressable_object: Pressable,
@@ -32,6 +36,16 @@ class PressButtonTask(TaskBase):
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
+        """Initialize the press-button task.
+
+        Args:
+            pressable_object: Object to press.
+            pressedness_threshold: Threshold for the object to count as pressed; None keeps the affordance's own value.
+            reset_pressedness: Pressedness the object is reset to at the start of an episode; None keeps the
+                affordance's own value.
+            episode_length_s: Episode time limit in seconds.
+            task_description: Natural-language task description; derived from the object name when None.
+        """
         super().__init__(episode_length_s=episode_length_s)
         assert isinstance(pressable_object, Pressable), "Pressable object must be an instance of Pressable"
         self.pressable_object = pressable_object
@@ -42,9 +56,11 @@ class PressButtonTask(TaskBase):
         )
 
     def get_scene_cfg(self):
+        """Return None; the task adds nothing to the scene."""
         pass
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination that triggers when the object is pressed."""
         params = {}
         if self.pressedness_threshold is not None:
             params["pressedness_threshold"] = self.pressedness_threshold
@@ -59,17 +75,25 @@ class PressButtonTask(TaskBase):
         )
 
     def get_events_cfg(self):
+        """Return the reset event that unpresses the object."""
         return PressEventCfg(self.pressable_object, reset_pressedness=self.reset_pressedness)
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
+        """Not implemented; always raises NotImplementedError.
+
+        Args:
+            arm_mode: Which arm or arms the Mimic subtasks are generated for.
+        """
         raise NotImplementedError("Function not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the success rate metric."""
         return [
             SuccessRateMetric(),
         ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a viewer camera configuration that looks at the object."""
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pressable_object,
             offset=np.array([-1.5, -1.5, 1.5]),
@@ -78,11 +102,17 @@ class PressButtonTask(TaskBase):
 
 @configclass
 class PressEventCfg:
-    """Configuration for Open Door."""
+    """Reset events for the press-button task."""
 
     reset_button_state: EventTermCfg = MISSING
 
     def __init__(self, pressable_object: Pressable, reset_pressedness: float | None):
+        """Create the reset event that unpresses the object.
+
+        Args:
+            pressable_object: Object to unpress at reset.
+            reset_pressedness: Pressedness the object is reset to; None keeps the affordance's own value.
+        """
         assert isinstance(pressable_object, Pressable), "Object pose must be an instance of Pressable"
         params = {}
         if reset_pressedness is not None:

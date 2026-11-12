@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Sampling helpers shared by the placement initializers."""
+
 from __future__ import annotations
 
 import torch
@@ -17,7 +19,11 @@ if TYPE_CHECKING:
 
 
 def get_initial_pose_or_assert_fail(obj: PlaceableAsset) -> Pose:
-    """Return obj's initial pose, asserting it is a fixed pose rather than a distribution."""
+    """Return obj's initial pose, asserting it is a fixed pose rather than a distribution.
+
+    Args:
+        obj: Object whose initial pose is read.
+    """
     initial_pose = obj.get_initial_pose()
     assert isinstance(
         initial_pose, Pose
@@ -28,7 +34,12 @@ def get_initial_pose_or_assert_fail(obj: PlaceableAsset) -> Pose:
 def get_world_bbox_at_initial_pose(
     obj: PlaceableAsset, asset_to_bbox: dict[PlaceableAsset, AxisAlignedBoundingBox]
 ) -> AxisAlignedBoundingBox:
-    """Return obj's local bbox translated to its fixed initial pose."""
+    """Return obj's local bbox translated to its fixed initial pose.
+
+    Args:
+        obj: Object whose bounding box is translated.
+        asset_to_bbox: Local bounding box of each object.
+    """
     return asset_to_bbox[obj].translated(get_initial_pose_or_assert_fail(obj).position_xyz)
 
 
@@ -38,6 +49,11 @@ def sample_uniform_or_midpoint(low: float, high: float, generator: torch.Generat
     An empty interval means the caller's constraints cannot all hold, which happens for example
     when a child is wider than the surface it sits on. The midpoint keeps the seed centred on the
     intended region and lets the solver resolve the conflict.
+
+    Args:
+        low: Lower end of the interval.
+        high: Upper end of the interval.
+        generator: Random generator for reproducible sampling, or None for the global generator.
     """
     if low >= high:
         return (low + high) / 2.0

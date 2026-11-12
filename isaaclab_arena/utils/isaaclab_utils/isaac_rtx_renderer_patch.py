@@ -12,7 +12,7 @@ has not been called), so skipping the pump leaves annotator buffers empty and
 produces a black first frame in scripts that rely on a populated frame before
 the first ``env.step()`` (notably ``record_demos.py``).
 
-Apply by calling :func:`patch_isaac_rtx_renderer` once, after ``AppLauncher``
+Apply by calling `patch_isaac_rtx_renderer` once, after ``AppLauncher``
 has initialized Kit and before any camera/renderer is constructed.
 """
 

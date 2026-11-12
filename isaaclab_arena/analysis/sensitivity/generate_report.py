@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Command-line tool that builds a sensitivity report figure from recorded episode results."""
+
 from __future__ import annotations
 
 import argparse
@@ -62,6 +64,7 @@ def generate_report(
 
 
 def main():
+    """Parse the command line, fit a posterior over the recorded factors and write the report figure."""
     parser = argparse.ArgumentParser(
         description=(
             "Build a sensitivity report (one posterior-marginal panel per factor) from an "

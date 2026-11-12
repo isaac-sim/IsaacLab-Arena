@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Aggregation of metrics recorded by several Runs into one collection."""
+
 from __future__ import annotations
 
 import numpy as np

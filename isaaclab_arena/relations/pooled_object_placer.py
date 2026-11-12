@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Placer that solves layouts in batches, pools them per environment and hands them out on demand."""
+
 from __future__ import annotations
 
 import torch
@@ -45,19 +47,32 @@ class EnvLayoutPool:
 
     @property
     def available(self) -> int:
+        """Return the number of layouts not yet consumed."""
         return len(self.layouts) - self.cursor
 
     def discard_consumed(self) -> None:
+        """Drop layouts that were already consumed and reset the read cursor."""
         self.layouts = self.layouts[self.cursor :]
         self.cursor = 0
 
     def append(self, layout: PlacementResult) -> None:
+        """Add one layout to the end of the pool.
+
+        Args:
+            layout: Layout to add.
+        """
         self.layouts.append(layout)
 
     def extend(self, layouts: list[PlacementResult]) -> None:
+        """Add several layouts to the end of the pool.
+
+        Args:
+            layouts: Layouts to add.
+        """
         self.layouts.extend(layouts)
 
     def next(self) -> PlacementResult:
+        """Return the next unconsumed layout and advance the read cursor."""
         assert self.cursor < len(self.layouts), "No unread layouts remain in this env pool."
         layout = self.layouts[self.cursor]
         self.cursor += 1
@@ -92,6 +107,16 @@ class PooledObjectPlacer:
         num_envs: int | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> None:
+        """Create a placer and its per-environment layout pools.
+
+        Args:
+            objects: Placement objects.
+            placer_params: Placement configuration.
+            pool_size: Minimum number of layouts solved per refill.
+            num_envs: Number of environments; required for scenes with heterogeneous objects.
+            collision_objects: Fixed obstacles that objects must not overlap, or None to discover them from the
+                objects.
+        """
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         assert not (
             has_heterogeneous_objects(objects) and num_envs is None
@@ -283,7 +308,14 @@ class PooledObjectPlacer:
         return results
 
     def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
-        """Consume one layout for each requested absolute env id."""
+        """Consume one layout for each requested absolute env id.
+
+        Args:
+            env_ids: Absolute environment ids to draw layouts for.
+
+        Returns:
+            Layout per requested environment id.
+        """
         if any(env_id < 0 or env_id >= self._num_envs for env_id in env_ids):
             raise ValueError(f"env_ids must be in [0, {self._num_envs}); got {env_ids}")
 
@@ -321,6 +353,9 @@ class PooledObjectPlacer:
 
         Slot i picks from env i % num_envs's pool so each result matches its
         absolute env, using that env's RNG for a reproducible draw.
+
+        Args:
+            count: Number of layouts to draw.
         """
         # Reads pool.layouts directly, ignoring the consumption cursor.
         results: list[PlacementResult] = []

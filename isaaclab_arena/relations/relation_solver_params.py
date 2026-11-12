@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration dataclass for the relation solver, including its per-relation loss strategies."""
+
 from dataclasses import dataclass, field
 
 from isaaclab_arena.relations.collision_mode import CollisionMode

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""DROID embodiments (Franka arm with a Robotiq gripper on a stand) and their configs."""
+
 from __future__ import annotations
 
 import torch
@@ -127,6 +129,19 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         placement_bbox_stand_only: bool = False,
         collision_mode: CollisionMode | str | None = None,
     ):
+        """Create the DROID embodiment with its stand, gripper, cameras, observations and events.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            initial_joint_pose: Initial arm and gripper joint positions in articulation order.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+            stand_height_m: Height of the stand under the robot base, in meters.
+            stand_footprint_xy_m: Stand footprint along the robot-base X and Y axes, in meters.
+            placement_bbox_stand_only: Whether placement bounds use only the stand footprint, not the robot and stand.
+            collision_mode: Collision-detection method used for this embodiment when placing objects relative to it.
+        """
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
@@ -222,7 +237,11 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
-        """Set the spawn and reset joint positions in articulation order."""
+        """Set the spawn and reset joint positions in articulation order.
+
+        Args:
+            initial_joint_pose: Joint positions, one per DROID arm and gripper joint in articulation order.
+        """
         expected_joint_count = len(_DROID_JOINT_NAMES)
         assert (
             len(initial_joint_pose) == expected_joint_count
@@ -233,9 +252,18 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         robot.init_state = robot.init_state.replace(joint_pos=dict(zip(_DROID_JOINT_NAMES, initial_joint_pose)))
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        """Return the name of the end-effector frame transformer.
+
+        Args:
+            arm_mode: Arm mode to look up the frame for. Not used because DROID has a single arm.
+
+        Returns:
+            The end-effector frame name.
+        """
         return "ee_frame"
 
     def get_command_body_name(self) -> str:
+        """Return the name of the body that the arm action controls."""
         return self.action_config.arm_action.body_name
 
 
@@ -243,7 +271,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with differential inverse kinematics action controller.
 
-    When ``--presets newton`` is selected, :meth:`configure_physics_backend` applies Newton-specific
+    When ``--presets newton`` is selected, `configure_physics_backend` applies Newton-specific
     spawn, gripper, and IK overrides before the env is built.
     """
 
@@ -267,6 +295,19 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         placement_bbox_stand_only: bool = False,
         collision_mode: CollisionMode | str | None = None,
     ):
+        """Create the DROID embodiment with a differential inverse kinematics arm action.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            initial_joint_pose: Initial arm and gripper joint positions in articulation order.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+            stand_height_m: Height of the stand under the robot base, in meters.
+            stand_footprint_xy_m: Stand footprint along the robot-base X and Y axes, in meters.
+            placement_bbox_stand_only: Whether placement bounds use only the stand footprint, not the robot and stand.
+            collision_mode: Collision-detection method used for this embodiment when placing objects relative to it.
+        """
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
@@ -326,6 +367,19 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         placement_bbox_stand_only: bool = False,
         collision_mode: CollisionMode | str | None = None,
     ):
+        """Create the DROID embodiment with a relative joint position arm action.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            initial_joint_pose: Initial arm and gripper joint positions in articulation order.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+            stand_height_m: Height of the stand under the robot base, in meters.
+            stand_footprint_xy_m: Stand footprint along the robot-base X and Y axes, in meters.
+            placement_bbox_stand_only: Whether placement bounds use only the stand footprint, not the robot and stand.
+            collision_mode: Collision-detection method used for this embodiment when placing objects relative to it.
+        """
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
@@ -359,6 +413,19 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         placement_bbox_stand_only: bool = False,
         collision_mode: CollisionMode | str | None = None,
     ):
+        """Create the DROID embodiment with an absolute joint position arm action.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            initial_joint_pose: Initial arm and gripper joint positions in articulation order.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+            stand_height_m: Height of the stand under the robot base, in meters.
+            stand_footprint_xy_m: Stand footprint along the robot-base X and Y axes, in meters.
+            placement_bbox_stand_only: Whether placement bounds use only the stand footprint, not the robot and stand.
+            collision_mode: Collision-detection method used for this embodiment when placing objects relative to it.
+        """
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
@@ -487,7 +554,7 @@ class DroidSceneCfg:
 class BinaryJointPositionZeroToOneActionCfg(BinaryJointPositionActionCfg):
     """Configuration for the binary joint position action term.
 
-    See :class:`BinaryJointPositionAction` for more details.
+    See `BinaryJointPositionAction` for more details.
     """
 
     class_type = BinaryJointPositionZeroToOneAction
@@ -636,7 +703,18 @@ def spawn_newton_droid(
     orientation: tuple[float, float, float, float] | None = None,
     **kwargs,
 ):
-    """Spawn DROID from USD and apply Newton-specific rigid-body and collision setup."""
+    """Spawn DROID from USD and apply Newton-specific rigid-body and collision setup.
+
+    Args:
+        prim_path: USD prim path to spawn the robot at.
+        spawner_cfg: USD spawner config describing the robot asset.
+        translation: Translation of the spawned prim. When None, no translation is applied.
+        orientation: Orientation of the spawned prim as a quaternion. When None, none is applied.
+        **kwargs: Additional keyword arguments forwarded to the USD spawner.
+
+    Returns:
+        The spawned prim.
+    """
     from isaaclab.sim import schemas
     from isaaclab_newton.sim.schemas import MujocoCollisionCfg, MujocoRigidBodyPropertiesCfg
     from pxr import Sdf, Usd, UsdGeom, UsdPhysics

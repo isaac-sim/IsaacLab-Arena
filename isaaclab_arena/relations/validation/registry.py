@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Registry of pre-physics placement validators keyed by check name."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

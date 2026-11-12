@@ -33,7 +33,7 @@ from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr
 
 
 class ActionSchedulerType(str, Enum):
-    """Action scheduler used to consume a policy's inference chunks."""
+    """Action scheduler that consumes a policy's inference chunks."""
 
     CHUNK = "chunk"
     SYNCED_BATCH = "synced_batch"
@@ -85,16 +85,25 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     def default_image_size(cls, config: Gr00tRemoteClosedloopPolicyCfg) -> tuple[int, int]:
         """Return twice the (height, width) the GR00T policy config pads and resizes camera images to.
 
-        GR00T's preprocessing pads each frame to a square and resizes it to ``target_image_size``, but skips
+        GR00T's preprocessing pads each frame to a square and resizes it to `target_image_size`, but skips
         both when the frame already has that size. Fitting cameras into twice the target keeps that step
         running, so the policy sees the same padded view as with full-resolution cameras at a quarter of
         the pixels.
+
+        Args:
+            config: Policy configuration whose policy config YAML defines the target image size.
         """
         policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyCfg)
         height, width = policy_config.target_image_size[:2]
         return 2 * int(height), 2 * int(width)
 
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
+        """Create the policy from its configuration, connecting to the GR00T server without loading a model locally.
+
+        Args:
+            config: Policy configuration with the policy config YAML path, server connection settings, number of
+                environments, device and action scheduler.
+        """
         super().__init__(config)
 
         action_scheduler_cls = ActionSchedulerType(config.scheduler).get_scheduler_cls()
@@ -151,6 +160,14 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     # ---------------------- Policy interface -------------------
 
     def set_task_description(self, task_description: str | None) -> str:
+        """Set the language instruction given to the policy.
+
+        Args:
+            task_description: The instruction. If None, the instruction from the policy config is used.
+
+        Returns:
+            The instruction in use.
+        """
         if task_description is None:
             task_description = self.policy_config.language_instruction
         if not task_description:
@@ -162,6 +179,15 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         return self.task_description
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
+        """Return the next action, requesting a new action chunk from the server when the current one is exhausted.
+
+        Args:
+            env: The environment.
+            observation: The current observation.
+
+        Returns:
+            The action tensor for all environments.
+        """
         assert self._chunking_state is not None, "GR00T remote policy has been closed"
 
         def fetch_chunk() -> torch.Tensor:
@@ -224,6 +250,11 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         return action_tensor
 
     def reset(self, env_ids: torch.Tensor | None = None):
+        """Reset the server-side policy state and the action chunking state of the given environments.
+
+        Args:
+            env_ids: Indices of the environments to reset. If None, all environments are reset.
+        """
         if env_ids is None:
             env_ids = slice(None)
         assert self._client is not None, "GR00T remote policy has been closed"

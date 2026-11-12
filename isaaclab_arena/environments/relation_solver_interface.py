@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Functions that prepare relation-based object placement and create the reset event that applies it."""
+
 from __future__ import annotations
 
 import copy
@@ -154,7 +156,11 @@ def prepare_recorded_relation_placement(
 
 
 def make_placement_event(sampler: PlacementSampler | RecordedPlacementSampler) -> EventTermCfg:
-    """Return the coordinated builder-owned placement reset event."""
+    """Return the coordinated builder-owned placement reset event.
+
+    Args:
+        sampler: Placement sampler that provides the poses to apply on reset.
+    """
     from isaaclab.managers import EventTermCfg
 
     return EventTermCfg(

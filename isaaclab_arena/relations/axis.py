@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Axis enum for single-axis placement relations."""
+
 from enum import Enum
 
 

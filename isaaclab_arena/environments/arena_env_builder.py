@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Builder that turns an Arena environment description into an Isaac Lab configuration and gym environment."""
+
 from __future__ import annotations
 
 import datetime
@@ -173,7 +175,7 @@ class ArenaEnvBuilder:
         When the environment does not provide placer parameters, the builder creates
         them from ``ArenaEnvBuilderCfg``.
 
-        * **True** (default) — registers a reset event that draws a fresh layout
+        * **True** — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
         * **False** — assigns one fixed layout per environment and reuses it.
 
@@ -620,8 +622,7 @@ class ArenaEnvBuilder:
     ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
         """Build env cfg and register the env with gym. Stop short of env.make().
 
-        The default operation is to call with no arguments, in which case the env_cfg is built from the
-        Arena description passed to the builder at construction.
+        With no arguments, the env_cfg is built from the Arena description passed to the builder at construction.
         The registered constructor supplies env_kwargs even when the caller only passes cfg to gym.make.
         A registration shares samplers across constructions; close its current env before making another.
         Each construction starts fresh runtime recording and restarts recorded replay.
@@ -682,8 +683,7 @@ class ArenaEnvBuilder:
     ) -> ManagerBasedEnv:
         """Build env cfg, register the env with gym, and make the env.
 
-        The default operation is to call with no arguments, in which case the env_cfg is built from the
-        Arena description passed to the builder at construction.
+        With no arguments, the env_cfg is built from the Arena description passed to the builder at construction.
 
         Args:
             env_cfg: The optional environment cfg to use.
@@ -704,8 +704,7 @@ class ArenaEnvBuilder:
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         """Build env cfg, register the env with gym, and make the env.
 
-        The default operation is to call with no arguments, in which case the env_cfg is built from the
-        Arena description passed to the builder at construction.
+        With no arguments, the env_cfg is built from the Arena description passed to the builder at construction.
 
         Args:
             env_cfg: The optional environment cfg to use.

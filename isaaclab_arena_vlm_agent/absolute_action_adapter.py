@@ -20,16 +20,34 @@ class AbsoluteChunkActionAdapter(ChunkActionAdapter):
     response_model = CommandChunk
 
     def __init__(self, chunk_size: int):
+        """Create a chunk decoder.
+
+        Args:
+            chunk_size: Number of commands in each decoded chunk.
+        """
         super().__init__(chunk_size)
         self._command_indices = None
 
     def is_robot_action_space_supported(self, env) -> bool:
-        """Resolve command indices from the active controller before policy inference."""
+        """Read the command layout from the active controller and return whether it accepts absolute targets.
+
+        Args:
+            env: Arena environment, optionally gym-wrapped.
+        """
         self._command_indices = read_absolute_command_indices(env)
         return self._command_indices is not None
 
     def decode_command(self, response: CommandChunk, arena_world, env_id: int) -> np.ndarray:
-        """Validate and stack absolute commands in execution order."""
+        """Validate and stack absolute commands in execution order.
+
+        Args:
+            response: Validated model output holding the command chunk.
+            arena_world: Live Arena scene state.
+            env_id: Environment index within the batched world state.
+
+        Returns:
+            Array of shape (chunk_size, action_dim) with one command per row.
+        """
         if len(response.commands) != self.chunk_size:
             raise InvalidAgentResponseError(f"Expected {self.chunk_size} commands, got {len(response.commands)}")
         commands = []
@@ -44,16 +62,34 @@ class AbsoluteGoalActionAdapter(GoalActionAdapter):
     response_model = Command
 
     def __init__(self, motion_generator: MotionGenerator):
+        """Create a goal decoder.
+
+        Args:
+            motion_generator: Generator that produces commands toward each decoded goal.
+        """
         super().__init__(motion_generator)
         self._command_indices = None
 
     def is_robot_action_space_supported(self, env) -> bool:
-        """Resolve command indices from the active controller before policy inference."""
+        """Read the command layout from the active controller and return whether it accepts absolute targets.
+
+        Args:
+            env: Arena environment, optionally gym-wrapped.
+        """
         self._command_indices = read_absolute_command_indices(env)
         return self._command_indices is not None
 
     def decode_command(self, response: Command, arena_world, env_id: int) -> np.ndarray:
-        """Decode a validated response into an absolute target for the motion generator."""
+        """Decode a validated response into an absolute target for the motion generator.
+
+        Args:
+            response: Validated model output holding one command.
+            arena_world: Live Arena scene state.
+            env_id: Environment index within the batched world state.
+
+        Returns:
+            Absolute command vector of length action_dim.
+        """
         return _decode_absolute_command(response, self._command_indices)
 
 

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Build-time variation that samples an intensity for a light."""
+
 from __future__ import annotations
 
 from dataclasses import field
@@ -42,6 +44,13 @@ class LightIntensityVariation(BuildTimeVariationBase):
         cfg: LightIntensityVariationCfg | None = None,
         name: str = "intensity",
     ):
+        """Initialize the variation.
+
+        Args:
+            light: The light to mutate.
+            cfg: Tunable parameters; ``None`` selects the standard parameters.
+            name: Identifier under which this variation is registered on the asset.
+        """
         super().__init__(cfg=cfg if cfg is not None else LightIntensityVariationCfg(), name=name)
         self._light = light
 

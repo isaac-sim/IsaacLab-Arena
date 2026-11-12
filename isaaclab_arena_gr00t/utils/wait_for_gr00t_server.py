@@ -62,7 +62,19 @@ def wait_for_gr00t_server(
     request_timeout_ms: int,
     tcp_probe_timeout_sec: float,
 ) -> bool:
-    """Poll a GR00T server until it answers ping or the timeout expires."""
+    """Poll a GR00T server until it answers ping or the timeout expires.
+
+    Args:
+        host: Host name or address of the server.
+        port: Port of the server.
+        timeout_sec: Maximum time to wait, in seconds.
+        poll_interval_sec: Time between ping attempts, in seconds.
+        request_timeout_ms: Timeout of each ping request, in milliseconds.
+        tcp_probe_timeout_sec: Timeout of the TCP connectivity probe printed with each attempt, in seconds.
+
+    Returns:
+        True once the server answers; False if the timeout expires first.
+    """
     started_at = time.monotonic()
     deadline = started_at + timeout_sec
 
@@ -101,6 +113,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Wait for the server given on the command line and return 0 once it is ready; exit with an error on timeout."""
     args = _parse_args()
     ready = wait_for_gr00t_server(
         host=args.host,

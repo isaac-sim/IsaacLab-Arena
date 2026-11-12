@@ -46,7 +46,7 @@ class ObjectInTask(TaskBase):
             linear_velocity_threshold: Maximum settled linear speed in meters per second.
             angular_velocity_threshold: Maximum settled angular speed in radians per second.
             consecutive_success_steps: Consecutive steps the object must remain contained, touching the target, and settled.
-            episode_length_s: Episode timeout in seconds; None uses the standard task default.
+            episode_length_s: Episode timeout in seconds; None uses the standard task episode length.
             task_description: Optional task description.
             contact_force_threshold: Minimum destination contact force in newtons.
             minimum_contained_fraction: Required object AABB volume fraction inside the target, in (0, 1].
@@ -63,11 +63,17 @@ class ObjectInTask(TaskBase):
         self.angular_velocity_threshold = angular_velocity_threshold
 
     def get_scene_cfg(self):
+        """Return a scene configuration with a contact sensor between the object and the target."""
         sensor_cfg = self.object.get_contact_sensor_cfg(contact_against_object=self.target)
         scene_cfg_type = make_configclass("SceneCfg", [(self.contact_sensor_cfg.name, type(sensor_cfg), sensor_cfg)])
         return scene_cfg_type()
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination for an object that enters the target and then stays contained.
+
+        Success first requires the object to be inside the target, then to stay contained, in contact with the
+        target and settled for the configured number of consecutive steps.
+        """
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
@@ -101,10 +107,17 @@ class ObjectInTask(TaskBase):
         )
 
     def get_events_cfg(self):
-        return None
+        """Return None; the task defines no events."""
+        return None  # noqa: R501
 
     def get_mimic_env_cfg(self, arm_mode):
-        return None
+        """Return None; the task has no Mimic environment configuration.
+
+        Args:
+            arm_mode: Unused.
+        """
+        return None  # noqa: R501
 
     def get_metrics(self):
+        """Return the success rate metric."""
         return [SuccessRateMetric()]

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Conversion of metrics into a recorder manager configuration."""
+
 from isaaclab.managers import DatasetExportMode
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 

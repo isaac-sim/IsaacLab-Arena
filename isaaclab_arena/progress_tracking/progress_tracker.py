@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Runtime tracking of task progress, including completion criteria, subtask state and recorded events."""
+
 from __future__ import annotations
 
 import copy
@@ -141,6 +143,14 @@ class CompletionCriteriaRunner:
     """Track a CompletionCriteria's predicate sequences across parallel environments."""
 
     def __init__(self, completion_criteria: CompletionCriteria, num_envs: int, device, env=None):
+        """Create a runner that tracks progress through the sequences of one set of completion criteria.
+
+        Args:
+            completion_criteria: Criteria whose predicate sequences are tracked.
+            num_envs: Number of environments.
+            device: Device of the tracking tensors.
+            env: Environment used to initialize the predicates.
+        """
         self.completion_criteria = completion_criteria
         self.num_envs = num_envs
         self.device = device
@@ -189,6 +199,13 @@ class CompletionCriteriaRunner:
 
         Advance each sequence's predicate chain by at most one position per env and return one
         PredicateEvent for every env/sequence that advanced this step.
+
+        Args:
+            env: Environment the predicates are evaluated on.
+            step_index: Per-environment step counter, or None when not available.
+            active_envs: Boolean mask of environments to advance.
+            predicate_results_this_step: Predicate results of this step, keyed by predicate identity.
+            check_final_conditions: Whether to also check the final conditions after advancing.
         """
 
         criteria_complete = self.is_complete()
@@ -265,7 +282,15 @@ class CompletionCriteriaRunner:
     def final_conditions_met(
         self, env, predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]]
     ) -> torch.Tensor:
-        """Evaluate final predicates using the CompletionCriteria's ALL, ANY, or CHOOSE requirement."""
+        """Evaluate final predicates using the CompletionCriteria's ALL, ANY, or CHOOSE requirement.
+
+        Args:
+            env: Environment the predicates are evaluated on.
+            predicate_results_this_step: Predicate results of this step, keyed by predicate identity.
+
+        Returns:
+            Boolean mask over environments.
+        """
         completed_envs = self.is_complete()
         if not bool(completed_envs.any().item()):
             return completed_envs
@@ -367,6 +392,9 @@ class CompletionCriteriaRunner:
         """Clear sequence progress and consecutive-step counters for the selected environments.
 
         The underlying predicates are not reset.
+
+        Args:
+            env_ids: Environments to reset.
         """
 
         env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
@@ -448,6 +476,11 @@ class CompletionCriteriaRunner:
         is_complete and score are passed in (rather than recomputed here) so the full
         (num_envs,) tensor reductions run once per runner in
         ProgressTracker, instead of once per env.
+
+        Args:
+            env_idx: Index of the environment.
+            is_complete: Whether the criteria are complete for this environment.
+            score: Score of this environment.
         """
 
         criteria = self.completion_criteria
@@ -487,6 +520,17 @@ class ProgressTracker:
         desired_subtask_success_state: list[bool | None] | None = None,
         tracked_events: list[TrackedEventCfg] | None = None,
     ):
+        """Create a tracker of task success, subtask progress and tracked events.
+
+        Args:
+            completion_criteria: Completion criteria that decide task success; at least one is required.
+            num_envs: Number of environments.
+            device: Device of the tracking tensors.
+            env: Environment used to initialize the predicates.
+            subtasks_are_sequential: Whether subtasks must complete in order.
+            desired_subtask_success_state: Required success state per subtask, with None for no requirement.
+            tracked_events: Recurring events to observe and record.
+        """
         assert completion_criteria, "Task success requires at least one set of completion criteria."
         criteria_names = [criteria.name for criteria in completion_criteria]
         assert len(set(criteria_names)) == len(criteria_names), "Completion criteria names must be unique."
@@ -726,7 +770,11 @@ class ProgressTracker:
         raise KeyError(f"Unknown completion criteria: {criteria_name!r}")
 
     def reset(self, env_ids: list[int] | torch.Tensor) -> None:
-        """Clear progress and events for the specified environment IDs."""
+        """Clear progress and events for the specified environment IDs.
+
+        Args:
+            env_ids: Environments to reset.
+        """
 
         if torch.is_tensor(env_ids):
             env_ids = env_ids.tolist()
@@ -872,4 +920,6 @@ class ProgressTrackingRecorder(RecorderTerm):
 
 @configclass
 class ProgressTrackingRecorderCfg(RecorderTermCfg):
+    """Configuration of `ProgressTrackingRecorder`."""
+
     class_type: type[RecorderTerm] = ProgressTrackingRecorder

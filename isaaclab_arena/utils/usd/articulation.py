@@ -30,7 +30,11 @@ _AXIS_VECTORS: dict[str, Gf.Vec3d] = {
 
 
 def articulation_joint_prims(root_prim: Usd.Prim) -> dict[str, Usd.Prim]:
-    """Return movable joint prims under root_prim, keyed by joint name."""
+    """Return movable joint prims under root_prim, keyed by joint name.
+
+    Args:
+        root_prim: Root prim of the articulation.
+    """
     joint_prims: dict[str, Usd.Prim] = {}
     for prim in Usd.PrimRange(root_prim):
         if not prim.IsA(UsdPhysics.RevoluteJoint) and not prim.IsA(UsdPhysics.PrismaticJoint):
@@ -154,7 +158,12 @@ def compute_posed_prim_world_deltas(
 
 
 def resolve_prim_world_delta(prim_path: str, body_deltas: Mapping[str, np.ndarray]) -> np.ndarray | None:
-    """Return the delta of the nearest ancestor of prim_path in body_deltas, or None if unposed."""
+    """Return the delta of the nearest ancestor of prim_path in body_deltas, or None if unposed.
+
+    Args:
+        prim_path: Prim path to look up.
+        body_deltas: World-frame deltas keyed by body prim path.
+    """
     candidate = prim_path
     while candidate and candidate != "/":
         if candidate in body_deltas:

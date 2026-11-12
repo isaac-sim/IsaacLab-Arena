@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration of the G1 decoupled whole-body controller action term with a PINK IK upper-body controller."""
+
 from isaaclab.managers.action_manager import ActionTerm
 from isaaclab.utils.configclass import configclass
 
@@ -12,6 +14,11 @@ from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action import G1
 
 @configclass
 class G1DecoupledWBCPinkActionCfg(G1DecoupledWBCJointActionCfg):
+    """Configuration for the G1 decoupled whole-body controller action term with a PINK IK upper-body controller.
+
+    Includes optional P-controller based navigation through a list of subgoals.
+    """
+
     class_type: type[ActionTerm] = G1DecoupledWBCPinkAction
     """Specifies the action term class type for G1 WBC with upper body PINK IK controller."""
 

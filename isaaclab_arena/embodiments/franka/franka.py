@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Franka Panda embodiments (inverse kinematics and joint position control) and their configs."""
+
 from __future__ import annotations
 
 import torch
@@ -79,8 +81,7 @@ _FRANKA_JOINT_NAMES = (
 class FrankaEmbodimentBase(EmbodimentBase):
     """Shared Franka scene shell, observations, events, rewards, mimic env, and camera.
 
-    Subclasses set :attr:`action_config` and assign :attr:`scene_config.robot` (see
-    :class:`FrankaSceneCfg`).
+    Subclasses set `action_config` and assign `scene_config.robot` (see `FrankaSceneCfg`).
     """
 
     default_arm_mode = ArmMode.SINGLE_ARM
@@ -92,6 +93,14 @@ class FrankaEmbodimentBase(EmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
+        """Create the Franka embodiment with its gripper, scene, cameras, observations, events and rewards.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+        """
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.gripper = PandaGripper()
         self.event_config = FrankaEventCfg()
@@ -111,7 +120,11 @@ class FrankaEmbodimentBase(EmbodimentBase):
         return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
-        """Set the spawn and reset joint positions in articulation order."""
+        """Set the spawn and reset joint positions in articulation order.
+
+        Args:
+            initial_joint_pose: Joint positions, one per arm and finger joint in articulation order.
+        """
         expected_joint_count = len(_FRANKA_JOINT_NAMES)
         assert (
             len(initial_joint_pose) == expected_joint_count
@@ -122,6 +135,14 @@ class FrankaEmbodimentBase(EmbodimentBase):
         robot.init_state = robot.init_state.replace(joint_pos=dict(zip(_FRANKA_JOINT_NAMES, initial_joint_pose)))
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        """Return the name of the end-effector frame transformer.
+
+        Args:
+            arm_mode: Arm mode to look up the frame for. Not used; there is a single end-effector frame.
+
+        Returns:
+            The end-effector frame name.
+        """
         return "ee_frame"
 
 
@@ -140,6 +161,15 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
+        """Create the Franka embodiment with a differential inverse kinematics arm action.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            initial_joint_pose: Initial joint positions in articulation order.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+        """
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
@@ -152,6 +182,7 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
         self.action_config = FrankaIKActionCfg()
 
     def get_command_body_name(self) -> str:
+        """Return the name of the body that the arm action controls."""
         return self.action_config.arm_action.body_name
 
 
@@ -181,7 +212,7 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
     """Franka embodiment using joint-position control, matching IsaacLab's Isaac-Lift-Cube-Franka-v0.
 
     Uses the legacy standard-PD configuration instead of the legacy high-PD configuration used by
-    :class:`FrankaIKEmbodiment`.
+    `FrankaIKEmbodiment`.
     """
 
     registry_name = "franka_joint_pos"
@@ -194,6 +225,15 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
+        """Create the Franka embodiment with a joint position arm action.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            initial_joint_pose: Initial joint positions in articulation order.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+        """
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
@@ -206,6 +246,7 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
             self.set_initial_joint_pose(initial_joint_pose)
 
     def get_command_body_name(self) -> str:
+        """Return the name of the Franka hand body."""
         return "panda_hand"
 
 
@@ -436,8 +477,7 @@ class FrankaMimicEnv(IsaacLabArenaManagerBasedRLMimicEnv):
     def action_to_target_eef_pose(self, action: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Converts action (compatible with env.step) to a target pose for the end effector controller.
-        Inverse of @target_eef_pose_to_action. Usually used to infer a sequence of target controller poses
-        from a demonstration trajectory using the recorded actions.
+        Inverse of @target_eef_pose_to_action.
         Args:
             action: Environment action. Shape is (num_envs, action_dim)
         Returns:

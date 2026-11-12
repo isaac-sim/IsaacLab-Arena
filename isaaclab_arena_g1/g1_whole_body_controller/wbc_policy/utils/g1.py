@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers to build the G1 robot model from its URDF."""
+
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Literal
@@ -38,7 +40,7 @@ def instantiate_g1_robot_model(
     Instantiate a G1 robot model with configurable waist location, and summarize the supplemental info.
 
     Args:
-        waist_location: Whether to put waist in "lower_body" (default G1 behavior),
+        waist_location: Whether to put waist in "lower_body",
                         "upper_body" (waist controlled with arms/manipulation via IK),
                         or "lower_and_upper_body" (waist reference from arms/manipulation
                         via IK then passed to lower body policy)

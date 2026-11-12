@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Image resizing helpers for DreamZero observations."""
+
 from __future__ import annotations
 
 import numpy as np

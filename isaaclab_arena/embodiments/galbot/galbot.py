@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Galbot embodiment and its scene, action, observation and event configs."""
+
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp
@@ -40,6 +42,13 @@ class GalbotEmbodiment(EmbodimentBase):
     default_arm_mode = ArmMode.LEFT
 
     def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):
+        """Create the Galbot embodiment for the selected arm.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            arm_mode: Which arm performs the task; only the left arm is supported.
+        """
         super().__init__(enable_cameras, initial_pose, arm_mode=arm_mode)
         if self.arm_mode == ArmMode.LEFT:
             self.scene_config = GalbotLeftArmSceneCfg()

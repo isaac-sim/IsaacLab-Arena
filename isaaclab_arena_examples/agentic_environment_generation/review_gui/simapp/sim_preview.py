@@ -32,7 +32,14 @@ _PREVIEW_LAYOUTS_PER_ENV = 2
 
 
 def parse_sim_preview_params(req: dict[str, Any]) -> tuple[int, int, float]:
-    """Read required sim-preview rollout settings from a JSON-RPC request."""
+    """Read required sim-preview rollout settings from a JSON-RPC request.
+
+    Args:
+        req: The request dictionary; must contain `num_envs`, `num_steps` and `env_spacing`.
+
+    Returns:
+        The number of environments, the number of steps and the environment spacing.
+    """
     missing = [key for key in ("num_envs", "num_steps", "env_spacing") if key not in req]
     if missing:
         raise ValueError(f"missing required sim preview params: {', '.join(missing)}")
@@ -90,7 +97,18 @@ def run_sim_preview(
     num_steps: int,
     env_spacing: float,
 ) -> dict[str, Any]:
-    """Run relation-solver preview and record the task-configured viewport."""
+    """Run relation-solver preview and record the task-configured viewport.
+
+    Args:
+        app: The Kit application.
+        yaml_text: Environment graph spec YAML text.
+        num_envs: Number of cloned environments.
+        num_steps: Number of zero-action steps to run.
+        env_spacing: Spacing between cloned environments, in meters.
+
+    Returns:
+        A response dictionary with the path of the recorded video and the preview settings.
+    """
     import gymnasium as gym
     import yaml
 

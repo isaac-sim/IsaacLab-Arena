@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""GR1 stand-mixer-knob turning environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,12 +30,17 @@ class Gr1TurnStandMixerKnobEnvironmentCfg(ArenaEnvironmentCfg):
 
 @register_environment
 class Gr1TurnStandMixerKnobEnvironment(ArenaEnvironmentFactory[Gr1TurnStandMixerKnobEnvironmentCfg]):
+    """GR1 stand-mixer-knob turning environment."""
 
     name: str = "gr1_turn_stand_mixer_knob"
     _legacy_argparse_cfg_type = Gr1TurnStandMixerKnobEnvironmentCfg
 
     def build(self, cfg: Gr1TurnStandMixerKnobEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.turn_knob_task import TurnKnobTask

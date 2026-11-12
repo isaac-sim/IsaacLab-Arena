@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Helper that reloads loaded isaaclab_arena modules."""
+
+
 def reload_arena_modules():
     """Reload all isaaclab_arena modules."""
     import importlib

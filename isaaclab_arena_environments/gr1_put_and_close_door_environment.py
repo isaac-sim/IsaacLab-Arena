@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""GR1 put-and-close-door environment and its configuration."""
+
 from __future__ import annotations
 
 import math
@@ -52,7 +54,11 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
     _legacy_argparse_cfg_type = GR1PutAndCloseDoorEnvironmentCfg
 
     def build(self, cfg: GR1PutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
         from isaaclab.sensors import CameraCfg
         from isaaclab.utils.configclass import configclass

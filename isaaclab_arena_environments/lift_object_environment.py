@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Lift-object environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,12 +30,17 @@ class LiftObjectEnvironmentCfg(ArenaEnvironmentCfg):
 
 @register_environment
 class LiftObjectEnvironment(ArenaEnvironmentFactory[LiftObjectEnvironmentCfg]):
+    """Lift-object environment."""
 
     name: str = "lift_object"
     _legacy_argparse_cfg_type = LiftObjectEnvironmentCfg
 
     def build(self, cfg: LiftObjectEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         import isaaclab_arena_examples.policy.base_rsl_rl_policy as base_rsl_rl_policy
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz

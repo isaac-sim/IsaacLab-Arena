@@ -87,12 +87,23 @@ class LightDirectionVariation(BuildTimeVariationBase):
         cfg: LightDirectionVariationCfg | None = None,
         name: str = "direction",
     ):
+        """Initialize the variation.
+
+        Args:
+            light: The directional light to mutate.
+            cfg: Tunable parameters; ``None`` selects the standard cfg.
+            name: Identifier under which this variation is registered on the asset.
+        """
         super().__init__(cfg=cfg if cfg is not None else LightDirectionVariationCfg(), name=name)
         self._light = light
         self._dome_light: DomeLight | None = None
 
     def set_dome_light(self, dome_light: DomeLight) -> None:
-        """Register a dome light to dim while this variation is active, so shadows are visible."""
+        """Register a dome light to dim while this variation is active, so shadows are visible.
+
+        Args:
+            dome_light: The dome light to dim.
+        """
         self._dome_light = dome_light
 
     def _prepare_at_build_time(self) -> None:

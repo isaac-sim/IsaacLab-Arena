@@ -3,13 +3,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration loading and quaternion helpers for the OpenHomie policy."""
+
 import numpy as np
 import yaml
 from typing import Any
 
 
 def load_config(config_path: str) -> dict[str, Any]:
-    """Load and process the YAML configuration file"""
+    """Load a YAML configuration file, converting the default angles, command scale and initial command to arrays.
+
+    Args:
+        config_path: Path to the YAML file.
+
+    Returns:
+        The configuration dictionary.
+    """
     with open(config_path) as f:
         config = yaml.safe_load(f)
 
@@ -23,7 +32,15 @@ def load_config(config_path: str) -> dict[str, Any]:
 
 
 def quat_rotate_inverse(q: np.ndarray, v: np.ndarray) -> np.ndarray:
-    """Rotate vector v by the inverse of quaternion q"""
+    """Rotate vector `v` by the inverse of quaternion `q`.
+
+    Args:
+        q: Quaternion in wxyz order.
+        v: Vector of shape (3,).
+
+    Returns:
+        The rotated vector.
+    """
     w = q[..., 0]
     x = q[..., 1]
     y = q[..., 2]
@@ -45,6 +62,13 @@ def quat_rotate_inverse(q: np.ndarray, v: np.ndarray) -> np.ndarray:
 
 
 def get_gravity_orientation(quat: np.ndarray) -> np.ndarray:
-    """Get gravity vector in body frame"""
+    """Get the gravity direction expressed in the body frame.
+
+    Args:
+        quat: Body orientation quaternion in wxyz order.
+
+    Returns:
+        The unit gravity vector in the body frame.
+    """
     gravity_vec = np.array([0.0, 0.0, -1.0])
     return quat_rotate_inverse(quat, gravity_vec)

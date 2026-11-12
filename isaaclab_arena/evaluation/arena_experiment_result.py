@@ -80,7 +80,7 @@ class ArenaExperimentResultData(TypedDict):
 
 
 def _require_nonempty_string(value: object, field_name: str) -> str:
-    """Return a non-empty string used in Run metadata."""
+    """Return the value if it is a non-empty string."""
     assert isinstance(value, str) and value.strip(), f"{field_name} must be a non-empty string"
     return value
 
@@ -117,7 +117,11 @@ class ArenaExperimentResult:
 
     @staticmethod
     def assert_run_name_is_safe_path_component(run_name: str) -> None:
-        """Check that a Run name selects one direct child of an output directory."""
+        """Check that a Run name selects one direct child of an output directory.
+
+        Args:
+            run_name: Run name to check.
+        """
         assert isinstance(run_name, str) and run_name.strip(), "Run name must be a non-empty string"
         assert (
             run_name not in {".", ".."} and "/" not in run_name and "\\" not in run_name
@@ -133,8 +137,8 @@ class ArenaExperimentResult:
     ) -> None:
         """Construct a result from already collected Run data.
 
-        Intended for internal use; prefer ``from_experiment_output`` to load a written result or
-        ``from_run_outputs`` to collect the outputs of executed Runs.
+        ``from_experiment_output`` loads a written result and ``from_run_outputs`` collects the outputs
+        of executed Runs.
 
         Args:
             experiment_output_directory: Experiment output root the result file is written to.
@@ -283,7 +287,11 @@ class ArenaExperimentResult:
 
 
 def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
-    """Build serializable environment and policy metadata for an effective Run."""
+    """Build serializable environment and policy metadata for an effective Run.
+
+    Args:
+        run_cfg: Effective Run configuration.
+    """
     from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 
     environment_cfg = run_cfg.environment

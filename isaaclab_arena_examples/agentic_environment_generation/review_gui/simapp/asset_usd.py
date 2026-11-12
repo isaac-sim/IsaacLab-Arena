@@ -17,7 +17,11 @@ AabbDimensionsM = tuple[float, float, float]
 
 
 def aabb_dimensions_from_asset(asset: ObjectBase) -> AabbDimensionsM | None:
-    """Return local axis-aligned bounding box size (x, y, z) in meters for one live asset."""
+    """Return the local axis-aligned bounding box size (x, y, z) in meters for one live asset, or None on failure.
+
+    Args:
+        asset: The instantiated asset.
+    """
     try:
         bbox = asset.get_bounding_box()
         size = bbox.size[0]
@@ -29,7 +33,11 @@ def aabb_dimensions_from_asset(asset: ObjectBase) -> AabbDimensionsM | None:
 
 
 def resolve_aabb_dimensions_m(assets_by_node_id: dict[str, Any]) -> dict[str, AabbDimensionsM]:
-    """Return axis-aligned bounding box sizes in meters for each snapshot asset (objects and references)."""
+    """Return axis-aligned bounding box sizes in meters for each snapshot asset (objects and references).
+
+    Args:
+        assets_by_node_id: Instantiated assets keyed by spec node id. Entries that are not objects are skipped.
+    """
     dimensions: dict[str, AabbDimensionsM] = {}
     for node_id, asset in assets_by_node_id.items():
         if not isinstance(asset, ObjectBase):
@@ -41,7 +49,12 @@ def resolve_aabb_dimensions_m(assets_by_node_id: dict[str, Any]) -> dict[str, Aa
 
 
 def resolve_node_usd_paths(assets_by_node_id: dict[str, object], node_ids: list[str]) -> dict[str, str]:
-    """Map each requested ``node_id`` to its ``usd_path``, skipping assets without one."""
+    """Map each requested `node_id` to its `usd_path`, skipping assets without one.
+
+    Args:
+        assets_by_node_id: Instantiated assets keyed by spec node id.
+        node_ids: The node ids to look up.
+    """
     paths: dict[str, str] = {}
     for node_id in node_ids:
         asset = assets_by_node_id.get(node_id)
@@ -55,17 +68,34 @@ def resolve_node_usd_paths(assets_by_node_id: dict[str, object], node_ids: list[
 
 
 def usd_cache_key(usd_path: str) -> str:
-    """Return a stable short hash for caching thumbnails keyed by USD path."""
+    """Return a stable short hash for caching thumbnails keyed by USD path.
+
+    Args:
+        usd_path: Path of the USD file.
+    """
     return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
 
 
 def object_reference_cache_key(usd_path: str, relative_prim_path: str) -> str:
-    """Return a stable cache key for an object_reference subtree snapshot."""
+    """Return a stable cache key for an object_reference subtree snapshot.
+
+    Args:
+        usd_path: Path of the USD file containing the subtree.
+        relative_prim_path: Prim path of the subtree, relative to the default prim.
+    """
     return hashlib.sha1(f"{usd_path}::{relative_prim_path}".encode()).hexdigest()[:16]
 
 
 def absolute_prim_path(stage, relative_suffix: str) -> str:
-    """Join a default-prim-relative suffix to the stage default prim."""
+    """Join a default-prim-relative suffix to the stage default prim.
+
+    Args:
+        stage: The USD stage.
+        relative_suffix: Prim path relative to the default prim. Empty for the default prim itself.
+
+    Returns:
+        The absolute prim path.
+    """
     default_prim = stage.GetDefaultPrim()
     if not default_prim or not default_prim.IsValid():
         raise RuntimeError("USD stage has no default prim")

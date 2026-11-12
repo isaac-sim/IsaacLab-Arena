@@ -233,7 +233,11 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._inference_backend.client.close()
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        """Discard the last actions of selected environments, or all environments."""
+        """Discard the last actions of selected environments, or all environments.
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
+        """
         if env_ids is None:
             self._last_actions.clear()
         else:
@@ -300,7 +304,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
     def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
         """Update env_id's current prediction from the live environment state.
 
-        Called once per environment step, before _needs_new_prediction. The default does nothing;
+        Called once per environment step, before _needs_new_prediction. The base implementation does nothing;
         a strategy can discard a finished prediction here and record how it ended.
         """
 
@@ -462,6 +466,14 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
         observation_adapter: VLMObservationAdapter | None = None,
         action_adapter: ChunkActionAdapter | None = None,
     ):
+        """Create the policy from its configuration and optional injected dependencies.
+
+        Args:
+            config: Prompt, image encoding, and action-validation settings.
+            inference_backend: Backend whose ownership transfers to this policy, or None to create one.
+            observation_adapter: Adapter selecting images and state, or None to construct it from config.
+            action_adapter: Chunk adapter, or None to create the one for the configured embodiment adapter.
+        """
         if action_adapter is None:
             assert isinstance(config, VLMChunkPolicyCfg), "Configure VLMChunkPolicyCfg or inject an action adapter"
             action_adapter = _get_vlm_embodiment_adapter(config.vlm_embodiment_adapter).make_chunk_action_adapter(
@@ -486,7 +498,11 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
         return self._chunks[env_id].popleft()
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        """Discard pending commands for selected environments, or all environments."""
+        """Discard pending commands for selected environments, or all environments.
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
+        """
         super().reset(env_ids)
         if env_ids is None:
             self._chunks.clear()
@@ -528,6 +544,14 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
         observation_adapter: VLMObservationAdapter | None = None,
         action_adapter: GoalActionAdapter | None = None,
     ):
+        """Create the policy from its configuration and optional injected dependencies.
+
+        Args:
+            config: Prompt, image encoding, and goal-execution settings.
+            inference_backend: Backend whose ownership transfers to this policy, or None to create one.
+            observation_adapter: Adapter selecting images and state, or None to construct it from config.
+            action_adapter: Goal adapter, or None to create the one for the configured embodiment adapter.
+        """
         if action_adapter is None:
             action_adapter = _get_vlm_embodiment_adapter(config.vlm_embodiment_adapter).make_goal_action_adapter(
                 config.position_tolerance_m, config.rotation_tolerance_rad
@@ -602,7 +626,11 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
         return content
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        """Discard pending and previous goals for selected environments, or all environments."""
+        """Discard pending and previous goals for selected environments, or all environments.
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
+        """
         super().reset(env_ids)
         if env_ids is None:
             self._current_goals.clear()

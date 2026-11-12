@@ -52,7 +52,14 @@ def get_object_world_pose_from_layout(
     obj: ObjectBase,
     base_rotations: dict,
 ) -> Pose:
-    """Return the world pose an object gets under a layout."""
+    """Return the world pose an object gets under a layout.
+
+    Args:
+        positions: World position of each placed object.
+        orientations: Yaw in radians of each placed object; an object without an entry keeps its base yaw.
+        obj: Object whose pose is returned.
+        base_rotations: XYZW base rotation of each object, to which the layout yaw is applied.
+    """
     pos_w = positions[obj]
     base_quat_xyzw = base_rotations[obj]
     marker_yaw = yaw_from_quat_xyzw(base_quat_xyzw)
@@ -74,6 +81,12 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
     run_after_inexpensive_checks = True
 
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
+        """Create the validator and its IK solver for the reachability embodiment.
+
+        Args:
+            params: Placer parameters, including the reachability configuration.
+            visualizer: Placement visualizer that receives reachability results, or None for no visualization.
+        """
         super().__init__(params, visualizer)
         config = params.reachability_config
         self._grasp_z_offset = config.grasp_z_offset_m
@@ -102,7 +115,11 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
-        """True when an IK solver can be built for the reachability embodiment (set, with a cuRobo config)."""
+        """True when an IK solver can be built for the reachability embodiment (set, with a cuRobo config).
+
+        Args:
+            params: Placer parameters, including the reachability configuration.
+        """
         embodiment = params.reachability_config.embodiment
         if embodiment is None:
             return False

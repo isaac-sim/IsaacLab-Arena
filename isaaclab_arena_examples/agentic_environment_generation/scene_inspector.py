@@ -70,6 +70,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Parse the command-line arguments, run the selected inspection command and return the process exit code."""
     args = _parser().parse_args()
     try:
         return int(args.handler(args))

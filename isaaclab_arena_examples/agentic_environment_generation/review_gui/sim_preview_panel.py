@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Streamlit panel that runs a simulation preview of the edited environment and shows the viewport video."""
+
 from __future__ import annotations
 
 import streamlit as st
@@ -12,7 +14,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_co
 
 
 def render_sim_preview_panel(validation: SpecParseResult) -> None:
-    """Sim-preview controls and viewport video display in the right column."""
+    """Render the sim-preview controls and the viewport video display.
+
+    Args:
+        validation: Validation result of the editor text. Running the preview is disabled when it is not valid.
+    """
     st.subheader("Sim preview")
     st.caption(
         "Runs to_arena_env → relation solver, then zero-action steps. "

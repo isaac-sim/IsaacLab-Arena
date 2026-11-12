@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Success-rate metric and the recorder of episode success that it relies on."""
+
 import numpy as np
 import torch
 
@@ -17,11 +19,20 @@ class SuccessRecorder(RecorderTerm):
     """Records whether an episode was successful just before the environment is reset."""
 
     def __init__(self, cfg, env):
+        """Args:
+        cfg: Recorder term configuration naming the term.
+        env: Environment being recorded.
+        """
         super().__init__(cfg, env)
         # Get name from config instead of class attribute
         self.name = cfg.name
 
     def record_pre_reset(self, env_ids):
+        """Return the term name and whether each environment's episode was successful.
+
+        Args:
+            env_ids: Environments about to be reset.
+        """
         assert hasattr(self._env, "termination_manager")
         assert "success" in self._env.termination_manager.active_terms
         success_results = torch.zeros(len(env_ids), dtype=bool, device=self._env.device)
@@ -32,6 +43,8 @@ class SuccessRecorder(RecorderTerm):
 
 @configclass
 class SuccessRecorderCfg(RecorderTermCfg):
+    """Configuration of `SuccessRecorder`."""
+
     class_type: type[RecorderTerm] = SuccessRecorder
     name: str = "success"
 

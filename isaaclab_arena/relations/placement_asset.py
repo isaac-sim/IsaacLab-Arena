@@ -38,6 +38,16 @@ class PlaceableAsset(Asset, ABC):
         repair_collision_mesh_non_watertight: bool = True,
         **kwargs,
     ) -> None:
+        """Create an asset that can carry placement relations and a collision mode.
+
+        Args:
+            name: Unique asset name.
+            tags: Optional tags attached to the asset.
+            collision_mode: Collision mode, as enum or string, or None to defer to the solver.
+            repair_collision_mesh_non_watertight: Whether non-watertight collision meshes are replaced by their convex
+                hull.
+            **kwargs: Additional arguments forwarded to the base class.
+        """
         super().__init__(name=name, tags=tags, **kwargs)
         self.initial_pose: Pose | PoseRange | PosePerEnv | None = None
         self._pose_event_cfg: EventTermCfg | None = None
@@ -51,7 +61,11 @@ class PlaceableAsset(Asset, ABC):
         self.repair_collision_mesh_non_watertight = repair_collision_mesh_non_watertight
 
     def add_relation(self, relation: RelationBase) -> None:
-        """Attach a relation to the asset."""
+        """Attach a relation to the asset.
+
+        Args:
+            relation: Relation to attach.
+        """
         self.relations.append(relation)
 
     def get_relations(self) -> list[RelationBase]:
@@ -63,7 +77,11 @@ class PlaceableAsset(Asset, ABC):
         return [relation for relation in self.relations if isinstance(relation, (Relation, UnaryRelation))]
 
     def has_relation(self, relation_type: type[RelationBase]) -> bool:
-        """Return whether the asset carries a relation of the given type."""
+        """Return whether the asset carries a relation of the given type.
+
+        Args:
+            relation_type: Relation class to look for.
+        """
         return any(isinstance(relation, relation_type) for relation in self.relations)
 
     @property
@@ -88,7 +106,7 @@ class PlaceableAsset(Asset, ABC):
 
         Args:
             pose: The root pose(s) to store.
-            create_reset_event: When True (default), rebuild the reset event that restores this
+            create_reset_event: When True, rebuild the reset event that restores this
                 pose on every environment reset. Pass False to set only the scene-construction
                 pose (e.g. when relation solving seeds a fixed per-environment layout).
         """
@@ -143,6 +161,9 @@ class PlaceableAsset(Asset, ABC):
 
         A simple asset places only its own root. Compound assets that still spawn auxiliary prims
         outside that root override this to emit additional writes.
+
+        Args:
+            layout_pose: Solved pose of the asset, in the environment frame.
         """
         return [(self.get_scene_key(), layout_pose)]
 
@@ -152,7 +173,13 @@ class PlaceableAsset(Asset, ABC):
         env_ids: torch.Tensor,
         poses: dict[str, torch.Tensor],
     ) -> None:
-        """Write batched environment-local poses for this asset's scene roots."""
+        """Write batched environment-local poses for this asset's scene roots.
+
+        Args:
+            env: Environment whose simulation state is written.
+            env_ids: Indices of the environments to write.
+            poses: Root pose per owned scene root name, shape (len(env_ids), 7) as position and xyzw quaternion.
+        """
         assert set(poses) == set(self.get_scene_root_keys()), "Every owned scene root requires a pose"
         write_scene_poses_to_sim(env, env_ids, poses)
 
@@ -192,12 +219,16 @@ class PlaceableAsset(Asset, ABC):
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return this asset's collision mesh, or ``None`` to fall back to the axis-aligned bounds.
 
-        Concrete (not abstract) so assets without a mesh simply keep the ``None`` default.
+        Concrete (not abstract) so assets without a mesh simply return ``None``.
         """
 
 
 def get_scene_root_owners(assets: list[PlaceableAsset]) -> dict[str, PlaceableAsset]:
-    """Map every declared scene root to its unique owning asset."""
+    """Map every declared scene root to its unique owning asset.
+
+    Args:
+        assets: Assets whose scene roots are collected.
+    """
     owners: dict[str, PlaceableAsset] = {}
     for asset in assets:
         for key in asset.get_scene_root_keys():

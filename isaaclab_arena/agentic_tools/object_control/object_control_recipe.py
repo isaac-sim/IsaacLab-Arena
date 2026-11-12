@@ -24,7 +24,7 @@ Quaternion = Annotated[list[FiniteFloat], Field(min_length=4, max_length=4)]
 
 
 class Axis(str, Enum):
-    """World-frame axis used by a reference-relative target."""
+    """World-frame axis of a reference-relative target."""
 
     X = "x"
     Y = "y"
@@ -32,7 +32,7 @@ class Axis(str, Enum):
 
 
 class ReferencePoint(str, Enum):
-    """Point on a referenced object used to construct a move target."""
+    """Point on a referenced object that a move target is constructed from."""
 
     POSITION = "position"
     AABB_CENTER = "aabb_center"
@@ -251,7 +251,15 @@ class ObjectControlRecipe:
 
 
 def load_object_control_recipe(path: Path, require_runtime_commands: bool = True) -> ObjectControlRecipe:
-    """Load and validate an object-control JSONL recipe."""
+    """Load and validate an object-control JSONL recipe.
+
+    Args:
+        path: Path of the JSONL recipe file.
+        require_runtime_commands: Whether the recipe must contain at least one runtime command.
+
+    Returns:
+        The joint setup commands and runtime commands of the recipe.
+    """
     joint_setups = []
     commands = []
     runtime_command_seen = False
@@ -272,7 +280,15 @@ def load_object_control_recipe(path: Path, require_runtime_commands: bool = True
 
 
 def read_recipe_lines(path: Path, complete_only: bool = False) -> list[str]:
-    """Read JSONL records, withholding an unterminated append in follow mode."""
+    """Read JSONL records, withholding an unterminated append in follow mode.
+
+    Args:
+        path: Path of the JSONL file.
+        complete_only: Whether to drop a trailing line that lacks a newline terminator.
+
+    Returns:
+        The lines of the file, including line terminators.
+    """
     content = path.read_bytes()
     if complete_only:
         content = content[: content.rfind(b"\n") + 1]
@@ -280,7 +296,15 @@ def read_recipe_lines(path: Path, complete_only: bool = False) -> list[str]:
 
 
 def parse_object_control_line(line: str, line_number: int) -> ObjectControlCommand:
-    """Decode and validate one JSONL command."""
+    """Decode and validate one JSONL command.
+
+    Args:
+        line: One line of JSON text.
+        line_number: Line number used in error messages.
+
+    Returns:
+        The typed command.
+    """
     try:
         command = json.loads(line)
     except json.JSONDecodeError as error:
@@ -289,7 +313,12 @@ def parse_object_control_line(line: str, line_number: int) -> ObjectControlComma
 
 
 def validate_object_control_command(command: object, line_number: int) -> ObjectControlCommand:
-    """Validate and return one typed JSONL command."""
+    """Validate and return one typed JSONL command.
+
+    Args:
+        command: Decoded JSON object.
+        line_number: Line number used in error messages.
+    """
     try:
         return _COMMAND_ADAPTER.validate_python(command)
     except ValidationError as error:

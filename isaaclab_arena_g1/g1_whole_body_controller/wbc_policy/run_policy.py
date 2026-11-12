@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Conversions between simulation data and the observation and action formats of the whole-body controller."""
+
 import numpy as np
 import torch
 
@@ -126,7 +128,17 @@ def postprocess_actions(
     wbc_g1_joints_order: dict[str, int],
     device: torch.device,
 ) -> torch.Tensor:
-    """Postprocess actions for the policy."""
+    """Convert whole-body controller joint position actions to the joint order of the simulated robot.
+
+    Args:
+        wbc_action: Controller action containing joint positions under the key `q`, in the controller joint order.
+        robot_data: Articulation data of the simulated robot.
+        wbc_g1_joints_order: Mapping from joint name to its index in the controller joint order.
+        device: Device of the returned tensor.
+
+    Returns:
+        Joint position targets of shape (num_envs, num_joints), in the joint order of the simulated robot.
+    """
     num_envs = wbc_action["q"].shape[0]
     num_joints = len(robot_data.joint_names)
     processed_actions = torch.zeros((num_envs, num_joints), device=device)

@@ -29,6 +29,11 @@ class PlacementCandidateGenerator:
     """Initial layouts with oriented bounds and clutter release positions ready for solving."""
 
     def __init__(self, params: ObjectPlacerParams):
+        """Create a generator that seeds layouts with the configured initializer.
+
+        Args:
+            params: Placement configuration, including the initializer type.
+        """
         self.params = params
         self._initializer = create_initializer(params.initializer_type)
 
@@ -44,6 +49,17 @@ class PlacementCandidateGenerator:
         """Generate initial layouts with oriented bounds and prepared clutter release heights.
 
         Layouts are grouped by environment and seeded by environment and sample ID.
+
+        Args:
+            objects: All placement objects.
+            anchor_objects: Objects with fixed poses.
+            env_bboxes: Per-env base bounding boxes of every object, indexed by environment id.
+            candidates_per_env: Number of candidate layouts generated for each environment.
+            generator: Random generator for reproducible sampling, or None for the global generator.
+            collision_objects: Fixed obstacles that candidates must not overlap.
+
+        Returns:
+            Batch containing every generated candidate.
         """
         candidates = []
         for env_id, bounds in enumerate(env_bboxes):
@@ -132,6 +148,14 @@ class PlacementCandidateGenerator:
 
         ClutterOn.random_yaw controls clutter sampling; random_yaw_init controls other objects.
         Ordinary objects with tilted markers keep their authored orientation.
+
+        Args:
+            objects: All placement objects.
+            anchor_objects: Objects with fixed poses.
+            generator: Random generator for reproducible sampling, or None for the global generator.
+
+        Returns:
+            World yaw in radians for each object that receives an orientation.
         """
         orientations: dict[PlaceableAsset, float] = {}
         for obj in objects:
@@ -164,6 +188,12 @@ class PlacementCandidateGenerator:
 
         Each object sees ordinary objects, fixed BBOX obstacles, and previously seeded clutter.
         The optional generator makes the height order reproducible; otherwise use the global RNG.
+
+        Args:
+            positions: Start positions per object; clutter entries are updated in place.
+            bboxes: Local bounding box of each object.
+            collision_bboxes: Fixed obstacle bounds that seeds must clear vertically.
+            generator: Random generator for reproducible sampling, or None for the global generator.
         """
         clutter_objects = [obj for obj in positions if get_relation(obj, ClutterOn) is not None]
         pending_clutter = set(clutter_objects)
@@ -219,7 +249,12 @@ class PlacementCandidateGenerator:
     def get_clutter_collision_bounds(
         self, objects: list[PlaceableAsset], collision_objects: list[CollisionObject]
     ) -> list[AxisAlignedBoundingBox]:
-        """Fixed BBOX obstacles that clutter release seeds must clear vertically."""
+        """Fixed BBOX obstacles that clutter release seeds must clear vertically.
+
+        Args:
+            objects: All placement objects.
+            collision_objects: Fixed obstacles in the scene.
+        """
         if not any(get_relation(obj, ClutterOn) is not None for obj in objects):
             return []
         bounds = []

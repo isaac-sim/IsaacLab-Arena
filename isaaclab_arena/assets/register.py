@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Class decorators that register assets, devices, policies, environments and tasks."""
+
 from collections.abc import Callable
 from types import get_original_bases
 from typing import TYPE_CHECKING, TypeVar, get_args, get_origin
@@ -28,6 +30,16 @@ _AssetFactoryT = TypeVar("_AssetFactoryT", bound=Callable[..., object])
 
 # Decorator to register an asset with the AssetRegistry.
 def register_asset(cls):
+    """Register an asset class in the asset registry under its `registry_name`.
+
+    A class that is already registered under that name is left as is and a warning is printed.
+
+    Args:
+        cls: Asset class. It must set `registry_name` in its own class body.
+
+    Returns:
+        The class, unchanged.
+    """
     # A subclass without its own registry_name would register under its parent's key.
     assert "registry_name" in vars(cls), f"{cls.__name__} must set registry_name in its class body"
     if AssetRegistry().is_registered(cls.registry_name, ensure_loaded=False):
@@ -40,7 +52,15 @@ def register_asset(cls):
 def register_asset_factory(
     *, registry_name: str, object_type: ObjectType, tags: tuple[str, ...] = ("object",)
 ) -> Callable[[_AssetFactoryT], _AssetFactoryT]:
-    """Register an asset factory with its registry metadata."""
+    """Return a decorator that registers an asset factory with its registry metadata.
+
+    The decorator sets `registry_name`, `tags` and `object_type` on the factory and registers it as an asset.
+
+    Args:
+        registry_name: Key the factory is registered under.
+        object_type: Kind of physics object the factory builds.
+        tags: Tags used to look up the factory.
+    """
 
     def decorator(factory: _AssetFactoryT) -> _AssetFactoryT:
         factory.registry_name = registry_name
@@ -53,6 +73,16 @@ def register_asset_factory(
 
 # Decorator to register an device with the DeviceRegistry.
 def register_device(cls):
+    """Register a teleoperation device class in the device registry under its `name`.
+
+    A class that is already registered under that name is left as is and a warning is printed.
+
+    Args:
+        cls: Device class with a `name` attribute.
+
+    Returns:
+        The class, unchanged.
+    """
     if DeviceRegistry().is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Device {cls.name} is already registered. Doing nothing.")
     else:
@@ -62,6 +92,16 @@ def register_device(cls):
 
 # Decorator to register an retargeter with the RetargeterRegistry.
 def register_retargeter(cls):
+    """Register a retargeter class in the retargeter registry under its (`device`, `embodiment`) pair.
+
+    A class that is already registered under that pair is left as is and a warning is printed.
+
+    Args:
+        cls: Retargeter class with `device` and `embodiment` attributes.
+
+    Returns:
+        The class, unchanged.
+    """
     retargeter_key = (cls.device, cls.embodiment)
     retargeter_key_str = RetargeterRegistry().convert_tuple_to_str(retargeter_key)
     if RetargeterRegistry().is_registered(retargeter_key_str, ensure_loaded=False):
@@ -83,6 +123,16 @@ def register_policy(cls: type["PolicyBase"]):
 
 # Decorator to register an HDRImage with the HDRImageRegistry.
 def register_hdr(cls):
+    """Register an HDR image class in the HDR image registry under its `registry_name`.
+
+    A class that is already registered under that name is left as is and a warning is printed.
+
+    Args:
+        cls: HDR image class. It must set `registry_name` in its own class body.
+
+    Returns:
+        The class, unchanged.
+    """
     # A subclass without its own registry_name would register under its parent's key.
     assert "registry_name" in vars(cls), f"{cls.__name__} must set registry_name in its class body"
     if HDRImageRegistry().is_registered(cls.registry_name, ensure_loaded=False):
@@ -94,6 +144,17 @@ def register_hdr(cls):
 
 # Decorator to register an environment with the EnvironmentRegistry.
 def register_environment(cls):
+    """Register an environment factory class under its `name`, together with the config type it consumes.
+
+    The config type is read from the factory's `ArenaEnvironmentFactory[Cfg]` base class. A factory that is already
+    registered under that name is left as is and a warning is printed.
+
+    Args:
+        cls: Environment factory class with a `name` attribute.
+
+    Returns:
+        The class, unchanged.
+    """
     registry = EnvironmentRegistry()
     if registry.is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Environment {cls.name} is already registered. Doing nothing.")
@@ -104,6 +165,16 @@ def register_environment(cls):
 
 # Decorator to register a RelationBase subclass with the ObjectRelationLibraryRegistry.
 def register_object_relation(cls):
+    """Register a relation class in the object relation registry under its `name`.
+
+    A class that is already registered under that name is left as is and a warning is printed.
+
+    Args:
+        cls: Relation class with a `name` attribute.
+
+    Returns:
+        The class, unchanged.
+    """
     registry = ObjectRelationLibraryRegistry()
     if registry.is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Object relation {cls.name} is already registered. Doing nothing.")
@@ -116,6 +187,16 @@ def register_object_relation(cls):
 # Keyed by `cls.__name__` so the YAML `type: PascalCase` lookups match without
 # requiring a separate `name` attribute on every task class.
 def register_task(cls):
+    """Register a task class in the task registry under its class name.
+
+    A class that is already registered under that name is left as is and a warning is printed.
+
+    Args:
+        cls: Task class.
+
+    Returns:
+        The class, unchanged.
+    """
     registry = TaskRegistry()
     if registry.is_registered(cls.__name__, ensure_loaded=False):
         print(f"WARNING: Task {cls.__name__} is already registered. Doing nothing.")

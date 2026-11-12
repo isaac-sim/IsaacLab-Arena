@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Detection of an object's type from its USD asset."""
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg

@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Registered object assets: props, fixtures, lights and the Robolab object catalogue."""
 
 import copy
 from abc import ABC
@@ -64,10 +65,10 @@ class LibraryObject(Object):
         """Create an object of this asset class.
 
         Args:
-            name: Name of the object in the scene. Defaults to the registry name.
-            prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/<name>``.
+            name: Name of the object in the scene; the registry name when omitted.
+            prim_path: Prim path of the object; derived from the name when omitted.
             initial_pose: Initial pose of the object.
-            scale: Scale of the object. Defaults to the asset's scale.
+            scale: Scale of the object; the asset's scale when omitted.
             **kwargs: Extra arguments passed to ``Object``.
         """
         assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
@@ -157,6 +158,13 @@ class Microwave(LibraryObject, Openable):
     openable_threshold = 0.5  # Bistate threshold (open > threshold, closed <= threshold)
 
     def __init__(self, name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+        """Create a microwave.
+
+        Args:
+            name: Name of the object in the scene. None uses the registry name.
+            prim_path: Prim path template of the object. None uses a path derived from name.
+            initial_pose: Initial pose of the object.
+        """
         super().__init__(
             name=name,
             prim_path=prim_path,
@@ -182,6 +190,13 @@ class CoffeeMachine(LibraryObject, Pressable):
     pressedness_threshold = 0.5
 
     def __init__(self, name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+        """Create a coffee machine.
+
+        Args:
+            name: Name of the object in the scene. None uses the registry name.
+            prim_path: Prim path template of the object. None uses a path derived from name.
+            initial_pose: Initial pose of the object.
+        """
         super().__init__(
             name=name,
             prim_path=prim_path,
@@ -211,6 +226,13 @@ class StandMixer(LibraryObject, Turnable):
     num_levels = 7
 
     def __init__(self, name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+        """Create a stand mixer.
+
+        Args:
+            name: Name of the object in the scene. None uses the registry name.
+            prim_path: Prim path template of the object. None uses a path derived from name.
+            initial_pose: Initial pose of the object.
+        """
         super().__init__(
             name=name,
             prim_path=prim_path,
@@ -292,6 +314,14 @@ class Mug(LibraryObject, Placeable):
         initial_pose: Pose | None = None,
         scale: tuple[float, float, float] | None = None,
     ):
+        """Create a mug with a fixed rigid-body and mass configuration.
+
+        Args:
+            name: Name of the object in the scene. None uses the registry name.
+            prim_path: Prim path template of the object. None uses a path derived from name.
+            initial_pose: Initial pose of the object.
+            scale: Per-axis scale. None uses the asset's scale.
+        """
         super().__init__(
             name=name,
             prim_path=prim_path,
@@ -332,13 +362,21 @@ class GroundPlane(LibraryObject):
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.GroundPlaneCfg = default_spawner_cfg,
     ):
+        """Create a ground plane.
+
+        Args:
+            name: Name of the object in the scene. None uses the registry name.
+            prim_path: Prim path of the ground plane. A global path is not repeated for each environment.
+            initial_pose: Initial pose of the ground plane.
+            spawner_cfg: Isaac Lab ground plane spawner configuration.
+        """
         super().__init__(name=name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg)
 
 
 @register_asset
 class Sphere(LibraryObject):
     """
-    A sphere with rigid body physics (dynamic by default).
+    A sphere with rigid body physics.
     """
 
     registry_name = "sphere"
@@ -367,6 +405,15 @@ class Sphere(LibraryObject):
         scale: tuple[float, float, float] | None = None,
         spawner_cfg: sim_utils.SphereCfg = default_spawner_cfg,
     ):
+        """Create a sphere.
+
+        Args:
+            name: Name of the object in the scene. None uses the registry name.
+            prim_path: Prim path template of the object. None uses a path derived from name.
+            initial_pose: Initial pose of the object.
+            scale: Per-axis scale. None uses the asset's scale.
+            spawner_cfg: Isaac Lab sphere spawner configuration.
+        """
         super().__init__(
             name=name,
             prim_path=prim_path,
@@ -389,11 +436,23 @@ class LightBase(LibraryObject, ABC):
     """Intensity the light is lit at by default, and the intensity ``on()`` restores."""
 
     def __init__(self, *args, spawner_cfg: sim_utils.LightCfg, **kwargs):
+        """Create a light from a light spawner configuration.
+
+        Args:
+            *args: Passed on to the parent class.
+            spawner_cfg: Isaac Lab light spawner configuration. It is copied, so the light does not alter the
+                configuration it was created from.
+            **kwargs: Passed on to the parent class.
+        """
         # Deep-copy here to avoid altering the shared class default.
         super().__init__(*args, spawner_cfg=copy.deepcopy(spawner_cfg), **kwargs)
 
     def on(self, intensity: float | None = None) -> None:
-        """Turn the light on, at ``intensity`` if given, else at the class default intensity."""
+        """Turn the light on, at ``intensity`` if given.
+
+        Args:
+            intensity: Intensity to turn the light on at. None uses the light's own on-intensity.
+        """
         self.set_intensity(intensity if intensity is not None else self.default_intensity)
 
     def off(self) -> None:
@@ -401,13 +460,21 @@ class LightBase(LibraryObject, ABC):
         self.set_intensity(0.0)
 
     def set_intensity(self, intensity: float) -> None:
-        """Set the light's intensity."""
+        """Set the light's intensity.
+
+        Args:
+            intensity: Non-negative light intensity.
+        """
         assert intensity >= 0.0, f"Light intensity must be non-negative, got {intensity}."
         self.spawner_cfg.intensity = intensity
         self.object_cfg = self._init_object_cfg()
 
     def set_color(self, color: tuple[float, float, float]) -> None:
-        """Set the light's RGB color, with each channel in [0, 1]."""
+        """Set the light's RGB color.
+
+        Args:
+            color: Red, green and blue channels, each in [0, 1].
+        """
         assert len(color) == 3, f"Light color must be an (r, g, b) triple, got {color}."
         assert all(0.0 <= c <= 1.0 for c in color), f"Light color channels must be in [0, 1], got {color}."
         self.spawner_cfg.color = tuple(color)
@@ -417,6 +484,9 @@ class LightBase(LibraryObject, ABC):
         """Enable and set the light's white-point color temperature in Kelvin.
 
         The range is limited to [1000, 10000] K, the valid range documented by Isaac Lab's light cfg.
+
+        Args:
+            color_temperature: Color temperature in Kelvin.
         """
         assert (
             1000.0 <= color_temperature <= 10000.0
@@ -431,7 +501,7 @@ class DomeLight(LightBase):
     """A dome light, optionally textured with an HDR image environment map.
 
     The light can be used plain (uniform color) or combined with an HDR image
-    texture via :meth:`add_hdr`::
+    texture via ``add_hdr``::
 
         hdr = hdr_registry.get_hdr_by_name("home_office_robolab")()
         dome_light = asset_registry.get_asset_by_name("light")()
@@ -497,7 +567,7 @@ class DomeLight(LightBase):
         """Attach an HDR environment map texture to this dome light.
 
         Args:
-            hdr: An :class:`HDRImage` instance.
+            hdr: An ``HDRImage`` instance.
         """
         from isaaclab_arena.assets.hdr_image import HDRImage
 
@@ -531,6 +601,14 @@ class DirectionalLight(LightBase):
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.DistantLightCfg = default_spawner_cfg,
     ):
+        """Create a directional light with direction, intensity, color and color temperature variations.
+
+        Args:
+            name: Name of this light instance.
+            prim_path: USD prim path of the light.
+            initial_pose: Pose of the light. None uses the light's built-in pose.
+            spawner_cfg: Isaac Lab light config the light starts from.
+        """
         from isaaclab_arena.variations.light_color_temperature_variation import LightColorTemperatureVariation
         from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_direction_variation import LightDirectionVariation
@@ -548,13 +626,21 @@ class DirectionalLight(LightBase):
         self.add_variation(LightColorTemperatureVariation(self))
 
     def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
-        """Set the light's orientation."""
+        """Set the light's orientation, keeping its position.
+
+        Args:
+            rotation_xyzw: Orientation as an xyzw quaternion.
+        """
         position_xyz = self.initial_pose.position_xyz if self.initial_pose is not None else (0.0, 0.0, 0.0)
         self.initial_pose = Pose(position_xyz=position_xyz, rotation_xyzw=tuple(rotation_xyzw))
         self.object_cfg = self._init_object_cfg()
 
     def set_dome_light(self, dome_light: LightBase) -> None:
-        """Register a dome light for the direction variation to dim when it activates."""
+        """Register a dome light for the direction variation to dim when it activates.
+
+        Args:
+            dome_light: Dome light to dim.
+        """
         self.get_variation("direction").set_dome_light(dome_light)
 
 
@@ -585,7 +671,7 @@ class SphereLight(LightBase):
         Args:
             name: Name of this light instance.
             prim_path: USD prim path of the light.
-            initial_pose: Pose of the light. Defaults to ``default_initial_pose``.
+            initial_pose: Pose of the light; ``default_initial_pose`` when omitted.
             spawner_cfg: Isaac Lab light config the light starts from.
             intensity: Overrides the intensity of ``spawner_cfg`` if given.
             radius: Overrides the sphere radius of ``spawner_cfg`` if given.
@@ -610,7 +696,11 @@ class SphereLight(LightBase):
         self.add_variation(LightColorVariation(self))
 
     def set_radius(self, radius: float) -> None:
-        """Set the radius of the light sphere."""
+        """Set the radius of the light sphere.
+
+        Args:
+            radius: Positive sphere radius.
+        """
         assert radius > 0.0, f"Sphere light radius must be positive, got {radius}."
         self.spawner_cfg.radius = radius
         self.object_cfg = self._init_object_cfg()
@@ -863,6 +953,8 @@ class PurpleCrate(LibraryObject):
 
 @register_asset
 class BlueBlockBasicRobolab(LibraryObject):
+    """Blue block object from the Robolab basic set."""
+
     # TODO(cvolk): pick_and_place success termination does not consistently trigger
     # with this asset even when the block is placed in the destination.
     registry_name = "blue_block_basic_robolab"
@@ -872,6 +964,8 @@ class BlueBlockBasicRobolab(LibraryObject):
 
 @register_asset
 class GreenBlockBasicRobolab(LibraryObject):
+    """Green block object from the Robolab basic set."""
+
     registry_name = "green_block_basic_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/basic/green_block.usd"
@@ -879,6 +973,8 @@ class GreenBlockBasicRobolab(LibraryObject):
 
 @register_asset
 class RedBlockBasicRobolab(LibraryObject):
+    """Red block object from the Robolab basic set."""
+
     registry_name = "red_block_basic_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/basic/red_block.usd"
@@ -886,6 +982,8 @@ class RedBlockBasicRobolab(LibraryObject):
 
 @register_asset
 class YellowBlockBasicRobolab(LibraryObject):
+    """Yellow block object from the Robolab basic set."""
+
     registry_name = "yellow_block_basic_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/basic/yellow_block.usd"
@@ -893,6 +991,8 @@ class YellowBlockBasicRobolab(LibraryObject):
 
 @register_asset
 class Avocado01FruitsVeggiesRobolab(LibraryObject):
+    """Avocado 01 object from the Robolab fruits and vegetables set."""
+
     registry_name = "avocado01_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = (
@@ -902,6 +1002,8 @@ class Avocado01FruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class Lemon01FruitsVeggiesRobolab(LibraryObject):
+    """Lemon 01 object from the Robolab fruits and vegetables set."""
+
     registry_name = "lemon_01_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/lemon_01.usd"
@@ -909,6 +1011,8 @@ class Lemon01FruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class Lemon02FruitsVeggiesRobolab(LibraryObject):
+    """Lemon 02 object from the Robolab fruits and vegetables set."""
+
     registry_name = "lemon_02_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/lemon_02.usd"
@@ -916,6 +1020,8 @@ class Lemon02FruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class Lime01FruitsVeggiesRobolab(LibraryObject):
+    """Lime 01 object from the Robolab fruits and vegetables set."""
+
     registry_name = "lime01_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/lime01.usd"
@@ -923,6 +1029,8 @@ class Lime01FruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class Lychee01FruitsVeggiesRobolab(LibraryObject):
+    """Lychee 01 object from the Robolab fruits and vegetables set."""
+
     registry_name = "lychee01_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/lychee01.usd"
@@ -930,6 +1038,8 @@ class Lychee01FruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class Orange01FruitsVeggiesRobolab(LibraryObject):
+    """Orange 01 object from the Robolab fruits and vegetables set."""
+
     registry_name = "orange_01_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = (
@@ -939,6 +1049,8 @@ class Orange01FruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class Orange02FruitsVeggiesRobolab(LibraryObject):
+    """Orange 02 object from the Robolab fruits and vegetables set."""
+
     registry_name = "orange_02_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = (
@@ -948,6 +1060,8 @@ class Orange02FruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class Pomegranate01FruitsVeggiesRobolab(LibraryObject):
+    """Pomegranate 01 object from the Robolab fruits and vegetables set."""
+
     registry_name = "pomegranate01_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = (
@@ -957,6 +1071,8 @@ class Pomegranate01FruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class RedOnionFruitsVeggiesRobolab(LibraryObject):
+    """Red onion object from the Robolab fruits and vegetables set."""
+
     registry_name = "red_onion_fruits_veggies_robolab"
     tags = ["object", "graspable", "food", "fruit", "robolab"]
     usd_path = (
@@ -966,6 +1082,8 @@ class RedOnionFruitsVeggiesRobolab(LibraryObject):
 
 @register_asset
 class HammerHandalRobolab(LibraryObject):
+    """Hammer object from the Robolab HANDAL set."""
+
     registry_name = "hammer_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer.usd"
@@ -973,6 +1091,8 @@ class HammerHandalRobolab(LibraryObject):
 
 @register_asset
 class BlackHammerRobolab(LibraryObject):
+    """Black hammer object from the Robolab HANDAL set."""
+
     registry_name = "black_hammer_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_1.usd"
@@ -980,6 +1100,8 @@ class BlackHammerRobolab(LibraryObject):
 
 @register_asset
 class WoodHammerRobolab(LibraryObject):
+    """Wood hammer object from the Robolab HANDAL set."""
+
     registry_name = "wood_hammer_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_2.usd"
@@ -987,6 +1109,8 @@ class WoodHammerRobolab(LibraryObject):
 
 @register_asset
 class RedHammerRobolab(LibraryObject):
+    """Red hammer object from the Robolab HANDAL set."""
+
     registry_name = "red_hammer_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_3.usd"
@@ -994,6 +1118,8 @@ class RedHammerRobolab(LibraryObject):
 
 @register_asset
 class Hammer4HandalRobolab(LibraryObject):
+    """Hammer 4 object from the Robolab HANDAL set."""
+
     registry_name = "hammer_4_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_4.usd"
@@ -1001,6 +1127,8 @@ class Hammer4HandalRobolab(LibraryObject):
 
 @register_asset
 class Hammer5HandalRobolab(LibraryObject):
+    """Hammer 5 object from the Robolab HANDAL set."""
+
     registry_name = "hammer_5_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_5.usd"
@@ -1008,6 +1136,8 @@ class Hammer5HandalRobolab(LibraryObject):
 
 @register_asset
 class BlueHammerRobolab(LibraryObject):
+    """Blue hammer object from the Robolab HANDAL set."""
+
     registry_name = "blue_hammer_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_6.usd"
@@ -1015,6 +1145,8 @@ class BlueHammerRobolab(LibraryObject):
 
 @register_asset
 class Hammer7HandalRobolab(LibraryObject):
+    """Hammer 7 object from the Robolab HANDAL set."""
+
     registry_name = "hammer_7_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_7.usd"
@@ -1022,6 +1154,8 @@ class Hammer7HandalRobolab(LibraryObject):
 
 @register_asset
 class Hammer8HandalRobolab(LibraryObject):
+    """Hammer 8 object from the Robolab HANDAL set."""
+
     registry_name = "hammer_8_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_8.usd"
@@ -1029,6 +1163,8 @@ class Hammer8HandalRobolab(LibraryObject):
 
 @register_asset
 class LadleHandalRobolab(LibraryObject):
+    """Ladle object from the Robolab HANDAL set."""
+
     registry_name = "ladle_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/ladle.usd"
@@ -1036,6 +1172,8 @@ class LadleHandalRobolab(LibraryObject):
 
 @register_asset
 class MeasuringCupsHandalRobolab(LibraryObject):
+    """Measuring cups object from the Robolab HANDAL set."""
+
     registry_name = "measuring_cups_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/measuring_cups.usd"
@@ -1043,6 +1181,8 @@ class MeasuringCupsHandalRobolab(LibraryObject):
 
 @register_asset
 class MeasuringCups1HandalRobolab(LibraryObject):
+    """Measuring cups 1 object from the Robolab HANDAL set."""
+
     registry_name = "measuring_cups_1_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/measuring_cups_1.usd"
@@ -1050,6 +1190,8 @@ class MeasuringCups1HandalRobolab(LibraryObject):
 
 @register_asset
 class MeasuringSpoonHandalRobolab(LibraryObject):
+    """Measuring spoon object from the Robolab HANDAL set."""
+
     registry_name = "measuring_spoon_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/measuring_spoon.usd"
@@ -1057,6 +1199,8 @@ class MeasuringSpoonHandalRobolab(LibraryObject):
 
 @register_asset
 class SaladTongsHandalRobolab(LibraryObject):
+    """Salad tongs object from the Robolab HANDAL set."""
+
     registry_name = "salad_tongs_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/salad_tongs.usd"
@@ -1064,6 +1208,8 @@ class SaladTongsHandalRobolab(LibraryObject):
 
 @register_asset
 class ServingSpoonHandalRobolab(LibraryObject):
+    """Serving spoon object from the Robolab HANDAL set."""
+
     registry_name = "serving_spoon_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/serving_spoon.usd"
@@ -1071,6 +1217,8 @@ class ServingSpoonHandalRobolab(LibraryObject):
 
 @register_asset
 class ServingSpoonsHandalRobolab(LibraryObject):
+    """Serving spoons object from the Robolab HANDAL set."""
+
     registry_name = "serving_spoons_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/serving_spoons.usd"
@@ -1078,6 +1226,8 @@ class ServingSpoonsHandalRobolab(LibraryObject):
 
 @register_asset
 class SpoonHandalRobolab(LibraryObject):
+    """Spoon object from the Robolab HANDAL set."""
+
     registry_name = "spoon_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/spoon.usd"
@@ -1085,6 +1235,8 @@ class SpoonHandalRobolab(LibraryObject):
 
 @register_asset
 class Spoon1HandalRobolab(LibraryObject):
+    """Spoon 1 object from the Robolab HANDAL set."""
+
     registry_name = "spoon_1_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/spoon_1.usd"
@@ -1092,6 +1244,8 @@ class Spoon1HandalRobolab(LibraryObject):
 
 @register_asset
 class Spoon2HandalRobolab(LibraryObject):
+    """Spoon 2 object from the Robolab HANDAL set."""
+
     registry_name = "spoon_2_handal_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/spoon_2.usd"
@@ -1099,6 +1253,8 @@ class Spoon2HandalRobolab(LibraryObject):
 
 @register_asset
 class AlphabetSoupCanHopeRobolab(LibraryObject):
+    """Alphabet soup can object from the Robolab HOPE set."""
+
     registry_name = "alphabet_soup_can_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/alphabet_soup_can.usd"
@@ -1106,6 +1262,8 @@ class AlphabetSoupCanHopeRobolab(LibraryObject):
 
 @register_asset
 class BbqSauceBottleHopeRobolab(LibraryObject):
+    """Bbq sauce bottle object from the Robolab HOPE set."""
+
     registry_name = "bbq_sauce_bottle_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/bbq_sauce_bottle.usd"
@@ -1114,6 +1272,8 @@ class BbqSauceBottleHopeRobolab(LibraryObject):
 
 @register_asset
 class ButterHopeRobolab(LibraryObject):
+    """Butter object from the Robolab HOPE set."""
+
     registry_name = "butter_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/butter.usd"
@@ -1121,6 +1281,8 @@ class ButterHopeRobolab(LibraryObject):
 
 @register_asset
 class CannedMushroomsHopeRobolab(LibraryObject):
+    """Canned mushrooms object from the Robolab HOPE set."""
+
     registry_name = "canned_mushrooms_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/canned_mushrooms.usd"
@@ -1128,6 +1290,8 @@ class CannedMushroomsHopeRobolab(LibraryObject):
 
 @register_asset
 class CannedPeachesHopeRobolab(LibraryObject):
+    """Canned peaches object from the Robolab HOPE set."""
+
     registry_name = "canned_peaches_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/canned_peaches.usd"
@@ -1135,6 +1299,8 @@ class CannedPeachesHopeRobolab(LibraryObject):
 
 @register_asset
 class CannedTunaHopeRobolab(LibraryObject):
+    """Canned tuna object from the Robolab HOPE set."""
+
     registry_name = "canned_tuna_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/canned_tuna.usd"
@@ -1142,6 +1308,8 @@ class CannedTunaHopeRobolab(LibraryObject):
 
 @register_asset
 class ChocolatePuddingMixHopeRobolab(LibraryObject):
+    """Chocolate pudding mix object from the Robolab HOPE set."""
+
     registry_name = "chocolate_pudding_mix_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = (
@@ -1151,6 +1319,8 @@ class ChocolatePuddingMixHopeRobolab(LibraryObject):
 
 @register_asset
 class CornCanHopeRobolab(LibraryObject):
+    """Corn can object from the Robolab HOPE set."""
+
     registry_name = "corn_can_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/corn_can.usd"
@@ -1158,6 +1328,8 @@ class CornCanHopeRobolab(LibraryObject):
 
 @register_asset
 class CreamCheeseHopeRobolab(LibraryObject):
+    """Cream cheese object from the Robolab HOPE set."""
+
     registry_name = "cream_cheese_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/cream_cheese.usd"
@@ -1165,6 +1337,8 @@ class CreamCheeseHopeRobolab(LibraryObject):
 
 @register_asset
 class GranolaBarsHopeRobolab(LibraryObject):
+    """Granola bars object from the Robolab HOPE set."""
+
     registry_name = "granola_bars_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/granola_bars.usd"
@@ -1172,6 +1346,8 @@ class GranolaBarsHopeRobolab(LibraryObject):
 
 @register_asset
 class GreenBeansCanHopeRobolab(LibraryObject):
+    """Green beans can object from the Robolab HOPE set."""
+
     registry_name = "green_beans_can_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/green_beans_can.usd"
@@ -1179,6 +1355,8 @@ class GreenBeansCanHopeRobolab(LibraryObject):
 
 @register_asset
 class KetchupBottleHopeRobolab(LibraryObject):
+    """Ketchup bottle object from the Robolab HOPE set."""
+
     registry_name = "ketchup_bottle_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/ketchup_bottle.usd"
@@ -1187,6 +1365,8 @@ class KetchupBottleHopeRobolab(LibraryObject):
 
 @register_asset
 class MacaroniAndCheeseHopeRobolab(LibraryObject):
+    """Macaroni and cheese object from the Robolab HOPE set."""
+
     registry_name = "macaroni_and_cheese_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = (
@@ -1196,6 +1376,8 @@ class MacaroniAndCheeseHopeRobolab(LibraryObject):
 
 @register_asset
 class MayonnaiseBottleHopeRobolab(LibraryObject):
+    """Mayonnaise bottle object from the Robolab HOPE set."""
+
     registry_name = "mayonnaise_bottle_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/mayonnaise_bottle.usd"
@@ -1204,6 +1386,8 @@ class MayonnaiseBottleHopeRobolab(LibraryObject):
 
 @register_asset
 class MilkCartonHopeRobolab(LibraryObject):
+    """Milk carton object from the Robolab HOPE set."""
+
     registry_name = "milk_carton_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/milk_carton.usd"
@@ -1211,6 +1395,8 @@ class MilkCartonHopeRobolab(LibraryObject):
 
 @register_asset
 class MustardBottleHopeRobolab(LibraryObject):
+    """Mustard bottle object from the Robolab HOPE set."""
+
     registry_name = "mustard_bottle_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/mustard_bottle.usd"
@@ -1218,6 +1404,8 @@ class MustardBottleHopeRobolab(LibraryObject):
 
 @register_asset
 class OatmealRaisinCookiesHopeRobolab(LibraryObject):
+    """Oatmeal raisin cookies object from the Robolab HOPE set."""
+
     registry_name = "oatmeal_raisin_cookies_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = (
@@ -1227,6 +1415,8 @@ class OatmealRaisinCookiesHopeRobolab(LibraryObject):
 
 @register_asset
 class OrangeJuiceCartonHopeRobolab(LibraryObject):
+    """Orange juice carton object from the Robolab HOPE set."""
+
     registry_name = "orange_juice_carton_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = (
@@ -1236,6 +1426,8 @@ class OrangeJuiceCartonHopeRobolab(LibraryObject):
 
 @register_asset
 class ParmesanCheeseCanisterHopeRobolab(LibraryObject):
+    """Parmesan cheese canister object from the Robolab HOPE set."""
+
     registry_name = "parmesan_cheese_canister_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = (
@@ -1245,6 +1437,8 @@ class ParmesanCheeseCanisterHopeRobolab(LibraryObject):
 
 @register_asset
 class PeasAndCarrotsHopeRobolab(LibraryObject):
+    """Peas and carrots object from the Robolab HOPE set."""
+
     registry_name = "peas_and_carrots_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/peas_and_carrots.usd"
@@ -1252,6 +1446,8 @@ class PeasAndCarrotsHopeRobolab(LibraryObject):
 
 @register_asset
 class PineappleSlicesCanHopeRobolab(LibraryObject):
+    """Pineapple slices can object from the Robolab HOPE set."""
+
     registry_name = "pineapple_slices_can_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = (
@@ -1261,6 +1457,8 @@ class PineappleSlicesCanHopeRobolab(LibraryObject):
 
 @register_asset
 class PittedCherriesHopeRobolab(LibraryObject):
+    """Pitted cherries object from the Robolab HOPE set."""
+
     registry_name = "pitted_cherries_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/pitted_cherries.usd"
@@ -1268,6 +1466,8 @@ class PittedCherriesHopeRobolab(LibraryObject):
 
 @register_asset
 class PopcornBoxHopeRobolab(LibraryObject):
+    """Popcorn box object from the Robolab HOPE set."""
+
     registry_name = "popcorn_box_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/popcorn_box.usd"
@@ -1275,6 +1475,8 @@ class PopcornBoxHopeRobolab(LibraryObject):
 
 @register_asset
 class RaisinBoxHopeRobolab(LibraryObject):
+    """Raisin box object from the Robolab HOPE set."""
+
     registry_name = "raisin_box_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/raisin_box.usd"
@@ -1282,6 +1484,8 @@ class RaisinBoxHopeRobolab(LibraryObject):
 
 @register_asset
 class RanchDressingHopeRobolab(LibraryObject):
+    """Ranch dressing object from the Robolab HOPE set."""
+
     registry_name = "ranch_dressing_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/ranch_dressing.usd"
@@ -1290,6 +1494,8 @@ class RanchDressingHopeRobolab(LibraryObject):
 
 @register_asset
 class SpaghettiHopeRobolab(LibraryObject):
+    """Spaghetti object from the Robolab HOPE set."""
+
     registry_name = "spaghetti_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/spaghetti.usd"
@@ -1297,6 +1503,8 @@ class SpaghettiHopeRobolab(LibraryObject):
 
 @register_asset
 class TomatoSauceCanHopeRobolab(LibraryObject):
+    """Tomato sauce can object from the Robolab HOPE set."""
+
     registry_name = "tomato_sauce_can_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/tomato_sauce_can.usd"
@@ -1304,6 +1512,8 @@ class TomatoSauceCanHopeRobolab(LibraryObject):
 
 @register_asset
 class YogurtCupHopeRobolab(LibraryObject):
+    """Yogurt cup object from the Robolab HOPE set."""
+
     registry_name = "yogurt_cup_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/yogurt_cup.usd"
@@ -1311,6 +1521,8 @@ class YogurtCupHopeRobolab(LibraryObject):
 
 @register_asset
 class BbqSauceBottleHot3DRobolab(LibraryObject):
+    """Bbq sauce bottle object from the Robolab HOT3D set."""
+
     registry_name = "bbq_sauce_bottle_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/bbq_sauce_bottle.usd"
@@ -1318,6 +1530,8 @@ class BbqSauceBottleHot3DRobolab(LibraryObject):
 
 @register_asset
 class BirdhouseHot3DRobolab(LibraryObject):
+    """Birdhouse object from the Robolab HOT3D set."""
+
     registry_name = "birdhouse_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/birdhouse.usd"
@@ -1325,6 +1539,8 @@ class BirdhouseHot3DRobolab(LibraryObject):
 
 @register_asset
 class CeramicMugHot3DRobolab(LibraryObject):
+    """Ceramic mug object from the Robolab HOT3D set."""
+
     registry_name = "ceramic_mug_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/ceramic_mug.usd"
@@ -1332,6 +1548,8 @@ class CeramicMugHot3DRobolab(LibraryObject):
 
 @register_asset
 class ClayPlatesHot3DRobolab(LibraryObject):
+    """Clay plates object from the Robolab HOT3D set."""
+
     registry_name = "clay_plates_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/clay_plates.usd"
@@ -1339,6 +1557,8 @@ class ClayPlatesHot3DRobolab(LibraryObject):
 
 @register_asset
 class CoffeePotHot3DRobolab(LibraryObject):
+    """Coffee pot object from the Robolab HOT3D set."""
+
     registry_name = "coffee_pot_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/coffee_pot.usd"
@@ -1346,6 +1566,8 @@ class CoffeePotHot3DRobolab(LibraryObject):
 
 @register_asset
 class ComputerMouseHot3DRobolab(LibraryObject):
+    """Computer mouse object from the Robolab HOT3D set."""
+
     registry_name = "computer_mouse_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/computer_mouse.usd"
@@ -1353,6 +1575,8 @@ class ComputerMouseHot3DRobolab(LibraryObject):
 
 @register_asset
 class DumbbellHot3DRobolab(LibraryObject):
+    """Dumbbell object from the Robolab HOT3D set."""
+
     registry_name = "dumbbell_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/dumbbell.usd"
@@ -1360,6 +1584,8 @@ class DumbbellHot3DRobolab(LibraryObject):
 
 @register_asset
 class FoamRollerHot3DRobolab(LibraryObject):
+    """Foam roller object from the Robolab HOT3D set."""
+
     registry_name = "foam_roller_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/foam_roller.usd"
@@ -1367,6 +1593,8 @@ class FoamRollerHot3DRobolab(LibraryObject):
 
 @register_asset
 class FrozenVegetableBlockHot3DRobolab(LibraryObject):
+    """Frozen vegetable block object from the Robolab HOT3D set."""
+
     registry_name = "frozen_vegetable_block_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1376,6 +1604,8 @@ class FrozenVegetableBlockHot3DRobolab(LibraryObject):
 
 @register_asset
 class FrozenWafflesHot3DRobolab(LibraryObject):
+    """Frozen waffles object from the Robolab HOT3D set."""
+
     registry_name = "frozen_waffles_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/frozen_waffles.usd"
@@ -1383,6 +1613,8 @@ class FrozenWafflesHot3DRobolab(LibraryObject):
 
 @register_asset
 class GlassesHot3DRobolab(LibraryObject):
+    """Glasses object from the Robolab HOT3D set."""
+
     registry_name = "glasses_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/glasses.usd"
@@ -1390,6 +1622,8 @@ class GlassesHot3DRobolab(LibraryObject):
 
 @register_asset
 class KeyboardHot3DRobolab(LibraryObject):
+    """Keyboard object from the Robolab HOT3D set."""
+
     registry_name = "keyboard_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/keyboard.usd"
@@ -1397,6 +1631,8 @@ class KeyboardHot3DRobolab(LibraryObject):
 
 @register_asset
 class LizardFigurineHot3DRobolab(LibraryObject):
+    """Lizard figurine object from the Robolab HOT3D set."""
+
     registry_name = "lizard_figurine_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/lizard_figurine.usd"
@@ -1404,6 +1640,8 @@ class LizardFigurineHot3DRobolab(LibraryObject):
 
 @register_asset
 class MarkerHot3DRobolab(LibraryObject):
+    """Marker object from the Robolab HOT3D set."""
+
     registry_name = "marker_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/marker.usd"
@@ -1411,6 +1649,8 @@ class MarkerHot3DRobolab(LibraryObject):
 
 @register_asset
 class MegaphoneHot3DRobolab(LibraryObject):
+    """Megaphone object from the Robolab HOT3D set."""
+
     registry_name = "megaphone_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/megaphone.usd"
@@ -1418,6 +1658,8 @@ class MegaphoneHot3DRobolab(LibraryObject):
 
 @register_asset
 class MilkCartonHot3DRobolab(LibraryObject):
+    """Milk carton object from the Robolab HOT3D set."""
+
     registry_name = "milk_carton_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/milk_carton.usd"
@@ -1425,6 +1667,8 @@ class MilkCartonHot3DRobolab(LibraryObject):
 
 @register_asset
 class MugHot3DRobolab(LibraryObject):
+    """Mug object from the Robolab HOT3D set."""
+
     registry_name = "mug_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/mug.usd"
@@ -1432,6 +1676,8 @@ class MugHot3DRobolab(LibraryObject):
 
 @register_asset
 class MustardBottleHot3DRobolab(LibraryObject):
+    """Mustard bottle object from the Robolab HOT3D set."""
+
     registry_name = "mustard_bottle_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/mustard_bottle.usd"
@@ -1439,6 +1685,8 @@ class MustardBottleHot3DRobolab(LibraryObject):
 
 @register_asset
 class OrangeJuiceCartonHot3DRobolab(LibraryObject):
+    """Orange juice carton object from the Robolab HOT3D set."""
+
     registry_name = "orange_juice_carton_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1448,6 +1696,8 @@ class OrangeJuiceCartonHot3DRobolab(LibraryObject):
 
 @register_asset
 class ParmesanCheeseCanisterHot3DRobolab(LibraryObject):
+    """Parmesan cheese canister object from the Robolab HOT3D set."""
+
     registry_name = "parmesan_cheese_canister_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1457,6 +1707,8 @@ class ParmesanCheeseCanisterHot3DRobolab(LibraryObject):
 
 @register_asset
 class PitcherHot3DRobolab(LibraryObject):
+    """Pitcher object from the Robolab HOT3D set."""
+
     registry_name = "pitcher_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/pitcher.usd"
@@ -1464,6 +1716,8 @@ class PitcherHot3DRobolab(LibraryObject):
 
 @register_asset
 class PotatoMasherHot3DRobolab(LibraryObject):
+    """Potato masher object from the Robolab HOT3D set."""
+
     registry_name = "potato_masher_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/potato_masher.usd"
@@ -1471,6 +1725,8 @@ class PotatoMasherHot3DRobolab(LibraryObject):
 
 @register_asset
 class RemoteControlHot3DRobolab(LibraryObject):
+    """Remote control object from the Robolab HOT3D set."""
+
     registry_name = "remote_control_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/remote_control.usd"
@@ -1478,6 +1734,8 @@ class RemoteControlHot3DRobolab(LibraryObject):
 
 @register_asset
 class RubiksCubeHot3DRobolab(LibraryObject):
+    """Rubiks cube object from the Robolab HOT3D set."""
+
     registry_name = "rubiks_cube_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/rubiks_cube.usd"
@@ -1485,6 +1743,8 @@ class RubiksCubeHot3DRobolab(LibraryObject):
 
 @register_asset
 class SaladDressingBottleHot3DRobolab(LibraryObject):
+    """Salad dressing bottle object from the Robolab HOT3D set."""
+
     registry_name = "salad_dressing_bottle_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1494,6 +1754,8 @@ class SaladDressingBottleHot3DRobolab(LibraryObject):
 
 @register_asset
 class SmartphoneHot3DRobolab(LibraryObject):
+    """Smartphone object from the Robolab HOT3D set."""
+
     registry_name = "smartphone_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/smartphone.usd"
@@ -1501,6 +1763,8 @@ class SmartphoneHot3DRobolab(LibraryObject):
 
 @register_asset
 class SoupCanHot3DRobolab(LibraryObject):
+    """Soup can object from the Robolab HOT3D set."""
+
     registry_name = "soup_can_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/soup_can.usd"
@@ -1508,6 +1772,8 @@ class SoupCanHot3DRobolab(LibraryObject):
 
 @register_asset
 class SpatulaHot3DRobolab(LibraryObject):
+    """Spatula object from the Robolab HOT3D set."""
+
     registry_name = "spatula_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/spatula.usd"
@@ -1515,6 +1781,8 @@ class SpatulaHot3DRobolab(LibraryObject):
 
 @register_asset
 class StorageBoxHot3DRobolab(LibraryObject):
+    """Storage box object from the Robolab HOT3D set."""
+
     registry_name = "storage_box_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/storage_box.usd"
@@ -1522,6 +1790,8 @@ class StorageBoxHot3DRobolab(LibraryObject):
 
 @register_asset
 class TomatoSauceCanHot3DRobolab(LibraryObject):
+    """Tomato sauce can object from the Robolab HOT3D set."""
+
     registry_name = "tomato_sauce_can_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/tomato_sauce_can.usd"
@@ -1529,6 +1799,8 @@ class TomatoSauceCanHot3DRobolab(LibraryObject):
 
 @register_asset
 class WoodenBowlHot3DRobolab(LibraryObject):
+    """Wooden bowl object from the Robolab HOT3D set."""
+
     registry_name = "wooden_bowl_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/wooden_bowl.usd"
@@ -1536,6 +1808,8 @@ class WoodenBowlHot3DRobolab(LibraryObject):
 
 @register_asset
 class WoodenSpoonsHot3DRobolab(LibraryObject):
+    """Wooden spoons object from the Robolab HOT3D set."""
+
     registry_name = "wooden_spoons_hot3d_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/wooden_spoons.usd"
@@ -1543,6 +1817,8 @@ class WoodenSpoonsHot3DRobolab(LibraryObject):
 
 @register_asset
 class Apple01ObjaverseRobolab(LibraryObject):
+    """Apple 01 object from the Robolab Objaverse set."""
+
     registry_name = "apple_01_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/apple_01.usd"
@@ -1552,6 +1828,8 @@ class Apple01ObjaverseRobolab(LibraryObject):
 
 @register_asset
 class Apple02ObjaverseRobolab(LibraryObject):
+    """Apple 02 object from the Robolab Objaverse set."""
+
     registry_name = "apple_02_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/apple_02.usd"
@@ -1560,6 +1838,8 @@ class Apple02ObjaverseRobolab(LibraryObject):
 
 @register_asset
 class Bagel00ObjaverseRobolab(LibraryObject):
+    """Bagel 00 object from the Robolab Objaverse set."""
+
     registry_name = "bagel_00_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/bagel_00.usd"
@@ -1567,6 +1847,8 @@ class Bagel00ObjaverseRobolab(LibraryObject):
 
 @register_asset
 class Bagel06ObjaverseRobolab(LibraryObject):
+    """Bagel 06 object from the Robolab Objaverse set."""
+
     registry_name = "bagel_06_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/bagel_06.usd"
@@ -1574,6 +1856,8 @@ class Bagel06ObjaverseRobolab(LibraryObject):
 
 @register_asset
 class Bagel07ObjaverseRobolab(LibraryObject):
+    """Bagel 07 object from the Robolab Objaverse set."""
+
     registry_name = "bagel_07_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/bagel_07.usd"
@@ -1581,6 +1865,8 @@ class Bagel07ObjaverseRobolab(LibraryObject):
 
 @register_asset
 class Baguette02ObjaverseRobolab(LibraryObject):
+    """Baguette 02 object from the Robolab Objaverse set."""
+
     registry_name = "baguette_02_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/baguette_02.usd"
@@ -1588,6 +1874,8 @@ class Baguette02ObjaverseRobolab(LibraryObject):
 
 @register_asset
 class GregorysCoffeeCupObjaverseRobolab(LibraryObject):
+    """Gregorys coffee cup object from the Robolab Objaverse set."""
+
     registry_name = "gregorys_coffee_cup_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = (
@@ -1597,6 +1885,8 @@ class GregorysCoffeeCupObjaverseRobolab(LibraryObject):
 
 @register_asset
 class LunchbagObjaverseRobolab(LibraryObject):
+    """Lunchbag object from the Robolab Objaverse set."""
+
     registry_name = "lunchbag_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/lunchbag.usd"
@@ -1604,6 +1894,8 @@ class LunchbagObjaverseRobolab(LibraryObject):
 
 @register_asset
 class RedBellPepperObjaverseRobolab(LibraryObject):
+    """Red bell pepper object from the Robolab Objaverse set."""
+
     registry_name = "red_bell_pepper_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = (
@@ -1613,6 +1905,8 @@ class RedBellPepperObjaverseRobolab(LibraryObject):
 
 @register_asset
 class SnickersBarObjaverseRobolab(LibraryObject):
+    """Snickers bar object from the Robolab Objaverse set."""
+
     registry_name = "snickers_bar_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/snickers_bar.usd"
@@ -1620,6 +1914,8 @@ class SnickersBarObjaverseRobolab(LibraryObject):
 
 @register_asset
 class BananaYcbRobolab(LibraryObject):
+    """Banana object from the Robolab YCB set."""
+
     registry_name = "banana_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/banana.usd"
@@ -1627,6 +1923,8 @@ class BananaYcbRobolab(LibraryObject):
 
 @register_asset
 class BowlYcbRobolab(LibraryObject):
+    """Bowl object from the Robolab YCB set."""
+
     registry_name = "bowl_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/bowl.usd"
@@ -1644,6 +1942,8 @@ class KinematicBowlYcbRobolab(BowlYcbRobolab):
 
 @register_asset
 class BrickYcbRobolab(LibraryObject):
+    """Brick object from the Robolab YCB set."""
+
     registry_name = "brick_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/brick.usd"
@@ -1651,6 +1951,8 @@ class BrickYcbRobolab(LibraryObject):
 
 @register_asset
 class CheezItYcbRobolab(LibraryObject):
+    """Cheez it object from the Robolab YCB set."""
+
     registry_name = "cheez_it_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/cheez_it.usd"
@@ -1658,6 +1960,8 @@ class CheezItYcbRobolab(LibraryObject):
 
 @register_asset
 class ChocolatePuddingYcbRobolab(LibraryObject):
+    """Chocolate pudding object from the Robolab YCB set."""
+
     registry_name = "chocolate_pudding_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/chocolate_pudding.usd"
@@ -1665,6 +1969,8 @@ class ChocolatePuddingYcbRobolab(LibraryObject):
 
 @register_asset
 class ClampYcbRobolab(LibraryObject):
+    """Clamp object from the Robolab YCB set."""
+
     registry_name = "clamp_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/clamp.usd"
@@ -1672,6 +1978,8 @@ class ClampYcbRobolab(LibraryObject):
 
 @register_asset
 class CoffeeCanYcbRobolab(LibraryObject):
+    """Coffee can object from the Robolab YCB set."""
+
     registry_name = "coffee_can_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/coffee_can.usd"
@@ -1679,6 +1987,8 @@ class CoffeeCanYcbRobolab(LibraryObject):
 
 @register_asset
 class CordlessDrillYcbRobolab(LibraryObject):
+    """Cordless drill object from the Robolab YCB set."""
+
     registry_name = "cordless_drill_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/cordless_drill.usd"
@@ -1686,6 +1996,8 @@ class CordlessDrillYcbRobolab(LibraryObject):
 
 @register_asset
 class DryEraseMarkerYcbRobolab(LibraryObject):
+    """Dry erase marker object from the Robolab YCB set."""
+
     registry_name = "dry_erase_marker_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/dry_erase_marker.usd"
@@ -1693,6 +2005,8 @@ class DryEraseMarkerYcbRobolab(LibraryObject):
 
 @register_asset
 class JelloYcbRobolab(LibraryObject):
+    """Jello object from the Robolab YCB set."""
+
     registry_name = "jello_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/jello.usd"
@@ -1700,6 +2014,8 @@ class JelloYcbRobolab(LibraryObject):
 
 @register_asset
 class MugYcbRobolab(LibraryObject):
+    """Mug object from the Robolab YCB set."""
+
     registry_name = "mug_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/mug.usd"
@@ -1707,6 +2023,8 @@ class MugYcbRobolab(LibraryObject):
 
 @register_asset
 class MustardYcbRobolab(LibraryObject):
+    """Mustard object from the Robolab YCB set."""
+
     registry_name = "mustard_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/mustard.usd"
@@ -1714,6 +2032,8 @@ class MustardYcbRobolab(LibraryObject):
 
 @register_asset
 class PitcherYcbRobolab(LibraryObject):
+    """Pitcher object from the Robolab YCB set."""
+
     registry_name = "pitcher_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/pitcher.usd"
@@ -1721,6 +2041,8 @@ class PitcherYcbRobolab(LibraryObject):
 
 @register_asset
 class ScissorsYcbRobolab(LibraryObject):
+    """Scissors object from the Robolab YCB set."""
+
     registry_name = "scissors_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/scissors.usd"
@@ -1728,6 +2050,8 @@ class ScissorsYcbRobolab(LibraryObject):
 
 @register_asset
 class SoftScrubYcbRobolab(LibraryObject):
+    """Soft scrub object from the Robolab YCB set."""
+
     registry_name = "soft_scrub_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/soft_scrub.usd"
@@ -1735,6 +2059,8 @@ class SoftScrubYcbRobolab(LibraryObject):
 
 @register_asset
 class SpamCanYcbRobolab(LibraryObject):
+    """Spam can object from the Robolab YCB set."""
+
     registry_name = "spam_can_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/spam_can.usd"
@@ -1742,6 +2068,8 @@ class SpamCanYcbRobolab(LibraryObject):
 
 @register_asset
 class SpringClampYcbRobolab(LibraryObject):
+    """Spring clamp object from the Robolab YCB set."""
+
     registry_name = "spring_clamp_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/spring_clamp.usd"
@@ -1749,6 +2077,8 @@ class SpringClampYcbRobolab(LibraryObject):
 
 @register_asset
 class SugarBoxYcbRobolab(LibraryObject):
+    """Sugar box object from the Robolab YCB set."""
+
     registry_name = "sugar_box_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/sugar_box.usd"
@@ -1756,6 +2086,8 @@ class SugarBoxYcbRobolab(LibraryObject):
 
 @register_asset
 class TomatoSoupCanYcbRobolab(LibraryObject):
+    """Tomato soup can object from the Robolab YCB set."""
+
     registry_name = "tomato_soup_can_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/tomato_soup_can.usd"
@@ -1763,6 +2095,8 @@ class TomatoSoupCanYcbRobolab(LibraryObject):
 
 @register_asset
 class TunaCanYcbRobolab(LibraryObject):
+    """Tuna can object from the Robolab YCB set."""
+
     registry_name = "tuna_can_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/tuna_can.usd"
@@ -1770,6 +2104,8 @@ class TunaCanYcbRobolab(LibraryObject):
 
 @register_asset
 class WoodBlockYcbRobolab(LibraryObject):
+    """Wood block object from the Robolab YCB set."""
+
     registry_name = "wood_block_ycb_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/wood_block.usd"
@@ -1777,6 +2113,8 @@ class WoodBlockYcbRobolab(LibraryObject):
 
 @register_asset
 class AnzaMediumVompRobolab(LibraryObject):
+    """Anza medium object from the Robolab VOMP set."""
+
     registry_name = "anza_medium_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1786,6 +2124,8 @@ class AnzaMediumVompRobolab(LibraryObject):
 
 @register_asset
 class BinA06VompRobolab(LibraryObject):
+    """Bin A 06 object from the Robolab VOMP set."""
+
     registry_name = "bin_a06_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_a06/bin_a06.usd"
@@ -1793,6 +2133,8 @@ class BinA06VompRobolab(LibraryObject):
 
 @register_asset
 class BinB03VompRobolab(LibraryObject):
+    """Bin B 03 object from the Robolab VOMP set."""
+
     registry_name = "bin_b03_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_b03/bin_b03.usd"
@@ -1800,6 +2142,8 @@ class BinB03VompRobolab(LibraryObject):
 
 @register_asset
 class BinB04VompRobolab(LibraryObject):
+    """Bin B 04 object from the Robolab VOMP set."""
+
     registry_name = "bin_b04_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_b04/bin_b04.usd"
@@ -1807,6 +2151,8 @@ class BinB04VompRobolab(LibraryObject):
 
 @register_asset
 class ContainerF24VompRobolab(LibraryObject):
+    """Container F 24 object from the Robolab VOMP set."""
+
     registry_name = "container_f24_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_f24/container_f24.usd"
@@ -1816,6 +2162,8 @@ class ContainerF24VompRobolab(LibraryObject):
 
 @register_asset
 class CrabbypenholderVompRobolab(LibraryObject):
+    """Crabbypenholder object from the Robolab VOMP set."""
+
     registry_name = "crabbypenholder_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/crabbypenholder/crabbypenholder.usd"
@@ -1823,6 +2171,8 @@ class CrabbypenholderVompRobolab(LibraryObject):
 
 @register_asset
 class ForkBigVompRobolab(LibraryObject):
+    """Fork big object from the Robolab VOMP set."""
+
     registry_name = "fork_big_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/fork_big/fork_big.usd"
@@ -1830,6 +2180,8 @@ class ForkBigVompRobolab(LibraryObject):
 
 @register_asset
 class ForkSmallVompRobolab(LibraryObject):
+    """Fork small object from the Robolab VOMP set."""
+
     registry_name = "fork_small_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1839,6 +2191,8 @@ class ForkSmallVompRobolab(LibraryObject):
 
 @register_asset
 class MilkjugA01VompRobolab(LibraryObject):
+    """Milkjug A 01 object from the Robolab VOMP set."""
+
     registry_name = "milkjug_a01_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1848,6 +2202,8 @@ class MilkjugA01VompRobolab(LibraryObject):
 
 @register_asset
 class PlasticpailA02VompRobolab(LibraryObject):
+    """Plasticpail A 02 object from the Robolab VOMP set."""
+
     registry_name = "plasticpail_a02_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plasticpail_a02/plasticpail_a02.usd"
@@ -1855,6 +2211,8 @@ class PlasticpailA02VompRobolab(LibraryObject):
 
 @register_asset
 class PlateLargeVompRobolab(LibraryObject):
+    """Plate large object from the Robolab VOMP set."""
+
     registry_name = "plate_large_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1864,6 +2222,8 @@ class PlateLargeVompRobolab(LibraryObject):
 
 @register_asset
 class PlateSmallVompRobolab(LibraryObject):
+    """Plate small object from the Robolab VOMP set."""
+
     registry_name = "plate_small_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1873,6 +2233,8 @@ class PlateSmallVompRobolab(LibraryObject):
 
 @register_asset
 class PumpkinlargeVompRobolab(LibraryObject):
+    """Pumpkinlarge object from the Robolab VOMP set."""
+
     registry_name = "pumpkinlarge_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1882,6 +2244,8 @@ class PumpkinlargeVompRobolab(LibraryObject):
 
 @register_asset
 class PumpkinsmallVompRobolab(LibraryObject):
+    """Pumpkinsmall object from the Robolab VOMP set."""
+
     registry_name = "pumpkinsmall_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1891,6 +2255,8 @@ class PumpkinsmallVompRobolab(LibraryObject):
 
 @register_asset
 class RackL04VompRobolab(LibraryObject):
+    """Rack L 04 object from the Robolab VOMP set."""
+
     registry_name = "rack_l04_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/rack_l04/rack_l04.usd"
@@ -1898,6 +2264,8 @@ class RackL04VompRobolab(LibraryObject):
 
 @register_asset
 class ServingBowlVompRobolab(LibraryObject):
+    """Serving bowl object from the Robolab VOMP set."""
+
     registry_name = "serving_bowl_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = (
@@ -1907,6 +2275,8 @@ class ServingBowlVompRobolab(LibraryObject):
 
 @register_asset
 class Spatula01VompRobolab(LibraryObject):
+    """Spatula 01 object from the Robolab VOMP set."""
+
     registry_name = "spatula_01_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1916,6 +2286,8 @@ class Spatula01VompRobolab(LibraryObject):
 
 @register_asset
 class Spatula13VompRobolab(LibraryObject):
+    """Spatula 13 object from the Robolab VOMP set."""
+
     registry_name = "spatula_13_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1925,6 +2297,8 @@ class Spatula13VompRobolab(LibraryObject):
 
 @register_asset
 class Spatula14VompRobolab(LibraryObject):
+    """Spatula 14 object from the Robolab VOMP set."""
+
     registry_name = "spatula_14_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1934,6 +2308,8 @@ class Spatula14VompRobolab(LibraryObject):
 
 @register_asset
 class Spatula15VompRobolab(LibraryObject):
+    """Spatula 15 object from the Robolab VOMP set."""
+
     registry_name = "spatula_15_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1943,6 +2319,8 @@ class Spatula15VompRobolab(LibraryObject):
 
 @register_asset
 class SpoonBigVompRobolab(LibraryObject):
+    """Spoon big object from the Robolab VOMP set."""
+
     registry_name = "spoon_big_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
@@ -1952,6 +2330,8 @@ class SpoonBigVompRobolab(LibraryObject):
 
 @register_asset
 class UtilityjugA01VompRobolab(LibraryObject):
+    """Utilityjug A 01 object from the Robolab VOMP set."""
+
     registry_name = "utilityjug_a01_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/utilityjug_a01/utilityjug_a01.usd"
@@ -1959,6 +2339,8 @@ class UtilityjugA01VompRobolab(LibraryObject):
 
 @register_asset
 class UtilityjugA03VompRobolab(LibraryObject):
+    """Utilityjug A 03 object from the Robolab VOMP set."""
+
     registry_name = "utilityjug_a03_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/utilityjug_a03/utilityjug_a03.usd"
@@ -1966,6 +2348,8 @@ class UtilityjugA03VompRobolab(LibraryObject):
 
 @register_asset
 class WhitepackerbottleA01VompRobolab(LibraryObject):
+    """Whitepackerbottle A 01 object from the Robolab VOMP set."""
+
     registry_name = "whitepackerbottle_a01_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/whitepackerbottle_a01/whitepackerbottle_a01.usd"
@@ -1973,6 +2357,8 @@ class WhitepackerbottleA01VompRobolab(LibraryObject):
 
 @register_asset
 class WireshelvingA01VompRobolab(LibraryObject):
+    """Wireshelving A 01 object from the Robolab VOMP set."""
+
     registry_name = "wireshelving_a01_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/wireshelving_a01/wireshelving_a01.usd"
@@ -1980,6 +2366,8 @@ class WireshelvingA01VompRobolab(LibraryObject):
 
 @register_asset
 class GreyBinRobolab(LibraryObject):
+    """A grey bin fixture from the Robolab assets."""
+
     registry_name = "grey_bin_robolab"
     tags = ["object", "container", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/grey_bin.usd"
@@ -2016,8 +2404,8 @@ class ProceduralTable(Object):
         """Create the table.
 
         Args:
-            name: Name of the object in the scene. Defaults to ``"table"``.
-            prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/table``.
+            name: Name of the object in the scene.
+            prim_path: Prim path of the object.
             initial_pose: Initial pose of the object.
         """
         resolved_name = name if name is not None else "table"
@@ -2060,8 +2448,8 @@ class ProceduralCube(Object):
         """Create the cube.
 
         Args:
-            name: Name of the object in the scene. Defaults to ``"object"``.
-            prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/Object``.
+            name: Name of the object in the scene.
+            prim_path: Prim path of the object.
             initial_pose: Initial pose of the object.
         """
         resolved_name = name if name is not None else "object"
@@ -2116,7 +2504,7 @@ class _NewtonGearInsertionObject(LibraryObject):
 
 @register_asset
 class GearInsertionBase(_NewtonGearInsertionObject):
-    """Fixed base used by the Newton gear insertion task."""
+    """Fixed base of the Newton gear insertion assembly."""
 
     registry_name = "gear_insertion_base"
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/gear_insertion/factory_gear_base.usda"
@@ -2126,7 +2514,7 @@ class GearInsertionBase(_NewtonGearInsertionObject):
 
 @register_asset
 class GearInsertionMediumGear(_NewtonGearInsertionObject):
-    """Movable medium gear used by the Newton gear insertion task."""
+    """Movable medium gear of the Newton gear insertion assembly."""
 
     registry_name = "gear_insertion_medium_gear"
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/gear_insertion/factory_gear_medium.usda"
@@ -2209,6 +2597,12 @@ class SimReadyCentralSocketSet(LibraryObject, Openable):
     openable_joint_name = "case_lid"
 
     def __init__(self, initial_joint_positions: dict[str, float] | None = None, **kwargs):
+        """Create a socket set.
+
+        Args:
+            initial_joint_positions: Joint names mapped to their initial positions. None keeps the asset's own positions.
+            **kwargs: Passed on to the parent class.
+        """
         kwargs.setdefault("openable_joint_name", self.openable_joint_name)
         super().__init__(**kwargs)
         if initial_joint_positions is not None:
@@ -2228,5 +2622,10 @@ class SimReadyCentralOscilloscope(LibraryObject, Pressable):
     pressable_joint_name = "joint_button_01_joint_00"
 
     def __init__(self, **kwargs):
+        """Create an oscilloscope.
+
+        Args:
+            **kwargs: Passed on to the parent class.
+        """
         kwargs.setdefault("pressable_joint_name", self.pressable_joint_name)
         super().__init__(**kwargs)

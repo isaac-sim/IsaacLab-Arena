@@ -44,6 +44,14 @@ def _num_robolab_environments(value: str) -> int:
 
 
 def get_n_robolab_envs(num_environments: int) -> list[Path]:
+    """Return the sorted robolab task YAML paths.
+
+    Args:
+        num_environments: Number of paths to return from the start of the sorted list, or -1 for all of them.
+
+    Returns:
+        The selected robolab task YAML paths.
+    """
     robolab_dir = Path(__file__).resolve().parents[1]
     robolab_envs = sorted(robolab_dir.glob("tasks/*.yaml"))
     if num_environments == -1:
@@ -100,6 +108,11 @@ def _build_command(args: argparse.Namespace, policy: str, env_path: Path, run_id
 
 
 def main() -> int:
+    """Parse command-line arguments and submit one OSMO workflow per policy and robolab environment.
+
+    Returns:
+        The process exit code.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--num_robolab_environments",

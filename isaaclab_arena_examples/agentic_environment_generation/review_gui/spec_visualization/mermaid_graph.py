@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Mermaid flowchart rendering of the spatial relations in an environment graph spec."""
+
 from __future__ import annotations
 
 import re
@@ -25,13 +27,24 @@ def _mermaid_nodes(spec: ArenaEnvGraphSpec) -> list[tuple[str, str]]:
 
 
 def estimate_mermaid_height_px(spec: ArenaEnvGraphSpec) -> int:
-    """Heuristic iframe height from node count so typical graphs fit without excessive scrolling."""
+    """Heuristic iframe height from node count so typical graphs fit without excessive scrolling.
+
+    Args:
+        spec: The environment graph spec to be drawn.
+
+    Returns:
+        The height, in pixels.
+    """
     num_nodes = len(_mermaid_nodes(spec))
     return max(260, min(900, 70 * num_nodes))
 
 
 def render_mermaid_graph(spec: ArenaEnvGraphSpec) -> str:
-    """Build left-to-right Mermaid flowchart syntax for spatial and reference edges."""
+    """Build left-to-right Mermaid flowchart syntax for spatial and reference edges.
+
+    Args:
+        spec: The environment graph spec to draw.
+    """
     lines = ["graph LR"]
 
     anchor_ids: set[str] = set()
@@ -80,7 +93,11 @@ def render_mermaid_graph(spec: ArenaEnvGraphSpec) -> str:
 
 
 def render_mermaid_html(spec: ArenaEnvGraphSpec) -> str:
-    """Render a minimal self-contained HTML document that draws the spatial graph via mermaid.js."""
+    """Render a minimal self-contained HTML document that draws the spatial graph via mermaid.js.
+
+    Args:
+        spec: The environment graph spec to draw.
+    """
     import html as html_lib
 
     syntax = html_lib.escape(render_mermaid_graph(spec))

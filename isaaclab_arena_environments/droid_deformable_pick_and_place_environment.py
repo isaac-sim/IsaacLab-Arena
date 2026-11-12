@@ -102,7 +102,11 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
     _legacy_argparse_cfg_type = DroidDeformablePickAndPlaceEnvironmentCfg
 
     def build(self, cfg: DroidDeformablePickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab_arena.assets.deformable_object import DeformableObject
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_type import ObjectType

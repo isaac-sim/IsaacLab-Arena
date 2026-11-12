@@ -15,7 +15,12 @@ from isaaclab_arena.utils.pose import Pose
 
 
 def mesh_in_world_frame(mesh: trimesh.Trimesh, pose: Pose) -> trimesh.Trimesh:
-    """Return a copy of mesh transformed by pose."""
+    """Return a copy of mesh transformed by pose.
+
+    Args:
+        mesh: Mesh to transform.
+        pose: Pose mapping the mesh frame into the world frame.
+    """
     transformed = mesh.copy()
     qx, qy, qz, qw = pose.rotation_xyzw
     transform = trimesh.transformations.quaternion_matrix([qw, qx, qy, qz])
@@ -25,7 +30,11 @@ def mesh_in_world_frame(mesh: trimesh.Trimesh, pose: Pose) -> trimesh.Trimesh:
 
 
 def bounding_box_from_mesh(mesh: trimesh.Trimesh) -> AxisAlignedBoundingBox:
-    """Return the axis-aligned bounds of mesh."""
+    """Return the axis-aligned bounds of mesh.
+
+    Args:
+        mesh: Mesh whose bounds are returned.
+    """
     bounds = mesh.bounds
     return AxisAlignedBoundingBox(
         min_point=tuple(float(v) for v in bounds[0]),

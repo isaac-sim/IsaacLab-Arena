@@ -17,7 +17,11 @@ if TYPE_CHECKING:
 
 
 def build_placer_params_from_override(override: dict[str, Any] | None) -> ObjectPlacerParams:
-    """Build object-placer parameters from defaults and an optional serialized override."""
+    """Build object-placer parameters from defaults and an optional serialized override.
+
+    Args:
+        override: Serialized parameter overrides, or None for unmodified parameters.
+    """
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 

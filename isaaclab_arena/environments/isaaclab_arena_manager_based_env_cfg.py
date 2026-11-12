@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Isaac Lab environment configuration classes and physics presets used by Arena environments."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -210,7 +212,7 @@ def apply_arena_global_settings() -> None:
 
 
 def set_control_rate_50hz(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-    """Set 50 Hz control (sim dt 1/200, decimation 4), Arena's pre-15 Hz default rate.
+    """Set 50 Hz control (sim dt 1/200, decimation 4), Arena's pre-15 Hz rate.
 
     Args:
         env_cfg: The environment configuration to modify in place.

@@ -22,6 +22,11 @@ class VariationReplayScheduler:
     """
 
     def __init__(self, variation_record: RebuildVariationRecord) -> None:
+        """Initialize the scheduler.
+
+        Args:
+            variation_record: Recorded variation samples to assign; must list at least one episode.
+        """
         assert variation_record.num_recorded_episodes > 0, "Rebuild variation record must list at least one episode"
         self._variation_record = variation_record
         self._source_record_index_by_env: dict[int, int] = {}
@@ -48,7 +53,11 @@ class VariationReplayScheduler:
         return self._next_occurrence_index - len(self._source_record_index_by_env)
 
     def assign_new_episodes(self, env_ids: Sequence[int]) -> None:
-        """Assign source records to envs that do not already have an active assignment."""
+        """Assign source records to envs that do not already have an active assignment.
+
+        Args:
+            env_ids: Ids of the envs starting a new episode.
+        """
         for raw_env_id in env_ids:
             env_id = int(raw_env_id)
             assert (
@@ -60,20 +69,37 @@ class VariationReplayScheduler:
             self._next_occurrence_index += 1
 
     def complete_episodes(self, env_ids: Sequence[int]) -> None:
-        """Mark and remove the active assignment for each finishing env."""
+        """Mark and remove the active assignment for each finishing env.
+
+        Args:
+            env_ids: Ids of the envs whose episode finished.
+        """
         for raw_env_id in env_ids:
             self._source_record_index_by_env.pop(int(raw_env_id))
 
     def source_record_index_for_env(self, env_id: int) -> int:
-        """Return the source episode-record index currently assigned to ``env_id``."""
+        """Return the source episode-record index currently assigned to ``env_id``.
+
+        Args:
+            env_id: Id of the env.
+        """
         return self._source_record_index_by_env[int(env_id)]
 
     def record_for_env(self, env_id: int) -> EpisodeVariationRecord:
-        """Return the source episode record currently assigned to ``env_id``."""
+        """Return the source episode record currently assigned to ``env_id``.
+
+        Args:
+            env_id: Id of the env.
+        """
         return self._variation_record.episode_records[self.source_record_index_for_env(env_id)]
 
     def runtime_sample_for(self, variation_key: str, env_ids: Sequence[int]) -> list[Any]:
-        """Return one recorded sample row per env in ``env_ids``."""
+        """Return one recorded sample row per env in ``env_ids``.
+
+        Args:
+            variation_key: The ``<asset_name>.<variation_name>`` key of the variation.
+            env_ids: Ids of the envs, each with an active assignment.
+        """
         rows: list[Any] = []
         for raw_env_id in env_ids:
             env_id = int(raw_env_id)

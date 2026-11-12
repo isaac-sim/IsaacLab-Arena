@@ -101,6 +101,11 @@ def _plot(
 
 
 def main() -> int:
+    """Parse command-line arguments and plot the success rates found in a results directory.
+
+    Returns:
+        The process exit code.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("results_dir", type=Path, help="Tag folder produced by download_osmo_workflows.py")
     parser.add_argument("--output", type=Path, help="Output image path (default: <results_dir>/success_rates.png)")

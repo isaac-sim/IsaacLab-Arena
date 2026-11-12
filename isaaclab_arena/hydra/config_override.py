@@ -36,7 +36,18 @@ def apply_config_override(
     path: str,
     allow_hydra_targets: bool = True,
 ) -> ConfigT:
-    """Apply a validated nested override to a configclass or dataclass."""
+    """Apply a validated nested override to a configclass or dataclass.
+
+    Args:
+        config: Configclass or dataclass instance to update.
+        override: Nested mapping of field names to new values.
+        override_name: Name of the override, used in error messages.
+        path: Dotted path of the config, used in error messages.
+        allow_hydra_targets: Whether Hydra `_target_` entries may instantiate objects.
+
+    Returns:
+        The updated config.
+    """
     assert override is not None, f"{override_name} must be provided"
     assert isinstance(override, dict), f"{override_name} must be a mapping, got {type(override).__name__}"
 

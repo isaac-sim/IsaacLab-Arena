@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Native Streamlit widgets that visualize an environment graph spec."""
+
 from __future__ import annotations
 
 import yaml
@@ -119,7 +121,13 @@ def render_visualization_widgets(
     asset_cards: list[AssetCard],
     prim_tree: list[UsdPrimRecord] | None = None,
 ) -> None:
-    """Render the spec visualization (assets, spatial graph, tasks) as native Streamlit widgets."""
+    """Render the spec visualization (assets, spatial graph, tasks) as native Streamlit widgets.
+
+    Args:
+        spec: The environment graph spec to visualize.
+        asset_cards: Cards of the assets to show in the asset grid.
+        prim_tree: Background prim records to show as a tree. Omitted when None or empty.
+    """
     st.markdown(f"**{spec.env_name}**")
     summary = spec.summary()
     if summary:

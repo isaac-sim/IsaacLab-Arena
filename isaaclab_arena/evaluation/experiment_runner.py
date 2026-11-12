@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Command-line entry point that runs the Runs of an Experiment configuration file."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -32,7 +34,11 @@ if TYPE_CHECKING:
 # TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
 # Run orchestration belongs in evaluation; catalogue formatting belongs in variations.
 def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
-    """Print the Hydra-configurable variations for each run's environment."""
+    """Print the Hydra-configurable variations for each run's environment.
+
+    Args:
+        experiment_cfg: Experiment whose Runs' environments are inspected.
+    """
     from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
 
     for run_cfg in experiment_cfg.runs.values():
@@ -120,6 +126,7 @@ def _export_selected_kpis(experiment_output_directory: Path, experiment_cfg: Are
 
 
 def main():
+    """Parse the command line, then run the Experiment, or print its variations when requested."""
     args_cli, experiment_overrides = parse_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
     legacy_experiment_config = load_legacy_json_experiment_config(

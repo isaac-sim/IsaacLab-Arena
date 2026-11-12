@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Reset-event helpers that apply sampled placements to the simulation."""
+
 from __future__ import annotations
 
 import torch
@@ -43,6 +45,11 @@ class PlacementSamplerHandle:
     """
 
     def __init__(self, sampler: PlacementSampler | RecordedPlacementSampler) -> None:
+        """Create a handle holding a placement sampler.
+
+        Args:
+            sampler: Sampler that supplies placements.
+        """
         self.sampler = sampler
 
     @property
@@ -71,8 +78,8 @@ class PlacementSamplerHandle:
 def get_placement_pool(env) -> PooledObjectPlacer | None:
     """Return the pooled placer stored on the env reset event, or ``None`` when absent.
 
-    Lets a runtime caller reach the pool (e.g. to run the post-reset settle check) from the env alone,
-    without holding the builder. The pool is reached through the env's event manager.
+    Reaches the pool (e.g. to run the post-reset settle check) from the env alone,
+    without the builder. The pool is reached through the env's event manager.
 
     Args:
         env: The gym-wrapped Isaac Lab env; the base env is reached via ``env.unwrapped``.
@@ -105,7 +112,11 @@ def get_placement_diagnostics(env: gym.Env) -> PlacementDiagnostics | None:
 
 
 def get_reset_placement_results(env: ManagerBasedEnv) -> dict[int, PlacementResult]:
-    """Return the layouts applied by the most recent pooled placement reset."""
+    """Return the layouts applied by the most recent pooled placement reset.
+
+    Args:
+        env: Environment with the placement reset event.
+    """
     term = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     return dict(term.params["placement_sampler"].last_results)
 
@@ -114,14 +125,23 @@ def get_movable_asset_names(
     assets: list[PlaceableAsset],
     anchor_assets: set[PlaceableAsset],
 ) -> list[str]:
-    """Return scene names for non-anchor placement assets."""
+    """Return scene names for non-anchor placement assets.
+
+    Args:
+        assets: Placement assets.
+        anchor_assets: Assets with fixed poses.
+    """
     return [asset.get_scene_key() for asset in assets if asset not in anchor_assets]
 
 
 def get_base_rotation_per_asset(
     assets: list[PlaceableAsset],
 ) -> dict[PlaceableAsset, tuple[float, float, float, float]]:
-    """Return each asset's RotateAroundSolution rotation, or identity."""
+    """Return each asset's RotateAroundSolution rotation, or identity.
+
+    Args:
+        assets: Placement assets.
+    """
     return {asset: get_base_rotation_xyzw(asset) for asset in assets}
 
 
@@ -132,7 +152,15 @@ def write_layout_to_sim(
     anchor_assets: set[PlaceableAsset],
     assets: list[PlaceableAsset],
 ) -> None:
-    """Write one solved layout for offline pool validation."""
+    """Write one solved layout for offline pool validation.
+
+    Args:
+        env: Environment whose simulation state is written.
+        env_id: Index of the environment to write.
+        result: Solved layout to apply.
+        anchor_assets: Assets with fixed poses, which are not written.
+        assets: Placement assets.
+    """
     poses_by_asset = get_scene_root_poses_from_layout(assets, result, anchor_assets)
     sample = PlacementSample(
         layout_id="offline_validation",
@@ -178,7 +206,14 @@ def write_placement_samples_to_sim(
     samples: list[PlacementSample],
     assets: list[PlaceableAsset],
 ) -> None:
-    """Write prevalidated placement samples for the selected environments."""
+    """Write prevalidated placement samples for the selected environments.
+
+    Args:
+        env: Environment whose simulation state is written.
+        env_ids: Indices of the environments to write, one per sample.
+        samples: Placement samples to apply.
+        assets: Assets whose scene roots are written.
+    """
     assert len(samples) == len(env_ids), "Placement sample count must match env_ids"
     for asset in assets:
         root_keys = asset.get_scene_root_keys()

@@ -30,6 +30,13 @@ class EnvStepTimerWrapper(gym.Wrapper):
         self.timer_name = timer_name
 
     def step(self, action):
-        """Step the wrapped env, recording how long it took."""
+        """Step the wrapped env, recording how long it took.
+
+        Args:
+            action: Action passed to the wrapped environment.
+
+        Returns:
+            Result of the wrapped step.
+        """
         with Timer(self.timer_name):
             return self.env.step(action)

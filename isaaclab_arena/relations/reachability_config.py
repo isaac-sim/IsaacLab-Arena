@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration dataclass for the optional IK-reachability check."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

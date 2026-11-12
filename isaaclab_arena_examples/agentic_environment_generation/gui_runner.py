@@ -7,7 +7,7 @@
 
 Usage::
 
-    # Default — start with a prompt:
+    # Start with a prompt:
     python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 
     # Open an existing spec:
@@ -44,6 +44,7 @@ _REVIEW_GUI_DIR = Path(__file__).resolve().parent / "review_gui"
 
 
 def main() -> None:
+    """Parse the command-line arguments and serve the live editor."""
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,

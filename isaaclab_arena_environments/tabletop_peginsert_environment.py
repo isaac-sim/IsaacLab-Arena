@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Peg-insert assembly environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -29,12 +31,17 @@ class PegInsertEnvironmentCfg(ArenaEnvironmentCfg):
 
 @register_environment
 class PegInsertEnvironment(ArenaEnvironmentFactory[PegInsertEnvironmentCfg]):
+    """Peg-insert assembly environment."""
 
     name: str = "peg_insert"
     _legacy_argparse_cfg_type = PegInsertEnvironmentCfg
 
     def build(self, cfg: PegInsertEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         import isaaclab.sim as sim_utils
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

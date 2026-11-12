@@ -12,7 +12,14 @@ from typing import Any
 
 
 def legacy_environment_args_to_cli_args(args: dict[str, Any]) -> list[str]:
-    """Convert legacy environment arguments into the existing parser's token order."""
+    """Convert legacy environment arguments into the existing parser's token order.
+
+    Args:
+        args: Legacy environment arguments keyed by flag name, including the required environment name.
+
+    Returns:
+        The command-line tokens.
+    """
     assert args.get("environment") is not None, "environment is required in legacy environment arguments"
 
     cli_args = []

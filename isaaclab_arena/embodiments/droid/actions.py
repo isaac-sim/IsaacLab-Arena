@@ -3,14 +3,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Action terms for the DROID embodiment."""
+
 import torch
 
 from isaaclab.envs.mdp.actions.binary_joint_actions import BinaryJointPositionAction
 
 
 class BinaryJointPositionZeroToOneAction(BinaryJointPositionAction):
+    """Binary joint position action that treats inputs above one half (or true) as close."""
+
     # override
     def process_actions(self, actions: torch.Tensor):
+        """Map raw actions to the open or close joint command and clip them when clipping is configured.
+
+        Args:
+            actions: Raw actions per environment. Boolean true, or a numeric value above one half, selects close.
+        """
         # store the raw actions
         self._raw_actions[:] = actions
         # compute the binary mask

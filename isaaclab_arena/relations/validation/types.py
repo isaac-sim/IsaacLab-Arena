@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Types describing placement checks and their validation results."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,6 +12,7 @@ from enum import StrEnum
 
 
 class PlacementCheck(StrEnum):
+    """Names of the checks that validate a placement."""
 
     NO_OVERLAP = "no_overlap"
     """Build-time check: no two placed object bounding boxes intersect."""

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Observation functions for the G1 robot whole-body controller action terms."""
+
 from __future__ import annotations
 
 import copy
@@ -46,7 +48,11 @@ class ActionComponentMode(Enum):
 def get_navigate_cmd(
     env: ManagerBasedEnv,
 ) -> torch.Tensor:
-    """Get the P-controller navigate command."""
+    """Get the P-controller navigate command.
+
+    Args:
+        env: The environment.
+    """
     return env.action_manager.get_term("g1_action").navigate_cmd.clone()
 
 
@@ -54,7 +60,12 @@ def extract_action_components(
     env: ManagerBasedEnv,
     mode: ActionComponentMode,
 ) -> torch.Tensor:
-    """Extract the individual components of the G1 WBC PINK action."""
+    """Extract the individual components of the G1 WBC PINK action.
+
+    Args:
+        env: The environment.
+        mode: Which component of the current action to extract.
+    """
     current_action = env.action_manager.action.clone()
 
     if mode == ActionComponentMode.LEFT_EEF_POS:
@@ -87,10 +98,20 @@ def extract_action_components(
 def is_navigating(
     env: ManagerBasedEnv,
 ) -> torch.Tensor:
+    """Get whether the G1 action term is currently navigating.
+
+    Args:
+        env: The environment.
+    """
     return torch.tensor([copy.deepcopy(env.action_manager.get_term("g1_action").is_navigating)])
 
 
 def navigation_goal_reached(
     env: ManagerBasedEnv,
 ) -> torch.Tensor:
+    """Get whether the G1 action term has reached its navigation goal.
+
+    Args:
+        env: The environment.
+    """
     return torch.tensor([copy.deepcopy(env.action_manager.get_term("g1_action").navigation_goal_reached)])

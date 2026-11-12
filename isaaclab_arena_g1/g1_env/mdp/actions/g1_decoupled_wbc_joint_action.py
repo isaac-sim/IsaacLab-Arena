@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Action term driving the G1 with a decoupled whole-body controller using direct upper-body joint targets."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -139,19 +141,30 @@ class G1DecoupledWBCJointAction(ActionTerm):
 
     @property
     def get_wbc_version(self):
+        """Name of the whole-body controller version in use."""
         return self._wbc_version
 
     @property
     def get_wbc_policy(self):
+        """The whole-body controller policy instance."""
         return self.wbc_policy
 
     @property
     def get_wbc_goal(self):
+        """The current whole-body controller goal, a dict of per-environment command arrays."""
         return self._wbc_goal
 
     def set_wbc_goal(
         self, navigate_cmd: torch.Tensor, base_height_cmd: torch.Tensor, torso_orientation_rpy_cmd: torch.Tensor = None
     ):
+        """Set the navigation, base height and torso orientation commands of the whole-body controller goal.
+
+        Args:
+            navigate_cmd: Navigation commands (forward, lateral and angular velocity) of shape (num_envs, 3).
+            base_height_cmd: Base height commands of shape (num_envs, 1).
+            torso_orientation_rpy_cmd: Torso roll, pitch, yaw commands of shape (num_envs, 3). Only applied by the
+                controller version that supports torso orientation commands; ignored when None.
+        """
         self._wbc_goal["navigate_cmd"] = navigate_cmd.cpu().numpy()
         self._wbc_goal["base_height_command"] = base_height_cmd.cpu().numpy()
         if self._wbc_version == "homie_v2" and torso_orientation_rpy_cmd is not None:
@@ -161,7 +174,14 @@ class G1DecoupledWBCJointAction(ActionTerm):
         assert self._wbc_goal["torso_orientation_rpy_cmd"].shape == (self.num_envs, NUM_TORSO_ORIENTATION_RPY_CMD)
 
     def get_navigation_cmd_from_actions(self, actions: torch.Tensor):
-        """Get the navigation command from the actions."""
+        """Get the navigation command from the actions.
+
+        Args:
+            actions: Action tensor of shape (num_envs, action_dim).
+
+        Returns:
+            The navigation command slice of the actions.
+        """
         return actions[
             :,
             -NUM_NAVIGATE_CMD
@@ -171,11 +191,25 @@ class G1DecoupledWBCJointAction(ActionTerm):
         ]
 
     def get_base_height_cmd_from_actions(self, actions: torch.Tensor):
-        """Get the base height command from the actions."""
+        """Get the base height command from the actions.
+
+        Args:
+            actions: Action tensor of shape (num_envs, action_dim).
+
+        Returns:
+            The base height command slice of the actions.
+        """
         return actions[:, -NUM_BASE_HEIGHT_CMD - NUM_TORSO_ORIENTATION_RPY_CMD : -NUM_TORSO_ORIENTATION_RPY_CMD]
 
     def get_torso_orientation_rpy_cmd_from_actions(self, actions: torch.Tensor):
-        """Get the torso orientation command from the actions."""
+        """Get the torso orientation command from the actions.
+
+        Args:
+            actions: Action tensor of shape (num_envs, action_dim).
+
+        Returns:
+            The torso roll, pitch, yaw command slice of the actions.
+        """
         return actions[:, -NUM_TORSO_ORIENTATION_RPY_CMD:]
 
     # """

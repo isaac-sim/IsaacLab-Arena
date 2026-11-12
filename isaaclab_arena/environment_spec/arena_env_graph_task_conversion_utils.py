@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Conversion of the task section of an environment graph spec into live Arena tasks."""
+
 from __future__ import annotations
 
 import types
@@ -25,7 +27,12 @@ NODE_REF_BASES: tuple[type, ...] = (Asset, AffordanceBase)
 
 
 def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
-    """Build the root graph task into a live env-level task instance."""
+    """Build the root graph task into a live env-level task instance.
+
+    Args:
+        task_spec: Composite task description of the graph.
+        assets_by_node_id: Live assets keyed by graph node ID.
+    """
     from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 
     if task_spec.composition is TaskCompositionType.ATOMIC:
@@ -111,6 +118,9 @@ def find_node_ref_params_in_signature(task_class: type) -> dict[str, bool]:
     """Map each node-ref ``__init__`` param to is_collection, where True means list[Asset], False means Asset, and None means non-refs.
 
     e.g. ``(obj: Asset, group: list[Asset], height: float)`` -> ``{"obj": False, "group": True}``.
+
+    Args:
+        task_class: Task class whose constructor signature is inspected.
     """
     node_ref_params: dict[str, bool] = {}
     for param_name, annotation in typing.get_type_hints(task_class.__init__).items():

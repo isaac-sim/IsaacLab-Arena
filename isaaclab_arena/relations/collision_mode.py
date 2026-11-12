@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Collision-detection modes for no-overlap constraints and per-object mode lookup."""
+
 from __future__ import annotations
 
 from enum import Enum
@@ -23,10 +25,20 @@ class CollisionMode(Enum):
 
 
 def get_object_collision_mode(obj: CollisionObject, default: CollisionMode) -> CollisionMode:
-    """Return an object's collision mode, falling back to the solver default."""
+    """Return an object's collision mode, falling back to the solver default.
+
+    Args:
+        obj: Object whose collision mode is queried.
+        default: Mode used when the object does not set its own.
+    """
     return default if obj.collision_mode is None else obj.collision_mode
 
 
 def object_uses_mesh_collision(obj: CollisionObject, default: CollisionMode) -> bool:
-    """Return True when the object's effective collision mode is MESH."""
+    """Return True when the object's effective collision mode is MESH.
+
+    Args:
+        obj: Object whose collision mode is queried.
+        default: Mode used when the object does not set its own.
+    """
     return get_object_collision_mode(obj, default) == CollisionMode.MESH

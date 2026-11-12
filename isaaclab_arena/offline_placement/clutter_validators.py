@@ -58,7 +58,12 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
             ), f"Support {key!r}: minimum resting height must be a finite number"
 
     def validate_scene(self, env: ManagerBasedEnv, assets: Sequence[PlaceableAsset]) -> None:
-        """Verify support keys and heights, retaining flat-top checks for unspecified supports."""
+        """Verify support keys and heights, retaining flat-top checks for unspecified supports.
+
+        Args:
+            env: Environment whose scene is checked.
+            assets: Placeable assets of the scene.
+        """
         from isaaclab_arena.offline_placement.clutter_geometry import assert_flat_support_surface
         from isaaclab_arena.relations.relations import ClutterOn, get_relation
 
@@ -80,6 +85,11 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
             ), f"Support {key!r}: minimum resting height must be finite and within its local Z bounds"
 
     def get_geometry_keys(self, assets: Sequence[PlaceableAsset]) -> set[str]:
+        """Return the scene keys of every clutter asset and its support.
+
+        Args:
+            assets: Placeable assets of the scene.
+        """
         from isaaclab_arena.relations.relations import ClutterOn, get_relation
 
         keys = set()
@@ -90,6 +100,14 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
         return keys
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
+        """Check that supports keep their expected poses and clutter assets rest within their supports after settling.
+
+        Args:
+            data: Captured batch of settled placements.
+
+        Returns:
+            One report per candidate environment.
+        """
         import torch
 
         from isaaclab_arena.offline_placement.clutter_geometry import fixed_poses_match
@@ -170,7 +188,11 @@ class ClutterContainmentResult:
         return not (self.diverged or self.fell_through or self.fell_off)
 
     def describe(self, names: list[str]) -> str:
-        """Return a human-readable summary naming the offending members."""
+        """Return a human-readable summary naming the offending members.
+
+        Args:
+            names: Names of the clutter members, indexed like the result's index lists.
+        """
         parts = []
         for label, indices in (
             ("diverged", self.diverged),

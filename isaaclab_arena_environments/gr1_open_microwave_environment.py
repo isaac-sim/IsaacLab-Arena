@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""GR1 open-microwave environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -26,12 +28,17 @@ class Gr1OpenMicrowaveEnvironmentCfg(ArenaEnvironmentCfg):
 
 @register_environment
 class Gr1OpenMicrowaveEnvironment(ArenaEnvironmentFactory[Gr1OpenMicrowaveEnvironmentCfg]):
+    """GR1 open-microwave environment."""
 
     name: str = "gr1_open_microwave"
     _legacy_argparse_cfg_type = Gr1OpenMicrowaveEnvironmentCfg
 
     def build(self, cfg: Gr1OpenMicrowaveEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.scene.scene import Scene

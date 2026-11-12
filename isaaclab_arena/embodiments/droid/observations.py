@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Observation terms for the DROID embodiment."""
+
 import torch
 
 import warp as wp
@@ -14,6 +16,15 @@ _DROID_NEWTON_GRIPPER_CLOSE_RAD = 0.461
 
 
 def arm_joint_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Return the positions of the seven Franka arm joints.
+
+    Args:
+        env: Environment to read from.
+        asset_cfg: Scene entity of the robot articulation.
+
+    Returns:
+        Joint positions with shape `(num_envs, 7)`.
+    """
     robot = env.scene[asset_cfg.name]
     joint_names = [
         "panda_joint1",
@@ -37,24 +48,44 @@ def _normalized_gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, c
 
 
 def gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Returns gripper position as 0 for open and 1 for closed."""
+    """Returns gripper position as 0 for open and 1 for closed.
+
+    Args:
+        env: Environment to read from.
+        asset_cfg: Scene entity of the robot articulation.
+    """
     return _normalized_gripper_pos(env, asset_cfg, torch.pi / 4)
 
 
 def newton_gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Returns Newton DROID gripper position as 0 for open and 1 for closed."""
+    """Returns Newton DROID gripper position as 0 for open and 1 for closed.
+
+    Args:
+        env: Environment to read from.
+        asset_cfg: Scene entity of the robot articulation.
+    """
     return _normalized_gripper_pos(env, asset_cfg, _DROID_NEWTON_GRIPPER_CLOSE_RAD)
 
 
 def ee_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Returns the end effector position (x, y, z) in the world frame."""
+    """Returns the end effector position (x, y, z) in the world frame.
+
+    Args:
+        env: Environment to read from.
+        asset_cfg: Scene entity of the robot articulation.
+    """
     robot = env.scene[asset_cfg.name]
     body_idx = robot.data.body_names.index("base_link")  # Robotiq gripper base link
     return wp.to_torch(robot.data.body_pos_w)[:, body_idx, :]
 
 
 def ee_quat(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Returns the end effector orientation as quaternion (x, y, z, w) in the world frame."""
+    """Returns the end effector orientation as quaternion (x, y, z, w) in the world frame.
+
+    Args:
+        env: Environment to read from.
+        asset_cfg: Scene entity of the robot articulation.
+    """
     robot = env.scene[asset_cfg.name]
     body_idx = robot.data.body_names.index("base_link")  # Robotiq gripper base link
     return wp.to_torch(robot.data.body_quat_w)[:, body_idx, :]

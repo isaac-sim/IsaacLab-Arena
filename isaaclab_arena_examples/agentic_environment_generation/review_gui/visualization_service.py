@@ -31,7 +31,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
 
 
 def resolve_background_prim_tree(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]:
-    """Return the background USD prim tree records, empty when unavailable."""
+    """Return the background USD prim tree records, empty when unavailable.
+
+    Args:
+        spec: The environment graph spec whose background is inspected.
+    """
     from isaaclab_arena.utils.usd.prim_tree import load_usd_prim_tree
 
     try:

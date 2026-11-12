@@ -55,10 +55,8 @@ class EnvironmentGenerationAgent:
             model: Model identifier at the inference endpoint.
                 Must support OpenAI-compatible structured outputs.
             base_url: OpenAI-compatible inference endpoint.
-            temperature: Sampling temperature forwarded to the model. Kept
-                low by default (0.2) because spec generation is a
-                deterministic-ish translation task — high temperature
-                yields creative but invalid schemas.
+            temperature: Sampling temperature forwarded to the model. Spec generation is a
+                deterministic-ish translation task, so a low temperature avoids creative but invalid schemas.
             max_tokens: Hard cap on the response length.
             max_retries: Number of additional attempts after a recoverable failure
                 (network errors, timeouts, empty responses, malformed JSON). Each
@@ -89,9 +87,9 @@ class EnvironmentGenerationAgent:
 
     @property
     def traces(self) -> tuple[str, ...]:
-        """Why the most recent :meth:`generate_spec` call failed, empty when it succeeded.
+        """Why the most recent `generate_spec` call failed, empty when it succeeded.
 
-        Callers surface these as errors, so only what defeated the generation belongs here.
+        Only what defeated the generation belongs here.
         Progress worth reading but not acting on is logged instead.
         """
         return tuple(self._traces)

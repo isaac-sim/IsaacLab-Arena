@@ -36,6 +36,14 @@ def get_placement_collision_objects(
     Include room meshes when the solver, a placement asset, or a background requests
     MESH. Exclude anchored references from their parent mesh because placement already
     checks those supports separately.
+
+    Args:
+        placement_assets: Assets being placed.
+        scene_assets: All assets of the scene.
+        default_collision_mode: Collision mode used by assets that do not set their own.
+
+    Returns:
+        Collision objects that placed assets must not overlap.
     """
     scene_assets = list(scene_assets)
     assert_assets_compatible_with_collision_objects(placement_assets, default_collision_mode)
@@ -73,7 +81,12 @@ def get_placement_collision_objects(
 def assert_assets_compatible_with_collision_objects(
     placement_assets: list[PlaceableAsset], default_collision_mode: CollisionMode
 ) -> None:
-    """Raise a ValueError when a placed asset uses a collision mode that placement cannot handle for it."""
+    """Raise a ValueError when a placed asset uses a collision mode that placement cannot handle for it.
+
+    Args:
+        placement_assets: Assets being placed.
+        default_collision_mode: Collision mode used by assets that do not set their own.
+    """
     for asset in placement_assets:
         if (
             isinstance(asset, Background)

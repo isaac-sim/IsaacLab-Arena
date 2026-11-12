@@ -16,7 +16,15 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 
 
 def record_progress_results(env, env_id: int) -> dict[str, Any]:
-    """Record the progress-tracking state for ``env_id``."""
+    """Record the progress-tracking state for ``env_id``.
+
+    Args:
+        env: Environment the episode ran in.
+        env_id: Index of the environment whose episode finished.
+
+    Returns:
+        A dict with the progress state, or an empty dict when progress is not tracked.
+    """
     progress = env.extras.get("progress_tracking")
     if not progress:
         return {}

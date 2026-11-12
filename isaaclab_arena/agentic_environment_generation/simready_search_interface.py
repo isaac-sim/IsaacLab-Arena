@@ -50,6 +50,7 @@ class SimReadyObjectCandidate:
 
     @property
     def registry_name(self) -> str:
+        """Return the registry name of the asset type that spawns the candidate."""
         return SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
@@ -67,7 +68,15 @@ class SimReadySearchBackend(Protocol):
     """Return validated candidates for object phrases from one backend."""
 
     def search(self, phrases: list[str], max_results: int) -> list[SimReadyObjectCandidate]:
-        """Search each phrase, retaining at most max_results candidates per phrase."""
+        """Search each phrase, retaining at most max_results candidates per phrase.
+
+        Args:
+            phrases: Search phrases, one per requested object.
+            max_results: Maximum number of candidates to keep per phrase.
+
+        Returns:
+            The candidates found for all phrases.
+        """
         ...
 
 
@@ -77,7 +86,14 @@ def simready_search_config_from_cli(
     service_url: str | None,
     max_results_per_object: int,
 ) -> SimReadySearchConfig:
-    """Build a search configuration from CLI or GUI arguments, filling in the default URLs."""
+    """Build a search configuration from CLI or GUI arguments, filling in missing URLs.
+
+    Args:
+        sources: Names of the SimReady sources to search; duplicates are dropped.
+        s3_url: URL of the S3 asset library; None selects the standard library.
+        service_url: URL of the search service; None selects the standard service.
+        max_results_per_object: Maximum number of candidates kept per object.
+    """
     return SimReadySearchConfig(
         sources=[SimReadySourceKind(source) for source in dict.fromkeys(sources)],
         s3_url=s3_url or ISAAC_SIMREADY_GA_S3_URL,

@@ -44,7 +44,15 @@ def run_cfgs_from_legacy_eval_config(
     config: dict[str, Any],
     device: str,
 ) -> list[ArenaRunCfg]:
-    """Create typed run configs from a legacy JSON experiment document."""
+    """Create typed run configs from a legacy JSON experiment document.
+
+    Args:
+        config: Legacy Experiment document with a list of jobs.
+        device: Device assigned to the created Runs.
+
+    Returns:
+        The typed Run configurations.
+    """
     assert set(config) == {"jobs"}, "legacy evaluation config must contain only a 'jobs' list"
     job_configs = config["jobs"]
     assert isinstance(job_configs, list), "legacy evaluation config 'jobs' must be a list"

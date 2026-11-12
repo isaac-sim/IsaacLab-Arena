@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""openpi embodiment adapter for the DROID robot."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -51,6 +53,15 @@ class Pi0DroidAdapter(Pi0EmbodimentAdapter):
     arena_policy_obs_group = "policy"
 
     def extract(self, observation: dict[str, Any], env_id: int) -> DroidObservation:
+        """Pull one env's camera and joint tensors out of the Arena observation dict.
+
+        Args:
+            observation: Arena gym observation dict with camera and policy observation groups.
+            env_id: Index of the environment to read.
+
+        Returns:
+            The camera images and joint positions of that environment.
+        """
         cam = observation[self.arena_camera_obs_group]
         proprio = observation[self.arena_policy_obs_group]
         return DroidObservation(
@@ -61,6 +72,15 @@ class Pi0DroidAdapter(Pi0EmbodimentAdapter):
         )
 
     def pack_request(self, extracted: DroidObservation, language_instruction: str) -> dict[str, Any]:
+        """Build the wire-format request for one environment.
+
+        Args:
+            extracted: Observation extracted for one environment.
+            language_instruction: Task instruction sent as the prompt.
+
+        Returns:
+            Request entries keyed by their wire-format names.
+        """
         target_height, target_width = self.target_image_size
         return {
             "observation/exterior_image_1_left": image_tools.resize_with_pad(

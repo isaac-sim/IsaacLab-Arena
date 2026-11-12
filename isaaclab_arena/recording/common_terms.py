@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Episode recorder terms for the core episode fields, variation samples and placement sample."""
+
 from __future__ import annotations
 
 import datetime
@@ -16,7 +18,15 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 
 
 def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
-    """Record the core per-episode fields for ``env_id``."""
+    """Record the core per-episode fields for ``env_id``.
+
+    Args:
+        env: Environment the episode ran in.
+        env_id: Index of the environment whose episode finished.
+
+    Returns:
+        The fields of the episode record.
+    """
     success = None
     if "success" in env.termination_manager.active_terms:
         success = bool(env.termination_manager.get_term("success")[env_id].item())
@@ -36,7 +46,15 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
 
 
 def record_variation_samples(env, env_id: int) -> dict[str, Any]:
-    """Record the variation value drawn for ``env_id``'s finished episode under ``variations``."""
+    """Record the variation value drawn for ``env_id``'s finished episode under ``variations``.
+
+    Args:
+        env: Environment the episode ran in.
+        env_id: Index of the environment whose episode finished.
+
+    Returns:
+        A dict with the sampled variation values, or an empty dict when none were recorded.
+    """
     recorder = env.variation_recorder
     if recorder is None or not recorder.records:
         return {}
@@ -51,7 +69,15 @@ def record_variation_samples(env, env_id: int) -> dict[str, Any]:
 
 
 def record_placement_sample(env, env_id: int) -> dict[str, Any]:
-    """Record the relation placement drawn for ``env_id``'s finished episode."""
+    """Record the relation placement drawn for ``env_id``'s finished episode.
+
+    Args:
+        env: Environment the episode ran in.
+        env_id: Index of the environment whose episode finished.
+
+    Returns:
+        A dict with the placement sample, or an empty dict when none was recorded.
+    """
     recorder = env.variation_recorder
     if recorder is None or recorder.placement_record is None:
         return {}

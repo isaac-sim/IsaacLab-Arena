@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Null task for environments that have no task."""
+
 from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.assets.register import register_task
@@ -18,19 +20,29 @@ class NoTask(TaskBase):
     name = "no_task"
 
     def get_scene_cfg(self):
+        """Return None; the task adds nothing to the scene."""
         pass
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a termination configuration without a timeout or success criteria."""
         return TaskTerminationCfg(timeout_s=None)
 
     def get_events_cfg(self):
+        """Return None; the task defines no events."""
         pass
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
+        """Return None; the task has no Mimic environment configuration.
+
+        Args:
+            arm_mode: Unused.
+        """
         pass
 
     def get_metrics(self):
+        """Return None; the task defines no metrics."""
         pass
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a fixed viewer camera pose."""
         return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))

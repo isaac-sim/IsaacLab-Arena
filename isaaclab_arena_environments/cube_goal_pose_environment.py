@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Cube goal-pose environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -35,7 +37,11 @@ class CubeGoalPoseEnvironment(ArenaEnvironmentFactory[CubeGoalPoseEnvironmentCfg
     _legacy_argparse_cfg_type = CubeGoalPoseEnvironmentCfg
 
     def build(self, cfg: CubeGoalPoseEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene

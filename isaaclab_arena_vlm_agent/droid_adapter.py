@@ -38,13 +38,28 @@ class DroidVLMAdapter:
     """Provide VLM defaults for the droid_abs_ik embodiment."""
 
     def make_chunk_action_adapter(self, chunk_size: int) -> AbsoluteChunkActionAdapter:
-        """Create a decoder for the requested number of absolute pose commands."""
+        """Create a decoder for the requested number of absolute pose commands.
+
+        Args:
+            chunk_size: Number of commands in each decoded chunk.
+
+        Returns:
+            The chunk action adapter.
+        """
         return _DroidChunkActionAdapter(chunk_size)
 
     def make_goal_action_adapter(
         self, position_tolerance_m: float, rotation_tolerance_rad: float
     ) -> AbsoluteGoalActionAdapter:
-        """Create pose-goal execution with DROID's Robotiq gripper measurements."""
+        """Create pose-goal execution with DROID's Robotiq gripper measurements.
+
+        Args:
+            position_tolerance_m: Position error in meters within which a goal counts as reached.
+            rotation_tolerance_rad: Rotation error in radians within which a goal counts as reached.
+
+        Returns:
+            The goal action adapter.
+        """
         generator = PoseTargetMotionGenerator(
             grippers={"gripper_action": _make_gripper()},
             position_tolerance_m=position_tolerance_m,
@@ -53,7 +68,14 @@ class DroidVLMAdapter:
         return _DroidGoalActionAdapter(generator)
 
     def get_system_prompt(self, action_adapter: AgentActionAdapter) -> str:
-        """Describe the DROID pose contract and the selected response schema."""
+        """Describe the DROID pose contract and the selected response schema.
+
+        Args:
+            action_adapter: Chunk or goal adapter that determines the requested response format.
+
+        Returns:
+            The system prompt text.
+        """
         guidance = ""
         if isinstance(action_adapter, AbsoluteChunkActionAdapter):
             response = (

@@ -20,6 +20,12 @@ class LightwheelUsdSource(UsdSource):
     """Acquire and memoize one Lightwheel USD on first use."""
 
     def __init__(self, **acquire_by_registry_kwargs: Any):
+        """Create a source for one Lightwheel asset.
+
+        Args:
+            **acquire_by_registry_kwargs: Keyword arguments of the Lightwheel object loader's `acquire_by_registry`
+                call that selects the asset.
+        """
         self._kwargs = acquire_by_registry_kwargs
         self._local_file_path: str | None = None
 
@@ -43,6 +49,14 @@ class LightwheelFloorplanUsdSource(UsdSource):
     """Acquire and memoize one Lightwheel floorplan USD on first use."""
 
     def __init__(self, scene: str, layout_id: int, style_id: int, backend: str):
+        """Create a source for one Lightwheel floorplan.
+
+        Args:
+            scene: Name of the Lightwheel scene.
+            layout_id: Floorplan layout index.
+            style_id: Floorplan style index.
+            backend: Name of the Lightwheel floorplan backend.
+        """
         self._kwargs = {
             "scene": scene,
             "layout_id": layout_id,
@@ -76,7 +90,23 @@ def acquire_lightwheel_asset(
     delay_sec: float = 2.0,
     **kwargs: Any,
 ) -> Any:
-    """Acquire a Lightwheel asset with scoped timeout and retry handling."""
+    """Acquire a Lightwheel asset with scoped timeout and retry handling.
+
+    Calls `acquire_fn` and retries it when it fails with a timeout. The loader client's timeout is set for the
+    call and restored afterwards.
+
+    Args:
+        loader: Lightwheel loader whose client timeout is set while acquiring.
+        acquire_fn: Callable that acquires the asset.
+        description: Text that identifies the asset in retry messages.
+        attempts: Maximum number of calls to `acquire_fn`. Must be positive.
+        timeout_sec: Client timeout in seconds during each call. None leaves the client timeout unchanged.
+        delay_sec: Seconds to wait before a retry. Must be non-negative.
+        **kwargs: Keyword arguments for `acquire_fn`.
+
+    Returns:
+        The value returned by `acquire_fn`.
+    """
     assert attempts > 0, "attempts must be positive"
     assert delay_sec >= 0, "delay_sec must be non-negative"
 

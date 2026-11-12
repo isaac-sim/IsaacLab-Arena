@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 @configclass
 class ObjectDisappearVariationCfg(VariationBaseCfg):
-    """Configuration for :class:`ObjectDisappearVariation`."""
+    """Configuration for ``ObjectDisappearVariation``."""
 
     away_position_xyz: tuple[float, float, float] = (1000.0, 0.0, 0.0)
     """Env-local position to park a disappeared object at, far enough out to clear every env's cameras.
@@ -61,7 +61,15 @@ def set_object_poses_with_probability(
     pose: Pose,
     sampler: BernoulliSampler,
 ) -> None:
-    """Reset event that moves the object to ``pose`` in the resetting envs whose draw says so."""
+    """Reset event that moves the object to ``pose`` in the resetting envs whose draw says so.
+
+    Args:
+        env: The environment being reset.
+        env_ids: Indices of the resetting environments.
+        asset_cfg: Scene entity cfg of the object to move.
+        pose: Env-local pose the object is moved to.
+        sampler: Sampler drawing, per resetting environment, whether the object moves.
+    """
     if env_ids is None or len(env_ids) == 0:
         return
     env_ids = torch.as_tensor(env_ids, device=env.device).reshape(-1)
@@ -78,9 +86,9 @@ class ObjectDisappearVariation(RunTimeVariationBase):
         asset_name: Scene-entity name of the target object. Holding the name rather than the object
             keeps the asset's variation list free of a back-reference, which ``cfg.validate()``
             would otherwise follow in circles.
-        cfg: Tunable parameters. Defaults to a 50% chance of disappearing.
+        cfg: Tunable parameters.
         name: Identifier under which this variation is registered on the asset.
-            Defaults to ``"disappear"``.
+            When omitted, a fixed identifier for this variation is used.
     """
 
     cfg: ObjectDisappearVariationCfg
@@ -91,10 +99,18 @@ class ObjectDisappearVariation(RunTimeVariationBase):
         cfg: ObjectDisappearVariationCfg | None = None,
         name: str = "disappear",
     ):
+        """Initialize the variation.
+
+        Args:
+            asset_name: Scene-entity name of the target object.
+            cfg: Tunable parameters; ``None`` selects the standard parameters.
+            name: Identifier under which this variation is registered on the asset.
+        """
         super().__init__(cfg=cfg if cfg is not None else ObjectDisappearVariationCfg(), name=name)
         self.asset_name = asset_name
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        """Return the reset event term that parks the object away from the scene when its draw says so."""
         assert self._sampler is not None, f"ObjectDisappearVariation on '{self.asset_name}': sampler not set."
         return (
             f"{self.asset_name}_{self.name}",

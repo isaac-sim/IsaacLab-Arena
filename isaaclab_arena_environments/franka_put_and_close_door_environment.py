@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Franka put-and-close-door environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -37,7 +39,11 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
     _legacy_argparse_cfg_type = FrankaPutAndCloseDoorEnvironmentCfg
 
     def build(self, cfg: FrankaPutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene

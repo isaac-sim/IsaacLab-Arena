@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Policy that replays actions recorded in an HDF5 dataset."""
+
 import gymnasium as gym
 import torch
 from dataclasses import dataclass
@@ -67,7 +69,15 @@ class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
         return len(self.episode_data.data["actions"])
 
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor | None:
-        """Get the action of the next current index from the dataset."""
+        """Get the action of the next current index from the dataset.
+
+        Args:
+            env: Gym environment being controlled.
+            observation: Gym observation dictionary.
+
+        Returns:
+            The next recorded action, or None when the episode has no more actions.
+        """
         action = self.get_action_from_index(self.current_action_index)
         if action.dim() == 1:
             action = action.unsqueeze(0)  # Add batch dimension
@@ -76,7 +86,14 @@ class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
         return action
 
     def get_action_from_index(self, action_index: int) -> torch.Tensor | None:
-        """Get the action of the specified index from the dataset."""
+        """Get the action of the specified index from the dataset.
+
+        Args:
+            action_index: Index of the action in the episode.
+
+        Returns:
+            The recorded action, or None when the index is out of range.
+        """
         if "actions" not in self.episode_data.data:
             return None
         if action_index >= len(self.episode_data.data["actions"]):
@@ -84,9 +101,11 @@ class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
         return self.episode_data.data["actions"][action_index]
 
     def get_available_episode_names(self):
+        """Return the names of the episodes in the dataset."""
         return self.available_episode_names
 
     def get_initial_state(self) -> torch.Tensor:
+        """Return the initial simulation state of the selected episode."""
         return self.episode_data.get_initial_state()
 
     def has_length(self) -> bool:

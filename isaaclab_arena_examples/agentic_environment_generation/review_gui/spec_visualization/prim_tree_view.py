@@ -31,7 +31,14 @@ def _record_label(record: UsdPrimRecord, suffix: str) -> str:
 
 
 def build_prim_nodes(prim_tree: list[UsdPrimRecord]) -> list[_PrimNode]:
-    """Build nested prim nodes from sorted ``UsdPrimRecord`` entries."""
+    """Build nested prim nodes from sorted `UsdPrimRecord` entries.
+
+    Args:
+        prim_tree: The prim records; they are sorted by relative path.
+
+    Returns:
+        The root nodes of the nested tree.
+    """
     records = sorted(prim_tree, key=lambda record: record.relative_path)
     roots: list[_PrimNode] = []
     stack: list[tuple[str, _PrimNode]] = []
@@ -54,7 +61,14 @@ def build_prim_nodes(prim_tree: list[UsdPrimRecord]) -> list[_PrimNode]:
 
 
 def estimate_prim_tree_height_px(prim_tree: list[UsdPrimRecord]) -> int:
-    """Heuristic iframe height so typical trees fit without excessive scrolling."""
+    """Heuristic iframe height so typical trees fit without excessive scrolling.
+
+    Args:
+        prim_tree: The prim records to be displayed.
+
+    Returns:
+        The height, in pixels.
+    """
     return max(80, min(280, 11 * max(len(prim_tree), 1) + 64))
 
 
@@ -79,6 +93,9 @@ def render_prim_tree_html(prim_tree: list[UsdPrimRecord]) -> str:
 
     Groups collapse by parent/child structure, and the live search keeps a matching
     prim's descendants (and its ancestors, so the match stays reachable).
+
+    Args:
+        prim_tree: The prim records to display.
     """
     tree_html = _render_nodes(build_prim_nodes(prim_tree))
     return f"""<!DOCTYPE html>

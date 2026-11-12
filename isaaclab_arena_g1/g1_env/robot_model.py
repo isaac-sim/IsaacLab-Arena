@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Pinocchio-based kinematic model of the G1 robot and a reduced-order variant with fixed joints."""
+
 import numpy as np
 import os
 import yaml
@@ -14,6 +16,8 @@ from isaaclab_arena_g1.g1_env.g1_supplemental_info import G1SupplementalInfo
 
 
 class RobotModel:
+    """Kinematic model of a robot built from a URDF, with joint indexing, joint limits and forward kinematics."""
+
     def __init__(
         self,
         urdf_path,
@@ -21,6 +25,14 @@ class RobotModel:
         set_floating_base=False,
         supplemental_info: G1SupplementalInfo | None = None,
     ):
+        """Build the robot model from a URDF file.
+
+        Args:
+            urdf_path: Path to the URDF file.
+            asset_path: Directory searched for the package resources referenced by the URDF.
+            set_floating_base: Whether to add a free-flyer root joint (7 configuration entries) to the model.
+            supplemental_info: Joint groups, actuated joint lists, joint limits and default poses of the robot.
+        """
         self.pinocchio_wrapper = pin.RobotWrapper.BuildFromURDF(
             filename=urdf_path,
             package_dirs=[asset_path],
@@ -109,9 +121,10 @@ class RobotModel:
         return len(self.joint_to_dof_index)
 
     def dof_index(self, joint_name: str) -> int:
-        """
-        Get the index in the degrees of freedom vector corresponding
-        to the single-DoF joint with name `joint_name`.
+        """Get the index in the degrees of freedom vector corresponding to the single-DoF joint named `joint_name`.
+
+        Args:
+            joint_name: Name of the joint.
         """
         if joint_name not in self.joint_to_dof_index:
             raise ValueError(
@@ -180,12 +193,15 @@ class RobotModel:
         return sorted(all_indices)
 
     def frame_placement(self, frame_name: str) -> pin.SE3:
-        """
-        Returns the SE3 transform of the specified frame in the world coordinate system.
-        Note: make sure cache_forward_kinematics() has been previously called.
+        """Return the SE3 transform of a frame in the world coordinate system.
 
-        :param frame_name: Name of the frame, e.g. "link_elbow_frame", "hand_imu_frame", etc.
-        :return: A pin.SE3 object representing the pose of the frame.
+        The result reflects the configuration passed to the most recent `cache_forward_kinematics()` call.
+
+        Args:
+            frame_name: Name of the frame, e.g. "link_elbow_frame", "hand_imu_frame", etc.
+
+        Returns:
+            A pin.SE3 object representing the pose of the frame.
         """
         model = self.pinocchio_wrapper.model
         data = self.pinocchio_wrapper.data
@@ -199,11 +215,13 @@ class RobotModel:
         return data.oMf[frame_id].copy()
 
     def get_body_actuated_joints(self, q: np.ndarray) -> np.ndarray:
-        """
-        Get the configuration of body actuated joints from a full configuration.
+        """Get the configuration of body actuated joints from a full configuration.
 
-        :param q: Configuration in full space
-        :return: Configuration of body actuated joints
+        Args:
+            q: Configuration in full space.
+
+        Returns:
+            Configuration of body actuated joints.
         """
         indices = self.get_body_actuated_joint_indices()
 
@@ -236,8 +254,12 @@ class RobotModel:
         return self.initial_body_pose[self.get_joint_group_indices("upper_body")]
 
     def set_initial_body_pose(self, q: np.ndarray, q_idx=None) -> None:
-        """
-        Set the initial body pose of the robot.
+        """Set the initial body pose of the robot.
+
+        Args:
+            q: The initial pose, or the values to write at `q_idx` when `q_idx` is given.
+            q_idx: Indices of the entries of the initial pose to overwrite with `q`. If None, the whole initial pose is
+                replaced by `q`.
         """
         if q_idx is None:
             self.initial_body_pose = q
@@ -245,11 +267,11 @@ class RobotModel:
             self.initial_body_pose[q_idx] = q
 
     def cache_forward_kinematics(self, q: np.ndarray, auto_clip=True) -> None:
-        """
-        Perform forward kinematics to update the pose of every joint and frame
-        in the Pinocchio data structures for the given configuration `q`.
+        """Perform forward kinematics to update the pose of every joint and frame in the Pinocchio data structures.
 
-        :param q: A numpy array of shape (num_dofs,) representing the robot configuration.
+        Args:
+            q: Robot configuration of shape (num_dofs,).
+            auto_clip: Whether to clip the configuration to the joint limits before computing the kinematics.
         """
         if q.shape[0] != self.num_dofs:
             raise ValueError(f"Expected q of length {self.num_dofs}, got {q.shape[0]} instead.")
@@ -261,12 +283,14 @@ class RobotModel:
         pin.framesForwardKinematics(self.pinocchio_wrapper.model, self.pinocchio_wrapper.data, q)
 
     def clip_configuration(self, q: np.ndarray, margin: float = 1e-6) -> np.ndarray:
-        """
-        Clip the configuration to stay within joint limits with a small tolerance.
+        """Clip the configuration to stay within joint limits with a small tolerance.
 
-        :param q: Configuration to clip
-        :param margin: Tolerance to keep away from joint limits
-        :return: Clipped configuration
+        Args:
+            q: Configuration to clip.
+            margin: Tolerance to keep away from joint limits.
+
+        Returns:
+            Clipped configuration.
         """
         q_clipped = q.copy()
 
@@ -284,9 +308,9 @@ class RobotModel:
 
 
 class ReducedRobotModel:
-    """
-    A class that creates a reduced order robot model by fixing certain joints.
-    This class maintains a mapping between the reduced state space and the full state space.
+    """Reduced-order robot model obtained by fixing a subset of the joints of a full robot model.
+
+    Maintains the mapping between the reduced configuration space and the full configuration space.
     """
 
     def __init__(
@@ -295,13 +319,13 @@ class ReducedRobotModel:
         fixed_joints: list[str],
         fixed_values: list[float] | None = None,
     ):
-        """
-        Create a reduced order robot model by fixing specified joints.
+        """Create a reduced order robot model by fixing specified joints.
 
-        :param full_robot_model: The original robot model
-        :param fixed_joints: List of joint names to fix
-        :param fixed_values: Optional list of values to fix the joints to. If None, uses the initial
-                            joint positions (q0) from the full robot model.
+        Args:
+            full_robot_model: The original robot model.
+            fixed_joints: Names of the joints to fix.
+            fixed_values: Values to fix the joints to, one per fixed joint. If None, the joint positions (q0) of the
+                full robot model are used.
         """
         self.full_robot = full_robot_model
         self.supplemental_info = full_robot_model.supplemental_info
@@ -420,14 +444,16 @@ class ReducedRobotModel:
         fixed_group_names: list[str],
         fixed_values: list[float] | None = None,
     ) -> "ReducedRobotModel":
-        """
-        Create a reduced order robot model by fixing all joints in specified groups.
+        """Create a reduced order robot model by fixing all joints in the specified groups.
 
-        :param full_robot_model: The original robot model
-        :param fixed_group_names: List of joint group names to fix
-        :param fixed_values: Optional list of values to fix the joints to. If None, uses the initial
-                            joint positions (q0) from the full robot model.
-        :return: A ReducedRobotModel instance
+        Args:
+            full_robot_model: The original robot model.
+            fixed_group_names: Names of the joint groups to fix.
+            fixed_values: Values to fix the joints to. If None, the joint positions (q0) of the full robot model
+                are used.
+
+        Returns:
+            A ReducedRobotModel instance.
         """
         if full_robot_model.supplemental_info is None:
             raise ValueError("supplemental_info must be provided to use this method")
@@ -459,15 +485,16 @@ class ReducedRobotModel:
         fixed_group_name: str,
         fixed_values: list[float] | None = None,
     ) -> "ReducedRobotModel":
-        """
-        Create a reduced order robot model by fixing all joints in a specified group.
-        This is a convenience method that calls from_fixed_groups with a single group.
+        """Create a reduced order robot model by fixing all joints in a specified group.
 
-        :param full_robot_model: The original robot model
-        :param fixed_group_name: Name of the joint group to fix
-        :param fixed_values: Optional list of values to fix the joints to. If None, uses the initial
-                            joint positions (q0) from the full robot model.
-        :return: A ReducedRobotModel instance
+        Args:
+            full_robot_model: The original robot model.
+            fixed_group_name: Name of the joint group to fix.
+            fixed_values: Values to fix the joints to. If None, the joint positions (q0) of the full robot model
+                are used.
+
+        Returns:
+            A ReducedRobotModel instance.
         """
         return cls.from_fixed_groups(full_robot_model, [fixed_group_name], fixed_values)
 
@@ -478,15 +505,16 @@ class ReducedRobotModel:
         active_group_name: str,
         fixed_values: list[float] | None = None,
     ) -> "ReducedRobotModel":
-        """
-        Create a reduced order robot model by fixing all joints EXCEPT those in the specified group.
-        This is a convenience method that calls from_active_groups with a single group.
+        """Create a reduced order robot model by fixing all joints except those in the specified group.
 
-        :param full_robot_model: The original robot model
-        :param active_group_name: Name of the joint group to keep active (all other joints will be fixed)
-        :param fixed_values: Optional list of values to fix the joints to. If None, uses the initial
-                            joint positions (q0) from the full robot model.
-        :return: A ReducedRobotModel instance
+        Args:
+            full_robot_model: The original robot model.
+            active_group_name: Name of the joint group to keep active. All other joints are fixed.
+            fixed_values: Values to fix the joints to. If None, the joint positions (q0) of the full robot model
+                are used.
+
+        Returns:
+            A ReducedRobotModel instance.
         """
         return cls.from_active_groups(full_robot_model, [active_group_name], fixed_values)
 
@@ -497,15 +525,16 @@ class ReducedRobotModel:
         active_group_names: list[str],
         fixed_values: list[float] | None = None,
     ) -> "ReducedRobotModel":
-        """
-        Create a reduced order robot model by fixing all joints EXCEPT those in the specified groups.
-        This is useful when you want to keep multiple groups active and fix everything else.
+        """Create a reduced order robot model by fixing all joints except those in the specified groups.
 
-        :param full_robot_model: The original robot model
-        :param active_group_names: List of joint group names to keep active (all other joints will be fixed)
-        :param fixed_values: Optional list of values to fix the joints to. If None, uses the initial
-                            joint positions (q0) from the full robot model.
-        :return: A ReducedRobotModel instance
+        Args:
+            full_robot_model: The original robot model.
+            active_group_names: Names of the joint groups to keep active. All other joints are fixed.
+            fixed_values: Values to fix the joints to. If None, the joint positions (q0) of the full robot model
+                are used.
+
+        Returns:
+            A ReducedRobotModel instance.
         """
         if full_robot_model.supplemental_info is None:
             raise ValueError("supplemental_info must be provided to use this method")
@@ -613,11 +642,13 @@ class ReducedRobotModel:
             raise ValueError("side must be 'left', 'right', or 'both'")
 
     def get_body_actuated_joints(self, q_reduced: np.ndarray) -> np.ndarray:
-        """
-        Get the configuration of body actuated joints from a reduced configuration.
+        """Get the configuration of body actuated joints from a reduced configuration.
 
-        :param q_reduced: Configuration in reduced space
-        :return: Configuration of body actuated joints
+        Args:
+            q_reduced: Configuration in reduced space.
+
+        Returns:
+            Configuration of body actuated joints.
         """
         indices = self.get_body_actuated_joint_indices()
         return q_reduced[indices]
@@ -674,11 +705,13 @@ class ReducedRobotModel:
         return q_reduced
 
     def reduced_to_full_configuration(self, q_reduced: np.ndarray) -> np.ndarray:
-        """
-        Convert a reduced configuration to the full configuration space.
+        """Convert a reduced configuration to the full configuration space.
 
-        :param q_reduced: Configuration in reduced space
-        :return: Configuration in full space with fixed joints set to their fixed values
+        Args:
+            q_reduced: Configuration in reduced space.
+
+        Returns:
+            Configuration in full space with fixed joints set to their fixed values.
         """
         if q_reduced.shape[0] != self.num_dofs:
             raise ValueError(f"Expected q_reduced of length {self.num_dofs}, got {q_reduced.shape[0]} instead")
@@ -697,11 +730,13 @@ class ReducedRobotModel:
         return q_full
 
     def full_to_reduced_configuration(self, q_full: np.ndarray) -> np.ndarray:
-        """
-        Convert a full configuration to the reduced configuration space.
+        """Convert a full configuration to the reduced configuration space.
 
-        :param q_full: Configuration in full space
-        :return: Configuration in reduced space
+        Args:
+            q_full: Configuration in full space.
+
+        Returns:
+            Configuration in reduced space.
         """
         if q_full.shape[0] != self.full_robot.num_dofs:
             raise ValueError(f"Expected q_full of length {self.full_robot.num_dofs}, got {q_full.shape[0]} instead")
@@ -715,10 +750,11 @@ class ReducedRobotModel:
         return q_reduced
 
     def cache_forward_kinematics(self, q_reduced: np.ndarray, auto_clip=True) -> None:
-        """
-        Perform forward kinematics using the reduced configuration.
+        """Perform forward kinematics, on both the full and the reduced model, using the reduced configuration.
 
-        :param q_reduced: Configuration in reduced space
+        Args:
+            q_reduced: Configuration in reduced space.
+            auto_clip: Whether to clip the configuration to the joint limits before computing the kinematics.
         """
         # First update the full robot's forward kinematics
         q_full = self.reduced_to_full_configuration(q_reduced)
@@ -728,26 +764,32 @@ class ReducedRobotModel:
         pin.framesForwardKinematics(self.pinocchio_wrapper.model, self.pinocchio_wrapper.data, q_reduced)
 
     def clip_configuration(self, q_reduced: np.ndarray, margin: float = 1e-6) -> np.ndarray:
-        """
-        Clip the reduced configuration to stay within joint limits with a small tolerance.
+        """Clip the reduced configuration to stay within joint limits with a small tolerance.
 
-        :param q_reduced: Configuration to clip
-        :param margin: Tolerance to keep away from joint limits
-        :return: Clipped configuration
+        Args:
+            q_reduced: Configuration to clip.
+            margin: Tolerance to keep away from joint limits.
+
+        Returns:
+            Clipped configuration.
         """
         q_full = self.reduced_to_full_configuration(q_reduced)
         q_full_clipped = self.full_robot.clip_configuration(q_full, margin)
         return self.full_to_reduced_configuration(q_full_clipped)
 
     def frame_placement(self, frame_name: str) -> pin.SE3:
-        """
-        Get the placement of a frame in the reduced model.
-        Note: make sure cache_forward_kinematics() has been previously called.
+        """Get the placement of a frame in the reduced model.
 
-        :param frame_name: Name of the frame
-        :return: A pin.SE3 object representing the pose of the frame
+        The result reflects the configuration passed to the most recent `cache_forward_kinematics()` call.
+
+        Args:
+            frame_name: Name of the frame.
+
+        Returns:
+            A pin.SE3 object representing the pose of the frame.
         """
         return self.full_robot.frame_placement(frame_name)
 
     def reset_forward_kinematics(self):
+        """Reset the forward kinematics to the default configuration of the full robot model."""
         self.full_robot.reset_forward_kinematics()

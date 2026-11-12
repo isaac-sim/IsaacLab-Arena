@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base class for robot embodiments and the geometry spec used to place them."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -43,6 +45,11 @@ class ArticulationGeometrySpec:
 
 
 class EmbodimentBase(PlaceableAsset):
+    """Robot that is added to a scene, together with its scene, action, observation, event and camera configs.
+
+    Subclasses populate the `*_config` attributes. The `get_*_cfg` methods return those configs, extended with
+    camera terms and the initial-pose reset event where applicable.
+    """
 
     registry_name: str | None = None
     """Key of this embodiment class in the asset registry, and the name of each embodiment built from it.
@@ -67,6 +74,16 @@ class EmbodimentBase(PlaceableAsset):
         collision_mode: CollisionMode | str | None = None,
         spawn_cfg_addon: dict[str, dict[str, Any]] | None = None,
     ):
+        """Create the embodiment with empty configs for a subclass to fill in.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls. Falls back to the class default arm mode when not given.
+            collision_mode: Collision-detection method used for this embodiment when placing objects relative to it.
+            spawn_cfg_addon: Spawn schemas and properties per scene entry name. Falls back to the class-level addons.
+        """
         assert self.registry_name is not None, "Embodiment registry_name is required"
         super().__init__(name=self.registry_name, tags=self.tags, collision_mode=collision_mode)
         if "embodiment" not in self.tags:
@@ -163,7 +180,11 @@ class EmbodimentBase(PlaceableAsset):
         )
 
     def set_joint_initial_pos(self, joint_pos: Mapping[str, float]) -> None:
-        """Update the robot's initial joint positions by joint name."""
+        """Update the robot's initial joint positions by joint name.
+
+        Args:
+            joint_pos: Initial joint positions in radians (meters for prismatic joints), keyed by joint name.
+        """
         assert self.scene_config is not None, "scene_config must be populated before setting joint positions"
         robot = self.scene_config.robot
         assert robot is not None, "scene_config.robot must be populated before setting joint positions"
@@ -183,7 +204,11 @@ class EmbodimentBase(PlaceableAsset):
         )
 
     def configure_physics_backend(self, backend: PhysicsBackend) -> None:
-        """Apply physics-backend-specific overrides before the env cfg is composed."""
+        """Apply physics-backend-specific overrides before the env cfg is composed.
+
+        Args:
+            backend: Physics backend the environment is built for.
+        """
         if self._configured_physics_backend == backend:
             return
         assert self._configured_physics_backend is None, (
@@ -211,6 +236,10 @@ class EmbodimentBase(PlaceableAsset):
             getattr(self.scene_config, name).spawn = spawn_cfg
 
     def get_scene_cfg(self) -> Any:
+        """Return the scene config with spawn addons and the initial robot pose applied.
+
+        Camera sensors are added when cameras are enabled.
+        """
         # Apply task settings whenever the scene is collected, even without a backend hook.
         self._apply_spawn_cfg_addons()
         construction_pose = self._get_initial_pose_as_pose()
@@ -226,9 +255,11 @@ class EmbodimentBase(PlaceableAsset):
         return self.scene_config
 
     def get_action_cfg(self) -> Any:
+        """Return the action config."""
         return self.action_config
 
     def get_observation_cfg(self) -> Any:
+        """Return the observation config, plus camera observation terms when cameras are enabled."""
         if self.enable_cameras:
             if self.camera_config is not None:
                 camera_observation_config = make_camera_observation_cfg(self.camera_config)
@@ -240,15 +271,19 @@ class EmbodimentBase(PlaceableAsset):
         return self.observation_config
 
     def get_rewards_cfg(self) -> Any:
+        """Return the rewards config."""
         return self.reward_config
 
     def get_curriculum_cfg(self) -> Any:
+        """Return the curriculum config."""
         return self.curriculum_config
 
     def get_commands_cfg(self) -> Any:
+        """Return the commands config."""
         return self.command_config
 
     def get_events_cfg(self) -> Any:
+        """Return the events config, with the robot pose reset event merged in last when an initial pose is set."""
         if self._pose_event_cfg is None:
             return self.event_config
         from isaaclab_arena.utils.configclass import make_configclass
@@ -261,15 +296,18 @@ class EmbodimentBase(PlaceableAsset):
         return combine_configclass_instances("EventsCfg", self.event_config, pose_reset_cfg)
 
     def get_mimic_env(self) -> ManagerBasedRLMimicEnv:
+        """Return the Isaac Lab Mimic environment class of the embodiment."""
         return self.mimic_env
 
     def get_xr_cfg(self) -> Any:
+        """Return the XR (teleoperation) config."""
         return self.xr
 
     def get_teleop_target_frame_prim_path(self) -> str | None:
         """Optional USD prim path for rebasing teleop poses (e.g. robot base link). Returns None if not set."""
 
     def get_camera_cfg(self) -> Any:
+        """Return the Isaac Lab camera sensor config built from the camera rig, or None without a camera rig."""
         if self.camera_config is None:
             return None
         # In Arena we expect camera configs to inherit from ArenaCameraCfg.
@@ -279,7 +317,11 @@ class EmbodimentBase(PlaceableAsset):
         return self.camera_config.get_cfg()
 
     def add_camera_variations(self, camera_rig: ArenaCameraCfg) -> None:
-        """Register extrinsics and intrinsics variations for every camera in ``camera_rig``."""
+        """Register extrinsics and intrinsics variations for every camera in ``camera_rig``.
+
+        Args:
+            camera_rig: Camera rig whose cameras receive the variations.
+        """
         from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
         from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
 
@@ -323,7 +365,11 @@ class EmbodimentBase(PlaceableAsset):
         )
 
     def set_initial_scene_root_poses(self, poses: dict[str, PosePerEnv]) -> None:
-        """Seed each measured embodiment root, keeping independent roots independently positioned."""
+        """Seed each measured embodiment root, keeping independent roots independently positioned.
+
+        Args:
+            poses: Per-environment pose for each scene root, keyed by scene key; must cover every scene root.
+        """
         assert set(poses) == set(self.get_scene_root_keys()), "Provide every embodiment scene root"
         if tuple(poses) == (self.get_scene_key(),):
             super().set_initial_scene_root_poses(poses)
@@ -345,10 +391,19 @@ class EmbodimentBase(PlaceableAsset):
         return ["ee_frame"]
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        """Return the name of the end-effector frame for the given arm mode, or an empty string if undefined.
+
+        Args:
+            arm_mode: Arm mode to look up the frame for.
+
+        Returns:
+            The end-effector frame name.
+        """
         # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
         return ""
 
     def get_command_body_name(self) -> str:
+        """Return the name of the body that the arm action commands, or an empty string if undefined."""
         return ""
 
     def get_gripper(self) -> Gripper:
@@ -357,4 +412,5 @@ class EmbodimentBase(PlaceableAsset):
         return self.gripper
 
     def get_arm_mode(self) -> ArmMode:
+        """Return the arm mode of the embodiment."""
         return self.arm_mode

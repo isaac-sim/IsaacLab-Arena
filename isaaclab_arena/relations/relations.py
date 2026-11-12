@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Spatial relation classes that describe how placed objects relate to each other, plus lookup helpers."""
+
 from __future__ import annotations
 
 import math
@@ -46,7 +48,12 @@ class RelationBase:
     """
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
-        """Validate this relation for placement among the participating objects."""
+        """Validate this relation for placement among the participating objects.
+
+        Args:
+            subject: Asset that carries this relation.
+            objects: Assets participating in placement.
+        """
 
 
 class UnaryRelation(RelationBase):
@@ -103,7 +110,12 @@ class FaceTo(RelationBase):
         return False
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
-        """Validate the facing relation for its subject and target."""
+        """Validate the facing relation for its subject and target.
+
+        Args:
+            subject: Asset that carries this relation.
+            objects: Assets participating in placement.
+        """
         face_to_count = sum(isinstance(relation, FaceTo) for relation in subject.get_relations())
         assert face_to_count == 1, f"Object '{subject.name}' has more than one FaceTo relation."
         assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have a FaceTo relation."
@@ -147,7 +159,12 @@ class AlignWith(Relation):
         self.tolerance_m = tolerance_m
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
-        """Require a movable subject and a distinct reference that participates in placement."""
+        """Require a movable subject and a distinct reference that participates in placement.
+
+        Args:
+            subject: Asset that carries this relation.
+            objects: Assets participating in placement.
+        """
         assert self.parent is not subject, "AlignWith requires a different reference asset"
         assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have an AlignWith relation"
         assert self.parent in objects, f"AlignWith reference '{self.parent.name}' must participate in placement"
@@ -181,12 +198,12 @@ class NextTo(Relation):
             parent: The parent asset that this object should be placed next to.
             side: Which axis direction to place the object.
             relation_loss_weight: Weight for the relationship loss function.
-            distance_m: Target distance from parent's boundary in meters (default: 5cm).
+            distance_m: Target distance from parent's boundary in meters.
             cross_position_ratio: Where to place the child along the parent's perpendicular
                 (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
                 the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
-                Default: None (any position within the valid cross-axis range).
+                None allows any position within the valid cross-axis range.
                 Set 0.0 explicitly to prefer centering.
             tolerance_m: Allowed gap error in meters. The solver treats any gap within this value of
                 distance_m as satisfied, and validation passes when the side and distance violations
@@ -234,11 +251,11 @@ class On(Relation):
         Args:
             parent: The parent asset that this object should be placed on top of.
             relation_loss_weight: Weight for the relationship loss function.
-            clearance_m: Safety clearance above parent's surface in meters (default: 1cm).
+            clearance_m: Safety clearance above parent's surface in meters.
             edge_margin_m: Inward inset from each X/Y edge of the parent's surface in
-                meters (default: 5cm), applied only for containment. Ignored for overlap.
+                meters, applied only for containment. Ignored for overlap.
             overlap: Allow footprint overlap instead of full containment on both X and Y
-                axes (default: False). Ignores edge_margin_m when True.
+                axes. Ignores edge_margin_m when True.
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
@@ -250,7 +267,13 @@ class On(Relation):
     def is_child_bottom_z_within_placement_height_range(
         self, bottom: float, support_top: float, tolerance_m: float
     ) -> bool:
-        """Whether the child bottom lies in the support's contact band, in metres."""
+        """Whether the child bottom lies in the support's contact band, in metres.
+
+        Args:
+            bottom: Z of the child's bottom face, in meters.
+            support_top: Z of the support's top face, in meters.
+            tolerance_m: Allowed deviation from the contact band, in meters.
+        """
         return support_top - tolerance_m < bottom <= support_top + self.clearance_m + tolerance_m
 
 
@@ -301,7 +324,11 @@ class ClutterOn(On):
         self.random_yaw = random_yaw
 
     def get_release_region_bbox(self, bbox: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
-        """Return the support bounds with its XY footprint scaled by spread."""
+        """Return the support bounds with its XY footprint scaled by spread.
+
+        Args:
+            bbox: Support bounding box in the world frame.
+        """
         lower, upper = bbox.min_point.clone(), bbox.max_point.clone()
         center = (lower[:, :2] + upper[:, :2]) * 0.5
         half_size = (upper[:, :2] - lower[:, :2]) * (0.5 * self.spread)
@@ -314,12 +341,22 @@ class ClutterOn(On):
         """Require nonpenetrating clearance, with numerical slack and no upper height limit.
 
         The ordinary On contact tolerance does not apply to release poses.
+
+        Args:
+            bottom: Z of the child's bottom face, in meters.
+            support_top: Z of the support's top face, in meters.
+            tolerance_m: Contact tolerance of ordinary relations; unused for release poses.
         """
         minimum_bottom = support_top + max(0.0, self.clearance_m - CLUTTER_RELEASE_HEIGHT_TOLERANCE_M)
         return bottom >= minimum_bottom
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
-        """Require a participating support and preserve validated release poses."""
+        """Require a participating support and preserve validated release poses.
+
+        Args:
+            subject: Asset that carries this relation.
+            objects: Assets participating in placement.
+        """
         assert self.parent in objects, "ClutterOn support must participate in placement"
         assert get_relation(self.parent, ClutterOn) is None, "Nested ClutterOn supports are unsupported"
         assert not subject.is_anchor, "ClutterOn cannot be an anchor"
@@ -363,7 +400,7 @@ class NotNextTo(Relation):
         Args:
             parent: The parent asset whose adjacent half-plane is forbidden.
             relation_loss_weight: Weight for the relationship loss function.
-            side: Which side of the parent is blocked (default: Side.POSITIVE_X).
+            side: Which side of the parent is blocked.
             tolerance_m: Slack (meters) for placement validation: the child passes when it has cleared
                 the keep-out zone to within this value.
         """
@@ -540,6 +577,14 @@ class PositionLimitsBox(UnaryRelation):
         z_limits: Sequence[float | None] = (None, None),
         relation_loss_weight: float = 1.0,
     ):
+        """Create a relation limiting the world position along each axis.
+
+        Args:
+            x_limits: Minimum and maximum world X; None leaves a side unbounded.
+            y_limits: Minimum and maximum world Y; None leaves a side unbounded.
+            z_limits: Minimum and maximum world Z; None leaves a side unbounded.
+            relation_loss_weight: Weight of this relation's loss in the solver objective.
+        """
         for axis, limits in (("x", x_limits), ("y", y_limits), ("z", z_limits)):
             assert len(limits) == 2, f"{axis}_limits must contain a minimum and maximum"
             lower, upper = limits
@@ -583,6 +628,15 @@ class PositionLimitsCylindrical(UnaryRelation):
         radius_max: float | None = None,
         relation_loss_weight: float = 1.0,
     ):
+        """Create a relation limiting the world XY distance to a vertical axis.
+
+        Args:
+            center_x: World X of the cylinder axis.
+            center_y: World Y of the cylinder axis.
+            radius_min: Minimum radial distance, or None for no lower bound.
+            radius_max: Maximum radial distance, or None for no upper bound.
+            relation_loss_weight: Weight of this relation's loss in the solver objective.
+        """
         assert (
             radius_min is not None or radius_max is not None
         ), "At least one radial bound must be specified for PositionLimitsCylindrical"
@@ -614,5 +668,10 @@ def get_anchor_objects(objects: list[PlaceableAsset]) -> list[PlaceableAsset]:
 
 
 def get_relation(obj: PlaceableAsset, relation_type: type[RelationT]) -> RelationT | None:
-    """Return obj's first relation of the given type, or None if it has none."""
+    """Return obj's first relation of the given type, or None if it has none.
+
+    Args:
+        obj: Asset whose relations are searched.
+        relation_type: Relation class to look for.
+    """
     return next((relation for relation in obj.get_relations() if isinstance(relation, relation_type)), None)

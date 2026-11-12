@@ -15,6 +15,8 @@ from enum import Enum
 
 
 class ObjectType(str, Enum):
+    """Kind of physics object an asset is spawned as."""
+
     BASE = "base"
     RIGID = "rigid"
     ARTICULATION = "articulation"

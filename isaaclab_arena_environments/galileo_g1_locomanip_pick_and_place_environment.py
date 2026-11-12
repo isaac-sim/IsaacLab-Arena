@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Galileo G1 locomotion-and-manipulation pick-and-place environment and its configuration."""
+
 from __future__ import annotations
 
 import math
@@ -77,12 +79,17 @@ class GalileoG1LocomanipPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 
 @register_environment
 class GalileoG1LocomanipPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG1LocomanipPickAndPlaceEnvironmentCfg]):
+    """Galileo G1 locomotion-and-manipulation pick-and-place environment."""
 
     name: str = "galileo_g1_locomanip_pick_and_place"
     _legacy_argparse_cfg_type = GalileoG1LocomanipPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: GalileoG1LocomanipPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.scene.scene import Scene

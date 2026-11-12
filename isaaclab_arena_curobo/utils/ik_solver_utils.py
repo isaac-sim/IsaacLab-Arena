@@ -48,6 +48,11 @@ def get_aabb_collision_cuboid_for_object(
     The bounding box is object-local, so its center offset is rotated by the object's world orientation
     and added to the root position -- placing e.g. a table box at its true mid-height rather than at the
     root.
+
+    Args:
+        obj: Object whose bounding box is used.
+        pos_w: Object root position in the world frame.
+        quat_w_xyzw: Object root XYZW rotation into the world frame.
     """
     bbox = obj.get_bounding_box()
     dims = tuple(float(v) for v in bbox.size[0].tolist())
@@ -72,7 +77,14 @@ def scene_from_cuboids(
 ) -> Scene:
     """Build a cuRobo ``Scene`` of cuboids expressed in the robot base frame.
 
-    Each obstacle's world pose is transformed into the robot base frame. Include anchor objects (e.g. a table) here as static cuboids.
+    Each obstacle's world pose is transformed into the robot base frame. Anchor objects (e.g. a table)
+    belong here as static cuboids.
+
+    Args:
+        cuboids: Axis-aligned collision cuboids in the world frame.
+        robot_base_pos_w: Robot base position in the world frame.
+        robot_base_quat_w_xyzw: Robot base XYZW rotation into the world frame.
+        device: Device used for the transform computation, or None to select the cuRobo CUDA device.
     """
 
     dev = resolve_cuda_device(device)

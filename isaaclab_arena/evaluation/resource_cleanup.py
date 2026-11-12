@@ -21,7 +21,11 @@ if TYPE_CHECKING:
 
 
 def close_policy(policy: PolicyBase | None) -> None:
-    """Close a policy and release cached runtime resources."""
+    """Close a policy and release cached runtime resources.
+
+    Args:
+        policy: Policy to close, or None.
+    """
     try:
         if policy is not None:
             policy.close()
@@ -30,7 +34,11 @@ def close_policy(policy: PolicyBase | None) -> None:
 
 
 def close_environment(env: gym.Env | None) -> None:
-    """Tear down and close an instantiated environment."""
+    """Tear down and close an instantiated environment.
+
+    Args:
+        env: Environment to close, or None.
+    """
     if env is None:
         return
     try:
@@ -43,7 +51,12 @@ def close_environment(env: gym.Env | None) -> None:
 
 
 def close_run_resources(policy: PolicyBase | None, env: gym.Env | None) -> None:
-    """Close a run's policy and environment."""
+    """Close a run's policy and environment.
+
+    Args:
+        policy: Policy to close, or None.
+        env: Environment to close, or None.
+    """
     try:
         close_policy(policy)
     finally:

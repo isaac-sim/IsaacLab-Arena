@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Event terms for the G1 robot."""
+
 from __future__ import annotations
 
 import torch
@@ -16,12 +18,24 @@ if TYPE_CHECKING:
 
 def reset_decoupled_wbc_joint_policy(env: ManagerBasedEnv, env_ids: torch.Tensor):
     # Reset lower body RL-based policy
+    """Reset the lower-body policy of the G1 joint action term.
+
+    Args:
+        env: The environment.
+        env_ids: Indices of the environments to reset.
+    """
     policy = env.action_manager.get_term("g1_action").get_wbc_policy
     policy.lower_body_policy.reset(env_ids)
 
 
 def reset_decoupled_wbc_pink_policy(env: ManagerBasedEnv, env_ids: torch.Tensor):
     # Reset upper body IK solver
+    """Reset the upper-body IK solver, lower-body policy and navigation state of the G1 PINK action term.
+
+    Args:
+        env: The environment.
+        env_ids: Indices of the environments whose lower-body policy is reset.
+    """
     env.action_manager.get_term("g1_action").upperbody_controller.body_ik_solver.initialize()
     env.action_manager.get_term("g1_action").upperbody_controller.in_warmup = True
 
@@ -43,7 +57,17 @@ def apply_high_friction_to_g1_fingers(
     dynamic_friction: float,
     prim_name_markers: Sequence[str],
 ) -> None:
-    """Bind a high-friction contact material to G1 hand/finger collision prims."""
+    """Bind a high-friction contact material to G1 hand/finger collision prims.
+
+    Args:
+        env: The environment.
+        env_ids: Unused.
+        material_path: USD prim path at which the physics material is created.
+        static_friction: Static friction coefficient of the material.
+        dynamic_friction: Dynamic friction coefficient of the material.
+        prim_name_markers: Lowercase substrings; a robot collision prim is bound when its lowercased path contains
+            any of them.
+    """
     del env_ids
     from isaaclab.sim import bind_physics_material
     from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg

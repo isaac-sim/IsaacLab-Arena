@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Velocity dataclass for rigid bodies."""
+
 import torch
 from dataclasses import dataclass
 
@@ -25,6 +27,7 @@ class Velocity:
 
     @staticmethod
     def zero() -> "Velocity":
+        """Return a velocity with zero linear and angular components."""
         return Velocity(linear_xyz=(0.0, 0.0, 0.0), angular_xyz=(0.0, 0.0, 0.0))
 
     def to_tensor(self, device: torch.device) -> torch.Tensor:

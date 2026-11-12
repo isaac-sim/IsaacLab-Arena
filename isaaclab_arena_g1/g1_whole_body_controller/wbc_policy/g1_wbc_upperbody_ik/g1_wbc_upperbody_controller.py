@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""PINK-based inverse kinematics upper-body controller for the G1 whole-body controller."""
+
 import numpy as np
 
 import pink
@@ -58,17 +60,27 @@ class WeightedPostureTask(PostureTask):
                 jerky under unfeasible targets, but beware that too large a
                 damping can slow down the task.
             gain: Task gain :math:`\alpha \\in [0, 1]` for additional low-pass
-                filtering. Defaults to 1.0 (no filtering) for dead-beat
-                control.
+                filtering. A value of 1.0 applies no filtering (dead-beat
+                control).
         """
         super().__init__(cost=cost, lm_damping=lm_damping, gain=gain)
         self.weights = weights
 
     def compute_error(self, configuration):
+        """Compute the posture task error, scaled per joint by the task weights.
+
+        Args:
+            configuration: The PINK configuration to compute the error for.
+        """
         error = super().compute_error(configuration)
         return self.weights * error
 
     def compute_jacobian(self, configuration):
+        """Compute the posture task Jacobian, with each row scaled by the corresponding joint weight.
+
+        Args:
+            configuration: The PINK configuration to compute the Jacobian for.
+        """
         J = super().compute_jacobian(configuration)
         return self.weights[:, np.newaxis] * J
 
@@ -89,6 +101,11 @@ class G1BodyIKSolver:
     """
 
     def __init__(self, ik_solver_settings: G1BodyIKSolverSettings):
+        """Initialize the solver from its settings. A robot must be registered before the solver is called.
+
+        Args:
+            ik_solver_settings: Time step, iteration count, task costs and posture settings of the solver.
+        """
         self.dt = ik_solver_settings.dt
         self.num_step_per_frame = ik_solver_settings.num_step_per_frame
         self.amplify_factor = ik_solver_settings.amplify_factor
@@ -99,10 +116,16 @@ class G1BodyIKSolver:
         self.robot = None
 
     def register_robot(self, robot):
+        """Set the robot model to solve for and initialize the IK configuration and tasks.
+
+        Args:
+            robot: The robot model to solve inverse kinematics for.
+        """
         self.robot = robot
         self.initialize()
 
     def initialize(self):
+        """Create the IK configuration at the default pose of the registered robot and rebuild the IK tasks."""
         self.configuration = pink.Configuration(
             self.robot.pinocchio_wrapper.model,
             self.robot.pinocchio_wrapper.data,
@@ -194,6 +217,11 @@ class G1BodyIKSolver:
         return self.configuration.q.copy()
 
     def update_weights(self, weights):
+        """Update the position and orientation costs of existing frame tasks.
+
+        Args:
+            weights: Mapping from link name to a dict that may contain `position_cost` and `orientation_cost` entries.
+        """
         for link_name, weight in weights.items():
             if "position_cost" in weight:
                 self.tasks[link_name].set_position_cost(weight["position_cost"])
@@ -252,6 +280,14 @@ class G1WBCUpperbodyController:
         self.in_warmup = True
 
     def get_hand_joint_pos(self, hand_state):
+        """Get the desired hand joint positions for an open or closed hand.
+
+        Args:
+            hand_state: Hand command; 0 for an open hand, any other value for a closed hand.
+
+        Returns:
+            The hand joint positions, in radians.
+        """
         hand_q_desired = np.deg2rad([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         if hand_state == 0:
             return hand_q_desired

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Command-line argument definitions and parsing for the Experiment Runner."""
+
 import argparse
 from pathlib import Path
 
@@ -14,7 +16,11 @@ _DEFAULT_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "outputs"
 
 
 def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add Experiment Runner specific arguments to the parser."""
+    """Add Experiment Runner specific arguments to the parser.
+
+    Args:
+        parser: Argument parser to extend.
+    """
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Remove the --eval_jobs_config alias
     # when legacy JSON Experiments are retired. Both flags currently populate experiment_config.
     parser.add_argument(

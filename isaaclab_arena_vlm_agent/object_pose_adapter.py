@@ -32,7 +32,16 @@ class ObjectPoseObservationAdapter(VLMObservationAdapter):
         self.scene_keys = tuple(scene_keys)
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
-        """Return the wrapped adapter's input with object_poses added to the prompt values."""
+        """Return the wrapped adapter's input with object_poses added to the prompt values.
+
+        Args:
+            env: Arena environment, optionally gym-wrapped.
+            observation: Observation returned by the environment.
+            env_id: Index of the environment to read.
+
+        Returns:
+            Images and prompt values; object_poses holds each object's pose in each robot root frame.
+        """
         images, prompt_values = self.observation_adapter.extract_vlm_input_from_observation(env, observation, env_id)
         base = env.unwrapped
         roots = read_robot_root_poses_w(base, env_id)

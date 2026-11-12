@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""HDR environment map asset for dome lights."""
+
 from typing import Literal
 
 from isaaclab_arena.assets.asset import Asset
@@ -29,6 +31,15 @@ class HDRImage(Asset):
         description: str = "",
         texture_format: TextureFormat = "latlong",
     ):
+        """Create an HDR image asset.
+
+        Args:
+            name: Name of the asset.
+            texture_file: Path or URL of the HDR or EXR texture file.
+            tags: Optional labels attached to the asset.
+            description: Human-readable description of the image.
+            texture_format: Projection format of the texture, as understood by the Isaac Sim dome light.
+        """
         super().__init__(name=name, tags=tags)
         self.texture_file = texture_file
         self.description = description

@@ -55,12 +55,29 @@ class ParsedEpisodeVideoName:
 
 
 def format_episode_video_filename(name_prefix: str, env_index: int, camera_name: str, episode_index: int) -> str:
-    """Build the mp4 filename for one (env, camera, episode). Inverse of ``parse_episode_video_filename``."""
+    """Build the mp4 filename for one (env, camera, episode). Inverse of ``parse_episode_video_filename``.
+
+    Args:
+        name_prefix: Filename prefix shared by all videos of a run.
+        env_index: Index of the environment the video was recorded from.
+        camera_name: Name of the camera observation; path separators are replaced.
+        episode_index: Index of the episode within the environment.
+
+    Returns:
+        The mp4 filename.
+    """
     return f"{name_prefix}-env{env_index}-{_sanitize_cam_key(camera_name)}-episode-{episode_index}.mp4"
 
 
 def parse_episode_video_filename(filename: str) -> ParsedEpisodeVideoName | None:
-    """Parse a recorder mp4 filename, or return ``None`` if it does not match the recorder's format."""
+    """Parse a recorder mp4 filename, or return ``None`` if it does not match the recorder's format.
+
+    Args:
+        filename: Base name of the mp4 file, without directory.
+
+    Returns:
+        The parsed filename fields, or None when the name does not match.
+    """
     match = _EPISODE_VIDEO_FILENAME_PATTERN.match(filename)
     if match is None:
         return None
@@ -130,6 +147,14 @@ class CameraObsVideoRecorder(gym.Wrapper):
         name_prefix: str = "robot-cam",
         fps: int | None = None,
     ):
+        """Wrap an environment and prepare to record its RGB camera observations.
+
+        Args:
+            env: Environment to wrap.
+            video_folder: Directory the mp4 files are written to; created if missing.
+            name_prefix: Filename prefix of the written videos.
+            fps: Frame rate of the videos. Falls back to the environment's render frame rate metadata.
+        """
         super().__init__(env)
         os.makedirs(video_folder, exist_ok=True)
         self.video_folder = video_folder
@@ -142,6 +167,16 @@ class CameraObsVideoRecorder(gym.Wrapper):
         self.writers: dict[str, list[EpisodeVideoWriter | None]] = {}
 
     def step(self, action):
+        """Step the wrapped environment and append the new RGB camera frames of active environments to their videos.
+
+        Videos of environments whose episode terminated or truncated on this step are finalised.
+
+        Args:
+            action: Action passed to the wrapped environment.
+
+        Returns:
+            The result of the wrapped environment's step.
+        """
         result = self.env.step(action)
         obs, _, terminated, truncated, _ = result
         cam_obs = obs.get(CAMERA_OBS_GROUP_KEY, {}) if isinstance(obs, dict) else {}
@@ -211,6 +246,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 env_writers[env_idx] = None
 
     def close(self) -> None:
+        """Close the wrapped environment and delete the videos of episodes that did not finish."""
         # Partial episodes (cut off by num_steps before completion) are discarded: the
         # encoder is shut down and the incomplete file it was writing is removed.
         for env_writers in self.writers.values():

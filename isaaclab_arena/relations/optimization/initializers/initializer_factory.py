@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Factory for placement initializers."""
+
 from __future__ import annotations
 
 from isaaclab_arena.relations.optimization.initializers.anchor_initializer import AnchorInitializer
@@ -14,7 +16,11 @@ from isaaclab_arena.relations.optimization.initializers.placement_initializer_ba
 
 
 def create_initializer(initializer_type: InitializerType) -> PlacementInitializerBase:
-    """Return a new initializer of the requested type."""
+    """Return a new initializer of the requested type.
+
+    Args:
+        initializer_type: Kind of initializer to create.
+    """
     initializers_by_type: dict[InitializerType, type[PlacementInitializerBase]] = {
         InitializerType.ANCHOR: AnchorInitializer,
         InitializerType.ON_TREE: OnTreeInitializer,

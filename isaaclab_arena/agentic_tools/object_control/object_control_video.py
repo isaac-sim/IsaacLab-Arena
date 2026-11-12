@@ -12,7 +12,12 @@ from isaaclab_arena.utils.timer import Timer
 
 
 def configure_video(env_cfg, output: Path) -> None:
-    """Record bounded clips near 15 FPS independently of the environment's control rate."""
+    """Record bounded clips near 15 FPS independently of the environment's control rate.
+
+    Args:
+        env_cfg: Environment configuration to add the video recorder to.
+        output: Directory under which raw clips are written.
+    """
     from isaaclab.envs.utils.video_recorder_cfg import VideoRecorderCfg
 
     step_dt = env_cfg.sim.dt * env_cfg.decimation
@@ -33,7 +38,15 @@ def configure_video(env_cfg, output: Path) -> None:
 
 
 def overlay_progress_banner(frame, progress: dict):
-    """Draw recipe progress without changing pixels below the banner."""
+    """Draw recipe progress without changing pixels below the banner.
+
+    Args:
+        frame: RGB image array.
+        progress: Progress dictionary with the subtask title, active index and per-subtask completion flags.
+
+    Returns:
+        The frame with the banner drawn on it.
+    """
     import numpy as np
 
     from PIL import Image, ImageDraw, ImageFont
@@ -66,6 +79,12 @@ class ObjectControlVideo:
     """Keep progress metadata alongside Lab's clips, including on failed recipes."""
 
     def __init__(self, env, output: Path):
+        """Create a recorder that tracks progress and captures snapshots from the Kit visualizer.
+
+        Args:
+            env: Environment with a video recorder and a Kit visualizer.
+            output: Directory that receives snapshots and the final video.
+        """
         self.env = env
         self.output = output
         self.raw_dir = output / "raw_video"
@@ -77,12 +96,22 @@ class ObjectControlVideo:
         self.visualizer = next(v for v in env.sim.visualizers if v.cfg.visualizer_type == "kit")
 
     def record_progress(self, simulation_time_s: float, progress: dict) -> None:
-        """Save changes to the title or completion state without advancing predicates."""
+        """Save changes to the title or completion state without advancing predicates.
+
+        Args:
+            simulation_time_s: Simulation time of the progress state, in seconds.
+            progress: Progress dictionary to record.
+        """
         if not self.timeline or progress != self.timeline[-1]["progress"]:
             self.timeline.append({"simulation_time_s": simulation_time_s, "progress": progress})
 
     def snapshot(self, filename: str, progress: dict) -> None:
-        """Capture a boundary image through the same visualizer used by Lab's recorder."""
+        """Capture a boundary image through the same visualizer used by Lab's recorder.
+
+        Args:
+            filename: Name of the image file to write under the output directory.
+            progress: Progress dictionary drawn into the banner overlay.
+        """
         import imageio.v3 as iio
 
         self.env.sim.render()

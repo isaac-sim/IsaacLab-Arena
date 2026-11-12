@@ -74,7 +74,12 @@ def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> 
 
 
 def run_legacy_json_in_chunks(args_cli: argparse.Namespace, legacy_experiment_config: dict) -> None:
-    """Run each chunk of a legacy JSON Experiment in a fresh subprocess."""
+    """Run each chunk of a legacy JSON Experiment in a fresh subprocess.
+
+    Args:
+        args_cli: Parsed Experiment Runner arguments, including the chunk size.
+        legacy_experiment_config: Legacy Experiment document with a list of jobs.
+    """
     # TODO(cvolk): Aggregate per-chunk metrics into one centralized view. Each chunk
     # subprocess currently prints its own MetricsLogger summary and nothing is merged
     # or persisted (save_metrics_to_file() is unused). Have each chunk write metrics

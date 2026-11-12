@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Objects that refer to an existing prim in the scene, such as a part of a parent asset."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -52,6 +54,14 @@ class ObjectReference(RootedObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
     def __init__(self, parent_asset: Object | ObjectReference, **kwargs):
+        """Create a reference to a prim inside a parent asset.
+
+        Args:
+            parent_asset: Asset that contains the referenced prim. A parent that is itself a reference must be an
+                articulation.
+            **kwargs: Passed on to the parent class, including the name, the prim path of the referenced prim and
+                the object type.
+        """
         super().__init__(**kwargs)
         if isinstance(parent_asset, ObjectReference):
             assert parent_asset.object_type == ObjectType.ARTICULATION, (
@@ -188,6 +198,13 @@ class ObjectReference(RootedObjectBase):
         return extract_trimesh_from_prim(parent_stage, prim_path_in_stage, self._parent_scale)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+        """Return a contact sensor configuration for the referenced rigid object.
+
+        The referenced object must already have contact reporting enabled in its USD.
+
+        Args:
+            contact_against_object: Object to filter contacts against. None reports contacts with all objects.
+        """
         # NOTE(alexmillane): Right now this requires that the object
         # has the contact sensor enabled prior to using this reference.
         # At the moment, for the tests, I enabled the relevant APIs in the GUI.
@@ -388,6 +405,13 @@ class OpenableObjectReference(ArticulationObjectReference, Openable):
     """An object which *refers* to an existing element in the scene and is openable."""
 
     def __init__(self, openable_joint_name: str, openable_threshold: float = 0.5, **kwargs):
+        """Create a reference to an openable articulation.
+
+        Args:
+            openable_joint_name: Name of the joint that opens the object.
+            openable_threshold: Normalized joint position above which the object counts as open.
+            **kwargs: Passed on to the parent class.
+        """
         super().__init__(
             openable_joint_name=openable_joint_name,
             openable_threshold=openable_threshold,
@@ -399,6 +423,13 @@ class PressableObjectReference(ArticulationObjectReference, Pressable):
     """A referenced articulation exposing one prismatic joint as a button."""
 
     def __init__(self, pressable_joint_name: str, pressedness_threshold: float = 0.5, **kwargs):
+        """Create a reference to a pressable articulation.
+
+        Args:
+            pressable_joint_name: Name of the prismatic joint that is pressed.
+            pressedness_threshold: Normalized joint position above which the button counts as pressed.
+            **kwargs: Passed on to the parent class.
+        """
         super().__init__(
             pressable_joint_name=pressable_joint_name,
             pressedness_threshold=pressedness_threshold,
@@ -417,6 +448,15 @@ class TurnableObjectReference(ArticulationObjectReference, Turnable):
         num_levels: int,
         **kwargs,
     ):
+        """Create a reference to a turnable articulation.
+
+        Args:
+            turnable_joint_name: Name of the revolute joint that is turned.
+            min_level_angle_deg: Joint angle in degrees at the first level.
+            max_level_angle_deg: Joint angle in degrees at the last level.
+            num_levels: Number of discrete levels.
+            **kwargs: Passed on to the parent class.
+        """
         super().__init__(
             turnable_joint_name=turnable_joint_name,
             min_level_angle_deg=min_level_angle_deg,

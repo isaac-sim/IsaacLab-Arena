@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""G1 whole-body policy that combines separate upper-body and lower-body policies."""
+
 import numpy as np
 
 from isaaclab_arena_g1.g1_env.robot_model import RobotModel
@@ -23,6 +25,14 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
         upper_body_policy: WBCPolicy,
         num_envs=1,
     ):
+        """Create the whole-body policy from its upper-body and lower-body policies.
+
+        Args:
+            robot_model: Robot model of the G1.
+            lower_body_policy: Policy controlling the lower body.
+            upper_body_policy: Policy controlling the upper body.
+            num_envs: Number of environments.
+        """
         self.robot_model = robot_model
         self.lower_body_policy = lower_body_policy
         self.upper_body_policy = upper_body_policy
@@ -30,6 +40,11 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
 
     def set_observation(self, observation: dict[str, np.ndarray]):
         # NOTE(xinjie.yao): Upper body policy is pass-through, so we don't need to set the observation
+        """Set the observation on the lower-body policy.
+
+        Args:
+            observation: Dictionary containing the current state of the robot.
+        """
         self.lower_body_policy.set_observation(observation)
 
     def set_goal(self, goal: dict[str, np.ndarray]):

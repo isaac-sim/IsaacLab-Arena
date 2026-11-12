@@ -40,6 +40,14 @@ class ObjectCommandExecutor:
     """Execute object-control commands and evaluate the environment's task predicates."""
 
     def __init__(self, env, output_dir: Path, *, record_video: bool, allow_incomplete: bool):
+        """Create an executor that drives scene objects in a wrapped environment through force actions.
+
+        Args:
+            env: Gym-wrapped Arena environment whose action manager contains the force action terms.
+            output_dir: Directory that receives progress, state and diagnostic files.
+            record_video: Whether to capture viewport snapshots and video at subtask boundaries.
+            allow_incomplete: Whether to skip the final task-success check after the commands finish.
+        """
         import torch
 
         from isaaclab_arena.agentic_tools.object_control.force_actions import ForceJointActionTerm, ForcePoseActionTerm
@@ -81,11 +89,22 @@ class ObjectCommandExecutor:
         return self.env._sim_step_counter - self.start_sim_step
 
     def step(self, count: int = 1) -> None:
-        """Advance a physics-step budget, rounding up to a whole control step."""
+        """Advance a physics-step budget, rounding up to a whole control step.
+
+        Args:
+            count: Number of physics steps to advance.
+        """
         for _ in range(math.ceil(count / self.env.cfg.decimation)):
             self._step_env()
 
     def mark(self, index: int, boundary: str, title: str) -> None:
+        """Record a subtask boundary with its completion state, optional viewport image and a state dump.
+
+        Args:
+            index: Index of the subtask.
+            boundary: Label of the boundary, such as the start or end of the subtask.
+            title: Human-readable subtask title.
+        """
         self.current_subtask_index = index
         self.current_subtask_title = title
         self._record_progress()
@@ -108,13 +127,28 @@ class ObjectCommandExecutor:
         (self.output / "progress.json").write_text(json.dumps(self.events, indent=2))
 
     def move(self, command: MoveCommand) -> None:
+        """Drive an object to a goal position, absolute or reference-relative, and optionally an orientation.
+
+        Args:
+            command: Move command with the object name and goal.
+        """
         self._drive_pose(command.name, self._move_goal(command), command.orientation, command)
 
     def lift(self, command: LiftCommand) -> None:
+        """Raise an object to a target height while keeping its horizontal position.
+
+        Args:
+            command: Lift command with the object name and target height.
+        """
         t_W = self.env.arena_world.get_position_w(command.name)[0].tolist()
         self._drive_pose(command.name, [t_W[0], t_W[1], command.height], None, command)
 
     def joint(self, command: JointCommand) -> None:
+        """Drive one joint of an articulated object to a goal position over a duration.
+
+        Args:
+            command: Joint command with the object, joint name, goal and controller gains.
+        """
         from isaaclab_arena.utils.joint_utils import unnormalize_joint_position
 
         name = command.name
@@ -140,6 +174,11 @@ class ObjectCommandExecutor:
         self.step(90)
 
     def release(self, command: ReleaseCommand) -> None:
+        """Stop applying forces to an object, or to one of its joints.
+
+        Args:
+            command: Release command naming the object and optionally a joint.
+        """
         if command.joint_name is not None:
             self._release_joint(command.name, command.joint_name)
         else:
@@ -149,6 +188,12 @@ class ObjectCommandExecutor:
             term.process_actions(action)
 
     def check(self, index: int, timeout_steps: int = 600) -> None:
+        """Step until a task subtask reports completion.
+
+        Args:
+            index: Index of the subtask to wait for.
+            timeout_steps: Maximum number of physics steps to wait.
+        """
         for _ in range(math.ceil(timeout_steps / self.env.cfg.decimation)):
             if self._task_completion()[0, index].item():
                 return
@@ -162,6 +207,11 @@ class ObjectCommandExecutor:
         )
 
     def wait_final(self, timeout_steps: int = 1200) -> None:
+        """Step until the overall task success condition holds or the step budget runs out.
+
+        Args:
+            timeout_steps: Maximum number of physics steps to wait.
+        """
         from isaaclab_arena.tasks.terminations import task_success_from_progress
 
         for _ in range(math.ceil(timeout_steps / self.env.cfg.decimation)):
@@ -170,6 +220,7 @@ class ObjectCommandExecutor:
             self.step()
 
     def inspect(self) -> None:
+        """Print the current object state as a JSON line."""
         print(
             "OBJECT_CONTROL_STATE",
             json.dumps(self._collect_state()),
@@ -182,7 +233,13 @@ class ObjectCommandExecutor:
         joint_setups: Sequence[SetupJointCommand] = (),
         report_mode: str = "object_control_commands",
     ) -> None:
-        """Execute validated commands after holding configured joints through initial settling."""
+        """Execute validated commands after holding configured joints through initial settling.
+
+        Args:
+            commands: Validated runtime commands to execute in order.
+            joint_setups: Joint setup commands whose joints are held during initial settling.
+            report_mode: Kind of report to write once the commands finish.
+        """
         try:
             self._hold_reset_joint_positions(joint_setups)
             self.step(240)
@@ -481,7 +538,12 @@ class ObjectCommandExecutor:
 
 
 def configure_object_command_executor(env_cfg, joint_setups: tuple[SetupJointCommand, ...]) -> None:
-    """Configure scene assets and force actions required by ``ObjectCommandExecutor``."""
+    """Configure scene assets and force actions required by ``ObjectCommandExecutor``.
+
+    Args:
+        env_cfg: Environment configuration to modify.
+        joint_setups: Joint setup commands that configure the scene assets.
+    """
     _apply_joint_setups(env_cfg, joint_setups)
     _configure_force_actions(env_cfg)
 

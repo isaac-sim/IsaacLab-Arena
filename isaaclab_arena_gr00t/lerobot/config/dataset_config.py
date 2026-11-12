@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration of the dataset converted from Isaac Lab HDF5 recordings to the GR00T LeRobot format."""
+
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -11,6 +13,8 @@ from pathlib import Path
 @dataclass
 class Gr00tDatasetConfig:
     # Datasets & task specific parameters
+    """Configuration of the HDF5 source data and LeRobot target dataset for GR00T fine-tuning."""
+
     data_root: Path = field(
         default=Path("~/datasets"),
         metadata={"description": "Root directory for all data storage."},

@@ -4,15 +4,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # %%
-from __future__ import annotations
-
-# pyright: reportArgumentType=false, reportCallIssue=false, reportAttributeAccessIssue=false
-
 """Example notebook demonstrating no-overlap with real Isaac Sim objects."""
+
+from __future__ import annotations
 
 # NOTE: When running as a notebook, first run this cell to launch the simulation app:
 import pinocchio  # noqa: F401
 from isaaclab.app import AppLauncher
+
+# pyright: reportArgumentType=false, reportCallIssue=false, reportAttributeAccessIssue=false
+
 
 print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
@@ -166,7 +167,14 @@ def run_isaac_sim_no_collision_demo(
 
 
 def smoke_test_isaac_sim_no_collision(simulation_app: SimulationApp) -> bool:
-    """Smoke test: run no-overlap demo with Isaac Sim objects (minimal steps)."""
+    """Smoke test: run no-overlap demo with Isaac Sim objects (minimal steps).
+
+    Args:
+        simulation_app: The running simulation application.
+
+    Returns:
+        True when the demo completes.
+    """
     run_isaac_sim_no_collision_demo(num_steps=2)
     return True
 

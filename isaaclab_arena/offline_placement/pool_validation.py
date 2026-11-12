@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Validation of pooled placement layouts by stepping physics and checking required solver and settling results."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -87,7 +89,16 @@ def step_placement_physics(
     render: bool = False,
     log_progress: bool = False,
 ) -> None:
-    """Advance num_steps × decimation physics steps with optional progress reporting."""
+    """Advance num_steps × decimation physics steps with optional progress reporting.
+
+    Args:
+        env: Environment to step.
+        num_steps: Number of control steps to advance; each covers one decimation interval.
+        batch_index: Index of the current batch, used in progress messages.
+        num_batches: Total number of batches, used in progress messages.
+        render: Whether to render while stepping.
+        log_progress: Whether to print progress messages.
+    """
     num_steps *= env.cfg.decimation
     chunk_size = max(1, num_steps // 2 if log_progress else num_steps)
     for start in range(0, num_steps, chunk_size):
@@ -99,7 +110,14 @@ def step_placement_physics(
 
 
 def solver_validation_failure(layout: PlacementResult) -> str | None:
-    """Return a rejection reason for incomplete or failed required solver checks."""
+    """Return a rejection reason for incomplete or failed required solver checks.
+
+    Args:
+        layout: Placement result with its validation checklist.
+
+    Returns:
+        The rejection reason, or None when the layout passed.
+    """
     checklist = layout.validation_results
     missing = (checklist.required_checks or set()) - checklist.validation_results.keys()
     if missing:
@@ -124,9 +142,8 @@ def validate_pool_layouts(
         env: The Isaac Lab env.
         placement_pool: PooledObjectPlacer whose stored layouts are validated. When ``None`` it is derived from
             the env's registered pooled layouts.
-        settle_params: Settle-check tuning params. Defaults to
-            ``PhysicsSettleParams()`` when omitted.
-        render: When True, render each settle step so the sweep is visible in the GUI. Defaults to False.
+        settle_params: Settle-check tuning params; ``PhysicsSettleParams()`` when omitted.
+        render: When True, render each settle step so the sweep is visible in the GUI.
 
     Returns:
         ``(env_id, episode_index, checklist)`` for every layout, in ``(env_id, episode_index)`` order,
@@ -180,7 +197,11 @@ def _is_settled(validation_results: PlacementValidationResults) -> bool:
 
 
 def do_all_layouts_pass_and_settle(results: list[tuple[int, int, PlacementValidationResults]]) -> bool:
-    """Return whether there are layouts and every one ran and passed its required checks and settled."""
+    """Return whether there are layouts and every one ran and passed its required checks and settled.
+
+    Args:
+        results: Tuples of environment index, episode index and validation results.
+    """
     return bool(results) and all(
         _do_required_checks_pass(validation_results) and _is_settled(validation_results)
         for _, _, validation_results in results
@@ -188,7 +209,11 @@ def do_all_layouts_pass_and_settle(results: list[tuple[int, int, PlacementValida
 
 
 def print_validation_results(results: list[tuple[int, int, PlacementValidationResults]]) -> None:
-    """Print each layout's validation results and a pass/fail summary for a pool validation run."""
+    """Print each layout's validation results and a pass/fail summary for a pool validation run.
+
+    Args:
+        results: Tuples of environment index, episode index and validation results.
+    """
     if not results:
         print("Placement pool has no layouts to validate.")
         return

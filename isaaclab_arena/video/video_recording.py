@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Options and helpers for recording rollout videos."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -42,6 +44,12 @@ def timestamped_run_dir(base_dir: str) -> str:
 
     Mirrors Isaac Lab's log layout so repeated runs land in distinct folders. Call once per run and
     share the result across recorders (and, for the Experiment Runner, across jobs).
+
+    Args:
+        base_dir: Parent directory of the run directory.
+
+    Returns:
+        The path of the timestamped subdirectory. The directory is not created.
     """
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     return os.path.join(base_dir, timestamp)

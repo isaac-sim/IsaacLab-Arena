@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Dexsuite lift environment with a Kuka-Allegro hand."""
+
 from __future__ import annotations
 
 import math
@@ -42,7 +44,11 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[ArenaEnvironmentCfg]):
     _legacy_argparse_cfg_type = ArenaEnvironmentCfg
 
     def build(self, cfg: ArenaEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         import isaaclab_tasks.core.lift  # noqa: F401
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

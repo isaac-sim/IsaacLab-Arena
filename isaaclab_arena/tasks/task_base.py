@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Abstract base class for tasks, which define scene additions, events, terminations and metrics."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -25,10 +27,20 @@ if TYPE_CHECKING:
 
 
 class TaskBase(ABC):
+    """Base class for a task: the goal, success and failure conditions, and episode setup of an environment.
+
+    Subclasses implement the abstract `get_*_cfg` methods to supply Isaac Lab manager configurations.
+    """
 
     DEFAULT_EPISODE_LENGTH_S: float = 70.0
 
     def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
+        """Initialize the task.
+
+        Args:
+            episode_length_s: Episode time limit in seconds. Falls back to `DEFAULT_EPISODE_LENGTH_S` when None.
+            task_description: Natural-language description of the task, or None if there is none.
+        """
         self.episode_length_s = episode_length_s if episode_length_s is not None else self.DEFAULT_EPISODE_LENGTH_S
         self.task_description = task_description
 
@@ -44,50 +56,67 @@ class TaskBase(ABC):
 
     @abstractmethod
     def get_events_cfg(self) -> Any:
+        """Return the Isaac Lab event configuration for this task."""
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
     def get_mimic_env_cfg(self, arm_mode: ArmMode) -> Any:
+        """Return the Isaac Lab Mimic environment configuration for this task.
+
+        Args:
+            arm_mode: Which arm or arms of the embodiment the Mimic subtasks are generated for.
+        """
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
     def get_metrics(self) -> list[MetricBase]:
+        """Return the metrics computed for this task."""
         raise NotImplementedError("Function not implemented yet.")
 
     def get_observation_cfg(self) -> Any:
-        return None
+        """Return the observation configuration this task adds, or None if it adds none."""
+        return None  # noqa: R501
 
     def get_tracked_events(self) -> list[TrackedEventCfg]:
         """Return recurring observations that do not affect task success or termination."""
         return []
 
     def get_rewards_cfg(self) -> Any:
-        return None
+        """Return the reward configuration of this task, or None if it defines no rewards."""
+        return None  # noqa: R501
 
     def get_curriculum_cfg(self) -> Any:
-        return None
+        """Return the curriculum configuration of this task, or None if it has no curriculum."""
+        return None  # noqa: R501
 
     def get_commands_cfg(self) -> Any:
-        return None
+        """Return the command configuration of this task, or None if it defines no commands."""
+        return None  # noqa: R501
 
     def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
-        return None
+        """Return the recorder configuration this task adds, or None if it adds none."""
+        return None  # noqa: R501
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return the viewer camera configuration for this task."""
         return ViewerCfg()
 
     def get_episode_length_s(self) -> float:
+        """Return the episode time limit in seconds."""
         return self.episode_length_s
 
     def get_task_description(self) -> str | None:
+        """Return the natural-language task description, or None if there is none."""
         return self.task_description
 
     def configure_for_embodiment(self, embodiment: EmbodimentBase) -> None:
-        """Configure this task with interfaces owned by the selected embodiment.
+        """Configure this task with the interfaces owned by the selected embodiment.
 
-        Tasks and embodiments are constructed independently. The environment builder calls this hook after
-        selecting both; otherwise, embodiment-dependent predicates would retain unset dependencies or require
-        tasks to depend on a concrete robot.
+        The base implementation does nothing. Tasks and embodiments are constructed independently, so a task
+        that depends on its embodiment overrides this to receive it.
+
+        Args:
+            embodiment: The embodiment the task is paired with.
         """
         pass
 

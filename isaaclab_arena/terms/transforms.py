@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Observation terms for poses of articulation links and assets, expressed in other frames."""
+
 from __future__ import annotations
 
 import torch
@@ -23,7 +25,17 @@ def transform_pose_from_world_to_target_frame(
     target_frame_name: str,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
-    """Get the pose of the target link in the specified target frame."""
+    """Get the pose of the target link in the specified target frame.
+
+    Args:
+            env: The environment.
+            target_link_name: Name of the articulation link whose pose is returned.
+            target_frame_name: Name of the articulation link that defines the frame the pose is expressed in.
+            asset_cfg: Scene entity of the articulation that holds both links.
+
+        Returns:
+            Homogeneous pose matrices of the link in the target frame, with shape (num_envs, 4, 4).
+    """
     asset: Articulation = env.scene[asset_cfg.name]
     assert (
         target_link_name in asset.data.body_names
@@ -61,7 +73,17 @@ def get_target_link_position_in_target_frame(
     target_frame_name: str = "pelvis",
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
-    """Get the position of the target link in the target frame."""
+    """Get the position of the target link in the target frame.
+
+    Args:
+            env: The environment.
+            target_link_name: Name of the articulation link whose position is returned.
+            target_frame_name: Name of the articulation link that defines the frame the position is expressed in.
+            asset_cfg: Scene entity of the articulation that holds both links.
+
+        Returns:
+            Link positions in the target frame, with shape (num_envs, 3).
+    """
     target_link_pose_target_frame = transform_pose_from_world_to_target_frame(
         env, target_link_name, target_frame_name, asset_cfg
     )
@@ -77,7 +99,17 @@ def get_target_link_quaternion_in_target_frame(
     target_frame_name: str = "pelvis",
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
-    """Get the quaternion of the target link in the target frame."""
+    """Get the quaternion of the target link in the target frame.
+
+    Args:
+            env: The environment.
+            target_link_name: Name of the articulation link whose orientation is returned.
+            target_frame_name: Name of the articulation link that defines the frame the orientation is expressed in.
+            asset_cfg: Scene entity of the articulation that holds both links.
+
+        Returns:
+            Link orientations as quaternions in the target frame, with shape (num_envs, 4).
+    """
     target_link_pose_target_frame = transform_pose_from_world_to_target_frame(
         env, target_link_name, target_frame_name, asset_cfg
     )
@@ -91,7 +123,14 @@ def get_target_link_quaternion_in_target_frame(
 def get_navigate_cmd(
     env: ManagerBasedEnv,
 ) -> torch.Tensor:
-    """Get the navigate command."""
+    """Get the navigate command.
+
+    Args:
+            env: The environment.
+
+        Returns:
+            A copy of the current navigation command of the G1 action term.
+    """
     return env.action_manager.get_term("g1_action").navigate_cmd.clone()
 
 
@@ -99,7 +138,15 @@ def get_asset_position(
     env: ManagerBasedEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
-    """Get the robot position."""
+    """Get the robot position.
+
+    Args:
+            env: The environment.
+            asset_cfg: Scene entity of the asset.
+
+        Returns:
+            Root positions in the world frame, with shape (num_envs, 3).
+    """
     asset: Articulation = env.scene[asset_cfg.name]
     return wp.to_torch(asset.data.root_pos_w)
 
@@ -108,6 +155,14 @@ def get_asset_quaternion(
     env: ManagerBasedEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
-    """Get the robot quaternion."""
+    """Get the robot quaternion.
+
+    Args:
+            env: The environment.
+            asset_cfg: Scene entity of the asset.
+
+        Returns:
+            Root orientations as quaternions in the world frame, with shape (num_envs, 4).
+    """
     asset: Articulation = env.scene[asset_cfg.name]
     return wp.to_torch(asset.data.root_quat_w)

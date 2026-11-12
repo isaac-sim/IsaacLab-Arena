@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers that step physics and check whether objects have settled."""
+
 from __future__ import annotations
 
 import torch
@@ -18,8 +20,7 @@ def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> 
     Args:
         env: The Isaac Lab env to step.
         num_steps: Number of physics steps to advance.
-        render: When True, render each step so the settle is visible in the GUI. Defaults to
-            False (physics-only).
+        render: When True, render each step so the settle is visible in the GUI.
     """
     dt = env.unwrapped.sim.get_physics_dt()
     # Write scene data each substep while bypassing env.step() and its episode recorders.
@@ -36,7 +37,18 @@ def are_all_objects_settled_per_env(
     lin_vel_thresh: float,
     ang_vel_thresh: float,
 ) -> list[bool]:
-    """Settled check for a batch of envs, reading each object's velocity once per env in parallel."""
+    """Settled check for a batch of envs, reading each object's velocity once per env in parallel.
+
+    Args:
+        env: Environment holding the objects.
+        env_ids: Environments to check.
+        object_names: Scene names of the objects that must be at rest.
+        lin_vel_thresh: Maximum linear speed of a settled object, in m/s.
+        ang_vel_thresh: Maximum angular speed of a settled object, in rad/s.
+
+    Returns:
+        For each environment, whether all objects are settled.
+    """
     from isaaclab_arena.tasks.predicates.object_settling import compute_objects_settled_mask
 
     if not env_ids:

@@ -7,5 +7,9 @@
 
 
 def is_single_line_nonempty_string(value: object) -> bool:
-    """Return whether a value is a non-empty string without line breaks."""
+    """Return whether a value is a non-empty string without line breaks.
+
+    Args:
+        value: Value to check.
+    """
     return isinstance(value, str) and bool(value) and "\n" not in value and "\r" not in value

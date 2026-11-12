@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Recorder terms that export camera, action, episode identity, end-effector and gripper data."""
+
 from __future__ import annotations
 
 import torch
@@ -30,6 +32,7 @@ class PreStepFlatCameraObservationsRecorder(RecorderTerm):
     """Recorder term that records the camera observations in each step."""
 
     def record_pre_step(self):
+        """Return the camera observation group of the observation buffer."""
         return "camera_obs", self._env.obs_buf["camera_obs"]
 
 
@@ -49,6 +52,10 @@ class PostStepFlatPolicyActionObservationRecorder(RecorderTerm):
     """
 
     def record_post_step(self):
+        """Return the `action` observation group after each step.
+
+        Returns a pair of None values when the observation buffer has no `action` group.
+        """
         obs_buf = getattr(self._env, "obs_buf", None)
         if not isinstance(obs_buf, dict) or "action" not in obs_buf:
             return None, None
@@ -79,6 +86,11 @@ class EpisodeIdentityRecorder(RecorderTerm):
     """
 
     def record_pre_reset(self, env_ids: Sequence[int] | None):
+        """Return the environment index and the episode index within that environment of each resetting episode.
+
+        Args:
+            env_ids: Indices of the environments that are about to reset; all environments when None.
+        """
         env_ids = list(range(self._env.num_envs)) if env_ids is None else [int(env_id) for env_id in env_ids]
         # Runs before the env advances its counters, so this is still the finishing episode's index.
         episode_indices = [self._env.get_episode_index(env_id) for env_id in env_ids]
@@ -99,10 +111,16 @@ class EndEffectorPosesRecorder(RecorderTerm):
     """Recorder term that exports end-effector (and fingertip) poses and velocities from ``ee_frame``.
 
     Pose and velocity share the same env-aligned frame as scene ``root_pose`` / ``root_velocity``.
-    No-ops when the scene has no sensor named by :attr:`EndEffectorPosesRecorderCfg.frame_transformer_name`.
+    No-ops when the scene has no sensor named by `EndEffectorPosesRecorderCfg.frame_transformer_name`.
     """
 
     def __init__(self, cfg: RecorderTermCfg, env) -> None:
+        """Initialize the recorder term.
+
+        Args:
+            cfg: Recorder term configuration.
+            env: The environment being recorded.
+        """
         super().__init__(cfg, env)
         # Cached once: each tracked frame (EE, fingertips, ...) may sit on a different robot link.
         self._body_ids_by_frame: dict[str, int] | None = None
@@ -184,12 +202,23 @@ class EndEffectorPosesRecorder(RecorderTerm):
         return frames
 
     def record_post_reset(self, env_ids: Sequence[int] | None):
+        """Return the end-effector poses and velocities right after a reset.
+
+        Returns a pair of None values when the scene has no end-effector frame transformer.
+
+        Args:
+            env_ids: Indices of the environments that were reset; all environments when None.
+        """
         # Paired with record_post_step: without this, the pose right after reset (before the
         # first action) would never be recorded.
         poses = self._end_effector_poses(env_ids)
         return (None, None) if poses is None else ("initial_state/kinematics", poses)
 
     def record_post_step(self):
+        """Return the end-effector poses and velocities of all environments after each step.
+
+        Returns a pair of None values when the scene has no end-effector frame transformer.
+        """
         poses = self._end_effector_poses(env_ids=None)
         return (None, None) if poses is None else ("states/kinematics", poses)
 
@@ -257,11 +286,22 @@ class GripperStateRecorder(RecorderTerm):
         return states or None
 
     def record_post_reset(self, env_ids: Sequence[int] | None):
+        """Return the gripper openings right after a reset.
+
+        Returns a pair of None values when the embodiment has no binary gripper.
+
+        Args:
+            env_ids: Indices of the environments that were reset; all environments when None.
+        """
         # No action has been processed yet, so only the measured opening is meaningful here.
         states = self._gripper_states(env_ids, include_command=False)
         return (None, None) if states is None else ("initial_state/kinematics", states)
 
     def record_post_step(self):
+        """Return the gripper openings and commanded states of all environments after each step.
+
+        Returns a pair of None values when the embodiment has no binary gripper.
+        """
         states = self._gripper_states(None, include_command=True)
         return (None, None) if states is None else ("states/kinematics", states)
 
@@ -277,7 +317,7 @@ class GripperStateRecorderCfg(RecorderTermCfg):
 class TrajectoryRecorderTermsBaseCfg:
     """Recorder terms capturing per-step robot and object trajectories.
 
-    End-effector pose terms are not fields here: :func:`make_trajectory_recorder_terms_cfg` adds one
+    End-effector pose terms are not fields here: `make_trajectory_recorder_terms_cfg` adds one
     per tracked frame transformer, since embodiments with multiple end-effectors (e.g. bi-manual
     robots) need more than a single fixed field can hold.
     """

@@ -58,7 +58,14 @@ class AssetCatalogue:
 
 
 def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalogue:
-    """Collect registered embodiments, backgrounds, and pick-up objects from ``AssetRegistry``."""
+    """Collect registered embodiments, backgrounds, and pick-up objects from ``AssetRegistry``.
+
+    Args:
+        registry: Registry to read; None selects a new registry instance.
+
+    Returns:
+        The asset catalogue.
+    """
     registry = registry or AssetRegistry()
     catalogue = AssetCatalogue()
     # TODO(qianl): handle optional lights and hdr images.
@@ -130,7 +137,14 @@ class RelationCatalogue:
 def build_relation_catalogue(
     registry: ObjectRelationLibraryRegistry | None = None,
 ) -> RelationCatalogue:
-    """Collect agent-ready object relations from ``ObjectRelationLibraryRegistry``."""
+    """Collect agent-ready object relations from ``ObjectRelationLibraryRegistry``.
+
+    Args:
+        registry: Registry to read; None selects a new registry instance.
+
+    Returns:
+        The relation catalogue.
+    """
     registry = registry or ObjectRelationLibraryRegistry()
     catalogue = RelationCatalogue()
     for name in registry.get_all_keys():
@@ -194,7 +208,11 @@ class TaskCatalogue:
 
 
 def agent_ready_task_names(registry: TaskRegistry | None = None) -> frozenset[str]:
-    """Return ``TaskRegistry`` keys for tasks marked with ``@agent_ready``."""
+    """Return ``TaskRegistry`` keys for tasks marked with ``@agent_ready``.
+
+    Args:
+        registry: Registry to read; None selects a new registry instance.
+    """
     registry = registry or TaskRegistry()
     return frozenset(
         name for name in registry.get_all_keys() if getattr(registry.get_task_by_name(name), "agent_ready", False)
@@ -202,7 +220,14 @@ def agent_ready_task_names(registry: TaskRegistry | None = None) -> frozenset[st
 
 
 def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
-    """Collect agent_ready tasks from ``TaskRegistry``."""
+    """Collect agent_ready tasks from ``TaskRegistry``.
+
+    Args:
+        registry: Registry to read; None selects a new registry instance.
+
+    Returns:
+        The task catalogue.
+    """
     registry = registry or TaskRegistry()
     catalogue = TaskCatalogue()
     for name in sorted(agent_ready_task_names(registry)):

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""G1 lower-body policy running an OpenHomie neural network through ONNX."""
+
 import collections
 import numpy as np
 import pathlib
@@ -81,7 +83,15 @@ class G1HomiePolicyV2(WBCPolicy):
         self.yaw_cmd = self.config["rpy_cmd"][2]
 
     def compute_observation(self, observation: dict[str, Any]) -> tuple[np.ndarray, int]:
-        """Compute the observation vector from current state"""
+        """Compute the single-step observation vector from the current state.
+
+        Args:
+            observation: Dictionary of the current robot state, containing joint positions `q`, joint velocities `dq`,
+                `floating_base_pose` and `floating_base_vel`.
+
+        Returns:
+            The observation array of shape (num_envs, observation_dim) and the observation dimension.
+        """
         # Get body joint indices (excluding waist roll and pitch)
         self.gait_indices = torch.remainder(self.gait_indices + 0.02 * self.freq_cmd, 1.0)
         durations = torch.full_like(self.gait_indices, 0.5)

@@ -3,13 +3,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Torch device helpers."""
+
 from __future__ import annotations
 
 import torch
 
 
 def resolve_cuda_device(device: str | torch.device | None) -> torch.device:
-    """Pick an explicit CUDA device, defaulting to the current one."""
+    """Pick an explicit CUDA device, defaulting to the current one.
+
+    Args:
+        device: Device to use, or None for the current CUDA device.
+    """
     if device is not None:
         return torch.device(device)
     assert torch.cuda.is_available(), "Requires a CUDA GPU."

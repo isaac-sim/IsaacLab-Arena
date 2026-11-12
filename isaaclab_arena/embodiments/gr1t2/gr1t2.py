@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Fourier GR1T2 embodiments (joint position and PINK IK control) and their configs."""
+
 import tempfile
 import torch
 from collections.abc import Sequence
@@ -94,6 +96,14 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
+        """Create the GR1T2 embodiment with its scene, cameras, observations, events and XR config.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+        """
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         # TODO(xinjieyao, 2026.09.17): Add a gripper implementation for the GR1 embodiment.
         # Configuration structs
@@ -118,10 +128,7 @@ class GR1T2EmbodimentBase(EmbodimentBase):
 
 @register_asset
 class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
-    """Embodiment for the GR1T2 robot with joint position control.
-
-    By default uses tiled camera for efficient parallel evaluation.
-    """
+    """Embodiment for the GR1T2 robot with joint position control, using a tiled camera for efficient evaluation."""
 
     registry_name = "gr1_joint"
 
@@ -130,6 +137,12 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
     ):
+        """Create the GR1T2 embodiment with a joint position action and locked waist.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+        """
         super().__init__(enable_cameras, initial_pose)
         # Joint positional control
         self.action_config = GR1T2JointPositionActionCfg()
@@ -157,6 +170,12 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
     ):
+        """Create the GR1T2 embodiment with a PINK IK upper-body action and locked waist.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+        """
         super().__init__(enable_cameras, initial_pose)
         # Pink IK EEF control
         self.action_config = GR1T2ActionsCfg()
@@ -189,6 +208,7 @@ class GR1T2JointPositionActionCfg:
 # we copy out just the robot to allow composition with other scenes.
 @configclass
 class GR1T2SceneCfg:
+    """Scene config containing the GR1T2 robot."""
 
     # Humanoid robot w/ arms higher
     # Note (xinjieyao, 2025.10.06): This is the default robot pd gains, compatible with PINK IK EEF control
@@ -494,8 +514,7 @@ class GR1T2MimicEnv(IsaacLabArenaManagerBasedRLMimicEnv):
     def action_to_target_eef_pose(self, action: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Converts action (compatible with env.step) to a target pose for the end effector controller.
-        Inverse of @target_eef_pose_to_action. Usually used to infer a sequence of target controller poses
-        from a demonstration trajectory using the recorded actions.
+        Inverse of @target_eef_pose_to_action.
 
         Args:
             action: Environment action. Shape is (num_envs, action_dim).

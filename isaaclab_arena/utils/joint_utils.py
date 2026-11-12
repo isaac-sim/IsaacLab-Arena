@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers for reading and writing normalized and unnormalized joint positions of articulations."""
+
 from __future__ import annotations
 
 import torch
@@ -18,24 +20,49 @@ if TYPE_CHECKING:
 
 
 def normalize_value(value: torch.Tensor, min_value: float, max_value: float) -> torch.Tensor:
-    """Normalize a value to the range [0, 1] given min and max bounds."""
+    """Normalize a value to the range [0, 1] given min and max bounds.
+
+    Args:
+        value: Value to normalize.
+        min_value: Lower bound of the range.
+        max_value: Upper bound of the range.
+    """
     return (value - min_value) / (max_value - min_value)
 
 
 def unnormalize_value(value: float, min_value: float, max_value: float) -> float:
-    """Unnormalize a value from [0, 1] back to the original range."""
+    """Unnormalize a value from [0, 1] back to the original range.
+
+    Args:
+        value: Normalized value in [0, 1].
+        min_value: Lower bound of the target range.
+        max_value: Upper bound of the target range.
+    """
     return min_value + (max_value - min_value) * value
 
 
 def unnormalize_joint_position(normalized_position: float, joint_min: float, joint_max: float) -> float:
-    """Convert a normalized joint position to radians or meters."""
+    """Convert a normalized joint position to radians or meters.
+
+    The scale is inverted when the joint's lower limit is negative.
+
+    Args:
+        normalized_position: Normalized joint position in [0, 1].
+        joint_min: Lower joint limit.
+        joint_max: Upper joint limit.
+    """
     if joint_min < 0.0:
         normalized_position = 1 - normalized_position
     return unnormalize_value(normalized_position, joint_min, joint_max)
 
 
 def get_joint_index_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> int:
-    """Get the index of a joint from the asset config."""
+    """Get the index of a joint from the asset config.
+
+    Args:
+        env: Environment that owns the articulation.
+        asset_cfg: Scene entity naming the articulation and exactly one joint.
+    """
     articulation = env.unwrapped.scene.articulations[asset_cfg.name]
     assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
     joint_index = articulation.data.joint_names.index(asset_cfg.joint_names[0])
@@ -43,13 +70,26 @@ def get_joint_index_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityC
 
 
 def get_articulation_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> Articulation:
-    """Get the articulation from the asset config."""
+    """Get the articulation from the asset config.
+
+    Args:
+        env: Environment that owns the articulation.
+        asset_cfg: Scene entity naming the articulation.
+    """
     articulation = env.unwrapped.scene.articulations[asset_cfg.name]
     return articulation
 
 
 def get_joint_position_limits_from_articulation(articulation: Articulation, joint_index: int) -> tuple[float, float]:
-    """Get the position limits of a joint from the articulation."""
+    """Get the position limits of a joint from the articulation.
+
+    Args:
+        articulation: Articulation that owns the joint.
+        joint_index: Index of the joint.
+
+    Returns:
+        Lower and upper position limit of the joint.
+    """
     joint_position_limits = wp.to_torch(articulation.data.joint_pos_limits)[0, joint_index, :]
     joint_min, joint_max = joint_position_limits[0], joint_position_limits[1]
     return joint_min, joint_max
@@ -72,14 +112,24 @@ def get_joint_position_from_articulation(articulation: Articulation, joint_name:
 
 
 def get_unnormalized_joint_position(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
-    """Get a joint's position in radians (revolute) or meters (prismatic)."""
+    """Get a joint's position in radians (revolute) or meters (prismatic).
+
+    Args:
+        env: Environment that owns the articulation.
+        asset_cfg: Scene entity naming the articulation and exactly one joint.
+    """
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
     return get_joint_position_from_articulation(articulation, asset_cfg.joint_names[0])
 
 
 def get_normalized_joint_position(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
-    """Get the normalized position of a joint (in range [0, 1])."""
+    """Get the normalized position of a joint (in range [0, 1]).
+
+    Args:
+        env: Environment that owns the articulation.
+        asset_cfg: Scene entity naming the articulation and exactly one joint.
+    """
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
     unnormalized_joint_position = get_unnormalized_joint_position(env, asset_cfg)
@@ -97,7 +147,14 @@ def set_unnormalized_joint_position(
     target_joint_position_unnormlized: float,
     env_ids: torch.Tensor | None = None,
 ) -> None:
-    """Set the position of a joint using an unnormalized value (in radians)."""
+    """Set the position of a joint using an unnormalized value (in radians).
+
+    Args:
+        env: Environment that owns the articulation.
+        asset_cfg: Scene entity naming the articulation and exactly one joint.
+        target_joint_position_unnormlized: Target joint position in radians or meters.
+        env_ids: Environments to write, or None for all environments.
+    """
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
     # Duplicate data for each environment
@@ -123,7 +180,14 @@ def set_unnormalized_joint_position(
 def set_normalized_joint_position(
     env: ManagerBasedEnv, asset_cfg: SceneEntityCfg, target_joint_position: float, env_ids: torch.Tensor | None = None
 ) -> None:
-    """Set the position of a joint using a normalized value (in range [0, 1])."""
+    """Set the position of a joint using a normalized value (in range [0, 1]).
+
+    Args:
+        env: Environment that owns the articulation.
+        asset_cfg: Scene entity naming the articulation and exactly one joint.
+        target_joint_position: Target joint position, normalized to [0, 1].
+        env_ids: Environments to write, or None for all environments.
+    """
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
     joint_min, joint_max = get_joint_position_limits_from_articulation(articulation, joint_index)

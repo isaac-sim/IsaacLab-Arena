@@ -70,7 +70,7 @@ DEFAULT_ENDPOINT_NAME = PUBLIC_ENDPOINT.name
 
 
 def resolve_inference_endpoint(name: str | None = None) -> InferenceEndpoint:
-    """Return the inference endpoint named by ``name``, the environment, or the default.
+    """Return the inference endpoint named by ``name``, else the environment, else the public one.
 
     Args:
         name: Endpoint name, or ``None`` to read ``ARENA_INFERENCE_ENDPOINT`` and fall back
@@ -133,9 +133,9 @@ class InferenceBackend:
         Args:
             api_key: API token for the inference endpoint. Falls back to the environment
                 variable the selected endpoint reads.
-            model: Model identifier passed to the chat completion API. Defaults to the
+            model: Model identifier passed to the chat completion API. Falls back to the
                 selected endpoint's model.
-            base_url: OpenAI-compatible inference endpoint. Defaults to the selected
+            base_url: OpenAI-compatible inference endpoint. Falls back to the selected
                 endpoint's base URL.
             temperature: Sampling temperature for completion requests.
             max_tokens: Maximum tokens in each completion response.
@@ -273,7 +273,11 @@ def _unwrap_provider_envelope(data: Any, schema: dict[str, Any]) -> Any:
 
 
 def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
-    """Return ``model_cls``'s JSON schema munged for OpenAI strict mode."""
+    """Return ``model_cls``'s JSON schema munged for OpenAI strict mode.
+
+    Args:
+        model_cls: Pydantic model class to describe.
+    """
     schema = copy.deepcopy(model_cls.model_json_schema())
     _apply_strict_constraints(schema)
     return schema

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Factory for the whole-body controller policies."""
+
 from isaaclab_arena_g1.g1_env.robot_model import RobotModel
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.config.configs import BaseConfig
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy

@@ -56,6 +56,11 @@ DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
+    """Add the agentic environment generation runner arguments to a parser.
+
+    Args:
+        parser: The argument parser to add the argument group to.
+    """
     from isaaclab_arena.agentic_environment_generation.simready_search_interface import SimReadySourceKind
 
     group = parser.add_argument_group("Agentic Environment Generation Runner")
@@ -148,7 +153,14 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
 
 
 def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
-    """Resolve a prompt into an environment graph spec YAML, or None when the prompt cannot be met."""
+    """Generate an environment graph spec YAML from a prompt, or return None when the prompt cannot be met.
+
+    Args:
+        args_cli: Parsed command-line arguments holding the prompt, search settings and output directory.
+
+    Returns:
+        Path of the written environment graph spec YAML, or None when the agent returned an invalid spec.
+    """
     from isaaclab_arena.agentic_environment_generation.catalogues import (
         build_asset_catalogue,
         build_relation_catalogue,
@@ -274,7 +286,11 @@ def _iter_printable_assets(spec: ArenaEnvGraphSpec):
 
 
 def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
-    """Print the generated graph in a human-readable tabular layout."""
+    """Print the generated graph in a human-readable tabular layout.
+
+    Args:
+        spec: The environment graph spec to print.
+    """
     print(f"\n=== ArenaEnvGraphSpec (env_name={spec.env_name!r}) ===")
 
     print("\nassets:")
@@ -302,7 +318,15 @@ def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
 
 
 def build_env_from_env_graph_spec(env_graph_spec_path: Path, args_cli: argparse.Namespace) -> ManagerBasedEnv:
-    """Build a gymnasium env from an environment graph spec YAML."""
+    """Build a gymnasium env from an environment graph spec YAML.
+
+    Args:
+        env_graph_spec_path: Path to the environment graph spec YAML.
+        args_cli: Parsed command-line arguments holding the environment builder settings.
+
+    Returns:
+        The registered gym-wrapped environment.
+    """
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
@@ -320,7 +344,12 @@ def build_env_from_env_graph_spec(env_graph_spec_path: Path, args_cli: argparse.
 
 
 def run_zero_action_policy(env: ManagerBasedEnv, num_steps: int) -> None:
-    """Run the zero-action policy for a given number of steps."""
+    """Run the zero-action policy in the env for a given number of steps, then close the env.
+
+    Args:
+        env: The environment to step.
+        num_steps: Number of steps to run.
+    """
     import torch
 
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
@@ -341,7 +370,12 @@ def run_zero_action_policy(env: ManagerBasedEnv, num_steps: int) -> None:
 
 
 def build_env_and_run_policy(env_graph_spec_path: Path, args_cli: argparse.Namespace) -> None:
-    """Build the gym env from a graph spec YAML and run the zero-action policy."""
+    """Build the gym env from a graph spec YAML and run the zero-action policy.
+
+    Args:
+        env_graph_spec_path: Path to the environment graph spec YAML.
+        args_cli: Parsed command-line arguments holding the environment builder settings and the number of steps.
+    """
     env = build_env_from_env_graph_spec(env_graph_spec_path, args_cli)
     run_zero_action_policy(env, args_cli.num_steps)
 
@@ -355,6 +389,7 @@ def _resolved_graph_spec_yaml(args_cli: argparse.Namespace) -> Path:
 
 
 def main() -> int:
+    """Run the phase selected by `--mode` and return the process exit code."""
     parser = get_isaaclab_arena_cli_parser()
     add_agentic_env_gen_runner_cli_args(parser)
     args_cli = parser.parse_args()

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration dataclasses for the G1 whole-body controller policies."""
+
 from dataclasses import MISSING, asdict, dataclass
 from typing import Literal
 
@@ -14,6 +16,13 @@ class ArgsConfig:
     """Args Config for running the data collection loop."""
 
     def update(self, config_dict: dict, strict: bool = False, skip_keys: list[str] = []):
+        """Set the fields of this config from a dictionary.
+
+        Args:
+            config_dict: Mapping from field name to the new value.
+            strict: Whether keys that are not fields of this config are an error. If False, such keys are ignored.
+            skip_keys: Keys of `config_dict` to ignore.
+        """
         for k, v in config_dict.items():
             if k in skip_keys:
                 continue
@@ -25,11 +34,22 @@ class ArgsConfig:
 
     @classmethod
     def from_dict(cls, config_dict: dict, strict: bool = False, skip_keys: list[str] = []):
+        """Create a config instance with default values and update it from a dictionary.
+
+        Args:
+            config_dict: Mapping from field name to the value to set.
+            strict: Whether keys that are not fields of the config are an error. If False, such keys are ignored.
+            skip_keys: Keys of `config_dict` to ignore.
+
+        Returns:
+            The new config instance.
+        """
         instance = cls()
         instance.update(config_dict=config_dict, strict=strict, skip_keys=skip_keys)
         return instance
 
     def to_dict(self):
+        """Return the config fields as a dictionary."""
         return asdict(self)
 
 

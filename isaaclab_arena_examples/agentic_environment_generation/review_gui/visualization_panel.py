@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Streamlit panel that renders the visualization of the edited environment graph spec."""
+
 from __future__ import annotations
 
 import streamlit as st
@@ -24,7 +26,11 @@ def reset_viz_render_state() -> None:
 
 
 def render_visualization_panel(validation: SpecParseResult) -> None:
-    """Render the visualization panel in the right column as native Streamlit widgets."""
+    """Render the visualization panel as native Streamlit widgets.
+
+    Args:
+        validation: Validation result of the editor text; the visualization is shown when it is valid.
+    """
     st.subheader("Visualization")
     st.session_state.setdefault("background_panorama", False)
     controls_col, actions_col = st.columns([3, 1])

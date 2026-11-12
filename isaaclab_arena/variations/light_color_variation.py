@@ -46,6 +46,13 @@ class LightColorVariation(BuildTimeVariationBase):
         cfg: LightColorVariationCfg | None = None,
         name: str = "color",
     ):
+        """Initialize the variation.
+
+        Args:
+            light: The light to mutate.
+            cfg: Tunable parameters; ``None`` selects the standard parameters.
+            name: Identifier under which this variation is registered on the asset.
+        """
         super().__init__(cfg=cfg if cfg is not None else LightColorVariationCfg(), name=name)
         self._light = light
 

@@ -81,7 +81,7 @@ def resolve_settle_params(
 
     Args:
         assets: Placement and scene assets checked for clutter relations when ``has_clutter`` is omitted.
-        params: User settle settings, or None for scene-appropriate defaults.
+        params: User settle settings; None selects scene-appropriate settings.
         has_clutter: When set, skip scanning ``assets`` for ClutterOn.
     """
     if has_clutter is None:

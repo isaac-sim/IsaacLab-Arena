@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base class for legacy argparse-based environment factories."""
+
 from __future__ import annotations
 
 import argparse
@@ -23,14 +25,31 @@ class ExampleEnvironmentBase(ArenaEnvironmentFactory[ArenaEnvironmentCfgT]):
 
     @abstractmethod
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Build the environment from parsed CLI arguments.
+
+        Args:
+            args_cli: Parsed CLI arguments holding the environment configuration values.
+
+        Returns:
+            The built environment.
+        """
         # TODO(cvolk, 2026-07-03): [typed-config-migration] Deprecate this legacy argparse entry point; build(cfg) will
         # become the primary environment construction API.
         pass
 
     def build(self, cfg: ArenaEnvironmentCfgT) -> IsaacLabArenaEnvironment:
-        """Reject typed construction until a legacy external factory migrates."""
+        """Reject typed construction until a legacy external factory migrates.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         raise NotImplementedError(f"Legacy factory {type(self).__name__} only supports get_env(args_cli)")
 
     @abstractmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
+        """Add the environment's configuration flags to a parser.
+
+        Args:
+            parser: Parser that receives the flags.
+        """
         pass

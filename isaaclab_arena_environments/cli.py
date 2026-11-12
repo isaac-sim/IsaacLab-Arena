@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Command-line helpers for registering, parsing and building Arena environments."""
+
 from __future__ import annotations
 
 import argparse
@@ -58,7 +60,12 @@ def add_environment_cli_args(
     parser: argparse.ArgumentParser,
     environment_factory_type: type[ArenaEnvironmentFactory],
 ) -> None:
-    """Add legacy CLI flags for a typed or external environment factory."""
+    """Add legacy CLI flags for a typed or external environment factory.
+
+    Args:
+        parser: Parser that receives the flags.
+        environment_factory_type: Environment factory class whose configuration fields become flags.
+    """
     if issubclass(environment_factory_type, ExampleEnvironmentBase):
         environment_factory_type.add_cli_args(parser)
         return
@@ -88,7 +95,15 @@ def build_environment_from_cli(
     environment_factory_type: type[ArenaEnvironmentFactory],
     args_cli: argparse.Namespace,
 ) -> IsaacLabArenaEnvironment:
-    """Build an environment through its typed or external legacy CLI path."""
+    """Build an environment through its typed or external legacy CLI path.
+
+    Args:
+        environment_factory_type: Environment factory class to instantiate.
+        args_cli: Parsed CLI arguments holding the environment configuration values.
+
+    Returns:
+        The environment built by the factory.
+    """
     environment_factory = environment_factory_type()
     if isinstance(environment_factory, ExampleEnvironmentBase):
         return environment_factory.get_env(args_cli)
@@ -102,9 +117,6 @@ def parse_and_return_external_environment_from_string(
 
     Args:
         environment_path: The path to the environment class
-
-    Raises:
-        ValueError: If the environment path is not in the format "module_path:class_name"
 
     Returns:
         A tuple containing the environment name and factory class.
@@ -130,7 +142,12 @@ def parse_and_return_external_environment_from_string(
 
 
 def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[CliOverrideSpec]) -> None:
-    """Add each declared override to the CLI ``parser`` as a ``--flag``."""
+    """Add each declared override to the CLI parser as a ``--flag``.
+
+    Args:
+        parser: Parser that receives the flags.
+        override_specs: Overrides declared by a graph spec; each adds one string-valued flag.
+    """
     for override in override_specs:
         flag = f"--{override.arg}"
         assert flag not in parser._option_string_actions, (  # noqa: SLF001
@@ -146,6 +163,17 @@ def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[
 
 
 def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Add one subparser per registered environment, or the graph spec override flags when a spec is given.
+
+    Registers the environments first and pre-parses the known arguments to pick up an external environment class
+    path or a graph spec path.
+
+    Args:
+        args_parser: Parser to extend.
+
+    Returns:
+        The extended parser.
+    """
     ensure_environments_registered()
     env_registry = EnvironmentRegistry()
 
@@ -182,6 +210,14 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
 def get_isaaclab_arena_environments_cli_parser(
     args_parser: argparse.ArgumentParser | None = None,
 ) -> argparse.ArgumentParser:
+    """Create or extend the Arena CLI parser with the environment subparsers.
+
+    Args:
+        args_parser: Parser to extend. A new Arena CLI parser is created when omitted.
+
+    Returns:
+        The parser including the environment subparsers.
+    """
     if args_parser is None:
         args_parser = get_isaaclab_arena_cli_parser()
     # NOTE(alexmillane, 2025.09.04): This command adds subparsers for each example environment.
@@ -197,12 +233,11 @@ def get_arena_builder_from_cli(
     args_cli: argparse.Namespace,
     hydra_overrides: list[str] | None = None,
 ) -> ArenaEnvBuilder:
-    """Build an :class:`ArenaEnvBuilder` from parsed CLI args.
+    """Build an `ArenaEnvBuilder` from parsed CLI args.
 
     Args:
         args_cli: Parsed argparse namespace.
-        hydra_overrides: Optional Hydra variation override strings (e.g.
-            ``"light.hdr_image.enabled=true"``).
+        hydra_overrides: Optional Hydra variation override strings.
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
@@ -226,7 +261,15 @@ def get_arena_builder_from_cli(
 
 
 def arena_env_from_graph_spec(env_spec: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-    """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
+    """Build the arena env from a graph spec YAML, applying any CLI node overrides.
+
+    Args:
+        env_spec: Path to the graph spec YAML file.
+        args_cli: Parsed CLI arguments holding the override values and the camera flag.
+
+    Returns:
+        The environment described by the graph spec.
+    """
     # Graph specs may reference components registered by extension packages, so register first.
     ensure_environments_registered()
     spec = ArenaEnvGraphSpec.from_yaml(env_spec)

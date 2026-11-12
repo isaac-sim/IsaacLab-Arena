@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Pre-physics placement validators that check solved layouts against relations and collisions."""
+
 from __future__ import annotations
 
 import torch
@@ -64,6 +66,12 @@ class PrePhysicsPlacementValidator(base.PlacementValidator):
     geometry."""
 
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
+        """Create a validator.
+
+        Args:
+            params: Placement configuration.
+            visualizer: Optional visualizer that records validation results.
+        """
         self._params = params
         self._visualizer = visualizer
 
@@ -71,7 +79,10 @@ class PrePhysicsPlacementValidator(base.PlacementValidator):
     def is_available(cls, params: ObjectPlacerParams) -> bool:
         """Whether this validator can run for these params at build time; unavailable ones are delisted.
 
-        build_validators drops any registered validator that returns False. Defaults to True.
+        build_validators drops any registered validator that returns False.
+
+        Args:
+            params: Placement configuration.
         """
         return True
 
@@ -114,7 +125,7 @@ def build_validators(
 
     Args:
         params: Placement params injected into each registered validator.
-        visualizer: The caller's debug view, injected into each validator so a check can draw its
+        visualizer: The debug view, injected into each validator so a check can draw its
             own visualization layer on it; None when the run has no view.
     """
     registry = PlacementValidatorRegistry()
@@ -491,6 +502,12 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
     check = PlacementCheck.NO_OVERLAP
 
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
+        """Create a validator that checks that objects do not overlap.
+
+        Args:
+            params: Placement configuration.
+            visualizer: Optional visualizer that records validation results.
+        """
         super().__init__(params, visualizer)
         self._cpu_mesh_manager: WarpMeshAndSphereCache | None = None
 

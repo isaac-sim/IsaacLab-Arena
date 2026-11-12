@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Seeding and random-sampling helpers."""
+
 import hashlib
 import math
 import random
@@ -13,6 +15,9 @@ def derive_seed(*key_parts: object) -> int:
     """Derive an independent 64-bit torch seed from key parts such as ``(seed, env_id, candidate_id)``.
 
     Unlike ``seed + offset``, nearby keys never share a seed: ``derive_seed(42, 1)`` and ``derive_seed(43, 0)`` differ.
+
+    Args:
+        *key_parts: Values that identify the stream to seed.
     """
     digest = hashlib.sha256(":".join(str(part) for part in key_parts).encode()).digest()
     # Torch generator seeds are 64-bit, so keep the first 8 bytes of the digest.
@@ -20,7 +25,11 @@ def derive_seed(*key_parts: object) -> int:
 
 
 def get_random_rotation(generator: torch.Generator | None = None) -> float:
-    """Sample a uniform yaw in [-pi, pi) radians (rotation about Z)."""
+    """Sample a uniform yaw in [-pi, pi) radians (rotation about Z).
+
+    Args:
+        generator: Random generator for reproducible sampling, or None for the global generator.
+    """
     u = torch.rand(1, generator=generator).item()
     return (2.0 * u - 1.0) * math.pi
 
@@ -29,6 +38,10 @@ def get_rngs(num: int, base_seed: int | None) -> list[random.Random]:
     """Build num independent RNGs, reproducible under base_seed.
 
     base_seed=None falls back to system entropy (non-reproducible).
+
+    Args:
+        num: Number of generators.
+        base_seed: Seed from which the generators are derived, or None for system entropy.
     """
     assert num >= 1, f"num must be >= 1, got {num}"
     if base_seed is None:

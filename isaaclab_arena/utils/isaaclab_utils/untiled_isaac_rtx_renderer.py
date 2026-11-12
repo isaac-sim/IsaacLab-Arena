@@ -32,11 +32,23 @@ class UnTiledIsaacRtxRenderer(IsaacRtxRenderer):
         return {kind: supported[kind] for kind in (RenderBufferKind.RGB, RenderBufferKind.RGBA)}
 
     def prepare_cameras(self, stage, spec: CameraRenderSpec) -> None:
-        """Validate the camera before any renderer-specific stage changes."""
+        """Validate the camera before any renderer-specific stage changes.
+
+        Args:
+            stage: USD stage that holds the cameras.
+            spec: Camera render specification.
+        """
         assert_camera_cfg_compatible_with_independent_rendering(spec.cfg)
 
     def create_render_data(self, spec: CameraRenderSpec) -> list[IsaacRtxRenderData]:
-        """Create one RGB annotator and render product per environment."""
+        """Create one RGB annotator and render product per environment.
+
+        Args:
+            spec: Camera render specification.
+
+        Returns:
+            Render data for each environment.
+        """
         import omni.replicator.core as rep
 
         children = []
@@ -62,7 +74,12 @@ class UnTiledIsaacRtxRenderer(IsaacRtxRenderer):
         return children
 
     def set_outputs(self, render_data: list[IsaacRtxRenderData], output_data: dict[str, ProxyArray]) -> None:
-        """Bind each product to its slice of the shared camera output buffers."""
+        """Bind each product to its slice of the shared camera output buffers.
+
+        Args:
+            render_data: Render data for each environment.
+            output_data: Shared camera output buffers keyed by output name, with one row per environment.
+        """
         for i, child in enumerate(render_data):
             outputs = {name: ProxyArray(value.warp[i : i + 1]) for name, value in output_data.items()}
             super().set_outputs(child, outputs)
@@ -70,29 +87,52 @@ class UnTiledIsaacRtxRenderer(IsaacRtxRenderer):
     def update_camera_intrinsics(
         self, render_data: list[IsaacRtxRenderData], intrinsics: wp.array, parameters: wp.array
     ) -> None:
-        """Apply each environment's calibration to its independent render product."""
+        """Apply each environment's calibration to its independent render product.
+
+        Args:
+            render_data: Render data for each environment.
+            intrinsics: Camera intrinsic matrices, batched over environments on axis 0.
+            parameters: Calibration parameters, one environment per column.
+        """
         # Intrinsic matrices are batched on axis 0; calibration parameters store one environment per column.
         for i, child in enumerate(render_data):
             super().update_camera_intrinsics(child, intrinsics[i : i + 1], parameters[:, i : i + 1])
 
     def render(self, render_data: list[IsaacRtxRenderData]) -> None:
-        """Write each environment's pixels into its camera output slice."""
+        """Write each environment's pixels into its camera output slice.
+
+        Args:
+            render_data: Render data for each environment.
+        """
         self.render_batch([render_data])
 
     def render_batch(self, render_data: list[list[IsaacRtxRenderData]]) -> None:
-        """Render all camera products together using one shared RTX update."""
+        """Render all camera products together using one shared RTX update.
+
+        Args:
+            render_data: Render data for each environment of each camera.
+        """
         products = []
         for camera_data in render_data:
             products.extend(camera_data)
         super().render_batch(products)
 
     def read_output(self, render_data: list[IsaacRtxRenderData], camera_data: CameraData) -> None:
-        """Clear metadata for RGB/RGBA outputs, which carry no annotator metadata."""
+        """Clear metadata for RGB/RGBA outputs, which carry no annotator metadata.
+
+        Args:
+            render_data: Render data for each environment.
+            camera_data: Camera data whose metadata is cleared.
+        """
         for name in camera_data.info:
             camera_data.info[name] = None
 
     def cleanup(self, render_data: list[IsaacRtxRenderData] | None) -> None:
-        """Detach annotators and release every owned render product."""
+        """Detach annotators and release every owned render product.
+
+        Args:
+            render_data: Render data to release, or None.
+        """
         if render_data is not None:
             for child in render_data:
                 if child.render_product is not None:
@@ -100,7 +140,11 @@ class UnTiledIsaacRtxRenderer(IsaacRtxRenderer):
 
 
 def assert_camera_cfg_compatible_with_independent_rendering(camera_cfg: CameraCfg) -> None:
-    """Require an RTX RGB camera without ISP or a custom background."""
+    """Require an RTX RGB camera without ISP or a custom background.
+
+    Args:
+        camera_cfg: Camera configuration to check.
+    """
     assert isinstance(
         camera_cfg.renderer_cfg, IsaacRtxRendererCfg
     ), "Untiled Arena cameras require the Isaac RTX renderer"

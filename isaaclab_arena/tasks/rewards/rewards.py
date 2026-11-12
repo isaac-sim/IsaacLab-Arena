@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Reward terms for reinforcement learning tasks."""
+
 from __future__ import annotations
 
 import torch
@@ -21,7 +23,17 @@ def object_ee_distance(
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     ee_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame"),
 ) -> torch.Tensor:
-    """Reward the agent for reaching the object using tanh-kernel."""
+    """Reward the agent for reaching the object using tanh-kernel.
+
+    Args:
+            env: The environment.
+            std: Length scale in meters of the tanh kernel.
+            object_cfg: Scene entity of the object.
+            ee_frame_cfg: Scene entity of the end-effector frame.
+
+        Returns:
+            Reward with shape (num_envs,), which is 1 at zero distance and decays towards 0 with distance.
+    """
     object_position_w = env.arena_world.get_position_w(object_cfg.name)
 
     ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]

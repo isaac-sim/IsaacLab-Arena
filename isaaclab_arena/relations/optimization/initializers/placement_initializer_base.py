@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Initializer type enum and the abstract base class for placement initializers."""
+
 from __future__ import annotations
 
 import torch

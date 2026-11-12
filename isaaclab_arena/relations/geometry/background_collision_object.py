@@ -29,6 +29,12 @@ class FixedCollisionObject:
         mesh: trimesh.Trimesh,
         name: str = "fixed_collision_mesh",
     ) -> None:
+        """Create a fixed collision object from a mesh given in world coordinates.
+
+        Args:
+            mesh: Collision mesh, already expressed in the world frame.
+            name: Name of the collision object.
+        """
         self.name = name
         self.collision_mode = CollisionMode.MESH
         # Whole-scene fixed meshes should use raw geometry rather than convex-hull repair.

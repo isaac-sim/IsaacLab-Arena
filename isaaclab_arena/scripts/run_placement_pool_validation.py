@@ -30,7 +30,11 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 
 
 def add_pool_validation_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add settle-check tuning flags. Registered before the env subparser so they stay top-level."""
+    """Add settle-check tuning flags. Registered before the env subparser so they stay top-level.
+
+    Args:
+        parser: Argument parser to extend.
+    """
     group = parser.add_argument_group("Pool Validation Arguments")
     group.add_argument(
         "--settle_time_s",
@@ -61,6 +65,7 @@ def add_pool_validation_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def main() -> None:
+    """Parse the command line, build the environment and validate every layout in its placement pool."""
     args_parser = get_isaaclab_arena_cli_parser()
     # Add our flags before the env subparser, which must be registered last (its subcommand flags parse
     # after the top-level ones).

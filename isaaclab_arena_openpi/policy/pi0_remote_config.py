@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration dataclass for the openpi remote policy."""
+
 from dataclasses import dataclass
 
 from isaaclab_arena.policy.policy_base import PolicyCfg

@@ -10,7 +10,7 @@ its observed pose drifts from the calibrated reference, modelling a mounting or
 calibration error.
 
 Sampled decalibration vectors are expressed in the camera's ROS optical frame:
-+X right, +Y down, +Z forward. See :class:`CameraExtrinsicsVariationCfg` for the
++X right, +Y down, +Z forward. See ``CameraExtrinsicsVariationCfg`` for the
 sampler axis convention.
 """
 
@@ -66,7 +66,7 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
         cfg: Tunable parameters. Override the translation distribution via
             ``cfg.sampler_cfg``.
         name: Identifier under which this variation is registered on the asset.
-            Defaults to ``"camera_extrinsics_{camera_name}"``.
+            When omitted, it is derived from ``camera_name``.
     """
 
     cfg: CameraExtrinsicsVariationCfg
@@ -77,12 +77,21 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
         cfg: CameraExtrinsicsVariationCfg | None = None,
         name: str | None = None,
     ):
+        """Initialize the variation.
+
+        Args:
+            camera_name: Scene-entity name of the target camera.
+            cfg: Tunable parameters; ``None`` selects the standard parameters.
+            name: Identifier under which this variation is registered on the asset; ``None`` derives it from
+                ``camera_name``.
+        """
         cfg = cfg if cfg is not None else CameraExtrinsicsVariationCfg()
         name = name if name is not None else f"camera_extrinsics_{camera_name}"
         super().__init__(cfg=cfg, name=name)
         self.camera_name = camera_name
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        """Return the reset event term that offsets the camera's local position by a sampled translation."""
         assert self._sampler is not None, (
             f"CameraExtrinsicsVariation on '{self.camera_name}' is enabled but no sampler is set; "
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."
@@ -109,6 +118,13 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        """Bind the target camera and validate the sampler.
+
+        Args:
+            cfg: Event term cfg whose ``params`` hold ``asset_cfg`` (the camera) and ``sampler`` (a sampler of
+                3D translations).
+            env: The environment owning the camera.
+        """
         super().__init__(cfg, env)
 
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]

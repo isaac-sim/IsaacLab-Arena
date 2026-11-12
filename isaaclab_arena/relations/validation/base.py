@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Abstract base class for placement validators."""
+
 from abc import ABC
 from typing import ClassVar
 

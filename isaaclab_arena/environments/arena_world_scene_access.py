@@ -208,6 +208,12 @@ class SceneExtraPoseReader:
     """Read current T_W_F poses for an InteractiveScene.extras entry defining frame F."""
 
     def __init__(self, scene: InteractiveScene, scene_extra_key: str):
+        """Create a pose reader for one scene extra.
+
+        Args:
+            scene: Interactive scene that contains the scene extra.
+            scene_extra_key: Key of the entry in the scene's extras whose frame is read.
+        """
         assert (
             scene_extra_key in scene.extras
         ), f"Scene key '{scene_extra_key}' must be registered in InteractiveScene.extras."

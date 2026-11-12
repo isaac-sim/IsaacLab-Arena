@@ -109,17 +109,29 @@ _SDF_SENTINEL = 1.0e5
 
 
 def has_sdf_sentinel(sdf_values: torch.Tensor) -> bool:
-    """True when any query hit the no-face sentinel, so the collision result is unreliable."""
+    """True when any query hit the no-face sentinel, so the collision result is unreliable.
+
+    Args:
+        sdf_values: SDF query results.
+    """
     return bool((sdf_values >= _SDF_SENTINEL).any())
 
 
 def sdf_sentinel_count(sdf_values: torch.Tensor) -> int:
-    """Number of queries that hit the no-face sentinel."""
+    """Number of queries that hit the no-face sentinel.
+
+    Args:
+        sdf_values: SDF query results.
+    """
     return int((sdf_values >= _SDF_SENTINEL).sum().item())
 
 
 def clamp_sdf_sentinel(sdf_values: torch.Tensor) -> torch.Tensor:
-    """Replace sentinel SDF values with 0 so no-face hits produce a constant penalty with zero gradient."""
+    """Replace sentinel SDF values with 0 so no-face hits produce a constant penalty with zero gradient.
+
+    Args:
+        sdf_values: SDF query results.
+    """
     return torch.where(sdf_values >= _SDF_SENTINEL, torch.zeros_like(sdf_values), sdf_values)
 
 

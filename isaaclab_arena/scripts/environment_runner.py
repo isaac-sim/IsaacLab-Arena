@@ -113,7 +113,12 @@ def run_environment(
     simulation_app: SimulationAppContext,
     env: gym.Env,
 ) -> None:
-    """Reset once, then run one environment with zero actions until Kit closes."""
+    """Reset once, then run one environment with zero actions until Kit closes.
+
+    Args:
+        simulation_app: Simulation app context whose window ends the run when closed.
+        env: Gym-wrapped environment to run.
+    """
     env.reset()
     zero_actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
     rate_limiter = RateLimiter(period_seconds=env.unwrapped.step_dt)

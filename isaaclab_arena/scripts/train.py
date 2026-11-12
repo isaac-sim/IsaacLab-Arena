@@ -49,7 +49,14 @@ def _register_arena_task_for_rl_discovery(argv: list[str]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run Isaac Lab's unified trainer with Arena task discovery enabled."""
+    """Run Isaac Lab's unified trainer with Arena task discovery enabled.
+
+    Args:
+        argv: Command-line arguments; the process arguments are used when None.
+
+    Returns:
+        The exit code of the trainer.
+    """
     if argv is None:
         argv = sys.argv[1:]
     _register_arena_task_for_rl_discovery(argv)

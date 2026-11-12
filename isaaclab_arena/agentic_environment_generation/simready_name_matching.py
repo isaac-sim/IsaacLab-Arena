@@ -12,26 +12,44 @@ _NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
 
 
 def split_phrase_into_words(phrase: str) -> list[str]:
-    """Split a search phrase into its lowercase words, in order."""
+    """Split a search phrase into its lowercase words, in order.
+
+    Args:
+        phrase: Search phrase.
+    """
     return [word for word in _NON_ALPHANUMERIC.split(phrase.lower()) if word]
 
 
 def split_path_into_words(asset_path: str) -> frozenset[str]:
-    """Split an asset path into lowercase words, also splitting camelCase."""
+    """Split an asset path into lowercase words, also splitting camelCase.
+
+    Args:
+        asset_path: Path or name of an asset.
+    """
     # e.g. trashcan_wheeled_green_a01_01.usd -> trashcan wheeled green a01 01
     spaced = _CAMEL_CASE_BOUNDARY.sub(" ", asset_path)
     return frozenset(word for word in _NON_ALPHANUMERIC.split(spaced.lower()) if word)
 
 
 def path_words_match_singular_or_plural(word: str, path_words: frozenset[str]) -> bool:
-    """True if the word is one of the path words. A trailing "s" on either side is ignored."""
+    """True if the word is one of the path words. A trailing "s" on either side is ignored.
+
+    Args:
+        word: Word to look for.
+        path_words: Lowercase words of an asset path.
+    """
     if word in path_words or f"{word}s" in path_words:
         return True
     return word.endswith("s") and word[:-1] in path_words
 
 
 def count_phrase_words_in_path(phrase: str, asset_path: str) -> int:
-    """Count how many words of the phrase appear as whole words in the asset path."""
+    """Count how many words of the phrase appear as whole words in the asset path.
+
+    Args:
+        phrase: Search phrase.
+        asset_path: Path or name of an asset.
+    """
     path_words = split_path_into_words(asset_path)
     return sum(1 for word in split_phrase_into_words(phrase) if path_words_match_singular_or_plural(word, path_words))
 
@@ -41,6 +59,10 @@ def asset_name_matches_object(phrase: str, asset_name: str) -> bool:
 
     This is a conservative lexical check, not semantic classification. For example,
     "grey bin" cannot match "grey cabinet", while "spray gun" can match "spraygun".
+
+    Args:
+        phrase: Search phrase describing the object.
+        asset_name: Name of the candidate asset.
     """
     words = split_phrase_into_words(phrase)
     if not words:

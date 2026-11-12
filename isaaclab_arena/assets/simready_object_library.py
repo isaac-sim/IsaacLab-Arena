@@ -54,10 +54,10 @@ class SimReadyUsdObject(Object):
 
         Args:
             usd_path: USD path or URL of the SimReady asset.
-            name: Name of the object in the scene. Defaults to the registry name.
-            prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/<name>``.
+            name: Name of the object in the scene; derived from the registry name when omitted.
+            prim_path: Prim path of the object; derived from the name when omitted.
             initial_pose: Initial pose of the object.
-            scale: Scale of the object. Defaults to ``(1.0, 1.0, 1.0)``.
+            scale: Scale of the object; unit scale when omitted.
             spawn_cfg_addon: Additional USD spawn configuration.
             **kwargs: Extra arguments passed to ``Object``.
         """
@@ -84,7 +84,12 @@ class SimReadyUsdObject(Object):
 
 
 def simready_search_registry_name(search_phrase: str, usd_path: str) -> str:
-    """Return a stable catalogue name for a phrase and asset path."""
+    """Return a stable catalogue name for a phrase and asset path.
+
+    Args:
+        search_phrase: Phrase the asset was found for. It must contain at least one letter or digit.
+        usd_path: USD path or URL of the asset.
+    """
     slug = _NON_IDENTIFIER_CHARACTERS.sub("_", search_phrase.strip().lower()).strip("_")
     assert slug, f"search phrase {search_phrase!r} has no characters usable in a registry name"
     digest = hashlib.sha256(usd_path.encode()).hexdigest()[:16]

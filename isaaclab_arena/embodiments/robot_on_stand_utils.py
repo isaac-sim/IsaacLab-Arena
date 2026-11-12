@@ -47,7 +47,7 @@ class RobotPrimSpec:
 
 @dataclass(frozen=True)
 class StandPrimSpec:
-    """Stand USD reference, prim paths, and default dimensions."""
+    """Stand USD reference, prim paths, and native dimensions."""
 
     stand_usd_path: str
     ref_prim_path: str
@@ -75,7 +75,8 @@ def compose_on_stand_usd(
         stand: Stand reference and footprint parameters.
         stand_height_m: Target absolute stand height after align.
         output_basename: Stable basename for the composed USD (embodiment-specific).
-        stand_footprint_xy_m: Target footprint ``(x, y)`` dimensions in meters. ``None`` uses the default.
+        stand_footprint_xy_m: Target footprint ``(x, y)`` dimensions in meters.
+        ``None`` keeps the stand's native footprint.
 
     Returns:
         Local path to the composed on-stand USD.

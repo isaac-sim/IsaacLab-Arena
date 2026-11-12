@@ -42,6 +42,8 @@ UNGROUPED_TASK = "(ungrouped)"
 
 @dataclass(frozen=True)
 class EpisodeIdentity:
+    """Key identifying one recorded episode within a results directory."""
+
     result_source: str
     rebuild_index: int
     env_index: int
@@ -50,6 +52,8 @@ class EpisodeIdentity:
 
 @dataclass
 class EpisodeSummary:
+    """One recorded episode: its results record and the videos recorded for it, keyed by camera."""
+
     identity: EpisodeIdentity
     episode_index: int
     video_by_camera: dict[str, str]
@@ -57,25 +61,30 @@ class EpisodeSummary:
 
     @property
     def env_index(self) -> int:
+        """Index of the environment the episode ran in."""
         return self.identity.env_index
 
     @property
     def rebuild_index(self) -> int:
+        """Index of the environment rebuild the episode belongs to."""
         return self.identity.rebuild_index
 
     @property
     def success(self) -> bool | None:
+        """Recorded success flag, or `None` when the episode was not scored."""
         success = self.record.get("success")
         return success if isinstance(success, bool) else None
 
     @property
     def progress_fraction(self) -> float | None:
         # overall_score is recorded already normalized to [0, 1] by the progress tracker.
+        """Overall progress in [0, 1], or `None` when no progress score was recorded."""
         score = _as_float(_progress(self.record).get("overall_score"))
         return None if score is None else max(0.0, min(1.0, score))
 
     @property
     def all_criteria_complete(self) -> bool | None:
+        """Whether all completion criteria were recorded as complete, or `None` if unrecorded."""
         progress = self.record.get("progress")
         if not isinstance(progress, dict) or "all_complete" not in progress:
             return None
@@ -84,11 +93,13 @@ class EpisodeSummary:
 
     @property
     def outcome_disagrees_with_progress(self) -> bool:
+        """Whether the recorded success flag differs from the recorded all-criteria-complete flag."""
         success, complete = self.success, self.all_criteria_complete
         return success is not None and complete is not None and success != complete
 
     @property
     def metadata(self) -> dict[str, Any]:
+        """Record fields that are not otherwise rendered explicitly, excluding `None` values."""
         return {
             key: value
             for key, value in self.record.items()
@@ -178,6 +189,8 @@ class ConsecutiveStepSummary:
 
 @dataclass
 class FunnelStage:
+    """One predicate position of a completion criteria funnel and the number of instances that reached it."""
+
     index: int
     name: str
     num_reached: int
@@ -185,6 +198,8 @@ class FunnelStage:
 
 @dataclass
 class CompletionCriteriaFunnel:
+    """Per-predicate reach counts for one completion criteria family across episodes."""
+
     name: str
     num_instances: int
     stages: list[FunnelStage]
@@ -192,6 +207,8 @@ class CompletionCriteriaFunnel:
 
 @dataclass
 class PredicateSignal:
+    """Whether one predicate of a completion criteria sequence was triggered in one episode."""
+
     index: int
     name: str
     triggered: bool
@@ -202,6 +219,8 @@ class PredicateSignal:
 
 @dataclass
 class CompletionCriteriaProgress:
+    """Progress of one completion criteria instance in one episode."""
+
     name: str
     family: str
     score: float
@@ -212,6 +231,7 @@ class CompletionCriteriaProgress:
 
     @property
     def num_triggered(self) -> int:
+        """Number of predicate signals that were triggered."""
         return sum(1 for signal in self.signals if signal.triggered)
 
 
@@ -226,6 +246,8 @@ class RunExecutionReport:
 
 @dataclass
 class JobSummary:
+    """The episodes recorded for one Run, with aggregate success and progress statistics."""
+
     name: str
     task: str
     policy: str
@@ -246,18 +268,22 @@ class JobSummary:
 
     @property
     def num_episodes(self) -> int:
+        """Number of recorded episodes."""
         return len(self.episodes)
 
     @property
     def num_successes(self) -> int:
+        """Number of episodes recorded as successful."""
         return sum(1 for episode in self.episodes if episode.success is True)
 
     @property
     def num_scored_episodes(self) -> int:
+        """Number of episodes that have a recorded success flag."""
         return sum(1 for episode in self.episodes if episode.success is not None)
 
     @property
     def success_rate(self) -> float | None:
+        """Fraction of scored episodes that succeeded, or `None` when none were scored."""
         scored = self.num_scored_episodes
         return None if scored == 0 else self.num_successes / scored
 
@@ -268,14 +294,17 @@ class JobSummary:
 
     @property
     def mean_progress(self) -> float | None:
+        """Mean progress fraction over episodes with a progress score, or `None` when there are none."""
         return _mean(self.progress_fractions)
 
     @property
     def num_videos(self) -> int:
+        """Total number of videos recorded across episodes and cameras."""
         return sum(len(episode.video_by_camera) for episode in self.episodes)
 
     @functools.cached_property
     def funnels(self) -> list[CompletionCriteriaFunnel]:
+        """Completion criteria funnels, one per criteria family, sorted by family name."""
         instances_by_family: dict[str, set[tuple[int, int, str]]] = defaultdict(set)
         reached_by_family_index: dict[tuple[str, int], set[tuple[int, int, str]]] = defaultdict(set)
         for episode in self.episodes:
@@ -309,6 +338,14 @@ class JobSummary:
         return funnels
 
     def criteria_for(self, episode: EpisodeSummary) -> list[CompletionCriteriaProgress]:
+        """Return the completion criteria progress recorded for one episode.
+
+        Args:
+            episode: Episode of this Run to report on.
+
+        Returns:
+            One entry per completion criteria instance recorded for the episode.
+        """
         criteria_by_name = _progress_criteria(episode.record)
         names = list(criteria_by_name) if criteria_by_name else sorted(_event_criteria_names(episode.record))
         results = []
@@ -356,10 +393,17 @@ class JobSummary:
 
 @dataclass
 class TaskSummary:
+    """The Runs of one task, one per policy."""
+
     name: str
     jobs: list[JobSummary]
 
     def job_for_policy(self, policy: str) -> JobSummary | None:
+        """Return the Run for a policy, or `None` when the task has none.
+
+        Args:
+            policy: Policy label.
+        """
         for job in self.jobs:
             if job.policy == policy:
                 return job
@@ -367,11 +411,14 @@ class TaskSummary:
 
     @property
     def num_episodes(self) -> int:
+        """Total number of episodes across the task's Runs."""
         return sum(job.num_episodes for job in self.jobs)
 
 
 @dataclass
 class ExperimentSummary:
+    """All tasks, policies and Runs found in a results directory."""
+
     title: str
     tasks: list[TaskSummary]
     policies: list[str]
@@ -381,42 +428,64 @@ class ExperimentSummary:
 
     @property
     def jobs(self) -> list[JobSummary]:
+        """All Runs across tasks."""
         return [job for task in self.tasks for job in task.jobs]
 
     @property
     def num_episodes(self) -> int:
+        """Total number of episodes across all Runs."""
         return sum(job.num_episodes for job in self.jobs)
 
     @property
     def num_videos(self) -> int:
+        """Total number of videos across all Runs."""
         return sum(job.num_videos for job in self.jobs)
 
     @property
     def is_grouped(self) -> bool:
+        """Whether Runs were grouped into tasks and policies."""
         return self.grouping_source != "none" and bool(self.policies)
 
     def success_rate_for_policy(self, policy: str) -> float | None:
+        """Return the success rate over all scored episodes of a policy, or `None` if there are none.
+
+        Args:
+            policy: Policy label.
+        """
         jobs = [job for job in self.jobs if job.policy == policy]
         scored = sum(job.num_scored_episodes for job in jobs)
         return None if scored == 0 else sum(job.num_successes for job in jobs) / scored
 
     def mean_progress_for_policy(self, policy: str) -> float | None:
+        """Return the mean progress fraction over all episodes of a policy, or `None` if there are none.
+
+        Args:
+            policy: Policy label.
+        """
         return _mean([fraction for job in self.jobs if job.policy == policy for fraction in job.progress_fractions])
 
     def num_episodes_for_policy(self, policy: str) -> int:
+        """Return the number of episodes recorded for a policy.
+
+        Args:
+            policy: Policy label.
+        """
         return sum(job.num_episodes for job in self.jobs if job.policy == policy)
 
     @property
     def overall_success_rate(self) -> float | None:
+        """Success rate over all scored episodes, or `None` when none were scored."""
         scored = sum(job.num_scored_episodes for job in self.jobs)
         return None if scored == 0 else sum(job.num_successes for job in self.jobs) / scored
 
     @property
     def overall_mean_progress(self) -> float | None:
+        """Mean progress fraction over all episodes with a progress score, or `None` if none."""
         return _mean([fraction for job in self.jobs for fraction in job.progress_fractions])
 
     @property
     def num_progress_episodes(self) -> int:
+        """Number of episodes that have a progress score."""
         return sum(len(job.progress_fractions) for job in self.jobs)
 
 
@@ -429,18 +498,30 @@ class _ScannedJob:
 
 
 def run_status_to_lowercase_string(status: object) -> str:
-    """Return a run status string or enum value as a lowercase string."""
+    """Return a run status string or enum value as a lowercase string.
+
+    Args:
+        status: Run status, either a string or an enum whose `value` is the status.
+    """
     value = getattr(status, "value", status)
     return str(value).lower()
 
 
 def is_failed_execution(execution: RunExecutionReport) -> bool:
-    """Return whether a run execution record describes a failed run."""
+    """Return whether a run execution record describes a failed run.
+
+    Args:
+        execution: Run execution record.
+    """
     return run_status_to_lowercase_string(execution.status) == FAILED_STATUS
 
 
 def is_completed_execution(execution: RunExecutionReport) -> bool:
-    """Return whether a run execution record describes a completed run."""
+    """Return whether a run execution record describes a completed run.
+
+    Args:
+        execution: Run execution record.
+    """
     return run_status_to_lowercase_string(execution.status) == COMPLETED_STATUS
 
 
@@ -797,7 +878,19 @@ def build_experiment_summary(
     run_executions: list[RunExecutionReport] | None = None,
     policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
 ) -> ExperimentSummary:
-    """Scan ``root`` and aggregate recorded results into the report's data model."""
+    """Scan `root` and aggregate recorded results into the report's data model.
+
+    Runs whose execution failed are omitted.
+
+    Args:
+        root: Results directory to scan.
+        title: Title of the experiment.
+        run_executions: Execution records of the Runs, if known.
+        policy_suffixes: Policy label suffixes used to split Run names into task and policy.
+
+    Returns:
+        The aggregated experiment summary.
+    """
     root = pathlib.Path(root)
     scanned, issues = _scan_jobs(root)
     run_executions = list(run_executions or [])

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Cosmos embodiment adapter for the DROID robot."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -52,6 +54,15 @@ class CosmosDroidAdapter(EmbodimentAdapter):
     arena_policy_obs_group = "policy"
 
     def extract(self, observation: dict[str, Any], env_id: int) -> DroidObservation:
+        """Pull one env's camera and joint tensors out of the Arena observation dict.
+
+        Args:
+            observation: Arena gym observation dict with camera and policy observation groups.
+            env_id: Index of the environment to read.
+
+        Returns:
+            The resized camera images and joint positions of that environment.
+        """
         cam = observation[self.arena_camera_obs_group]
         proprio = observation[self.arena_policy_obs_group]
         return DroidObservation(
@@ -63,6 +74,15 @@ class CosmosDroidAdapter(EmbodimentAdapter):
         )
 
     def pack_request(self, extracted: DroidObservation, language_instruction: str) -> dict[str, Any]:
+        """Build the wire-format request, tiling the three camera views into one image.
+
+        Args:
+            extracted: Observation extracted for one environment.
+            language_instruction: Task instruction sent as the prompt.
+
+        Returns:
+            Request entries keyed by their wire-format names.
+        """
         return {
             "observation/image": _compose_concat_view(
                 extracted.wrist_image, extracted.left_image, extracted.right_image

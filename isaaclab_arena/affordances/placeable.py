@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Affordance for objects that can be placed upright, with helpers to check and set their orientation."""
+
 import math
 import torch
 from typing import Literal
@@ -27,6 +29,14 @@ class Placeable(AffordanceBase):
     def __init__(
         self, upright_axis_name: Literal["x", "y", "z"] = "z", orientation_threshold: float = math.pi / 18.0, **kwargs
     ):
+        """Initialize the placeable affordance.
+
+        Args:
+            upright_axis_name: Axis of the object's local frame that points up when the object is upright.
+            orientation_threshold: Maximum angle in radians between the upright axis and world +Z for the object
+                to count as upright.
+            **kwargs: Keyword arguments forwarded to the next class in the method resolution order.
+        """
         super().__init__(**kwargs)
         self.upright_axis_name = upright_axis_name
         assert upright_axis_name in ["x", "y", "z"], "Upright axis must be one of x, y, or z"
@@ -95,9 +105,6 @@ class Placeable(AffordanceBase):
             upright_percentage: Target upright percentage(s) in [0, 1]. Can be:
                 - A scalar float applied to all specified environments
                 - A tensor with shape matching len(env_ids), with per-environment values
-
-        Raises:
-            ValueError: If upright_percentage is a tensor with size not matching len(env_ids).
         """
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
@@ -165,9 +172,6 @@ def set_object_uprightness(
             - A tensor with shape matching len(env_ids), with per-environment values
         env_ids: Environment indices to apply the operation to. If None, applies to all environments.
         upright_axis_name: Name of the object's local axis to align ("x", "y", or "z").
-
-    Raises:
-        ValueError: If upright_percentage is a tensor with size not matching len(env_ids).
     """
     object_entity: RigidObject = env.scene[asset_cfg.name]
     device = env.device

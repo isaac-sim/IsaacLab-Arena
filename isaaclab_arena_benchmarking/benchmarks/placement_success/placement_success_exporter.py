@@ -132,6 +132,7 @@ class PlacementSuccessKpiExporter(InfluxdbKpiExporter):
     record_types: ClassVar[tuple[str, ...]] = (PlacementSuccessRecord.record_type,)
 
     def get_records_filename(self) -> str:
+        """Return the file name of the placement success records."""
         return PLACEMENT_SUCCESS_RECORDS_FILENAME
 
     def export_to_json(self, output_dir: Path) -> Path | None:

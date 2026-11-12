@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Observation terms for articulation joint states."""
+
 from __future__ import annotations
 
 import torch
@@ -19,7 +21,14 @@ if TYPE_CHECKING:
 def joint_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """The joint accelerations of the asset.
 
-    Note: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their accelerations returned.
+    Note: Only the joints configured in `asset_cfg.joint_ids` will have their accelerations returned.
+
+    Args:
+            env: The environment.
+            asset_cfg: Scene entity of the articulation; its `joint_ids` select the joints.
+
+        Returns:
+            Joint accelerations with shape (num_envs, num_selected_joints).
     """
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]

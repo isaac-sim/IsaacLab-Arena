@@ -319,7 +319,7 @@ def load_stage_prim_tree(
             participates in physics.
 
     Returns:
-        Sorted list of :class:`UsdPrimRecord` entries keyed by relative_path suffix.
+        Sorted list of `UsdPrimRecord` entries keyed by relative_path suffix.
     """
     from pxr import Usd, UsdGeom, UsdPhysics
 

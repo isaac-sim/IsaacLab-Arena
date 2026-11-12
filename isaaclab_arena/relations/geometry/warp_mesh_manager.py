@@ -143,6 +143,13 @@ class WarpMeshAndSphereCache:
         sphere_radius: float = 0.01,
         device: str = "cuda:0",
     ):
+        """Create an empty cache of collision meshes, Warp meshes and query spheres.
+
+        Args:
+            num_spheres: Number of query spheres per mesh.
+            sphere_radius: Radius of each query sphere, in meters.
+            device: Torch device on which sphere tensors are created.
+        """
         self._num_spheres = num_spheres
         self._sphere_radius = sphere_radius
         self._device = device
@@ -157,7 +164,11 @@ class WarpMeshAndSphereCache:
         self._sentinel_warned = False
 
     def warn_sdf_sentinel(self, sdf_values: torch.Tensor) -> None:
-        """Warn (once per pass) if any query hit the no-face sentinel."""
+        """Warn (once per pass) if any query hit the no-face sentinel.
+
+        Args:
+            sdf_values: SDF values returned by a query pass.
+        """
         if self._sentinel_warned:
             return
         if has_sdf_sentinel(sdf_values):
@@ -173,7 +184,12 @@ class WarpMeshAndSphereCache:
         obj: CollisionObject,
         excluded_prim_paths: Collection[str] = (),
     ) -> trimesh.Trimesh | None:
-        """Return the collision mesh, or ``None`` when USD extraction fails."""
+        """Return the collision mesh, or ``None`` when USD extraction fails.
+
+        Args:
+            obj: Object whose collision mesh is requested.
+            excluded_prim_paths: USD prim paths to leave out of the extracted mesh.
+        """
         if _get_single_usd_spawn(obj) is None:
             assert not excluded_prim_paths, "USD prim exclusions require an Object spawned from one USD file."
             return obj.get_collision_mesh()
@@ -188,7 +204,12 @@ class WarpMeshAndSphereCache:
         obj: CollisionObject,
         excluded_prim_paths: Collection[str] = (),
     ) -> trimesh.Trimesh | None:
-        """Return the collision mesh while preserving USD extraction errors."""
+        """Return the collision mesh while preserving USD extraction errors.
+
+        Args:
+            obj: Object whose collision mesh is requested.
+            excluded_prim_paths: USD prim paths to leave out of the extracted mesh.
+        """
         usd_spawn = _get_single_usd_spawn(obj)
         if usd_spawn is None:
             assert not excluded_prim_paths, "USD prim exclusions require an Object spawned from one USD file."
@@ -238,6 +259,10 @@ class WarpMeshAndSphereCache:
         Non-watertight meshes are replaced by their convex hull for reliable
         inside/outside signs unless ``repair_collision_mesh_non_watertight`` is False,
         which preserves concavities but may yield unreliable SDF signs.
+
+        Args:
+            mesh: Mesh to convert.
+            obj: Object owning the mesh, used for its repair setting and cache key.
         """
         key = self._cache_key(mesh, obj)
         if key not in self._warp_mesh_cache:
@@ -262,7 +287,12 @@ class WarpMeshAndSphereCache:
         return self._warp_mesh_cache[key]
 
     def get_query_spheres(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> torch.Tensor:
-        """Get or compute sphere decomposition as (K, 4) tensor [cx, cy, cz, radius]."""
+        """Get or compute sphere decomposition as (K, 4) tensor [cx, cy, cz, radius].
+
+        Args:
+            mesh: Mesh to decompose.
+            obj: Object owning the mesh, used for its cache key.
+        """
         key = self._cache_key(mesh, obj)
         if key not in self._sphere_cache:
             spheres_np = greedy_sphere_decomposition(

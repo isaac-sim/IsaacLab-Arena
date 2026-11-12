@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Unitree G1 embodiments (whole-body-control policies) and their configs."""
+
 import math
 import torch
 from collections.abc import Sequence
@@ -55,6 +57,14 @@ class G1EmbodimentBase(EmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
+        """Create the G1 embodiment with its scene, camera, mimic env and XR config.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+        """
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         # TODO(xinjieyao, 2026.09.17): Add a gripper implementation for the G1 embodiment.
         # Configuration structs
@@ -87,7 +97,14 @@ class G1EmbodimentBase(EmbodimentBase):
         dynamic_friction: float,
         prim_name_markers: Sequence[str],
     ) -> None:
-        """Configure a prestartup event that binds contact friction to G1 finger prims."""
+        """Configure a prestartup event that binds contact friction to G1 finger prims.
+
+        Args:
+            material_path: USD path of the physics material to author for the finger contacts.
+            static_friction: Static friction coefficient of the material.
+            dynamic_friction: Dynamic friction coefficient of the material.
+            prim_name_markers: Substrings that identify the finger prims the material is bound to.
+        """
         if self.event_config is None or self.event_config is MISSING:
             raise RuntimeError("event_config must be populated before calling `set_finger_contact_friction`.")
         self.event_config.apply_high_friction_to_g1_fingers = EventTerm(
@@ -112,7 +129,7 @@ _DEFAULT_G1_CAMERA_OFFSET = Pose(
 class G1WBCJointEmbodiment(G1EmbodimentBase):
     """Embodiment for the G1 robot with WBC policy and direct joint upperbody control.
 
-    By default uses tiled camera for efficient parallel evaluation.
+    Uses tiled cameras for efficient parallel evaluation.
     """
 
     registry_name = "g1_wbc_joint"
@@ -123,6 +140,13 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         lock_waist: bool = False,
     ):
+        """Create the G1 embodiment with direct joint upper-body control.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            lock_waist: Whether to lock the waist joints. Ignored by this embodiment.
+        """
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
@@ -144,6 +168,13 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         lock_waist: bool = False,
     ):
+        """Create the G1 embodiment with PINK IK upper-body control.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            lock_waist: Whether to remove the waist joints from the IK action space.
+        """
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCPinkActionCfg()
         if lock_waist:
@@ -159,7 +190,7 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
 class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
     """Embodiment for the G1 robot with AGILE WBC policy and PINK IK upperbody control.
 
-    Uses :data:`G1_AGILE_CFG` so the leg/feet/waist actuator gains match the agile
+    Uses `G1_AGILE_CFG` so the leg/feet/waist actuator gains match the agile
     training-time values; without that override the policy's joint targets get
     amplified by the Arena's stiffer default PD loop.
     """
@@ -172,6 +203,13 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         lock_waist: bool = False,
     ):
+        """Create the G1 embodiment with the AGILE scene config and PINK IK upper-body control.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            lock_waist: Whether to remove the waist joints from the IK action space.
+        """
         super().__init__(enable_cameras, initial_pose)
         self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgilePinkActionCfg()
@@ -188,8 +226,8 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
 class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
     """Embodiment for the G1 robot with AGILE WBC policy and direct joint upperbody control.
 
-    By default uses tiled camera for efficient parallel evaluation. Uses
-    :data:`G1_AGILE_CFG` so the leg/feet/waist actuator gains match the agile
+    Uses tiled cameras for efficient parallel evaluation. Uses
+    `G1_AGILE_CFG` so the leg/feet/waist actuator gains match the agile
     training-time values; the Arena's default G1 actuator stiffness is 2-4x higher
     than what the agile policy was trained on, which would amplify the policy's
     joint targets through a stiffer PD loop and produce a slow yaw drift /
@@ -204,6 +242,13 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         lock_waist: bool = False,
     ):
+        """Create the G1 embodiment with the AGILE scene config and direct joint upper-body control.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            lock_waist: Whether to lock the waist joints. Ignored by this embodiment.
+        """
         super().__init__(enable_cameras, initial_pose)
         self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgileJointActionCfg()
@@ -476,6 +521,8 @@ G1_AGILE_CFG.actuators["waist"].armature = 0.03
 
 @configclass
 class G1SceneCfg:
+    """Scene config containing the G1 robot."""
+
     robot: ArticulationCfg = G1_CFG.copy()
 
 
@@ -886,8 +933,8 @@ class G1MimicEnv(IsaacLabArenaManagerBasedRLMimicEnv):
     def action_to_target_eef_pose(self, action: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Converts action (compatible with env.step) to a target pose for the end effector controller.
-        Inverse of @target_eef_pose_to_action. Usually used to infer a sequence of target controller poses
-        from a demonstration trajectory using the recorded actions.
+        Inverse of @target_eef_pose_to_action. Applied to the recorded actions of a demonstration
+        trajectory, it infers the sequence of target controller poses.
 
         Args:
             action: Environment action. Shape is (num_envs, action_dim).

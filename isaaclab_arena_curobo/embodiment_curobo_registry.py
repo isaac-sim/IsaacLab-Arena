@@ -25,7 +25,12 @@ _CUROBO_EMBODIMENT_CFGS: dict[str, CuroboEmbodimentCfg] = {}
 
 
 def register_curobo_cfg(embodiment_name: str, cfg: CuroboEmbodimentCfg) -> None:
-    """Register a cuRobo config under an embodiment name, erroring on a duplicate key."""
+    """Register a cuRobo config under an embodiment name, erroring on a duplicate key.
+
+    Args:
+        embodiment_name: Registry name of the embodiment.
+        cfg: cuRobo configuration for that embodiment.
+    """
     assert (
         embodiment_name not in _CUROBO_EMBODIMENT_CFGS
     ), f"A cuRobo config is already registered for embodiment '{embodiment_name}'."
@@ -33,7 +38,11 @@ def register_curobo_cfg(embodiment_name: str, cfg: CuroboEmbodimentCfg) -> None:
 
 
 def get_curobo_cfg_by_name(embodiment_name: str) -> CuroboEmbodimentCfg:
-    """Return the cuRobo config registered under an exact embodiment name."""
+    """Return the cuRobo config registered under an exact embodiment name.
+
+    Args:
+        embodiment_name: Registry name of the embodiment.
+    """
     cfg = _CUROBO_EMBODIMENT_CFGS.get(embodiment_name)
     assert cfg is not None, (
         f"No cuRobo config registered for '{embodiment_name}'. Register one via register_curobo_cfg(...). "
@@ -48,6 +57,9 @@ def get_embodiment_curobo_cfg(embodiment: EmbodimentBase) -> CuroboEmbodimentCfg
     Walks the embodiment's class hierarchy so a config registered under a robot-family base name (e.g.
     ``"droid"``) also covers concrete variants that override ``registry_name`` (e.g. ``"droid_abs_joint_pos"``).
     The most-derived match wins, so a variant may register its own override.
+
+    Args:
+        embodiment: Embodiment instance whose class hierarchy is searched.
     """
     # Each class contributes the ``registry_name`` defined on it directly (not inherited), most-derived first.
     for cls in type(embodiment).__mro__:

@@ -13,7 +13,14 @@ from typing import Any
 
 
 def read_episode_records(path: str | Path) -> list[dict[str, Any]]:
-    """Read nonempty JSON object records, rejecting malformed input and duplicate keys."""
+    """Read nonempty JSON object records, rejecting malformed input and duplicate keys.
+
+    Args:
+        path: Path of the JSONL file to read.
+
+    Returns:
+        The parsed records in file order.
+    """
     records: list[dict[str, Any]] = []
     with Path(path).open(encoding="utf-8") as stream:
         for line_number, raw_line in enumerate(stream, start=1):

@@ -29,6 +29,11 @@ class ArenaWorld:
     """Provide name-based pose, velocity, articulation, and geometry queries."""
 
     def __init__(self, scene: InteractiveScene):
+        """Wrap an interactive scene for Arena pose, velocity and geometry queries.
+
+        Args:
+            scene: Interactive scene that holds the simulated assets.
+        """
         self._scene = scene
         self._aabbs_in_local_frame_cache: dict[str, AxisAlignedBoundingBox] = {}
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
@@ -43,6 +48,9 @@ class ArenaWorld:
         A scene extra configured by ArticulationBodyReferenceCfg returns its articulation body's link pose.
         The tensor has shape (num_envs, 7), with each pose ordered as
         (x, y, z, qx, qy, qz, qw).
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         scene = self._scene
         # Rigid objects and articulations expose their live root-link poses directly. An articulation
@@ -76,6 +84,9 @@ class ArenaWorld:
 
         The returned tensor is a copy with shape (num_envs, 7), with each pose
         ordered as (x, y, z, qx, qy, qz, qw).
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         T_E_F = self.get_pose_w(scene_key).clone()
         T_E_F[:, :3] -= self._scene.env_origins
@@ -85,6 +96,9 @@ class ArenaWorld:
         """Return the world-frame root linear velocity of a rigid object or articulation.
 
         The tensor has shape (num_envs, 3).
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         scene = self._scene
         if scene_key in scene.rigid_objects:
@@ -106,6 +120,9 @@ class ArenaWorld:
         """Return the world-frame root angular velocity of a rigid object or articulation.
 
         The tensor has shape (num_envs, 3).
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         scene = self._scene
         if scene_key in scene.rigid_objects:
@@ -251,7 +268,11 @@ class ArenaWorld:
     # -------------------------------------------------------------------------
 
     def get_nodal_positions_w(self, scene_key: str) -> torch.Tensor:
-        """Return deformable nodal positions in world frame with shape (num_envs, num_nodes, 3)."""
+        """Return deformable nodal positions in world frame with shape (num_envs, num_nodes, 3).
+
+        Args:
+            scene_key: Name of the scene entity to query.
+        """
         deformable_objects = self._scene.deformable_objects
         assert scene_key in deformable_objects, f"'{scene_key}' must name a deformable object."
         nodal_positions_w = deformable_objects[scene_key].data.nodal_pos_w.torch
@@ -266,7 +287,11 @@ class ArenaWorld:
         return nodal_positions_w
 
     def get_nodal_velocities_w(self, scene_key: str) -> torch.Tensor:
-        """Return deformable nodal velocities in world frame with shape (num_envs, num_nodes, 3)."""
+        """Return deformable nodal velocities in world frame with shape (num_envs, num_nodes, 3).
+
+        Args:
+            scene_key: Name of the scene entity to query.
+        """
         deformable_objects = self._scene.deformable_objects
         assert scene_key in deformable_objects, f"'{scene_key}' must name a deformable object."
         nodal_velocities_w = deformable_objects[scene_key].data.nodal_vel_w.torch
@@ -289,6 +314,9 @@ class ArenaWorld:
 
         Deformables use their mean nodal position. Rooted entities and scene extras
         use the translation component of their pose.
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         scene = self._scene
         if scene_key in scene.deformable_objects:
@@ -306,6 +334,9 @@ class ArenaWorld:
 
         Deformables use their aggregate root position. Rooted entities and scene
         extras use the center of their local geometry bounds transformed into W.
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         scene = self._scene
         if scene_key in scene.deformable_objects:
@@ -328,6 +359,9 @@ class ArenaWorld:
 
         For deformables this is the mean nodal velocity (``root_vel_w``). For rooted
         objects this is the root linear velocity.
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         scene = self._scene
         if scene_key in scene.deformable_objects:
@@ -344,6 +378,9 @@ class ArenaWorld:
         """Return deformable nodes or approximate geometry vertices in world frame ``W``.
 
         The tensor has shape ``(num_envs, num_vertices, 3)``.
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         scene = self._scene
         if scene_key in scene.deformable_objects:
@@ -368,6 +405,9 @@ class ArenaWorld:
 
         Deformables use live nodes; other objects use transformed cached local-box corners.
         The local cache assumes descendants remain fixed relative to their geometry frame.
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         vertices_W = self.get_vertices_w(scene_key)
         return AxisAlignedBoundingBox(min_point=vertices_W.amin(dim=1), max_point=vertices_W.amax(dim=1))
@@ -376,6 +416,9 @@ class ArenaWorld:
         """Return cached rigid-object or scene-extra geometry bounds in local frame F.
 
         The cache assumes descendants remain fixed relative to F.
+
+        Args:
+            scene_key: Name of the scene entity to query.
         """
         scene = self._scene
         if scene_key not in self._aabbs_in_local_frame_cache:

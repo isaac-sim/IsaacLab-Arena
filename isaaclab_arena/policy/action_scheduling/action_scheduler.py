@@ -32,7 +32,7 @@ class ActionScheduler(ABC):
             fetch_action_tensor_fn: Callable that queries the action and returns an action tensor.
             hold_action: Optional ``(num_envs, action_dim)`` tensor used by schedulers
                 that need a fallback action for envs waiting on others. Schedulers that don't
-                need it accept ``None`` and ignore the argument so callers can use a uniform call site.
+                need it accept ``None`` and ignore the argument.
 
         Returns:
             Per-step action tensor of shape ``(num_envs, action_dim)``.

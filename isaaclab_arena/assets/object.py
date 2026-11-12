@@ -2,6 +2,9 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+"""Scene object spawned from a USD file or a spawner configuration."""
+
 from __future__ import annotations
 
 import torch
@@ -44,6 +47,23 @@ class Object(RootedObjectBase):
         spawner_cfg: SpawnerCfg | None = None,
         **kwargs,
     ):
+        """Create an object from exactly one of a USD path, a USD source or a spawner configuration.
+
+        Args:
+            name: Name of the object, used as its scene key.
+            prim_path: Prim path template of the object in the scene. None uses a path derived from name.
+            object_type: Whether the object is rigid, articulated or static. None detects it from the USD file, and
+                is only possible with a USD file. Required with spawner_cfg.
+            usd_path: Path to the USD file.
+            usd_source: Source that provides the USD file.
+            scale: Per-axis scale applied to the USD asset.
+            initial_pose: Pose of the object in the scene.
+            relations: Relations that constrain the object's placement.
+            spawner_cfg: Custom Isaac Lab spawner configuration used instead of a USD file.
+            **kwargs: Passed on to the parent class, except `spawn_cfg_addon` and `asset_cfg_addon`. The former is a
+                dict of extra settings for the USD spawner configuration, the latter a dict of extra keyword
+                arguments for the Isaac Lab asset configuration.
+        """
         # Pull out addons (and remove them from kwargs before passing to super)
         # Keep nested addon settings independent when multiple objects reuse the same input mapping.
         spawn_cfg_addon: dict[str, Any] = deepcopy(kwargs.pop("spawn_cfg_addon", {}) or {})
@@ -128,16 +148,27 @@ class Object(RootedObjectBase):
         return self._get_spawn_cfg_geometry(self.object_cfg.spawn).get_bounding_box()
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
+        """Return the 8 corners of the object's bounding box, offset by the given position.
+
+        Args:
+            pos: Position the object origin is placed at, shape (3,) or (N, 3).
+
+        Returns:
+            Corner positions of shape (N, 8, 3).
+        """
         return self.get_bounding_box().get_corners_at(pos)
 
     def is_initial_pose_set(self) -> bool:
+        """Return whether an initial pose has been assigned."""
         return self.initial_pose is not None
 
     def disable_reset_pose(self) -> None:
+        """Stop resetting the object's pose on environment reset."""
         self.reset_pose = False
         self._pose_event_cfg = self._build_reset_event()
 
     def enable_reset_pose(self) -> None:
+        """Resume resetting the object's pose on environment reset."""
         self.reset_pose = True
         self._pose_event_cfg = self._build_reset_event()
 
@@ -147,6 +178,13 @@ class Object(RootedObjectBase):
         return self.prim_path + self._get_spawn_cfg_geometry(self.object_cfg.spawn).get_contact_body_path()
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+        """Return a contact sensor configuration for this rigid object.
+
+        The sensor is attached to the object's shallowest rigid body.
+
+        Args:
+            contact_against_object: Object to filter contacts against. None reports contacts with all objects.
+        """
         # We override this function from the parent class because some assets do not have their rigid body
         # at the root of the USD file. To be robust to this, we find the shallowest rigid body and add the
         # contact sensor to it.

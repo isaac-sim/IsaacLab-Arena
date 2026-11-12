@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Tabletop place-upright environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -35,7 +37,11 @@ class TableTopPlaceUprightEnvironment(ArenaEnvironmentFactory[TableTopPlaceUprig
     _legacy_argparse_cfg_type = TableTopPlaceUprightEnvironmentCfg
 
     def build(self, cfg: TableTopPlaceUprightEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         import isaaclab.envs.mdp as mdp
         from isaaclab.managers import EventTermCfg as EventTerm
         from isaaclab.managers import SceneEntityCfg

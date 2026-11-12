@@ -5,6 +5,8 @@
 
 # %%
 
+"""Notebook-style example that builds an environment with relations and variations, then resets it."""
+
 import torch
 import tqdm
 

@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Singleton metaclass."""
+
+
 class SingletonMeta(type):
     """
     Metaclass that overrides __call__ so that only one instance

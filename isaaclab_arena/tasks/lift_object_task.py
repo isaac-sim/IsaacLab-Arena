@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Tasks in which a robot lifts an object to a goal position, for imitation learning and RL."""
+
 import numpy as np
 from dataclasses import MISSING
 from functools import partial
@@ -34,6 +36,8 @@ from isaaclab_arena.utils.pose import PoseRange
 
 @register_task
 class LiftObjectTask(TaskBase):
+    """Task that succeeds when an object is lifted to a goal position relative to its initial position."""
+
     def __init__(
         self,
         lift_object: Asset,
@@ -49,7 +53,6 @@ class LiftObjectTask(TaskBase):
             background_scene: The background scene (table, etc.).
             episode_length_s: Episode length in seconds.
             goal_position_delta_xyz: Goal position delta [dx, dy, dz] relative to initial pose (m).
-                Default: (0, 0, 0.3) = 30cm above initial position.
             goal_position_tolerance: Position tolerance for success (m).
         """
         super().__init__(episode_length_s=episode_length_s)
@@ -73,12 +76,18 @@ class LiftObjectTask(TaskBase):
         self.events_cfg = None
 
     def get_scene_cfg(self):
+        """Return None; the task adds nothing to the scene."""
         return self.scene_config
 
     def get_events_cfg(self):
+        """Return None; the task defines no events."""
         return self.events_cfg
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination for the object reaching the goal position.
+
+        The episode fails if the object drops below the background's minimum object height.
+        """
         object_dropped = TerminationTermCfg(
             func=mdp_isaac_lab.root_height_below_minimum,
             params={
@@ -106,12 +115,19 @@ class LiftObjectTask(TaskBase):
         )
 
     def get_mimic_env_cfg(self, embodiment_name: str):
+        """Not implemented; always raises NotImplementedError.
+
+        Args:
+            embodiment_name: Name of the embodiment.
+        """
         raise NotImplementedError("Function not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the success rate metric."""
         return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a viewer camera configuration that looks at the lifted object."""
         return get_viewer_cfg_look_at_object(
             lookat_object=self.lift_object,
             offset=np.array([-1.5, -1.5, 1.5]),
@@ -120,6 +136,11 @@ class LiftObjectTask(TaskBase):
 
 @register_task
 class LiftObjectTaskRL(LiftObjectTask):
+    """Lift task for reinforcement learning, with observations, rewards and a sampled goal pose command.
+
+    The goal is sampled by a command term from ranges around the object's initial position.
+    """
+
     def __init__(
         self,
         lift_object: Asset,
@@ -196,6 +217,10 @@ class LiftObjectTaskRL(LiftObjectTask):
         )
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return the parent termination with success defined by the sampled goal pose command.
+
+        With `rl_training_mode` set, success does not terminate the episode.
+        """
         termination_cfg = super().get_termination_cfg()
         termination_cfg.success = [
             CompletionCriteria(
@@ -215,12 +240,15 @@ class LiftObjectTaskRL(LiftObjectTask):
         return termination_cfg
 
     def get_observation_cfg(self):
+        """Return the observation configuration with the goal and object positions."""
         return self.observation_cfg
 
     def get_rewards_cfg(self):
+        """Return the reward configuration for reaching, lifting and moving the object to the goal."""
         return self.rewards_cfg
 
     def get_commands_cfg(self):
+        """Return the command configuration that samples the goal pose of the object."""
         return self.commands_cfg
 
 
@@ -231,6 +259,13 @@ class LiftObjectObservationsCfg:
     task_obs: ObsGroup = MISSING
 
     def __init__(self, lift_object: Asset, robot_name: str):
+        """Create the observation group with the goal command and the object position in the robot frame.
+
+        Args:
+            lift_object: The object being lifted.
+            robot_name: Scene name of the robot whose frame the object position is expressed in.
+        """
+
         @configclass
         class TaskObsCfg(ObsGroup):
             target_object_position = ObsTerm(
@@ -266,6 +301,16 @@ class LiftObjectCommandsCfg:
         target_y_range: tuple[float, float],
         target_z_range: tuple[float, float],
     ):
+        """Create a uniform pose command that samples the goal pose of the object.
+
+        Args:
+            asset_name: Scene name of the asset the commanded pose is relative to.
+            body_name: Name of the body the command is attached to.
+            lift_object: The object being lifted.
+            target_x_range: Sampling range (min, max) of the goal x position.
+            target_y_range: Sampling range (min, max) of the goal y position.
+            target_z_range: Sampling range (min, max) of the goal z position.
+        """
         self.object_pose = mdp_isaac_lab.UniformPoseCommandCfg(
             asset_name=asset_name,
             body_name=body_name,
@@ -292,6 +337,14 @@ class LiftObjectRewardCfg:
     object_goal_tracking_fine_grained: RewardTermCfg = MISSING
 
     def __init__(self, lift_object: Asset, minimum_height_to_lift: float, robot_name: str, ee_frame_name: str):
+        """Create the reaching, lifting and goal tracking reward terms.
+
+        Args:
+            lift_object: The object being lifted.
+            minimum_height_to_lift: Height in meters above which the object counts as lifted.
+            robot_name: Scene name of the robot.
+            ee_frame_name: Scene name of the end-effector frame the reaching distance is measured to.
+        """
         self.reaching_object = RewardTermCfg(
             func=rewards.object_ee_distance,
             params={
@@ -343,6 +396,12 @@ class DexsuiteLiftTask(LiftObjectTask):
     """Dexsuite lift task using the published Kuka-Allegro policy configuration."""
 
     def __init__(self, lift_object: Asset, background_scene: Asset) -> None:
+        """Initialize the Dexsuite lift task.
+
+        Args:
+            lift_object: The object to lift.
+            background_scene: The background scene (table, etc.).
+        """
         super().__init__(
             lift_object=lift_object,
             background_scene=background_scene,
@@ -355,6 +414,10 @@ class DexsuiteLiftTask(LiftObjectTask):
         self.commands_cfg.object_pose.debug_vis = True
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination for the sampled goal pose command.
+
+        The episode fails when the object leaves its bounds or the robot state is abnormal.
+        """
         native_termination_cfg = lift.TerminationsCfg()
         native_termination_cfg.object_out_of_bound.params["in_bound_range"]["z"] = (0.0, 2.0)
         return TaskTerminationCfg(
@@ -379,10 +442,13 @@ class DexsuiteLiftTask(LiftObjectTask):
         )
 
     def get_commands_cfg(self) -> Any:
+        """Return the Dexsuite goal pose command configuration."""
         return self.commands_cfg
 
     def get_rewards_cfg(self) -> Any:
-        return None
+        """Return None; the task defines no rewards."""
+        return None  # noqa: R501
 
     def get_curriculum_cfg(self) -> Any:
-        return None
+        """Return None; the task defines no curriculum."""
+        return None  # noqa: R501

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base class for affordances, which add object-specific behavior to an asset."""
+
 from abc import ABC
 
 
@@ -14,6 +16,11 @@ class AffordanceBase(ABC):
     """
 
     def __init__(self, **kwargs):
+        """Initialize the affordance.
+
+        Args:
+            **kwargs: Keyword arguments forwarded to the next class in the method resolution order.
+        """
         super().__init__(**kwargs)
         # NOTE(alexmillane, 2025.09.19) Affordances always have be combined with
         # an Asset which has a "name" property. We enforce this at runtime.

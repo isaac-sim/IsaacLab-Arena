@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base classes shared by every sampler: draw generator, replay hook and sample listeners."""
+
 from __future__ import annotations
 
 from abc import ABC
@@ -19,11 +21,11 @@ if TYPE_CHECKING:
 class SamplerBaseCfg:
     """Marker configclass for any sampler cfg.
 
-    Concrete subclasses override :meth:`build` to return their live sampler.
+    Concrete subclasses override ``build`` to return their live sampler.
     """
 
     def build(self) -> SamplerBase:
-        """Return the live :class:`SamplerBase` described by this cfg."""
+        """Return the live SamplerBase described by this cfg."""
         raise NotImplementedError(
             f"{type(self).__name__}.build() is not implemented; every concrete SamplerBaseCfg "
             "subclass must provide a build() that returns its live sampler."
@@ -39,7 +41,11 @@ class SamplerBase(ABC):
         self._generator: torch.Generator | None = None
 
     def set_generator(self, generator: torch.Generator | None) -> None:
-        """Set the generator for random draws; ``None`` draws from torch's global random state."""
+        """Set the generator for random draws.
+
+        Args:
+            generator: Generator used for random draws; ``None`` draws from torch's global random state.
+        """
         self._generator = generator
 
     def set_replay_sampler(
@@ -51,6 +57,10 @@ class SamplerBase(ABC):
         The replay sampler receives the requested sample count and environment ids.
         Returning ``None`` keeps normal random sampling; returning rows replaces
         the random draw while preserving the sampler's public output type.
+
+        Args:
+            replay_sampler: Callable taking the sample count and env ids and returning recorded rows or ``None``;
+                ``None`` removes any replay sampler.
         """
         self._replay_sampler = replay_sampler
 
@@ -66,7 +76,11 @@ class SamplerBase(ABC):
         return rows
 
     def add_listener(self, listener: Callable[[Any, torch.Tensor | None], None]) -> None:
-        """Register ``listener``, called as ``listener(sample, env_ids)`` for every sample drawn."""
+        """Register a listener called for every sample drawn.
+
+        Args:
+            listener: Callable invoked as ``listener(sample, env_ids)``.
+        """
         self._listeners.append(listener)
 
     def _notify(self, sample: Any, env_ids: torch.Tensor | None = None) -> None:

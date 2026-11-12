@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Reset events that randomize object poses for tasks."""
+
 from __future__ import annotations
 
 import torch

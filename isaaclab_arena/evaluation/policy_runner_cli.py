@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Command-line argument definitions for the policy runner and for policy configurations."""
+
 import argparse
 from dataclasses import fields
 from typing import TYPE_CHECKING
@@ -43,7 +45,15 @@ def add_policy_cli_args(
     parser: argparse.ArgumentParser,
     policy_type: type["PolicyBase"],
 ) -> argparse.ArgumentParser:
-    """Add CLI flags generated from a policy's registered config."""
+    """Add CLI flags generated from a policy's registered config.
+
+    Args:
+        parser: Argument parser to extend.
+        policy_type: Policy class whose configuration fields become flags.
+
+    Returns:
+        The parser.
+    """
     policy_cfg_type = PolicyRegistry().get_policy_cfg_type(policy_type)
     _add_policy_cfg_arguments(parser, policy_cfg_type)
     return parser
@@ -53,7 +63,12 @@ def policy_cfg_from_cli(
     policy_type: type["PolicyBase"],
     args_cli: argparse.Namespace,
 ) -> "PolicyCfg":
-    """Create a registered policy's typed config from parsed CLI values."""
+    """Create a registered policy's typed config from parsed CLI values.
+
+    Args:
+        policy_type: Policy class whose configuration type is created.
+        args_cli: Parsed command-line arguments.
+    """
     policy_cfg_type = PolicyRegistry().get_policy_cfg_type(policy_type)
     return dataclass_from_cli(policy_cfg_type, args_cli)
 
@@ -62,12 +77,21 @@ def build_policy_from_cli(
     policy_type: type["PolicyBase"],
     args_cli: argparse.Namespace,
 ) -> "PolicyBase":
-    """Build a policy from CLI values through its registered typed config."""
+    """Build a policy from CLI values through its registered typed config.
+
+    Args:
+        policy_type: Policy class to instantiate.
+        args_cli: Parsed command-line arguments.
+    """
     return policy_type(policy_cfg_from_cli(policy_type, args_cli))
 
 
 def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add policy runner specific arguments to the parser."""
+    """Add policy runner specific arguments to the parser.
+
+    Args:
+        parser: Argument parser to extend.
+    """
     parser.add_argument(
         "--policy_type",
         type=str,

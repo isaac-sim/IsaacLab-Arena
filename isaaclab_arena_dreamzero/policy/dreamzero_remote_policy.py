@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Remote closed-loop policy that queries a DreamZero inference server over a WebSocket."""
+
 from __future__ import annotations
 
 import contextlib
@@ -98,11 +100,25 @@ class DreamZeroEmbodimentAdapter(ABC):
         Concrete return type is adapter-defined (typically a frozen dataclass);
         the policy treats it as an opaque value to round-trip through the
         pack_request method.
+
+        Args:
+            observation: Arena gym observation dict.
+            env_id: Index of the environment to read.
+
+        Returns:
+            The adapter-defined extracted observation.
         """
 
     @abstractmethod
     def pack_request(self, extracted: Any) -> dict[str, Any]:
-        """Build the observation/* portion of the DreamZero wire-format request."""
+        """Build the observation/* portion of the DreamZero wire-format request.
+
+        Args:
+            extracted: Value returned by extract for one environment.
+
+        Returns:
+            Request entries keyed by their wire-format observation names.
+        """
 
     @abstractmethod
     def parse_actions(self, response: dict[str, Any] | np.ndarray) -> np.ndarray:
@@ -111,11 +127,21 @@ class DreamZeroEmbodimentAdapter(ABC):
         Owns the embodiment-specific parts of response decoding — envelope
         unwrapping, dimensional padding, and joint ordering / conversion to Arena
         actions. The policy handles only the replay horizon on top of this.
+
+        Args:
+            response: Server response, either a dict or a bare action array.
+
+        Returns:
+            Float32 action chunk of shape (num_steps, action_dim).
         """
 
     @classmethod
     def from_config_dict(cls, config: dict[str, Any]) -> DreamZeroEmbodimentAdapter:
-        """Build the adapter from its slice of an eval-jobs config dict. Default: kwargs."""
+        """Build the adapter from its slice of an eval-jobs config dict by passing the entries as keyword arguments.
+
+        Args:
+            config: Eval-jobs config entries that configure the adapter.
+        """
         return cls(**config)
 
 
@@ -163,6 +189,13 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
         config: DreamZeroRemotePolicyConfig,
         dreamzero_embodiment_adapter: DreamZeroEmbodimentAdapter | None = None,
     ) -> None:
+        """Connect to the DreamZero server and set up per-environment state.
+
+        Args:
+            config: Transport and runtime configuration.
+            dreamzero_embodiment_adapter: Adapter translating observations and actions for the embodiment, or None to
+                create the one selected by the config.
+        """
         super().__init__(config)
         if dreamzero_embodiment_adapter is None:
             dreamzero_embodiment_adapter = _resolve_adapter_class(config.dreamzero_embodiment_adapter)()
@@ -183,19 +216,26 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
 
     @classmethod
     def default_image_size(cls, config: DreamZeroRemotePolicyConfig) -> tuple[int, int]:
-        """Return the (height, width) the selected DreamZero adapter resizes camera images to."""
+        """Return the (height, width) the selected DreamZero adapter resizes camera images to.
+
+        Args:
+            config: Policy configuration that selects the embodiment adapter.
+        """
         return tuple(_resolve_adapter_class(config.dreamzero_embodiment_adapter).target_image_size)
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> DreamZeroRemotePolicy:
         """Build the policy from a plain config dict (JSON-config frontends and tests).
 
-        An optional ``dreamzero_embodiment_adapter`` key selects the adapter
-        (default 'droid'), mirroring the config field of the same name. Keys listed in
+        An optional ``dreamzero_embodiment_adapter`` key selects the adapter,
+        mirroring the config field of the same name. Keys listed in
         the chosen adapter's ``config_field_names`` are routed to the adapter;
         everything else goes to ``DreamZeroRemotePolicyConfig``. Any key that
         matches neither raises a clear error instead of an opaque ``TypeError``
         from the dataclass constructor.
+
+        Args:
+            config_dict: Policy and adapter settings keyed by field name.
         """
         config_dict = dict(config_dict)
         adapter_key = config_dict.get("dreamzero_embodiment_adapter", "droid")
@@ -253,6 +293,11 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        """Discard cached action chunks of selected environments, or all, and reset their server sessions.
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
+        """
         if self._cached_action_chunks is None:
             return
         ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()
@@ -411,8 +456,7 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
     def _send_reset(self, session_uuids: list[str] | None) -> None:
         """Notify the server to discard the given session histories (best-effort, fire-and-forget).
 
-        Local state is always cleared by the caller before this is invoked, so a
-        failed send is non-fatal: the server will simply time out the old sessions.
+        A failed send is non-fatal: the server will simply time out the old sessions.
 
         Args:
             session_uuids: UUIDs to reset, or None to reset all server sessions.

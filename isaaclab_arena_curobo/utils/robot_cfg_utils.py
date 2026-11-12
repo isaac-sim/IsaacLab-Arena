@@ -17,7 +17,14 @@ if TYPE_CHECKING:
 
 
 def load_patched_robot_yaml(curobo_cfg: CuroboEmbodimentCfg) -> dict:
-    """Load an embodiment's cuRobo robot yaml and splice in its downloaded URDF path."""
+    """Load an embodiment's cuRobo robot yaml and splice in its downloaded URDF path.
+
+    Args:
+        curobo_cfg: cuRobo configuration naming the robot yaml template and the URDF.
+
+    Returns:
+        The parsed robot yaml with the URDF path set.
+    """
     robot_cfg_path = retrieve_file_path(curobo_cfg.robot_cfg_template)
     robot_urdf_path = retrieve_file_path(curobo_cfg.robot_urdf)
     with open(robot_cfg_path) as f:

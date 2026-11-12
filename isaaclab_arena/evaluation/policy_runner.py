@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Command-line entry point that rolls out a policy in an environment and reports its metrics."""
+
 from __future__ import annotations
 
 import argparse
@@ -40,6 +42,12 @@ def get_policy_cls(policy_type: str) -> type[PolicyBase]:
     - if not found, it tries to dynamically import the policy class, treating
       the policy_type argument as a string representing the module path and class name.
 
+
+    Args:
+        policy_type: Registered policy name, or module path and class name.
+
+    Returns:
+        The policy class.
     """
     policy_registry = PolicyRegistry()
     if policy_registry.is_registered(policy_type):
@@ -58,6 +66,11 @@ def get_policy_cls(policy_type: str) -> type[PolicyBase]:
 
 
 def is_distributed(args_cli: argparse.Namespace) -> bool:
+    """Return whether the run uses more than one process on CUDA devices.
+
+    Args:
+        args_cli: Parsed command-line arguments.
+    """
     return (
         "cuda" in args_cli.device and hasattr(args_cli, "distributed") and args_cli.distributed and get_world_size() > 1
     )
@@ -69,6 +82,20 @@ def rollout_policy(
     num_steps: int | None,
     num_episodes: int | None,
 ) -> MetricsDataCollection | None:
+    """Roll out a policy in an environment for a number of steps or episodes.
+
+    Exactly one of `num_steps` and `num_episodes` must be given. Resets the policy state of environments
+    whose episode restarts.
+
+    Args:
+        env: Gym-wrapped environment.
+        policy: Policy that produces the actions.
+        num_steps: Number of steps to run, or None.
+        num_episodes: Number of episodes to run, or None.
+
+    Returns:
+        The collected metrics, or None when none are computed.
+    """
     import torch
 
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
@@ -138,7 +165,11 @@ def rollout_policy(
 
 
 def list_variations(args_parser: argparse.ArgumentParser) -> None:
-    """Print the Hydra-configurable variations for the selected environment."""
+    """Print the Hydra-configurable variations for the selected environment.
+
+    Args:
+        args_parser: Argument parser to extend with the environment arguments.
+    """
     args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
     args_cli, hydra_overrides = args_parser.parse_known_args()
     assert_hydra_overrides(hydra_overrides, args_parser)

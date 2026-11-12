@@ -6,7 +6,7 @@
 """Build-time variation that picks an HDR environment map for a dome light.
 
 The HDR is sampled once before env-cfg composition and applied via
-:meth:`~isaaclab_arena.assets.object_library.DomeLight.add_hdr`.
+``isaaclab_arena.assets.object_library.DomeLight.add_hdr``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 @configclass
 class HDRImageVariationCfg(VariationBaseCfg):
-    """Configuration for :class:`HDRImageVariation`."""
+    """Configuration for ``HDRImageVariation``."""
 
     hdr_names: list[str] = field(default_factory=list)
     """Registered HDR names to sample from; empty means sample over every registered HDR."""
@@ -35,15 +35,14 @@ class HDRImageVariationCfg(VariationBaseCfg):
 
 
 class HDRImageVariation(BuildTimeVariationBase):
-    """Sample a single HDR and attach it to a :class:`DomeLight` at build time.
+    """Sample a single HDR and attach it to a ``DomeLight`` at build time.
 
     Args:
         light: The dome light to mutate. A reference is captured; ``apply``
             mutates this instance.
-        cfg: Tunable parameters. Defaults to sampling over every registered HDR.
+        cfg: Tunable parameters; samples over every registered HDR when omitted.
             Override the choice sampler via ``cfg.sampler_cfg``.
         name: Identifier under which this variation is registered on the asset.
-            Defaults to ``"hdr_image"``.
     """
 
     cfg: HDRImageVariationCfg
@@ -54,6 +53,13 @@ class HDRImageVariation(BuildTimeVariationBase):
         cfg: HDRImageVariationCfg | None = None,
         name: str = "hdr_image",
     ):
+        """Initialize the variation.
+
+        Args:
+            light: The dome light to mutate.
+            cfg: Tunable parameters; ``None`` selects the standard cfg.
+            name: Identifier under which this variation is registered on the asset.
+        """
         super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg(), name=name)
         self._light = light
 

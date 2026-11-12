@@ -22,7 +22,11 @@ if TYPE_CHECKING:
 
 
 def has_heterogeneous_objects(objects: list[PlaceableAsset]) -> bool:
-    """Return whether placement must use env-specific object geometry."""
+    """Return whether placement must use env-specific object geometry.
+
+    Args:
+        objects: Placement objects to inspect.
+    """
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
     return any(isinstance(obj, RigidObjectSet) for obj in objects)
@@ -35,6 +39,11 @@ def assign_variants_for_envs(objects: list[PlaceableAsset], num_envs: int, place
     requesting per-env bounding boxes. Non-RigidObjectSet objects are skipped.
     Seeded assignments offset each set by its index so multiple sets do not
     reuse the same random sequence.
+
+    Args:
+        objects: Placement objects; only object sets receive variants.
+        num_envs: Number of environments to assign variants for.
+        placement_seed: Base seed for variant assignment, or None for unseeded assignment.
     """
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
@@ -51,6 +60,10 @@ def get_bounding_box_per_env(obj: PlaceableAsset, num_envs: int) -> AxisAlignedB
 
     RigidObjectSet delegates to its own get_bounding_box_per_env.
     All other objects broadcast their single bbox.
+
+    Args:
+        obj: Object whose bounding box is queried.
+        num_envs: Number of environments.
     """
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
@@ -84,7 +97,11 @@ class PerEnvBoundingBoxes:
             ), f"Object '{obj.name}' bbox max_point has {bbox.max_point.shape[0]} envs, expected {self.num_envs}."
 
     def get_bounding_boxes_for_env_id(self, env_id: int) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
-        """Return object bboxes for a single env (each (1, 3)), used for per-env initialization and validation."""
+        """Return object bboxes for a single env (each (1, 3)).
+
+        Args:
+            env_id: Index of the environment.
+        """
         return {
             obj: AxisAlignedBoundingBox(
                 min_point=bbox.min_point[env_id : env_id + 1],
@@ -107,6 +124,13 @@ def build_per_env_bounding_boxes(objects: list[PlaceableAsset], num_envs: int) -
 
     Anchor bounds include their fixed quarter-turn rotation. Movable-object bounds remain
     unrotated until candidate orientations are applied.
+
+    Args:
+        objects: Placement objects.
+        num_envs: Number of environments.
+
+    Returns:
+        Per-env bounding boxes for every object.
     """
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
     for obj, bbox in object_bboxes.items():
@@ -125,7 +149,12 @@ def update_candidate_bounds(
     batch: PlacementCandidateBatch,
     env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
 ) -> None:
-    """Replace enclosing and collision bounds in place using base geometry and current candidate orientations."""
+    """Replace enclosing and collision bounds in place using base geometry and current candidate orientations.
+
+    Args:
+        batch: Candidate batch whose bounds are updated.
+        env_bboxes: Per-env base bounding boxes of every object, indexed by environment id.
+    """
     objects = list(env_bboxes[0])
     base_bounds = {
         obj: AxisAlignedBoundingBox(
@@ -181,6 +210,14 @@ def rotate_candidate_bboxes(
 
     Supply base bounds: movable objects are unrotated; anchors include their fixed rotation.
     Returned bounds remain relative to object origins. Inputs are not modified.
+
+    Args:
+        objects: Placement objects.
+        candidate_bboxes: Base bounding boxes per object, relative to each object's origin.
+        orientations_per_candidate: Per-candidate orientation of every object.
+
+    Returns:
+        Axis-aligned bounds per object enclosing the oriented boxes of every candidate.
     """
     collision_bboxes = get_candidate_collision_bboxes(objects, candidate_bboxes, orientations_per_candidate)
     return {obj: bounds.to_aabb() for obj, bounds in collision_bboxes.items()}

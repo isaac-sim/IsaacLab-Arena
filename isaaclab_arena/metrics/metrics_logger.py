@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Logger that collects metrics per job and writes them to a JSON file."""
+
 from __future__ import annotations
 
 import json
@@ -13,7 +15,14 @@ if TYPE_CHECKING:
 
 
 def metrics_to_plain_python_types(metrics_data: MetricsDataCollection) -> dict[str, int | float | list]:
-    """Convert numpy scalars/arrays in a metrics data to plain Python types."""
+    """Convert numpy scalars/arrays in a metrics data to plain Python types.
+
+    Args:
+        metrics_data: Collection of computed metrics.
+
+    Returns:
+        The episode count and each metric value, keyed by metric name.
+    """
     import numpy as np
 
     sanitized = {
@@ -35,7 +44,14 @@ def metrics_to_plain_python_types(metrics_data: MetricsDataCollection) -> dict[s
 
 
 class MetricsLogger:
+    """Collects the metrics of each job and writes them to a JSON file."""
+
     def __init__(self, metrics_file: str = "metrics.json"):
+        """Create a logger with no recorded metrics.
+
+        Args:
+            metrics_file: Path of the JSON file that receives the metrics.
+        """
         self.metrics_file = metrics_file
         self.metrics_data = {}
 

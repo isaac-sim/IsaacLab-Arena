@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Pydantic model of an environment graph spec with its validation, YAML input and output, and CLI overrides."""
+
 from __future__ import annotations
 
 import yaml
@@ -204,10 +206,20 @@ class ArenaEnvGraphSpec(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Self:
+        """Load and validate a spec from a YAML file.
+
+        Args:
+            path: Path of the YAML file.
+        """
         return cls.from_dict(cls._load_yaml_dict(path))
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Validate a spec from a dictionary.
+
+        Args:
+            data: Serialized spec.
+        """
         assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
         return cls.model_validate(data)
 
@@ -216,19 +228,31 @@ class ArenaEnvGraphSpec(BaseModel):
         return self.model_dump(mode="json", exclude_none=True)
 
     def write_yaml(self, path: str | Path) -> None:
-        """Validate this spec and write it to ``path`` as YAML."""
+        """Validate this spec and write it to ``path`` as YAML.
+
+        Args:
+            path: Path of the YAML file to write.
+        """
         self.validate()
         with Path(path).open("w", encoding="utf-8") as f:
             yaml.safe_dump(self.to_dict(), f, sort_keys=False)
 
     @staticmethod
     def read_cli_override_specs(path: str | Path) -> list[CliOverrideSpec]:
-        """Read just the ``cli_override_specs`` section of a graph YAML."""
+        """Read just the ``cli_override_specs`` section of a graph YAML.
+
+        Args:
+            path: Path of the graph YAML file.
+        """
         raw_specs = ArenaEnvGraphSpec._load_yaml_dict(path).get("cli_override_specs") or []
         return [CliOverrideSpec.model_validate(entry) for entry in raw_specs]
 
     def apply_cli_override_args(self, args_cli: argparse.Namespace) -> None:
-        """Apply CLI override flags in place by swapping target assets' ``registry_name``."""
+        """Apply CLI override flags in place by swapping target assets' ``registry_name``.
+
+        Args:
+            args_cli: Parsed command-line arguments holding the override values.
+        """
         # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace Namespace-based graph overrides with a
         # typed graph-construction boundary in a dedicated environment-graph refactor.
         for override in self.cli_override_specs or []:
@@ -237,7 +261,7 @@ class ArenaEnvGraphSpec(BaseModel):
                 self._asset_by_id(override.target_node_id).registry_name = new_name
 
     def to_arena_env(self, enable_cameras: bool = False) -> IsaacLabArenaEnvironment:
-        """Convert this graph spec into an :class:`IsaacLabArenaEnvironment`.
+        """Convert this graph spec into an `IsaacLabArenaEnvironment`.
 
         Args:
             enable_cameras: Forwarded to the embodiment so its cameras are spawned.

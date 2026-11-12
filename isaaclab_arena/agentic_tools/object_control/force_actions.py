@@ -23,6 +23,12 @@ class ForcePoseActionTerm(ActionTerm):
     """
 
     def __init__(self, cfg: ForcePoseActionCfg, env):
+        """Create the action term.
+
+        Args:
+            cfg: Action term configuration.
+            env: Environment that owns the term.
+        """
         super().__init__(cfg, env)
         self._raw_actions = torch.zeros((env.num_envs, 8), device=env.device)
         self._processed_actions = self._raw_actions.clone()
@@ -30,17 +36,27 @@ class ForcePoseActionTerm(ActionTerm):
 
     @property
     def action_dim(self) -> int:
+        """Return the action dimension: a goal pose (position and quaternion) plus an enable flag."""
         return 8
 
     @property
     def raw_actions(self) -> torch.Tensor:
+        """Return the actions as received, shaped (num_envs, action_dim)."""
         return self._raw_actions
 
     @property
     def processed_actions(self) -> torch.Tensor:
+        """Return the actions after quaternion normalization, shaped (num_envs, action_dim)."""
         return self._processed_actions
 
     def process_actions(self, actions: torch.Tensor) -> None:
+        """Store the actions and normalize the goal quaternions of enabled environments.
+
+        Clears the persistent wrench of environments whose enable flag turned off.
+
+        Args:
+            actions: Goal poses and enable flags, shaped (num_envs, action_dim).
+        """
         released = (self._processed_actions[:, 7] > 0) & (actions[:, 7] <= 0)
         if released.any():
             self._asset.permanent_wrench_composer.reset(env_ids=released.nonzero().flatten())
@@ -56,6 +72,7 @@ class ForcePoseActionTerm(ActionTerm):
             self.last_wrench = None
 
     def apply_actions(self) -> None:
+        """Apply a spring-damper force and rotation command that drives enabled objects toward their goal poses."""
         env_ids = (self._processed_actions[:, 7] > 0).nonzero().flatten()
         if env_ids.numel() == 0:
             return
@@ -100,6 +117,11 @@ class ForcePoseActionTerm(ActionTerm):
         )
 
     def reset(self, env_ids=None) -> None:
+        """Zero the stored actions and clear the applied wrench.
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
+        """
         env_ids = slice(None) if env_ids is None else env_ids
         self._raw_actions[env_ids] = 0
         self._processed_actions[env_ids] = 0
@@ -148,23 +170,37 @@ class ForceJointActionTerm(ActionTerm):
     """
 
     def __init__(self, cfg: ForceJointActionCfg, env):
+        """Create the action term.
+
+        Args:
+            cfg: Action term configuration.
+            env: Environment that owns the term.
+        """
         super().__init__(cfg, env)
         self._raw_actions = torch.zeros((env.num_envs, self.action_dim), device=env.device)
         self._processed_actions = self._raw_actions.clone()
 
     @property
     def action_dim(self) -> int:
+        """Return the action dimension: five values per joint (goal, gain, damping, limit, enable flag)."""
         return self._asset.num_joints * 5
 
     @property
     def raw_actions(self) -> torch.Tensor:
+        """Return the actions as received, shaped (num_envs, action_dim)."""
         return self._raw_actions
 
     @property
     def processed_actions(self) -> torch.Tensor:
+        """Return the stored actions, shaped (num_envs, action_dim)."""
         return self._processed_actions
 
     def process_actions(self, actions: torch.Tensor) -> None:
+        """Store the actions and clear the effort of joints whose enable flag turned off.
+
+        Args:
+            actions: Per-joint goal, gain, damping, limit and enable flag, shaped (num_envs, action_dim).
+        """
         previous = self._processed_actions.reshape(self.num_envs, -1, 5)
         current = actions.reshape(self.num_envs, -1, 5)
         released = (previous[:, :, 4] > 0) & (current[:, :, 4] <= 0)
@@ -179,6 +215,7 @@ class ForceJointActionTerm(ActionTerm):
         self._processed_actions.copy_(actions)
 
     def apply_actions(self) -> None:
+        """Apply a clamped PD effort to every enabled joint."""
         commands = self._processed_actions.reshape(self.num_envs, -1, 5)
         for joint_id in (commands[:, :, 4] > 0).any(dim=0).nonzero().flatten().tolist():
             env_ids = (commands[:, joint_id, 4] > 0).nonzero().flatten()
@@ -191,6 +228,11 @@ class ForceJointActionTerm(ActionTerm):
             )
 
     def reset(self, env_ids=None) -> None:
+        """Zero the stored actions and joint efforts.
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
+        """
         env_ids = slice(None) if env_ids is None else env_ids
         self._raw_actions[env_ids] = 0
         self._processed_actions[env_ids] = 0

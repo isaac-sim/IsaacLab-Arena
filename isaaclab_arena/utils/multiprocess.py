@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers that read the rank and world size of distributed processes from the environment."""
+
 import os
 
 

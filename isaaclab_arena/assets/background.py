@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Background scene asset: the static scene geometry that other objects are placed in."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -38,6 +40,20 @@ class Background(Object):
         reset_nested_physics: bool = True,
         **kwargs,
     ):
+        """Create a background from a USD file or USD source.
+
+        Args:
+            name: Name of the background.
+            object_min_z: Global world z height below which objects dropped in the scene trigger a reset. It does
+                not move with the background when initial_pose shifts it.
+            usd_path: Path to the USD file. Exactly one of usd_path and usd_source must be given.
+            usd_source: Source that provides the USD file.
+            prim_path: Prim path template of the background in the scene. None uses a path derived from name.
+            initial_pose: Pose of the background in the scene.
+            reset_nested_physics: Whether rigid bodies and articulations nested in instanceable subtrees of the
+                background are de-instanced when spawned, so that their state can be reset.
+            **kwargs: Passed on to the parent class.
+        """
         self.reset_nested_physics = reset_nested_physics
         super().__init__(
             name=name,

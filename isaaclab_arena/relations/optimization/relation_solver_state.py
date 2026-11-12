@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Batched position state for relation solving."""
+
 from __future__ import annotations
 
 import torch
@@ -42,7 +44,7 @@ class RelationSolverState:
                 object marked with IsAnchor() which serves as a fixed reference.
             initial_positions: List of dicts (one per env). Length 1 = single-env,
                 length > 1 = batched.
-            device: Torch device for all tensors. Defaults to CPU.
+            device: Torch device for all tensors.
             env_bboxes: Optional per-env bounding boxes keyed by object.
             collision_objects: Optional fixed background obstacles that participate in
                 no-overlap collision only (never in relation constraints). They keep a
@@ -142,11 +144,19 @@ class RelationSolverState:
         return self._collision_boxes_axis_aligned
 
     def get_collision_bbox(self, obj: PlaceableAsset) -> BoundingBox:
-        """Return collision bounds relative to a movable object's origin."""
+        """Return collision bounds relative to a movable object's origin.
+
+        Args:
+            obj: Movable object.
+        """
         return self._collision_bboxes[obj]
 
     def get_collision_center_W(self, obj: PlaceableAsset | CollisionObject) -> torch.Tensor:
-        """Return the collision box centers in W at the current positions, shape (B, 3)."""
+        """Return the collision box centers in W at the current positions, shape (B, 3).
+
+        Args:
+            obj: Movable object or fixed collision object.
+        """
         center, _, _ = self.get_collision_geometry(obj)
         # Movable geometry stores centers relative to the object origin; fixed geometry stores world centers.
         if obj in self._collision_bboxes:
@@ -156,7 +166,11 @@ class RelationSolverState:
     def get_collision_geometry(
         self, obj: PlaceableAsset | CollisionObject
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Return cached center offsets (B, 3), half-lengths (B, 3), and axes (B, 3, 3)."""
+        """Return cached center offsets (B, 3), half-lengths (B, 3), and axes (B, 3, 3).
+
+        Args:
+            obj: Movable object or fixed collision object.
+        """
         if obj not in self._collision_geometry:
             from isaaclab.utils.math import matrix_from_quat
 
@@ -214,10 +228,6 @@ class RelationSolverState:
 
         Returns:
             Position tensor of shape (batch_size, 3).
-
-        Raises:
-            KeyError: If object is not tracked by this state.
-            RuntimeError: If requesting position for optimizable object when none exist.
         """
         idx = self._obj_to_idx[obj]
         if idx in self._anchor_indices:
@@ -228,14 +238,22 @@ class RelationSolverState:
         return self._optimizable_positions[:, opt_idx, :]
 
     def get_fixed_obstacle_world_bbox(self, obj: PlaceableAsset | CollisionObject) -> AxisAlignedBoundingBox:
-        """Return the cached constant world bounding box for an anchor or collision object."""
+        """Return the cached constant world bounding box for an anchor or collision object.
+
+        Args:
+            obj: Anchor or fixed collision object.
+        """
         assert (
             obj in self._fixed_obstacle_world_bboxes
         ), f"'{obj.name}' is not a fixed obstacle (anchor or collision object) tracked by this state."
         return self._fixed_obstacle_world_bboxes[obj]
 
     def get_bbox(self, obj: PlaceableAsset) -> AxisAlignedBoundingBox:
-        """Return the local bounding box for obj, moved to the state's device."""
+        """Return the local bounding box for obj, moved to the state's device.
+
+        Args:
+            obj: Placement object.
+        """
         if self._env_bboxes is not None and obj in self._env_bboxes:
             return self._env_bboxes[obj].to(self._device)
         return obj.get_bounding_box().to(self._device)

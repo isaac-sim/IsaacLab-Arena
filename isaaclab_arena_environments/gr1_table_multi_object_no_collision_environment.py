@@ -9,15 +9,15 @@ No task -- suitable for policy_runner with zero_action or any policy.
 
 Supports two placement modes via ``--mode``:
 
-* **homogeneous** (default): each object is a regular Object — same in all envs.
+* **homogeneous**: each object is a regular Object — same in all envs.
 * **heterogeneous**: objects are wrapped in ``RigidObjectSet`` for per-env variance.
 
-Both modes use the office table by default. Use ``--objects`` to override object
+Both modes use the office table. Use ``--objects`` to override object
 lists for controlled experiments.
 
 Example (--viz kit enables the Kit visualizer, --episode_length_s triggers periodic resets):
 
-  # Homogeneous (default) — YCB objects
+  # Homogeneous — YCB objects
   python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
     --num_envs 16 --env_spacing 4.0 --enable_cameras \\
     gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0
@@ -110,7 +110,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
     Table-based scene with multiple objects (On(table) + built-in no-overlap) and a robot.
     Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
 
-    Supports ``--mode homogeneous`` (default) and ``--mode heterogeneous`` for
+    Supports ``--mode homogeneous`` and ``--mode heterogeneous`` for
     inter-environment object variance via ``RigidObjectSet``.
     """
 
@@ -118,7 +118,11 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
     _legacy_argparse_cfg_type = GR1TableMultiObjectNoCollisionEnvironmentCfg
 
     def build(self, cfg: GR1TableMultiObjectNoCollisionEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab.sensors import CameraCfg
 
         from isaaclab_arena.assets.object_reference import ObjectReference

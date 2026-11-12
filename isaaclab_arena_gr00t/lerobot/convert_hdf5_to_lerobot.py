@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Conversion of Isaac Lab HDF5 demonstration datasets into the GR00T LeRobot dataset format."""
+
 import h5py
 import json
 import multiprocessing as mp
@@ -206,8 +208,15 @@ def get_feature_info(
 
 
 def extract_teleop_command(trajectory: h5py.Dataset, teleop_key: str, config: Gr00tDatasetConfig) -> dict[str, Any]:
-    """
-    Extract the teleop command from the trajectory.
+    """Extract the teleop command from the trajectory, dropping the last step.
+
+    Args:
+        trajectory: The HDF5 trajectory group containing an `action` entry.
+        teleop_key: Key of the teleop command in `config.hdf5_keys`.
+        config: Dataset configuration holding the HDF5 key mapping.
+
+    Returns:
+        One teleop command per step of the trajectory, excluding the last.
     """
     assert "action" in trajectory.keys()
     assert teleop_key in config.hdf5_keys

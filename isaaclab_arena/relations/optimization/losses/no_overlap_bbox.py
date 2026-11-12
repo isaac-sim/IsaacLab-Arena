@@ -89,7 +89,11 @@ def compute_no_overlap_loss_bbox(
 
 
 def get_on_linked_pairs(objects: list[PlaceableAsset]) -> set[tuple[int, int]]:
-    """Return (id(a), id(b)) for both orders of every On-linked object pair."""
+    """Return (id(a), id(b)) for both orders of every On-linked object pair.
+
+    Args:
+        objects: Placement objects whose On relations are inspected.
+    """
     on_pairs = set()
     for obj in objects:
         for relation in obj.get_relations():

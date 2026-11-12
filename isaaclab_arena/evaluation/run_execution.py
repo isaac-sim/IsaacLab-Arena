@@ -112,7 +112,16 @@ def build_and_run(
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
 ) -> ArenaRunResult:
-    """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
+    """Build and execute one typed Arena run, then return its result stamped with its start and end times.
+
+    Args:
+        cfg: Run configuration.
+        output_dir: Directory that receives the Run's outputs.
+        video_cfg: Video recording settings; when omitted, video is recorded under the output directory.
+
+    Returns:
+        The Run result.
+    """
     start_timestamp_ns = time.time_ns()
     metrics_per_rebuild: list[MetricsDataCollection] = []
     placement_diagnostics_per_rebuild: list[PlacementDiagnostics] = []

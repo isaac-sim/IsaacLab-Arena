@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Policy that always outputs zero actions."""
+
 import gymnasium as gym
 import torch
 from dataclasses import dataclass
@@ -19,6 +21,7 @@ class ZeroActionPolicyCfg(PolicyCfg):
 
 @register_policy
 class ZeroActionPolicy(PolicyBase[ZeroActionPolicyCfg]):
+    """Policy that returns an all-zero action for every environment."""
 
     name = "zero_action"
 
@@ -34,5 +37,9 @@ class ZeroActionPolicy(PolicyBase[ZeroActionPolicyCfg]):
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
         """
         Always returns a zero action.
+
+        Args:
+            env: Gym environment being controlled.
+            observation: Ignored.
         """
         return torch.zeros(env.action_space.shape, device=torch.device(env.unwrapped.device))

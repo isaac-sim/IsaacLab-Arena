@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Initializer that seeds each object against the footprint of an anchor."""
+
 from __future__ import annotations
 
 import torch
@@ -38,6 +40,17 @@ class AnchorInitializer(PlacementInitializerBase):
         generator: torch.Generator | None = None,
     ) -> dict[PlaceableAsset, tuple[float, float, float]]:
         # Getting the first anchor's bounding box, which will act as a fallback.
+        """Generate a start position for every object from the footprint of its nearest anchor.
+
+        Args:
+            objects: All placement objects.
+            anchor_objects: Objects with fixed poses.
+            asset_to_bbox: Local bounding box of each object.
+            generator: Random generator for reproducible sampling, or None for the global generator.
+
+        Returns:
+            Start position (x, y, z) in the world frame for every object.
+        """
         first_anchor = next(obj for obj in objects if obj in anchor_objects)
         first_anchor_bbox = get_world_bbox_at_initial_pose(first_anchor, asset_to_bbox)
         center = first_anchor_bbox.center[0]

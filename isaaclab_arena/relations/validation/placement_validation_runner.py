@@ -37,6 +37,13 @@ class PlacementValidationRunner:
         validators: list[PrePhysicsPlacementValidator],
         visualizer: PlacementRerunVisualizer | None = None,
     ):
+        """Create a runner that applies validators to candidate layouts.
+
+        Args:
+            params: Placement configuration, including which checks are required.
+            validators: Validators to run.
+            visualizer: Optional visualizer that records validation results.
+        """
         self.params = params
         self._validators = validators
         self._visualizer = visualizer
@@ -47,6 +54,13 @@ class PlacementValidationRunner:
         collision_objects: list[CollisionObject],
     ) -> BatchValidationDiagnostics:
         """Update each candidate's validation in place using the configured required-check policy.
+
+        Returns:
+            The batch's validation diagnostics.
+
+        Args:
+            batch: Candidate layouts to validate; updated in place.
+            collision_objects: Fixed obstacles that candidates must not overlap.
 
         Returns:
             The batch's validation diagnostics.

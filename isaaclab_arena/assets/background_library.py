@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Registered background assets: kitchens, tables and other static scenes."""
+
 from typing import Any
 
 import isaaclab.sim as sim_utils
@@ -36,6 +38,11 @@ class LibraryBackground(Background):
     asset_cfg_addon: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
+        """Create the background from the class attributes.
+
+        Args:
+            **kwargs: Passed on to the parent class, in addition to the class attributes.
+        """
         super().__init__(
             name=self.registry_name,
             tags=self.tags,
@@ -116,6 +123,11 @@ class GalileoLocomanipBackground(LibraryBackground):
     object_min_z = -0.2
 
     def __init__(self, **kwargs):
+        """Create the background without resetting nested physics.
+
+        Args:
+            **kwargs: Passed on to the parent class.
+        """
         # NOTE: The dolly in the scene is authored as an articulation root but is not materialized as a PhysX articulation.
         super().__init__(reset_nested_physics=False, **kwargs)
 
@@ -148,6 +160,11 @@ class OfficeTableBackground(LibraryBackground):
     }
 
     def __init__(self, **kwargs):
+        """Create the background with the class scale.
+
+        Args:
+            **kwargs: Passed on to the parent class.
+        """
         super().__init__(scale=self.scale, **kwargs)
 
 
@@ -171,6 +188,13 @@ class LightwheelKitchenBackground(LibraryBackground):
         style_id: int | None = None,
         **kwargs,
     ):
+        """Create a Lightwheel Robocasa kitchen for a layout and style.
+
+        Args:
+            layout_id: Robocasa floorplan layout index. None keeps the class's preset.
+            style_id: Robocasa style index. None keeps the class's preset.
+            **kwargs: Passed on to the parent class.
+        """
         if layout_id is None:
             layout_id = self.layout_id
         if style_id is None:
@@ -185,6 +209,7 @@ class LightwheelKitchenBackground(LibraryBackground):
         super().__init__(**kwargs)
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a viewer camera that looks into the kitchen through its open front."""
         # Looking in through the open front.
         return ViewerCfg(eye=(2.75, -5.5, 1.5), lookat=(2.75, -1.4, 0.9))
 
@@ -269,6 +294,7 @@ class ReplicatorKitchenBackground(LibraryBackground):
     object_min_z = -0.2
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a viewer camera that frames the kitchen from near the background origin."""
         return ViewerCfg(eye=(0.0, -1.0, 1.65), lookat=(0.0, 0.0, 1.35))
 
 

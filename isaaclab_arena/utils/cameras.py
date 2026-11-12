@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Camera configuration helpers: the Arena camera rig config, image fitting and camera observation terms."""
+
 import inspect
 import numpy as np
 import torch
@@ -27,7 +29,7 @@ class ArenaCameraCfg:
     """Parent class for camera configs in Arena.
 
     CameraCfg configclasses subclass this and declare camera fields (as per usual). The get_cfg
-    then returns a copy using tiled cameras by default. Setting ``use_tiled_camera=False``
+    then returns a copy using tiled cameras. Setting ``use_tiled_camera=False``
     selects the untiled renderer.
     """
 
@@ -41,10 +43,19 @@ class ArenaCameraCfg:
 
     @use_tiled_camera.setter
     def use_tiled_camera(self, use_tiled_camera: bool) -> None:
+        """Select whether get_cfg returns tiled cameras.
+
+        Args:
+            use_tiled_camera: Whether tiled cameras are used.
+        """
         self._use_tiled_camera = use_tiled_camera
 
     def set_use_tiled_camera(self, use_tiled_camera: bool) -> None:
-        """Select whether get_cfg returns tiled cameras."""
+        """Select whether get_cfg returns tiled cameras.
+
+        Args:
+            use_tiled_camera: Whether tiled cameras are used.
+        """
         self._use_tiled_camera = use_tiled_camera
 
     def camera_names(self) -> list[str]:
@@ -55,6 +66,10 @@ class ArenaCameraCfg:
         """Shrink every camera in this rig to fit inside a bounding box, preserving each aspect ratio.
 
         A 1280x720 camera fitted into a 224x224 box renders at 224x126, the largest 16:9 image that box holds.
+
+        Args:
+            max_height: Height of the bounding box, in pixels.
+            max_width: Width of the bounding box, in pixels.
         """
         for camera_name in self.camera_names():
             camera_cfg = getattr(self, camera_name)
@@ -98,6 +113,12 @@ def fit_image_size(height: int, width: int, max_height: int, max_width: int) -> 
 
     Both dimensions are divided by the larger axis ratio and truncated to whole pixels, which matches the
     content area of an aspect-preserving resize-with-pad (such as tf.image.resize_with_pad) into that box.
+
+    Args:
+        height: Image height, in pixels.
+        width: Image width, in pixels.
+        max_height: Height of the bounding box, in pixels.
+        max_width: Width of the bounding box, in pixels.
     """
     assert height > 0 and width > 0, "camera dimensions must be greater than zero"
     assert max_height > 0 and max_width > 0, "bounding box dimensions must be greater than zero"
@@ -109,11 +130,17 @@ def make_camera_observation_cfg(
     camera_cfg: Any,
     normalize: bool = False,
 ):
-    """
-    Build a configclass instance that adds one ObsTerm per selected camera.
+    """Build a configclass instance that adds one ObsTerm per selected camera.
     The SceneEntity name equals the camera field name plus the data type used in the Scene.
     For example, if the camera field name is "robot_pov_cam" and the data type is "rgb", the SceneEntity name will be "robot_pov_cam_rgb".
     We create a class which has a member pointing to another class which is based on the ObsGroup class.
+
+    Args:
+        camera_cfg: Camera configuration class or instance whose cameras get observation terms.
+        normalize: Whether image observations are normalized.
+
+    Returns:
+        Observation group configuration class.
     """
 
     # If they passed the class, instantiate it so we can read values
@@ -200,6 +227,11 @@ def camera_motion_vectors(
 
     Motion vectors have no normalization defined by Isaac Lab. Clone the sensor
     buffer to preserve the behavior of the removed generic ``mdp.image`` term.
+
+    Args:
+        env: Environment that owns the camera sensor.
+        sensor_cfg: Scene entity of the camera sensor.
+        normalize: Unused, accepted for signature compatibility with image observation terms.
     """
     return env.scene.sensors[sensor_cfg.name].data.output["motion_vectors"].clone()
 

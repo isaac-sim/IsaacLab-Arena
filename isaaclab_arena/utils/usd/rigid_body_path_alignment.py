@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Spawn configuration helpers that align rigid-body prim paths of USD assets."""
+
 from __future__ import annotations
 
 import hashlib

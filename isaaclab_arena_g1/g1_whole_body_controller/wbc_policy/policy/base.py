@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Abstract base class for whole-body controller policies."""
+
 from abc import ABC, abstractmethod
 
 

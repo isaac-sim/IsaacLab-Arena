@@ -21,18 +21,35 @@ INVALID_SPEC_FILENAME_PREFIX = "invalid_"
 
 
 def safe_filename_stem(name: str) -> str:
-    """Return a filesystem-safe stem derived from an env name."""
+    """Return a filesystem-safe stem derived from an env name.
+
+    Args:
+        name: Environment name.
+    """
     stem = re.sub(r"[^\w.-]+", "_", name).strip("._")
     return stem or "unnamed_env"
 
 
 def env_graph_spec_path(env_name: str, out_dir: Path) -> Path:
-    """Return the default graph-spec YAML path for ``env_name`` under ``out_dir``."""
+    """Return the default graph-spec YAML path for ``env_name`` under ``out_dir``.
+
+    Args:
+        env_name: Environment name.
+        out_dir: Output directory.
+    """
     return out_dir / f"{safe_filename_stem(env_name)}.yaml"
 
 
 def write_env_graph_spec(graph_spec: ArenaEnvGraphSpec, out_dir: Path) -> Path:
-    """Dump an environment graph spec to YAML under ``out_dir``."""
+    """Dump an environment graph spec to YAML under ``out_dir``.
+
+    Args:
+        graph_spec: Environment graph spec to write.
+        out_dir: Output directory; created if missing.
+
+    Returns:
+        The path of the written file.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     path = env_graph_spec_path(graph_spec.env_name, out_dir)
     graph_spec.write_yaml(path)
@@ -40,7 +57,12 @@ def write_env_graph_spec(graph_spec: ArenaEnvGraphSpec, out_dir: Path) -> Path:
 
 
 def rejected_env_graph_spec_path(env_name: str, out_dir: Path) -> Path:
-    """Return the graph-spec YAML path for a rejected ``env_name`` under ``out_dir``."""
+    """Return the graph-spec YAML path for a rejected ``env_name`` under ``out_dir``.
+
+    Args:
+        env_name: Environment name.
+        out_dir: Output directory.
+    """
     return out_dir / f"{INVALID_SPEC_FILENAME_PREFIX}{safe_filename_stem(env_name)}.yaml"
 
 

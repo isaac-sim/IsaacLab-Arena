@@ -16,7 +16,14 @@ if TYPE_CHECKING:
 def gear_insertion_newton_env_cfg_callback(
     env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
-    """Configure Newton contact dynamics for gear insertion."""
+    """Configure Newton contact dynamics for gear insertion.
+
+    Args:
+        env_cfg: Environment configuration to modify in place; its physics backend must be Newton.
+
+    Returns:
+        The modified environment configuration.
+    """
     from isaaclab_newton.physics import NewtonCfg
 
     assert isinstance(env_cfg.sim.physics, NewtonCfg), "gear_insertion requires the Newton physics backend"

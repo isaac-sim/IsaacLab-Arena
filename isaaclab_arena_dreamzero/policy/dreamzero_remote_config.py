@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration dataclass for the DreamZero remote policy."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

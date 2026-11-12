@@ -7,7 +7,7 @@
 
 Robot, fingertip contact sensors, relative joint actions, state observations.
 
-Scene geometry (object, table, ground, lights) is supplied by the Arena :class:`~isaaclab_arena.scene.scene.Scene`;
+Scene geometry (object, table, ground, lights) is supplied by the Arena `isaaclab_arena.scene.scene.Scene`;
 this embodiment only adds the robot and sensors.
 """
 
@@ -97,6 +97,14 @@ class KukaAllegroEmbodiment(EmbodimentBase):
         concatenate_observation_terms: bool = True,
         arm_mode: ArmMode | None = None,
     ):
+        """Create the Kuka Allegro embodiment with relative joint position actions and proprioceptive observations.
+
+        Args:
+            enable_cameras: Must be false because this embodiment has no cameras.
+            initial_pose: Pose of the robot base in the environment.
+            concatenate_observation_terms: Whether policy observation terms are concatenated into one tensor.
+            arm_mode: Which arm(s) the embodiment controls.
+        """
         assert not enable_cameras, "The kuka_allegro embodiment carries no cameras"
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
 
@@ -106,7 +114,16 @@ class KukaAllegroEmbodiment(EmbodimentBase):
         self.event_config = KukaAllegroEventCfg()
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        """Return the name of the end-effector frame, which is the palm link.
+
+        Args:
+            arm_mode: Arm mode to look up the frame for. Not used; there is a single end-effector frame.
+
+        Returns:
+            The end-effector frame name.
+        """
         return "palm_link"
 
     def get_command_body_name(self) -> str:
+        """Return an empty string, since the actions are joint-space and command no body."""
         return ""

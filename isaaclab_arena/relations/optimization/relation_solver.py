@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Gradient-based solver that optimizes object positions to satisfy spatial relations."""
+
 from __future__ import annotations
 
 import time
@@ -55,7 +57,7 @@ class RelationSolver:
     ):
         """
         Args:
-            params: Solver configuration parameters. If None, uses defaults.
+            params: Solver configuration parameters; None selects standard settings.
         """
         self.params = params or RelationSolverParams()
         # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
@@ -228,7 +230,13 @@ class RelationSolver:
         batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
     ) -> None:
-        """Update candidates in place with solved positions and losses, clearing previous validation."""
+        """Update candidates in place with solved positions and losses, clearing previous validation.
+
+        Args:
+            objects: All placement objects.
+            batch: Candidate layouts to solve; updated in place.
+            collision_objects: Fixed obstacles that objects must not overlap.
+        """
         positions = self.solve(
             objects,
             [candidate.positions for candidate in batch.candidates],
@@ -263,13 +271,12 @@ class RelationSolver:
                 marked with IsAnchor() which serves as a fixed reference.
             initial_positions: List of dicts (one per env). Use a single-element list
                 for single-env placement.
-            env_bboxes: Optional per-env bounding boxes keyed by object.
-                ObjectPlacer always supplies these, with each
-                AxisAlignedBoundingBox shaped (batch, 3). Direct solver calls
-                may omit them to use each object's default get_bounding_box().
+            env_bboxes: Optional per-env bounding boxes keyed by object, each
+                AxisAlignedBoundingBox shaped (batch, 3). When omitted, each object's
+                get_bounding_box() is used.
             env_bboxes_include_yaw: Whether supplied env_bboxes already enclose each object's
                 yawed footprint and serve as its collision bounds unchanged; otherwise they are rotated
-                by orientations. Direct callers should leave this False unless they expanded the supplied bboxes.
+                by orientations. Leave this False unless the supplied bboxes were already expanded.
             orientations: Optional per-env yaw angles (radians about Z) per object.
                 Used to orient collision boxes and MESH sphere centers.
             collision_objects: Optional fixed background obstacles included in the

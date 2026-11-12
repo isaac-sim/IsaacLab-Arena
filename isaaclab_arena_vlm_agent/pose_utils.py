@@ -12,7 +12,12 @@ from scipy.spatial.transform import Rotation
 
 
 def read_robot_root_poses_w(base, env_id: int) -> dict[str, np.ndarray]:
-    """Return the world pose of each commanded asset root, as XYZ then XYZW, indexed by asset name."""
+    """Return the world pose of each commanded asset root, as XYZ then XYZW, indexed by asset name.
+
+    Args:
+        base: Unwrapped Arena environment.
+        env_id: Index of the environment to read.
+    """
     roots = {}
     for name in base.action_manager.active_terms:
         asset_name = base.action_manager.get_term(name).cfg.asset_name

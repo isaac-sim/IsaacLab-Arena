@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Hydra-based parsing and application of variation config overrides."""
+
 from __future__ import annotations
 
 import json
@@ -24,7 +26,14 @@ if TYPE_CHECKING:
 
 
 def overrides_from_dict(values: dict[str, Any]) -> list[str]:
-    """Serialize nested variation values as dotted Hydra override strings."""
+    """Serialize nested variation values as dotted Hydra override strings.
+
+    Args:
+        values: Nested dictionaries whose leaf values are JSON-serializable.
+
+    Returns:
+        One ``dotted.path=<json value>`` string per leaf value.
+    """
     overrides: list[str] = []
     stack: list[tuple[str, object]] = [("", values)]
     while stack:

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""G1 lower-body policy running a recurrent AGILE network through ONNX."""
+
 import numpy as np
 import pathlib
 import torch
@@ -247,6 +249,9 @@ class G1AgilePolicy(WBCPolicy):
 
     def get_action(self, time: float | None = None) -> dict[str, Any]:
         """Compute and return the next action based on current observation.
+
+        Args:
+            time: Unused.
 
         Returns:
             Dictionary with "body_action" key containing joint position targets

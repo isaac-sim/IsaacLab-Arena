@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base classes for Arena policies and their configurations."""
+
 from __future__ import annotations
 
 import gymnasium as gym
@@ -25,6 +27,11 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     """Define runtime behavior shared by Arena policies."""
 
     def __init__(self, config: PolicyCfgT):
+        """Store the policy configuration.
+
+        Args:
+            config: Typed policy configuration.
+        """
         self.config = config
 
     @classmethod
@@ -32,6 +39,9 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
         """Return the (height, width) of the camera images this policy is designed for, or None if it has none.
 
         Policies accept images of any size; this is the size that their image preprocessing targets.
+
+        Args:
+            config: Typed policy configuration.
         """
         return None  # noqa: R501 - subclasses with image inputs return a size
 
@@ -52,6 +62,9 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """
         Reset the policy.
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
         """
         pass
 
@@ -60,7 +73,14 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
         pass
 
     def set_task_description(self, task_description: str | None) -> str:
-        """Set the task description of the task being evaluated."""
+        """Set the task description of the task being evaluated.
+
+        Args:
+            task_description: Natural-language description of the task, or None.
+
+        Returns:
+            The stored task description.
+        """
         self.task_description = task_description
         return self.task_description
 

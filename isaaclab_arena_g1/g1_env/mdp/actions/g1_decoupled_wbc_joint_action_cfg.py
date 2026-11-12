@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration of the G1 decoupled whole-body controller joint action term."""
+
 from dataclasses import MISSING
 
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
@@ -13,6 +15,8 @@ from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action import G
 
 @configclass
 class G1DecoupledWBCJointActionCfg(ActionTermCfg):
+    """Configuration for the G1 decoupled whole-body controller joint action term."""
+
     class_type: type[ActionTerm] = G1DecoupledWBCJointAction
     """Specifies the action term class type for G1 WBC with upper body direct joint position control."""
 

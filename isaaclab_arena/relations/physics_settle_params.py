@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration dataclass for the in-sim physics settle check."""
+
 from dataclasses import dataclass
 
 DEFAULT_SETTLE_NUM_STEPS = 5

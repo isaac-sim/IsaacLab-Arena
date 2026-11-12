@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Task in which a robot sorts several objects onto their respective destinations."""
+
 import numpy as np
 from functools import partial
 
@@ -25,6 +27,7 @@ from isaaclab_arena.utils.configclass import make_configclass
 
 @register_task
 class SortMultiObjectTask(TaskBase):
+    """Task that succeeds when every object rests on its own destination."""
 
     def __init__(
         self,
@@ -34,6 +37,15 @@ class SortMultiObjectTask(TaskBase):
         episode_length_s: float | None = None,
         force_threshold: float = 1.0,
     ):
+        """Initialize the sorting task.
+
+        Args:
+            pick_up_object_list: Objects to sort.
+            destination_location_list: Destination of each object, in the same order as `pick_up_object_list`.
+            background_scene: Background whose minimum object height defines the drop failure.
+            episode_length_s: Episode time limit in seconds.
+            force_threshold: Minimum contact force in newtons exerted on an object by its destination.
+        """
         super().__init__(episode_length_s=episode_length_s)
         assert len(pick_up_object_list) == len(destination_location_list)
 
@@ -49,6 +61,7 @@ class SortMultiObjectTask(TaskBase):
         self.events_cfg = None
 
     def get_scene_cfg(self):
+        """Return a scene configuration with a contact sensor for each object against its destination."""
 
         # Support variable number of contact sensors.
         fields: list[tuple[str, type, ContactSensorCfg]] = []
@@ -62,6 +75,10 @@ class SortMultiObjectTask(TaskBase):
         return scene_cfg
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination that triggers when all objects rest on their destinations.
+
+        The episode fails if any object drops below the background's minimum object height.
+        """
         object_cfg_list = [SceneEntityCfg(pick_up_object.name) for pick_up_object in self.pick_up_object_list]
         destination_cfg_list = [
             SceneEntityCfg(destination_location.name) for destination_location in self.destination_location_list
@@ -111,18 +128,27 @@ class SortMultiObjectTask(TaskBase):
         )
 
     def get_events_cfg(self):
+        """Return None; the task defines no events."""
         return self.events_cfg
 
     def get_prompt(self):
+        """Not implemented; always raises NotImplementedError."""
         raise NotImplementedError("Function not implemented yet.")
 
     def get_mimic_env_cfg(self, embodiment_name: str):
+        """Not implemented; always raises NotImplementedError.
+
+        Args:
+            embodiment_name: Name of the embodiment.
+        """
         raise NotImplementedError("Function not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the success rate metric."""
         return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a viewer camera configuration that looks at the first object."""
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object_list[0],
             offset=np.array([-1.5, -1.5, 1.5]),

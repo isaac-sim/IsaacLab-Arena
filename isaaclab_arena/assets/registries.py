@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Singleton registries that map names to asset, device, policy, environment and task classes."""
+
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -23,16 +25,17 @@ if TYPE_CHECKING:
 
 # Have to define all classes here in order to avoid circular import.
 class Registry(metaclass=SingletonMeta):
+    """Singleton name-to-component registry that the typed registries build on."""
 
     def __init__(self):
         self._components = {}
 
     def register(self, component: Any, key: str | None = None):
-        """Register an asset with a name.
+        """Register a component under a key. The key must be set and not yet registered.
 
         Args:
-            key (str): The name of the asset.
-            asset (Asset): The asset to register.
+            component: The component to register.
+            key: The name to register the component under.
         """
         assert key not in self._components, f"component {key} already registered"
         assert key is not None, "component name is not set"
@@ -48,16 +51,15 @@ class Registry(metaclass=SingletonMeta):
                 Components register themselves lazily: nothing is in the registry until
                 ``ensure_assets_registered()`` imports all the library modules. So a plain
                 membership check can say "not registered" simply because the libraries
-                haven't been imported yet. With ``ensure_loaded=True`` (the default) we
-                import them first, so the answer reflects everything that exists.
+                haven't been imported yet. When true, those modules are imported first, so
+                the answer reflects everything that exists.
 
-                The ``register_*`` decorators pass ``False``. They run *while* those
-                library modules are being imported, and all they need is to spot a
-                duplicate key. Forcing a full load at that moment would re-enter the
-                import that's already in progress and pull in the task/environment modules
-                — which import Isaac Sim's ``pxr``/USD packages. If that happens during
-                pytest collection (before ``SimulationApp()`` starts) the simulator
-                segfaults, because those packages must be imported only after it starts.
+                Pass false while the library modules are being imported, for example from a
+                registration decorator, where all that is needed is to spot a duplicate key.
+                Forcing a full load at that moment would re-enter the import that is already
+                in progress and pull in the task/environment modules, which import Isaac
+                Sim's ``pxr``/USD packages. If that happens before ``SimulationApp()`` starts
+                (for example during pytest collection) the simulator segfaults.
         """
         if ensure_loaded and isinstance(self, REGISTRIES):
             ensure_assets_registered()
@@ -89,6 +91,7 @@ class Registry(metaclass=SingletonMeta):
 
 
 class AssetRegistry(Registry):
+    """Registry for asset classes, keyed by registry name."""
 
     def __init__(self):
         super().__init__()
@@ -149,6 +152,7 @@ class AssetRegistry(Registry):
 
 
 class DeviceRegistry(Registry):
+    """Registry for teleoperation device classes, keyed by device name."""
 
     def __init__(self):
         super().__init__()
@@ -165,6 +169,14 @@ class DeviceRegistry(Registry):
     def get_teleop_device_cfg(
         self, device: type["TeleopDeviceBase"], embodiment: object
     ) -> "DeviceCfg | IsaacTeleopCfg":
+        """Return the Isaac Lab configuration of a device for an embodiment.
+
+        The configuration comes from the retargeter registered for the device and embodiment pair.
+
+        Args:
+            device: Teleoperation device class.
+            embodiment: Embodiment instance whose `registry_name` selects the retargeter.
+        """
         retargeter_registry = RetargeterRegistry()
         retargeter_key = (device.name, embodiment.registry_name)
         retargeter_key_str = retargeter_registry.convert_tuple_to_str(retargeter_key)
@@ -173,26 +185,45 @@ class DeviceRegistry(Registry):
 
 
 class RetargeterRegistry(Registry):
+    """Registry for retargeter classes, keyed by a device and embodiment pair joined into one string."""
+
     def __init__(self):
         super().__init__()
 
     def convert_tuple_to_str(self, key: tuple[str, str]) -> str:
+        """Join a (device name, embodiment name) pair into the string key used by the registry.
+
+        Args:
+            key: Device name and embodiment name.
+        """
         # Double underscore is used to separate device and embodiment names.
         return f"{key[0]}__{key[1]}"
 
     def convert_str_to_tuple(self, key: str) -> tuple[str, str]:
+        """Split a registry string key into its (device name, embodiment name) pair.
+
+        Args:
+            key: Key produced by convert_tuple_to_str.
+        """
         # Double underscore is used to separate device and embodiment names.
         return (key.split("__")[0], key.split("__")[1])
 
 
 class PolicyRegistry(Registry):
+    """Registry for policy classes and the typed configuration each one consumes."""
+
     def __init__(self):
         super().__init__()
         self._cfg_types: dict[type["PolicyBase"], type["PolicyCfg"]] = {}
         self._policy_types_by_cfg_type: dict[type["PolicyCfg"], type["PolicyBase"]] = {}
 
     def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"]) -> None:
-        """Register a policy and its typed configuration."""
+        """Register a policy under its `name` and record the configuration type it consumes.
+
+        Args:
+            policy_type: Policy class.
+            cfg_type: Configuration class of the policy. Each configuration class maps to one policy.
+        """
         assert cfg_type not in self._policy_types_by_cfg_type, f"Policy config {cfg_type.__name__} already registered"
         self.register(policy_type, policy_type.name)
         self._cfg_types[policy_type] = cfg_type
@@ -201,7 +232,11 @@ class PolicyRegistry(Registry):
     # TODO(cvolk, 2026-07-06): [typed-config-migration] Remove this policy-to-config
     # lookup when policy_runner and experiment_runner receive PolicyCfg instances directly.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
-        """Get the config type used by the temporary policy frontend adapters."""
+        """Get the configuration type registered for a policy class.
+
+        Args:
+            policy_type: Registered policy class.
+        """
         ensure_assets_registered()
         assert policy_type in self._cfg_types, f"Policy {policy_type.__name__} must register a PolicyCfg"
         return self._cfg_types[policy_type]
@@ -209,7 +244,11 @@ class PolicyRegistry(Registry):
     # NOTE(cvolk, 2026-07-07): [typed-config-migration] This reverse lookup belongs
     # to typed run execution and remains after the legacy adapters are removed.
     def get_policy_type_for_cfg(self, cfg: "PolicyCfg") -> type["PolicyBase"]:
-        """Get the registered policy that consumes a concrete configuration."""
+        """Get the registered policy class that consumes a configuration.
+
+        Args:
+            cfg: Configuration instance of a registered configuration type.
+        """
         ensure_assets_registered()
         cfg_type = type(cfg)
         assert cfg_type in self._policy_types_by_cfg_type, f"Policy config {cfg_type.__name__} is not registered"
@@ -281,7 +320,12 @@ class EnvironmentRegistry(Registry):
         factory_type: type["ArenaEnvironmentFactory"],
         cfg_type: type["ArenaEnvironmentCfg"],
     ) -> None:
-        """Register an environment factory and the config it consumes."""
+        """Register an environment factory under its `name` and record the configuration type it consumes.
+
+        Args:
+            factory_type: Environment factory class.
+            cfg_type: Configuration class of the factory. Each configuration class maps to one factory.
+        """
         assert (
             cfg_type not in self._factory_types_by_cfg_type
         ), f"Environment config {cfg_type.__name__} already registered"
@@ -308,7 +352,11 @@ class EnvironmentRegistry(Registry):
         self,
         factory_type: type["ArenaEnvironmentFactory"],
     ) -> type["ArenaEnvironmentCfg"]:
-        """Get the config type needed to translate a legacy named environment."""
+        """Get the configuration type registered for an environment factory class.
+
+        Args:
+            factory_type: Registered environment factory class.
+        """
         ensure_assets_registered()
         assert (
             factory_type in self._cfg_types_by_factory_type
@@ -318,7 +366,11 @@ class EnvironmentRegistry(Registry):
     # NOTE(cvolk, 2026-07-07): [typed-config-migration] This reverse lookup belongs
     # to typed run execution and remains after the legacy adapters are removed.
     def get_factory_type_for_cfg(self, cfg: "ArenaEnvironmentCfg") -> type["ArenaEnvironmentFactory"]:
-        """Resolve the registered factory used to execute a typed environment config."""
+        """Get the registered environment factory class that consumes a configuration.
+
+        Args:
+            cfg: Configuration instance of a registered configuration type.
+        """
         ensure_assets_registered()
         cfg_type = type(cfg)
         assert cfg_type in self._factory_types_by_cfg_type, f"Environment config {cfg_type.__name__} is not registered"

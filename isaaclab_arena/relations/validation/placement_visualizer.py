@@ -251,11 +251,19 @@ class PlacementRerunVisualizer:
         ]
 
     def get_layout_index_across_batch(self, layout_index_within_batch: int) -> int:
-        """Across-batch index of the layout the active subset holds at ``layout_index_within_batch``."""
+        """Across-batch index of the layout the active subset holds at ``layout_index_within_batch``.
+
+        Args:
+            layout_index_within_batch: Index of a layout within the active subset.
+        """
         return self._active_layout_indices_across_batch[layout_index_within_batch]
 
     def set_time(self, layout_index_across_batch: int) -> None:
-        """Point the recording at one layout's frame, so subsequent logs land on it."""
+        """Point the recording at one layout's frame, so subsequent logs land on it.
+
+        Args:
+            layout_index_across_batch: Index of the layout to log to.
+        """
         import rerun as rr
 
         rr.set_time(LAYOUT_TIMELINE, sequence=layout_index_across_batch)

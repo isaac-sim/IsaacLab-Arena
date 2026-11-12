@@ -84,6 +84,11 @@ def _download(name: str, dest: Path) -> int:
 
 
 def main() -> int:
+    """Parse command-line arguments and download the OSMO workflows matching a datetime tag.
+
+    Returns:
+        The process exit code.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("tag", type=_datetime_tag, help="Full datetime tag, e.g. '20260706-085745'")
     parser.add_argument("--count", type=int, default=100, help="Number of recent workflows to search")

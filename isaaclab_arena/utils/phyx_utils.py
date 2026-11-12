@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers for PhysX USD schemas."""
+
 from pxr import PhysxSchema, Usd
 
 

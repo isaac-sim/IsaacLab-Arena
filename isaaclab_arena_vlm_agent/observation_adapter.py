@@ -87,7 +87,16 @@ class StateObservationAdapter(VLMObservationAdapter):
         return {"policy": state, "command_body_poses": poses}
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
-        """Return the selected environment's state as prompt values."""
+        """Return the selected environment's state as prompt values.
+
+        Args:
+            env: Arena environment, optionally gym-wrapped.
+            observation: Observation returned by the environment.
+            env_id: Index of the environment to read.
+
+        Returns:
+            Images by name and prompt values.
+        """
         return {}, self.extract_robot_state(env, observation, env_id)
 
 
@@ -95,7 +104,16 @@ class ImageObservationAdapter(VLMObservationAdapter):
     """Include RGB views and calibration from the live environment."""
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
-        """Return RGB views and optical-frame camera calibration for one environment."""
+        """Return RGB views and optical-frame camera calibration for one environment.
+
+        Args:
+            env: Arena environment, optionally gym-wrapped.
+            observation: Observation returned by the environment.
+            env_id: Index of the environment to read.
+
+        Returns:
+            Images by name and prompt values.
+        """
         base = env.unwrapped
         camera_cfg = getattr(base.cfg.observations, CAMERA_OBSERVATION_GROUP, None)
         assert camera_cfg is not None, "RGB modality requires camera observations; enable the embodiment's cameras"
@@ -117,7 +135,16 @@ class ImageStateObservationAdapter(VLMObservationAdapter):
         self.image_adapter = ImageObservationAdapter()
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
-        """Return state and RGB views for the selected environment."""
+        """Return state and RGB views for the selected environment.
+
+        Args:
+            env: Arena environment, optionally gym-wrapped.
+            observation: Observation returned by the environment.
+            env_id: Index of the environment to read.
+
+        Returns:
+            Images by name and prompt values.
+        """
         _, state = self.state_adapter.extract_vlm_input_from_observation(env, observation, env_id)
         images, geometry = self.image_adapter.extract_vlm_input_from_observation(env, observation, env_id)
         return images, {**state, **geometry}

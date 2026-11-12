@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Metric of how much an object moved, and the recorder of the object's velocity that it relies on."""
+
 import numpy as np
 from dataclasses import MISSING
 
@@ -19,12 +21,17 @@ class ObjectVelocityRecorder(RecorderTerm):
     """Records mean world-frame linear velocity of an object for each simulation step."""
 
     def __init__(self, cfg: RecorderTermCfg, env: ManagerBasedEnv):
+        """Args:
+        cfg: Recorder term configuration naming the term and the object.
+        env: Environment being recorded.
+        """
         super().__init__(cfg, env)
         # Get name from config instead of class attribute
         self.name = cfg.name
         self.object_name = cfg.object_name
 
     def record_post_step(self):
+        """Return the term name and the object's mean linear velocity in the world frame, shaped (num_envs, 3)."""
         # Use mean linear velocity for overall object movement. This is defined for both rigidbodies and deformables.
         object_linear_velocity_w = self._env.arena_world.get_mean_linear_velocity_w(self.object_name)
         assert object_linear_velocity_w.shape == (self._env.num_envs, 3)
@@ -33,6 +40,8 @@ class ObjectVelocityRecorder(RecorderTerm):
 
 @configclass
 class ObjectVelocityRecorderCfg(RecorderTermCfg):
+    """Configuration of `ObjectVelocityRecorder`."""
+
     class_type: type[RecorderTerm] = ObjectVelocityRecorder
     name: str = "object_linear_velocity"
     object_name: str = MISSING

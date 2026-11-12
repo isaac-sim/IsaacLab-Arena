@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Loader for environment graph YAML files."""
+
 from __future__ import annotations
 
 import yaml
@@ -23,7 +25,7 @@ def load_env_graph_spec_dict(path: str | Path) -> dict[str, Any]:
         path: Path to the root YAML file.
 
     Returns:
-        A merged dict ready for :class:`ArenaEnvGraphSpec` validation.
+        A merged dict ready for `ArenaEnvGraphSpec` validation.
     """
     path = Path(path).resolve()
     raw = _load_yaml_dict(path)
@@ -109,7 +111,7 @@ class _ConflictFreeMerger:
     ) -> None:
         """Merge ``new_dict`` into ``merged_dict`` in place, descending into nested dicts and id lists.
 
-        ``merged_dict`` defaults to the top-level dict merged so far.
+        When omitted, ``merged_dict`` is the top-level dict merged so far.
         """
         if merged_dict is None:
             merged_dict = self.merged_dict

@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+"""Task in which a held object is assembled with a fixed object, such as a peg insertion or gear mesh."""
+
 import numpy as np
 from dataclasses import MISSING
 from functools import partial
@@ -50,6 +52,25 @@ class AssemblyTask(TaskBase):
         min_separation: float = 0.10,
         randomization_mode: Literal["held_and_fixed_only", "held_fixed_and_auxiliary"] = "held_and_fixed_only",
     ):
+        """Initialize the assembly task.
+
+        Args:
+            fixed_asset: Asset the held asset is assembled onto.
+            held_asset: Asset that is moved into place against the fixed asset.
+            auxiliary_asset_list: Additional assets in the scene; in the auxiliary randomization mode they
+                are placed at the fixed asset's pose at reset.
+            background_scene: Background asset; its lowest object height is the floor below which the held asset
+                counts as dropped.
+            episode_length_s: Episode time limit in seconds.
+            max_x_separation: Maximum x separation in meters between held and fixed asset for success.
+            max_y_separation: Maximum y separation in meters between held and fixed asset for success.
+            max_z_separation: Maximum z separation in meters between held and fixed asset for success.
+            task_description: Natural-language task description; derived from the asset names when None.
+            pose_range: Per-axis (min, max) ranges for pose randomization at reset; empty when None.
+            min_separation: Minimum distance in meters kept between randomized assets.
+            randomization_mode: Whether only the held and fixed assets, or also the auxiliary assets, are
+                randomized at reset.
+        """
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         self.fixed_asset = fixed_asset
         self.held_asset = held_asset
@@ -82,6 +103,7 @@ class AssemblyTask(TaskBase):
         return f"Assemble the {held_asset_label} with the {fixed_asset_label}"
 
     def disable_default_pose_resets(self):
+        """Disable the default reset pose of the fixed, held and auxiliary assets."""
         for asset in [self.fixed_asset, self.held_asset, *self.auxiliary_asset_list]:
             asset.disable_reset_pose()
 
@@ -90,6 +112,10 @@ class AssemblyTask(TaskBase):
         return self.scene_config
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination when the held asset is within the separation limits of the fixed asset.
+
+        The episode fails if the held asset drops below the background's minimum object height.
+        """
         object_dropped = TerminationTermCfg(
             func=mdp_isaac_lab.root_height_below_minimum,
             params={
@@ -122,12 +148,19 @@ class AssemblyTask(TaskBase):
         return self.events_cfg
 
     def get_prompt(self):
+        """Not implemented; always raises NotImplementedError."""
         raise NotImplementedError("Function not implemented yet.")
 
     def get_mimic_env_cfg(self, embodiment_name: str):
+        """Return the Isaac Lab Mimic environment configuration for assembly.
+
+        Args:
+            embodiment_name: Name of the embodiment.
+        """
         return FactoryAssemblyMimicEnvCfg()
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the success rate and the rate at which the held asset is moved."""
         return [
             SuccessRateMetric(),
             ObjectMovedRateMetric(self.held_asset),
@@ -162,6 +195,18 @@ class EventsCfg:
         auxiliary_asset_cfgs: list[SceneEntityCfg],
         randomization_mode: Literal["held_and_fixed_only", "held_fixed_and_auxiliary"] = "held_and_fixed_only",
     ):
+        """Create the reset events: reset the scene to default, then randomize the asset poses.
+
+        Args:
+            pose_range: Per-axis (min, max) ranges for pose randomization.
+            min_separation: Minimum distance in meters kept between randomized assets.
+            asset_cfgs: Scene entities of the assets whose poses are randomized.
+            fixed_asset_cfg: Scene entity of the fixed asset.
+            auxiliary_asset_cfgs: Scene entities of the auxiliary assets, placed at the fixed asset's pose in the
+                auxiliary randomization mode.
+            randomization_mode: Whether only the held and fixed assets, or also the auxiliary assets, are
+                randomized.
+        """
         self.reset_all = EventTermCfg(
             func=mdp.reset_scene_to_default, mode="reset", params={"reset_joint_targets": True}
         )

@@ -3,12 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Yaw (rotation about world Z) helpers for angles, quaternions and points."""
+
 import math
 import torch
 
 
 def wrap_angle_to_pi(angle_rad: float) -> float:
-    """Wrap an angle in radians to [-pi, pi)."""
+    """Wrap an angle in radians to [-pi, pi).
+
+    Args:
+        angle_rad: Angle in radians.
+    """
     return (angle_rad + math.pi) % (2.0 * math.pi) - math.pi
 
 
@@ -41,7 +47,11 @@ def yaw_toward_positions(
 
 
 def yaw_from_quat_xyzw(quat_xyzw: tuple[float, float, float, float]) -> float:
-    """Return world-Z heading from a unit (x, y, z, w) quaternion, in radians."""
+    """Return world-Z heading from a unit (x, y, z, w) quaternion, in radians.
+
+    Args:
+        quat_xyzw: Unit quaternion in (x, y, z, w) order.
+    """
     qx, qy, qz, qw = quat_xyzw
     return math.atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz))
 
@@ -49,7 +59,12 @@ def yaw_from_quat_xyzw(quat_xyzw: tuple[float, float, float, float]) -> float:
 def rotate_quat_by_yaw(
     base_xyzw: tuple[float, float, float, float], yaw_rad: float
 ) -> tuple[float, float, float, float]:
-    """Rotate base_xyzw (xyzw) by an extra yaw about Z. Returns base unchanged when yaw is 0."""
+    """Rotate base_xyzw (xyzw) by an extra yaw about Z. Returns base unchanged when yaw is 0.
+
+    Args:
+        base_xyzw: Base quaternion in (x, y, z, w) order.
+        yaw_rad: Extra rotation about world Z, in radians.
+    """
     yaw_rad = wrap_angle_to_pi(yaw_rad)  # keep half-angle small for precision; canonicalize 2pi -> 0
     if yaw_rad == 0.0:
         return base_xyzw
@@ -61,7 +76,12 @@ def rotate_quat_by_yaw(
 
 
 def rotate_points_by_yaw(points: torch.Tensor, yaw: float) -> torch.Tensor:
-    """Rotate (N, 3) points about the Z-axis by a scalar yaw (radians). Z is unchanged."""
+    """Rotate (N, 3) points about the Z-axis by a scalar yaw (radians). Z is unchanged.
+
+    Args:
+        points: Points of shape (N, 3).
+        yaw: Rotation about Z, in radians.
+    """
     if yaw == 0.0:
         return points
     cos_y = math.cos(yaw)
@@ -72,7 +92,12 @@ def rotate_points_by_yaw(points: torch.Tensor, yaw: float) -> torch.Tensor:
 
 
 def rotate_points_by_yaw_batch(points: torch.Tensor, yaws: torch.Tensor) -> torch.Tensor:
-    """Rotate (N, 3) points about Z-axis by per-element yaw (N,) radians. Z is unchanged."""
+    """Rotate (N, 3) points about Z-axis by per-element yaw (N,) radians. Z is unchanged.
+
+    Args:
+        points: Points of shape (N, 3).
+        yaws: Rotation about Z for each point, shape (N,), in radians.
+    """
     cos_y = torch.cos(yaws)
     sin_y = torch.sin(yaws)
     x = points[:, 0] * cos_y - points[:, 1] * sin_y

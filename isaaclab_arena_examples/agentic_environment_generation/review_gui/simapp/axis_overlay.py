@@ -20,10 +20,17 @@ def local_xyz_axis_segments(
     z_dir: tuple[float, float, float],
     length_m: float,
 ) -> list[tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float, float]]]:
-    """Return ``(start, end, rgba)`` segments for local +X/+Y/+Z axes.
+    """Return `(start, end, rgba)` segments for local +X/+Y/+Z axes.
 
-    Degenerate directions are omitted. Directions are normalized; ``length_m`` sets
+    Degenerate directions are omitted. Directions are normalized; `length_m` sets
     world-space segment length.
+
+    Args:
+        origin_xyz: Origin of the axes.
+        x_dir: Direction of the local +X axis.
+        y_dir: Direction of the local +Y axis.
+        z_dir: Direction of the local +Z axis.
+        length_m: Length of each axis segment, in meters.
     """
     assert length_m > 0.0, f"length_m must be positive, got {length_m}"
     segments: list[tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float, float]]] = (
@@ -48,7 +55,13 @@ def local_xyz_axis_segments(
 def axis_length_from_extents(
     extents_xyz: tuple[float, float, float], *, fraction: float = 0.35, min_m: float = 0.05
 ) -> float:
-    """Pick a visible axis length from AABB extents (fraction of max side, floored)."""
+    """Pick a visible axis length from AABB extents (fraction of max side, floored).
+
+    Args:
+        extents_xyz: Axis-aligned bounding box extents along x, y and z.
+        fraction: Fraction of the largest extent to use as the axis length.
+        min_m: Minimum axis length, in meters.
+    """
     assert fraction > 0.0, f"fraction must be positive, got {fraction}"
     assert min_m > 0.0, f"min_m must be positive, got {min_m}"
     return max(min_m, fraction * max(extents_xyz))
@@ -60,7 +73,13 @@ def overlay_rgb_segments_on_png(
     *,
     width_px: int = 4,
 ) -> bytes:
-    """Draw opaque RGB line segments on top of a PNG and return new PNG bytes."""
+    """Draw opaque RGB line segments on top of a PNG and return new PNG bytes.
+
+    Args:
+        png_bytes: The encoded source PNG.
+        segments: Line segments as `(start_px, end_px, rgb)` with pixel coordinates.
+        width_px: Line width, in pixels.
+    """
     import io
 
     from PIL import Image, ImageDraw

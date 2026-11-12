@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Rate limiter that paces a loop to a fixed period."""
+
 from __future__ import annotations
 
 import time

@@ -27,6 +27,11 @@ class SpecInference:
     """Infers ArenaEnvGraphSpec from a natural-language prompt."""
 
     def __init__(self, inference_backend: InferenceBackend):
+        """Create the inference step.
+
+        Args:
+            inference_backend: Backend that runs the language model queries.
+        """
         self._inference_backend = inference_backend
         self._schema = build_strict_schema(ArenaEnvGraphSpec)
 

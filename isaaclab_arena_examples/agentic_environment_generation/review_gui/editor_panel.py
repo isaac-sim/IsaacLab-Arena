@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Streamlit YAML editor panel for environment graph specs, with validation and saving."""
+
 from __future__ import annotations
 
 import traceback
@@ -31,7 +33,16 @@ class SpecParseResult:
 
 
 def validate_yaml_text(text: str) -> SpecParseResult:
-    """Parse YAML text and validate it as an ArenaEnvGraphSpec."""
+    """Parse YAML text and validate it as an ArenaEnvGraphSpec.
+
+    The result for the most recently validated text is cached in the Streamlit session state.
+
+    Args:
+        text: The YAML text to validate.
+
+    Returns:
+        The parsed spec, or the error when the text is invalid. Both are None for empty text.
+    """
     cached_text = st.session_state.get("_validation_text")
     cached_result = st.session_state.get("_validation_result")
     if cached_text == text and isinstance(cached_result, SpecParseResult):
@@ -58,7 +69,11 @@ def validate_yaml_text(text: str) -> SpecParseResult:
 
 
 def render_validation_badge(validation: SpecParseResult) -> None:
-    """Show a success or error badge for the current editor YAML."""
+    """Show a success or error badge for the current editor YAML.
+
+    Args:
+        validation: Validation result of the editor text. Nothing is shown for empty text.
+    """
     if validation.spec is None and validation.error is None:
         return
     if validation.is_valid:
@@ -72,7 +87,11 @@ def render_validation_badge(validation: SpecParseResult) -> None:
 
 
 def sync_save_path_from_spec(validation: SpecParseResult) -> None:
-    """Point ``save_path`` at the graph-spec YAML path implied by the editor's ``env_name``."""
+    """Point `save_path` at the graph-spec YAML path implied by the editor's `env_name`.
+
+    Args:
+        validation: Validation result of the editor text. The save path is left unchanged when it is not valid.
+    """
     if not validation.is_valid:
         return
     out_dir = Path(st.session_state["out_dir"])
@@ -80,10 +99,14 @@ def sync_save_path_from_spec(validation: SpecParseResult) -> None:
 
 
 def try_save_env_graph_spec(spec: ArenaEnvGraphSpec, out_dir: Path) -> tuple[Path | None, str | None]:
-    """Write ``spec`` under ``out_dir``.
+    """Write `spec` under `out_dir`.
+
+    Args:
+        spec: The environment graph spec to write.
+        out_dir: Directory to write the spec YAML into.
 
     Returns:
-        ``(path, None)`` on success, or ``(None, error_message)`` on failure.
+        `(path, None)` on success, or `(None, error_message)` on failure.
     """
     try:
         return write_env_graph_spec(spec, out_dir), None
@@ -94,7 +117,11 @@ def try_save_env_graph_spec(spec: ArenaEnvGraphSpec, out_dir: Path) -> tuple[Pat
 
 
 def render_save_button(validation: SpecParseResult) -> None:
-    """Render save controls and optional output-directory editor."""
+    """Render save controls and optional output-directory editor.
+
+    Args:
+        validation: Validation result of the editor text. Saving is disabled when it is not valid.
+    """
     can_save = validation.is_valid
     assert validation.spec is not None or not can_save
     save_path_str = st.session_state.get("save_path", "")
@@ -129,7 +156,14 @@ def render_save_button(validation: SpecParseResult) -> None:
 
 
 def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
-    """Render the ACE YAML editor; the visualization panel refreshes in its fragment."""
+    """Render the ACE YAML editor, validation badge and save controls.
+
+    Args:
+        yaml_path: Path of the YAML file being edited, or None when no file is loaded.
+
+    Returns:
+        The validation result of the current editor text.
+    """
     st.subheader("YAML editor")
     if yaml_path is not None:
         st.caption(f"Source: `{yaml_path}`")

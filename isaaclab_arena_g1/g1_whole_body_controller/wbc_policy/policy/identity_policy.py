@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Policy that passes a target configuration through as the action."""
+
 import numpy as np
 
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
@@ -16,8 +18,16 @@ class IdentityPolicy(WBCPolicy):
         self.reset()
 
     def get_action(self, target_pose: np.ndarray) -> dict[str, np.ndarray]:
-        """Get the action for the identity policy."""
+        """Return the target pose as the action.
+
+        Args:
+            target_pose: The target joint configuration.
+
+        Returns:
+            Dictionary with the target pose under the key `q`.
+        """
         return {"q": target_pose}
 
     def reset(self):
+        """Reset the policy. The identity policy has no state, so this does nothing."""
         pass

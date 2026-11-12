@@ -32,6 +32,13 @@ class SimAppClient:
     """Client for a Kit SimApp server listening on a Unix domain socket."""
 
     def __init__(self, socket_path: str, reader: TextIO, writer: TextIO) -> None:
+        """Create a client from an already-open connection.
+
+        Args:
+            socket_path: Path of the Unix socket the server listens on.
+            reader: Text stream to read server responses from.
+            writer: Text stream to write requests to.
+        """
         self._socket_path = socket_path
         self._reader = reader
         self._writer = writer
@@ -40,7 +47,11 @@ class SimAppClient:
 
     @classmethod
     def connect(cls, socket_path: str) -> SimAppClient:
-        """Open a persistent JSON-RPC session to the server at ``socket_path``."""
+        """Open a persistent JSON-RPC session to the server at `socket_path`.
+
+        Args:
+            socket_path: Path of the Unix socket the server listens on.
+        """
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(socket_path)
         reader = sock.makefile("r", encoding="utf-8", newline="\n")
@@ -51,6 +62,7 @@ class SimAppClient:
 
     @property
     def socket_path(self) -> str:
+        """Path of the Unix socket the server listens on."""
         return self._socket_path
 
     def disconnect(self) -> None:
@@ -76,7 +88,15 @@ class SimAppClient:
         *,
         background_panorama: bool = False,
     ) -> tuple[dict[str, bytes], dict[str, tuple[float, float, float]]]:
-        """Ask the SimApp server to render thumbnails for ``spec``."""
+        """Ask the SimApp server to render thumbnails for `spec`.
+
+        Args:
+            spec: The environment graph spec to render.
+            background_panorama: Whether to render the background as a panorama.
+
+        Returns:
+            PNG bytes keyed by node id, and axis-aligned bounding box sizes in meters keyed by node id.
+        """
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
         with self._lock:
             response = self._request({
@@ -118,7 +138,17 @@ class SimAppClient:
         num_steps: int,
         env_spacing: float,
     ) -> dict[str, Any]:
-        """Run a multi-env relation-solver rollout preview in the SimApp server."""
+        """Run a multi-env relation-solver rollout preview in the SimApp server.
+
+        Args:
+            yaml_text: Environment graph spec YAML text.
+            num_envs: Number of cloned environments.
+            num_steps: Number of zero-action steps to run.
+            env_spacing: Spacing between cloned environments, in meters.
+
+        Returns:
+            The server response, including the path of the recorded viewport video.
+        """
         with self._lock:
             response = self._request({
                 "cmd": "run_sim_preview",
@@ -191,7 +221,14 @@ def wait_for_simapp_socket(
     timeout_s: float = 180.0,
     poll_interval_s: float = 0.5,
 ) -> None:
-    """Block until ``socket_path`` accepts connections and responds to ``ping``."""
+    """Block until `socket_path` accepts connections and responds to `ping`.
+
+    Args:
+        socket_path: Path of the Unix socket the server listens on.
+        proc: The server process; waiting stops with an error if it exits.
+        timeout_s: Maximum time to wait, in seconds.
+        poll_interval_s: Time between connection attempts, in seconds.
+    """
     deadline = time.monotonic() + timeout_s
     last_error: Exception | None = None
     while time.monotonic() < deadline:
@@ -218,7 +255,14 @@ def wait_for_simapp_socket(
 
 
 def spawn_simapp_process(socket_path: str) -> subprocess.Popen[Any]:
-    """Launch the SimApp server subprocess bound to ``socket_path``."""
+    """Launch the SimApp server subprocess bound to `socket_path`.
+
+    Args:
+        socket_path: Path of the Unix socket the server listens on. An existing file at this path is removed.
+
+    Returns:
+        The server process.
+    """
     if Path(socket_path).exists():
         Path(socket_path).unlink()
     cmd = [
@@ -232,7 +276,12 @@ def spawn_simapp_process(socket_path: str) -> subprocess.Popen[Any]:
 
 
 def stop_simapp_process(proc: subprocess.Popen[Any] | None, socket_path: str) -> None:
-    """Ask the SimApp server to shut down cleanly, then terminate the process."""
+    """Ask the SimApp server to shut down cleanly, then terminate the process.
+
+    Args:
+        proc: The server process, or None if there is no process to terminate.
+        socket_path: Path of the Unix socket the server listens on. The socket file is removed.
+    """
     try:
         client = SimAppClient.connect(socket_path)
     except OSError:

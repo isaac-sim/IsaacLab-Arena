@@ -101,6 +101,7 @@ class SuccessRateKpiExporter(InfluxdbKpiExporter):
     record_types: ClassVar[tuple[str, ...]] = (PerExperimentRecord.record_type,)
 
     def get_records_filename(self) -> str:
+        """Return the file name of the success rate records."""
         return SUCCESS_RATE_RECORDS_FILENAME
 
     def build_records_from_output_dir(self, output_dir: Path) -> list[InfluxdbKpiRecord]:

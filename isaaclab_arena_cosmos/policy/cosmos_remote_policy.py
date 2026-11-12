@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Remote closed-loop policy that queries a Cosmos inference server."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -30,12 +32,21 @@ class CosmosRemotePolicy(RemoteChunkReplayPolicy, PolicyBase[CosmosRemotePolicyC
     server_response_actions_key = "action"
 
     def __init__(self, config: CosmosRemotePolicyCfg) -> None:
+        """Create the policy with the embodiment adapter selected by the config.
+
+        Args:
+            config: Policy configuration including the embodiment adapter and open-loop horizon.
+        """
         adapter = _resolve_cosmos_embodiment_adapter(config.cosmos_embodiment_adapter)
         super().__init__(config, adapter, config.open_loop_horizon)
 
     @classmethod
     def default_image_size(cls, config: CosmosRemotePolicyCfg) -> tuple[int, int]:
-        """Return the (height, width) the selected Cosmos adapter resizes camera images to."""
+        """Return the (height, width) the selected Cosmos adapter resizes camera images to.
+
+        Args:
+            config: Policy configuration that selects the embodiment adapter.
+        """
         adapter = _resolve_cosmos_embodiment_adapter(config.cosmos_embodiment_adapter)
         return adapter.IMAGE_H, adapter.IMAGE_W
 

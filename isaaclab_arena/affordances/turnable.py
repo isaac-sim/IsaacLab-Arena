@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Affordance for objects with a revolute joint that is turned between discrete levels, such as knobs."""
+
 import math
 import torch
 
@@ -80,7 +82,15 @@ class Turnable(AffordanceBase):
         assert self.num_levels >= 1, "num_levels must be at least 1"
 
     def get_turning_level(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
-        """Get the current turning level of the object (in range [-1, num_levels-1])."""
+        """Get the current turning level of the object (in range [-1, num_levels-1]).
+
+        Args:
+                env: The environment.
+                asset_cfg: Scene entity of the object; derived from the object's name when omitted.
+
+            Returns:
+                Integer level with shape (num_envs,).
+        """
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
@@ -142,7 +152,16 @@ class Turnable(AffordanceBase):
     def is_at_level(
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, target_level: int = -1
     ) -> torch.Tensor:
-        """Check if the object is at the given level for each environment."""
+        """Check if the object is at the given level for each environment.
+
+        Args:
+                env: The environment.
+                asset_cfg: Scene entity of the object; derived from the object's name when omitted.
+                target_level: Level to compare the current level with.
+
+            Returns:
+                Boolean tensor with shape (num_envs,).
+        """
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)

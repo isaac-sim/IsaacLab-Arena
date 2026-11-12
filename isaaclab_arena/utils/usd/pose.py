@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers for reading prim scale and poses from USD."""
+
 import numpy as np
 from collections.abc import Sequence
 

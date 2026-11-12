@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Policy that runs a trained RSL-RL checkpoint."""
+
 import gymnasium as gym
 import os
 import torch
@@ -84,6 +86,11 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     name = "rsl_rl"
 
     def __init__(self, config: RslRlActionPolicyCfg):
+        """Store the configuration; the checkpoint is loaded on the first `get_action` call.
+
+        Args:
+            config: Typed policy configuration.
+        """
         super().__init__(config)
         self.config: RslRlActionPolicyCfg = config
         self._policy = None
@@ -120,6 +127,15 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
         self._policy = self._runner.get_inference_policy(device=wrapped_env.unwrapped.device)
 
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
+        """Run the loaded policy on the observation, loading the checkpoint first if needed.
+
+        Args:
+            env: Gym environment being controlled.
+            observation: Observation passed to the policy network.
+
+        Returns:
+            The actions for all environments.
+        """
         if self._policy is None:
             self._load_policy(env)
 
@@ -129,4 +145,9 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
             return self._policy(observation)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        """Do nothing; the policy holds no per-episode state.
+
+        Args:
+            env_ids: Ignored.
+        """
         pass

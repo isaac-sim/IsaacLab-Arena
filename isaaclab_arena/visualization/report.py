@@ -262,6 +262,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Parse command-line arguments, build the report and optionally serve it."""
     args = _parse_args()
     video_dir = _resolve_results_dir(pathlib.Path(args.video_dir))
     output = build_report(

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration that describes how a metric value is computed from recorded data."""
+
 from collections.abc import Callable
 from dataclasses import MISSING
 from typing import Any

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Action term driving the G1 with a decoupled whole-body controller using a PINK IK upper-body controller."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -195,12 +197,22 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
 
     @property
     def navigate_cmd(self):
+        """The current navigation command (forward velocity, lateral velocity, angular velocity)."""
         return self._navigate_cmd
 
     def compute_upperbody_joint_positions(
         self, body_data: dict[str, np.ndarray], left_hand_state: torch.Tensor, right_hand_state: torch.Tensor
     ) -> np.ndarray:
-        """Run the PINK IK controller to compute the target joint positions for the upper body."""
+        """Run the PINK IK controller to compute the target joint positions for the upper body.
+
+        Args:
+            body_data: Target wrist poses for the upper-body IK controller.
+            left_hand_state: Left hand open/close state.
+            right_hand_state: Right hand open/close state.
+
+        Returns:
+            The target upper-body joint positions.
+        """
         if self.upperbody_controller.in_warmup:
             for _ in range(50):
                 target_robot_joints = self.upperbody_controller.inverse_kinematics(

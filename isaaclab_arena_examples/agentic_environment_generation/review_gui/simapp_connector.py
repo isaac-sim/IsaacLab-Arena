@@ -80,7 +80,18 @@ def run_sim_preview_pipeline(
     num_steps: int = NUM_STEPS,
     env_spacing: float = ENV_SPACING_M,
 ) -> tuple[bool, str]:
-    """Run sim preview via SimApp and store frames in session."""
+    """Run sim preview via SimApp and store frames in session.
+
+    Args:
+        yaml_text: Environment graph spec YAML text.
+        validation: Validation result for `yaml_text`. The text is validated when None or not valid.
+        num_envs: Number of cloned environments.
+        num_steps: Number of zero-action steps to run.
+        env_spacing: Spacing between cloned environments, in meters.
+
+    Returns:
+        A success flag and a message describing the outcome.
+    """
     if validation is None or not validation.is_valid:
         validation = validate_yaml_text(yaml_text)
         if not validation.is_valid:

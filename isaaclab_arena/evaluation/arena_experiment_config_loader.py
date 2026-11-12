@@ -21,7 +21,11 @@ if TYPE_CHECKING:
 
 
 def validate_experiment_config_path(experiment_config: str | Path) -> Path:
-    """Return an existing Experiment configuration path with a supported suffix."""
+    """Return an existing Experiment configuration path with a supported suffix.
+
+    Args:
+        experiment_config: Path of the Experiment configuration file.
+    """
     experiment_config_path = Path(experiment_config)
     assert experiment_config_path.is_file(), f"Experiment config does not exist: '{experiment_config_path}'"
     assert experiment_config_path.suffix.lower() in {
@@ -33,7 +37,15 @@ def validate_experiment_config_path(experiment_config: str | Path) -> Path:
 
 
 def run_cfgs_from_legacy_eval_config(config: dict[str, Any], device: str) -> list[ArenaRunCfg]:
-    """Convert a legacy Experiment without importing its runtime dependencies eagerly."""
+    """Convert a legacy Experiment without importing its runtime dependencies eagerly.
+
+    Args:
+        config: Legacy Experiment document with a list of jobs.
+        device: Device assigned to the created Runs.
+
+    Returns:
+        The typed Run configurations.
+    """
     from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
 
     return run_cfgs_from_legacy_eval_config(config, device)

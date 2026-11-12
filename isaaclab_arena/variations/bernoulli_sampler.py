@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Sampler returning independent boolean draws at a fixed probability."""
+
 from __future__ import annotations
 
 import torch
@@ -14,12 +16,13 @@ from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 
 @configclass
 class BernoulliSamplerCfg(SamplerBaseCfg):
-    """Config for :class:`BernoulliSampler`."""
+    """Config for ``BernoulliSampler``."""
 
     probability: float = 0.5
     """Probability that a draw returns ``True``."""
 
     def build(self) -> BernoulliSampler:
+        """Return the BernoulliSampler described by this cfg."""
         return BernoulliSampler(probability=self.probability)
 
 
@@ -27,6 +30,11 @@ class BernoulliSampler(SamplerBase):
     """Sampler returning independent ``True``/``False`` draws at a fixed probability."""
 
     def __init__(self, probability: float):
+        """Initialize the sampler.
+
+        Args:
+            probability: Probability, in [0, 1], that a draw is ``True``.
+        """
         super().__init__()
         assert 0.0 <= probability <= 1.0, f"probability must be in [0, 1]; got {probability}."
         self.probability = probability

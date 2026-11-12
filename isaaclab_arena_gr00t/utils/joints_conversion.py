@@ -126,7 +126,7 @@ def remap_sim_joints_to_policy_joints(
 ) -> dict[str, np.ndarray]:
     """Remap joint state/actions from sim order to policy groups (torch wrapper).
 
-    Delegates to :func:`remap_sim_joints_to_policy_joints_from_np` after
+    Delegates to `remap_sim_joints_to_policy_joints_from_np` after
     converting JointsAbsPosition to numpy array and state config.
 
     Args:
@@ -190,7 +190,7 @@ def remap_policy_joints_to_sim_joints(
 ) -> JointsAbsPosition:
     """Remap policy joint outputs to sim order (torch wrapper).
 
-    Delegates to :func:`remap_policy_joints_to_sim_joints_np` then wraps the
+    Delegates to `remap_policy_joints_to_sim_joints_np` then wraps the
     result in a torch tensor and JointsAbsPosition.
 
     Args:

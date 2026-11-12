@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base classes for samplers that draw fixed-shape continuous numeric values."""
+
 from __future__ import annotations
 
 import torch

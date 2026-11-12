@@ -20,6 +20,11 @@ class SimReadyCentralUsdSource(UsdSource):
     """Retrieve and reuse a pinned SimReady Central USD through Isaac Lab's asset cache."""
 
     def __init__(self, url: str):
+        """Create a source for a revision-pinned SimReady Central asset.
+
+        Args:
+            url: Hugging Face dataset URL of a USD file, pinned to a commit revision.
+        """
         repo_id, revision, filename, _ = _parse_central_asset_url(url)
         self.url = url
         self._download_url = f"https://huggingface.co/datasets/{repo_id}/resolve/{revision}/{filename}"
@@ -34,7 +39,14 @@ class SimReadyCentralUsdSource(UsdSource):
 
 
 def is_central_asset_url(url: str) -> bool:
-    """Identify Hugging Face dataset URLs handled by the Central asset loader."""
+    """Identify Hugging Face dataset URLs handled by the Central asset loader.
+
+    Args:
+        url: URL to check.
+
+    Returns:
+        True when the URL is a Hugging Face dataset URL.
+    """
     parsed = urlsplit(url)
     return (
         parsed.scheme in ("https", "hf") and parsed.netloc == "huggingface.co" and parsed.path.startswith("/datasets/")

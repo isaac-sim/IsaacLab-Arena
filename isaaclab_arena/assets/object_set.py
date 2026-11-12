@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Sets of rigid objects of which one member is spawned per environment."""
+
 import torch
 from copy import deepcopy
 

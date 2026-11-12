@@ -52,7 +52,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
-    """Seed ``st.session_state`` from disk exactly once per session."""
+    """Seed `st.session_state` from disk exactly once per session.
+
+    Args:
+        yaml_path: Path of the spec YAML to load, or None to start with an empty editor.
+        out_dir: Directory generated spec YAML files are written to.
+    """
     session_key = str(yaml_path.resolve()) if yaml_path is not None else ""
     if st.session_state.get("_yaml_path") == session_key:
         return

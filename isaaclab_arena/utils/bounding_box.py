@@ -41,15 +41,27 @@ class BoundingBox(ABC):
 
     @abstractmethod
     def to(self, device: torch.device | str) -> "BoundingBox":
-        """Return boxes with their tensors on device."""
+        """Return boxes with their tensors on device.
+
+        Args:
+            device: Target torch device.
+        """
 
     @abstractmethod
     def translated(self, offset: tuple[float, float, float] | torch.Tensor) -> "BoundingBox":
-        """Return boxes translated by offset (3,) or (N, 3) in W."""
+        """Return boxes translated by offset (3,) or (N, 3) in W.
+
+        Args:
+            offset: Translation in the world frame, shape (3,) or (N, 3).
+        """
 
     @abstractmethod
     def get_corners_at(self, pos: torch.Tensor | None = None) -> torch.Tensor:
-        """Return corners in W (N, 8, 3), optionally translated by pos (3,) or (N, 3)."""
+        """Return corners in W (N, 8, 3), optionally translated by pos (3,) or (N, 3).
+
+        Args:
+            pos: Optional translation in the world frame, shape (3,) or (N, 3).
+        """
 
     @abstractmethod
     def get_axis_aligned_bounds(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -238,13 +250,21 @@ class OrientedBoundingBox(BoundingBox):
         return OrientedBoundingBox(self._center_W[idx], self._half_extents[idx], self._rotation_W_B_xyzw[idx])
 
     def to(self, device: torch.device | str) -> "OrientedBoundingBox":
-        """Return boxes with their tensors on device."""
+        """Return boxes with their tensors on device.
+
+        Args:
+            device: Target torch device.
+        """
         return OrientedBoundingBox(
             self._center_W.to(device), self._half_extents.to(device), self._rotation_W_B_xyzw.to(device)
         )
 
     def translated(self, offset: tuple[float, float, float] | torch.Tensor) -> "OrientedBoundingBox":
-        """Return boxes translated by offset (3,) or (N, 3) in W."""
+        """Return boxes translated by offset (3,) or (N, 3) in W.
+
+        Args:
+            offset: Translation in the world frame, shape (3,) or (N, 3).
+        """
         center_W, half_extents, q_W_B = self._get_finite_geometry()
         offset_W = _batched_tensor(offset, 3, center_W.device)
         center_W, half_extents, q_W_B, offset_W = _broadcast_rows(center_W, half_extents, q_W_B, offset_W)
@@ -256,6 +276,9 @@ class OrientedBoundingBox(BoundingBox):
         The first four corners lie on the box's local -Z face and the last four on its
         +Z face, each in counterclockwise order about local +Z. The first four need not
         be lowest along W's Z axis.
+
+        Args:
+            pos: Optional translation in the world frame, shape (3,) or (N, 3).
         """
         from isaaclab.utils.math import matrix_from_quat
 
@@ -309,6 +332,12 @@ class AxisAlignedBoundingBox(BoundingBox):
         min_point: tuple[float, float, float] | torch.Tensor,
         max_point: tuple[float, float, float] | torch.Tensor,
     ):
+        """Create one or a batch of axis-aligned boxes from their corner points.
+
+        Args:
+            min_point: Minimum corner (x, y, z), or a tensor of shape (N, 3).
+            max_point: Maximum corner (x, y, z), or a tensor of the same shape as min_point.
+        """
         super().__init__()
         self._min_point = self._to_batched_tensor(min_point)
         self._max_point = self._to_batched_tensor(max_point)
@@ -451,7 +480,11 @@ class AxisAlignedBoundingBox(BoundingBox):
         return AxisAlignedBoundingBox(min_point=self._min_point * scale, max_point=self._max_point * scale)
 
     def to(self, device: torch.device | str) -> "AxisAlignedBoundingBox":
-        """Return a new bounding box with tensors on *device*."""
+        """Return a new bounding box with tensors on *device*.
+
+        Args:
+            device: Target torch device.
+        """
         return AxisAlignedBoundingBox(min_point=self._min_point.to(device), max_point=self._max_point.to(device))
 
     def translated(self, offset: tuple[float, float, float] | torch.Tensor) -> "AxisAlignedBoundingBox":
@@ -483,6 +516,9 @@ class AxisAlignedBoundingBox(BoundingBox):
 
         Rows and axes where the two do not overlap come back with ``min_point > max_point``.
         Check ``is_empty`` before using the resulting AABB.
+
+        Args:
+            other: Box to intersect with.
         """
         return AxisAlignedBoundingBox(
             min_point=torch.maximum(self._min_point, other._min_point),
@@ -592,7 +628,7 @@ class AxisAlignedBoundingBox(BoundingBox):
 
         Rotates the eight corners about the object origin by ``rotation_xyzw`` and returns the
         tightest AABB containing them. Conservative (larger than the true rotated box) for any
-        non-axis-aligned rotation. Unlike :meth:`rotated_around_z`, roll and pitch tilt the box
+        non-axis-aligned rotation. Unlike `rotated_around_z`, roll and pitch tilt the box
         out of plane, so the Z extent may grow as well.
 
         Args:
@@ -769,7 +805,6 @@ def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, fl
     """Convert a quaternion to 90° rotation quarters around Z axis.
 
     Only supports rotations that are multiples of 90° around the Z axis.
-    Raises AssertionError for any other rotation.
 
     Args:
         rotation_xyzw: Quaternion as (x, y, z, w).
@@ -777,9 +812,6 @@ def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, fl
 
     Returns:
         Number of 90° quarters (0, 1, 2, or 3).
-
-    Raises:
-        AssertionError: If the quaternion is not a pure Z rotation or not a 90° multiple.
     """
     import math
 

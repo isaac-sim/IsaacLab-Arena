@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Enumeration of the arm configurations an embodiment can operate in."""
+
 from enum import Enum
 
 
@@ -23,5 +25,10 @@ class ArmMode(str, Enum):
     RIGHT = "right"
 
     def get_other_arm(self) -> str:
+        """Return the opposite arm of a bimanual arm mode.
+
+        Returns:
+            `ArmMode.RIGHT` for `ArmMode.LEFT`, and `ArmMode.LEFT` for `ArmMode.RIGHT`.
+        """
         assert self in [ArmMode.LEFT, ArmMode.RIGHT], f"Arm mode {self} is not a bimanual arm mode"
         return ArmMode.RIGHT if self == ArmMode.LEFT else ArmMode.LEFT

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base classes for policies that query a remote server over the openpi websocket protocol."""
+
 from __future__ import annotations
 
 import gymnasium as gym
@@ -31,11 +33,27 @@ class EmbodimentAdapter(ABC):
 
     @abstractmethod
     def extract(self, observation: dict[str, Any], env_id: int) -> Any:
-        """Pull a single env's tensors gym observation dict and pack into a dataclass."""
+        """Pull a single env's tensors gym observation dict and pack into a dataclass.
+
+        Args:
+            observation: Gym observation dictionary of all environments.
+            env_id: Index of the environment to extract.
+
+        Returns:
+            The data of that environment.
+        """
 
     @abstractmethod
     def pack_request(self, extracted: Any, language_instruction: str) -> dict[str, Any]:
-        """Build the wire-format request payload the server expects."""
+        """Build the wire-format request payload the server expects.
+
+        Args:
+            extracted: Per-environment data returned by `extract`.
+            language_instruction: Natural-language task instruction.
+
+        Returns:
+            The request payload.
+        """
 
 
 class RemoteChunkReplayPolicy:
@@ -57,6 +75,13 @@ class RemoteChunkReplayPolicy:
     """
 
     def __init__(self, config: PolicyCfg, adapter: EmbodimentAdapter, open_loop_horizon: int) -> None:
+        """Connect to the remote server and set up per-environment chunk caches.
+
+        Args:
+            config: Policy configuration with the server host, port and keepalive settings.
+            adapter: Adapter that converts observations to requests for the server.
+            open_loop_horizon: Number of actions replayed from each returned chunk before querying again.
+        """
         super().__init__(config)  # PolicyBase.__init__ via the concrete class's MRO.
         assert self.server_response_actions_key is not None, (
             f"{type(self).__name__} must set server_response_actions_key to the key under which"
@@ -91,6 +116,15 @@ class RemoteChunkReplayPolicy:
         self.task_description: str | None = None
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
+        """Return one action per environment, querying the server when an environment's chunk is exhausted.
+
+        Args:
+            env: Gym environment being controlled.
+            observation: Gym observation dictionary of all environments.
+
+        Returns:
+            Actions shaped (num_envs, action_dim).
+        """
         assert self.task_description, (
             f"{type(self).__name__} requires a non-empty language instruction"
             " (set via --language_instruction or on the task definition)."
@@ -114,6 +148,11 @@ class RemoteChunkReplayPolicy:
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        """Discard the cached action chunks of the given environments.
+
+        Args:
+            env_ids: Environments to reset, or None for all environments.
+        """
         if self._cached_action_chunks is None:
             return  # not yet initialized; nothing to clear
         ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()

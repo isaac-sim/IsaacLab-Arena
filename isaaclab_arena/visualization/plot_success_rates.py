@@ -334,7 +334,14 @@ def _default_output_path(results_path: Path) -> Path:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Parse command-line arguments, aggregate results, and write the plot."""
+    """Parse command-line arguments, aggregate results, and write the plot.
+
+    Args:
+        argv: Command-line arguments; `None` reads the process arguments.
+
+    Returns:
+        The process exit code.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("results_path", type=Path, help="Results directory, JSONL file, or tar archive")
     parser.add_argument(

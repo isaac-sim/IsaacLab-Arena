@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers that create and merge Isaac Lab configclasses dynamically."""
+
 import dataclasses
 import keyword
 import types
@@ -53,6 +55,24 @@ def make_configclass(
 
     The parameters init, repr, eq, order, unsafe_hash, and frozen are passed to
     dataclass().
+
+    Args:
+        cls_name: Name of the generated class.
+        fields: Field specifications: names, (name, type) pairs or (name, type, field) tuples.
+        bases: Base classes of the generated class.
+        namespace: Extra attributes placed in the class body.
+        init: Whether an `__init__` is generated.
+        repr: Whether a `__repr__` is generated.
+        eq: Whether an `__eq__` is generated.
+        order: Whether ordering methods are generated.
+        unsafe_hash: Whether a `__hash__` is generated regardless of `eq` and `frozen`.
+        frozen: Whether instances are immutable.
+        match_args: Whether `__match_args__` is generated.
+        kw_only: Whether fields are keyword-only in `__init__`.
+        slots: Whether the class defines `__slots__`.
+
+    Returns:
+        The generated configclass.
     """
 
     if namespace is None:
@@ -135,6 +155,17 @@ def get_field_info(field: dataclasses.Field) -> tuple[str, type, Any]:
 
 
 def combine_configclasses(name: str, *input_configclasses: type, bases: tuple[type, ...] = ()) -> configclass:
+    """Create a configclass holding the fields of several configclasses.
+
+    Args:
+        name: Name of the generated class.
+        *input_configclasses: Configclasses whose fields are merged; a repeated field name keeps its first declaration
+            and must have the same type in each class.
+        bases: Base classes of the generated class.
+
+    Returns:
+        The generated configclass.
+    """
     field_map: "OrderedDict[str, tuple]" = OrderedDict()
     for cls in input_configclasses:
         for current_field in dataclasses.fields(cls):

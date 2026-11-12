@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base classes for Arena scene objects and for objects with a root prim."""
+
 from __future__ import annotations
 
 import torch
@@ -33,6 +35,14 @@ class ObjectBase(PlaceableAsset, ABC):
         object_type: ObjectType = ObjectType.BASE,
         **kwargs,
     ):
+        """Create an object with a prim path and an object type.
+
+        Args:
+            name: Name of the object, used as its scene key.
+            prim_path: Prim path template of the object in the scene. None uses a path derived from name.
+            object_type: Kind of physics object this is.
+            **kwargs: Passed on to the parent class.
+        """
         super().__init__(name=name, **kwargs)
         if prim_path is None:
             prim_path = "{ENV_REGEX_NS}/" + self.name
@@ -41,9 +51,15 @@ class ObjectBase(PlaceableAsset, ABC):
         self.object_cfg: AssetBaseCfg | None = None
 
     def set_prim_path(self, prim_path: str) -> None:
+        """Set the prim path template of the object in the scene.
+
+        Args:
+            prim_path: New prim path template.
+        """
         self.prim_path = prim_path
 
     def get_prim_path(self) -> str:
+        """Return the prim path template of the object in the scene."""
         return self.prim_path
 
     def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
@@ -70,6 +86,14 @@ class RootedObjectBase(ObjectBase):
         object_type: ObjectType = ObjectType.BASE,
         **kwargs,
     ):
+        """Create a rooted object, which must be of rigid, articulated or static type.
+
+        Args:
+            name: Name of the object, used as its scene key.
+            prim_path: Prim path template of the object in the scene. None uses a path derived from name.
+            object_type: Kind of physics object this is.
+            **kwargs: Passed on to the parent class.
+        """
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         assert self.object_type in {
             ObjectType.BASE,
@@ -202,6 +226,11 @@ class RootedObjectBase(ObjectBase):
         )
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+        """Return a contact sensor configuration attached to this rigid object's root prim.
+
+        Args:
+            contact_against_object: Object to filter contacts against. None reports contacts with all objects.
+        """
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
         return ContactSensorCfg(

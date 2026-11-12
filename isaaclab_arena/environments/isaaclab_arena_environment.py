@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Dataclass that bundles the scene, embodiment, task and options that define an Arena environment."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -59,9 +61,9 @@ class IsaacLabArenaEnvironment:
                 ``"my_module:RLPolicyCfg"``.
             episode_recorder_terms: Additional per-episode recorder terms to record alongside the
                 built-in ones, keyed by name.
-            placer_params: Object placement configuration. When None, default
-                ObjectPlacerParams are used.
-            default_physics_backend: Default physics backend when ``--presets`` is omitted.
+            placer_params: Object placement configuration. None uses an unmodified
+                ObjectPlacerParams.
+            default_physics_backend: Physics backend selected when ``--presets`` is omitted.
         """
         self.name = name
         self.scene = scene

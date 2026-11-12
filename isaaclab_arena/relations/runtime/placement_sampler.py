@@ -51,7 +51,11 @@ class PlacementSample:
 
     @classmethod
     def from_record(cls, record: dict[str, Any]) -> PlacementSample:
-        """Decode one validated replay record into native scene-root poses."""
+        """Decode one validated replay record into native scene-root poses.
+
+        Args:
+            record: Record with a layout id and pose dictionaries.
+        """
         return cls(
             layout_id=record["layout_id"],
             poses={scene_key: Pose.from_dict(pose) for scene_key, pose in record["poses"].items()},
@@ -67,6 +71,13 @@ class PlacementSampler(SamplerBase):
         placement_pool: PooledObjectPlacer,
         write_assets: list[PlaceableAsset],
     ) -> None:
+        """Create a sampler that draws layouts from a pool of solved placements.
+
+        Args:
+            assets: All solver assets, including anchors.
+            placement_pool: Pool that supplies solved layouts.
+            write_assets: Movable assets whose scene roots are written to simulation.
+        """
         super().__init__()
         # Complete solver asset set, including anchors, used to convert solved layouts into scene-root poses.
         self.assets = assets
@@ -78,7 +89,15 @@ class PlacementSampler(SamplerBase):
         self._fixed_placements: dict[int, tuple[PlacementResult, PlacementSample]] | None = None
 
     def prepare_live(self, num_envs: int, resolve_on_reset: bool) -> list[PlacementResult]:
-        """Draw construction layouts and retain them when resets should stay fixed."""
+        """Draw construction layouts and retain them when resets should stay fixed.
+
+        Args:
+            num_envs: Number of environments.
+            resolve_on_reset: Whether layouts are drawn again at every reset instead of staying fixed.
+
+        Returns:
+            Layout for each environment at construction time.
+        """
         if resolve_on_reset:
             [construction_layout] = self.placement_pool.sample_with_replacement(1)
             return [construction_layout] * num_envs
@@ -90,7 +109,12 @@ class PlacementSampler(SamplerBase):
         return layouts
 
     def sample(self, num_samples: int, env_ids: torch.Tensor) -> list[PlacementSample]:
-        """Return one complete placement sample per requested environment."""
+        """Return one complete placement sample per requested environment.
+
+        Args:
+            num_samples: Number of samples; must equal the number of environment ids.
+            env_ids: Environment ids to sample for.
+        """
         assert env_ids is not None, "Relation placement requires explicit environment ids"
         env_id_list = [int(env_id) for env_id in env_ids.tolist()]
         assert num_samples == len(env_id_list), "Placement sample count must match env_ids"
@@ -135,13 +159,25 @@ class RecordedPlacementSampler(SamplerBase):
         scheduler: VariationReplayScheduler,
         write_assets: list[PlaceableAsset],
     ) -> None:
+        """Create a sampler that replays recorded placements.
+
+        Args:
+            recorded_samples: Placement samples captured earlier.
+            scheduler: Scheduler mapping environments to recorded samples.
+            write_assets: Assets whose scene roots are written to simulation.
+        """
         super().__init__()
         self.recorded_samples = recorded_samples
         self.scheduler = scheduler
         self.write_assets = write_assets
 
     def sample(self, num_samples: int, env_ids: torch.Tensor) -> list[PlacementSample]:
-        """Return one assigned recorded placement per requested environment."""
+        """Return one assigned recorded placement per requested environment.
+
+        Args:
+            num_samples: Number of samples; must equal the number of environment ids.
+            env_ids: Environment ids to sample for.
+        """
         assert env_ids is not None, "Recorded placement requires explicit environment ids"
         env_id_list = [int(env_id) for env_id in env_ids.tolist()]
         assert num_samples == len(env_id_list), "Placement sample count must match env_ids"
@@ -156,13 +192,21 @@ class RecordedPlacementSampler(SamplerBase):
 
 
 def serialize_placement_samples(samples: list[PlacementSample]) -> list[dict[str, Any]]:
-    """Convert native placement samples to JSON-compatible records."""
+    """Convert native placement samples to JSON-compatible records.
+
+    Args:
+        samples: Samples to convert.
+    """
     assert all(isinstance(sample, PlacementSample) for sample in samples)
     return [sample.to_record() for sample in samples]
 
 
 def deserialize_placement_samples(records: list[Any]) -> list[PlacementSample]:
-    """Validate and decode complete, consistently keyed placement records."""
+    """Validate and decode complete, consistently keyed placement records.
+
+    Args:
+        records: JSON-compatible sample records.
+    """
     assert records, "Placement replay requires at least one sample"
     samples: list[PlacementSample] = []
     for record in records:
@@ -189,7 +233,11 @@ def deserialize_placement_samples(records: list[Any]) -> list[PlacementSample]:
 
 
 def placement_samples_from_pose_columns(poses: dict[str, list[Pose]]) -> list[PlacementSample]:
-    """Convert scene-root pose columns into ordered placement samples."""
+    """Convert scene-root pose columns into ordered placement samples.
+
+    Args:
+        poses: Poses per scene root name, one pose per sample.
+    """
     assert poses, "Placement samples must contain scene roots"
     counts = {len(root_poses) for root_poses in poses.values()}
     assert (
@@ -205,7 +253,11 @@ def placement_samples_from_pose_columns(poses: dict[str, list[Pose]]) -> list[Pl
 
 
 def placement_samples_to_pose_columns(samples: list[PlacementSample]) -> dict[str, list[Pose]]:
-    """Convert ordered placement samples into scene-root pose columns."""
+    """Convert ordered placement samples into scene-root pose columns.
+
+    Args:
+        samples: Samples to convert.
+    """
     _validate_native_samples(samples)
     return {scene_key: [sample.poses[scene_key] for sample in samples] for scene_key in samples[0].poses}
 
@@ -215,7 +267,13 @@ def write_placement_samples(
     samples: list[PlacementSample],
     validation: list[dict] | None = None,
 ) -> None:
-    """Write placement samples and optional validation reports as top-level JSONL rows."""
+    """Write placement samples and optional validation reports as top-level JSONL rows.
+
+    Args:
+        path: Destination JSONL file, which must not exist yet.
+        samples: Samples to write.
+        validation: Optional validation report per sample.
+    """
     _validate_native_samples(samples)
     assert validation is None or len(validation) == len(samples), "One validation report is required per sample"
     path = Path(path)
@@ -234,7 +292,11 @@ def write_placement_samples(
 
 
 def supports_recorded_placement(assets: list[PlaceableAsset]) -> bool:
-    """Whether placement recording and replay can preserve the selected assets."""
+    """Whether placement recording and replay can preserve the selected assets.
+
+    Args:
+        assets: Assets to check.
+    """
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
     return not any(isinstance(asset, RigidObjectSet) for asset in assets)
@@ -243,7 +305,12 @@ def supports_recorded_placement(assets: list[PlaceableAsset]) -> bool:
 def validate_placement_sample_assets(
     samples: list[PlacementSample], assets: list[PlaceableAsset]
 ) -> list[PlaceableAsset]:
-    """Validate asset coverage and return the assets selected by the samples."""
+    """Validate asset coverage and return the assets selected by the samples.
+
+    Args:
+        samples: Placement samples to check.
+        assets: Candidate assets for the scene roots in the samples.
+    """
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
 
@@ -273,6 +340,9 @@ def validate_root_reset_for_placement_replay(assets: list[PlaceableAsset]) -> No
 
     Replay may replace deterministic fixed-pose resets for scene roots captured outside
     the live solver, while randomized poses and nonzero velocities remain incompatible.
+
+    Args:
+        assets: Assets whose reset configuration is checked.
     """
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -295,6 +365,9 @@ def validate_root_reset_for_live_placement(assets: list[PlaceableAsset]) -> None
     """Require live placement to be the only root-pose reset writer for movable assets.
 
     Fixed anchors retain their configured resets because live placement never writes them.
+
+    Args:
+        assets: Assets whose reset configuration is checked.
     """
     for asset in assets:
         assert not (not asset.is_anchor and asset.has_pose_reset_event()), (

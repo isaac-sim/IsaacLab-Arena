@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Streamlit panel that generates an environment graph spec from a prompt with an LLM agent."""
+
 from __future__ import annotations
 
 import os
@@ -83,7 +85,7 @@ def _inference_api_key_env_vars_text() -> str:
 
 
 def _default_inference_endpoint(available: list[str]) -> str:
-    """Pick ``ARENA_INFERENCE_ENDPOINT`` / the public default when that option is available."""
+    """Pick ``ARENA_INFERENCE_ENDPOINT`` / the public endpoint when that option is available."""
     preferred = os.getenv(INFERENCE_ENDPOINT_ENV_VAR) or DEFAULT_ENDPOINT_NAME
     if preferred in available:
         return preferred
@@ -211,7 +213,14 @@ def _finish(severity: str, message: str) -> tuple[bool, str]:
 
 
 def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
-    """Call the LLM and load the returned environment graph spec YAML into the editor."""
+    """Call the LLM and load the returned environment graph spec YAML into the editor.
+
+    Args:
+        prompt: Natural-language description of the environment.
+
+    Returns:
+        A success flag and a message describing the outcome.
+    """
     prompt = prompt.strip()
     if not prompt:
         return False, "Enter a prompt describing the environment."

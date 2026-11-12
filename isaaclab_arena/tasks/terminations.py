@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Termination and success predicates for task success and failure conditions."""
+
 from __future__ import annotations
 
 import math
@@ -84,7 +86,16 @@ def combine_success_results(
     mode: SuccessMode | str = SuccessMode.ALL,
     k: int | None = None,
 ) -> torch.Tensor:
-    """Combine an already evaluated predicate tensor along its first dimension."""
+    """Combine an already evaluated predicate tensor along its first dimension.
+
+    Args:
+            results: Boolean tensor of predicate results; the first dimension indexes the predicates.
+            mode: How the results are combined: all true, any true, or at least `k` true.
+            k: Number of predicates that must be true in the choose mode; required in that mode.
+
+        Returns:
+            Boolean tensor with the predicate dimension reduced.
+    """
     assert results.ndim >= 1 and results.shape[0] > 0, "results must contain at least one predicate."
     valid_modes = [m.value for m in SuccessMode]
     if not (isinstance(mode, str) and mode.upper() in valid_modes):
@@ -194,7 +205,7 @@ def goal_pose_task_termination(
         target_y_range: Success zone y-range [min, max] in meters.
         target_z_range: Success zone z-range [min, max] in meters.
         target_orientation_xyzw: Target quaternion [x, y, z, w].
-        target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
+        target_orientation_tolerance_rad: Angular tolerance in radians.
 
     Returns:
         A boolean tensor of shape (num_envs, )
@@ -250,6 +261,14 @@ def root_height_below_minimum_multi_objects(
 
     Note:
         This is currently only supported for flat terrains, i.e. the minimum height is in the world frame.
+
+    Args:
+            env: The environment.
+            minimum_height: Minimum root height in meters in the world frame.
+            asset_cfg_list: Scene entities whose root heights are checked.
+
+        Returns:
+            Boolean tensor of shape (num_envs,) that is True where any asset is below the minimum height.
     """
     asset_termination_results = [
         root_height_below_minimum(env=env, minimum_height=minimum_height, asset_cfg=asset_cfg)

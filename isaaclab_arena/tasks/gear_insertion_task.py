@@ -78,17 +78,7 @@ class GearInsertionCriteria:
 
 @register_task
 class GearInsertionTask(TaskBase):
-    """Pick up a gear and insert it onto a designated peg.
-
-    Args:
-        fixed_asset: Gear base containing the destination peg.
-        held_asset: Gear manipulated by the robot.
-        insertion_target: Scene frame defining the successful seated gear pose.
-        background_scene: Background whose minimum height defines a dropped gear.
-        episode_length_s: Maximum episode duration in seconds.
-        success_criteria: Geometric and motion thresholds for insertion.
-        task_description: Natural-language instruction. A description is generated when omitted.
-    """
+    """Pick up a gear and insert it onto a designated peg."""
 
     def __init__(
         self,
@@ -100,6 +90,17 @@ class GearInsertionTask(TaskBase):
         success_criteria: GearInsertionCriteria | None = None,
         task_description: str | None = None,
     ) -> None:
+        """Initialize the gear insertion task.
+
+        Args:
+            fixed_asset: Gear base containing the destination peg.
+            held_asset: Gear manipulated by the robot.
+            insertion_target: Scene frame defining the successful seated gear pose.
+            background_scene: Background whose minimum height defines a dropped gear.
+            episode_length_s: Maximum episode duration in seconds.
+            success_criteria: Geometric and motion thresholds for insertion; None selects standard criteria.
+            task_description: Natural-language instruction. A description is generated when None.
+        """
         super().__init__(episode_length_s=episode_length_s)
         self.fixed_asset = fixed_asset
         self.held_asset = held_asset
@@ -113,21 +114,35 @@ class GearInsertionTask(TaskBase):
         )
 
     def get_scene_cfg(self):
-        return None
+        """Return None; the task adds nothing to the scene."""
+        return None  # noqa: R501
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination for a gear that is seated, upright and settled on the peg.
+
+        Success requires the lateral, depth, tilt and velocity conditions to hold for a number of consecutive
+        steps. The episode fails if the gear drops below the background's minimum object height.
+        """
         return self._make_termination_cfg()
 
     def get_events_cfg(self):
+        """Return the reset events that restore the scene to its default state."""
         return self.events_cfg
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
-        return None
+        """Return None; the task has no Mimic environment configuration.
+
+        Args:
+            arm_mode: Unused.
+        """
+        return None  # noqa: R501
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the success rate and the rate at which the held gear is moved."""
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.held_asset)]
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a fixed viewer camera pose that looks at the gear assembly."""
         return ViewerCfg(eye=(1.45, 1.10, 0.90), lookat=(0.48, 0.02, 0.08))
 
     def _make_termination_cfg(self) -> TaskTerminationCfg:
@@ -197,7 +212,12 @@ class GearInsertionTask(TaskBase):
 
     @classmethod
     def success_state_transition(cls, held_asset: str, fixed_asset: str, **_) -> TaskTransition:
-        """Relate the inserted gear to its base after success."""
+        """Relate the inserted gear to its base after success.
+
+        Args:
+            held_asset: Name of the inserted gear.
+            fixed_asset: Name of the gear base the gear ends up on.
+        """
         return TaskTransition(
             subject=held_asset,
             effects=(Relocate(subject=held_asset, relation="on", target=fixed_asset),),

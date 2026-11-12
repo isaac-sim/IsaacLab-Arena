@@ -38,7 +38,14 @@ _OUTCOME_LABELS = {"success": "success", "partial": "partial", "fail": "no progr
 
 
 def unique_slugs(names: list[str]) -> dict[str, str]:
-    """Return a filesystem-safe, collision-free slug for each name."""
+    """Return a filesystem-safe, collision-free slug for each name.
+
+    Args:
+        names: Names to slugify.
+
+    Returns:
+        Mapping from each name to its slug.
+    """
     slugs: dict[str, str] = {}
     used: set[str] = set()
     for name in names:
@@ -54,6 +61,11 @@ def unique_slugs(names: list[str]) -> dict[str, str]:
 
 
 def episode_anchor(episode) -> str:
+    """Return the HTML anchor id of an episode.
+
+    Args:
+        episode: Episode summary.
+    """
     return f"ep-{episode.env_index}-{episode.episode_index}"
 
 
@@ -181,7 +193,15 @@ def _render_ungrouped_job_list(summary: ExperimentSummary, task_hrefs: dict[str,
 
 
 def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
-    """Render the overview page, whose rows descend to a task page whether or not Runs are grouped."""
+    """Render the overview page, whose rows descend to a task page whether or not Runs are grouped.
+
+    Args:
+        summary: Experiment summary to render.
+        task_hrefs: Link to each task page, keyed by task name.
+
+    Returns:
+        The page HTML.
+    """
     tiles = [
         _tile("Tasks", str(len(summary.tasks))),
         _tile("Runs", str(len(summary.jobs))),
@@ -315,7 +335,18 @@ def render_task_page(
     episode_hrefs: dict[tuple[str, int, int], str],
     index_href: str,
 ) -> str:
-    """Render one task's page: each policy's funnel and episode outcome chips."""
+    """Render one task's page: each policy's funnel and episode outcome chips.
+
+    Args:
+        summary: Experiment summary the task belongs to.
+        task: Task to render.
+        job_hrefs: Link to each Run page, keyed by Run name.
+        episode_hrefs: Link to each episode, keyed by `(Run name, env index, episode index)`.
+        index_href: Link to the overview page.
+
+    Returns:
+        The page HTML.
+    """
     tiles = [_tile("Episodes", f"{task.num_episodes:,}")]
     for job in task.jobs:
         tiles.append(_tile(job.policy or job.name, _percent(job.success_rate), f"{job.num_successes:,} successes"))
@@ -550,7 +581,22 @@ def render_job_page(
     num_pages: int,
     page_hrefs: list[str],
 ) -> str:
-    """Render one Run page holding one page of episodes."""
+    """Render one Run page holding one page of episodes.
+
+    Args:
+        summary: Experiment summary the Run belongs to.
+        job: Run to render.
+        task_href: Link to the Run's task page.
+        index_href: Link to the overview page.
+        video_prefix: Prefix prepended to video paths to form their links.
+        episodes: Episodes shown on this page.
+        page_index: Zero-based index of this page.
+        num_pages: Total number of pages of the Run.
+        page_hrefs: Link to each page of the Run.
+
+    Returns:
+        The page HTML.
+    """
     tiles = [
         _tile("Episodes", f"{job.num_episodes:,}"),
         _tile("Success rate", _percent(job.success_rate), f"{job.num_successes:,} successes"),

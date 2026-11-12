@@ -38,6 +38,12 @@ class SuccessAfterNStepsTask(TaskBase):
     """Minimal task: the episode succeeds after a fixed number of steps."""
 
     def __init__(self, num_steps_for_success: int = 50, episode_length_s: float = 10.0):
+        """Create a task that succeeds once an episode reaches a given number of steps.
+
+        Args:
+            num_steps_for_success: Number of episode steps after which the episode counts as successful.
+            episode_length_s: Episode time limit, in seconds.
+        """
         super().__init__(
             episode_length_s=episode_length_s,
             task_description=f"Succeed after {num_steps_for_success} steps",
@@ -45,9 +51,11 @@ class SuccessAfterNStepsTask(TaskBase):
         self.num_steps_for_success = num_steps_for_success
 
     def get_scene_cfg(self):
-        return None
+        """Return None; the task adds nothing to the scene."""
+        return None  # noqa: R501
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return the termination configuration with a timeout and a success criterion on the step count."""
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
@@ -59,19 +67,34 @@ class SuccessAfterNStepsTask(TaskBase):
         )
 
     def has_reached_step_count(self, env):
-        """Check whether each episode has reached the requested number of steps."""
+        """Check whether each episode has reached the requested number of steps.
+
+        Args:
+            env: The environment.
+
+        Returns:
+            A boolean tensor with one entry per environment.
+        """
         return env.episode_length_buf >= self.num_steps_for_success
 
     def get_events_cfg(self):
-        return None
+        """Return None; the task defines no events."""
+        return None  # noqa: R501
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
+        """Not supported; always raises NotImplementedError.
+
+        Args:
+            arm_mode: The arm mode.
+        """
         raise NotImplementedError
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the metrics of the task, the success rate."""
         return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return the viewer configuration with a camera looking at the scene origin area."""
         return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))
 
 
@@ -92,6 +115,11 @@ class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
     registry_name = "franka_ik_soft"
 
     def __init__(self, **kwargs):
+        """Create the embodiment and lower the stiffness and damping of the shoulder and forearm actuators.
+
+        Args:
+            **kwargs: Keyword arguments forwarded to the Franka IK embodiment.
+        """
         super().__init__(**kwargs)
         for actuator_name in ("panda_shoulder", "panda_forearm"):
             actuator = self.scene_config.robot.actuators[actuator_name]
@@ -105,10 +133,19 @@ class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
 
 
 class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
+    """Franka on a table with a pick-up object and a task that succeeds after a fixed number of steps."""
 
     name: str = "franka_table_with_task"
 
     def get_env(self, args_cli: argparse.Namespace):
+        """Build the environment with the soft Franka embodiment, a table, a pick-up object, a light and a task.
+
+        Args:
+            args_cli: Parsed command-line arguments; `object` names the registered pick-up object.
+
+        Returns:
+            The environment.
+        """
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On
@@ -143,4 +180,9 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
+        """Add the command-line arguments of the environment to a parser.
+
+        Args:
+            parser: The argument parser to add the arguments to.
+        """
         parser.add_argument("--object", type=str, default="cracker_box")

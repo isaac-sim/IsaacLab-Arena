@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Cable scene asset spawned from an Isaac Lab cable configuration."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -37,7 +39,15 @@ class Cable(ObjectBase):
         initial_pose: Pose | None = None,
         tags: list[str] | None = None,
     ) -> None:
-        """Configure a cable scene asset."""
+        """Configure a cable scene asset.
+
+        Args:
+            name: Name of the cable, used as its scene key.
+            prim_path: Non-empty prim path template of the cable in the scene.
+            spawn: Isaac Lab cable spawner configuration.
+            initial_pose: Fixed pose the cable is constructed at. None keeps the spawner default.
+            tags: Optional labels attached to the asset.
+        """
 
         assert prim_path, "Cable prim_path must be non-empty."
         super().__init__(name=name, prim_path=prim_path, object_type=ObjectType.CABLE, tags=tags)
@@ -52,7 +62,11 @@ class Cable(ObjectBase):
         return CableObjectCfg(prim_path=self.prim_path, spawn=self.spawn)
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
-        """Require the Newton physics backend."""
+        """Require the Newton physics backend.
+
+        Args:
+            sim_cfg: Simulation configuration the cable will run under.
+        """
         from isaaclab_newton.physics import NewtonCfg
 
         physics_cfg = sim_cfg.physics
@@ -80,13 +94,21 @@ class Cable(ObjectBase):
         )
 
     def add_relation(self, relation: RelationBase) -> None:
-        """Reject relation-based placement until cable segment placement is supported."""
+        """Reject relation-based placement until cable segment placement is supported.
+
+        Args:
+            relation: Relation that would be added to the cable.
+        """
         raise NotImplementedError("Cable does not yet support relation-based placement.")
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Reject bounding-box queries used by relation-based placement."""
+        """Reject bounding-box queries for the cable."""
         raise NotImplementedError("Cable bounding boxes are not yet supported by the object placer.")
 
     def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
-        """Reject root-pose writes produced by relation-based placement."""
+        """Reject root-pose writes produced by relation-based placement.
+
+        Args:
+            layout_pose: Pose that placement would assign to the cable.
+        """
         raise NotImplementedError("Cable placement requires segment-state writes, which are not yet supported.")

@@ -38,10 +38,25 @@ class AssetLibrarySearchBackend:
     """Search a GA, S3, or service source through AssetLibrary."""
 
     def __init__(self, source: SimReadySourceKind, *, s3_url: str, service_url: str):
+        """Create the backend for one SimReady source.
+
+        Args:
+            source: Kind of SimReady source to search.
+            s3_url: URL of the S3 location of the asset library.
+            service_url: URL of the search service.
+        """
         self.library = _create_asset_library_for_source(source, s3_url=s3_url, service_url=service_url)
 
     def search(self, phrases: list[str], max_results: int) -> list[SimReadyObjectCandidate]:
-        """Search each phrase and retain single-rigid-body candidates."""
+        """Search each phrase and retain single-rigid-body candidates.
+
+        Args:
+            phrases: Search phrases, one per requested object.
+            max_results: Maximum number of candidates to keep per phrase.
+
+        Returns:
+            The candidates found for all phrases.
+        """
         if self.library is None:
             return []
         candidates = []

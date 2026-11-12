@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Plots of posterior marginals for sensitivity reports."""
+
 from __future__ import annotations
 
 import math

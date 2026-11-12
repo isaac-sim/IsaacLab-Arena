@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""DreamZero embodiment adapter for the DROID robot."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -58,6 +60,11 @@ class DroidAdapter(DreamZeroEmbodimentAdapter):
     cam_wrist = "wrist_camera_rgb"
 
     def __init__(self, cam2_source: Cam2Source = "right") -> None:
+        """Create the adapter.
+
+        Args:
+            cam2_source: Source of the second exterior camera image.
+        """
         valid_cam2_sources = get_args(Cam2Source)
         assert (
             cam2_source in valid_cam2_sources
@@ -65,7 +72,15 @@ class DroidAdapter(DreamZeroEmbodimentAdapter):
         self.cam2_source: Cam2Source = cam2_source
 
     def extract(self, observation: dict[str, Any], env_id: int) -> DroidObservation:
-        """Pull one env's camera and joint tensors out of the Arena observation dict."""
+        """Pull one env's camera and joint tensors out of the Arena observation dict.
+
+        Args:
+            observation: Arena gym observation dict with camera_obs and policy entries.
+            env_id: Index of the environment to read.
+
+        Returns:
+            The camera images and joint positions of that environment.
+        """
         cam_obs = observation["camera_obs"]
         joint_pos_full = observation["policy"]["robot_joint_pos"][env_id].detach().cpu().numpy().astype(np.float32)
         n = self.num_arm_joints
@@ -83,7 +98,14 @@ class DroidAdapter(DreamZeroEmbodimentAdapter):
         )
 
     def pack_request(self, extracted: DroidObservation) -> dict[str, Any]:
-        """Build the observation/* portion of the DreamZero wire-format request."""
+        """Build the observation/* portion of the DreamZero wire-format request.
+
+        Args:
+            extracted: Observation extracted for one environment.
+
+        Returns:
+            Request entries keyed by their wire-format observation names.
+        """
         return {
             "observation/exterior_image_0_left": extracted.exterior_image_0,
             "observation/exterior_image_1_left": extracted.exterior_image_1,
@@ -99,6 +121,12 @@ class DroidAdapter(DreamZeroEmbodimentAdapter):
         Accepts either a bare ndarray or a dict with an 'actions' key. The
         DreamZero-DROID checkpoint may return action_dim - 1 columns (7 arm joints,
         no gripper command); a zero (open) gripper column is appended in that case.
+
+        Args:
+            response: Server response, either a bare action array or a dict holding it under actions.
+
+        Returns:
+            Float32 action chunk of shape (num_steps, action_dim).
         """
         raw = response.get("actions", response) if isinstance(response, dict) else response
         chunk = np.asarray(raw, dtype=np.float32)

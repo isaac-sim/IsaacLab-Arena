@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers for inspecting USD stages and prims and extracting meshes from USD files."""
+
 from __future__ import annotations
 
 import functools
@@ -49,8 +51,8 @@ def get_all_prims(
 
     Args:
         stage: The stage to get the prims from.
-        prim: The prim to start the search from. Defaults to the pseudo-root.
-        prims_list: The list to store the prims in. Defaults to an empty list.
+        prim: The prim to start the search from; the pseudo-root when None.
+        prims_list: The list to store the prims in; a new list when None.
 
     Returns:
         A list of prims in the stage.
@@ -66,7 +68,11 @@ def get_all_prims(
 
 
 def has_light(stage: Usd.Stage) -> bool:
-    """Check if the stage has a light"""
+    """Check if the stage has a light
+
+    Args:
+        stage: Stage to inspect.
+    """
     LIGHT_TYPES = (
         UsdLux.SphereLight,
         UsdLux.RectLight,
@@ -84,17 +90,29 @@ def has_light(stage: Usd.Stage) -> bool:
 
 
 def is_articulation_root(prim: Usd.Prim) -> bool:
-    """Check if prim is articulation root"""
+    """Check if prim is articulation root
+
+    Args:
+        prim: Prim to check.
+    """
     return prim.HasAPI(UsdPhysics.ArticulationRootAPI)
 
 
 def is_rigid_body(prim: Usd.Prim) -> bool:
-    """Check if prim is rigidbody"""
+    """Check if prim is rigidbody
+
+    Args:
+        prim: Prim to check.
+    """
     return prim.HasAPI(UsdPhysics.RigidBodyAPI)
 
 
 def is_enabled_dynamic_rigid_body(prim: Usd.Prim) -> bool:
-    """Return whether ``prim`` is an enabled, non-kinematic rigid body."""
+    """Return whether ``prim`` is an enabled, non-kinematic rigid body.
+
+    Args:
+        prim: Prim to check.
+    """
     if not is_rigid_body(prim):
         return False
     body = UsdPhysics.RigidBodyAPI(prim)
@@ -104,14 +122,22 @@ def is_enabled_dynamic_rigid_body(prim: Usd.Prim) -> bool:
 
 
 def has_physics_or_collision(prim: Usd.Prim) -> bool:
-    """Return True when prim participates in physics simulation or collision."""
+    """Return True when prim participates in physics simulation or collision.
+
+    Args:
+        prim: Prim to check.
+    """
     if is_articulation_root(prim) or is_rigid_body(prim):
         return True
     return prim.HasAPI(UsdPhysics.CollisionAPI)
 
 
 def object_type_for_prim(prim: Usd.Prim) -> ObjectType:
-    """Classify a prim for object-reference resolution."""
+    """Classify a prim for object-reference resolution.
+
+    Args:
+        prim: Prim to classify.
+    """
     if is_articulation_root(prim):
         return ObjectType.ARTICULATION
     if is_rigid_body(prim):
@@ -120,7 +146,12 @@ def object_type_for_prim(prim: Usd.Prim) -> ObjectType:
 
 
 def relative_path_from_default_prim(stage: Usd.Stage, prim_path: str) -> str:
-    """Return the prim path suffix relative to the stage default prim."""
+    """Return the prim path suffix relative to the stage default prim.
+
+    Args:
+        stage: Stage with a default prim.
+        prim_path: Absolute prim path.
+    """
     default_prim = stage.GetDefaultPrim()
     assert default_prim, f"USD stage has no default prim: {stage.GetRootLayer().identifier}"
     default_prefix = str(default_prim.GetPath())
@@ -135,7 +166,11 @@ def relative_path_from_default_prim(stage: Usd.Stage, prim_path: str) -> str:
 
 
 def articulation_joint_names(articulation_prim: Usd.Prim) -> tuple[str, ...]:
-    """Return sorted movable joint names under an articulation root."""
+    """Return sorted movable joint names under an articulation root.
+
+    Args:
+        articulation_prim: Articulation root prim.
+    """
     joint_names: list[str] = []
     for desc in Usd.PrimRange(articulation_prim):
         if desc.IsA(UsdPhysics.RevoluteJoint) or desc.IsA(UsdPhysics.PrismaticJoint):
@@ -144,13 +179,21 @@ def articulation_joint_names(articulation_prim: Usd.Prim) -> tuple[str, ...]:
 
 
 def get_prim_depth(prim: Usd.Prim) -> int:
-    """Get the depth of a prim"""
+    """Get the depth of a prim
+
+    Args:
+        prim: Prim to measure.
+    """
     return len(str(prim.GetPath()).split("/")) - 2
 
 
 @contextmanager
 def open_stage(path):
-    """Open a stage and ensure it is closed after use."""
+    """Open a USD stage as a context manager and release it on exit.
+
+    Args:
+        path: Path of the USD file.
+    """
     stage = Usd.Stage.Open(path)
     try:
         yield stage
@@ -160,7 +203,12 @@ def open_stage(path):
 
 
 def get_asset_usd_path_from_prim_path(prim_path: str, stage: Usd.Stage) -> str | None:
-    """Get the USD path from a prim path, that is referring to an asset."""
+    """Get the USD path from a prim path, that is referring to an asset.
+
+    Args:
+        prim_path: Path of the prim that references an asset.
+        stage: Stage that contains the prim.
+    """
     # Note (xinjieyao, 2025.12.12): preferred way to get the composed asset path is to ask the Usd.Prim object itself,
     # which handles the entire composition stack. Here it achieved this goal thru root layer due to the USD API limitations.
     # It only finds references authored on the root layer.
@@ -510,6 +558,10 @@ def extract_trimesh_from_usd_path(
 
     Scoping extraction to the default prim excludes sibling scene props (ground planes, stray
     objects) baked into some flattened articulation USDs.
+
+    Args:
+        usd_path: Path of the USD file.
+        scale: Per-axis scale applied to the mesh.
     """
     stage = Usd.Stage.Open(usd_path)
     assert stage is not None, f"could not open USD: {usd_path}"
@@ -527,7 +579,13 @@ def extract_trimesh_from_usd_at_joint_pos(
     joint_pos: Mapping[str, float],
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> trimesh.Trimesh:
-    """Return one mesh containing all of an articulation's posed link boxes."""
+    """Return one mesh containing all of an articulation's posed link boxes.
+
+    Args:
+        usd_path: Path of the articulation USD file.
+        joint_pos: Joint position per joint name used to pose the links.
+        scale: Per-axis scale applied to the mesh.
+    """
     mesh = _extract_trimesh_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
     return mesh.copy()
 
@@ -736,6 +794,9 @@ def move_collision_schemas_to_meshes(root_prim) -> None:
 
     TODO: Re-author affected robot USDs so collision lives on meshes directly and this
     shim can be removed.
+
+    Args:
+        root_prim: Root prim of the subtree to modify.
     """
     collision_groups = [
         candidate

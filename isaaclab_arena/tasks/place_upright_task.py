@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Task in which a robot places an object upright."""
+
 import numpy as np
 from functools import partial
 
@@ -26,6 +28,7 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 @register_task
 class PlaceUprightTask(TaskBase):
+    """Task that succeeds when a placeable object is upright within an orientation threshold."""
 
     def __init__(
         self,
@@ -34,6 +37,15 @@ class PlaceUprightTask(TaskBase):
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
+        """Initialize the place-upright task.
+
+        Args:
+            placeable_object: Object to place upright.
+            orientation_threshold: Orientation threshold for the object to count as upright; the object's own
+                threshold when None.
+            episode_length_s: Episode time limit in seconds.
+            task_description: Natural-language task description; derived from the object name when None.
+        """
         super().__init__(episode_length_s=episode_length_s)
         assert isinstance(placeable_object, Placeable), "Placeable object must be an instance of Placeable"
         self.placeable_object = placeable_object
@@ -47,9 +59,11 @@ class PlaceUprightTask(TaskBase):
         )
 
     def get_scene_cfg(self):
+        """Return the interactive scene configuration, which sets the spacing between environments."""
         return self.scene_config
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Return a success termination that triggers when the object is placed upright."""
         params = {}
         if self.orientation_threshold is not None:
             params["orientation_threshold"] = self.orientation_threshold
@@ -64,21 +78,29 @@ class PlaceUprightTask(TaskBase):
         )
 
     def get_events_cfg(self):
+        """Return None; the task defines no events."""
         return self.events_cfg
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
+        """Return the Isaac Lab Mimic environment configuration for placing the object upright.
+
+        Args:
+            arm_mode: Which arm or arms the Mimic subtasks are generated for.
+        """
         return PlaceUprightMimicEnvCfg(
             arm_mode=arm_mode,
             placeable_object_name=self.placeable_object.name,
         )
 
     def get_metrics(self) -> list[MetricBase]:
+        """Return the success rate and the rate at which the object is moved."""
         return [
             SuccessRateMetric(),
             ObjectMovedRateMetric(self.placeable_object),
         ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        """Return a viewer camera configuration that looks at the object."""
         return get_viewer_cfg_look_at_object(lookat_object=self.placeable_object, offset=np.array([1.5, 1.5, 1.5]))
 
 

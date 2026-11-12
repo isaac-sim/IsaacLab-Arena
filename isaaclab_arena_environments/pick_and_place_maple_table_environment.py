@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Maple-table pick-and-place environment and its configuration."""
+
 from __future__ import annotations
 
 import argparse
@@ -40,7 +42,11 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
     _legacy_argparse_cfg_type = PickAndPlaceMapleTableEnvironmentCfg
 
     def build(self, cfg: PickAndPlaceMapleTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
         from isaaclab.envs.common import ViewerCfg
 
         from isaaclab_arena.assets.object_reference import ObjectReference

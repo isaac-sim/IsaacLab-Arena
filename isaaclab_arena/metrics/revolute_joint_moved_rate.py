@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Metric of how often a revolute joint moved, and the recorder of the joint openness that it relies on."""
+
 import numpy as np
 from dataclasses import MISSING
 
@@ -20,17 +22,24 @@ class RevoluteJointStateRecorder(RecorderTerm):
     """Records the openness of an object for each sim step of an episode."""
 
     def __init__(self, cfg: RecorderTermCfg, env: ManagerBasedEnv):
+        """Args:
+        cfg: Recorder term configuration naming the term and the object.
+        env: Environment being recorded.
+        """
         super().__init__(cfg, env)
         self.name = cfg.name
         self.object = cfg.object
 
     def record_post_step(self):
+        """Return the term name and the object's openness for every environment."""
         openness = self.object.get_openness(self._env)
         return self.name, openness
 
 
 @configclass
 class JointStateRecorderCfg(RecorderTermCfg):
+    """Configuration of `RevoluteJointStateRecorder`."""
+
     class_type: type[RecorderTerm] = RevoluteJointStateRecorder
     name: str = "revolute_joint_state"
     object: ObjectBase = MISSING

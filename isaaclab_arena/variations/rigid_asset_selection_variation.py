@@ -32,6 +32,7 @@ class AssetSelectionSamplerCfg(SamplerBaseCfg):
     random, seeded by the build seed and the variation key."""
 
     def build(self) -> SamplerBase:
+        """Return a ChoiceSampler if ``random_choice`` is set, otherwise a SequentialSampler."""
         return ChoiceSampler() if self.random_choice else SequentialSampler()
 
 
@@ -56,7 +57,7 @@ class RigidAssetSelectionVariation(BuildTimeVariationBase):
 
     Args:
         rigid_object: Object whose asset the selection sets.
-        cfg: Selection settings. By default the selection is off.
+        cfg: Selection settings.
         name: Name of the variation on its Object.
     """
 
@@ -70,12 +71,27 @@ class RigidAssetSelectionVariation(BuildTimeVariationBase):
         cfg: RigidAssetSelectionVariationCfg | None = None,
         name: str = "asset_selection",
     ):
+        """Initialize the variation.
+
+        Args:
+            rigid_object: Object whose asset the selection sets.
+            cfg: Selection settings; ``None`` selects the standard settings.
+            name: Name of the variation on its Object.
+        """
         super().__init__(cfg=cfg if cfg is not None else RigidAssetSelectionVariationCfg(), name=name)
         self._rigid_object = rigid_object
         self._variation_key: str | None = None
         self._rebuild_index: int = 0
 
     def configure_at_build_time(self, seed: int, variation_key: str, rebuild_index: int = 0) -> None:
+        """Seed this variation's draws and select the asset for one environment build.
+
+        Args:
+            seed: Environment seed.
+            variation_key: This variation's ``<asset_name>.<variation_name>`` key.
+            rebuild_index: Index of this build among the rebuilds of an Experiment Run; in-order selection starts
+                at the name with this index.
+        """
         # VariationBase does not keep these: the checks name the key, and in-order selection needs the index.
         self._variation_key = variation_key
         self._rebuild_index = rebuild_index

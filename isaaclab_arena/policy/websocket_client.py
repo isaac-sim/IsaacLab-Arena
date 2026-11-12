@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Websocket client for openpi-protocol policy servers with configurable keepalive pings."""
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +27,15 @@ class WebsocketClientPolicy(websocket_client_policy.WebsocketClientPolicy):
         ping_interval: float | None = 20.0,
         ping_timeout: float | None = 20.0,
     ) -> None:
+        """Connect to the policy server.
+
+        Args:
+            host: Hostname or address of the server.
+            port: Port of the server.
+            api_key: Optional API key sent to the server.
+            ping_interval: Seconds between keepalive pings, or None to disable them.
+            ping_timeout: Seconds to wait for a ping reply before closing, or None for no timeout.
+        """
         # Stored before super().__init__ because the base constructor calls
         # _wait_for_server(), which reads these back to open the connection.
         self._ping_interval = ping_interval

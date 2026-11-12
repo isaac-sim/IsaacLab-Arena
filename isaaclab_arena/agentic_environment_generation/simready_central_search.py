@@ -33,7 +33,15 @@ class CentralSearchBackend:
     """Search Central and validate downloaded single-rigid-body packages."""
 
     def search(self, phrases: list[str], max_results: int) -> list[SimReadyObjectCandidate]:
-        """Search each phrase independently so one request failure does not discard other hits."""
+        """Search each phrase independently so one request failure does not discard other hits.
+
+        Args:
+            phrases: Search phrases, one per requested object.
+            max_results: Maximum number of candidates to keep per phrase.
+
+        Returns:
+            The candidates found for all phrases.
+        """
         candidates = []
         for phrase in phrases:
             try:
@@ -47,7 +55,15 @@ class CentralSearchBackend:
 
 
 def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObjectCandidate]:
-    """Search Central and retain only locally validated single-body props."""
+    """Search Central and retain only locally validated single-body props.
+
+    Args:
+        phrase: Search phrase describing the object.
+        max_results: Maximum number of candidates to return; must be positive.
+
+    Returns:
+        The validated candidates.
+    """
     assert max_results > 0, "max_results must be positive"
     response = requests.post(
         CENTRAL_SEARCH_URL,

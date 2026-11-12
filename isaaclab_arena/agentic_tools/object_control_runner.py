@@ -28,7 +28,7 @@ Then append commands from another shell::
 
     printf '%s\n' '{"action":"inspect"}' '{"action":"finish"}' >> /tmp/object_control.jsonl
 
-Viewport recording is enabled by default; pass ``--no_record`` to disable it.
+Viewport recording is on unless ``--no_record`` is passed.
 Success prints ``TASK_SUCCESS`` and writes ``validation.json`` with ``"success": [true]``.
 Failure exits nonzero after printing ``OBJECT_CONTROL_FAILURE`` and writes a
 ``failure_<reason>_...json`` diagnostic, plus a PNG when viewport capture is available. Recorded

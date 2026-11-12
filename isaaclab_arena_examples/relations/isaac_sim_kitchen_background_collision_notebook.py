@@ -42,7 +42,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     Args:
         simulation_app: The already-launched Isaac Sim application; the viewer runs until it stops.
         view_steps: Number of steps to run (0 = until the viewer window is closed).
-        args_cli: Parsed CLI namespace. When None, defaults are parsed.
+        args_cli: Parsed CLI namespace. When None, it is parsed from an empty argument list.
 
     Returns:
         The names of the background collision obstacles used by the builder.
@@ -119,7 +119,14 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
 
 
 def smoke_test_kitchen_background_collision(simulation_app: SimulationApp) -> bool:
-    """Run the demo and assert the aggregate background mesh is used."""
+    """Run the demo and assert the aggregate background mesh is used.
+
+    Args:
+        simulation_app: The running simulation application.
+
+    Returns:
+        True if the assertion passes.
+    """
     collision_names = run_kitchen_background_collision_demo(simulation_app, view_steps=2)
     assert collision_names == ["fixed_collision_mesh"], collision_names
     return True

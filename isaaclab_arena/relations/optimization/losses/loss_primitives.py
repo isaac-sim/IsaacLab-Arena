@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Differentiable loss primitives for boundary and interval constraints."""
+
 import torch
 
 
@@ -20,7 +22,7 @@ def single_boundary_linear_loss(
     Args:
         value: Measured value (tensor for gradient flow).
         boundary: The boundary threshold value (can be tensor or float).
-        slope: Gradient magnitude when violating (default: 1.0).
+        slope: Gradient magnitude when violating.
                Loss increases by `slope` per unit of violation.
         penalty_side: Which side to penalize:
             - 'greater': Penalize if value > boundary
@@ -76,7 +78,7 @@ def linear_band_loss(
         value: Measured value (tensor for gradient flow).
         lower_bound: Lower bound threshold (can be tensor or float).
         upper_bound: Upper bound threshold (can be tensor or float).
-        slope: Gradient magnitude when violating (default: 1.0).
+        slope: Gradient magnitude when violating.
 
     Returns:
         Loss value (unbounded):
@@ -103,7 +105,7 @@ def single_point_linear_loss(
     Args:
         value: Measured value (tensor for gradient flow).
         target: The target value where loss is zero (can be tensor or float).
-        slope: Gradient magnitude (default: 1.0).
+        slope: Gradient magnitude.
                Loss increases by `slope` per unit of distance from target.
 
     Returns:
@@ -133,7 +135,7 @@ def interval_overlap_axis_loss(
 ) -> torch.Tensor:
     """ReLU-style interval overlap: zero when separated, slope * overlap length otherwise.
 
-    Used by NoCollisionLossStrategy for per-axis overlap. Intervals [child_min, child_max]
+    Intervals [child_min, child_max]
     and [parent_min, parent_max]; loss is zero when they do not overlap, else
     slope * overlap_length.
 
@@ -142,7 +144,7 @@ def interval_overlap_axis_loss(
         child_max: Child interval max (tensor).
         parent_min: Parent interval min (tensor or float).
         parent_max: Parent interval max (tensor or float).
-        slope: Gradient magnitude (default: 1.0).
+        slope: Gradient magnitude.
 
     Returns:
         Zero when intervals are separated; otherwise slope * overlap length.

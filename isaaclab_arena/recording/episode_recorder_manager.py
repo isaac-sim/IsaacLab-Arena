@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Manager and term config for recording per-episode data to JSONL."""
+
 from __future__ import annotations
 
 import json
@@ -62,7 +64,11 @@ class EpisodeRecorderManager(ManagerBase):
         return self._term_names
 
     def set_job_name(self, job_name: str) -> None:
-        """Set the job name stamped onto subsequently recorded episodes."""
+        """Set the job name stamped onto subsequently recorded episodes.
+
+        Args:
+            job_name: Name of the job to record in each episode record.
+        """
         self._job_name = job_name
 
     def set_output_path(self, output_path: str | Path) -> None:
@@ -70,6 +76,9 @@ class EpisodeRecorderManager(ManagerBase):
 
         Must be called before recording to persist results; without it, finished episodes are not
         written anywhere.
+
+        Args:
+            output_path: Path of the JSONL file. Missing parent directories are created and existing content is erased.
         """
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)

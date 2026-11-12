@@ -88,6 +88,7 @@ class TimingKpiExporter(InfluxdbKpiExporter):
     record_types: ClassVar[tuple[str, ...]] = (TimingRecord.record_type,)
 
     def get_records_filename(self) -> str:
+        """Return the file name of the timing records."""
         return TIMING_RECORDS_FILENAME
 
     def build_records_from_output_dir(self, output_dir: Path) -> list[InfluxdbKpiRecord]:

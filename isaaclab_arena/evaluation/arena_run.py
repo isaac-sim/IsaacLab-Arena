@@ -153,7 +153,15 @@ class ArenaRunResult:
 
 
 def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[ArenaRunResult]) -> PrettyTable:
-    """Build a table containing the configuration and current status of every Run."""
+    """Build a table containing the configuration and current status of every Run.
+
+    Args:
+        run_cfgs: Run configurations to list.
+        results: Results of the Runs executed so far; Runs without a result are listed as pending.
+
+    Returns:
+        The table with one row per Run.
+    """
     results_by_name = {result.run_name: result for result in results}
     table = PrettyTable(
         field_names=[

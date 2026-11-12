@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Containers for computed metric values."""
+
 from __future__ import annotations
 
 import numpy as np

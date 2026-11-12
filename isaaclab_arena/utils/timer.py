@@ -73,7 +73,11 @@ class TimerStats:
         return self.total_ms / self.count
 
     def update(self, elapsed_ms: float) -> None:
-        """Record a new timing measurement."""
+        """Record a new timing measurement.
+
+        Args:
+            elapsed_ms: Duration of the measurement, in milliseconds.
+        """
         self.count += 1
         self.total_ms += elapsed_ms
         self.min_ms = min(self.min_ms, elapsed_ms)
@@ -126,7 +130,11 @@ class Timer:
 
     @classmethod
     def set_sync_cuda(cls, enabled: bool) -> None:
-        """Enable or disable CUDA synchronization for all Timer instances."""
+        """Enable or disable CUDA synchronization for all Timer instances.
+
+        Args:
+            enabled: Whether timers synchronize CUDA before reading the clock.
+        """
         cls._sync_cuda = enabled
 
     def __init__(self, name: str) -> None:

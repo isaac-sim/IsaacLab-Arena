@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configuration describing when a task succeeds, fails or times out."""
+
 import math
 from dataclasses import dataclass, field
 

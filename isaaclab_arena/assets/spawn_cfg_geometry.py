@@ -57,6 +57,11 @@ class SpawnCfgGeometry:
     """Bounds and contact body computed from one native spawn configuration, before anything is spawned."""
 
     def __init__(self, spawn_cfg: SpawnerCfg):
+        """Create geometry for a spawn configuration, copying the configuration.
+
+        Args:
+            spawn_cfg: Native Isaac Lab spawner configuration.
+        """
         _assert_single_spawn_cfg(spawn_cfg)
         self.spawn_cfg = deepcopy(spawn_cfg)
         """Independent copy of the spawn settings, so later edits cannot change cached results."""

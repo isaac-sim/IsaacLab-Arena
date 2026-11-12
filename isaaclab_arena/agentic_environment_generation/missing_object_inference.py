@@ -37,6 +37,11 @@ class MissingObjectInference:
     """Finds the objects a prompt needs that the registered asset catalogue cannot supply."""
 
     def __init__(self, inference_backend: InferenceBackend):
+        """Create the inference step.
+
+        Args:
+            inference_backend: Backend that runs the language model queries.
+        """
         self._inference_backend = inference_backend
         self._schema = build_strict_schema(MissingObjects)
 

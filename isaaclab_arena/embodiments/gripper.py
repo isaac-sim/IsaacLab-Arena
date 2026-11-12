@@ -37,11 +37,19 @@ class Gripper(Protocol):
     """Gripper state exposed to embodiment-agnostic tasks."""
 
     def get_position_w(self, world: ArenaWorld) -> torch.Tensor:
-        """Return the gripper position in world frame with shape ``(num_envs, 3)``."""
+        """Return the gripper position in world frame with shape ``(num_envs, 3)``.
+
+        Args:
+            world: World providing access to the simulated robot state.
+        """
         ...
 
     def get_opening_width_m(self, world: ArenaWorld) -> torch.Tensor:
-        """Return the gripper opening width in meters with shape ``(num_envs,)``."""
+        """Return the gripper opening width in meters with shape ``(num_envs,)``.
+
+        Args:
+            world: World providing access to the simulated robot state.
+        """
         ...
 
     def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
@@ -66,11 +74,19 @@ class ParallelJawGripper(Gripper, Protocol):
     """Gripper whose grasp state is represented by a physical jaw gap."""
 
     def get_jaw_gap_m(self, world: ArenaWorld) -> torch.Tensor:
-        """Return the physical jaw gap in meters with shape ``(num_envs,)``."""
+        """Return the physical jaw gap in meters with shape ``(num_envs,)``.
+
+        Args:
+            world: World providing access to the simulated robot state.
+        """
         ...
 
     def get_opening_width_m(self, world: ArenaWorld) -> torch.Tensor:
-        """Return the jaw gap as the gripper opening width."""
+        """Return the jaw gap as the gripper opening width.
+
+        Args:
+            world: World providing access to the simulated robot state.
+        """
         return self.get_jaw_gap_m(world)
 
 
@@ -91,17 +107,29 @@ class PandaGripper(ParallelJawGripper):
     """Frame-transformer target representing the gripper center."""
 
     def get_jaw_gap_m(self, world: ArenaWorld) -> torch.Tensor:
-        """Return the sum of the two prismatic finger positions."""
+        """Return the sum of the two prismatic finger positions.
+
+        Args:
+            world: World providing access to the simulated robot state.
+        """
         left = world.get_joint_position("robot", self.left_finger_joint_name)
         right = world.get_joint_position("robot", self.right_finger_joint_name)
         return left + right
 
     def get_position_w(self, world: ArenaWorld) -> torch.Tensor:
-        """Return the configured Franka grasp-frame position."""
+        """Return the configured Franka grasp-frame position.
+
+        Args:
+            world: World providing access to the simulated robot state.
+        """
         return world.get_frame_position_w(self.frame_transformer_name, self.target_frame_name)
 
     def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
-        """Return the left finger's measured position minus its applied position target, in meters."""
+        """Return the left finger's measured position minus its applied position target, in meters.
+
+        Args:
+            env: Environment supplying the measured finger position and commanded target.
+        """
         world = env.arena_world
         measured = world.get_joint_position("robot", self.left_finger_joint_name)
         commanded = world.get_joint_position_target("robot", self.left_finger_joint_name)
@@ -151,7 +179,11 @@ class RobotiqGripper(ParallelJawGripper):
         ), "body_point_offset_xyz requires body_name when nonzero."
 
     def get_jaw_gap_m(self, world: ArenaWorld) -> torch.Tensor:
-        """Return the physical distance between the two finger pads."""
+        """Return the physical distance between the two finger pads.
+
+        Args:
+            world: World providing access to the simulated robot state.
+        """
         if self.driver_joint_name is not None:
             driver_position = world.get_joint_position("robot", self.driver_joint_name)
             return _robotiq_jaw_gap_m(driver_position)
@@ -160,7 +192,11 @@ class RobotiqGripper(ParallelJawGripper):
         return torch.linalg.vector_norm(left - right, dim=-1)
 
     def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
-        """Return half the measured-minus-commanded jaw gap, mapping both driver angles to meters."""
+        """Return half the measured-minus-commanded jaw gap, mapping both driver angles to meters.
+
+        Args:
+            env: Environment supplying the measured finger position and commanded target.
+        """
         world = env.arena_world
         joint_name = self.driver_joint_name or "finger_joint"
         measured = world.get_joint_position("robot", joint_name)
@@ -168,7 +204,11 @@ class RobotiqGripper(ParallelJawGripper):
         return 0.5 * (_robotiq_jaw_gap_m(measured) - _robotiq_jaw_gap_m(commanded))
 
     def get_position_w(self, world: ArenaWorld) -> torch.Tensor:
-        """Return the configured Robotiq grasp-frame position."""
+        """Return the configured Robotiq grasp-frame position.
+
+        Args:
+            world: World providing access to the simulated robot state.
+        """
         if self.body_name is not None:
             T_W_B = world.get_body_pose_w("robot", self.body_name)
             t_B_G = T_W_B.new_tensor(self.body_point_offset_xyz).expand_as(T_W_B[:, :3])

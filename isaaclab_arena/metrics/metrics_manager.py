@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Manager that computes the configured metrics from the data an environment recorded."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

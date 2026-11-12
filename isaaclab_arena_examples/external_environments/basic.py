@@ -20,10 +20,19 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 
 
 class ExternalFrankaTableEnvironment(ExampleEnvironmentBase):
+    """Franka on a table with a pick-up object and no task."""
 
     name: str = "franka_table"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+        """Build the environment with a Franka embodiment, a table, a pick-up object and a light.
+
+        Args:
+            args_cli: Parsed command-line arguments; `object` names the registered pick-up object.
+
+        Returns:
+            The environment.
+        """
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On
@@ -59,4 +68,9 @@ class ExternalFrankaTableEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
+        """Add the command-line arguments of the environment to a parser.
+
+        Args:
+            parser: The argument parser to add the arguments to.
+        """
         parser.add_argument("--object", type=str, default="cracker_box")

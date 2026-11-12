@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Loss strategies that turn each relation type into a differentiable penalty for the solver."""
+
 from __future__ import annotations
 
 import torch
@@ -211,7 +213,11 @@ class AlignWithLossStrategy(RelationLossStrategy):
     """Penalize centre displacement only outside the alignment tolerance band."""
 
     def __init__(self, slope: float = 100.0):
-        """Set the loss increase per metre of alignment error."""
+        """Set the loss increase per metre of alignment error.
+
+        Args:
+            slope: Loss increase per metre of alignment error.
+        """
         self.slope = slope
 
     def compute_loss(
@@ -221,7 +227,14 @@ class AlignWithLossStrategy(RelationLossStrategy):
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Return alignment loss with the same scalar or batch shape as other relations."""
+        """Return alignment loss with the same scalar or batch shape as other relations.
+
+        Args:
+            relation: Relation being evaluated.
+            child_pos: Child object position(s) in the world frame, shape (3,) or (N, 3).
+            child_bbox: Child bounding box relative to the child's origin.
+            parent_world_bbox: Parent bounding box in the world frame.
+        """
         axis_index = relation.axis.index
         p_W_child_center = child_pos + child_bbox.center
         center_distance = (
@@ -245,7 +258,7 @@ class NextToLossStrategy(RelationLossStrategy):
     def __init__(self, slope: float = 10.0, debug: bool = False):
         """
         Args:
-            slope: Gradient magnitude for linear loss (default: 10.0).
+            slope: Gradient magnitude for linear loss.
                    Loss increases by `slope` per meter of violation.
             debug: If True, print detailed loss component breakdown.
         """
@@ -335,7 +348,7 @@ class OnLossStrategy(RelationLossStrategy):
     def __init__(self, slope: float = 10.0, debug: bool = False):
         """
         Args:
-            slope: Gradient magnitude for linear loss (default: 10.0).
+            slope: Gradient magnitude for linear loss.
                    Loss increases by `slope` per meter of violation.
             debug: If True, print detailed loss component breakdown.
         """
@@ -434,7 +447,14 @@ class ClutterOnLossStrategy(OnLossStrategy):
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Return footprint and below-surface penalties, shape (N,) or scalar for one position."""
+        """Return footprint and below-surface penalties, shape (N,) or scalar for one position.
+
+        Args:
+            relation: Relation being evaluated.
+            child_pos: Child object position(s) in the world frame, shape (3,) or (N, 3).
+            child_bbox: Child bounding box relative to the child's origin.
+            parent_world_bbox: Parent bounding box in the world frame.
+        """
         support = relation.get_release_region_bbox(parent_world_bbox)
         position = child_pos.reshape(-1, 3)
         min_z = support.max_point[:, 2] + relation.clearance_m - child_bbox.min_point[:, 2]
@@ -467,7 +487,7 @@ class NotNextToLossStrategy(RelationLossStrategy):
         Args:
             slope: Loss magnitude per meter of remaining escape distance.
             margin_m: How far past the edge or footprint the child must reach for
-                zero loss (default 10 cm).
+                zero loss.
             debug: If True, print the per-route remaining distances.
         """
         assert slope >= 0.0, f"slope must be non-negative, got {slope}"
@@ -483,7 +503,14 @@ class NotNextToLossStrategy(RelationLossStrategy):
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Compute loss for ``NotNextTo``."""
+        """Compute loss for ``NotNextTo``.
+
+        Args:
+            relation: Relation being evaluated.
+            child_pos: Child object position(s) in the world frame, shape (3,) or (N, 3).
+            child_bbox: Child bounding box relative to the child's origin.
+            parent_world_bbox: Parent bounding box in the world frame.
+        """
         single_input = child_pos.dim() == 1
         if single_input:
             child_pos = child_pos.unsqueeze(0)
@@ -570,7 +597,7 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
     def __init__(self, slope: float = 10.0):
         """
         Args:
-            slope: Gradient magnitude for linear loss (default: 10.0).
+            slope: Gradient magnitude for linear loss.
                    Loss increases by `slope` per meter of violation.
         """
         self.slope = slope
@@ -623,7 +650,7 @@ class PositionLimitsBoxLossStrategy(UnaryRelationLossStrategy):
     def __init__(self, slope: float = 100.0):
         """
         Args:
-            slope: Gradient magnitude for linear loss (default: 100.0).
+            slope: Gradient magnitude for linear loss.
                    Loss increases by ``slope`` per meter of violation.
         """
         self.slope = slope
@@ -683,7 +710,7 @@ class PositionLimitsCylindricalLossStrategy(UnaryRelationLossStrategy):
     def __init__(self, slope: float = 100.0):
         """
         Args:
-            slope: Gradient magnitude for linear loss (default: 100.0).
+            slope: Gradient magnitude for linear loss.
                    Loss increases by ``slope`` per meter of violation.
         """
         self.slope = slope
@@ -694,7 +721,13 @@ class PositionLimitsCylindricalLossStrategy(UnaryRelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Compute loss for cylindrical world-XY position limits."""
+        """Compute loss for cylindrical world-XY position limits.
+
+        Args:
+            relation: Relation being evaluated.
+            child_pos: Child object position(s) in the world frame, shape (3,) or (N, 3).
+            child_bbox: Child bounding box relative to the child's origin.
+        """
         single_input = child_pos.dim() == 1
         if single_input:
             child_pos = child_pos.unsqueeze(0)

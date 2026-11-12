@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Image resizing and padding helpers for GR00T policy inputs."""
+
 import numpy as np
 import torch
 

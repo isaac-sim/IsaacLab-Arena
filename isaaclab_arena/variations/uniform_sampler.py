@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Sampler drawing continuous values uniformly between per-dimension bounds."""
+
 from __future__ import annotations
 
 import torch
@@ -16,7 +18,7 @@ from isaaclab_arena.variations.continuous_sampler import ContinuousSampler, Cont
 
 @configclass
 class UniformSamplerCfg(ContinuousSamplerCfg):
-    """Config for :class:`UniformSampler`."""
+    """Config for ``UniformSampler``."""
 
     low: list[float] = field(default_factory=lambda: [0.0])
     """Lower bound per dimension. Length determines the sampler's shape_per_sample."""
@@ -25,6 +27,7 @@ class UniformSamplerCfg(ContinuousSamplerCfg):
     """Upper bound per dimension. Same length as ``low``, element-wise ``>= low``."""
 
     def build(self) -> UniformSampler:
+        """Return the UniformSampler described by this cfg."""
         return UniformSampler(low=self.low, high=self.high)
 
 
@@ -36,6 +39,12 @@ class UniformSampler(ContinuousSampler):
     """
 
     def __init__(self, low: float | Sequence[float], high: float | Sequence[float]):
+        """Initialize the sampler.
+
+        Args:
+            low: Lower bound, scalar or per dimension.
+            high: Upper bound with the same shape as ``low``, element-wise ``>= low``.
+        """
         super().__init__()
         self.low = torch.as_tensor(low, dtype=torch.float32)
         self.high = torch.as_tensor(high, dtype=torch.float32)
@@ -48,6 +57,7 @@ class UniformSampler(ContinuousSampler):
 
     @property
     def shape_per_sample(self) -> torch.Size:
+        """Shape of a single sample, equal to the shape of ``low``."""
         return self.low.shape
 
     def _sample(self, num_samples: int) -> torch.Tensor:

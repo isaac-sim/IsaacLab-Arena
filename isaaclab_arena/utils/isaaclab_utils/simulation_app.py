@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers for launching and managing the Isaac Sim application."""
+
 import argparse
 import gc
 import os
@@ -24,7 +26,11 @@ STARTUP_COMPLETE_MARKER = "[isaaclab-arena] AppLauncher initialization complete"
 
 
 def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
-    """Get an app launcher."""
+    """Launch the Isaac Sim application from parsed command-line arguments and return its launcher.
+
+    Args:
+        args: Parsed command-line arguments, including the AppLauncher options.
+    """
     import time
 
     t0 = time.monotonic()
@@ -43,8 +49,10 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
     Useful for loading new content into the SimulationApp without restarting the app.
 
     Args:
-        suppress_exceptions: Whether to suppress exceptions. If True, the exception will be caught and the execution will continue. If False, the exception will be propagated.
-        make_new_stage: Whether to make a new USD stage. If True, a new USD stage will be created. If False, the current USD stage will be used.
+        suppress_exceptions: Whether to suppress exceptions. If True, the exception will be caught and the execution
+            will continue. If False, the exception will be propagated.
+        make_new_stage: Whether to make a new USD stage. If True, a new USD stage will be created. If False, the
+            current USD stage will be used.
     """
     if suppress_exceptions:
         # silently caught exceptions and continue the execution.
@@ -107,6 +115,9 @@ def reapply_viewer_cfg(env) -> None:
     (e.g. KitVisualizer) are not yet initialized at that point and silently ignore the call.
     After gym.make() returns the visualizers are ready, so we call update_view_location()
     again to apply the configured eye/lookat position.
+
+    Args:
+        env: Environment, possibly wrapped, with a viewport camera controller.
     """
     unwrapped = env.unwrapped
     vcc = getattr(unwrapped, "viewport_camera_controller", None)
@@ -146,9 +157,11 @@ class SimulationAppContext:
         self.app_launcher = None
 
     def is_running(self) -> bool:
+        """Return whether the simulation application is running."""
         return self.app_launcher.app.is_running()
 
     def is_exiting(self) -> bool:
+        """Return whether the simulation application is shutting down."""
         return self.app_launcher.app.is_exiting()
 
     def __enter__(self):

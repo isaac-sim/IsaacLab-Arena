@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Definition of completion criteria: named predicate sequences and the requirement for combining them."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -108,5 +110,12 @@ class CompletionCriteria:
         return list(self.canonical_predicate_sequences.keys())
 
     def get_sequence(self, sequence_name: str) -> list[tuple[Predicate, float]]:
-        """Return a named predicate sequence with normalized scores."""
+        """Return a named predicate sequence with normalized scores.
+
+        Args:
+            sequence_name: Name of the sequence.
+
+        Returns:
+            The sequence's predicates paired with their normalized scores.
+        """
         return self.canonical_predicate_sequences[sequence_name]

@@ -25,13 +25,22 @@ IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 
 
 def get_base_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
-    """Return an asset's RotateAroundSolution rotation, or identity."""
+    """Return an asset's RotateAroundSolution rotation, or identity.
+
+    Args:
+        asset: Placement asset.
+    """
     rotate_marker = get_relation(asset, RotateAroundSolution)
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
 
 
 def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
-    """Return an asset pose from a solved layout."""
+    """Return an asset pose from a solved layout.
+
+    Args:
+        asset: Non-anchor placement asset.
+        layout: Solved layout containing the asset.
+    """
     assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
     base_rotation = get_base_rotation_xyzw(asset)
     marker_yaw = yaw_from_quat_xyzw(base_rotation)
@@ -45,7 +54,13 @@ def get_scene_root_poses_from_layout(
     result: PlacementResult,
     anchor_assets: set[PlaceableAsset] | None = None,
 ) -> dict[PlaceableAsset, dict[str, Pose]]:
-    """Expand one solved layout into environment-local scene-root poses grouped by asset."""
+    """Expand one solved layout into environment-local scene-root poses grouped by asset.
+
+    Args:
+        assets: Placement assets.
+        result: Solved layout.
+        anchor_assets: Assets with fixed poses, which are skipped; derived from the assets when None.
+    """
     anchor_assets = set(get_anchor_objects(assets)) if anchor_assets is None else anchor_assets
     poses_by_asset: dict[PlaceableAsset, dict[str, Pose]] = {}
     scene_keys: set[str] = set()
@@ -68,7 +83,14 @@ def write_scene_poses_to_sim(
     env_ids: torch.Tensor,
     poses: dict[str, torch.Tensor],
 ) -> None:
-    """Apply environment-local root poses and zero velocities where the rigid-body mode permits."""
+    """Apply environment-local root poses and zero velocities where the rigid-body mode permits.
+
+    Args:
+        env: Environment whose simulation state is written.
+        env_ids: Indices of the environments to write.
+        poses: Root pose per scene entity name, shape (len(env_ids), 7) as position and xyzw quaternion in the
+            environment frame.
+    """
     for name, pose in poses.items():
         assert pose.shape == (len(env_ids), 7), f"Root poses for '{name}' must have shape (N, 7)"
     env_origins = env.scene.env_origins[env_ids]

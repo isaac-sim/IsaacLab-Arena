@@ -76,6 +76,11 @@ class ChunkActionAdapter(AgentActionAdapter):
     """Decode fixed-length command sequences for VLMChunkPolicy."""
 
     def __init__(self, chunk_size: int):
+        """Create a chunk decoder.
+
+        Args:
+            chunk_size: Number of commands in each decoded chunk.
+        """
         assert type(chunk_size) is int and chunk_size > 0, "chunk_size must be a positive integer"
         self.chunk_size = chunk_size
 
@@ -97,6 +102,11 @@ class GoalActionAdapter(AgentActionAdapter):
     """Decode and validate goals for VLMGoalPolicy."""
 
     def __init__(self, motion_generator: MotionGenerator):
+        """Create a goal decoder.
+
+        Args:
+            motion_generator: Generator that produces commands toward each decoded goal.
+        """
         assert isinstance(motion_generator, MotionGenerator)
         self.motion_generator = motion_generator
         """Generate commands for this adapter's decoded goals."""

@@ -123,6 +123,14 @@ def write_settled_layouts(
 
     The caller validates recording compatibility before sampling and owns env.
     This function does not reset, step or close it. Existing output is never overwritten.
+
+    Args:
+        env: Gym-wrapped environment, used to record physics timing.
+        output: Path of the JSONL file to write.
+        assets: Placeable assets of the scene.
+        poses: Accepted root poses per scene key, one entry per layout.
+        outcomes: Validation outcomes, one per layout.
+        num_steps: Number of control steps the layouts were settled for.
     """
     from isaaclab_arena.relations.runtime.placement_sampler import (
         placement_samples_from_pose_columns,

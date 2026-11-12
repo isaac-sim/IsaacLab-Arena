@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Tabletop cube-sorting environment and its configuration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -36,7 +38,11 @@ class TableTopSortCubesEnvironment(ArenaEnvironmentFactory[TableTopSortCubesEnvi
     _legacy_argparse_cfg_type = TableTopSortCubesEnvironmentCfg
 
     def build(self, cfg: TableTopSortCubesEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its typed configuration.
+
+        Args:
+            cfg: Typed configuration of the environment.
+        """
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene

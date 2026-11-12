@@ -28,6 +28,12 @@ def world_pose_to_robot_frame(
 
     Frames: W = world, R = robot base, O = object. Returns ``(t_R_O, q_R_O_xyzw)``. All inputs are
     tensors; the robot-base inputs are the base pose in world frame.
+
+    Args:
+        pos_w: Position of O in the world frame.
+        quat_w_xyzw: XYZW rotation from O into the world frame.
+        robot_base_pos_w: Position of R in the world frame.
+        robot_base_quat_w_xyzw: XYZW rotation from R into the world frame.
     """
     R_R_W = math_utils.matrix_from_quat(robot_base_quat_w_xyzw.unsqueeze(0))[0].T
     q_R_W_xyzw = math_utils.quat_inv(robot_base_quat_w_xyzw.unsqueeze(0))[0]
@@ -47,6 +53,15 @@ def top_down_grasp_matrix(
     Takes the object's pose(in the robot base frame), lifts the target by ``grasp_z_offset``, and
     faces the gripper down; when ``align_yaw_to_object`` it also spins the grasp about the vertical axis to
     match the object's yaw, folded into [-pi/2, pi/2] to stay within the wrist joint limits. Device/dtype follow ``t_R_O``.
+
+    Args:
+        t_R_O: Object position in the robot base frame.
+        q_R_O_xyzw: XYZW rotation from the object into the robot base frame.
+        grasp_z_offset: Height in meters added to the target position along the robot base Z axis.
+        align_yaw_to_object: Whether to rotate the grasp about the vertical axis to match the object's yaw.
+
+    Returns:
+        4x4 grasp transform in the robot base frame.
     """
     device = t_R_O.device
     t_R_O = t_R_O.clone()
@@ -83,7 +98,20 @@ def top_down_grasp_pose_from_world_poses(
     align_yaw_to_object: bool = True,
     device: str | torch.device | None = None,
 ) -> torch.Tensor:
-    """Top-down grasp pose at an object's center, in the robot base frame, as a 4x4 transform."""
+    """Top-down grasp pose at an object's center, in the robot base frame, as a 4x4 transform.
+
+    Args:
+        object_pos_w: Object position in the world frame.
+        object_quat_w_xyzw: Object XYZW rotation into the world frame.
+        robot_base_pos_w: Robot base position in the world frame.
+        robot_base_quat_w_xyzw: Robot base XYZW rotation into the world frame.
+        grasp_z_offset: Height in meters added to the target position along the robot base Z axis.
+        align_yaw_to_object: Whether to rotate the grasp about the vertical axis to match the object's yaw.
+        device: Device of the returned transform, or None for the cuRobo CUDA device.
+
+    Returns:
+        4x4 grasp transform in the robot base frame.
+    """
     dev = resolve_cuda_device(device)
     # Pure-math computation of the object pose in the robot base frame
     t_W_O = torch.tensor(object_pos_w, dtype=torch.float32, device=dev)

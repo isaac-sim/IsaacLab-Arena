@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Embodiment, scene, action and observation configs for the Agibot robot."""
+
 from collections.abc import Sequence
 from dataclasses import MISSING
 
@@ -36,6 +38,13 @@ class AgibotEmbodiment(EmbodimentBase):
     def __init__(
         self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode = ArmMode.LEFT
     ):
+        """Create the Agibot embodiment for the selected arm.
+
+        Args:
+            enable_cameras: Whether to add the embodiment's cameras and camera observations to the scene.
+            initial_pose: Pose of the robot base in the environment.
+            arm_mode: Which arm performs the task.
+        """
         super().__init__(enable_cameras, initial_pose)
         self.arm_mode = arm_mode or self.default_arm_mode
         self.scene_config = AgibotLeftArmSceneCfg() if self.arm_mode == ArmMode.LEFT else AgibotRightArmSceneCfg()

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Pose types: a fixed pose, a pose range sampled per reset, and per-environment poses."""
+
 from __future__ import annotations
 
 import torch
@@ -31,11 +33,19 @@ class Pose:
 
     @staticmethod
     def identity() -> Pose:
+        """Return the pose with zero translation and identity rotation."""
         return Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
     @classmethod
     def from_dict(cls, data: dict[str, Sequence[float]] | None) -> Pose | None:
-        """Build a pose from a dict containing position and orientation fields. Other fields are ignored."""
+        """Build a pose from a dict containing position and orientation fields. Other fields are ignored.
+
+        Args:
+            data: Mapping with `position_xyz` and optionally `rotation_xyzw`, or None.
+
+        Returns:
+            The pose, or None if data is None.
+        """
         if data is None:
             return None
         return cls(
@@ -63,6 +73,11 @@ class Pose:
         return torch.cat([position_tensor, rotation_tensor])
 
     def multiply(self, other: Pose) -> Pose:
+        """Return the composition of this pose with another, so that the other pose is applied first.
+
+        Args:
+            other: Pose applied before this pose.
+        """
         return compose_poses(self, other)
 
     def relative_to(self, T_D_P: Pose) -> Pose:
@@ -85,14 +100,22 @@ class Pose:
         return Pose(position_xyz=tuple(t_P_O.tolist()), rotation_xyzw=tuple(q_P_O.tolist()))
 
     def translate(self, xyz_offset: tuple[float, float, float]) -> Pose:
-        """Return this pose shifted by ``xyz_offset`` (rotation unchanged)."""
+        """Return this pose shifted by ``xyz_offset`` (rotation unchanged).
+
+        Args:
+            xyz_offset: Offset added to the position.
+        """
         return Pose(
             position_xyz=translate_by_xyz_offset(self.position_xyz, xyz_offset),
             rotation_xyzw=self.rotation_xyzw,
         )
 
     def to_transform_matrix(self, device: torch.device) -> torch.Tensor:
-        """Convert the pose to a 4x4 homogeneous transform matrix."""
+        """Convert the pose to a 4x4 homogeneous transform matrix.
+
+        Args:
+            device: Device of the returned tensor.
+        """
         import isaaclab.utils.math as math_utils
 
         rotation = math_utils.matrix_from_quat(torch.tensor(self.rotation_xyzw, device=device))
@@ -135,7 +158,7 @@ def translate_by_xyz_offset(
 
 @dataclass
 class PosePerEnv:
-    """Per-environment poses (one Pose per env, used for batched placement)."""
+    """Per-environment poses (one Pose per env) for batched placement."""
 
     poses: list[Pose]
     """One Pose per environment."""
@@ -158,6 +181,7 @@ class PoseRange:
     rpy_max: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
     def to_dict(self) -> dict[str, tuple[float, float]]:
+        """Return the position and roll-pitch-yaw limits as (min, max) pairs keyed by axis."""
         return {
             "x": (self.position_xyz_min[0], self.position_xyz_max[0]),
             "y": (self.position_xyz_min[1], self.position_xyz_max[1]),
@@ -168,6 +192,7 @@ class PoseRange:
         }
 
     def get_midpoint(self) -> Pose:
+        """Return the pose at the center of the position and roll-pitch-yaw ranges."""
         from isaaclab.utils.math import quat_from_euler_xyz
 
         roll = torch.tensor((self.rpy_min[0] + self.rpy_max[0]) / 2)

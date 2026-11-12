@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Reward terms for lifting an object to a goal pose."""
+
 from __future__ import annotations
 
 import torch
@@ -20,7 +22,16 @@ def object_is_lifted(
     minimal_height: float,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
 ) -> torch.Tensor:
-    """Reward the agent for lifting the object above the minimal height."""
+    """Reward the agent for lifting the object above the minimal height.
+
+    Args:
+            env: The environment.
+            minimal_height: World height in meters above which the object counts as lifted.
+            object_cfg: Scene entity of the object.
+
+        Returns:
+            Reward with shape (num_envs,): 1 where the object is lifted, otherwise 0.
+    """
     object_height_w = env.arena_world.get_position_w(object_cfg.name)[:, 2]
     return torch.where(object_height_w > minimal_height, 1.0, 0.0)
 
@@ -33,7 +44,19 @@ def object_goal_distance(
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
 ) -> torch.Tensor:
-    """Reward the agent for tracking the goal pose using tanh-kernel."""
+    """Reward the agent for tracking the goal pose using tanh-kernel.
+
+    Args:
+            env: The environment.
+            std: Length scale in meters of the tanh kernel.
+            minimal_height: World height in meters above which the object must be for a non-zero reward.
+            command_name: Name of the command term whose goal position is expressed in the robot base frame.
+            robot_cfg: Scene entity of the robot, whose base frame the command is expressed in.
+            object_cfg: Scene entity of the object.
+
+        Returns:
+            Reward with shape (num_envs,), which is 1 at zero goal distance and decays towards 0 with distance.
+    """
     arena_world = env.arena_world
     T_W_B = arena_world.get_pose_w(robot_cfg.name)
     object_position_w = arena_world.get_position_w(object_cfg.name)

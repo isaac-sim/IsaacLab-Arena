@@ -63,7 +63,7 @@ class CameraIntrinsicsVariation(RunTimeVariationBase):
         camera_rig: The camera-rig cfg to force untiled. Pass the embodiment's ``camera_config``.
         cfg: Tunable parameters. Override the perturbation distribution via ``cfg.sampler_cfg``.
         name: Identifier under which this variation is registered on the asset.
-            Defaults to ``"camera_intrinsics_{camera_name}"``.
+            When omitted, derived from ``camera_name``.
     """
 
     cfg: CameraIntrinsicsVariationCfg
@@ -75,6 +75,15 @@ class CameraIntrinsicsVariation(RunTimeVariationBase):
         cfg: CameraIntrinsicsVariationCfg | None = None,
         name: str | None = None,
     ):
+        """Initialize the variation.
+
+        Args:
+            camera_name: Scene-entity name of the target camera.
+            camera_rig: The camera-rig cfg forced untiled at build time.
+            cfg: Tunable parameters; ``None`` selects the standard parameters.
+            name: Identifier under which this variation is registered on the asset; ``None`` derives it from
+                ``camera_name``.
+        """
         cfg = cfg if cfg is not None else CameraIntrinsicsVariationCfg()
         name = name if name is not None else f"camera_intrinsics_{camera_name}"
         super().__init__(cfg=cfg, name=name)
@@ -86,6 +95,7 @@ class CameraIntrinsicsVariation(RunTimeVariationBase):
         self._camera_rig.set_use_tiled_camera(False)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        """Return the reset event term that scales the camera's focal lengths by a sampled perturbation."""
         assert self._sampler is not None, (
             f"CameraIntrinsicsVariation on '{self.camera_name}' is enabled but no sampler is set; "
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."
@@ -106,6 +116,13 @@ class apply_camera_intrinsics_from_sampler(ManagerTermBase):
     """Apply sampled focal-length perturbations without compounding across resets."""
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        """Bind the target camera and validate the sampler.
+
+        Args:
+            cfg: Event term cfg whose ``params`` hold ``asset_cfg`` (the camera) and ``sampler`` (a sampler of one
+                relative focal-length delta).
+            env: The environment owning the camera.
+        """
         super().__init__(cfg, env)
 
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]

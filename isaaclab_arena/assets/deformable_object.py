@@ -44,6 +44,16 @@ class DeformableObject(ObjectBase):
         asset_cfg_addon: dict[str, Any] | None = None,
         **kwargs,
     ):
+        """Create a deformable object from a deformable spawner configuration.
+
+        Args:
+            name: Name of the object, used as its scene key.
+            spawner_cfg: Deformable spawner configuration. Its deformable properties select the physics backend.
+            prim_path: Prim path template of the object in the scene. None uses a path derived from name.
+            initial_pose: Fixed pose, or one pose per environment, of the deformable's centroid.
+            asset_cfg_addon: Extra keyword arguments for the Isaac Lab deformable object configuration.
+            **kwargs: Passed on to the parent class.
+        """
         super().__init__(name=name, prim_path=prim_path, object_type=ObjectType.DEFORMABLE, **kwargs)
         self.spawner_cfg = spawner_cfg
         self.physics_preset = self._infer_physics_preset(spawner_cfg)
@@ -55,7 +65,11 @@ class DeformableObject(ObjectBase):
         self._pose_event_cfg = self._build_reset_event()
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
-        """Validate the simulation backend and solver support this deformable."""
+        """Validate the simulation backend and solver support this deformable.
+
+        Args:
+            sim_cfg: Simulation configuration the deformable will run under.
+        """
         from isaaclab_contrib.coupling import CouplerCfg
         from isaaclab_newton.physics import NewtonCfg, VBDSolverCfg
         from isaaclab_physx.physics import PhysxCfg
@@ -114,7 +128,11 @@ class DeformableObject(ObjectBase):
         )
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None):
-        """Reject contact sensors, which Isaac Lab does not support for deformables."""
+        """Reject contact sensors, which Isaac Lab does not support for deformables.
+
+        Args:
+            contact_against_object: Object the sensor would filter contacts against.
+        """
         raise NotImplementedError(f"{type(self).__name__} does not support contact sensors")
 
     def _build_object_cfg(self) -> DeformableObjectCfg:
@@ -139,7 +157,11 @@ class DeformableObject(ObjectBase):
         self.object_cfg.init_state.rot = initial_pose.rotation_xyzw
 
     def set_initial_velocity(self, velocity: Velocity) -> None:
-        """Set the linear velocity restored by the deformable reset event."""
+        """Set the linear velocity restored by the deformable reset event.
+
+        Args:
+            velocity: Initial velocity; only its linear part is used.
+        """
         self.initial_velocity = velocity
         self._pose_event_cfg = self._build_reset_event()
 
@@ -164,7 +186,7 @@ class DeformableObject(ObjectBase):
         )
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return undeformed local bounds used for initial placement."""
+        """Return undeformed local bounds for initial placement."""
         if self._bounding_box is None and isinstance(self.spawner_cfg, UsdFileCfg):
             self._bounding_box = compute_local_bounding_box_from_usd(
                 self.spawner_cfg.usd_path,
@@ -181,7 +203,14 @@ class DeformableObject(ObjectBase):
         env_ids: torch.Tensor,
         poses: dict[str, torch.Tensor],
     ) -> None:
-        """Apply batched root poses by transforming this deformable's nodal state."""
+        """Apply batched root poses by transforming this deformable's nodal state.
+
+        Args:
+            env: Environment containing the deformable.
+            env_ids: Indices of the environments to write, shape (N,).
+            poses: Root poses keyed by this deformable's scene key, each of shape (N, 7) holding position then
+                xyzw quaternion.
+        """
         assert set(poses) == {self.get_scene_key()}, "A deformable object owns exactly one scene root"
         root_poses = poses[self.get_scene_key()]
         assert root_poses.shape == (len(env_ids), 7), "Deformable root poses must have shape (N, 7)"

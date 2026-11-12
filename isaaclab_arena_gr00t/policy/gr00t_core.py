@@ -118,14 +118,11 @@ def _extract_rgb_from_nested_obs(
     Args:
         nested_obs: Dict with group_key (cam_name -> array or tensor).
         camera_names: Ordered list of camera keys to read.
-        group_key: Top-level key for camera data (default "camera_obs").
+        group_key: Top-level key for camera data.
         convert_to_numpy: If True, convert each value to numpy; if False, return as-is.
 
     Returns:
         List of (N, H, W, C) arrays one per camera.
-
-    Raises:
-        AssertionError: If group_key or a requested camera key is missing.
     """
     assert group_key in nested_obs, f"{group_key} is not in observation"
     rgb_list_np: list[np.ndarray] = []
@@ -146,8 +143,8 @@ def _extract_joints_from_nested_obs(
 
     Args:
         nested_obs: Dict with group_key[joint_pos_name] (array or tensor).
-        group_key: Top-level key under which joint positions live (default "policy").
-        joint_pos_name: Key for the joint position array (default "robot_joint_pos").
+        group_key: Top-level key under which joint positions live.
+        joint_pos_name: Key for the joint position array.
         convert_to_numpy: If True, convert to numpy; if False, return as-is.
 
     Returns:
@@ -174,9 +171,9 @@ def extract_obs_numpy_from_torch(
         observation: Env observation with camera_group_key (per-camera tensors)
             and joint_group_key[joint_pos_key] (torch tensor).
         camera_names: Ordered list of camera keys to read from camera_group_key.
-        camera_group_key: Top-level key for camera data in observation (default "camera_obs").
-        joint_group_key: Top-level key for joint data in observation (default "policy").
-        joint_pos_key: Key for the joint position array (default "robot_joint_pos").
+        camera_group_key: Top-level key for camera data in observation.
+        joint_group_key: Top-level key for joint data in observation.
+        joint_pos_key: Key for the joint position array.
 
     Returns:
         rgb_list_np: List of (N, H, W, C) uint8 numpy arrays, one per camera.
@@ -237,7 +234,7 @@ def build_gr00t_policy_observations(
 
     Resizes RGB, remaps sim joints to policy order, then fills language / video /
     state keys from modality config. No torch; use after
-    :func:`extract_obs_numpy_from_torch`.
+    `extract_obs_numpy_from_torch`.
 
     Args:
         rgb_list_np: List of RGB arrays, one per camera; each shape (N, H, W, C).
@@ -307,7 +304,7 @@ def build_gr00t_action_np(
     Remaps policy joint names to sim order and, for G1_LOCOMANIPULATION,
     concatenates WBC commands (navigate, base height, torso RPY). Torso RPY
     is zeroed (GR00T output does not include it). No torch; use
-    :func:`action_numpy_to_tensor` to convert to tensor.
+    `action_numpy_to_tensor` to convert to tensor.
 
     Args:
         robot_action_policy: Policy output dict (joint names, and for
@@ -350,8 +347,8 @@ def build_gr00t_action_tensor(
 ) -> torch.Tensor:
     """Convert GR00T policy output dict to a single torch action tensor.
 
-    Delegates to numpy-based :func:`build_gr00t_action_np` then converts to
-    tensor at the single boundary :func:`action_numpy_to_tensor`.
+    Delegates to numpy-based `build_gr00t_action_np` then converts to
+    tensor at the single boundary `action_numpy_to_tensor`.
 
     Args:
         robot_action_policy: Policy output dict (joint names, and for
@@ -364,9 +361,6 @@ def build_gr00t_action_tensor(
 
     Returns:
         Action tensor of shape (N, horizon, action_dim) on the given device.
-
-    Raises:
-        ValueError: If task_mode is not supported.
     """
     action_np = build_gr00t_action_np(
         robot_action_policy,

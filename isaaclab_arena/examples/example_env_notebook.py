@@ -5,6 +5,8 @@
 
 # %%
 
+"""Notebook-style example that builds an environment from CLI-style arguments and steps it with zero actions."""
+
 import torch
 import tqdm
 

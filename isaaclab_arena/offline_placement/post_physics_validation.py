@@ -36,13 +36,26 @@ class PostPhysicsPlacementValidator(PlacementValidator):
 
     @abstractmethod
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
-        """Return one report per candidate environment, in env_ids order."""
+        """Return one report per candidate environment, in env_ids order.
+
+        Args:
+            data: Captured batch of settled placements.
+        """
 
     def validate_scene(self, env: ManagerBasedEnv, assets: Sequence[PlaceableAsset]) -> None:
-        """Check scene-dependent settings before any sampling reset or physics step."""
+        """Check scene-dependent settings before any sampling reset or physics step.
+
+        Args:
+            env: Environment whose scene is checked.
+            assets: Placeable assets of the scene.
+        """
 
     def get_geometry_keys(self, assets: Sequence[PlaceableAsset]) -> set[str]:
-        """Return scene keys whose bounds and poses this check needs captured."""
+        """Return scene keys whose bounds and poses this check needs captured.
+
+        Args:
+            assets: Placeable assets of the scene.
+        """
         return set()
 
     def configuration(self) -> dict:
@@ -50,11 +63,20 @@ class PostPhysicsPlacementValidator(PlacementValidator):
         return {"_target_": f"{type(self).__module__}.{type(self).__qualname__}", **asdict(self)}
 
     def skip_reason(self, articulation_keys: list[str]) -> str | None:
-        """Return why the check is disabled or inapplicable, otherwise None."""
+        """Return why the check is disabled or inapplicable, otherwise None.
+
+        Args:
+            articulation_keys: Scene keys of the selected articulated objects.
+        """
         return None if self.enabled else "disabled by configuration"
 
     def report(self, passed: bool | None, reason: str = "") -> PlacementValidatorReport:
-        """Describe the check's configuration and outcome."""
+        """Describe the check's configuration and outcome.
+
+        Args:
+            passed: Whether the check passed, or None when it was not evaluated.
+            reason: Explanation of a failure or skip.
+        """
         return PlacementValidatorReport(
             check=self.check,
             stage=self.stage,
@@ -83,6 +105,14 @@ class VelocityValidator(PostPhysicsPlacementValidator):
         ), "ang_vel_thresh must be finite and non-negative"
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
+        """Check that every captured root ends below the linear and angular velocity limits.
+
+        Args:
+            data: Captured batch of settled placements.
+
+        Returns:
+            One report per candidate environment.
+        """
         import torch
 
         settled_per_root = []
@@ -114,6 +144,14 @@ class PoseShiftValidator(PostPhysicsPlacementValidator):
         ), "max_rotation_deg must be finite and non-negative"
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
+        """Check that the root poses of non-clutter objects did not shift during settling.
+
+        Args:
+            data: Captured batch of settled placements.
+
+        Returns:
+            One report per candidate environment.
+        """
         from isaaclab_arena.relations.relations import ClutterOn, get_relation
 
         clutter_keys = set()
@@ -155,12 +193,25 @@ class ArticulationLinkShiftValidator(PoseShiftValidator):
     check: ClassVar[str] = "articulation_link_shift"
 
     def skip_reason(self, articulation_keys: list[str]) -> str | None:
+        """Return why the check is disabled or has no articulated objects to check, otherwise None.
+
+        Args:
+            articulation_keys: Scene keys of the selected articulated objects.
+        """
         reason = super().skip_reason(articulation_keys)
         if reason is not None:
             return reason
         return None if articulation_keys else "no articulated task objects selected"
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
+        """Check that articulation link poses did not shift during settling.
+
+        Args:
+            data: Captured batch of settled placements.
+
+        Returns:
+            One report per candidate environment.
+        """
         return self._validate_poses(data.env_ids, data.initial_link_poses, data.final_link_poses)
 
 
@@ -173,7 +224,15 @@ def default_post_physics_validators() -> dict[str, dict]:
 def build_post_physics_validators(
     configurations: dict[str, dict], articulation_keys: list[str]
 ) -> list[PostPhysicsPlacementValidator]:
-    """Construct configured post-physics checks."""
+    """Construct configured post-physics checks.
+
+    Args:
+        configurations: Validator configurations keyed by check name.
+        articulation_keys: Scene keys of the selected articulated objects.
+
+    Returns:
+        The instantiated validators.
+    """
     from hydra.utils import instantiate
 
     validators = []

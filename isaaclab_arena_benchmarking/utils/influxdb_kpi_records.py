@@ -175,7 +175,7 @@ class InfluxdbKpiExporter(ABC):
         """
 
     def on_experiment_incomplete(self, output_dir: Path, failed_run_names: list[str]) -> None:
-        """Report what this exporter can, when Runs failed and no KPI records are written. By default does nothing.
+        """Report on failed Runs when no KPI records are written. Does nothing in the base class.
 
         Called if the experiment is incomplete, i.e. in the case that any of the runs failed.
 

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Sampler returning consecutive items of a per-call sequence of choices."""
+
 from __future__ import annotations
 
 import torch
@@ -21,6 +23,7 @@ class SequentialSamplerCfg(SamplerBaseCfg):
     """Config for SequentialSampler (empty; ``choices`` is supplied per call)."""
 
     def build(self) -> SequentialSampler:
+        """Return the SequentialSampler described by this cfg."""
         return SequentialSampler()
 
 
