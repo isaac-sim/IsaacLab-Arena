@@ -18,7 +18,7 @@ Isaac Lab Arena uses the following constants to access those assets:
 - ``ISAAC_NUCLEUS_DIR``: The directory of Isaac Sim's assets on the production S3 bucket, containing assets that are compliant with legal requirements.
 - ``ISAACLAB_NUCLEUS_DIR``: The directory of Isaac Lab & Isaac Lab Arena's assets on the production S3 bucket, containing assets that are compliant with legal requirements.
 - ``ARENA_STAGING_STORAGE_DIR``: The directory of Isaac Lab Arena's internal development assets in Storage API
-  (``ovstorage://isaac/Isaac/IsaacLab``). Those assets have not yet been reviewed by the legal team -- use in production at your own risk.
+  (``ovstorage://isaac/Isaac/IsaacLab``). Access to this directory is restricted to NVIDIA employees. Those assets have not yet been reviewed by the legal team -- use in production at your own risk.
   Prior to each major release, the staging assets will be uploaded to the production bucket after being cleared by the legal team.
 
 .. note::
@@ -53,7 +53,7 @@ To add your own assets to Isaac Lab Arena's *staging* S3 bucket, you can follow 
 2. Update the USD path configurations to use the new assets as they are stored in ``ARENA_STAGING_STORAGE_DIR/Arena/assets``.
    For example, if you want to use a new object, you can register the object in ``isaaclab_arena/assets/object_library.py`` as a derived class of ``LibraryObject``, and add the USD path as its class attribute.
 
-3. Request synchronization to the staging S3 bucket on `ISIM-5044 <https://nvidia.atlassian.net/browse/ISIM-5044>`__.
+3. Request synchronization to the staging S3 bucket on `ISIM-5288 <https://nvidia.atlassian.net/browse/ISIM-5288>`__.
 
 4. Run Isaac Lab Arena to verify that the assets are loaded correctly.
 
@@ -63,4 +63,4 @@ Syncing assets from OV Nucleus to S3 production
 .. note::
 
    Syncing assets from the OV Nucleus Server to the *production* S3 bucket requires filing a ticket:
-   https://jirasw.nvidia.com/browse/ISIM-5044
+   https://jirasw.nvidia.com/browse/ISIM-5288

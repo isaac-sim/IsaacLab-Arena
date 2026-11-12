@@ -1,13 +1,15 @@
 Storage API Access
 ==================
 
-These steps are for NVIDIA employees accessing internal Arena assets. Public S3
-assets do not require login. Use ``omni.client`` 2.74.0 or newer.
+.. note::
+
+   **Internal NVIDIA use only.** These steps are for NVIDIA employees accessing internal Arena assets.
+   Public S3 assets do not require login. Use ``omni.client`` 2.74.0 or newer.
 
 1. Request write access (optional)
 ----------------------------------
 
-This step is only needed to upload or modify assets. Join the
+This step is only needed to upload or modify assets in the Arena folder. Join the
 ``access-isaac-dev-storage-arena-write`` group on
 `DLRequest <https://dlrequest/GroupID/Home/Index>`__.
 
@@ -58,6 +60,9 @@ and the credential-file setup from the
 
 When prompted, open https://login.microsoft.com/device in a browser, enter the
 code printed by the script, and complete your NVIDIA sign-in.
+
+This allows you to read and upload assets to the Arena folder in the Storage API.
+See :doc:`assets_management` for the asset upload and release workflow.
 
 Credentials are saved at ``~/.nvidia-omniverse/config/auth.toml``.
 ``omni.client`` refreshes access tokens automatically.
