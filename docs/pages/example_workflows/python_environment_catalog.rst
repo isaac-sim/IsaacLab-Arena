@@ -167,8 +167,7 @@ gr1_open_microwave
 **Class:** ``Gr1OpenMicrowaveEnvironment`` (``isaaclab_arena_environments/gr1_open_microwave_environment.py``)
 
 **Task Description:** The GR1T2 humanoid reaches with its upper body to open a
-microwave door. Featured in the
-:doc:`static_manipulation/index` workflow.
+microwave door.
 
 .. list-table::
    :widths: 30 70
