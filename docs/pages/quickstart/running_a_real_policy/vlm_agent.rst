@@ -31,13 +31,49 @@ The policy calls a remote VLM endpoint. Configure its API key before running an 
 
 .. include:: ../../_includes/inference_api_keys.rst.inc
 
+.. _vlm-agent-endpoint-and-model:
+
 Select the endpoint and model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If a Run sets ``policy.endpoint``, it uses that endpoint instead of ``ARENA_INFERENCE_ENDPOINT``.
-The example configurations set ``policy.endpoint: internal``, whose default model is
-``openai/openai/gpt-6-astra``. To use another endpoint, override
-the field, or delete it from the YAML so that the Run uses ``ARENA_INFERENCE_ENDPOINT``:
+.. important::
+
+   The model is the policy, so its capability sets the success rate. Use
+   ``openai/openai/gpt-6-astra``, the model behind every result on this page, or a model of
+   similar capability. A smaller or weaker model may not complete the task at all.
+
+Each Run selects its endpoint with ``policy.endpoint`` in the experiment configuration YAML:
+
+.. code-block:: yaml
+
+   runs:
+     droid_pnp_vlm_goal:
+       policy:
+         type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
+         endpoint: internal  # internal, public, or openai
+         # model: <model>    # Optional: another model on the same endpoint
+         # base_url: <url>   # Optional: any OpenAI-compatible URL
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 25 60
+
+   * - ``endpoint``
+     - API key variable
+     - Endpoint
+   * - ``internal``
+     - ``NV_API_KEY``
+     - NVIDIA internal endpoint, for NVIDIA employees only.
+   * - ``public``
+     - ``NVIDIA_API_KEY``
+     - Public NVIDIA endpoint at `build.nvidia.com <https://build.nvidia.com>`_.
+   * - ``openai``
+     - ``OPENAI_API_KEY``
+     - OpenAI API, billed to the OpenAI account that owns the key.
+
+The example configurations set ``endpoint: internal``. If a Run omits ``policy.endpoint``, it uses
+the endpoint named by ``ARENA_INFERENCE_ENDPOINT``, or ``public`` when that variable is unset.
+To switch one Run without editing the YAML, override the field on the command line:
 
 .. code-block:: bash
 

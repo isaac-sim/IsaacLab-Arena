@@ -250,6 +250,34 @@ gear and peg geometry and a grasp and insertion strategy, but no object position
 
 Add ``--viz kit`` to watch a rollout.
 
+.. important::
+
+   Gear insertion needs millimeter-level placement, so it depends heavily on the model's
+   capability. Use ``openai/openai/gpt-6-astra``, the model behind the rollouts below, or a model of
+   similar capability. A smaller or weaker model may not complete the task at all.
+
+All three configurations set ``policy.endpoint: internal``. To use the ``public`` or ``openai``
+endpoint, change the field in the YAML:
+
+.. code-block:: yaml
+
+   runs:
+     droid_gear_insertion_vlm_goal_images:
+       policy:
+         endpoint: public  # internal, public, or openai
+         # model: <model>  # Optional: another model on the same endpoint
+
+Or override it for one run on the command line:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml \
+     runs.droid_gear_insertion_vlm_goal_images.policy.endpoint=public
+
+See :ref:`vlm-agent-endpoint-and-model` for the API key each endpoint reads and the other
+connection fields.
+
 The same layout under each experiment: images only (left), exact object poses (middle), and the
 task prompt (right). These rollouts were run with ``openai/openai/gpt-6-astra``. The model is the
 policy: switching to another model or endpoint evaluates a different policy, so its success rate
