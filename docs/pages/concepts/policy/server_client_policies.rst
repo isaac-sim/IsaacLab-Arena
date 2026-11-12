@@ -42,6 +42,14 @@ When an environment resets, or the connection drops and reconnects, the client d
 cached chunk so that it never replays stale actions. ``close()`` disconnects the client but
 leaves the server running.
 
+A Run with ``num_episodes`` stops assigning new episodes once the limit is reached, but the
+simulation keeps stepping every environment until the last assigned episode ends. The client
+requests no chunks for the environments whose episode is over and has no replacement; they apply
+the action that holds the robot in place until the Run ends. With many environments and few
+episodes per environment this removes a large share of the inference, since only environments
+whose results count reach the server. The client prints the number of held env-steps when it
+closes.
+
 Requests and responses are flat dictionaries of NumPy arrays and strings, packed with
 ``msgpack_numpy``. For example, the Cosmos DROID adapter sends:
 

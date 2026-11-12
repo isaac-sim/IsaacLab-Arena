@@ -227,3 +227,40 @@ def test_pi0_remote_policy_declares_the_adapter_image_size():
     """Report the 224x224 box the DROID adapter resizes camera frames into, for camera_resolution_mode policy_default."""
     assert Pi0RemotePolicy.default_image_size(Pi0RemotePolicyCfg(openpi_embodiment_adapter="droid")) == (224, 224)
     assert Pi0DroidAdapter.target_image_size == (224, 224)
+
+
+def test_envs_that_finished_their_last_episode_hold_without_inference(monkeypatch):
+    """An env outside the Arena env's active episode mask requests no chunk and holds; a reset restarts it."""
+    from isaaclab_arena.policy import remote_policy_base
+
+    infer_calls: list[int] = []
+
+    def counting_infer(self, request):
+        infer_calls.append(1)
+        return {"actions": _synthetic_chunk()}
+
+    _patch_websocket_client(monkeypatch, infer_impl=counting_infer)
+    hold_action = torch.full((2, 8), -1.0)
+    monkeypatch.setattr(remote_policy_base, "hold_action_from_action_manager", lambda env: hold_action)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=2)
+    env.unwrapped.active_episode_mask = torch.tensor([True, True])
+    obs = _fake_observation(num_envs=2)
+
+    policy.get_action(env, obs)  # Both envs fetch their first chunk.
+    assert len(infer_calls) == 2
+    env.unwrapped.active_episode_mask[1] = False  # Env 1 finished its last episode; no replacement started.
+    for _ in range(15):
+        action = policy.get_action(env, obs)  # Env 0 runs out of chunk on step 15 and refetches alone.
+    assert len(infer_calls) == 3
+    assert action[0, -1].item() == pytest.approx(0.2)
+    assert torch.all(action[1] == -1.0)
+    assert policy.idle_steps == [0, 15]
+
+    env.unwrapped.active_episode_mask[1] = True
+    policy.reset(env_ids=torch.tensor([1]))
+    action = policy.get_action(env, obs)
+    assert len(infer_calls) == 4
+    assert action[1, -1].item() == pytest.approx(0.2)
+    assert policy.idle_steps == [0, 15]
