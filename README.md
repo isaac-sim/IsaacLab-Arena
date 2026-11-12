@@ -265,7 +265,7 @@ The ecosystem extends beyond pick-and-place to contact-rich, dexterous, and defo
 ### Coming Soon
 
 Coming soon: support for the full RoboTwin task suite, plus benchmark integrations
-from ecosystem partners including X Square, Sharpa, and NVIDIA
+from ecosystem partners including Sharpa and NVIDIA
 GEAR (G1 Factory), with more partner benchmarks to follow.
 
 ### Publishing Your Own Benchmark
