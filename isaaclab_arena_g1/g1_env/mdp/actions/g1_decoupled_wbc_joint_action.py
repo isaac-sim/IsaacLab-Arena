@@ -178,6 +178,12 @@ class G1DecoupledWBCJointAction(ActionTerm):
         """Get the torso orientation command from the actions."""
         return actions[:, -NUM_TORSO_ORIENTATION_RPY_CMD:]
 
+    def get_still_actions(self, previous_actions: torch.Tensor) -> torch.Tensor:
+        """Return actions that keep the robot still: the previous targets with a zero navigation velocity."""
+        still_actions = previous_actions.clone()
+        self.get_navigation_cmd_from_actions(still_actions)[:] = 0.0
+        return still_actions
+
     # """
     # Operations.
     # """

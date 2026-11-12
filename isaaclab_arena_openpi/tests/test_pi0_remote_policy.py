@@ -168,7 +168,7 @@ def test_get_action_parallel_envs_loops_per_env(monkeypatch):
         assert second_action[env_id, -1].item() == pytest.approx(0.7)
 
 
-def test_inactive_env_holds_its_last_action_without_fetching(monkeypatch):
+def test_finished_env_fetches_no_chunk(monkeypatch):
     """An env whose episode ended without a replacement fetches no chunk and keeps its place in it."""
     call_count = {"n": 0}
 
@@ -182,16 +182,17 @@ def test_inactive_env_holds_its_last_action_without_fetching(monkeypatch):
     policy._open_loop_horizon = 1
     policy.set_task_description("pick up the block")
     env = _fake_env(num_envs=2)
-    env.unwrapped.active_episode_mask = torch.tensor([True, True])
+    env.unwrapped.action_manager = types.SimpleNamespace(total_action_dim=8)
+    env.unwrapped.finished_episode_mask = torch.tensor([False, False])
     obs = _fake_observation(num_envs=2)
-    first_action = policy.get_action(env, obs)
+    policy.get_action(env, obs)
 
-    env.unwrapped.active_episode_mask = torch.tensor([True, False])
-    second_action = policy.get_action(env, obs)
+    env.unwrapped.finished_episode_mask = torch.tensor([False, True])
+    action = policy.get_action(env, obs)
 
-    # Env 0 refetches after its one-step horizon; env 1 holds row 0 of its chunk.
+    # Env 0 refetches after its one-step horizon; env 1 fetches nothing.
     assert call_count["n"] == 3
-    torch.testing.assert_close(second_action[1], first_action[1])
+    assert action.shape == (2, 8)
     assert policy._next_chunk_steps == [1, 1]
 
 

@@ -59,7 +59,7 @@ def inputs(monkeypatch):
                 get_term=lambda name: SimpleNamespace(cfg=embodiment.get_action_cfg().arm),
             ),
             episode_length_buf=torch.zeros(2, dtype=torch.long),
-            active_episode_mask=torch.ones(2, dtype=torch.bool),
+            finished_episode_mask=torch.zeros(2, dtype=torch.bool),
         )
     )
     observation = {

@@ -235,12 +235,12 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
 
         Environments that need a new prediction on this step request it concurrently, up to
         max_concurrent_requests at a time; the step returns once every request is validated.
-        An inactive environment sends no request and keeps its current prediction.
+        A finished environment sends no request and keeps its current prediction.
 
         Args:
             env: Arena environment, optionally gym-wrapped.
             observation: Batched observations consumed by the observation adapter.
-            active_env_mask: Boolean (num_envs,) mask of environments that need a new action.
+            active_env_mask: Boolean (num_envs,) mask of environments whose actions are used.
 
         Returns:
             Actions shaped (num_envs, action_dim) on the environment device.
@@ -268,9 +268,9 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         # Convert each active environment's next command into a native action.
         actions = []
         for env_id in range(env.unwrapped.num_envs):
-            # An inactive environment's row is replaced by the action it holds.
+            # A finished environment's action is ignored.
             if not active_env_mask[env_id]:
-                actions.append(self._last_actions[env_id].to(device=env.unwrapped.device))
+                actions.append(torch.zeros(env.unwrapped.action_manager.total_action_dim, device=env.unwrapped.device))
                 continue
             command = self._get_next_command(env, env_id)
             action = self.action_adapter.command_to_action(env, command)
@@ -470,7 +470,6 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending commands for selected environments, or all environments."""
-        super().reset(env_ids)
         if env_ids is None:
             self._chunks.clear()
         else:
@@ -586,7 +585,6 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending and previous goals for selected environments, or all environments."""
-        super().reset(env_ids)
         if env_ids is None:
             self._current_goals.clear()
             self._previous_goals.clear()

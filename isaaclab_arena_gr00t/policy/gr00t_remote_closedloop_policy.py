@@ -224,7 +224,6 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         return action_tensor
 
     def reset(self, env_ids: torch.Tensor | None = None):
-        super().reset(env_ids)
         if env_ids is None:
             env_ids = slice(None)
         assert self._client is not None, "GR00T remote policy has been closed"

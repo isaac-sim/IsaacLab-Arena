@@ -223,7 +223,7 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
         Args:
             env: Gymnasium-wrapped Isaac Lab environment.
             observation: Arena observation dict with 'camera_obs' and 'policy' sub-dicts.
-            active_env_mask: Boolean (num_envs,) mask of environments that need a new action.
+            active_env_mask: Boolean (num_envs,) mask of environments whose actions are used.
 
         Returns:
             Float32 tensor of shape (num_envs, action_dim) on self.device.
@@ -240,9 +240,9 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
 
         actions = []
         for env_id in range(num_envs):
-            # An inactive environment holds its last action, so it fetches no chunk and keeps its place in it.
+            # A finished environment's action is ignored, so it fetches no chunk and keeps its place in it.
             if not active_env_mask[env_id]:
-                actions.append(self._last_actions[env_id].cpu().numpy())
+                actions.append(np.zeros(env.unwrapped.action_manager.total_action_dim, dtype=np.float32))
                 continue
             chunk_exhausted = (
                 self._cached_action_chunks[env_id] is None
@@ -258,7 +258,6 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        super().reset(env_ids)
         if self._cached_action_chunks is None:
             return
         ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()
