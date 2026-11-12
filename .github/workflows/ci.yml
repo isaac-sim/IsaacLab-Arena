@@ -516,7 +516,7 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
     needs: [build_and_push_image]
-    # TODO(alexmillane): temporarily runs on PRs to test the docs build; restore the main-only condition before merging.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
 
@@ -543,7 +543,6 @@ jobs:
           touch ./_build/.nojekyll
 
       - name: Deploy to gh-pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
