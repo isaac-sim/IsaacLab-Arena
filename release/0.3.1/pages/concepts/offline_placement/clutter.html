@@ -662,17 +662,17 @@ enabled post-physics checks. The file stores the final root poses, validator
 settings and outcomes. Replay restores these root poses; joint states and other
 randomized properties still follow the environment’s reset configuration.</p>
 <p>Inspect the recorded root names and validation reports:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;'PYTHON'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;&#39;PYTHON&#39;</span>
 <span class="s">import json</span>
 <span class="s">from pathlib import Path</span>
 
-<span class="s">path = Path("outputs/clutter/tools_on_table.jsonl")</span>
+<span class="s">path = Path(&quot;outputs/clutter/tools_on_table.jsonl&quot;)</span>
 <span class="s">records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]</span>
-<span class="s">assert len(records) == 1, f"Expected one layout, got {len(records)}"</span>
-<span class="s">placement = records[0]["variations"]["scene.relation_placement"]</span>
-<span class="s">print("Source:", placement["source"])</span>
-<span class="s">print("Roots:", sorted(placement["poses"]))</span>
-<span class="s">print(json.dumps(placement["validation"], indent=2))</span>
+<span class="s">assert len(records) == 1, f&quot;Expected one layout, got {len(records)}&quot;</span>
+<span class="s">placement = records[0][&quot;variations&quot;][&quot;scene.relation_placement&quot;]</span>
+<span class="s">print(&quot;Source:&quot;, placement[&quot;source&quot;])</span>
+<span class="s">print(&quot;Roots:&quot;, sorted(placement[&quot;poses&quot;]))</span>
+<span class="s">print(json.dumps(placement[&quot;validation&quot;], indent=2))</span>
 <span class="s">PYTHON</span>
 </pre></div>
 </div>
@@ -841,21 +841,21 @@ the output JSONL path must be unused:</p>
     <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.recording_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlacementRecordingCfg</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scripts.record_placement_layouts</span><span class="w"> </span><span class="kn">import</span> <span class="n">record_settled_placement_layouts</span>
 
-    <span class="n">source</span> <span class="o">=</span> <span class="s2">"isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml"</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="s2">&quot;isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml&quot;</span>
     <span class="n">arena_env</span> <span class="o">=</span> <span class="n">ArenaEnvGraphSpec</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="n">to_arena_env</span><span class="p">()</span>
     <span class="c1"># For your package, replace the preceding line with its configured factory call.</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">PlacementRecordingCfg</span><span class="p">(</span>
-        <span class="n">output</span><span class="o">=</span><span class="s2">"outputs/clutter/tools_python.jsonl"</span><span class="p">,</span>
+        <span class="n">output</span><span class="o">=</span><span class="s2">&quot;outputs/clutter/tools_python.jsonl&quot;</span><span class="p">,</span>
         <span class="n">num_envs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_layouts</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">layouts_per_env</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_batches</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
-        <span class="n">presets</span><span class="o">=</span><span class="s2">"physx"</span><span class="p">,</span>
+        <span class="n">presets</span><span class="o">=</span><span class="s2">&quot;physx&quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">cfg</span><span class="o">.</span><span class="n">settle</span><span class="o">.</span><span class="n">num_steps</span> <span class="o">=</span> <span class="mi">480</span>
-    <span class="n">cfg</span><span class="o">.</span><span class="n">settle</span><span class="o">.</span><span class="n">validators</span><span class="p">[</span><span class="s2">"support_containment"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">"minimum_resting_heights_m"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"office_table_background"</span><span class="p">:</span> <span class="mf">0.5306</span><span class="p">},</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">settle</span><span class="o">.</span><span class="n">validators</span><span class="p">[</span><span class="s2">&quot;support_containment&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;minimum_resting_heights_m&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;office_table_background&quot;</span><span class="p">:</span> <span class="mf">0.5306</span><span class="p">},</span>
     <span class="p">}</span>
     <span class="n">summary</span> <span class="o">=</span> <span class="n">record_settled_placement_layouts</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">arena_env</span><span class="o">=</span><span class="n">arena_env</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">output</span><span class="p">,</span> <span class="n">summary</span><span class="o">.</span><span class="n">accepted</span><span class="p">,</span> <span class="n">summary</span><span class="o">.</span><span class="n">attempted</span><span class="p">,</span> <span class="n">summary</span><span class="o">.</span><span class="n">rejections</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="n">summary</span><span class="o">.</span><span class="n">accepted</span> <span class="o">==</span> <span class="n">cfg</span><span class="o">.</span><span class="n">min_layouts</span><span class="p">,</span> <span class="s2">"Recording target not reached"</span>
+    <span class="k">assert</span> <span class="n">summary</span><span class="o">.</span><span class="n">accepted</span> <span class="o">==</span> <span class="n">cfg</span><span class="o">.</span><span class="n">min_layouts</span><span class="p">,</span> <span class="s2">&quot;Recording target not reached&quot;</span>
 </pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>outputs/clutter/record_python.py<span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--viz<span class="w"> </span>none

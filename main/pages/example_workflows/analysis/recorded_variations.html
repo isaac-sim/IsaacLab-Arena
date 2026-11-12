@@ -733,27 +733,27 @@ all 64 rows:</p>
 </pre></div>
 </div>
 <p>Verify the episode count, source-index coverage, and variation payloads:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;'PY'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;&#39;PY&#39;</span>
 <span class="s">import json</span>
 <span class="s">from pathlib import Path</span>
 
-<span class="s">root = Path("outputs/recorded_variations_workflow")</span>
+<span class="s">root = Path(&quot;outputs/recorded_variations_workflow&quot;)</span>
 <span class="s">for rebuild_index in range(2):</span>
-<span class="s">    filename = f"episode_results_rebuild{rebuild_index}.jsonl"</span>
-<span class="s">    source_path = root / "record/recorded_variations" / filename</span>
-<span class="s">    replay_path = root / "replay/recorded_variations_replay" / filename</span>
+<span class="s">    filename = f&quot;episode_results_rebuild{rebuild_index}.jsonl&quot;</span>
+<span class="s">    source_path = root / &quot;record/recorded_variations&quot; / filename</span>
+<span class="s">    replay_path = root / &quot;replay/recorded_variations_replay&quot; / filename</span>
 <span class="s">    source = [json.loads(line) for line in source_path.read_text().splitlines()]</span>
 <span class="s">    replay = [json.loads(line) for line in replay_path.read_text().splitlines()]</span>
 
 <span class="s">    assert len(source) == len(replay) == 64</span>
-<span class="s">    source_indices = [row["replay_source_record_index"] for row in replay]</span>
+<span class="s">    source_indices = [row[&quot;replay_source_record_index&quot;] for row in replay]</span>
 <span class="s">    assert sorted(source_indices) == list(range(len(source)))</span>
 <span class="s">    for replay_row in replay:</span>
-<span class="s">        index = replay_row["replay_source_record_index"]</span>
+<span class="s">        index = replay_row[&quot;replay_source_record_index&quot;]</span>
 <span class="s">        source_row = source[index]</span>
-<span class="s">        assert replay_row["placement"] == source_row["placement"]</span>
-<span class="s">        assert replay_row["variations"] == source_row["variations"]</span>
-<span class="s">print("Matched all 128 recorded placement and variation rows.")</span>
+<span class="s">        assert replay_row[&quot;placement&quot;] == source_row[&quot;placement&quot;]</span>
+<span class="s">        assert replay_row[&quot;variations&quot;] == source_row[&quot;variations&quot;]</span>
+<span class="s">print(&quot;Matched all 128 recorded placement and variation rows.&quot;)</span>
 <span class="s">PY</span>
 </pre></div>
 </div>

@@ -609,7 +609,7 @@ Docker Container</label><div class="sd-tab-content docutils">
 </div>
 </div>
 <p>Once the runtime is ready, set the models directory:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/models/isaaclab_arena/dexsuite_lift"</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/models/isaaclab_arena/dexsuite_lift&quot;</span>
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$MODELS_DIR</span>
 </pre></div>
 </div>
@@ -620,24 +620,24 @@ procedural cube and pose-range reset.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Download Pre-trained Model (skip training)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;'PY'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;&#39;PY&#39;</span>
 <span class="s">import os</span>
 <span class="s">import shutil</span>
 
 <span class="s">from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint</span>
 
 <span class="s">source = get_published_pretrained_checkpoint(</span>
-<span class="s">    "rsl_rl", "Isaac-Lift-KukaAllegro", "newtonmjwarp", "none"</span>
+<span class="s">    &quot;rsl_rl&quot;, &quot;Isaac-Lift-KukaAllegro&quot;, &quot;newtonmjwarp&quot;, &quot;none&quot;</span>
 <span class="s">)</span>
 <span class="s">assert source is not None</span>
-<span class="s">destination = os.path.join(os.environ["MODELS_DIR"], "Isaac-Lift-KukaAllegro.pt")</span>
+<span class="s">destination = os.path.join(os.environ[&quot;MODELS_DIR&quot;], &quot;Isaac-Lift-KukaAllegro.pt&quot;)</span>
 <span class="s">shutil.copy2(source, destination)</span>
 <span class="s">print(destination)</span>
 <span class="s">PY</span>
 
-mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="nv">$MODELS_DIR</span><span class="s2">/params"</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MODELS_DIR</span><span class="s2">/params&quot;</span>
 cp<span class="w"> </span>isaaclab_arena_examples/policy/dexsuite_lift_agent.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"</span><span class="nv">$MODELS_DIR</span><span class="s2">/params/agent.yaml"</span>
+<span class="w">  </span><span class="s2">&quot;</span><span class="nv">$MODELS_DIR</span><span class="s2">/params/agent.yaml&quot;</span>
 </pre></div>
 </div>
 <p class="sd-card-text">After downloading, the checkpoint is at:</p>
@@ -664,7 +664,7 @@ are at:</p>
 </pre></div>
 </div>
 <p>At the end of the run, metrics are printed to the console:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'num_episodes': 20, 'success_rate': 0.75}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;num_episodes&#39;: 20, &#39;success_rate&#39;: 0.75}
 </pre></div>
 </div>
 <a class="reference internal image-reference" href="../../../_images/dexsuite_lift_task.gif"><img alt="../../../_images/dexsuite_lift_task.gif" class="align-center" src="../../../_images/dexsuite_lift_task.gif" style="height: 400px;" />
@@ -699,7 +699,7 @@ against Newton.</p>
 <span class="w">  </span>dexsuite_lift
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'num_episodes': 400, 'success_rate': 0.82}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;num_episodes&#39;: 400, &#39;success_rate&#39;: 0.82}
 </pre></div>
 </div>
 </section>

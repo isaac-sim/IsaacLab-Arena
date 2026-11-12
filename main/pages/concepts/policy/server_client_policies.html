@@ -594,7 +594,7 @@ container, on another GPU, or on another machine.</p>
 │ env obs ─► EmbodimentAdapter          │  request   │                      │
 │            extract + pack_request ────┼──────────► │  infer(request)      │
 │                                       │            │                      │
-│ env.step ◄─ action ◄─ chunk replay ◄──┼─────────── │  {"actions": (H, D)} │
+│ env.step ◄─ action ◄─ chunk replay ◄──┼─────────── │  {&quot;actions&quot;: (H, D)} │
 └───────────────────────────────────────┘  response  └──────────────────────┘
 </pre></div>
 </div>
@@ -621,12 +621,12 @@ leaves the server running.</p>
 <p>Requests and responses are flat dictionaries of NumPy arrays and strings, packed with
 <code class="docutils literal notranslate"><span class="pre">msgpack_numpy</span></code>. For example, the Cosmos DROID adapter sends:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">"observation/image"</span><span class="p">:</span> <span class="n">uint8</span><span class="p">[</span><span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>          <span class="c1"># wrist view on top, two exterior views below</span>
-    <span class="s2">"observation/joint_position"</span><span class="p">:</span> <span class="n">float32</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span>
-    <span class="s2">"observation/gripper_position"</span><span class="p">:</span> <span class="n">float32</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-    <span class="s2">"prompt"</span><span class="p">:</span> <span class="s2">"put the banana in the bowl"</span><span class="p">,</span>
+    <span class="s2">&quot;observation/image&quot;</span><span class="p">:</span> <span class="n">uint8</span><span class="p">[</span><span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>          <span class="c1"># wrist view on top, two exterior views below</span>
+    <span class="s2">&quot;observation/joint_position&quot;</span><span class="p">:</span> <span class="n">float32</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span>
+    <span class="s2">&quot;observation/gripper_position&quot;</span><span class="p">:</span> <span class="n">float32</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+    <span class="s2">&quot;prompt&quot;</span><span class="p">:</span> <span class="s2">&quot;put the banana in the bowl&quot;</span><span class="p">,</span>
 <span class="p">}</span>
-<span class="c1"># response: {"action": float32[H, 8]}</span>
+<span class="c1"># response: {&quot;action&quot;: float32[H, 8]}</span>
 </pre></div>
 </div>
 <p>The client’s configuration holds the connection settings: <code class="docutils literal notranslate"><span class="pre">remote_host</span></code>, <code class="docutils literal notranslate"><span class="pre">remote_port</span></code>,
@@ -719,19 +719,19 @@ the OpenPI client only in its response key and adapter.</p>
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena_cosmos.policy.droid_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">CosmosDroidAdapter</span>
 
-<span class="c1"># Cosmos serves over openpi's WebsocketPolicyServer, so this reuses the shared</span>
+<span class="c1"># Cosmos serves over openpi&#39;s WebsocketPolicyServer, so this reuses the shared</span>
 <span class="c1"># openpi-protocol machinery (RemoteChunkReplayPolicy). It differs only in the response key</span>
-<span class="c1"># (the server returns the chunk under the singular "action") and the DROID wire format</span>
+<span class="c1"># (the server returns the chunk under the singular &quot;action&quot;) and the DROID wire format</span>
 <span class="c1"># (see CosmosDroidAdapter); the open-loop horizon comes from the config rather than a</span>
 <span class="c1"># per-variant table because the released Cosmos policies are a single DROID family.</span>
 
 
 <span class="nd">@register_policy</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CosmosRemotePolicy</span><span class="p">(</span><span class="n">RemoteChunkReplayPolicy</span><span class="p">,</span> <span class="n">PolicyBase</span><span class="p">[</span><span class="n">CosmosRemotePolicyCfg</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">"""Cosmos remote closed-loop policy, parameterized by an embodiment adapter."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cosmos remote closed-loop policy, parameterized by an embodiment adapter.&quot;&quot;&quot;</span>
 
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">"cosmos_remote"</span>
-    <span class="n">server_response_actions_key</span> <span class="o">=</span> <span class="s2">"action"</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;cosmos_remote&quot;</span>
+    <span class="n">server_response_actions_key</span> <span class="o">=</span> <span class="s2">&quot;action&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">CosmosRemotePolicyCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">adapter</span> <span class="o">=</span> <span class="n">_resolve_cosmos_embodiment_adapter</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">cosmos_embodiment_adapter</span><span class="p">)</span>
@@ -739,22 +739,22 @@ the OpenPI client only in its response key and adapter.</p>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">default_image_size</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">CosmosRemotePolicyCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Return the (height, width) the selected Cosmos adapter resizes camera images to."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the (height, width) the selected Cosmos adapter resizes camera images to.&quot;&quot;&quot;</span>
         <span class="n">adapter</span> <span class="o">=</span> <span class="n">_resolve_cosmos_embodiment_adapter</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">cosmos_embodiment_adapter</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">adapter</span><span class="o">.</span><span class="n">IMAGE_H</span><span class="p">,</span> <span class="n">adapter</span><span class="o">.</span><span class="n">IMAGE_W</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_cosmos_embodiment_adapter</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CosmosDroidAdapter</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Instantiate the adapter registered under ``key``.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Instantiate the adapter registered under ``key``.</span>
 
 <span class="sd">    Imports are deferred to call time so adapter modules can import the shared</span>
 <span class="sd">    ``EmbodimentAdapter`` at module top without creating a circular import.</span>
-<span class="sd">    """</span>
-    <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">"droid"</span><span class="p">:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;droid&quot;</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena_cosmos.policy.droid_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">CosmosDroidAdapter</span>
 
         <span class="k">return</span> <span class="n">CosmosDroidAdapter</span><span class="p">()</span>
-    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown cosmos_embodiment_adapter </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2">; expected 'droid'"</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown cosmos_embodiment_adapter </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2">; expected &#39;droid&#39;&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>

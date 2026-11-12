@@ -704,9 +704,9 @@ with <code class="docutils literal notranslate"><span class="pre">-</span></code
 <p>Choose an absolute host directory that PerfLab will retain after the job. Start the container from
 the repository root and mount that directory at <code class="docutils literal notranslate"><span class="pre">$HOME/eval</span></code> inside the container:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="o">=</span>/absolute/path/to/perflab-output
-mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="si">}</span><span class="s2">"</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="si">}</span><span class="s2">&quot;</span>
 
-./docker/run_docker.sh<span class="w"> </span>-e<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="si">}</span><span class="s2">"</span>
+./docker/run_docker.sh<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_HOST</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 <p>The first invocation builds the Arena image, which also downloads the Isaac Sim base image. Do that
@@ -719,9 +719,9 @@ that as a setup problem rather than a benchmark result.</p>
 visible:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/workspaces/isaaclab_arena
 
-./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import isaaclab_arena; print(isaaclab_arena.__file__)"</span>
+./submodules/IsaacLab/isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import isaaclab_arena; print(isaaclab_arena.__file__)&quot;</span>
 nvidia-smi
-<span class="nb">test</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/eval"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">test</span><span class="w"> </span>-w<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/eval"</span>
+<span class="nb">test</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/eval&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">test</span><span class="w"> </span>-w<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/eval&quot;</span>
 </pre></div>
 </div>
 <p>The import path must be below <code class="docutils literal notranslate"><span class="pre">/workspaces/isaaclab_arena</span></code>, and the final command must exit with
@@ -733,8 +733,8 @@ with <code class="docutils literal notranslate"><span class="pre">docker</span> 
 deprecation warning on every call; it does not affect the run.</p>
 <p>Create only the common output root. Do not create a trial’s exact output directory before its
 command runs:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/eval/perflab-workloads"</span>
-mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">"</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/eval/perflab-workloads&quot;</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 </section>
@@ -777,11 +777,11 @@ No policy server is involved.</p>
 <span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/camera_free_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/camera-free/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/camera-free/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span>
+<span class="w">  </span><span class="s2">&quot;shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 <p>In plain English, this starts a fresh Isaac Sim process, creates <code class="docutils literal notranslate"><span class="pre">NUM_ENVS</span></code> copies of the task
@@ -801,11 +801,11 @@ with no cameras, takes <code class="docutils literal notranslate"><span class="p
 <span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/same_object_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/same-object/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/same-object/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span>
+<span class="w">  </span><span class="s2">&quot;shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 <p>Use <code class="docutils literal notranslate"><span class="pre">1,</span> <span class="pre">64,</span> <span class="pre">256,</span> <span class="pre">1024,</span> <span class="pre">2048</span></code>, followed by <code class="docutils literal notranslate"><span class="pre">4096</span></code> only if <code class="docutils literal notranslate"><span class="pre">2048</span></code> succeeds.</p>
@@ -818,11 +818,11 @@ with no cameras, takes <code class="docutils literal notranslate"><span class="p
 <span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/mixed_object_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/mixed-object/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/mixed-object/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span>
+<span class="w">  </span><span class="s2">&quot;shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 <p>Use the same sweep as the homogeneous run: <code class="docutils literal notranslate"><span class="pre">1,</span> <span class="pre">64,</span> <span class="pre">256,</span> <span class="pre">1024,</span> <span class="pre">2048</span></code>, then <code class="docutils literal notranslate"><span class="pre">4096</span></code> if <code class="docutils literal notranslate"><span class="pre">2048</span></code>
@@ -839,11 +839,11 @@ The Experiment Runner detects the camera requirement from the YAML, so do not ad
 <span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/production_camera_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/production-camera/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/production-camera/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span>
+<span class="w">  </span><span class="s2">&quot;shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 <p>This repeats the same task and stationary actions, but renders the maintained production camera
@@ -888,13 +888,13 @@ throughout the sweep.</p>
 <span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/pi05_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/pi05/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/pi05/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.policy.remote_host=</span><span class="si">${</span><span class="nv">POLICY_HOST</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.policy.remote_port=</span><span class="si">${</span><span class="nv">POLICY_PORT</span><span class="si">}</span><span class="s2">"</span>
+<span class="w">  </span><span class="s2">&quot;shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.policy.remote_host=</span><span class="si">${</span><span class="nv">POLICY_HOST</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.policy.remote_port=</span><span class="si">${</span><span class="nv">POLICY_PORT</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 <p>This renders the production camera observations, sends one request per environment to OpenPI when
@@ -937,13 +937,13 @@ throughout the Cosmos sweep.</p>
 <span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/cosmos_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/cosmos/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/cosmos/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.policy.remote_host=</span><span class="si">${</span><span class="nv">COSMOS_HOST</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.policy.remote_port=</span><span class="si">${</span><span class="nv">COSMOS_PORT</span><span class="si">}</span><span class="s2">"</span>
+<span class="w">  </span><span class="s2">&quot;shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.policy.remote_host=</span><span class="si">${</span><span class="nv">COSMOS_HOST</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.policy.remote_port=</span><span class="si">${</span><span class="nv">COSMOS_PORT</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 <p>Use <code class="docutils literal notranslate"><span class="pre">1,</span> <span class="pre">16,</span> <span class="pre">64,</span> <span class="pre">128,</span> <span class="pre">256</span></code>, then continue doubling while the preceding point succeeds. Stop the
@@ -989,13 +989,13 @@ requests:</p>
 <span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>isaaclab_arena_environments/performance/experiment_configs/gr00t_benchmark_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">"</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/gr00t/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PERFLAB_OUTPUT_ROOT</span><span class="si">}</span><span class="s2">/gr00t/envs-</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">/steps-</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.policy.remote_host=</span><span class="si">${</span><span class="nv">GR00T_HOST</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">"shared.policy.remote_port=</span><span class="si">${</span><span class="nv">GR00T_PORT</span><span class="si">}</span><span class="s2">"</span>
+<span class="w">  </span><span class="s2">&quot;shared.environment_builder.num_envs=</span><span class="si">${</span><span class="nv">NUM_ENVS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.rollout_limit.num_steps=</span><span class="si">${</span><span class="nv">NUM_STEPS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.policy.remote_host=</span><span class="si">${</span><span class="nv">GR00T_HOST</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;shared.policy.remote_port=</span><span class="si">${</span><span class="nv">GR00T_PORT</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 <p>The client reuses each GR00T action chunk for 32 simulation steps, so the 300-step run exercises

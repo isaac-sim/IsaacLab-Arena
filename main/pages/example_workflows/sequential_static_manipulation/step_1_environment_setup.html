@@ -622,35 +622,35 @@ Docker Container</label><div class="sd-tab-content docutils">
 <span class="n">RANDOMIZATION_HALF_RANGE_Y_M</span> <span class="o">=</span> <span class="mf">0.001</span>
 
 <span class="c1"># The GR1 embodiments that are compatible with this environment.</span>
-<span class="n">GR1_EMBODIMENTS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"gr1_joint"</span><span class="p">,</span> <span class="s2">"gr1_pink"</span><span class="p">)</span>
+<span class="n">GR1_EMBODIMENTS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;gr1_joint&quot;</span><span class="p">,</span> <span class="s2">&quot;gr1_pink&quot;</span><span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">GR1PutAndCloseDoorEnvironmentCfg</span><span class="p">(</span><span class="n">ArenaEnvironmentCfg</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Configure the GR1 put-and-close-door environment."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure the GR1 put-and-close-door environment.&quot;&quot;&quot;</span>
 
-    <span class="nb">object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ranch_dressing_hope_robolab"</span>
+    <span class="nb">object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;ranch_dressing_hope_robolab&quot;</span>
     <span class="n">object_set</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">kitchen_background</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"lightwheel_kitchen_one_wall_farmhouse1"</span>
+    <span class="n">kitchen_background</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;lightwheel_kitchen_one_wall_farmhouse1&quot;</span>
     <span class="n">teleop_device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">embodiment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gr1_pink"</span>
+    <span class="n">embodiment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gr1_pink&quot;</span>
 
 
 <span class="nd">@register_environment</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">GR1PutAndCloseDoorEnvironment</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">[</span><span class="n">GR1PutAndCloseDoorEnvironmentCfg</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">"""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A sequential task environment with two subtasks for GR1 humanoid robot:</span>
 <span class="sd">    1. Pick and place object into the refrigerator shelf</span>
 <span class="sd">    2. Close the refrigerator door</span>
 <span class="sd">    The refrigerator starts open, the robot places the object inside, then closes it.</span>
 <span class="sd">    Uses the lightwheel robocasa kitchen background.</span>
-<span class="sd">    """</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">"put_item_in_fridge_and_close_door"</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;put_item_in_fridge_and_close_door&quot;</span>
     <span class="n">_legacy_argparse_cfg_type</span> <span class="o">=</span> <span class="n">GR1PutAndCloseDoorEnvironmentCfg</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">GR1PutAndCloseDoorEnvironmentCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Build the environment from its typed configuration."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the environment from its typed configuration.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.envs.mimic_env_cfg</span><span class="w"> </span><span class="kn">import</span> <span class="n">MimicEnvCfg</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.sensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">CameraCfg</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.utils.configclass</span><span class="w"> </span><span class="kn">import</span> <span class="n">configclass</span>
@@ -702,16 +702,16 @@ Docker Container</label><div class="sd-tab-content docutils">
 
         <span class="nd">@configclass</span>
         <span class="k">class</span><span class="w"> </span><span class="nc">PutAndCloseDoorTaskMimicEnvCfg</span><span class="p">(</span><span class="n">MimicEnvCfg</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">"""</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Isaac Lab Mimic environment config class for GR1 put and close door task.</span>
-<span class="sd">            """</span>
+<span class="sd">            &quot;&quot;&quot;</span>
 
             <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
                 <span class="c1"># post init of parents</span>
                 <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__post_init__</span><span class="p">()</span>
 
                 <span class="c1"># Override the existing values</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">datagen_config</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"put_and_close_door_task_D0"</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">datagen_config</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;put_and_close_door_task_D0&quot;</span>
                 <span class="c1"># Use default mimic datagen config parameters</span>
                 <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">MIMIC_DATAGEN_CONFIG_DEFAULTS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datagen_config</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
@@ -719,24 +719,24 @@ Docker Container</label><div class="sd-tab-content docutils">
         <span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">,</span> <span class="mf">0.57469</span><span class="p">))</span>
         <span class="k">assert</span> <span class="p">(</span>
             <span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span> <span class="ow">in</span> <span class="n">GR1_EMBODIMENTS</span>
-        <span class="p">),</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> only supports GR1 embodiments </span><span class="si">{</span><span class="n">GR1_EMBODIMENTS</span><span class="si">}</span><span class="s2">, got '</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="si">}</span><span class="s2">'."</span>
+        <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> only supports GR1 embodiments </span><span class="si">{</span><span class="n">GR1_EMBODIMENTS</span><span class="si">}</span><span class="s2">, got &#39;</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
         <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
         <span class="n">embodiment</span><span class="o">.</span><span class="n">camera_config</span><span class="o">.</span><span class="n">robot_pov_cam</span><span class="o">.</span><span class="n">offset</span> <span class="o">=</span> <span class="n">CameraCfg</span><span class="o">.</span><span class="n">OffsetCfg</span><span class="p">(</span>
             <span class="n">pos</span><span class="o">=</span><span class="n">camera_offset</span><span class="o">.</span><span class="n">position_xyz</span><span class="p">,</span>
             <span class="n">rot</span><span class="o">=</span><span class="n">camera_offset</span><span class="o">.</span><span class="n">rotation_xyzw</span><span class="p">,</span>
-            <span class="n">convention</span><span class="o">=</span><span class="s2">"opengl"</span><span class="p">,</span>
+            <span class="n">convention</span><span class="o">=</span><span class="s2">&quot;opengl&quot;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">kitchen_background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">kitchen_background</span><span class="p">)()</span>
-        <span class="n">kitchen_prim_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="se">{{</span><span class="s2">ENV_REGEX_NS</span><span class="se">}}</span><span class="s2">/</span><span class="si">{</span><span class="n">kitchen_background</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
+        <span class="n">kitchen_prim_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">{{</span><span class="s2">ENV_REGEX_NS</span><span class="se">}}</span><span class="s2">/</span><span class="si">{</span><span class="n">kitchen_background</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
 
         <span class="n">kitchen_counter_top</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="s2">"kitchen_counter_top"</span><span class="p">,</span>
-            <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/counter_right_main_group/top_geometry"</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_counter_top&quot;</span><span class="p">,</span>
+            <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/counter_right_main_group/top_geometry&quot;</span><span class="p">,</span>
             <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen_background</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">kitchen_counter_top</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
 
-        <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"light"</span><span class="p">)()</span>
+        <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
 
         <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
@@ -753,23 +753,23 @@ Docker Container</label><div class="sd-tab-content docutils">
 
         <span class="c1"># Create refrigerator reference (OpenableObjectReference)</span>
         <span class="n">refrigerator</span> <span class="o">=</span> <span class="n">OpenableObjectReference</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="s2">"refrigerator"</span><span class="p">,</span>
-            <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/fridge_main_group"</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;refrigerator&quot;</span><span class="p">,</span>
+            <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/fridge_main_group&quot;</span><span class="p">,</span>
             <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen_background</span><span class="p">,</span>
-            <span class="n">openable_joint_name</span><span class="o">=</span><span class="s2">"fridge_door_joint"</span><span class="p">,</span>
+            <span class="n">openable_joint_name</span><span class="o">=</span><span class="s2">&quot;fridge_door_joint&quot;</span><span class="p">,</span>
             <span class="n">openable_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Create refrigerator shelf reference (destination for pick and place)</span>
         <span class="n">refrigerator_shelf</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="s2">"refrigerator_shelf"</span><span class="p">,</span>
-            <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/fridge_main_group/Refrigerator034"</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;refrigerator_shelf&quot;</span><span class="p">,</span>
+            <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/fridge_main_group/Refrigerator034&quot;</span><span class="p">,</span>
             <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen_background</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">object_set</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object_set</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">objects</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">obj</span><span class="p">)()</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">object_set</span><span class="p">]</span>
-            <span class="n">pickup_object</span> <span class="o">=</span> <span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"object_set"</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="n">objects</span><span class="p">)</span>
+            <span class="n">pickup_object</span> <span class="o">=</span> <span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;object_set&quot;</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="n">objects</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">pickup_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
 
@@ -833,24 +833,24 @@ Docker Container</label><div class="sd-tab-content docutils">
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">,</span> <span class="mf">0.57469</span><span class="p">))</span>
 <span class="k">assert</span> <span class="p">(</span>
     <span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span> <span class="ow">in</span> <span class="n">GR1_EMBODIMENTS</span>
-<span class="p">),</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> only supports GR1 embodiments </span><span class="si">{</span><span class="n">GR1_EMBODIMENTS</span><span class="si">}</span><span class="s2">, got '</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="si">}</span><span class="s2">'."</span>
+<span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> only supports GR1 embodiments </span><span class="si">{</span><span class="n">GR1_EMBODIMENTS</span><span class="si">}</span><span class="s2">, got &#39;</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
 <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
 <span class="n">embodiment</span><span class="o">.</span><span class="n">camera_config</span><span class="o">.</span><span class="n">robot_pov_cam</span><span class="o">.</span><span class="n">offset</span> <span class="o">=</span> <span class="n">CameraCfg</span><span class="o">.</span><span class="n">OffsetCfg</span><span class="p">(</span>
     <span class="n">pos</span><span class="o">=</span><span class="n">camera_offset</span><span class="o">.</span><span class="n">position_xyz</span><span class="p">,</span>
     <span class="n">rot</span><span class="o">=</span><span class="n">camera_offset</span><span class="o">.</span><span class="n">rotation_xyzw</span><span class="p">,</span>
-    <span class="n">convention</span><span class="o">=</span><span class="s2">"opengl"</span><span class="p">,</span>
+    <span class="n">convention</span><span class="o">=</span><span class="s2">&quot;opengl&quot;</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">kitchen_background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">kitchen_background</span><span class="p">)()</span>
-<span class="n">kitchen_prim_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="se">{{</span><span class="s2">ENV_REGEX_NS</span><span class="se">}}</span><span class="s2">/</span><span class="si">{</span><span class="n">kitchen_background</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
+<span class="n">kitchen_prim_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">{{</span><span class="s2">ENV_REGEX_NS</span><span class="se">}}</span><span class="s2">/</span><span class="si">{</span><span class="n">kitchen_background</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
 
 <span class="n">kitchen_counter_top</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">"kitchen_counter_top"</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/counter_right_main_group/top_geometry"</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_counter_top&quot;</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/counter_right_main_group/top_geometry&quot;</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen_background</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">kitchen_counter_top</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
 
-<span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"light"</span><span class="p">)()</span>
+<span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
 
 <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
     <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
@@ -875,23 +875,23 @@ See <a class="reference internal" href="../../concepts/scene/concept_assets_desi
 
 <span class="c1"># Create refrigerator reference (OpenableObjectReference)</span>
 <span class="n">refrigerator</span> <span class="o">=</span> <span class="n">OpenableObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">"refrigerator"</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/fridge_main_group"</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;refrigerator&quot;</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/fridge_main_group&quot;</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen_background</span><span class="p">,</span>
-    <span class="n">openable_joint_name</span><span class="o">=</span><span class="s2">"fridge_door_joint"</span><span class="p">,</span>
+    <span class="n">openable_joint_name</span><span class="o">=</span><span class="s2">&quot;fridge_door_joint&quot;</span><span class="p">,</span>
     <span class="n">openable_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Create refrigerator shelf reference (destination for pick and place)</span>
 <span class="n">refrigerator_shelf</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">"refrigerator_shelf"</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/fridge_main_group/Refrigerator034"</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;refrigerator_shelf&quot;</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kitchen_prim_path</span><span class="si">}</span><span class="s2">/fridge_main_group/Refrigerator034&quot;</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen_background</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">object_set</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object_set</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
     <span class="n">objects</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">obj</span><span class="p">)()</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">object_set</span><span class="p">]</span>
-    <span class="n">pickup_object</span> <span class="o">=</span> <span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"object_set"</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="n">objects</span><span class="p">)</span>
+    <span class="n">pickup_object</span> <span class="o">=</span> <span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;object_set&quot;</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="n">objects</span><span class="p">)</span>
 <span class="k">else</span><span class="p">:</span>
     <span class="n">pickup_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
 
@@ -970,16 +970,16 @@ See <a class="reference internal" href="../../concepts/environment/index.html"><
 <p>To run a robot in the environment we need some recorded demonstration data that
 can be fed to the robot to control its actions.</p>
 <blockquote>
-<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">_tmp</span><span class="o">=</span><span class="s2">"</span><span class="nv">$DATASET_DIR</span><span class="s2">/_hf_download"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">_tmp</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/_hf_download&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
 hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v3.0<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--local-dir<span class="w"> </span><span class="s2">"</span><span class="nv">$_tmp</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="nv">$DATASET_DIR</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-mv<span class="w"> </span><span class="s2">"</span><span class="nv">$_tmp</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$DATASET_DIR</span><span class="s2">/"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">"</span><span class="nv">$_tmp</span><span class="s2">"</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 </div></blockquote>
@@ -991,7 +991,7 @@ rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">"</span><s
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/ranch_bottle_into_fridge_annotated.hdf5"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/ranch_bottle_into_fridge_annotated.hdf5&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab<span class="w"> </span><span class="se">\</span>

@@ -610,27 +610,27 @@ ends when the recording does. <code class="docutils literal notranslate"><span c
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ZeroActionPolicyCfg</span><span class="p">(</span><span class="n">PolicyCfg</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Configure a policy that always returns zero actions."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure a policy that always returns zero actions.&quot;&quot;&quot;</span>
 
 
 <span class="nd">@register_policy</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ZeroActionPolicy</span><span class="p">(</span><span class="n">PolicyBase</span><span class="p">[</span><span class="n">ZeroActionPolicyCfg</span><span class="p">]):</span>
 
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">"zero_action"</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;zero_action&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ZeroActionPolicyCfg</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize ZeroActionPolicy.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            config: Typed policy configuration.</span>
-<span class="sd">        """</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">,</span> <span class="n">observation</span><span class="p">:</span> <span class="n">GymSpacesDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Always returns a zero action.</span>
-<span class="sd">        """</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
 </pre></div>
 </div>

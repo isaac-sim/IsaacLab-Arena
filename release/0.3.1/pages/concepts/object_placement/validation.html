@@ -967,7 +967,7 @@ example, reject layouts with any object origin above 1.5 metres:</p>
 
 <span class="nd">@register_validator</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MaxOriginHeightValidator</span><span class="p">(</span><span class="n">PrePhysicsPlacementValidator</span><span class="p">):</span>
-    <span class="n">check</span> <span class="o">=</span> <span class="s2">"max_origin_height"</span>
+    <span class="n">check</span> <span class="o">=</span> <span class="s2">&quot;max_origin_height&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">validate_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">collision_objects</span><span class="p">):</span>
         <span class="n">verdicts</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1003,20 +1003,20 @@ to the local environment origin:</p>
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MaxRootHeightValidator</span><span class="p">(</span><span class="n">PostPhysicsPlacementValidator</span><span class="p">):</span>
-    <span class="n">check</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"max_root_height"</span>
+    <span class="n">check</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;max_root_height&quot;</span>
     <span class="n">max_height_m</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
-<span class="w">    </span><span class="sd">"""Maximum final root height in the local environment frame, in metres."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Maximum final root height in the local environment frame, in metres.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SettledBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlacementValidatorReport</span><span class="p">]:</span>
         <span class="n">reports</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">env_id</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">env_ids</span><span class="p">:</span>
-            <span class="n">reason</span> <span class="o">=</span> <span class="s2">""</span>
+            <span class="n">reason</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
             <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">poses</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">final_root_poses</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="n">height_m</span> <span class="o">=</span> <span class="n">poses</span><span class="p">[</span><span class="n">env_id</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">height_m</span><span class="p">)</span> <span class="ow">or</span> <span class="n">height_m</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_height_m</span><span class="p">:</span>
                     <span class="n">reason</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: final root height </span><span class="si">{</span><span class="n">height_m</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> m; "</span>
-                        <span class="sa">f</span><span class="s2">"limit </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_height_m</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> m"</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: final root height </span><span class="si">{</span><span class="n">height_m</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> m; &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;limit </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_height_m</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> m&quot;</span>
                     <span class="p">)</span>
                     <span class="k">break</span>
             <span class="n">reports</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">passed</span><span class="o">=</span><span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span><span class="n">reason</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">))</span>
@@ -1025,7 +1025,7 @@ to the local environment origin:</p>
 </div>
 <p>Run the recorder from the repository root, adding that directory to
 <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code> so Hydra can import the module:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">"</span><span class="nv">$PWD</span><span class="si">${</span><span class="nv">PYTHONPATH</span><span class="p">:+:</span><span class="nv">$PYTHONPATH</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="si">${</span><span class="nv">PYTHONPATH</span><span class="p">:+:</span><span class="nv">$PYTHONPATH</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 python<span class="w"> </span>isaaclab_arena/scripts/record_placement_layouts.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="nv">env_spec</span><span class="o">=</span>isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="nv">output</span><span class="o">=</span>outputs/placements/clamp_custom.jsonl<span class="w"> </span><span class="se">\</span>

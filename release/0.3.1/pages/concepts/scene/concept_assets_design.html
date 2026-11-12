@@ -583,8 +583,8 @@
 <p>Assets are the objects and backgrounds that make up a scene.
 Arena ships with a set of assets ready to use by name,
 and new assets can be added by registering them in the asset library.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
-<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"cracker_box"</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
+<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
 </pre></div>
 </div>
 <section id="registering-a-new-asset">
@@ -593,22 +593,22 @@ and new assets can be added by registering them in the asset library.</p>
 and decorate it with <code class="docutils literal notranslate"><span class="pre">&#64;register_asset</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_asset</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MyObject</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">"my_object"</span>
-    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"object"</span><span class="p">,</span> <span class="s2">"graspable"</span><span class="p">]</span>
-    <span class="n">usd_path</span> <span class="o">=</span> <span class="s2">"path/to/my_object.usd"</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;my_object&quot;</span>
+    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;object&quot;</span><span class="p">,</span> <span class="s2">&quot;graspable&quot;</span><span class="p">]</span>
+    <span class="n">usd_path</span> <span class="o">=</span> <span class="s2">&quot;path/to/my_object.usd&quot;</span>
     <span class="n">object_type</span> <span class="o">=</span> <span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span>
 </pre></div>
 </div>
 <p>Once registered, the object is available in the registry like any other asset:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"my_object"</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;my_object&quot;</span><span class="p">)()</span>
 </pre></div>
 </div>
 <p>Assets can also be tagged to make them discoverable by category:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># All graspable objects</span>
-<span class="n">objects</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_assets_by_tag</span><span class="p">(</span><span class="s2">"graspable"</span><span class="p">)</span>
+<span class="n">objects</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_assets_by_tag</span><span class="p">(</span><span class="s2">&quot;graspable&quot;</span><span class="p">)</span>
 
 <span class="c1"># A random graspable object</span>
-<span class="n">obj</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_random_asset_by_tag</span><span class="p">(</span><span class="s2">"graspable"</span><span class="p">)()</span>
+<span class="n">obj</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_random_asset_by_tag</span><span class="p">(</span><span class="s2">&quot;graspable&quot;</span><span class="p">)()</span>
 </pre></div>
 </div>
 <p>Useful tags include <code class="docutils literal notranslate"><span class="pre">&quot;graspable&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;openable&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;pressable&quot;</span></code>, and <code class="docutils literal notranslate"><span class="pre">&quot;background&quot;</span></code>.
@@ -668,33 +668,33 @@ defined by an environment-owned <code class="docutils literal notranslate"><span
 
 <span class="nd">@configclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ColliderFrictionCfg</span><span class="p">(</span><span class="n">UsdPrimSpawnPhysicsCfg</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Bind an instance-local contact material to a selected collider."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Bind an instance-local contact material to a selected collider.&quot;&quot;&quot;</span>
 
     <span class="n">friction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span>
-<span class="w">    </span><span class="sd">"""Static and dynamic friction coefficient."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Static and dynamic friction coefficient.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">validate_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prim</span><span class="p">,</span> <span class="n">root</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Require a collider and a finite nonnegative friction coefficient."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Require a collider and a finite nonnegative friction coefficient.&quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">prim</span><span class="o">.</span><span class="n">HasAPI</span><span class="p">(</span><span class="n">UsdPhysics</span><span class="o">.</span><span class="n">CollisionAPI</span><span class="p">)</span>
         <span class="k">assert</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">friction</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">friction</span> <span class="o">&gt;=</span> <span class="mi">0</span>
-        <span class="k">assert</span> <span class="ow">not</span> <span class="n">prim</span><span class="o">.</span><span class="n">GetStage</span><span class="p">()</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="n">prim</span><span class="o">.</span><span class="n">GetPath</span><span class="p">()</span><span class="o">.</span><span class="n">AppendChild</span><span class="p">(</span><span class="s2">"ContactMaterial"</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">prim</span><span class="o">.</span><span class="n">GetStage</span><span class="p">()</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="n">prim</span><span class="o">.</span><span class="n">GetPath</span><span class="p">()</span><span class="o">.</span><span class="n">AppendChild</span><span class="p">(</span><span class="s2">&quot;ContactMaterial&quot;</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prim</span><span class="p">,</span> <span class="n">root</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Author and bind a material within the spawned asset."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Author and bind a material within the spawned asset.&quot;&quot;&quot;</span>
         <span class="c1"># A local material preserves shared source materials and remaps during cloning.</span>
-        <span class="n">material</span> <span class="o">=</span> <span class="n">UsdShade</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">Define</span><span class="p">(</span><span class="n">prim</span><span class="o">.</span><span class="n">GetStage</span><span class="p">(),</span> <span class="n">prim</span><span class="o">.</span><span class="n">GetPath</span><span class="p">()</span><span class="o">.</span><span class="n">AppendChild</span><span class="p">(</span><span class="s2">"ContactMaterial"</span><span class="p">))</span>
+        <span class="n">material</span> <span class="o">=</span> <span class="n">UsdShade</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">Define</span><span class="p">(</span><span class="n">prim</span><span class="o">.</span><span class="n">GetStage</span><span class="p">(),</span> <span class="n">prim</span><span class="o">.</span><span class="n">GetPath</span><span class="p">()</span><span class="o">.</span><span class="n">AppendChild</span><span class="p">(</span><span class="s2">&quot;ContactMaterial&quot;</span><span class="p">))</span>
         <span class="n">physics</span> <span class="o">=</span> <span class="n">UsdPhysics</span><span class="o">.</span><span class="n">MaterialAPI</span><span class="o">.</span><span class="n">Apply</span><span class="p">(</span><span class="n">material</span><span class="o">.</span><span class="n">GetPrim</span><span class="p">())</span>
         <span class="n">physics</span><span class="o">.</span><span class="n">CreateStaticFrictionAttr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">friction</span><span class="p">)</span>
         <span class="n">physics</span><span class="o">.</span><span class="n">CreateDynamicFrictionAttr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">friction</span><span class="p">)</span>
         <span class="n">UsdShade</span><span class="o">.</span><span class="n">MaterialBindingAPI</span><span class="o">.</span><span class="n">Apply</span><span class="p">(</span><span class="n">prim</span><span class="p">)</span><span class="o">.</span><span class="n">Bind</span><span class="p">(</span>
             <span class="n">material</span><span class="p">,</span>
             <span class="n">bindingStrength</span><span class="o">=</span><span class="n">UsdShade</span><span class="o">.</span><span class="n">Tokens</span><span class="o">.</span><span class="n">strongerThanDescendants</span><span class="p">,</span>
-            <span class="n">materialPurpose</span><span class="o">=</span><span class="s2">"physics"</span><span class="p">,</span>
+            <span class="n">materialPurpose</span><span class="o">=</span><span class="s2">&quot;physics&quot;</span><span class="p">,</span>
         <span class="p">)</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">HighFrictionRedCube</span><span class="p">(</span><span class="n">RedCube</span><span class="p">):</span>
     <span class="n">spawn_cfg_addon</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">"prim_physics"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"Cube"</span><span class="p">:</span> <span class="n">ColliderFrictionCfg</span><span class="p">(</span><span class="n">friction</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)},</span>
+        <span class="s2">&quot;prim_physics&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Cube&quot;</span><span class="p">:</span> <span class="n">ColliderFrictionCfg</span><span class="p">(</span><span class="n">friction</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)},</span>
     <span class="p">}</span>
 
 <span class="n">red_cube</span> <span class="o">=</span> <span class="n">HighFrictionRedCube</span><span class="p">()</span>
@@ -752,11 +752,11 @@ time because physics views cannot control dynamic instance proxies.</p>
 countertops, shelves, drawers, and so on. To use one of these internal prims
 as a destination or interaction target (e.g. “place the object on the counter”),
 you use an <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
 
 <span class="n">counter</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">"kitchen_counter"</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/counter_right_main_group/top_geometry"</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_counter&quot;</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/counter_right_main_group/top_geometry&quot;</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span>
 <span class="p">)</span>
 

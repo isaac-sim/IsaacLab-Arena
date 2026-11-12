@@ -595,7 +595,7 @@ Deformable objects and cables are only supported for a single backend.</p>
 <p>Authoring and CLI inputs:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Environment factory (Python)</span>
 <span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">"dexsuite_lift"</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;dexsuite_lift&quot;</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
@@ -670,7 +670,7 @@ PhysX builds keep the default DROID spawn and gripper wiring.</p>
 <span class="n">embodiment</span><span class="o">.</span><span class="n">configure_physics_backend</span><span class="p">(</span><span class="n">resolved_physics_backend</span><span class="p">)</span>
 
 <span class="n">scene_cfg</span> <span class="o">=</span> <span class="n">combine_configclass_instances</span><span class="p">(</span>
-    <span class="s2">"SceneCfg"</span><span class="p">,</span>
+    <span class="s2">&quot;SceneCfg&quot;</span><span class="p">,</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">interactive_scene_cfg</span><span class="p">,</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">arena_env</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">get_scene_cfg</span><span class="p">(),</span>
     <span class="n">embodiment</span><span class="o">.</span><span class="n">get_scene_cfg</span><span class="p">(),</span>  <span class="c1"># spawn/actuators already backend-specific</span>

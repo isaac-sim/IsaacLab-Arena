@@ -688,7 +688,7 @@ CloudXR.js client page.</p></li>
 <h2>Step 3: Record with Quest 3<a class="headerlink" href="#step-3-record-with-quest-3" title="Link to this heading">#</a></h2>
 <ol class="arabic">
 <li><p>Run the recording script from the Arena runtime:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/datasets/isaaclab_arena/locomanipulation_tutorial"</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/datasets/isaaclab_arena/locomanipulation_tutorial&quot;</span>
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$DATASET_DIR</span>
 
 <span class="c1"># Record demonstrations with OpenXR teleop</span>
@@ -708,7 +708,7 @@ python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<
 <p class="admonition-title">Warning</p>
 <p>If you exit Sim with Ctrl-C, you need to manually clean up the spawned CloudXR
 process with:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pkill</span> <span class="o">-</span><span class="n">KILL</span> <span class="o">-</span><span class="n">f</span> <span class="s1">'[i]saacteleop.cloudxr.runtime'</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pkill</span> <span class="o">-</span><span class="n">KILL</span> <span class="o">-</span><span class="n">f</span> <span class="s1">&#39;[i]saacteleop.cloudxr.runtime&#39;</span>
 </pre></div>
 </div>
 <p>Otherwise the next <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code> run will crash with an error looking like

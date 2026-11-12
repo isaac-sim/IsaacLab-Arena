@@ -616,10 +616,10 @@ candidate failed.</p></li>
 line per rejection cause with its count and one measured violation. For the
 KitchenBench <code class="docutils literal notranslate"><span class="pre">soup_in_far_bowl</span></code> environment, for example:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[placement] Validated 1500 candidate layout(s); passed per check: on_relation=1304/1500, ..., no_overlap=1484/1500
-  on_relation: 'far_bowl' on(island_top): bottom outside the contact band x192 (e.g. bottom z 0.973 m, support top z 0.880 m)
-  on_relation: 'near_bowl' on(island_top): bottom outside the contact band x2 (e.g. bottom z 0.895 m, support top z 0.880 m)
-  align_with: 'far_bowl' align_with(near_bowl, x): centre outside tolerance x1 (e.g. centre error +0.069 m, tolerance 0.06 m)
-  no_overlap: 'far_bowl' and 'fixed_collision_mesh': meshes closer than the clearance x16 (e.g. gap short of the 0.010 m clearance by up to 0.001 m)
+  on_relation: &#39;far_bowl&#39; on(island_top): bottom outside the contact band x192 (e.g. bottom z 0.973 m, support top z 0.880 m)
+  on_relation: &#39;near_bowl&#39; on(island_top): bottom outside the contact band x2 (e.g. bottom z 0.895 m, support top z 0.880 m)
+  align_with: &#39;far_bowl&#39; align_with(near_bowl, x): centre outside tolerance x1 (e.g. centre error +0.069 m, tolerance 0.06 m)
+  no_overlap: &#39;far_bowl&#39; and &#39;fixed_collision_mesh&#39;: meshes closer than the clearance x16 (e.g. gap short of the 0.010 m clearance by up to 0.001 m)
 </pre></div>
 </div>
 <p>With <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.verbose</span></code> set, each check also prints its rejections
