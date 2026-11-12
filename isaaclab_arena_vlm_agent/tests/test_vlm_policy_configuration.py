@@ -86,7 +86,7 @@ def test_configured_execution_and_partial_reset(monkeypatch, policy_type, cfg_ty
             ),
             action_manager=SimpleNamespace(active_terms=[], total_action_dim=8, action=torch.zeros(2, 8)),
             episode_length_buf=torch.zeros(2, dtype=torch.long),
-            active_episode_mask=torch.ones(2, dtype=torch.bool),
+            finished_episode_mask=torch.zeros(2, dtype=torch.bool),
         )
     )
     observations = {
@@ -283,5 +283,5 @@ def test_droid_preset_rejects_incompatible_controller_before_inference(monkeypat
     policy = policy_type(_config(cfg_type), inference_backend=backend)
     policy.set_task_description("Move DROID")
     with pytest.raises(AssertionError, match="unsupported"):
-        policy.get_action(SimpleNamespace(), {})
+        policy.get_action(SimpleNamespace(unwrapped=SimpleNamespace(num_envs=1)), {})
     backend.infer.assert_not_called()

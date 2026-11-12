@@ -119,7 +119,7 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
         self._runner.load(checkpoint_path)
         self._policy = self._runner.get_inference_policy(device=wrapped_env.unwrapped.device)
 
-    def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
+    def _get_action(self, env: gym.Env, observation: GymSpacesDict, active_env_mask: torch.Tensor) -> torch.Tensor:
         if self._policy is None:
             self._load_policy(env)
 
@@ -127,6 +127,3 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
 
         with torch.inference_mode():
             return self._policy(observation)
-
-    def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        pass

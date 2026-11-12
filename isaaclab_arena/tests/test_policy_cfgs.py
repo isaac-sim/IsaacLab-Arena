@@ -8,6 +8,7 @@
 import argparse
 import torch
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
 
@@ -51,7 +52,7 @@ class _ExamplePolicyCfg(PolicyCfg):
 class _ExamplePolicy(PolicyBase[_ExamplePolicyCfg]):
     name = "example_policy"
 
-    def get_action(self, env, observation) -> torch.Tensor:
+    def _get_action(self, env, observation, active_env_mask) -> torch.Tensor:
         return torch.tensor([self.config.value])
 
 
@@ -67,7 +68,8 @@ def test_policy_runtime_contract_accepts_typed_config():
     policy = _ExamplePolicy(config)
 
     assert policy.config is config
-    assert policy.get_action(env=None, observation=None).item() == 2
+    env = SimpleNamespace(unwrapped=SimpleNamespace(num_envs=1))
+    assert policy.get_action(env=env, observation=None).item() == 2
 
 
 @pytest.mark.parametrize(

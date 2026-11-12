@@ -35,10 +35,12 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
         """
         return None  # noqa: R501 - subclasses with image inputs return a size
 
-    @abstractmethod
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
         """
-        Compute an action given the environment and observation.
+        Compute an action for every environment given the environment and observation.
+
+        The environment ignores the actions of environments whose episode ended without a replacement,
+        so the policy may skip computing them.
 
         Args:
             env: The environment instance.
@@ -47,7 +49,30 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
         Returns:
             torch.Tensor: The action to take.
         """
+        return self._get_action(env, observation, self._get_active_env_mask(env))
+
+    @abstractmethod
+    def _get_action(self, env: gym.Env, observation: GymSpacesDict, active_env_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Compute an action for every environment given the environment and observation.
+
+        Args:
+            env: The environment instance.
+            observation: Observation dictionary from the environment.
+            active_env_mask: Boolean (num_envs,) CPU mask of environments whose actions are used. The other
+                rows are ignored, so the policy may fill them with any finite values.
+
+        Returns:
+            torch.Tensor: The action to take.
+        """
         raise NotImplementedError("Function not implemented yet.")
+
+    def _get_active_env_mask(self, env: gym.Env) -> torch.Tensor:
+        """Return a boolean (num_envs,) CPU mask of environments whose actions are used on this step."""
+        finished_episode_mask = getattr(env.unwrapped, "finished_episode_mask", None)
+        if finished_episode_mask is None:
+            return torch.ones(env.unwrapped.num_envs, dtype=torch.bool)
+        return ~finished_episode_mask.cpu()
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """

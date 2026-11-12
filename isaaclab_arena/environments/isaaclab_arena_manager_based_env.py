@@ -13,6 +13,7 @@ from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
+from isaaclab_arena.environments.still_actions import get_still_actions
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
@@ -65,6 +66,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._started_episode_count = 0
         self._completed_episode_count = 0
         self._active_episode_mask = torch.zeros(cfg.scene.num_envs, dtype=torch.bool, device=cfg.sim.device)
+        self._finished_episode_mask = torch.zeros(cfg.scene.num_envs, dtype=torch.bool, device=cfg.sim.device)
         self._reset_env_ids = torch.empty(0, dtype=torch.long, device=cfg.sim.device)
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
@@ -103,6 +105,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def active_episode_mask(self) -> torch.Tensor:
         """Environments currently assigned an episode, including any replacement started this step."""
         return self._active_episode_mask
+
+    @property
+    def finished_episode_mask(self) -> torch.Tensor:
+        """Environments whose episode ended without a replacement; their robots hold still until the rollout ends."""
+        return self._finished_episode_mask
 
     @property
     def completed_episode_count(self) -> int:
@@ -191,6 +198,13 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         """Step all environments and report completions only for assigned episodes."""
         active_before_step = self._active_episode_mask.clone()
         self._reset_env_ids = self._reset_env_ids[:0]
+        if self._finished_episode_mask.any():
+            # Replace the ignored actions of finished environments with actions that keep their robots still.
+            action = torch.where(
+                self._finished_episode_mask.unsqueeze(-1),
+                get_still_actions(self.action_manager),
+                action.to(self.device),
+            )
         observations, rewards, terminated, truncated, extras = super().step(action)
         # Report an episode's completion even if its environment became inactive during this step.
         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
@@ -211,6 +225,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 self._variation_replay_scheduler.complete_episodes(finishing_env_ids.tolist())
             self._completed_episode_count += len(finishing_env_ids)
             self._active_episode_mask[finishing_env_ids] = False
+            self._finished_episode_mask[finishing_env_ids] = True
 
         episode_start_env_ids = requested_env_ids
         if self._episode_limit is not None:
@@ -228,6 +243,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             self._variation_replay_scheduler.assign_new_episodes(episode_start_env_ids.tolist())
         self._started_episode_count += len(episode_start_env_ids)
         self._active_episode_mask[episode_start_env_ids] = True
+        self._finished_episode_mask[episode_start_env_ids] = False
         self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))
         # TODO(qianl, 2026-10-20): Adapt Arena reset terms to Lab's slice-preserving reset optimization.
         # See https://github.com/isaac-sim/IsaacLab/pull/8030.

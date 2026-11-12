@@ -223,8 +223,6 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._request_executor = ThreadPoolExecutor(
             max_workers=config.max_concurrent_requests, thread_name_prefix="vlm_inference"
         )
-        self._last_actions: dict[int, torch.Tensor] = {}
-        """Last action returned for each environment."""
 
     def close(self) -> None:
         """Close the inference client and request threads owned by this policy."""
@@ -232,26 +230,17 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._request_executor.shutdown(wait=False, cancel_futures=True)
         self._inference_backend.client.close()
 
-    def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        """Discard the last actions of selected environments, or all environments."""
-        if env_ids is None:
-            self._last_actions.clear()
-        else:
-            for env_id in env_ids.reshape(-1).tolist():
-                self._last_actions.pop(env_id, None)
-
-    def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
+    def _get_action(self, env: gym.Env, observation: dict[str, Any], active_env_mask: torch.Tensor) -> torch.Tensor:
         """Return a batch of native actions using the policy execution strategy.
 
         Environments that need a new prediction on this step request it concurrently, up to
         max_concurrent_requests at a time; the step returns once every request is validated.
-        An environment without an active episode, whose rollout used up its episode budget, sends no
-        request and holds its last action until the rollout ends. Holding keeps the robot still only
-        when the adapter's actions are absolute targets.
+        A finished environment sends no request and keeps its current prediction.
 
         Args:
             env: Arena environment, optionally gym-wrapped.
             observation: Batched observations consumed by the observation adapter.
+            active_env_mask: Boolean (num_envs,) mask of environments whose actions are used.
 
         Returns:
             Actions shaped (num_envs, action_dim) on the environment device.
@@ -260,17 +249,12 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         assert self.action_adapter.is_robot_action_space_supported(
             env
         ), "Robot action space is unsupported by this adapter"
-        # An environment is inactive once its episode ended without a replacement; one that never acted still needs an action.
-        active_episode_mask = env.unwrapped.active_episode_mask.tolist()
-        inactive_env_ids = set()
-        for env_id in range(env.unwrapped.num_envs):
-            if not active_episode_mask[env_id] and env_id in self._last_actions:
-                inactive_env_ids.add(env_id)
+        active_env_mask = active_env_mask.tolist()
 
         # Build a request for every active environment whose current prediction is used up or finished.
         contents = {}
         for env_id in range(env.unwrapped.num_envs):
-            if env_id in inactive_env_ids:
+            if not active_env_mask[env_id]:
                 continue
             self._update_prediction_state(env, env_id)
             if self._needs_new_prediction(env_id):
@@ -284,17 +268,16 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         # Convert each active environment's next command into a native action.
         actions = []
         for env_id in range(env.unwrapped.num_envs):
-            if env_id in inactive_env_ids:
-                actions.append(self._last_actions[env_id])
+            # A finished environment's action is ignored.
+            if not active_env_mask[env_id]:
+                actions.append(torch.zeros(env.unwrapped.action_manager.total_action_dim, device=env.unwrapped.device))
                 continue
             command = self._get_next_command(env, env_id)
             action = self.action_adapter.command_to_action(env, command)
             assert (
                 action.ndim == 1 and action.numel() > 0 and torch.isfinite(action).all()
             ), "Expected a finite action vector"
-            action = action.to(device=env.unwrapped.device)
-            self._last_actions[env_id] = action
-            actions.append(action)
+            actions.append(action.to(device=env.unwrapped.device))
         return torch.stack(actions)
 
     def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
@@ -487,7 +470,6 @@ class VLMChunkPolicy(VLMPolicy, PolicyBase[VLMChunkPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending commands for selected environments, or all environments."""
-        super().reset(env_ids)
         if env_ids is None:
             self._chunks.clear()
         else:
@@ -603,7 +585,6 @@ class VLMGoalPolicy(VLMPolicy, PolicyBase[VLMGoalPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Discard pending and previous goals for selected environments, or all environments."""
-        super().reset(env_ids)
         if env_ids is None:
             self._current_goals.clear()
             self._previous_goals.clear()

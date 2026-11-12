@@ -181,6 +181,7 @@ def _test_episode_limit(
         initial_env_ids = list(range(min(num_episodes, base_env.num_envs)))
         assert base_env.reset_env_ids.tolist() == initial_env_ids
         assert base_env.active_episode_mask.nonzero().flatten().tolist() == initial_env_ids
+        assert not base_env.finished_episode_mask.any()
         assert started_episodes == [(env_id, 0) for env_id in initial_env_ids]
         assert results_path.read_text(encoding="utf-8") == ""
 
@@ -210,6 +211,12 @@ def _test_episode_limit(
                 for env_id, previous_index in enumerate(previous_indices):
                     expected_index = previous_index + int(env_id in replacement_ids.tolist())
                     assert base_env.get_episode_index(env_id) == expected_index
+                # An environment that never started an episode is not finished.
+                started_env_ids = {env_id for env_id, _ in started_episodes}
+                active_env_ids = base_env.active_episode_mask.nonzero().flatten().tolist()
+                assert base_env.finished_episode_mask.nonzero().flatten().tolist() == sorted(
+                    started_env_ids - set(active_env_ids)
+                )
                 if observed_completions == num_episodes:
                     break
 

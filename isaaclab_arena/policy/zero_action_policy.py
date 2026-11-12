@@ -31,7 +31,7 @@ class ZeroActionPolicy(PolicyBase[ZeroActionPolicyCfg]):
         """
         super().__init__(config)
 
-    def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
+    def _get_action(self, env: gym.Env, observation: GymSpacesDict, active_env_mask: torch.Tensor) -> torch.Tensor:
         """
         Always returns a zero action.
         """
