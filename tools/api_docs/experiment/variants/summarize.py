@@ -60,34 +60,53 @@ def load(path, arm, tier1):
 
 
 def main(d: Path) -> None:
-    variants: dict[str, list] = {}
+    variants: dict[tuple[str, str], list] = {}
     for r in csv.DictReader((d / "results_variants.csv").open()):
-        variants.setdefault(r["variant"], []).append(r)
-    a1, b1 = load(d / "results.csv", "A", True), load(d / "results.csv", "B", True)
-    a2, b2 = load(d / "results_tier2.csv", "A", False), load(d / "results_tier2.csv", "B", False)
-    a3, b3 = load(d / "results_tier3.csv", "A", False), load(d / "results_tier3.csv", "B", False)
+        variants.setdefault((r["variant"], r["tier"]), []).append(r)
+    arms = {
+        "1": (load(d / "results.csv", "A", True), load(d / "results.csv", "B", True)),
+        "2": (load(d / "results_tier2.csv", "A", False), load(d / "results_tier2.csv", "B", False)),
+        "3": (load(d / "results_tier3.csv", "A", False), load(d / "results_tier3.csv", "B", False)),
+    }
     header = ["Cond", "What the agent sees", "Runs", "Mean tokens", "Mean tools", "Mean secs", "Score %"]
     numeric = {2, 3, 4, 5, 6}
-    A = "new docstrings + generated API reference + full repo"
-    B = "new docstrings, full repo (docs, md, yaml, py)"
-    print("## Tier 1 (20 lookup questions)\n")
-    rows = [["A", A] + stats(a1), ["B", B] + stats(b1)]
-    for v, desc in (
-        ("c0", "new docstrings, python only"),
-        ("c1", "original docstrings, python only"),
-        ("c2", "no docstrings, python only"),
-        ("c3", "no docstrings, no comments, obfuscated names, python only"),
-    ):
-        rows.append([v, desc] + stats(variants[v]))
-    print(table(header, rows, numeric))
-    for name, a, b in (("Tier 2 (20 discovery questions)", a2, b2), ("Tier 3 (20 extra-difficult questions)", a3, b3)):
-        print(f"\n## {name}\n")
-        print(table(header, [["A", A] + stats(a), ["B", B] + stats(b)], numeric))
-    print("\n## Total aggregate\n")
-    total = [["A", "tiers 1+2+3"] + stats(a1 + a2 + a3), ["B", "tiers 1+2+3"] + stats(b1 + b2 + b3)]
-    for v in ("c0", "c1", "c2", "c3"):
-        total.append([v, "tier 1 only"] + stats(variants[v]))
-    print(table(["Cond", "Tiers", "Runs", "Mean tokens", "Mean tools", "Mean secs", "Score %"], total, numeric))
+    descriptions = {
+        "A": "new docstrings + generated API reference + full repo",
+        "B": "new docstrings, full repo (docs, md, yaml, py)",
+        "c0": "new docstrings, python only",
+        "c1": "original docstrings, python only",
+        "c2": "no docstrings, python only",
+        "c3": "no docstrings, no comments, obfuscated names, python only",
+    }
+    titles = {
+        "1": "Tier 1 (20 lookup questions)",
+        "2": "Tier 2 (20 discovery questions)",
+        "3": "Tier 3 (20 extra-difficult questions)",
+    }
+    by_cond: dict[str, list] = {c: [] for c in descriptions}
+    for tier in ("1", "2", "3"):
+        a, b = arms[tier]
+        by_cond["A"] += a
+        by_cond["B"] += b
+        rows = [["A", descriptions["A"]] + stats(a), ["B", descriptions["B"]] + stats(b)]
+        for v in ("c0", "c1", "c2", "c3"):
+            tier_rows = variants[(v, tier)]
+            by_cond[v] += [
+                {
+                    "tokens": r["tokens"],
+                    "tool_uses": r["tool_uses"],
+                    "duration_s": r["duration_s"],
+                    "score": float(r["score"]),
+                }
+                for r in tier_rows
+            ]
+            rows.append([v, descriptions[v]] + stats(tier_rows))
+        print(f"## {titles[tier]}\n")
+        print(table(header, rows, numeric))
+        print()
+    print("## Total aggregate (tiers 1+2+3)\n")
+    total = [[c, descriptions[c]] + stats(by_cond[c]) for c in descriptions]
+    print(table(header, total, numeric))
 
 
 if __name__ == "__main__":

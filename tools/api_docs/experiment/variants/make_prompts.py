@@ -5,7 +5,8 @@
 
 """Write one prompt file per (variant, question) for the source-variant experiment.
 
-Usage: ``python make_prompts.py <variants_dir> <prompts_dir> <experiment_dir> <tier>`` where tier is 1, 2 or 3.
+Usage: ``python make_prompts.py <variants_dir> <prompts_dir> <experiment_dir> <tier> [<answers_dir>]`` where tier is 1,
+2 or 3. With ``answers_dir`` each prompt also tells the agent to write its final message to ``<answers_dir>/<ID>.txt``.
 For variant c3 the backticked identifiers of the question are replaced by their obfuscated names.
 """
 
@@ -33,7 +34,7 @@ def load_questions(experiment_dir: Path, tier: str) -> dict[str, str]:
                 questions[m.group(1)] = m.group(2)
     else:
         text = (experiment_dir / f"questions_tier{tier}.md").read_text()
-        for m in re.finditer(r"^## (\w+) \([^)]*\)\n\n(.*?)\n\n", text, re.M | re.S):
+        for m in re.finditer(r"^## (\w+) \([^)]*\)\n\n(.*?)(?=\n\n## |\Z)", text, re.M | re.S):
             questions[m.group(1)] = m.group(2).strip()
     return questions
 
@@ -47,7 +48,7 @@ def translate(question: str, mapping: dict[str, str]) -> str:
     return re.sub(r"`([^`]*)`", repl_span, question)
 
 
-def main(variants_dir: Path, prompts_dir: Path, experiment_dir: Path, tier: str) -> None:
+def main(variants_dir: Path, prompts_dir: Path, experiment_dir: Path, tier: str, answers_dir: Path | None) -> None:
     prompts_dir.mkdir(parents=True, exist_ok=True)
     mapping = json.loads((variants_dir / "obfuscation_map.json").read_text())
     questions = load_questions(experiment_dir, tier)
@@ -59,9 +60,22 @@ def main(variants_dir: Path, prompts_dir: Path, experiment_dir: Path, tier: str)
         )
         for qid, text in questions.items():
             q = translate(text, mapping) if variant == "c3" else text
-            (prompts_dir / f"{variant.upper()}-{qid}.md").write_text(HEADER + para + "Question: " + q + "\n\n" + FORMAT)
+            name = f"{variant.upper()}-{qid}"
+            tail = ""
+            if answers_dir is not None:
+                tail = (
+                    f"\nWrite your final message (the ANSWER/EVIDENCE block) verbatim to {answers_dir}/{name}.txt with"
+                    " the Write tool, then reply with the single word: done.\n"
+                )
+            (prompts_dir / f"{name}.md").write_text(HEADER + para + "Question: " + q + "\n\n" + FORMAT + tail)
     print(len(questions), "questions x 4 variants")
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4])
+    main(
+        Path(sys.argv[1]),
+        Path(sys.argv[2]),
+        Path(sys.argv[3]),
+        sys.argv[4],
+        Path(sys.argv[5]) if len(sys.argv) > 5 else None,
+    )

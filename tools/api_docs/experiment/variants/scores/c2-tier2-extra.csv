@@ -1,0 +1,3 @@
+id,facts_hit,facts_total,note
+M19,4,4,all facts covered
+M20,3,4,missing variant assertion and chunk-replay link

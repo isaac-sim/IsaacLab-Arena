@@ -1,0 +1,4 @@
+id,facts_hit,facts_total,note
+M19,4,4,all facts covered
+M20,3,4,missing variant assert and horizon passing
+M21,4.5,5,newest run dir only stated for directories not tar

@@ -1,0 +1,20 @@
+id,facts_hit,facts_total,note
+H01,4.5,6,missed mimic mode and metrics-not-None guard
+H02,4,5,missed step mask and reset_env_ids policy reset
+H04,4.5,5,missed aggregate_metrics and finally close
+H05,3.5,5,partial on timings failure semantics and default list
+H06,5,5,complete
+H07,4,5,missed num_steps plus num_episodes exclusion
+H09,5,5,complete
+H10,4,5,missed droid-only registration and threshold values
+H11,4.5,5,term timing in reset_idx vague
+H13,4.5,5,missed JSONL language_instruction record
+H14,4.5,5,missed changes_object_geometry flag
+H15,4,5,missed experiment name and JSON override rejection
+H16,5,5,complete
+H17,5,5,complete
+H18,5.5,6,base get_action behaviours only vaguely covered
+H19,4,5,missed nested include and placement_validators rejection
+H20,4.5,5,missed timestamped dir and job name
+H21,5.5,6,mimic-only call condition implicit
+H22,4,5,missed enum count and silent drop of names

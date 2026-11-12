@@ -1,81 +1,241 @@
 variant,tier,id,tokens,tool_uses,duration_s,score,note
-c0,1,Q01,52019,4,11.408,1,
-c0,1,Q02,51388,4,10.920,1,
-c0,1,Q03,51232,4,10.564,1,
-c0,1,Q04,51353,4,12.173,1,
-c0,1,Q05,51626,4,11.865,1,
-c0,1,Q06,54830,4,16.543,1,
-c0,1,Q07,51205,4,11.322,1,
-c0,1,Q08,50732,4,10.457,1,
-c0,1,Q09,53263,4,10.049,1,
-c0,1,Q10,55251,6,16.358,1,
-c0,1,Q11,52828,4,10.199,1,
-c0,1,Q12,53014,4,10.742,1,
-c0,1,Q13,51820,4,10.474,1,
-c0,1,Q14,51611,4,9.977,1,
-c0,1,Q15,52113,4,11.569,1,
-c0,1,Q16,51574,4,10.664,1,
-c0,1,Q17,50916,4,9.836,1,
-c0,1,Q18,52349,4,10.425,1,
-c0,1,Q19,50959,4,10.428,1,
-c0,1,Q20,51985,4,12.044,1,
-c1,1,Q01,52378,4,12.232,1,
-c1,1,Q02,51637,4,11.034,1,
-c1,1,Q03,51355,4,10.416,1,
-c1,1,Q04,51407,4,11.356,1,
-c1,1,Q05,51149,4,10.927,1,
-c1,1,Q07,51110,4,10.677,1,
-c1,1,Q08,50850,4,11.042,1,
-c1,1,Q09,52416,4,10.602,1,
-c1,1,Q10,53744,5,12.101,1,
-c1,1,Q11,52500,4,11.621,1,
-c1,1,Q12,52477,4,11.070,1,
-c1,1,Q13,51784,4,9.599,1,
-c1,1,Q14,51552,4,10.372,1,
-c1,1,Q15,52724,4,11.140,1,
-c1,1,Q16,51420,4,10.488,1,
-c1,1,Q17,50925,4,10.078,1,
-c1,1,Q18,52255,4,10.723,1,
-c1,1,Q06,56367,4,14.975,0.5,list correct but stated count 26 wrong
-c1,1,Q19,51136,4,9.400,1,
-c1,1,Q20,51830,4,9.205,1,
-c2,1,Q01,52455,4,10.815,1,
-c2,1,Q02,51824,4,12.911,1,gave both enums and identified Side
-c2,1,Q03,51282,4,10.767,1,
-c2,1,Q04,51052,4,10.266,1,
-c2,1,Q05,50842,4,11.328,1,
-c2,1,Q07,50944,4,10.688,1,
-c2,1,Q08,50921,4,10.924,1,
-c2,1,Q09,53085,4,10.584,1,
-c2,1,Q10,52750,4,10.479,1,
-c2,1,Q11,53197,5,15.141,0.5,missed horizon >= action_horizon constraint
-c2,1,Q12,52490,4,9.892,1,
-c2,1,Q13,51614,4,10.091,1,
-c2,1,Q14,51531,4,10.538,1,
-c2,1,Q15,52162,4,11.305,1,
-c2,1,Q16,51528,4,10.372,1,
-c2,1,Q17,52099,4,9.979,1,
-c2,1,Q06,53778,4,15.956,0.5,list correct but stated count 22 wrong
-c2,1,Q18,51615,4,8.658,1,
-c2,1,Q19,51595,4,10.492,1,
-c2,1,Q20,52408,4,10.359,1,
-c3,1,Q01,52187,4,9.975,1,
-c3,1,Q03,52116,4,12.095,1,
-c3,1,Q04,52653,4,11.372,1,
-c3,1,Q05,52615,4,10.261,1,
-c3,1,Q07,52679,4,11.273,1,
-c3,1,Q08,50849,4,10.859,1,
-c3,1,Q10,52969,4,9.998,1,
-c3,1,Q12,52127,4,11.080,1,
-c3,1,Q13,51630,4,10.421,1,
-c3,1,Q14,52122,4,10.944,1,
-c3,1,Q15,52110,4,12.063,1,
-c3,1,Q02,54088,8,20.478,1,gave both enums, chose the signed one
-c3,1,Q06,53391,6,19.498,1,correct list and count (inconsistent sub-counts in text)
-c3,1,Q09,52989,7,16.650,1,
-c3,1,Q16,52638,5,18.730,1,
-c3,1,Q18,51771,3,7.507,1,
-c3,1,Q11,55265,8,24.986,0.75,constraint stated relative to chunk length and inferred
-c3,1,Q17,51315,4,10.515,0.75,could not confirm parser.error mechanism
-c3,1,Q19,50980,4,8.924,1,
-c3,1,Q20,55224,4,18.899,1,identified all nine decorators by behaviour
+c0,1,Q01,52437,4,11.393,1,
+c0,1,Q02,51879,4,10.894,1,
+c0,1,Q03,51677,4,10.52,1,
+c0,1,Q04,51766,4,12.127,1,
+c0,1,Q05,52124,4,11.822,1,
+c0,1,Q06,55389,4,16.502,1,
+c0,1,Q07,51639,4,11.281,1,
+c0,1,Q08,51149,4,10.423,1,
+c0,1,Q09,53713,4,10.009,1,
+c0,1,Q10,56170,6,16.304,1,
+c0,1,Q11,53262,4,10.13,1,
+c0,1,Q12,53453,4,10.701,1,
+c0,1,Q13,52297,4,10.432,1,
+c0,1,Q14,52032,4,9.934,1,
+c0,1,Q15,52546,4,11.508,1,
+c0,1,Q16,52006,4,10.566,1,
+c0,1,Q17,51348,4,9.766,1,
+c0,1,Q18,52774,4,10.38,1,
+c0,1,Q19,51368,4,10.386,1,
+c0,1,Q20,52424,4,11.993,1,
+c1,1,Q01,52827,4,12.213,1,
+c1,1,Q02,52133,4,11.005,1,
+c1,1,Q03,51806,4,10.385,1,
+c1,1,Q04,51826,4,11.321,1,
+c1,1,Q05,51620,4,10.895,1,
+c1,1,Q06,56927,4,14.942,0.5,list correct but stated count 26 wrong
+c1,1,Q07,51580,4,10.642,1,
+c1,1,Q08,51265,4,11.007,1,
+c1,1,Q09,52869,4,10.567,1,
+c1,1,Q10,54398,5,12.061,1,
+c1,1,Q11,52928,4,11.578,1,
+c1,1,Q12,52918,4,11.027,1,
+c1,1,Q13,52215,4,9.557,1,
+c1,1,Q14,51973,4,10.327,1,
+c1,1,Q15,53135,4,11.1,1,
+c1,1,Q16,51852,4,10.448,1,
+c1,1,Q17,51341,4,10.038,1,
+c1,1,Q18,52680,4,10.684,1,
+c1,1,Q19,51551,4,9.384,1,
+c1,1,Q20,52317,4,9.183,1,
+c2,1,Q01,52894,4,10.803,1,
+c2,1,Q02,52335,4,12.864,1,gave both enums and identified Side
+c2,1,Q03,51714,4,10.73,1,
+c2,1,Q04,51465,4,10.233,1,
+c2,1,Q05,51280,4,11.295,1,
+c2,1,Q06,54356,4,15.913,0.5,list correct but stated count 22 wrong
+c2,1,Q07,51374,4,10.657,1,
+c2,1,Q08,51339,4,10.891,1,
+c2,1,Q09,53538,4,10.544,1,
+c2,1,Q10,53265,4,10.403,1,
+c2,1,Q11,53826,5,15.073,0.5,missed horizon >= action_horizon constraint
+c2,1,Q12,52919,4,9.842,1,
+c2,1,Q13,52045,4,10.02,1,
+c2,1,Q14,51952,4,10.493,1,
+c2,1,Q15,52595,4,11.255,1,
+c2,1,Q16,51960,4,10.326,1,
+c2,1,Q17,52512,4,9.912,1,
+c2,1,Q18,52038,4,8.642,1,
+c2,1,Q19,52001,4,10.467,1,
+c2,1,Q20,52846,4,10.333,1,
+c3,1,Q01,52610,4,9.96,1,
+c3,1,Q02,55286,8,20.451,1,gave both enums  chose the signed one
+c3,1,Q03,52543,4,12.067,1,
+c3,1,Q04,53085,4,11.344,1,
+c3,1,Q05,53078,4,10.228,1,
+c3,1,Q06,54395,6,19.464,1,correct list and count (inconsistent sub-counts in text)
+c3,1,Q07,53129,4,11.217,1,
+c3,1,Q08,51266,4,10.818,1,
+c3,1,Q09,53878,7,16.611,1,
+c3,1,Q10,53496,4,9.953,1,
+c3,1,Q11,56458,8,24.922,0.75,constraint stated relative to chunk length and inferred
+c3,1,Q12,52543,4,11.015,1,
+c3,1,Q13,52054,4,10.372,1,
+c3,1,Q14,52545,4,10.891,1,
+c3,1,Q15,52540,4,11.993,1,
+c3,1,Q16,53784,5,18.673,1,
+c3,1,Q17,51734,4,10.498,0.75,could not confirm parser.error mechanism
+c3,1,Q18,52072,3,7.467,1,
+c3,1,Q19,51392,4,8.887,1,
+c3,1,Q20,55671,4,18.855,1,identified all nine decorators by behaviour
+c0,2,M01,55231,4,12.509,0.9,
+c0,2,M02,55486,5,12.97,1,
+c0,2,M03,58782,7,20.147,1,
+c0,2,M04,52712,4,11.642,0.75,
+c0,2,M05,60166,5,18.375,1,
+c0,2,M06,60532,8,26.385,1,
+c0,2,M07,54193,5,13.833,1,
+c0,2,M08,53247,4,11.869,0.9,
+c0,2,M10,55289,4,14.204,1,
+c0,2,M11,54821,4,12.692,1,
+c0,2,M12,57616,6,19.475,1,
+c0,2,M13,66000,10,28.032,0.9,said robot is a collision obstacle (it is excluded)
+c0,2,M14,54613,5,14.112,1,
+c0,2,M15,62936,9,28.094,0.875,
+c0,2,M16,53986,5,15.384,1,
+c0,2,M17,53227,5,14.073,0.8,
+c0,2,M18,57080,5,20.844,1,
+c0,2,M19,55481,5,16.028,1,
+c0,2,M20,53895,4,11.816,0.75,
+c0,2,M21,58776,4,14.609,0.8,
+c1,2,M01,55930,5,14.798,0.9,
+c1,2,M02,54058,4,13.994,1,
+c1,2,M03,53581,5,12.889,1,
+c1,2,M04,53413,4,11.719,0.75,
+c1,2,M05,60660,5,17.167,1,
+c1,2,M06,56548,6,22.932,1,
+c1,2,M07,55248,5,18.468,1,
+c1,2,M08,54540,4,15.561,1,
+c1,2,M10,56080,7,12.972,1,
+c1,2,M11,54101,4,13.087,1,
+c1,2,M12,55442,4,13.826,1,
+c1,2,M13,57358,6,20.479,1,
+c1,2,M14,54397,9,17.274,1,
+c1,2,M15,57068,4,20.002,1,
+c1,2,M16,53159,5,13.561,1,
+c1,2,M17,53025,5,13.686,0.8,
+c1,2,M18,55942,7,21.145,1,
+c1,2,M19,56279,5,15.559,1.0000,all facts covered
+c1,2,M20,53918,4,10.884,0.7500,missing variant assert and horizon passing
+c1,2,M21,58768,5,16.371,0.9000,newest run dir only stated for directories not tar
+c2,2,M01,54621,4,13.478,0.9000,missed 15s retry interval
+c2,2,M02,56484,7,14.426,0.8750,function name resolve_inference_endpoint not given
+c2,2,M03,58146,5,15.871,1.0000,all covered
+c2,2,M04,53326,5,14.852,0.7500,missed approved target prefixes
+c2,2,M05,56302,4,13.578,1.0000,all covered
+c2,2,M06,57626,4,13.795,1.0000,all covered
+c2,2,M07,54517,5,13.791,1.0000,all covered
+c2,2,M08,53260,4,12.571,0.9000,constant name not stated
+c2,2,M10,57593,5,14.504,0.9000,missed None footprint default
+c2,2,M11,53788,4,12.595,1.0000,all covered
+c2,2,M12,56448,5,14.829,1.0000,all covered
+c2,2,M13,66077,13,36.146,1.0000,all covered
+c2,2,M14,54270,6,18.012,1.0000,all covered
+c2,2,M15,55573,4,14.414,1.0000,all covered
+c2,2,M16,54274,5,14.368,1.0000,all covered
+c2,2,M17,52374,4,12.195,0.8000,missed record type uniqueness assert
+c2,2,M18,56838,5,16.717,1.0000,all covered
+c2,2,M19,56534,7,17.77,1.0000,all facts covered
+c2,2,M20,53766,4,9.908,0.7500,missing variant assertion and chunk-replay link
+c2,2,M21,58689,4,13.569,0.9000,tar newest run dir only vague
+c3,2,M01,55376,6,18.922,1.0000,all facts correct
+c3,2,M02,56048,5,14.134,0.8750,function name not stated
+c3,2,M03,59126,7,20.405,1.0000,all facts correct
+c3,2,M04,53251,4,11.853,0.7500,missing approved target prefixes
+c3,2,M05,57885,4,13.107,1.0000,all facts correct
+c3,2,M06,55706,4,14.107,0.8750,class name not stated
+c3,2,M07,54337,5,14.137,0.8750,helper name not stated
+c3,2,M08,53006,4,12.319,0.9000,constant name only vaguely given
+c3,2,M10,58576,8,17.728,0.7000,wrong cache directory (extra assets segment)
+c3,2,M11,56646,6,18.697,0.9000,class names and RNG purpose vague
+c3,2,M12,55390,4,12.495,1.0000,all facts correct
+c3,2,M13,67587,12,33.59,0.7000,missing is_available and AABB obstacles
+c3,2,M14,53822,4,13.059,1.0000,all facts correct
+c3,2,M15,59445,6,18.553,1.0000,all facts correct
+c3,2,M16,54947,6,17.096,0.8750,helper name not stated
+c3,2,M17,55648,6,18.51,0.8000,missing record type uniqueness assert
+c3,2,M18,57523,6,19.452,0.8750,parse function not named
+c3,2,M19,57379,7,19.497,1.0000,all facts correct
+c3,2,M20,56624,6,16.083,0.8750,variant assert only implied
+c3,2,M21,58860,4,14.326,0.9000,tar newest-run rule vague
+c0,3,H01,68517,7,27.941,0.7500,missed mimic-mode and aggregate_metrics detail
+c0,3,H02,54035,4,13.209,0.8000,missed step mask and reset_env_ids policy reset
+c0,3,H04,58304,5,16.457,0.8000,missed rebuild_index passing and finally close
+c0,3,H05,56843,6,16.101,0.7000,missing default kpi list and continue_on_error detail
+c0,3,H06,68747,6,26.308,1.0000,complete
+c0,3,H07,55965,4,12.902,0.8000,missed num_steps plus num_episodes exclusion
+c0,3,H09,64466,8,23.605,0.9000,missed sequential subtask advance
+c0,3,H10,74211,11,35.075,0.9000,missed only droid registered
+c0,3,H11,71896,10,32.844,0.9000,runner filenames and reset ordering vague
+c0,3,H12,61253,6,17.554,0.8000,missed presets string conversion
+c0,3,H13,56167,4,15.87,0.9000,missed JSONL language_instruction record
+c0,3,H14,66164,7,26.003,0.7000,missed geometry flag and disabled default
+c0,3,H15,65677,8,23.442,0.9000,missed name and kpi_exporters details
+c0,3,H16,63982,9,29.487,1.0000,complete
+c0,3,H17,61934,5,18.769,0.9000,missed homie_v2 default
+c0,3,H18,59094,5,18.673,0.8333,missed shared base get_action behaviour
+c0,3,H19,57673,7,20.458,0.6000,missed include order nested includes and check order
+c0,3,H20,61235,4,17.551,0.9000,missed job name policy_runner
+c0,3,H21,65729,6,23.285,0.9167,missed tracked events require success
+c0,3,H22,64542,7,22.433,0.7000,missed 9 enum values and run_after ordering
+c1,3,H01,73713,8,31.535,0.7500,missed mimic-mode fact; metrics-not-None guard unstated
+c1,3,H02,54053,4,13.072,0.8000,missed step masking and reset_env_ids policy reset
+c1,3,H04,61127,6,19.483,0.8000,missed rebuild_index to builder and finally close
+c1,3,H05,58364,9,18.458,0.7000,vague on continue_on_error and per-run timings
+c1,3,H06,67184,5,25.346,1.0000,complete
+c1,3,H07,54819,5,14.971,0.6000,missed rollout-limit accepts num_steps and mutual exclusion
+c1,3,H09,62560,7,20.761,0.7000,missed record_post_step and logical modes; sequential vague
+c1,3,H10,68582,8,30.326,0.8000,missed droid-only registry and most thresholds
+c1,3,H11,68352,7,26.715,1.0000,complete
+c1,3,H12,59996,6,17.767,0.8000,missed presets string to enum conversion
+c1,3,H13,57843,5,18.035,1.0000,complete
+c1,3,H14,60978,6,20.879,0.7000,missed all-disabled; geometry flag omitted
+c1,3,H15,61250,9,25.031,0.8000,missed name kpi_exporters and JSON override rejection
+c1,3,H16,68266,7,27.121,1.0000,complete
+c1,3,H17,63281,5,18.7,1.0000,complete
+c1,3,H18,63573,8,29.806,0.8333,missed shared base get_action behaviour
+c1,3,H19,59401,7,18.178,0.8000,missed nested includes and placement_validators
+c1,3,H20,61208,4,16.719,0.9000,results file naming not stated
+c1,3,H21,66346,7,25.668,0.9167,mimic only called when mimic=True not stated
+c1,3,H22,62321,5,19.563,0.7000,missed run_after_inexpensive and enum count
+c2,3,H01,65180,6,24.484,0.7500,missed mimic mode and metrics-not-None guard
+c2,3,H02,53341,4,11.421,0.8000,missed step mask and reset_env_ids policy reset
+c2,3,H04,61487,6,18.807,0.9000,missed aggregate_metrics and finally close
+c2,3,H05,60643,5,15.18,0.7000,partial on timings failure semantics and default list
+c2,3,H06,63165,5,24.038,1.0000,complete
+c2,3,H07,54163,4,14.34,0.8000,missed num_steps plus num_episodes exclusion
+c2,3,H09,76165,9,30.787,1.0000,complete
+c2,3,H10,70815,11,38.132,0.8000,missed droid-only registration and threshold values
+c2,3,H11,66023,9,31.905,0.9000,term timing in reset_idx vague
+c2,3,H12,57375,6,17.707,1.0000,all facts covered
+c2,3,H13,60393,6,21.045,0.9000,missed JSONL language_instruction record
+c2,3,H14,62866,6,21.45,0.9000,missed changes_object_geometry flag
+c2,3,H15,61404,6,18.997,0.8000,missed experiment name and JSON override rejection
+c2,3,H16,64197,7,25.828,1.0000,complete
+c2,3,H17,65563,6,27.184,1.0000,complete
+c2,3,H18,61235,10,20.347,0.9167,base get_action behaviours only vaguely covered
+c2,3,H19,59491,13,25.884,0.8000,missed nested include and placement_validators rejection
+c2,3,H20,60076,4,17.655,0.9000,missed timestamped dir and job name
+c2,3,H21,63655,7,25.225,0.9167,mimic-only call condition implicit
+c2,3,H22,68998,8,27.64,0.8000,missed enum count and silent drop of names
+c3,3,H01,64399,7,29.332,0.7500,missing mimic and aggregate_metrics
+c3,3,H02,56726,6,18.254,0.9000,missing policy reset on reset_env_ids
+c3,3,H04,59261,7,20.543,0.9000,missing rebuild_index to builder and finally close
+c3,3,H05,60513,7,20.736,0.9000,missing default timing exporter list
+c3,3,H06,63197,5,24.573,1.0000,complete
+c3,3,H07,56170,5,17.875,0.8000,missing num_steps and num_episodes exclusion
+c3,3,H09,71230,9,30.364,1.0000,complete
+c3,3,H10,72281,10,36.728,0.9000,missing ik thresholds
+c3,3,H11,71690,10,36.928,0.9000,wrong hook timing detail
+c3,3,H12,67065,6,22.722,0.8000,missing post_init enum conversion
+c3,3,H13,62850,7,25.309,0.9000,missing JSONL language_instruction record
+c3,3,H14,63478,7,23.22,0.7000,missing disabled default and geometry flag
+c3,3,H15,59213,6,17.98,0.9000,missing experiment name and kpi_exporters
+c3,3,H16,64961,9,30.274,1.0000,complete
+c3,3,H17,60239,5,19.839,1.0000,complete
+c3,3,H18,65829,6,25.941,0.9167,shared base details partial
+c3,3,H19,57328,6,19.156,0.8000,missing nested include and placement_validators
+c3,3,H20,63344,6,24.961,0.9000,output dir details partial
+c3,3,H21,69774,10,38.15,1.0000,complete
+c3,3,H22,64551,7,24.915,0.7000,missing required_checks and ordering flag

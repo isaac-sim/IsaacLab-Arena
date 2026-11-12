@@ -1,0 +1,21 @@
+id,facts_hit,facts_total,note
+H01,4.5,6,missed mimic-mode fact; metrics-not-None guard unstated
+H02,4,5,missed step masking and reset_env_ids policy reset
+H04,4,5,missed rebuild_index to builder and finally close
+H05,3.5,5,vague on continue_on_error and per-run timings
+H06,5,5,complete
+H07,3,5,missed rollout-limit accepts num_steps and mutual exclusion
+H09,3.5,5,missed record_post_step and logical modes; sequential vague
+H10,4,5,missed droid-only registry and most thresholds
+H11,5,5,complete
+H12,4,5,missed presets string to enum conversion
+H13,5,5,complete
+H14,3.5,5,missed all-disabled; geometry flag omitted
+H15,4,5,missed name kpi_exporters and JSON override rejection
+H16,5,5,complete
+H17,5,5,complete
+H18,5,6,missed shared base get_action behaviour
+H19,4,5,missed nested includes and placement_validators
+H20,4.5,5,results file naming not stated
+H21,5.5,6,mimic only called when mimic=True not stated
+H22,3.5,5,missed run_after_inexpensive and enum count

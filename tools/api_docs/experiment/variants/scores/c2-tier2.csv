@@ -1,0 +1,19 @@
+id,facts_hit,facts_total,note
+M01,4.5,5,missed 15s retry interval
+M02,3.5,4,function name resolve_inference_endpoint not given
+M03,4,4,all covered
+M04,3,4,missed approved target prefixes
+M05,4,4,all covered
+M06,4,4,all covered
+M07,4,4,all covered
+M08,4.5,5,constant name not stated
+M10,4.5,5,missed None footprint default
+M11,5,5,all covered
+M12,4,4,all covered
+M13,5,5,all covered
+M14,4,4,all covered
+M15,4,4,all covered
+M16,4,4,all covered
+M17,4,5,missed record type uniqueness assert
+M18,4,4,all covered
+M21,4.5,5,tar newest run dir only vague

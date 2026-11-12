@@ -1,0 +1,21 @@
+id,facts_hit,facts_total,note
+H01,4.5,6,missing mimic and aggregate_metrics
+H02,4.5,5,missing policy reset on reset_env_ids
+H04,4.5,5,missing rebuild_index to builder and finally close
+H05,4.5,5,missing default timing exporter list
+H06,5,5,complete
+H07,4,5,missing num_steps and num_episodes exclusion
+H09,5,5,complete
+H10,4.5,5,missing ik thresholds
+H11,4.5,5,wrong hook timing detail
+H12,4,5,missing post_init enum conversion
+H13,4.5,5,missing JSONL language_instruction record
+H14,3.5,5,missing disabled default and geometry flag
+H15,4.5,5,missing experiment name and kpi_exporters
+H16,5,5,complete
+H17,5,5,complete
+H18,5.5,6,shared base details partial
+H19,4,5,missing nested include and placement_validators
+H20,4.5,5,output dir details partial
+H21,6,6,complete
+H22,3.5,5,missing required_checks and ordering flag

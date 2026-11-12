@@ -1,0 +1,21 @@
+id,facts_hit,facts_total,note
+H01,4.5,6,missed mimic-mode and aggregate_metrics detail
+H02,4,5,missed step mask and reset_env_ids policy reset
+H04,4,5,missed rebuild_index passing and finally close
+H05,3.5,5,missing default kpi list and continue_on_error detail
+H06,5,5,complete
+H07,4,5,missed num_steps plus num_episodes exclusion
+H09,4.5,5,missed sequential subtask advance
+H10,4.5,5,missed only droid registered
+H11,4.5,5,runner filenames and reset ordering vague
+H12,4,5,missed presets string conversion
+H13,4.5,5,missed JSONL language_instruction record
+H14,3.5,5,missed geometry flag and disabled default
+H15,4.5,5,missed name and kpi_exporters details
+H16,5,5,complete
+H17,4.5,5,missed homie_v2 default
+H18,5,6,missed shared base get_action behaviour
+H19,3,5,missed include order nested includes and check order
+H20,4.5,5,missed job name policy_runner
+H21,5.5,6,missed tracked events require success
+H22,3.5,5,missed 9 enum values and run_after ordering
