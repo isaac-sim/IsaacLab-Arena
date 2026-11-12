@@ -26,6 +26,7 @@ from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.inference.backend import InferenceBackend, InferenceRequest, build_strict_schema
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
+from isaaclab_arena_vlm_agent.grasp_point_adapter import GraspPointCfg, GraspPointObservationAdapter
 from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
 from isaaclab_arena_vlm_agent.joint_position_adapter import JointPositionObservationAdapter
 from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
@@ -114,6 +115,13 @@ class VLMPolicyCfg(PolicyCfg):
 
     Wraps the modality's adapter in JointPositionObservationAdapter; ignored when an observation adapter is injected.
     These positions are privileged state that cameras and robot sensors do not provide.
+    """
+
+    grasp_points: dict[str, GraspPointCfg] = field(default_factory=dict)
+    """Named grasp/contact points with optional surface normals and articulation motion tangents.
+
+    Wraps the modality's adapter in GraspPointObservationAdapter; ignored when an observation adapter is injected.
+    These authored candidates use privileged object poses and do not establish grasp feasibility.
     """
 
     def __post_init__(self):
@@ -211,6 +219,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 observation_adapter = ObjectPoseObservationAdapter(observation_adapter, config.object_poses)
             if config.joint_positions:
                 observation_adapter = JointPositionObservationAdapter(observation_adapter, config.joint_positions)
+            if config.grasp_points:
+                observation_adapter = GraspPointObservationAdapter(observation_adapter, config.grasp_points)
         assert isinstance(observation_adapter, VLMObservationAdapter)
         assert isinstance(action_adapter, AgentActionAdapter)
         self.observation_adapter = observation_adapter

@@ -4,7 +4,7 @@ Workbench Cleanup Catalog
 The workbench cleanup examples contain four DROID atomic tasks and a sequential
 full-cleanup task defined as environment graph YAML specs under
 ``isaaclab_arena_environments/workbench_cleanup/``. Each task has a VLM
-Experiment Definition under ``experiment_config/``.
+Experiment Definition under ``experiment_configs/``.
 
 Run an Experiment
 -----------------
@@ -29,9 +29,12 @@ Replace both ``close_drawer`` occurrences with ``close_toolcase``,
 
 These experiments use ``VLMGoalPolicy`` with the DROID embodiment adapter,
 following the gear-insertion VLM example. The policy receives camera images,
-robot state, and **privileged simulator object poses**. The drawer and bin use
-the standard policy. The toolcase, oscilloscope, and full cleanup use
-``WorkbenchVLMGoalPolicy``.
+robot state, and **privileged simulator object poses**. All five experiments
+use the standard policy. Selected articulation joint positions are supplied
+through ``joint_positions``; the toolcase and full cleanup additionally use
+``grasp_points`` to report the lid's live contact point, surface normal, and
+closing tangent. These points are configured in the experiment YAML; see
+:ref:`vlm-grasp-point-observations` for the reusable observation format.
 
 Task Catalog
 ------------
@@ -39,7 +42,9 @@ Task Catalog
 Each row links to the task and experiment YAMLs and shows one recorded VLM
 episode. Each GIF shows two synchronized external robot cameras. Playback
 follows simulation time, so time spent waiting for model responses does not
-appear as pauses. The full-cleanup recording uses 9x playback.
+appear as pauses. The full-cleanup recording uses 9x playback. These recordings
+predate the general grasp-point adapter refactor; they are not new policy-success
+measurements for that refactor.
 
 .. list-table::
    :header-rows: 1

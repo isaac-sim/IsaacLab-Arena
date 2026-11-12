@@ -691,6 +691,35 @@ def test_config_rejects_invalid_request_concurrency(max_concurrent_requests):
         VLMPolicyCfg(system_prompt="Control joints", max_concurrent_requests=max_concurrent_requests)
 
 
+def test_config_wraps_grasp_points_and_preserves_injected_adapter(backend):
+    from isaaclab_arena_vlm_agent.grasp_point_adapter import GraspPointCfg, GraspPointObservationAdapter
+    from isaaclab_arena_vlm_agent.joint_position_adapter import JointPositionObservationAdapter
+
+    config = VLMPolicyCfg(
+        system_prompt="Act.",
+        object_poses=["handle"],
+        joint_positions=["cabinet"],
+        grasp_points={"handle_tip": GraspPointCfg("handle", offset_O_m=(0.1, 0, 0))},
+    )
+    policy = SingleCommandPolicy(config, inference_backend=backend, action_adapter=ActionAdapter())
+    try:
+        adapter = policy.observation_adapter
+        assert isinstance(adapter, GraspPointObservationAdapter)
+        assert adapter.grasp_points["handle_tip"].scene_key == "handle"
+        assert isinstance(adapter.observation_adapter, JointPositionObservationAdapter)
+        assert isinstance(adapter.observation_adapter.observation_adapter, ObjectPoseObservationAdapter)
+    finally:
+        policy.close()
+    injected = ObservationAdapter()
+    policy = SingleCommandPolicy(
+        config, inference_backend=backend, action_adapter=ActionAdapter(), observation_adapter=injected
+    )
+    try:
+        assert policy.observation_adapter is injected
+    finally:
+        policy.close()
+
+
 def target_above_joint_positions(kwargs, offset=0.5):
     """Return a mocked response targeting the request's joint positions plus offset."""
     state = json.loads(kwargs["messages"][1]["content"][1]["text"])

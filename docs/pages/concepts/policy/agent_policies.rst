@@ -48,6 +48,67 @@ up to ``max_concurrent_requests`` at a time. Each environment keeps its own conv
 the model.
 
 
+.. _vlm-grasp-point-observations:
+
+Grasp and contact point observations
+------------------------------------
+
+Set ``policy.grasp_points`` to add named surface points to either VLM policy.
+``GraspPointObservationAdapter`` reads each point's live object pose for the
+requested environment and reports its position in every commanded robot's root
+frame. The point can follow a rigid object or a moving articulation part exposed
+as an object reference. Multiple named points can refer to the same object.
+
+For example, a point near a container's upper rim can be configured as:
+
+.. code-block:: yaml
+
+   policy:
+     type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
+     vlm_embodiment_adapter: droid
+     max_steps_per_goal: 90
+     grasp_points:
+       bin_rim:
+         scene_key: white_bin
+         aabb_fraction: [0.5, 0.0, 1.0]
+         offset_O_m: [0.0, 0.012, -0.004]
+         normal_O: [0.0, -1.0, 0.0]
+
+Frame O is the object's local geometry frame. ``aabb_fraction`` selects a point
+between its spawned local bounding-box minimum (0) and maximum (1) on each axis;
+``offset_O_m`` then adds a metric offset in O. Omit ``aabb_fraction`` to specify
+a point directly relative to the object origin. Offsets are in meters at the
+spawned size; they are not automatically multiplied by the asset scale.
+
+The observation is available under
+``simulator_ground_truth_assistance.grasp_points.bin_rim.points_in_robot_roots``.
+Each robot entry contains ``position_root_m`` and, when configured,
+``outward_normal_root``. Normals are unit vectors. The adapter preserves other
+observations such as object poses and joint positions.
+
+For a hinged part, add ``revolute_motion`` to the point:
+
+.. code-block:: yaml
+
+   revolute_motion:
+     scene_key: socket_set
+     body_name: Case_base
+     pivot_B_m: [0.0, 0.074, 0.03]
+     axis_B: [-1.0, 0.0, 0.0]
+     direction: -1
+
+Frame B is the named articulation body's frame, or the scene object's frame when
+``body_name`` is omitted. The pivot and axis define a right-handed rotation;
+``direction`` selects its positive or negative direction. This adds the live unit
+``motion_tangent_root`` at the contact point. The workbench toolcase experiment
+uses this configuration to preserve its authored lid-closing geometry.
+
+These are **privileged, authored contact candidates**. They do not predict grasps
+or validate reachability, collision clearance, or grasp stability. The policy must
+account for its gripper's contact offset when converting a surface point into a
+commanded-body pose.
+
+
 Extend the pipeline
 -------------------
 

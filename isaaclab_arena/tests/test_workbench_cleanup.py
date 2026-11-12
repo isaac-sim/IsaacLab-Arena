@@ -39,12 +39,12 @@ def test_workbench_task_definitions_build():
 
 def _test_workbench_vlm_experiment_configs(simulation_app):
     from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
-    from isaaclab_arena_environments.workbench_cleanup.vlm_policy import WorkbenchVLMGoalPolicyCfg
+    from isaaclab_arena_vlm_agent.grasp_point_adapter import GraspPointCfg, RevolutePointMotionCfg
     from isaaclab_arena_vlm_agent.vlm_agent_policy import ObservationModality, VLMGoalPolicyCfg
 
     paths = sorted((_ENVIRONMENT_DIR / "experiment_configs").glob("*_vlm_goal_experiment.yaml"))
     assert len(paths) == 5
-    workbench_policy_tasks = {"task_close_toolcase.yaml", "task_full_cleanup.yaml"}
+    contact_point_tasks = {"task_close_toolcase.yaml", "task_full_cleanup.yaml"}
     covered_tasks = set()
     for path in paths:
         experiment = load_arena_experiment_from_config_file(path, device="cpu")
@@ -52,8 +52,13 @@ def _test_workbench_vlm_experiment_configs(simulation_app):
         run = next(iter(experiment.runs.values()))
         assert isinstance(run.policy, VLMGoalPolicyCfg)
         task_name = Path(run.environment.env_spec_path).name
-        expected_policy_type = WorkbenchVLMGoalPolicyCfg if task_name in workbench_policy_tasks else VLMGoalPolicyCfg
-        assert type(run.policy) is expected_policy_type
+        assert type(run.policy) is VLMGoalPolicyCfg
+        if task_name in contact_point_tasks:
+            point = run.policy.grasp_points["lid_outer_edge"]
+            assert isinstance(point, GraspPointCfg)
+            assert isinstance(point.revolute_motion, RevolutePointMotionCfg)
+        else:
+            assert not run.policy.grasp_points
         assert run.policy.vlm_embodiment_adapter == "droid"
         assert run.policy.observation_modality == ObservationModality.image_state
         assert run.environment.enable_cameras
@@ -73,6 +78,7 @@ def _test_workbench_vlm_experiment_configs(simulation_app):
             *[ref.id for ref in spec.object_references],
         }
         assert run.policy.object_poses and set(run.policy.object_poses) <= scene_keys
+        assert all(point.scene_key in scene_keys for point in run.policy.grasp_points.values())
         assert run.policy.system_prompt_files
         covered_tasks.add(task_name)
     assert covered_tasks == {
@@ -96,7 +102,9 @@ def _test_workbench_vlm_contact_observations(simulation_app):
     from types import SimpleNamespace
     from unittest.mock import Mock
 
-    from isaaclab_arena_environments.workbench_cleanup.vlm_policy import WorkbenchObservationAdapter
+    from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+    from isaaclab_arena_vlm_agent.grasp_point_adapter import GraspPointObservationAdapter
+    from isaaclab_arena_vlm_agent.observation_adapter import VLMObservationAdapter
 
     half_sqrt_two = 2**-0.5
     q_W_F = [0.0, 0.0, half_sqrt_two, half_sqrt_two]
@@ -117,13 +125,29 @@ def _test_workbench_vlm_contact_observations(simulation_app):
             )
         ),
     )
-    adapter = WorkbenchObservationAdapter(["socket_set", "socket_set_lid", "tabletop"], ["socket_set"])
+    experiment = load_arena_experiment_from_config_file(
+        _ENVIRONMENT_DIR / "experiment_configs/close_toolcase_vlm_goal_experiment.yaml", device="cpu"
+    )
+    inner = Mock(spec=VLMObservationAdapter)
+    inner.extract_vlm_input_from_observation.return_value = ({}, {})
+    adapter = GraspPointObservationAdapter(inner, experiment.runs["close_toolcase"].policy.grasp_points)
+    env = SimpleNamespace(
+        unwrapped=SimpleNamespace(
+            arena_world=world,
+            action_manager=SimpleNamespace(
+                active_terms=["arm"], get_term=lambda _: SimpleNamespace(cfg=SimpleNamespace(asset_name="robot"))
+            ),
+        )
+    )
 
-    geometry = adapter._lid_contact_geometry(SimpleNamespace(arena_world=world), env_id=1)
+    _, values = adapter.extract_vlm_input_from_observation(env, {}, env_id=1)
+    geometry = values["simulator_ground_truth_assistance"]["grasp_points"]["lid_outer_edge"]["points_in_robot_roots"][
+        "robot"
+    ]
 
-    assert geometry["outer_face_contact_root_m"] == pytest.approx([2.0, 8.912, 3.204])
+    assert geometry["position_root_m"] == pytest.approx([2.0, 8.912, 3.204])
     assert geometry["outward_normal_root"] == pytest.approx([0.0, 0.0, 1.0])
-    assert geometry["closing_tangent_root"] == pytest.approx([0.0, -0.731894, -0.681419])
+    assert geometry["motion_tangent_root"] == pytest.approx([0.0, -0.731894, -0.681419])
     world.get_body_pose_w.assert_called_once_with("socket_set", "Case_base")
     world.get_aabb_in_local_frame.assert_called_once_with("socket_set_lid")
     return True

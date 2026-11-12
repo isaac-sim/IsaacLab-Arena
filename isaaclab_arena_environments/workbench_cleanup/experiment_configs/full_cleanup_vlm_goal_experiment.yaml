@@ -21,7 +21,7 @@ runs:
         the overhead shelf, then press the oscilloscope power button to turn
         it off. Release placed objects and withdraw after each interaction.
     policy:
-      type: isaaclab_arena_environments.workbench_cleanup.vlm_policy.WorkbenchVLMGoalPolicy
+      type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
       endpoint: internal
       model: openai/openai/gpt-6-astra
       vlm_embodiment_adapter: droid
@@ -41,6 +41,18 @@ runs:
         - oscilloscope_power_button
         - tabletop
       joint_positions: [top_drawer, socket_set, oscilloscope]
+      grasp_points:
+        lid_outer_edge:
+          scene_key: socket_set_lid
+          aabb_fraction: [0.5, 0.0, 1.0]
+          offset_O_m: [0.0, 0.012, 0.004]
+          normal_O: [0.0, 0.0, 1.0]
+          revolute_motion:
+            scene_key: socket_set
+            body_name: Case_base
+            pivot_B_m: [0.0, 0.074, 0.03]
+            axis_B: [-1.0, 0.0, 0.0]
+            direction: -1
       system_prompt_files:
         - isaaclab_arena_environments/workbench_cleanup/prompts/full_cleanup.txt
         - isaaclab_arena_environments/workbench_cleanup/prompts/close_drawer.txt
