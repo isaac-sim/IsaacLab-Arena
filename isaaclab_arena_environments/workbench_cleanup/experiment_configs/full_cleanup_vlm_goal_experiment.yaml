@@ -3,7 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Uses the existing sequential task and privileged observations for all four subtasks.
+# Uses the sequential task plus privileged object poses, articulation joint positions, and lid contact geometry.
+# Its system prompts also include hand-tuned DROID contact poses.
 runs:
   full_cleanup:
     environment:
@@ -12,8 +13,7 @@ runs:
     environment_builder:
       num_envs: 1
       seed: 42
-      device: cuda:0
-      camera_resolution_mode: policy_default
+      camera_resolution_mode: POLICY_DEFAULT
       placement_seed: 17
       language_instruction: >-
         Complete the workbench cleanup in order: close the top-left drawer,
@@ -40,6 +40,7 @@ runs:
         - oscilloscope
         - oscilloscope_power_button
         - tabletop
+      joint_positions: [top_drawer, socket_set, oscilloscope]
       system_prompt_files:
         - isaaclab_arena_environments/workbench_cleanup/prompts/full_cleanup.txt
         - isaaclab_arena_environments/workbench_cleanup/prompts/close_drawer.txt

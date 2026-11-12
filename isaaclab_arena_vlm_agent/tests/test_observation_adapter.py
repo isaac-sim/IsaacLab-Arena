@@ -12,6 +12,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from isaaclab_arena_vlm_agent.joint_position_adapter import JointPositionObservationAdapter
 from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
 from isaaclab_arena_vlm_agent.observation_adapter import (
     ImageObservationAdapter,
@@ -246,3 +247,22 @@ def test_object_poses_are_added_in_each_robot_root_frame():
     # Root 1 sits at (10, 0, 0) yawed 90 degrees, so a world +Y offset of 3 is a root +X offset of 3.
     np.testing.assert_allclose(poses["left_robot"]["position_root_m"], [3, 0, 1], atol=1e-6)
     np.testing.assert_allclose(poses["left_robot"]["quaternion_root_xyzw"], [0, 0, 0, 1], atol=1e-6)
+
+
+def test_joint_positions_are_added_for_selected_articulations_and_environment():
+    _, env, observation = _inputs()
+    oscilloscope = SimpleNamespace(
+        cfg=SimpleNamespace(prim_path="{ENV_REGEX_NS}/Oscilloscope"),
+        joint_names=["power", "dial"],
+        data=SimpleNamespace(joint_pos=SimpleNamespace(torch=torch.tensor([[0.0, 0.1], [-0.00188, 0.2]]))),
+    )
+    env.unwrapped.scene["oscilloscope"] = oscilloscope
+    env.unwrapped.scene.articulations["oscilloscope"] = oscilloscope
+    adapter = JointPositionObservationAdapter(ImageStateObservationAdapter(), ["oscilloscope"])
+
+    images, values = adapter.extract_vlm_input_from_observation(env, observation, 1)
+
+    assert list(images) == ["head_color", "hand_color"]
+    assert values["simulator_ground_truth_assistance"]["joint_positions_m_or_rad"] == {
+        "oscilloscope": {"power": pytest.approx(-0.00188), "dial": pytest.approx(0.2)}
+    }

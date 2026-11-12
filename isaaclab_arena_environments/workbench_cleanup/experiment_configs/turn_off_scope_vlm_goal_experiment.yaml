@@ -3,20 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Uses camera images, robot state, and explicitly privileged object poses, as in the gear-insertion example.
+# Uses camera images and robot state plus privileged object poses and oscilloscope joint positions.
+# Its system prompt also includes hand-tuned DROID contact poses.
 runs:
-  bin_shelf:
+  turn_off_scope:
     environment:
-      type: isaaclab_arena_environments/workbench_cleanup/task_bin_shelf.yaml
+      type: isaaclab_arena_environments/workbench_cleanup/task_turn_off_scope.yaml
       enable_cameras: true
     environment_builder:
       num_envs: 1
       seed: 42
-      device: cuda:0
-      camera_resolution_mode: policy_default
+      camera_resolution_mode: POLICY_DEFAULT
       placement_seed: 17
       language_instruction: >-
-        Pick up the white bin by a single rim or wall and place it on the empty overhead shelf bay between the blue containers. Release it and withdraw.
+        Press the small oscilloscope power button until the screen turns black, then withdraw without pressing again.
     policy:
       type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
       endpoint: internal
@@ -25,10 +25,11 @@ runs:
       observation_modality: image_state
       image_max_width_or_height: 512
       max_steps_per_goal: 90
-      position_tolerance_m: 0.002
-      rotation_tolerance_rad: 0.05
-      object_poses: [white_bin, overhead_shelf]
+      position_tolerance_m: 0.001
+      rotation_tolerance_rad: 0.02
+      object_poses: [oscilloscope, oscilloscope_power_button, tabletop]
+      joint_positions: [oscilloscope]
       system_prompt_files:
-        - isaaclab_arena_environments/workbench_cleanup/prompts/bin_shelf.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/turn_off_scope.txt
     rollout_limit:
       num_episodes: 5

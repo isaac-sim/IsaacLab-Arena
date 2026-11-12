@@ -12,8 +12,7 @@ runs:
     environment_builder:
       num_envs: 1
       seed: 42
-      device: cuda:0
-      camera_resolution_mode: policy_default
+      camera_resolution_mode: POLICY_DEFAULT
       placement_seed: 17
       language_instruction: >-
         Push the open top-left drawer fully closed using its outside front panel. Keep the fingers below the tabletop.

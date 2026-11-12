@@ -27,6 +27,7 @@ from isaaclab_arena.inference.backend import InferenceBackend, InferenceRequest,
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
+from isaaclab_arena_vlm_agent.joint_position_adapter import JointPositionObservationAdapter
 from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
 from isaaclab_arena_vlm_agent.observation_adapter import (
     ImageObservationAdapter,
@@ -106,6 +107,13 @@ class VLMPolicyCfg(PolicyCfg):
 
     Wraps the modality's adapter in ObjectPoseObservationAdapter; ignored when an observation adapter is injected.
     These poses are privileged state that cameras and robot sensors do not provide.
+    """
+
+    joint_positions: list[str] = field(default_factory=list)
+    """Scene keys of articulations whose exact joint positions are added to the prompt values.
+
+    Wraps the modality's adapter in JointPositionObservationAdapter; ignored when an observation adapter is injected.
+    These positions are privileged state that cameras and robot sensors do not provide.
     """
 
     def __post_init__(self):
@@ -201,6 +209,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             observation_adapter = adapter_type()
             if config.object_poses:
                 observation_adapter = ObjectPoseObservationAdapter(observation_adapter, config.object_poses)
+            if config.joint_positions:
+                observation_adapter = JointPositionObservationAdapter(observation_adapter, config.joint_positions)
         assert isinstance(observation_adapter, VLMObservationAdapter)
         assert isinstance(action_adapter, AgentActionAdapter)
         self.observation_adapter = observation_adapter

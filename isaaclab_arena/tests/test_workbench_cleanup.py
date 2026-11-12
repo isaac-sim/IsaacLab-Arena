@@ -39,23 +39,28 @@ def test_workbench_task_definitions_build():
 
 def _test_workbench_vlm_experiment_configs(simulation_app):
     from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+    from isaaclab_arena_environments.workbench_cleanup.vlm_policy import WorkbenchVLMGoalPolicyCfg
     from isaaclab_arena_vlm_agent.vlm_agent_policy import ObservationModality, VLMGoalPolicyCfg
 
-    paths = sorted((_ENVIRONMENT_DIR / "experiment_config").glob("*_vlm_goal_experiment.yaml"))
+    paths = sorted((_ENVIRONMENT_DIR / "experiment_configs").glob("*_vlm_goal_experiment.yaml"))
     assert len(paths) == 5
+    workbench_policy_tasks = {"task_close_toolcase.yaml", "task_full_cleanup.yaml"}
     covered_tasks = set()
     for path in paths:
         experiment = load_arena_experiment_from_config_file(path, device="cpu")
         assert len(experiment.runs) == 1
         run = next(iter(experiment.runs.values()))
         assert isinstance(run.policy, VLMGoalPolicyCfg)
+        task_name = Path(run.environment.env_spec_path).name
+        expected_policy_type = WorkbenchVLMGoalPolicyCfg if task_name in workbench_policy_tasks else VLMGoalPolicyCfg
+        assert type(run.policy) is expected_policy_type
         assert run.policy.vlm_embodiment_adapter == "droid"
         assert run.policy.observation_modality == ObservationModality.image_state
         assert run.environment.enable_cameras
         assert run.environment_builder.num_envs == 1
         assert run.rollout_limit.num_episodes == 5
         spec = ArenaEnvGraphSpec.from_yaml(run.environment.env_spec_path)
-        if Path(run.environment.env_spec_path).name == "task_full_cleanup.yaml":
+        if task_name == "task_full_cleanup.yaml":
             assert spec.task.composition.value == "sequential"
             assert len(spec.task.subtasks) == 4
         else:
@@ -69,7 +74,7 @@ def _test_workbench_vlm_experiment_configs(simulation_app):
         }
         assert run.policy.object_poses and set(run.policy.object_poses) <= scene_keys
         assert run.policy.system_prompt_files
-        covered_tasks.add(Path(run.environment.env_spec_path).name)
+        covered_tasks.add(task_name)
     assert covered_tasks == {
         "task_bin_shelf.yaml",
         "task_close_drawer.yaml",
@@ -89,29 +94,38 @@ def test_workbench_vlm_experiment_configs():
 def _test_workbench_vlm_contact_observations(simulation_app):
     import torch
     from types import SimpleNamespace
-    from unittest.mock import patch
+    from unittest.mock import Mock
 
     from isaaclab_arena_environments.workbench_cleanup.vlm_policy import WorkbenchObservationAdapter
-    from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
 
-    button = SimpleNamespace(
-        joint_names=["joint_button_01_joint_00"],
-        data=SimpleNamespace(joint_pos=SimpleNamespace(torch=torch.tensor([[0.0], [-0.00188]]))),
+    half_sqrt_two = 2**-0.5
+    q_W_F = [0.0, 0.0, half_sqrt_two, half_sqrt_two]
+    poses = {
+        "robot": torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], [10.0, 0.0, 0.0, *q_W_F]]),
+        "socket_set_lid": torch.tensor([[20.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], [1.0, 2.0, 3.0, *q_W_F]]),
+    }
+    world = SimpleNamespace(
+        get_pose_w=Mock(side_effect=lambda name: poses[name]),
+        get_body_pose_w=Mock(
+            return_value=torch.tensor([[20.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], [1.0, 2.0, 3.0, *q_W_F]])
+        ),
+        get_aabb_in_local_frame=Mock(
+            return_value=SimpleNamespace(
+                center=torch.zeros(2, 3),
+                min_point=torch.tensor([[0.0, -1.0, 0.0], [0.0, -0.1, 0.0]]),
+                max_point=torch.tensor([[0.0, 1.0, 2.0], [0.0, 0.1, 0.2]]),
+            )
+        ),
     )
+    adapter = WorkbenchObservationAdapter(["socket_set", "socket_set_lid", "tabletop"], ["socket_set"])
 
-    class Scene(dict):
-        articulations = {"oscilloscope": button}
+    geometry = adapter._lid_contact_geometry(SimpleNamespace(arena_world=world), env_id=1)
 
-    scene = Scene(oscilloscope=button)
-    env = SimpleNamespace(unwrapped=SimpleNamespace(scene=scene))
-    adapter = WorkbenchObservationAdapter(["oscilloscope", "oscilloscope_power_button", "tabletop"])
-    with patch.object(ObjectPoseObservationAdapter, "extract_vlm_input_from_observation", return_value=({}, {})):
-        _, state = adapter.extract_vlm_input_from_observation(env, {}, 1)
-    assistance = state["simulator_ground_truth_assistance"]
-    assert set(assistance) == {"joint_positions_m_or_rad"}
-    assert set(assistance["joint_positions_m_or_rad"]) == {"oscilloscope"}
-    travel = assistance["joint_positions_m_or_rad"]["oscilloscope"]["joint_button_01_joint_00"]
-    assert travel == pytest.approx(-0.00188)
+    assert geometry["outer_face_contact_root_m"] == pytest.approx([2.0, 8.912, 3.204])
+    assert geometry["outward_normal_root"] == pytest.approx([0.0, 0.0, 1.0])
+    assert geometry["closing_tangent_root"] == pytest.approx([0.0, -0.731894, -0.681419])
+    world.get_body_pose_w.assert_called_once_with("socket_set", "Case_base")
+    world.get_aabb_in_local_frame.assert_called_once_with("socket_set_lid")
     return True
 
 

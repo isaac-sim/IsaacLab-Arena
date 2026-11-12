@@ -18,7 +18,7 @@ one drawer-closing episode:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config isaaclab_arena_environments/workbench_cleanup/experiment_config/close_drawer_vlm_goal_experiment.yaml \
+     --experiment_config isaaclab_arena_environments/workbench_cleanup/experiment_configs/close_drawer_vlm_goal_experiment.yaml \
      --viz none --device cuda:0 \
      --record_camera_video \
      --output_base_dir artifacts/workbench_vlm_results \
@@ -53,7 +53,7 @@ appear as pauses. The full-cleanup recording uses 9x playback.
    * - Push the top-left drawer closed.
      - `Task YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/task_close_drawer.yaml>`__
 
-       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_config/close_drawer_vlm_goal_experiment.yaml>`__
+       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_configs/close_drawer_vlm_goal_experiment.yaml>`__
      - Success in 346 control steps.
      - .. image:: ../../images/workbench_cleanup_assets/vlm/close_drawer_success.gif
           :alt: DROID closes the top-left drawer, shown from two robot cameras
@@ -61,7 +61,7 @@ appear as pauses. The full-cleanup recording uses 9x playback.
    * - Close the socket case lid.
      - `Task YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/task_close_toolcase.yaml>`__
 
-       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_config/close_toolcase_vlm_goal_experiment.yaml>`__
+       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_configs/close_toolcase_vlm_goal_experiment.yaml>`__
      - Success in 105 control steps.
      - .. image:: ../../images/workbench_cleanup_assets/vlm/close_toolcase_success.gif
           :alt: DROID pushes the socket case lid closed, shown from two robot cameras
@@ -69,7 +69,7 @@ appear as pauses. The full-cleanup recording uses 9x playback.
    * - Press the oscilloscope power button.
      - `Task YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/task_turn_off_scope.yaml>`__
 
-       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_config/turn_off_scope_vlm_goal_experiment.yaml>`__
+       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_configs/turn_off_scope_vlm_goal_experiment.yaml>`__
      - Success in 74 control steps.
      - .. image:: ../../images/workbench_cleanup_assets/vlm/turn_off_scope_success.gif
           :alt: DROID presses the oscilloscope power button, shown from two robot cameras
@@ -77,7 +77,7 @@ appear as pauses. The full-cleanup recording uses 9x playback.
    * - Pick up the white bin and place it on the overhead shelf.
      - `Task YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/task_bin_shelf.yaml>`__
 
-       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_config/bin_shelf_vlm_goal_experiment.yaml>`__
+       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_configs/bin_shelf_vlm_goal_experiment.yaml>`__
      - Failure after 151 control steps.
      - .. image:: ../../images/workbench_cleanup_assets/vlm/bin_shelf_failure.gif
           :alt: DROID lifts the white bin but drops it before placing it on the overhead shelf
@@ -86,7 +86,7 @@ appear as pauses. The full-cleanup recording uses 9x playback.
        shelf, then turn off the oscilloscope.
      - `Task YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml>`__
 
-       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_config/full_cleanup_vlm_goal_experiment.yaml>`__
+       `Experiment YAML <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/workbench_cleanup/experiment_configs/full_cleanup_vlm_goal_experiment.yaml>`__
      - Timeout after 4,500 control steps. The drawer completed at step 283;
        the other three subtasks remained incomplete.
      - .. image:: ../../images/workbench_cleanup_assets/vlm/full_cleanup_failure.gif
