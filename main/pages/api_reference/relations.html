@@ -1,0 +1,1171 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Relations Reference &#8212; isaaclab_arena</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=83a19d84" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
+
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/api_reference/relations';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Performance and scaling" href="../references/performance.html" />
+    <link rel="prev" title="Jupyter Notebooks" href="../quickstart/jupyter_notebooks.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a></div>
+    
+      <div class="navbar-item"><div class="version-switcher__container dropdown">
+  <button type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-label="Version switcher list">
+    main
+    <span class="caret"></span>
+  </button>
+  <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
+    <a class="list-group-item list-group-item-action py-1 active"
+       href="relations.html" role="option" aria-current="true">main</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.1/index.html" role="option">0.3.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.0/index.html" role="option">0.3.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.0-prerelease/index.html" role="option">0.3.0-prerelease</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.2.1/index.html" role="option">0.2.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.2.0/index.html" role="option">0.2.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.1.1/index.html" role="option">0.1.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.1.0/index.html" role="option">0.1.0</a>
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Isaac Lab-Arena</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">Overview</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../whats_new/whats_new.html">What's New</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../whats_new/agentic_authoring.html">Agentic Evaluation Authoring</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../whats_new/agentic_authoring_workbench.html">Workbench Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../whats_new/agentic_authoring_kitchen.html">Kitchen Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../whats_new/newton_evaluation.html">Newton-Based Evaluation Workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../whats_new/vlm_policy.html">Multimodal VLM as a Policy</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../motivation/motivation.html">Why Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/arena_experiment.html">First Arena Experiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/environment_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../quickstart/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/openpi.html">OpenPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/vlm_agent.html">VLM Agent</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/kitchen_bench_catalog.html">Kitchen Benchmark Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/python_environment_catalog.html">Python Environment Catalog</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/analysis/index.html">Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/analysis/variations.html">Run an Evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/analysis/recorded_variations.html">Run an Evaluation with Recorded Variations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/agentic_authoring/index.html">Agentic Authoring</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/agentic_authoring/workbench.html">Author a Workbench Environment with Codex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/agentic_authoring/kitchen.html">Author a <code class="docutils literal notranslate"><span class="pre">kitchen_bench</span></code> Environment with a Coding Agent</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/newton/index.html">Newton Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/newton/gear_insertion.html">Gear Insertion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/newton/deformable_pick_and_place.html">Deformable Pick and Place</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Agentic Tools</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_tools/index.html">Agentic Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_tools/object_control.html">Object Control Runner</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/environment_definition.html">Environment Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_configuration.html">Physics configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../concepts/offline_placement/clutter.html">Clutter Layouts</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/solver.html">Placement Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/validation.html">Placement Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/pooled_placement.html">Pooled Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/placement_diagnostics.html">Placement Diagnostics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/placement_success_benchmark.html">Placement Success Benchmark</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/in_process_policies.html">In-Process Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/server_client_policies.html">Server–Client Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/agent_policies.html">Agent as Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/code_policies.html">Code as Policy</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_arena_experiments.html">Arena Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/experiment_record_replay.html">Record and Replay Experiments</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a aria-current="page" class="current reference internal" href="#">Relations Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../references/performance.html">Performance and scaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../references/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Gallery</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../gallery/index.html">Gallery</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../community-contributions.html">Community Contributions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Development Team Internal</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../development_team_internal/index.html">Development Team Internal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../development_team_internal/dreamzero.html">DreamZero</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../development_team_internal/perflab_benchmarks.html">PerfLab Benchmarks</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-house"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Relations Reference</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="relations-reference">
+<h1>Relations Reference<a class="headerlink" href="#relations-reference" title="Link to this heading">#</a></h1>
+<p>The page documents the spatial relations available in Isaac Lab - Arena.
+For the placement checks named in each <em>Validation</em> section, see <a class="reference internal" href="../concepts/object_placement/validation.html"><span class="doc">Placement Validation</span></a>.</p>
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.AlignWith" title="isaaclab_arena.relations.relations.AlignWith"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AlignWith</span></code></a></p></td>
+<td><p>Align bounding-box centres along one world axis, within a band, leaving other axes unconstrained.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.AtPosition" title="isaaclab_arena.relations.relations.AtPosition"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AtPosition</span></code></a></p></td>
+<td><p>Constrains object to specific world coordinates.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.ClutterOn" title="isaaclab_arena.relations.relations.ClutterOn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ClutterOn</span></code></a></p></td>
+<td><p>Indicates that an object should be dropped on top of a parent object.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.FaceTo" title="isaaclab_arena.relations.relations.FaceTo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FaceTo</span></code></a></p></td>
+<td><p>Relates an object's local +X heading to a target object's world-XY direction.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.IsAnchor" title="isaaclab_arena.relations.relations.IsAnchor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IsAnchor</span></code></a></p></td>
+<td><p>Indicates that this object is an anchor (unmovable) for relation solving.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.NextTo" title="isaaclab_arena.relations.relations.NextTo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NextTo</span></code></a></p></td>
+<td><p>Indicates that an object should be placed next to a parent object, on a specified side.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.NotNextTo" title="isaaclab_arena.relations.relations.NotNextTo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NotNextTo</span></code></a></p></td>
+<td><p>Forbids placing the child next to the parent on the given side.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.On" title="isaaclab_arena.relations.relations.On"><code class="xref py py-obj docutils literal notranslate"><span class="pre">On</span></code></a></p></td>
+<td><p>Indicates that an object should be placed on top of a parent object.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.PositionLimitsBox" title="isaaclab_arena.relations.relations.PositionLimitsBox"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code></a></p></td>
+<td><p>Constrains an object's position to an axis-aligned box in world coordinates.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.PositionLimitsCylindrical" title="isaaclab_arena.relations.relations.PositionLimitsCylindrical"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PositionLimitsCylindrical</span></code></a></p></td>
+<td><p>Constrains an object's world-XY radius around a fixed center.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.RequiresReachability" title="isaaclab_arena.relations.relations.RequiresReachability"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RequiresReachability</span></code></a></p></td>
+<td><p>Indicates that the robot must be able to reach this object.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#isaaclab_arena.relations.relations.RotateAroundSolution" title="isaaclab_arena.relations.relations.RotateAroundSolution"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code></a></p></td>
+<td><p>Specifies an explicit rotation to apply on top of the solver solution.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="api-reference">
+<h2>API reference<a class="headerlink" href="#api-reference" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.AlignWith">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AlignWith</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">axis</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">offset_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">tolerance_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.02</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">relation_loss_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.AlignWith" title="Link to this definition">#</a></dt>
+<dd><p>Align bounding-box centres along one world axis, within a band, leaving other axes unconstrained.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">align_with</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent</strong> (<a class="reference internal" href="#isaaclab_arena.relations.placement_asset.PlaceableAsset" title="isaaclab_arena.relations.placement_asset.PlaceableAsset"><em>PlaceableAsset</em></a>) – Reference asset participating in placement.</p></li>
+<li><p><strong>axis</strong> (<a class="reference internal" href="#isaaclab_arena.relations.axis.Axis" title="isaaclab_arena.relations.axis.Axis"><em>Axis</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – World axis to align, one of <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, or <code class="docutils literal notranslate"><span class="pre">z</span></code>.</p></li>
+<li><p><strong>offset_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Signed subject-minus-reference centre displacement along that axis.</p></li>
+<li><p><strong>tolerance_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Zero-penalty alignment band and maximum error accepted by placement validation.</p></li>
+<li><p><strong>relation_loss_weight</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Weight of the alignment objective during solving.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">align_with</span></code> check rejects a centre error along <code class="docutils literal notranslate"><span class="pre">axis</span></code> above <code class="docutils literal notranslate"><span class="pre">tolerance_m</span></code>.</p>
+<p class="rubric">Restrictions</p>
+<ul class="simple">
+<li><p>The subject cannot be an anchor, and the reference must be a different asset placed by relations.</p></li>
+<li><p>With <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> on the subject or reference, X or Y alignment requires that asset’s placement-box
+centre to lie on its yaw axis.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.AtPosition">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AtPosition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">relation_loss_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.AtPosition" title="Link to this definition">#</a></dt>
+<dd><p>Constrains object to specific world coordinates.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">at_position</span></code></p>
+<p>This is a unary relation (no parent) that pins an object’s position to
+specific x, y, and/or z world coordinates. Any axis set to None is
+unconstrained by this relation (allowing other relations like On to
+control that axis).</p>
+<p>Note: Loss computation is handled by AtPositionLossStrategy in optimization/losses/relation_loss_strategies.py.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Target x world coordinate, or None to leave unconstrained.</p></li>
+<li><p><strong>y</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Target y world coordinate, or None to leave unconstrained.</p></li>
+<li><p><strong>z</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Target z world coordinate, or None to leave unconstrained.</p></li>
+<li><p><strong>relation_loss_weight</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Weight for the relationship loss function.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>None; a solver objective only.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.ClutterOn">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ClutterOn</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">spread</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">clearance_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">gap_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.03</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">random_yaw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">edge_margin_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">relation_loss_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.ClutterOn" title="Link to this definition">#</a></dt>
+<dd><p>Indicates that an object should be dropped on top of a parent object.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">clutter_on</span></code></p>
+<p>The object’s bottom must clear the support surface; contact is not required.
+The support may be an anchor or positioned jointly through its own relations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent</strong> (<a class="reference internal" href="#isaaclab_arena.relations.placement_asset.PlaceableAsset" title="isaaclab_arena.relations.placement_asset.PlaceableAsset"><em>PlaceableAsset</em></a>) – Support fixed with IsAnchor or positioned through its own relations.</p></li>
+<li><p><strong>spread</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Fraction of support width and depth available for release, centered on the support.
+For example, 0.2 restricts each axis to its central 20%; settled objects may use the full support.</p></li>
+<li><p><strong>clearance_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Release clearance above the support in metres.</p></li>
+<li><p><strong>gap_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Initial clearance from neighboring release bounds in metres, at least the solver clearance.</p></li>
+<li><p><strong>random_yaw</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Sample world-Z yaw in addition to RotateAroundSolution.</p></li>
+<li><p><strong>edge_margin_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Inward margin within the release region in metres.</p></li>
+<li><p><strong>relation_loss_weight</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Weight for the relation loss.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> check rejects a footprint outside the release region or too little clearance.</p>
+<p class="rubric">Restrictions</p>
+<ul class="simple">
+<li><p>It must be the object’s only spatial relation; <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code> may set its base rotation.</p></li>
+<li><p>Roll or pitch requires <code class="docutils literal notranslate"><span class="pre">collision_mode=&quot;bbox&quot;</span></code> on the object; <code class="docutils literal notranslate"><span class="pre">mesh</span></code> supports yaw only.</p></li>
+<li><p>The support must be placed by relations and cannot itself use <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code>. It must stay upright, with
+a fixed yaw that is a multiple of 90 degrees, so a movable support cannot use <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> or
+<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.random_yaw_init</span></code>.</p></li>
+<li><p>For recording, other objects with placement relations must be anchors or kinematic rigid bodies.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.FaceTo">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FaceTo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.FaceTo" title="Link to this definition">#</a></dt>
+<dd><p>Relates an object’s local +X heading to a target object’s world-XY direction.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">face_to</span></code></p>
+<p>This orientation relation does not constrain either object’s position. The
+subject’s XY position must differ from the target’s.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>parent</strong> (<a class="reference internal" href="#isaaclab_arena.relations.placement_asset.PlaceableAsset" title="isaaclab_arena.relations.placement_asset.PlaceableAsset"><em>PlaceableAsset</em></a>) – Target object that defines the facing direction.</p>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">face_to</span></code> check rejects a subject at the target’s XY position.</p>
+<p class="rubric">Restrictions</p>
+<ul class="simple">
+<li><p>A subject can have only one <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code>, cannot be an anchor, and cannot also use
+<code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code>.</p></li>
+<li><p>The target must also be placed by relations.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.IsAnchor">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">IsAnchor</span></span><a class="headerlink" href="#isaaclab_arena.relations.relations.IsAnchor" title="Link to this definition">#</a></dt>
+<dd><p>Indicates that this object is an anchor (unmovable) for relation solving.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">is_anchor</span></code></p>
+<p>Anchor objects are fixed references that won’t be optimized during
+relation solving. Multiple objects can be marked as anchors.
+Each anchor must have an initial_pose set before calling ObjectPlacer.place().</p>
+<p class="rubric">Validation</p>
+<p>None; anchors are not moved.</p>
+<p class="rubric">Restrictions</p>
+<ul class="simple">
+<li><p>The anchor’s root rotation must be a multiple of 90 degrees about world Z, with no tilt. For an
+<code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code>, this applies to its parent asset’s pose.</p></li>
+<li><p>A background with mesh collision cannot have relations, <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> included. Anchor an
+<code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> to its support prim instead.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.NextTo">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">NextTo</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">side</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">relation_loss_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">distance_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">cross_position_ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">tolerance_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.NextTo" title="Link to this definition">#</a></dt>
+<dd><p>Indicates that an object should be placed next to a parent object, on a specified side.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">next_to</span></code></p>
+<p>This relation specifies that a child object should be placed adjacent to
+the parent object on a specified side, at a given distance. The gap may be anywhere within
+<code class="docutils literal notranslate"><span class="pre">tolerance_m</span></code> of <code class="docutils literal notranslate"><span class="pre">distance_m</span></code>.</p>
+<p>Note: Loss computation is handled by NextToLossStrategy in optimization/losses/relation_loss_strategies.py.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent</strong> (<a class="reference internal" href="#isaaclab_arena.relations.placement_asset.PlaceableAsset" title="isaaclab_arena.relations.placement_asset.PlaceableAsset"><em>PlaceableAsset</em></a>) – The parent asset that this object should be placed next to.</p></li>
+<li><p><strong>side</strong> (<a class="reference internal" href="#isaaclab_arena.relations.relations.Side" title="isaaclab_arena.relations.relations.Side"><em>Side</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Which axis direction to place the object.</p></li>
+<li><p><strong>relation_loss_weight</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Weight for the relationship loss function.</p></li>
+<li><p><strong>distance_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Target distance from parent’s boundary in meters (default: 5cm).</p></li>
+<li><p><strong>cross_position_ratio</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Where to place the child along the parent’s perpendicular
+(cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
+The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
+the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
+Default: None (any position within the valid cross-axis range).
+Set 0.0 explicitly to prefer centering.</p></li>
+<li><p><strong>tolerance_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Allowed gap error in meters. The solver treats any gap within this value of
+distance_m as satisfied, and validation passes when the side and distance violations
+are each within it. cross_position_ratio is a soft preference, not gated.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">next_to</span></code> check rejects the wrong side or a gap error above <code class="docutils literal notranslate"><span class="pre">tolerance_m</span></code>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.NotNextTo">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">NotNextTo</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">relation_loss_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">side</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">Side.POSITIVE_X</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">tolerance_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.NotNextTo" title="Link to this definition">#</a></dt>
+<dd><p>Forbids placing the child next to the parent on the given side.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">not_next_to</span></code></p>
+<p>The inverse of <code class="docutils literal notranslate"><span class="pre">NextTo</span></code>. Blocks the whole half-plane past the parent’s edge
+on that side, within the parent’s perpendicular footprint (for <code class="docutils literal notranslate"><span class="pre">side=+Y</span></code>:
+all of <code class="docutils literal notranslate"><span class="pre">+Y</span></code> past the <code class="docutils literal notranslate"><span class="pre">+Y</span></code> edge, clipped to the parent’s <code class="docutils literal notranslate"><span class="pre">X</span></code> extent).
+Anywhere off to either side of that footprint stays free, at any distance.</p>
+<p>Note: Loss computation is handled by NotNextToLossStrategy in optimization/losses/relation_loss_strategies.py.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent</strong> (<a class="reference internal" href="#isaaclab_arena.relations.placement_asset.PlaceableAsset" title="isaaclab_arena.relations.placement_asset.PlaceableAsset"><em>PlaceableAsset</em></a>) – The parent asset whose adjacent half-plane is forbidden.</p></li>
+<li><p><strong>relation_loss_weight</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Weight for the relationship loss function.</p></li>
+<li><p><strong>side</strong> (<a class="reference internal" href="#isaaclab_arena.relations.relations.Side" title="isaaclab_arena.relations.relations.Side"><em>Side</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Which side of the parent is blocked (default: Side.POSITIVE_X).</p></li>
+<li><p><strong>tolerance_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Slack (meters) for placement validation: the child passes when it has cleared
+the keep-out zone to within this value.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">not_next_to</span></code> check rejects a child that has not cleared the blocked region.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.On">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">On</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">relation_loss_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">clearance_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">edge_margin_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.On" title="Link to this definition">#</a></dt>
+<dd><p>Indicates that an object should be placed on top of a parent object.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">on</span></code></p>
+<p>This relation specifies that a child object should be placed on top of
+the parent object, with X/Y bounded within the parent’s extent (optionally
+inset by <code class="docutils literal notranslate"><span class="pre">edge_margin_m</span></code> so the child stays off the rim) and Z positioned
+on the parent’s top surface. With <code class="docutils literal notranslate"><span class="pre">overlap=True</span></code>, only intersection with
+the parent’s original footprint is required on both horizontal axes; the margin is ignored.</p>
+<p>Note: Footprint overlap does not guarantee stable support; the child may tip or fall.</p>
+<p>Note: Loss computation is handled by OnLossStrategy in optimization/losses/relation_loss_strategies.py.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent</strong> (<a class="reference internal" href="#isaaclab_arena.relations.placement_asset.PlaceableAsset" title="isaaclab_arena.relations.placement_asset.PlaceableAsset"><em>PlaceableAsset</em></a>) – The parent asset that this object should be placed on top of.</p></li>
+<li><p><strong>relation_loss_weight</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Weight for the relationship loss function.</p></li>
+<li><p><strong>clearance_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Safety clearance above parent’s surface in meters (default: 1cm).</p></li>
+<li><p><strong>edge_margin_m</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Inward inset from each X/Y edge of the parent’s surface in
+meters (default: 5cm), applied only for containment. Ignored for overlap.</p></li>
+<li><p><strong>overlap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Allow footprint overlap instead of full containment on both X and Y
+axes (default: False). Ignores edge_margin_m when True.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">on_relation</span></code> check rejects a child off the parent’s top or outside its footprint.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.PositionLimitsBox">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PositionLimitsBox</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">x_limits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(None,</span> <span class="pre">None)</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">y_limits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(None,</span> <span class="pre">None)</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">z_limits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(None,</span> <span class="pre">None)</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">relation_loss_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.PositionLimitsBox" title="Link to this definition">#</a></dt>
+<dd><p>Constrains an object’s position to an axis-aligned box in world coordinates.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">position_limits_box</span></code>, or <code class="docutils literal notranslate"><span class="pre">position_limits</span></code></p>
+<p>Specify each axis as a (minimum, maximum) pair; None leaves that bound
+unconstrained. Omitted axes are unconstrained.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_limits</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em><em>]</em>) – (minimum, maximum) world x, either None for no bound.</p></li>
+<li><p><strong>y_limits</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em><em>]</em>) – (minimum, maximum) world y, either None for no bound.</p></li>
+<li><p><strong>z_limits</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em><em>]</em>) – (minimum, maximum) world z, either None for no bound.</p></li>
+<li><p><strong>relation_loss_weight</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Weight for the relationship loss function.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>None; a solver objective only.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.PositionLimitsCylindrical">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PositionLimitsCylindrical</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">center_x</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">center_y</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">radius_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">radius_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">relation_loss_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.PositionLimitsCylindrical" title="Link to this definition">#</a></dt>
+<dd><p>Constrains an object’s world-XY radius around a fixed center.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">position_limits_cylindrical</span></code></p>
+<p>A lower bound creates a cylindrical keep-out region, an upper bound keeps
+the object inside a cylinder, and both bounds create a cylindrical annulus.
+The relation constrains only XY; use <code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code> separately for Z
+or axis-aligned XY limits.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>center_x</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – World x of the centre.</p></li>
+<li><p><strong>center_y</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – World y of the centre.</p></li>
+<li><p><strong>radius_min</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Minimum XY distance from the centre, or None for no bound.</p></li>
+<li><p><strong>radius_max</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Maximum XY distance from the centre, or None for no bound.</p></li>
+<li><p><strong>relation_loss_weight</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Weight for the relationship loss function.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>None; a solver objective only.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.RequiresReachability">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RequiresReachability</span></span><a class="headerlink" href="#isaaclab_arena.relations.relations.RequiresReachability" title="Link to this definition">#</a></dt>
+<dd><p>Indicates that the robot must be able to reach this object.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">requires_reachability</span></code></p>
+<p>It does not affect placement geometry during optimization, but rejects unreachable placements.</p>
+<p class="rubric">Validation</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> check rejects placements the robot cannot reach. It runs only when the
+embodiment has a cuRobo config.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.RotateAroundSolution">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RotateAroundSolution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">roll_rad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pitch_rad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yaw_rad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.RotateAroundSolution" title="Link to this definition">#</a></dt>
+<dd><p>Specifies an explicit rotation to apply on top of the solver solution.</p>
+<p><strong>YAML kind:</strong> <code class="docutils literal notranslate"><span class="pre">rotate_around_solution</span></code></p>
+<p>When ObjectPlacer applies positions, objects with this marker will have the
+specified rotation applied on top of the solved position to create a fixed Pose.</p>
+<p>Note: This is NOT a spatial relation - the RelationSolver ignores it. It only
+affects how ObjectPlacer applies the solved position to the object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>roll_rad</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Roll rotation in radians.</p></li>
+<li><p><strong>pitch_rad</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Pitch rotation in radians.</p></li>
+<li><p><strong>yaw_rad</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Yaw rotation in radians.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Validation</p>
+<p>None.</p>
+</dd></dl>
+
+<p>Enum parameters take their string values, for example <code class="docutils literal notranslate"><span class="pre">side:</span> <span class="pre">positive_x</span></code>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.Side">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Side</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.relations.Side" title="Link to this definition">#</a></dt>
+<dd><p>Axis direction for spatial relationships.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.Side.POSITIVE_X">
+<span class="sig-name descname"><span class="pre">POSITIVE_X</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'positive_x'</span></em><a class="headerlink" href="#isaaclab_arena.relations.relations.Side.POSITIVE_X" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.Side.NEGATIVE_X">
+<span class="sig-name descname"><span class="pre">NEGATIVE_X</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'negative_x'</span></em><a class="headerlink" href="#isaaclab_arena.relations.relations.Side.NEGATIVE_X" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.Side.POSITIVE_Y">
+<span class="sig-name descname"><span class="pre">POSITIVE_Y</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'positive_y'</span></em><a class="headerlink" href="#isaaclab_arena.relations.relations.Side.POSITIVE_Y" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.relations.Side.NEGATIVE_Y">
+<span class="sig-name descname"><span class="pre">NEGATIVE_Y</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'negative_y'</span></em><a class="headerlink" href="#isaaclab_arena.relations.relations.Side.NEGATIVE_Y" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.axis.Axis">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Axis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#isaaclab_arena.relations.axis.Axis" title="Link to this definition">#</a></dt>
+<dd><p>World axis for single-axis relations.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.axis.Axis.X">
+<span class="sig-name descname"><span class="pre">X</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'x'</span></em><a class="headerlink" href="#isaaclab_arena.relations.axis.Axis.X" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.axis.Axis.Y">
+<span class="sig-name descname"><span class="pre">Y</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'y'</span></em><a class="headerlink" href="#isaaclab_arena.relations.axis.Axis.Y" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.axis.Axis.Z">
+<span class="sig-name descname"><span class="pre">Z</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'z'</span></em><a class="headerlink" href="#isaaclab_arena.relations.axis.Axis.Z" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="isaaclab_arena.relations.placement_asset.PlaceableAsset">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PlaceableAsset</span></span><a class="headerlink" href="#isaaclab_arena.relations.placement_asset.PlaceableAsset" title="Link to this definition">#</a></dt>
+<dd><p>An asset that relations can place. In YAML, a relation’s <code class="docutils literal notranslate"><span class="pre">parent</span></code> is its <code class="docutils literal notranslate"><span class="pre">reference</span></code> node.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../quickstart/jupyter_notebooks.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Jupyter Notebooks</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../references/performance.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Performance and scaling</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#api-reference">API reference</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.AlignWith"><code class="docutils literal notranslate"><span class="pre">AlignWith</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.AtPosition"><code class="docutils literal notranslate"><span class="pre">AtPosition</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.ClutterOn"><code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.FaceTo"><code class="docutils literal notranslate"><span class="pre">FaceTo</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.IsAnchor"><code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.NextTo"><code class="docutils literal notranslate"><span class="pre">NextTo</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.NotNextTo"><code class="docutils literal notranslate"><span class="pre">NotNextTo</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.On"><code class="docutils literal notranslate"><span class="pre">On</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.PositionLimitsBox"><code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.PositionLimitsCylindrical"><code class="docutils literal notranslate"><span class="pre">PositionLimitsCylindrical</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.RequiresReachability"><code class="docutils literal notranslate"><span class="pre">RequiresReachability</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.RotateAroundSolution"><code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.Side"><code class="docutils literal notranslate"><span class="pre">Side</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.Side.POSITIVE_X"><code class="docutils literal notranslate"><span class="pre">POSITIVE_X</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.Side.NEGATIVE_X"><code class="docutils literal notranslate"><span class="pre">NEGATIVE_X</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.Side.POSITIVE_Y"><code class="docutils literal notranslate"><span class="pre">POSITIVE_Y</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.relations.Side.NEGATIVE_Y"><code class="docutils literal notranslate"><span class="pre">NEGATIVE_Y</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.axis.Axis"><code class="docutils literal notranslate"><span class="pre">Axis</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.axis.Axis.X"><code class="docutils literal notranslate"><span class="pre">X</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.axis.Axis.Y"><code class="docutils literal notranslate"><span class="pre">Y</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.axis.Axis.Z"><code class="docutils literal notranslate"><span class="pre">Z</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclab_arena.relations.placement_asset.PlaceableAsset"><code class="docutils literal notranslate"><span class="pre">PlaceableAsset</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

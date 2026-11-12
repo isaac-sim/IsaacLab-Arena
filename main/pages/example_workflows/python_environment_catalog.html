@@ -34,7 +34,7 @@
     <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=92d7f19d" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=83a19d84" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
@@ -402,14 +402,6 @@
 <li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_3_data_generation.html">Data Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
-<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
@@ -425,12 +417,6 @@
 <li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
-</ul>
-</details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
 </ul>
 </details></li>
 </ul>
@@ -507,6 +493,10 @@
 <li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/relations.html">Relations Reference</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
@@ -795,8 +785,7 @@ the <a class="reference internal" href="locomanipulation/index.html"><span class
 <p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">gr1_open_microwave</span></code></p>
 <p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">Gr1OpenMicrowaveEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/gr1_open_microwave_environment.py</span></code>)</p>
 <p><strong>Task Description:</strong> The GR1T2 humanoid reaches with its upper body to open a
-microwave door. Featured in the
-<a class="reference internal" href="static_manipulation/index.html"><span class="doc">GR1 Open Microwave Door Task</span></a> workflow.</p>
+microwave door.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <colgroup>
 <col style="width: 30.0%" />
@@ -1180,57 +1169,6 @@ the <a class="reference internal" href="reinforcement_learning/index.html"><span
 </table>
 </div>
 </section>
-<section id="dexsuite-lift">
-<h3>dexsuite_lift<a class="headerlink" href="#dexsuite-lift" title="Link to this heading">#</a></h3>
-<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code></p>
-<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">DexsuiteLiftEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/dexsuite_lift_environment.py</span></code>)</p>
-<p><strong>Task Description:</strong> Evaluation wrapper around the Isaac Lab
-<code class="docutils literal notranslate"><span class="pre">Isaac-Lift-KukaAllegro</span></code> MDP. The Kuka arm with an Allegro
-dexterous hand lifts a procedurally generated cuboid to a commanded target
-position. Featured in the
-<a class="reference internal" href="dexsuite_lift/index.html"><span class="doc">Dexsuite Kuka Allegro Lift Task (Newton)</span></a> workflow.</p>
-<div class="pst-scrollable-table-container"><table class="table">
-<colgroup>
-<col style="width: 30.0%" />
-<col style="width: 70.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Value</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><strong>Tags</strong></p></td>
-<td><p>Dexterous manipulation, contact-rich, RL evaluation</p></td>
-</tr>
-<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
-<td><p>Reach, Grasp, Lift (multi-finger)</p></td>
-</tr>
-<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">kuka_allegro</span></code> (fixed)</p></td>
-</tr>
-<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">procedural_table</span></code> background, <code class="docutils literal notranslate"><span class="pre">ground_plane</span></code>, <code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p><strong>Objects</strong></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">procedural_cube</span></code> (randomized initial pose with a wide <code class="docutils literal notranslate"><span class="pre">PoseRange</span></code>)</p></td>
-</tr>
-<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">DexsuiteLiftTask</span></code> (object_pose command, position-only, resampled every 2–3 s)</p></td>
-</tr>
-<tr class="row-even"><td><p><strong>Training Method</strong></p></td>
-<td><p>Pre-trained in Isaac Lab via <code class="docutils literal notranslate"><span class="pre">KukaAllegroPPORunnerCfg</span></code> (RSL-RL PPO)</p></td>
-</tr>
-<tr class="row-odd"><td><p><strong>Physics Backend</strong></p></td>
-<td><p>Newton (default) or PhysX (<code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">physx</span></code>)</p></td>
-</tr>
-<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
-<td><p><em>(none environment-specific; uses common ``ArenaEnvBuilder`` flags)</em></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
 </section>
 <section id="sandbox">
 <h2><a class="toc-backref" href="#id6" role="doc-backlink">Sandbox</a><a class="headerlink" href="#sandbox" title="Link to this heading">#</a></h2>
@@ -1455,7 +1393,6 @@ microwave, followed by closing the microwave door.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#goal-pose-lift-rl">Goal-Pose / Lift (RL)</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cube-goal-pose">cube_goal_pose</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#lift-object">lift_object</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dexsuite-lift">dexsuite_lift</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sandbox">Sandbox</a><ul class="nav section-nav flex-column">

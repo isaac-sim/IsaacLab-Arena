@@ -34,7 +34,7 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=92d7f19d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=83a19d84" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
@@ -402,14 +402,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_3_data_generation.html">Data Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
@@ -425,12 +417,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
-</ul>
-</details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
 </ul>
 </details></li>
 </ul>
@@ -507,6 +493,10 @@
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../api_reference/relations.html">Relations Reference</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
@@ -602,6 +592,7 @@ advanced users can replace entries in <code class="docutils literal notranslate"
 </div>
 <p>This describes the intended arrangement without requiring coordinates derived
 from the dimensions of the table, mug, and bowl.</p>
+<p>For every relation’s parameters, validation check and restrictions, see <a class="reference internal" href="../../api_reference/relations.html"><span class="doc">Relations Reference</span></a>.</p>
 <section id="anchors">
 <span id="relations-anchors"></span><h2>Anchors<a class="headerlink" href="#anchors" title="Link to this heading">#</a></h2>
 <p>An anchor is a fixed reference in the relation graph. Mark it with
@@ -639,199 +630,6 @@ relations, so it acts as a passive obstacle. To place objects on a surface
 within the background, such as a countertop prim in a kitchen, anchor an
 <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> to that prim, as above; see <a class="reference internal" href="collision_handling.html"><span class="doc">Collision Handling</span></a>.</p>
 </section>
-<section id="common-relations">
-<h2>Common Relations<a class="headerlink" href="#common-relations" title="Link to this heading">#</a></h2>
-<p>Most environments can be described with a small set of relations:</p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">On(parent)</span></code></dt><dd><p>Places an object on a support surface and keeps its footprint within the
-support bounds. Use <code class="docutils literal notranslate"><span class="pre">clearance_m</span></code> to leave a vertical gap and
-<code class="docutils literal notranslate"><span class="pre">edge_margin_m</span></code> to keep the object away from the support edges.</p>
-<p>Set <code class="docutils literal notranslate"><span class="pre">overlap=True</span></code> to allow the object to extend beyond the support:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-</pre></div>
-</div>
-<p>This requires overlap in both X and Y (edge contact counts), ignores
-<code class="docutils literal notranslate"><span class="pre">edge_margin_m</span></code>, and keeps the same height constraint. It does not guarantee
-stable support: the object may tip or fall. The default is <code class="docutils literal notranslate"><span class="pre">overlap=False</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">On</span></code> uses the top and horizontal footprint of the parent’s axis-aligned
-bounding box. For L-shaped, hollow, or concave supports, anchor an
-<code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> that identifies the valid support surface.</p>
-<p>The default <code class="docutils literal notranslate"><span class="pre">ON_TREE</span></code> initializer samples parents before their children,
-using each parent’s sampled pose and bounds. This sets the starting poses;
-the solver then optimizes the complete layout jointly.</p>
-</dd>
-</dl>
-<dl id="clutter-on-relation">
-<dt><code class="docutils literal notranslate"><span class="pre">ClutterOn(parent)</span></code></dt><dd><p>Defines a <strong>release pose</strong> above a support, before physics. The support can
-be fixed with <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> or placed through its own relations, such as
-<code class="docutils literal notranslate"><span class="pre">tray</span> <span class="pre">On(table)</span></code> with <code class="docutils literal notranslate"><span class="pre">tools</span> <span class="pre">ClutterOn(tray)</span></code>.</p>
-<p>The solver optimizes the support and clutter positions together using the
-relation and collision losses. An anchored support remains fixed.
-<code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> initializes clutter inside a central release region and
-above overlapping footprints. The release region follows the support as
-the solver moves it.</p>
-<p>Clutter footprints may overlap in XY during initialization; overlapping
-objects start at separated heights. The height-processing order is shuffled
-per candidate, so asset order does not always put the same object underneath
-the others. Setting <code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> makes this order reproducible with the
-same placement configuration.</p>
-<div class="pst-scrollable-table-container"><table class="table">
-<colgroup>
-<col style="width: 22.0%" />
-<col style="width: 13.0%" />
-<col style="width: 65.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Parameter</p></th>
-<th class="head"><p>Default</p></th>
-<th class="head"><p>Meaning</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spread</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span></code></p></td>
-<td><p>Fraction of the support’s width and depth, in <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code>. A value of
-0.2 selects the central 20% of each axis, or 4% of the XY area.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">clearance_m</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">0.01</span></code></p></td>
-<td><p>Minimum height of the object’s bottom above the support top, in metres.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gap_m</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">0.03</span></code></p></td>
-<td><p>Initial gap to neighboring release bounds, in metres. Sampling uses
-the larger of this value and the solver’s collision clearance;
-subsequent solving uses the shared collision clearance.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">edge_margin_m</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
-<td><p>Inward margin within the release region, in metres. The rotated object
-footprint must fit inside the remaining region.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">random_yaw</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
-<td><p>Sample world-Z yaw in addition to <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code>. This setting
-controls clutter independently of <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.random_yaw_init</span></code>.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>Restrictions:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> must be the object’s only spatial relation.
-<code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code> sets its base rotation; random yaw preserves that
-rotation’s tilt.</p></li>
-<li><p>Both <code class="docutils literal notranslate"><span class="pre">bbox</span></code> and <code class="docutils literal notranslate"><span class="pre">mesh</span></code> collision modes support yaw-only clutter.
-Roll or pitch requires <code class="docutils literal notranslate"><span class="pre">collision_mode=&quot;bbox&quot;</span></code> on the object.</p></li>
-<li><p>The support must participate in placement and cannot itself use <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code>.
-It must remain upright with a fixed yaw that is a multiple of 90 degrees.
-For a non-anchor support, disable <code class="docutils literal notranslate"><span class="pre">random_yaw_init</span></code> and do not use
-<code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> on the support.</p></li>
-<li><p>For recording, non-clutter objects with placement relations must be fixed
-anchors or kinematic rigid bodies.</p></li>
-</ul>
-<p>The <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> check enforces the release footprint and minimum
-height without requiring contact or an upper height limit.
-With explicit <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code> or <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>, include
-<code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> for clutter and <code class="docutils literal notranslate"><span class="pre">on_relation</span></code> for ordinary <code class="docutils literal notranslate"><span class="pre">On</span></code>
-objects. Both checks are enabled by default. The standard
-<a class="reference internal" href="validation.html"><span class="doc">validation</span></a> and <a class="reference internal" href="pooled_placement.html"><span class="doc">pooling</span></a> rules apply.
-Disable <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.allow_best_loss_fallbacks</span></code> to reject invalid
-pooled layouts; direct <code class="docutils literal notranslate"><span class="pre">ObjectPlacer.place()</span></code> callers must check each
-result’s <code class="docutils literal notranslate"><span class="pre">success</span></code>.</p>
-<p>A <strong>settled pose</strong> is the final pose after the configured physics interval.
-An <strong>accepted layout</strong> passes the required pre-physics and enabled, applicable
-<a class="reference internal" href="validation.html#recording-post-physics-checks"><span class="std std-ref">post-physics checks</span></a>. Settled objects may
-use the full support footprint, beyond the smaller release region. Release
-checks do not certify the final pile or prevent collisions during falling.
-Try the <a class="reference internal" href="../offline_placement/clutter.html#movable-bowl-clutter"><span class="std std-ref">movable-bowl example</span></a> in the shared
-<a class="reference internal" href="../offline_placement/clutter.html"><span class="doc">Clutter Layouts</span></a> recording and replay workflow.</p>
-</dd>
-</dl>
-<dl id="next-to-relation">
-<dt><code class="docutils literal notranslate"><span class="pre">NextTo(parent)</span></code></dt><dd><p>Places an object beside another object. A side and distance can be specified
-when needed. Geometric validation rejects candidates that are not on the
-requested side, or whose gap to the parent differs from <code class="docutils literal notranslate"><span class="pre">distance_m</span></code> by
-more than <code class="docutils literal notranslate"><span class="pre">tolerance_m</span></code> (0.01 m by default). Placing the object closer than
-requested also fails.</p>
-<p>By default, the solver applies zero cross-axis loss anywhere the subject’s
-footprint fits within the parent’s perpendicular extent. Set
-<code class="docutils literal notranslate"><span class="pre">cross_position_ratio=0.0</span></code> to opt into centering, or a value from <code class="docutils literal notranslate"><span class="pre">-1.0</span></code>
-to <code class="docutils literal notranslate"><span class="pre">1.0</span></code> to prefer a position between the two ends. This preference remains
-soft and is not checked by geometric validation.</p>
-<p>With no additional arguments, <code class="docutils literal notranslate"><span class="pre">NextTo(parent)</span></code> places the subject on the
-parent’s positive X side at a distance of 0.05 m.</p>
-<p><code class="docutils literal notranslate"><span class="pre">side</span></code> accepts <code class="docutils literal notranslate"><span class="pre">Side.POSITIVE_X</span></code>, <code class="docutils literal notranslate"><span class="pre">Side.NEGATIVE_X</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Side.POSITIVE_Y</span></code>, or <code class="docutils literal notranslate"><span class="pre">Side.NEGATIVE_Y</span></code>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">AlignWith(parent,</span> <span class="pre">axis,</span> <span class="pre">offset_m=0.0,</span> <span class="pre">tolerance_m=0.02)</span></code></dt><dd><p>Aligns the centres of two placement bounding boxes along one world axis
-(<code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;z&quot;</span></code>). The subject’s centre is placed within
-<code class="docutils literal notranslate"><span class="pre">tolerance_m</span></code> of the reference centre plus <code class="docutils literal notranslate"><span class="pre">offset_m</span></code> on that axis;
-the other axes and both objects’ orientations remain unconstrained.
-The offset is signed, in metres. Python accepts <code class="docutils literal notranslate"><span class="pre">Axis.X</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Axis.Y</span></code>, or <code class="docutils literal notranslate"><span class="pre">Axis.Z</span></code> from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.axis</span></code>
-as well as strings. The solver applies zero alignment penalty throughout this tolerance band
-and a linear penalty outside it.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">align_with</span>
-<span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid</span>
-<span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">wooden_bowl</span>
-<span class="w">  </span><span class="nt">params</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">axis</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">x</span>
-<span class="w">    </span><span class="nt">tolerance_m</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.04</span>
-</pre></div>
-</div>
-<p>Use <code class="docutils literal notranslate"><span class="pre">NextTo</span></code> for a side and an edge-to-edge clearance (“stand 20 cm in front
-of the microwave”). Use <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> for a centre coordinate or a relative
-offset (“line up with the microwave centre”). They can be combined: <code class="docutils literal notranslate"><span class="pre">NextTo</span></code>
-sets the front clearance and <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> fixes lateral alignment. Two
-<code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> relations instead define a centre-relative X/Y target region;
-that does not preserve an edge clearance when either object’s size changes.</p>
-<p>Neither relation chooses a facing direction or a support surface; use
-<code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> or <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code> for heading and <code class="docutils literal notranslate"><span class="pre">On</span></code> for support.
-Horizontal <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> combined with <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> requires the turning asset’s
-placement-box centre to lie on its yaw axis, for both subject and reference.
-Otherwise placement raises an error: the post-solve turn would move the centre.
-Use a fixed heading or centred placement bounds for that case. Z alignment is
-unaffected by a yaw-only turn.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">NotNextTo(parent)</span></code></dt><dd><p>Defines a side-specific keep-out region next to the parent. The region
-extends outward from the selected side and spans the parent’s footprint
-along the perpendicular axis. Validation rejects candidates inside that
-region. The keep-out margin defaults to 0.1 m. Advanced users can change it
-by providing a <code class="docutils literal notranslate"><span class="pre">NotNextToLossStrategy</span></code> for <code class="docutils literal notranslate"><span class="pre">NotNextTo</span></code> in
-<code class="docutils literal notranslate"><span class="pre">RelationSolverParams.strategies</span></code>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">AtPosition(...)</span></code></dt><dd><p>Constrains selected world-coordinate axes. It can be combined with <code class="docutils literal notranslate"><span class="pre">On</span></code> so
-the relation determines height while coordinates determine horizontal
-position.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code> and <code class="docutils literal notranslate"><span class="pre">PositionLimitsCylindrical</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code> constrains selected world X, Y, or Z coordinates
-between optional minimum and maximum values.
-<code class="docutils literal notranslate"><span class="pre">PositionLimitsCylindrical</span></code> constrains the XY distance from a chosen
-center using a minimum radius, maximum radius, or both; it does not
-constrain Z. Both relations contribute solver losses; no built-in validator
-certifies these bounds.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">FaceTo(target)</span></code></dt><dd><p>Rotates an object around world Z so that its local +X heading points toward
-another object.</p>
-</dd>
-</dl>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">FaceTo</span>
-
-<span class="n">target</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
-<span class="n">camera_prop</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
-<span class="n">camera_prop</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">FaceTo</span><span class="p">(</span><span class="n">target</span><span class="p">))</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> determines the heading after position solving:</p>
-<ul class="simple">
-<li><p>It cannot be combined with <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code>.</p></li>
-<li><p>When random yaw initialization is enabled, it replaces the random heading.</p></li>
-<li><p>The target must also participate in relation placement.</p></li>
-<li><p>A movable subject can have only one <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> relation.</p></li>
-<li><p>The subject and target must have different XY positions.</p></li>
-</ul>
-</section>
 <section id="combining-relations">
 <h2>Combining Relations<a class="headerlink" href="#combining-relations" title="Link to this heading">#</a></h2>
 <p>Relations are most useful in small combinations:</p>
@@ -843,6 +641,12 @@ surface.”</p></li>
 <li><p>A positional relation with <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> controls both location and
 orientation.</p></li>
 </ul>
+<p>Use <code class="docutils literal notranslate"><span class="pre">NextTo</span></code> for a side and an edge-to-edge clearance (“stand 20 cm in front
+of the microwave”). Use <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> for a centre coordinate or a relative
+offset (“line up with the microwave centre”). They can be combined: <code class="docutils literal notranslate"><span class="pre">NextTo</span></code>
+sets the front clearance and <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> fixes lateral alignment. Two
+<code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> relations instead define a centre-relative X/Y target region;
+that does not preserve an edge clearance when either object’s size changes.</p>
 <p>Avoid specifying more relations than the environment needs. Extra constraints
 can make the intended layout harder or impossible to satisfy.</p>
 </section>
@@ -1001,7 +805,6 @@ against one another and against fixed geometry.</p>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#anchors">Anchors</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#common-relations">Common Relations</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#combining-relations">Combining Relations</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#placement-modifiers">Placement Modifiers</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#relations-in-environment-specifications">Relations in Environment Specifications</a></li>

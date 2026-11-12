@@ -22,6 +22,8 @@ advanced users can replace entries in ``RelationSolverParams.strategies``.
 This describes the intended arrangement without requiring coordinates derived
 from the dimensions of the table, mug, and bowl.
 
+For every relation's parameters, validation check and restrictions, see :doc:`/pages/api_reference/relations`.
+
 .. _relations-anchors:
 
 Anchors
@@ -67,209 +69,6 @@ relations, so it acts as a passive obstacle. To place objects on a surface
 within the background, such as a countertop prim in a kitchen, anchor an
 ``ObjectReference`` to that prim, as above; see :doc:`./collision_handling`.
 
-Common Relations
-----------------
-
-Most environments can be described with a small set of relations:
-
-``On(parent)``
-   Places an object on a support surface and keeps its footprint within the
-   support bounds. Use ``clearance_m`` to leave a vertical gap and
-   ``edge_margin_m`` to keep the object away from the support edges.
-
-   Set ``overlap=True`` to allow the object to extend beyond the support:
-
-   .. code-block:: python
-
-      box.add_relation(On(table, overlap=True))
-
-   This requires overlap in both X and Y (edge contact counts), ignores
-   ``edge_margin_m``, and keeps the same height constraint. It does not guarantee
-   stable support: the object may tip or fall. The default is ``overlap=False``.
-
-   ``On`` uses the top and horizontal footprint of the parent's axis-aligned
-   bounding box. For L-shaped, hollow, or concave supports, anchor an
-   ``ObjectReference`` that identifies the valid support surface.
-
-   The default ``ON_TREE`` initializer samples parents before their children,
-   using each parent's sampled pose and bounds. This sets the starting poses;
-   the solver then optimizes the complete layout jointly.
-
-.. _clutter-on-relation:
-
-``ClutterOn(parent)``
-   Defines a **release pose** above a support, before physics. The support can
-   be fixed with ``IsAnchor`` or placed through its own relations, such as
-   ``tray On(table)`` with ``tools ClutterOn(tray)``.
-
-   The solver optimizes the support and clutter positions together using the
-   relation and collision losses. An anchored support remains fixed.
-   ``ObjectPlacer`` initializes clutter inside a central release region and
-   above overlapping footprints. The release region follows the support as
-   the solver moves it.
-
-   Clutter footprints may overlap in XY during initialization; overlapping
-   objects start at separated heights. The height-processing order is shuffled
-   per candidate, so asset order does not always put the same object underneath
-   the others. Setting ``placement_seed`` makes this order reproducible with the
-   same placement configuration.
-
-   .. list-table::
-      :header-rows: 1
-      :widths: 22 13 65
-
-      * - Parameter
-        - Default
-        - Meaning
-      * - ``spread``
-        - ``0.2``
-        - Fraction of the support's width and depth, in ``(0, 1]``. A value of
-          0.2 selects the central 20% of each axis, or 4% of the XY area.
-      * - ``clearance_m``
-        - ``0.01``
-        - Minimum height of the object's bottom above the support top, in metres.
-      * - ``gap_m``
-        - ``0.03``
-        - Initial gap to neighboring release bounds, in metres. Sampling uses
-          the larger of this value and the solver's collision clearance;
-          subsequent solving uses the shared collision clearance.
-      * - ``edge_margin_m``
-        - ``0.0``
-        - Inward margin within the release region, in metres. The rotated object
-          footprint must fit inside the remaining region.
-      * - ``random_yaw``
-        - ``True``
-        - Sample world-Z yaw in addition to ``RotateAroundSolution``. This setting
-          controls clutter independently of ``ObjectPlacerParams.random_yaw_init``.
-
-   Restrictions:
-
-   * ``ClutterOn`` must be the object's only spatial relation.
-     ``RotateAroundSolution`` sets its base rotation; random yaw preserves that
-     rotation's tilt.
-   * Both ``bbox`` and ``mesh`` collision modes support yaw-only clutter.
-     Roll or pitch requires ``collision_mode="bbox"`` on the object.
-   * The support must participate in placement and cannot itself use ``ClutterOn``.
-     It must remain upright with a fixed yaw that is a multiple of 90 degrees.
-     For a non-anchor support, disable ``random_yaw_init`` and do not use
-     ``FaceTo`` on the support.
-   * For recording, non-clutter objects with placement relations must be fixed
-     anchors or kinematic rigid bodies.
-
-   The ``clutter_on_relation`` check enforces the release footprint and minimum
-   height without requiring contact or an upper height limit.
-   With explicit ``enabled_checks`` or ``required_checks``, include
-   ``clutter_on_relation`` for clutter and ``on_relation`` for ordinary ``On``
-   objects. Both checks are enabled by default. The standard
-   :doc:`validation <validation>` and :doc:`pooling <pooled_placement>` rules apply.
-   Disable ``ObjectPlacerParams.allow_best_loss_fallbacks`` to reject invalid
-   pooled layouts; direct ``ObjectPlacer.place()`` callers must check each
-   result's ``success``.
-
-   A **settled pose** is the final pose after the configured physics interval.
-   An **accepted layout** passes the required pre-physics and enabled, applicable
-   :ref:`post-physics checks <recording-post-physics-checks>`. Settled objects may
-   use the full support footprint, beyond the smaller release region. Release
-   checks do not certify the final pile or prevent collisions during falling.
-   Try the :ref:`movable-bowl example <movable-bowl-clutter>` in the shared
-   :doc:`../offline_placement/clutter` recording and replay workflow.
-
-.. _next-to-relation:
-
-``NextTo(parent)``
-   Places an object beside another object. A side and distance can be specified
-   when needed. Geometric validation rejects candidates that are not on the
-   requested side, or whose gap to the parent differs from ``distance_m`` by
-   more than ``tolerance_m`` (0.01 m by default). Placing the object closer than
-   requested also fails.
-
-   By default, the solver applies zero cross-axis loss anywhere the subject's
-   footprint fits within the parent's perpendicular extent. Set
-   ``cross_position_ratio=0.0`` to opt into centering, or a value from ``-1.0``
-   to ``1.0`` to prefer a position between the two ends. This preference remains
-   soft and is not checked by geometric validation.
-
-   With no additional arguments, ``NextTo(parent)`` places the subject on the
-   parent's positive X side at a distance of 0.05 m.
-
-   ``side`` accepts ``Side.POSITIVE_X``, ``Side.NEGATIVE_X``,
-   ``Side.POSITIVE_Y``, or ``Side.NEGATIVE_Y``.
-
-``AlignWith(parent, axis, offset_m=0.0, tolerance_m=0.02)``
-   Aligns the centres of two placement bounding boxes along one world axis
-   (``"x"``, ``"y"``, or ``"z"``). The subject's centre is placed within
-   ``tolerance_m`` of the reference centre plus ``offset_m`` on that axis;
-   the other axes and both objects' orientations remain unconstrained.
-   The offset is signed, in metres. Python accepts ``Axis.X``,
-   ``Axis.Y``, or ``Axis.Z`` from ``isaaclab_arena.relations.axis``
-   as well as strings. The solver applies zero alignment penalty throughout this tolerance band
-   and a linear penalty outside it.
-
-   .. code-block:: yaml
-
-      - kind: align_with
-        subject: droid
-        reference: wooden_bowl
-        params:
-          axis: x
-          tolerance_m: 0.04
-
-   Use ``NextTo`` for a side and an edge-to-edge clearance ("stand 20 cm in front
-   of the microwave"). Use ``AlignWith`` for a centre coordinate or a relative
-   offset ("line up with the microwave centre"). They can be combined: ``NextTo``
-   sets the front clearance and ``AlignWith`` fixes lateral alignment. Two
-   ``AlignWith`` relations instead define a centre-relative X/Y target region;
-   that does not preserve an edge clearance when either object's size changes.
-
-   Neither relation chooses a facing direction or a support surface; use
-   ``FaceTo`` or ``RotateAroundSolution`` for heading and ``On`` for support.
-   Horizontal ``AlignWith`` combined with ``FaceTo`` requires the turning asset's
-   placement-box centre to lie on its yaw axis, for both subject and reference.
-   Otherwise placement raises an error: the post-solve turn would move the centre.
-   Use a fixed heading or centred placement bounds for that case. Z alignment is
-   unaffected by a yaw-only turn.
-
-``NotNextTo(parent)``
-   Defines a side-specific keep-out region next to the parent. The region
-   extends outward from the selected side and spans the parent's footprint
-   along the perpendicular axis. Validation rejects candidates inside that
-   region. The keep-out margin defaults to 0.1 m. Advanced users can change it
-   by providing a ``NotNextToLossStrategy`` for ``NotNextTo`` in
-   ``RelationSolverParams.strategies``.
-
-``AtPosition(...)``
-   Constrains selected world-coordinate axes. It can be combined with ``On`` so
-   the relation determines height while coordinates determine horizontal
-   position.
-
-``PositionLimitsBox`` and ``PositionLimitsCylindrical``
-   ``PositionLimitsBox`` constrains selected world X, Y, or Z coordinates
-   between optional minimum and maximum values.
-   ``PositionLimitsCylindrical`` constrains the XY distance from a chosen
-   center using a minimum radius, maximum radius, or both; it does not
-   constrain Z. Both relations contribute solver losses; no built-in validator
-   certifies these bounds.
-
-``FaceTo(target)``
-   Rotates an object around world Z so that its local +X heading points toward
-   another object.
-
-.. code-block:: python
-
-   from isaaclab_arena.relations.relations import FaceTo
-
-   target.add_relation(On(table))
-   camera_prop.add_relation(On(table))
-   camera_prop.add_relation(FaceTo(target))
-
-``FaceTo`` determines the heading after position solving:
-
-- It cannot be combined with ``RotateAroundSolution``.
-- When random yaw initialization is enabled, it replaces the random heading.
-- The target must also participate in relation placement.
-- A movable subject can have only one ``FaceTo`` relation.
-- The subject and target must have different XY positions.
-
 Combining Relations
 -------------------
 
@@ -281,6 +80,13 @@ Relations are most useful in small combinations:
   surface."
 - A positional relation with ``FaceTo`` controls both location and
   orientation.
+
+Use ``NextTo`` for a side and an edge-to-edge clearance ("stand 20 cm in front
+of the microwave"). Use ``AlignWith`` for a centre coordinate or a relative
+offset ("line up with the microwave centre"). They can be combined: ``NextTo``
+sets the front clearance and ``AlignWith`` fixes lateral alignment. Two
+``AlignWith`` relations instead define a centre-relative X/Y target region;
+that does not preserve an edge clearance when either object's size changes.
 
 Avoid specifying more relations than the environment needs. Extra constraints
 can make the intended layout harder or impossible to satisfy.

@@ -1220,6 +1220,13 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
 .. toctree::
    :maxdepth: 1
    :hidden:
+   :caption: API Reference
+
+   pages/api_reference/relations
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
    :caption: References
 
    pages/references/performance

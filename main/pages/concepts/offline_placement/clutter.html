@@ -34,7 +34,7 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=92d7f19d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=83a19d84" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
@@ -402,14 +402,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_3_data_generation.html">Data Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
@@ -425,12 +417,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
-</ul>
-</details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
 </ul>
 </details></li>
 </ul>
@@ -507,6 +493,10 @@
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../api_reference/relations.html">Relations Reference</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
@@ -731,7 +721,7 @@ controls solver pool refills, not the output count. See
 <section id="record-cube-clutter-in-a-movable-bowl">
 <span id="movable-bowl-clutter"></span><span id="cube-clutter-in-a-container"></span><h2>Record Cube Clutter in a Movable Bowl<a class="headerlink" href="#record-cube-clutter-in-a-movable-bowl" title="Link to this heading">#</a></h2>
 <p>The second maintained scene releases three cubes into a YCB bowl. The bowl uses
-<code class="docutils literal notranslate"><span class="pre">On(table)</span></code> and the cubes use <a class="reference internal" href="../object_placement/relations.html#clutter-on-relation"><span class="std std-ref">ClutterOn(bowl)</span></a>;
+<code class="docutils literal notranslate"><span class="pre">On(table)</span></code> and the cubes use <a class="reference internal" href="../../api_reference/relations.html#isaaclab_arena.relations.relations.ClutterOn" title="isaaclab_arena.relations.relations.ClutterOn"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClutterOn(bowl)</span></code></a>;
 Arena solves their positions together. <code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code> targets [-0.2, 0.2]
 metres for the bowl’s X and Y positions; the validators do not certify these
 bounds. The bowl is kinematic, so its position can vary between layouts but
@@ -842,7 +832,7 @@ Object sets and reachability requirements on clutter objects are unsupported.</p
 <li><p>Keep recorded roots compatible with pose resets. Joint states and other
 randomized properties are not saved.</p></li>
 </ul>
-<p>Use <a class="reference internal" href="../object_placement/relations.html#clutter-on-relation"><span class="std std-ref">ClutterOn settings</span></a> to choose release spread,
+<p>Use <a class="reference internal" href="../../api_reference/relations.html#isaaclab_arena.relations.relations.ClutterOn" title="isaaclab_arena.relations.relations.ClutterOn"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClutterOn</span> <span class="pre">settings</span></code></a> to choose release spread,
 clearance and rotations. For containers or supports without a verified flat top,
 provide a measured <a class="reference internal" href="../object_placement/validation.html#clutter-support-floor-height"><span class="std std-ref">support-local floor height</span></a>.</p>
 <p>For example, the table scene fixes the table as an anchor and gives each tool

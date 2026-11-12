@@ -176,7 +176,7 @@ Record Cube Clutter in a Movable Bowl
 --------------------------------------
 
 The second maintained scene releases three cubes into a YCB bowl. The bowl uses
-``On(table)`` and the cubes use :ref:`ClutterOn(bowl) <clutter-on-relation>`;
+``On(table)`` and the cubes use :class:`ClutterOn(bowl) <isaaclab_arena.relations.relations.ClutterOn>`;
 Arena solves their positions together. ``PositionLimitsBox`` targets [-0.2, 0.2]
 metres for the bowl's X and Y positions; the validators do not certify these
 bounds. The bowl is kinematic, so its position can vary between layouts but
@@ -286,7 +286,7 @@ The supplied scenes meet these requirements. When adapting another scene:
 * Keep recorded roots compatible with pose resets. Joint states and other
   randomized properties are not saved.
 
-Use :ref:`ClutterOn settings <clutter-on-relation>` to choose release spread,
+Use :class:`ClutterOn settings <isaaclab_arena.relations.relations.ClutterOn>` to choose release spread,
 clearance and rotations. For containers or supports without a verified flat top,
 provide a measured :ref:`support-local floor height <clutter-support-floor-height>`.
 
