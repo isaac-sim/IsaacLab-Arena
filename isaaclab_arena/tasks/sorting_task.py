@@ -33,9 +33,8 @@ class SortMultiObjectTask(TaskBase):
         background_scene: Asset,
         episode_length_s: float | None = None,
         force_threshold: float = 1.0,
-        task_description: str | None = None,
     ):
-        super().__init__(episode_length_s=episode_length_s, task_description=task_description)
+        super().__init__(episode_length_s=episode_length_s)
         assert len(pick_up_object_list) == len(destination_location_list)
 
         self.pick_up_object_list = pick_up_object_list

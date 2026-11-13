@@ -187,44 +187,6 @@ def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
     assert built == [{"task_description": "pick up the cube"}]
 
 
-@pytest.mark.parametrize(
-    "kind, params",
-    [
-        ("GoalPoseTask", {"object": "cube"}),
-        ("LiftObjectTask", {"lift_object": "cube", "background_scene": "table"}),
-        ("LiftObjectTaskRL", {"lift_object": "cube", "background_scene": "table", "embodiment": "robot"}),
-        (
-            "SortMultiObjectTask",
-            {
-                "pick_up_object_list": ["cube"],
-                "destination_location_list": ["bin"],
-                "background_scene": "table",
-            },
-        ),
-    ],
-)
-def test_build_registered_atomic_task_preserves_description(kind, params):
-    """Registered task constructors forward spec descriptions to TaskBase and allow omission."""
-    from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
-    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskSpec
-    from isaaclab_arena.utils.pose import Pose
-
-    cube = AssetRegistry().get_asset_by_name("red_cube")()
-    cube.set_initial_pose(Pose.identity(), create_reset_event=False)
-    assets = {"cube": cube, "table": Asset("table"), "bin": Asset("bin")}
-    if "embodiment" in params:
-        assets["robot"] = FrankaIKEmbodiment()
-
-    task_spec = TaskSpec(kind=kind, params=params)
-    spec = CompositeTaskSpec(composition="atomic", description="Follow this instruction", subtasks=[task_spec])
-    result = conversion.build_task_from_spec(spec, assets)
-    assert result.get_task_description() == spec.description
-
-    task_without_description = conversion._build_atomic_task_from_spec(task_spec, assets)
-    assert task_without_description.get_task_description() is None
-
-
 @pytest.mark.parametrize("composition, subtasks_are_sequential", [("sequential", True), ("parallel", False)])
 def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, subtasks_are_sequential):
     captured: dict[str, Any] = {}

@@ -11,6 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, TypeVar
 
 from isaaclab_arena.assets.register import register_object_relation
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
@@ -578,6 +579,13 @@ class PositionLimitsBox(UnaryRelation):
         self.y_min, self.y_max = y_limits
         self.z_min, self.z_max = z_limits
         self.relation_loss_weight = relation_loss_weight
+
+
+# Keep the original Python and YAML names as aliases for box limits.
+PositionLimits = PositionLimitsBox
+_relation_registry = ObjectRelationLibraryRegistry()
+if not _relation_registry.is_registered("position_limits", ensure_loaded=False):
+    _relation_registry.register(PositionLimitsBox, "position_limits")
 
 
 @register_object_relation

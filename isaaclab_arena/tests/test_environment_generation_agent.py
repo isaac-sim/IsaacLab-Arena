@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import inspect
 import json
 from enum import Enum
 from unittest.mock import patch
@@ -23,7 +22,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
 )
-from isaaclab_arena.assets.registries import AssetRegistry, TaskRegistry
+from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
@@ -89,9 +88,6 @@ def test_task_catalogue_excludes_structural_graph_fields():
     entries = {entry.name: entry for entry in catalogue.tasks}
 
     assert list(entries) == ["CloseDoorTask", "OpenDoorTask", "PickAndPlaceTask"]
-    for name in entries:
-        task_init_params = inspect.signature(TaskRegistry().get_task_by_name(name).__init__).parameters
-        assert "task_description" in task_init_params, f"{name} cannot accept the spec description"
     pick_params = entries["PickAndPlaceTask"].required_params + entries["PickAndPlaceTask"].optional_params
     assert "task_description" not in pick_params
     assert "max_separation" not in pick_params

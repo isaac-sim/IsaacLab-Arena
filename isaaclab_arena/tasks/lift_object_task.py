@@ -39,7 +39,6 @@ class LiftObjectTask(TaskBase):
         episode_length_s: float = 5.0,
         goal_position_delta_xyz: tuple[float, float, float] = (0.0, 0.0, 0.3),
         goal_position_tolerance: float = 0.05,
-        task_description: str | None = None,
     ):
         """Initialize the Lift Object task.
 
@@ -50,9 +49,8 @@ class LiftObjectTask(TaskBase):
             goal_position_delta_xyz: Goal position delta [dx, dy, dz] relative to initial pose (m).
                 Default: (0, 0, 0.3) = 30cm above initial position.
             goal_position_tolerance: Position tolerance for success (m).
-            task_description: Optional natural-language task instruction.
         """
-        super().__init__(episode_length_s=episode_length_s, task_description=task_description)
+        super().__init__(episode_length_s=episode_length_s)
         self.lift_object = lift_object
         self.background_scene = background_scene
 
@@ -131,7 +129,6 @@ class LiftObjectTaskRL(LiftObjectTask):
         target_x_delta: tuple[float, float] = (-0.1, 0.1),
         target_y_delta: tuple[float, float] = (-0.25, 0.25),
         target_z_delta: tuple[float, float] = (0.2, 0.4),
-        task_description: str | None = None,
     ):
         """Initialize the Lift Object RL task.
 
@@ -145,7 +142,6 @@ class LiftObjectTaskRL(LiftObjectTask):
             target_y_delta: Target range deltas for y [min_delta, max_delta] relative to initial pose (m).
             target_z_delta: Target range deltas for z [min_delta, max_delta] relative to initial pose (m).
             rl_training_mode: If True, disables success termination. Set to False for evaluation.
-            task_description: Optional natural-language task instruction.
         """
         self.rl_training_mode = rl_training_mode
 
@@ -176,7 +172,6 @@ class LiftObjectTaskRL(LiftObjectTask):
             episode_length_s=episode_length_s,
             goal_position_delta_xyz=(0, 0, 0),
             goal_position_tolerance=0.05,
-            task_description=task_description,
         )
 
         self.embodiment = embodiment
