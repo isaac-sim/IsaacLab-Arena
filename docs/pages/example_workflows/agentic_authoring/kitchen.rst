@@ -23,7 +23,7 @@ Install and authenticate your favourite coding agent on the host,
 then start it from the repository root.
 In our example, we use Codex with GPT-6 Astra and high reasoning effort.
 
-:codex_setup:
+.. include:: ../../_includes/codex_setup.rst.inc
 
 Viewing an Existing ``kitchen_bench`` Environment
 -------------------------------------------------
