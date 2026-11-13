@@ -136,7 +136,8 @@ def run_environment(
 def main() -> None:
     """Launch and continuously run one interactive Arena environment."""
     args_parser = get_isaaclab_arena_cli_parser()
-    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=True)
+    # On Lab 3.0 GA, objects may disappear and complex articulations become unstable without Fabric.
+    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=False)
     args_parser.allow_abbrev = False
     # AppLauncher may append Kit flags to sys.argv.
     original_cli_args = sys.argv[1:]
