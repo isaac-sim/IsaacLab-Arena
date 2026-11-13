@@ -291,7 +291,8 @@ server:
 .. code-block:: text
 
     Evaluate the pi05 DROID policy on the environment at
-    `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml` for 3 episodes
+    `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml` for 3 episodes.
+    Record camera videos, and open the evaluation report in my browser when it's done.
 
 The repository's ``run-experiment`` and ``serve-openpi-policy`` skills guide
 the agent through the evaluation. Expect it to:
@@ -305,11 +306,18 @@ the agent through the evaluation. Expect it to:
    ~19 GB) and downloads the ~11 GB checkpoint, so the agent should ask before
    starting it.
 3. **Run the evaluation:** run the Experiment with
-   ``isaaclab_arena/evaluation/experiment_runner.py`` and report the results.
+   ``isaaclab_arena/evaluation/experiment_runner.py`` and the ``--record_camera_video``
+   flag, then report the results.
+4. **Open the report:** open the ``index.html`` evaluation report from the run's
+   output directory under ``outputs/`` in your browser.
 
 An episode only counts as a success when both fruits are in their bowls. The
 results also include ``subtask_success_rate``, the success rate for each fruit,
 so you can see which placement the policy completed.
+
+The report shows each episode's result next to its recorded videos, one per
+camera. The Experiment's ``enable_cameras: true`` only gives the policy its
+camera inputs; videos are saved only when ``--record_camera_video`` is set.
 
 .. video:: ../../../images/agentic_authoring/peninsula_kitchen_banana_and_orange_pi05_episode.mp4
    :width: 100%
@@ -344,7 +352,8 @@ so you can see which placement the policy completed.
             num_episodes: 3
 
 See :doc:`OpenPI <../../quickstart/running_a_real_policy/openpi>` for running
-the server and the Experiment Runner yourself.
+the server and the Experiment Runner yourself, including serving the report over
+HTTP when your browser is on a different machine.
 
 
 Going Further

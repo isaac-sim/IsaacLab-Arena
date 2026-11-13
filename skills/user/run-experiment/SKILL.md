@@ -1,7 +1,7 @@
 ---
 name: run-experiment
 description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), direct Policy Runner workflows, or OSMO preview, submission, or management.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id --user --name) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id --user --name) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *) Bash(xdg-open *)
 ---
 
 # Run Experiment
@@ -63,7 +63,10 @@ zero-action policy and requires no model or policy server.
 - Preserve the runner's default stop-on-first-error behavior. Add `--continue_on_error` only when
   the user wants the remaining Runs attempted after a failure.
 - Use `--serve_evaluation_report` only when explicitly requested; it binds an HTTP server and keeps
-  the process running until interrupted.
+  the process running until interrupted. Its default port, 8000, is also the default OpenPI server
+  port, so pass a free `--evaluation_report_port` when a local policy server uses port 8000.
+  To view the report on the machine that ran the Experiment, open `index.html` directly instead of
+  serving it.
 - Use `--list_variations` as an inspection operation. It does not run rollouts or create Experiment
   result artifacts.
 - Let the runner create a timestamped directory below `outputs/` unless the user chooses a base or
@@ -129,6 +132,9 @@ For an evaluation that reaches finalization:
 3. Read every Run's `status` from `arena_experiment_result.json` and report completed and failed Runs.
 4. Confirm expected `episode_results_rebuild<N>.jsonl` files under each completed Run directory.
 5. Report requested videos and the HTML report path when present.
+6. When the user asks to open the report, run `xdg-open <index.html>` on the host after
+   finalization. For Docker, replace the `/workspaces/isaaclab_arena` prefix of the printed output
+   path with the host repository root. If no browser opens, report the host path instead.
 
 Treat the canonical result statuses, not process exit alone, as the workflow outcome. Keep policy
 task success separate from execution success: zero-action episodes are expected to be semantically

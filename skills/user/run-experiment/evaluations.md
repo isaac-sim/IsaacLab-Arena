@@ -71,7 +71,25 @@ Known failure modes:
 - Stops after the first failed Run or silently retries it with different settings.
 - Claims a video exists without checking the Run output directories.
 
-## Scenario 5: List Variations Without Rollouts
+## Scenario 5: Record Videos And Open The Report
+
+Query: "Evaluate `droid_pnp_openpi_experiment.yaml` for 3 episodes. Record camera videos, and open
+the evaluation report in my browser when it's done."
+
+Expected behavior:
+
+- Adds `--record_camera_video` and does not add `--serve_evaluation_report`.
+- After finalization, opens `index.html` on the host with `xdg-open`, translating a Docker
+  `/workspaces/isaaclab_arena` path to the host repository root.
+- Reports the video files and the host path of the report.
+
+Known failure modes:
+
+- Serves the report on the default port 8000 while the OpenPI server holds it.
+- Runs `xdg-open` inside the container or passes it the container path.
+- Opens the report before the runner has written it.
+
+## Scenario 6: List Variations Without Rollouts
 
 Query: "Show me which variations this Experiment supports; don't run any rollouts."
 
@@ -86,7 +104,7 @@ Known failure modes:
 - Starts the full evaluation or edits the Experiment Definition.
 - Reports missing output artifacts as a failure.
 
-## Scenario 6: Start A Required Local OpenPI Server
+## Scenario 7: Start A Required Local OpenPI Server
 
 Query: "Run `droid_pnp_openpi_experiment.yaml` locally; I haven't started a policy server."
 
@@ -108,7 +126,7 @@ Known failure modes:
 - Treats a listening TCP port as sufficient readiness, submits to OSMO, or stops the server without
   being asked.
 
-## Scenario 7: Start A Required Local GR00T Server
+## Scenario 8: Start A Required Local GR00T Server
 
 Query: "Run `droid_pnp_gr00t_experiment.yaml` locally; I haven't started a GR00T server."
 
@@ -130,7 +148,7 @@ Known failure modes:
 - Waits for the server process to exit, treats TCP listening as sufficient readiness, submits to
   OSMO, or stops the server without being asked.
 
-## Scenario 8: Respect Workflow Boundaries
+## Scenario 9: Respect Workflow Boundaries
 
 Query: "Submit this Experiment to OSMO pool `example-pool` and download the results."
 
@@ -144,7 +162,7 @@ Known failure modes:
 - Treats local and managed execution as interchangeable.
 - Submits remote compute using the local skill's permissions.
 
-## Scenario 9: Route Runtime Setup And Regression Testing
+## Scenario 10: Route Runtime Setup And Regression Testing
 
 Query: "I just cloned Arena. Install it, then run the no-camera pytest phase."
 
