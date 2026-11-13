@@ -69,8 +69,9 @@ def _patch_curobo(monkeypatch, feasible_fn):
     """Replace the cuRobo solver build and the batched IK solve; return the captured fake solver.
 
     ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility. The fake solver records the
-    cuboids passed to ``update_world``, and each solve records the world it ran against, so a test can
-    assert which objects were obstacles to which grasp.
+    cuboids passed to ``update_world`` and which of them are switched off, and each solve records the enabled
+    world it ran against, so a test can assert which objects were obstacles to which grasp. Every background mesh
+    loaded and every base pose it is placed for are recorded in order.
     """
     import isaaclab_arena_curobo.ik_reachability_validator as mod
 
@@ -78,10 +79,24 @@ def _patch_curobo(monkeypatch, feasible_fn):
         def __init__(self, *args, **kwargs):
             self.device = torch.device("cpu")
             self.world_cuboids = None
+            self.disabled_names = set()
 
         def update_world(self, cuboids, base_pos, base_quat):
             self.world_cuboids = cuboids
+            self.disabled_names = set()
             captured.setdefault("base_poses_per_world_update", []).append((tuple(base_pos), tuple(base_quat)))
+
+        def set_obstacle_collision_enabled(self, name, enabled):
+            if enabled:
+                self.disabled_names.discard(name)
+            else:
+                self.disabled_names.add(name)
+
+        def load_background_mesh_obstacle(self, mesh_W):
+            captured.setdefault("background_meshes", []).append(mesh_W)
+
+        def update_background_mesh_pose_using_robot_base(self, base_pos, base_quat):
+            captured.setdefault("background_base_poses", []).append((tuple(base_pos), tuple(base_quat)))
 
     captured = {}
 
@@ -98,7 +113,8 @@ def _patch_curobo(monkeypatch, feasible_fn):
         captured["total_grasps"] = captured.get("total_grasps", 0) + num
         captured["ik_kwargs"] = kwargs
         # The world in force at solve time, one entry per solve: what this grasp was checked against.
-        captured.setdefault("worlds_per_solve", []).append([cuboid.name for cuboid in solver.world_cuboids])
+        enabled_names = [cuboid.name for cuboid in solver.world_cuboids if cuboid.name not in solver.disabled_names]
+        captured.setdefault("worlds_per_solve", []).append(enabled_names)
         return IKFeasibility(feasible, torch.zeros(num), torch.zeros(num), torch.zeros(num, DOF))
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
@@ -256,9 +272,13 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
 
 
 def test_reachability_layer_records_to_rrd(tmp_path):
-    """The layer's grasps and verdicts reach a recording without a viewer or cuRobo."""
+    """The layer's grasps, verdicts and background reach a recording without a viewer or cuRobo."""
+    import trimesh
+
+    import rerun as rr
+
     from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
+    from isaaclab_arena_curobo.reachability_visualizer import LOADED_BACKGROUND_ENTITY, ReachabilityRerunLayer
 
     rrd_path = tmp_path / "placement.rrd"
     visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(rrd_path))
@@ -275,10 +295,81 @@ def test_reachability_layer_records_to_rrd(tmp_path):
         rotation_error=torch.tensor([0.1]),
         robot_spheres=torch.tensor([[[0.1, 0.0, 0.2, 0.05], [0.2, 0.0, 0.3, 0.04]]]),
         muted_sphere_mask=torch.tensor([False, True]),
+        background_mesh_W=trimesh.creation.box(
+            extents=(0.1, 0.1, 0.1), transform=trimesh.transformations.translation_matrix((0.1, 0.0, 0.2))
+        ),
     )
     visualizer.close()
 
     assert rrd_path.is_file() and rrd_path.stat().st_size > 0
+    entity_paths = {str(chunk.entity_path) for chunk in rr.recording.load_recording(str(rrd_path)).chunks()}
+    assert {f"/{LOADED_BACKGROUND_ENTITY}/surface", f"/{LOADED_BACKGROUND_ENTITY}/hit"} <= entity_paths
+
+
+def test_mesh_crop_keeps_the_triangles_near_the_point():
+    """A crop keeps a box within the radius, drops one beyond it, and keeps a large floor passing through it."""
+    import trimesh
+
+    from isaaclab_arena_curobo.reachability_visualizer import crop_mesh_near_point
+
+    near_box = trimesh.creation.box(
+        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((0.5, 0, 0))
+    )
+    far_box = trimesh.creation.box(
+        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((3.0, 0, 0))
+    )
+    # Two triangles spanning 10 m; their vertices are all far from the point, but the floor runs under it.
+    floor = trimesh.Trimesh(
+        vertices=[(-5.0, -5.0, 0.0), (5.0, -5.0, 0.0), (5.0, 5.0, 0.0), (-5.0, 5.0, 0.0)], faces=[(0, 1, 2), (0, 2, 3)]
+    )
+    mesh_W = trimesh.util.concatenate([near_box, far_box, floor])
+
+    crop_W = crop_mesh_near_point(mesh_W, (0.0, 0.0, 0.5), radius_m=1.0)
+
+    assert len(crop_W.faces) == len(near_box.faces) + len(floor.faces)
+    assert crop_W.vertices[:, 0].max() == pytest.approx(5.0)
+    assert len(crop_mesh_near_point(mesh_W, (0.0, 0.0, 50.0), radius_m=1.0).faces) == 0
+
+
+def test_background_triangles_are_highlighted_by_their_gap_to_the_checked_spheres():
+    """In a turned robot base frame, each checked sphere finds its closest triangle within the margin, if any."""
+    import math
+    import trimesh
+
+    from isaaclab_arena_curobo.reachability_visualizer import _checked_spheres_in_world, _closest_triangle_gaps
+
+    # The base sits at x = 1 turned 90 degrees about z, so base-frame +x points along world +y.
+    t_W_B = (1.0, 0.0, 0.0)
+    q_W_B_xyzw = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
+    # Checked spheres of radius 0.05 at world (1, 0.1, 0.2), (1, 0.05, 0.2) and (1, 0.1, 0.9); a muted sphere at
+    # world (1, 0.2, 0.3) and an unused one (negative radius).
+    robot_spheres = torch.tensor([[
+        [0.1, 0.0, 0.2, 0.05],
+        [0.05, 0.0, 0.2, 0.05],
+        [0.1, 0.0, 0.9, 0.05],
+        [0.2, 0.0, 0.3, 0.04],
+        [0.0, 0.0, 0.0, -1.0],
+    ]])
+    muted = torch.tensor([False, False, False, True, False])
+    spheres_W = _checked_spheres_in_world(robot_spheres, muted, t_W_B, q_W_B_xyzw)
+    assert spheres_W.shape == (3, 4)
+
+    # A 1 x 0.3 m wall in the plane y = 0.12, from z = 0 to z = 0.3, among far-away triangles the search skips.
+    wall = trimesh.Trimesh(
+        vertices=[(0.5, 0.12, 0.0), (1.5, 0.12, 0.0), (1.5, 0.12, 0.3), (0.5, 0.12, 0.3)], faces=[(0, 1, 2), (0, 2, 3)]
+    )
+    far_box = trimesh.creation.box(
+        extents=(0.2, 0.2, 0.2), transform=trimesh.transformations.translation_matrix((5, 5, 5))
+    )
+    mesh_W = trimesh.util.concatenate([wall, far_box])
+    triangle_ids, gaps = _closest_triangle_gaps(mesh_W, spheres_W, margin_m=0.05)
+
+    # Center 0.02 m from the wall, radius 0.05: penetrates by 0.03 m.
+    assert gaps[0] == pytest.approx(-0.03) and triangle_ids[0] in (0, 1)
+    # Center 0.07 m from the wall: 0.02 m short of touching it, within the margin.
+    assert gaps[1] == pytest.approx(0.02) and triangle_ids[1] in (0, 1)
+    # 0.6 m above the wall: beyond the margin, so no triangle.
+    assert triangle_ids[2] == -1 and gaps[2] == math.inf
 
 
 @pytest.mark.curobo_deps
@@ -290,7 +381,7 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), []) == [True]
     # One collision cuboid per non-target object (the desk); one grasp per target (the box).
-    assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
+    assert captured["worlds_per_solve"] == [["desk"]]
     assert captured["total_grasps"] == 1
 
 
@@ -378,7 +469,37 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
     layout = _make_two_box_pool().layouts_per_env()[0][0]
     validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), [])
 
-    assert sorted(cuboid.name for cuboid in captured["solver"].world_cuboids) == ["box_b", "desk"]
+    assert [sorted(names) for names in captured["worlds_per_solve"]] == [["box_b", "desk"]]
+
+
+@pytest.mark.curobo_deps
+def test_background_is_loaded_whole_once_and_placed_once_per_base_pose(monkeypatch):
+    """A fixed background mesh is loaded whole, once, and placed again only when the robot base moves."""
+    import trimesh
+
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
+
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    # Two wall slabs around the base at the origin: one 0.6 m away, one 3 m away.
+    near_wall = trimesh.creation.box(extents=(0.1, 0.5, 0.5))
+    near_wall.apply_translation((0.6, 0.0, 0.25))
+    far_wall = trimesh.creation.box(extents=(0.1, 0.5, 0.5))
+    far_wall.apply_translation((3.0, 0.0, 0.25))
+    background = FixedCollisionObject(trimesh.util.concatenate([near_wall, far_wall]))
+
+    layouts = _make_desk_box_pool().layouts_per_env()[0]
+    batch = make_candidate_batch(
+        [layout.positions for layout in layouts], [layout.orientations for layout in layouts], [{}] * len(layouts)
+    )
+    validator.validate_batch(batch, [background])
+
+    # The whole mesh, far wall included, is loaded once; the base does not move between layouts, so it is placed once.
+    (mesh_W,) = captured["background_meshes"]
+    assert len(mesh_W.faces) == len(near_wall.faces) + len(far_wall.faces)
+    assert len(captured["background_base_poses"]) == 1
+    assert all(world == ["desk"] for world in captured["worlds_per_solve"])
 
 
 @pytest.mark.curobo_deps

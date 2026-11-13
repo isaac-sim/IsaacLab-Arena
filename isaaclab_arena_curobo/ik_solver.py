@@ -8,19 +8,34 @@
 from __future__ import annotations
 
 import logging
+import numpy as np
 import torch
+from typing import TYPE_CHECKING
 
 from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
 from curobo.logging import setup_logger
-from curobo.scene import Scene
+from curobo.scene import Mesh, Scene
 from curobo.types import DeviceCfg, GoalToolPose
 from curobo.types import Pose as CuroboPose
 
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
+from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, scene_from_cuboids
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
+
+if TYPE_CHECKING:
+    import trimesh
+
+BACKGROUND_MESH_NAME = "background"
+"""Name of the mesh obstacle ``load_background_mesh_obstacle`` loads."""
+
+CUBOID_OBSTACLE_SLOTS = 150
+"""Cuboid obstacle slots in the collision cache: one per layout object."""
+
+BACKGROUND_MESH_SLOTS = 1
+"""Mesh obstacle slots ``load_background_mesh_obstacle`` needs: the background is loaded as one mesh."""
 
 
 class CuroboIKSolver:
@@ -70,8 +85,9 @@ class CuroboIKSolver:
             num_seeds: IK seeds optimized in parallel per pose.
             position_threshold: cuRobo internal IK position convergence threshold (m).
             rotation_threshold: cuRobo internal IK rotation convergence threshold (rad, geodesic angle).
-            collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": 150}``. A world with more
-                obstacles than its slots fails to load.
+            collision_cache_size: Obstacle slots per type; defaults to ``CUBOID_OBSTACLE_SLOTS`` cuboids and
+                ``BACKGROUND_MESH_SLOTS`` meshes. A world with more obstacles than its slots fails to load, and
+                ``load_background_mesh_obstacle`` needs a ``"mesh"`` slot.
             max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
             use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
             debug: Enable cuRobo/planner debug logging.
@@ -92,7 +108,9 @@ class CuroboIKSolver:
             robot=self.robot_cfg,
             # cuRobo only builds a collision checker when given a scene; update_world() fills it per layout.
             scene_model=Scene(cuboid=[]),
-            collision_cache=collision_cache_size or {"cuboid": 150},
+            # The mesh slot is there even when no background is loaded: a cuboid-only solver built before one with an
+            # empty mesh slot makes cuRobo's solve fail with a CUDA illegal instruction.
+            collision_cache=collision_cache_size or {"cuboid": CUBOID_OBSTACLE_SLOTS, "mesh": BACKGROUND_MESH_SLOTS},
             device_cfg=self.device_cfg,
             num_seeds=num_seeds,
             position_tolerance=position_threshold,
@@ -155,11 +173,76 @@ class CuroboIKSolver:
     ) -> None:
         """Replace the collision world with cuboids derived from a layout's bounding boxes.
 
-        cuRobo reloads the collision model rather than only moving obstacle poses, so this handles both
-        moved objects and a changed object set per layout, as long as the obstacle count stays within the
-        collision cache.
+        The whole collision world is reloaded, so this handles both moved objects and a changed object set per
+        layout, as long as the obstacle count stays within the collision cache. Every obstacle starts enabled.
         """
-        scene = scene_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw, self.device)
-        self.ik_solver.update_world(scene)
+        scene = scene_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw)
+        # cuRobo's update_world adds obstacles one at a time (~0.5 ms each); its cuboid store loads the whole
+        # batch in one tensor copy, in place, so captured CUDA graphs stay valid.
+        self.ik_solver.scene_collision_checker.data.cuboids.load_batch(scene.cuboid, env_idx=0)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+
+    def set_obstacle_collision_enabled(self, name: str, enabled: bool) -> None:
+        """Turn collision checking against one loaded obstacle on or off; the obstacle stays loaded.
+
+        Args:
+            name: The obstacle's cuboid name, as passed to ``update_world``.
+            enabled: Whether solves check collisions against it.
+        """
+        self.ik_solver.scene_collision_checker.enable_obstacle(name, enabled)
+
+    def load_background_mesh_obstacle(self, mesh_W: trimesh.Trimesh) -> None:
+        """Load the whole background mesh as one obstacle, replacing any loaded before; ``update_world`` leaves it.
+
+        Its collision structure (BVH) is built here, once. Call ``update_background_mesh_pose_using_robot_base`` before
+        solving to place it for the robot base. An empty mesh only clears it. Requires a ``"mesh"`` slot in
+        ``collision_cache_size``, which the default has.
+
+        Args:
+            mesh_W: Background mesh in world coordinates.
+        """
+        # cuRobo's mesh obstacle store; None when the solver was built without a mesh slot.
+        meshes = self.ik_solver.scene_collision_checker.data.meshes
+        assert meshes is not None, "Build the solver with a 'mesh' slot in collision_cache_size."
+        # Also free the previous mesh's BVH; cuRobo would otherwise reuse the cached mesh of the same name.
+        meshes.clear(env_idx=0, clear_warp_cache=True)
+        if len(mesh_W.faces) > 0:
+            mesh = Mesh(
+                name=BACKGROUND_MESH_NAME,
+                # Identity pose (x, y, z, qw, qx, qy, qz) until update_background_mesh_pose_using_robot_base places it.
+                pose=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                vertices=np.asarray(mesh_W.vertices, dtype=np.float32),
+                faces=np.asarray(mesh_W.faces, dtype=np.int32),
+            )
+            # Writes the new mesh id into the existing tensors in place, so captured CUDA graphs stay valid.
+            meshes.load_batch([mesh], env_idx=0)
+        # Finish the GPU writes before the next solve, as update_world does.
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+
+    def update_background_mesh_pose_using_robot_base(
+        self,
+        robot_base_pos_w: tuple[float, float, float],
+        robot_base_quat_w_xyzw: tuple[float, float, float, float],
+    ) -> None:
+        """Place the loaded background mesh for a robot base pose, without rebuilding its collision structure.
+
+        Args:
+            robot_base_pos_w: Robot base position in the world frame.
+            robot_base_quat_w_xyzw: Robot base orientation in the world frame.
+        """
+        # cuRobo checks collisions in the robot base frame R, so the world-fixed mesh sits at the world's pose in R:
+        # T_R_W, the world origin re-expressed in the base frame.
+        t_R_W, q_R_W_xyzw = world_pose_to_robot_frame(
+            torch.zeros(3),
+            torch.tensor([0.0, 0.0, 0.0, 1.0]),
+            torch.tensor(robot_base_pos_w, dtype=torch.float32),
+            torch.tensor(robot_base_quat_w_xyzw, dtype=torch.float32),
+        )
+        q_R_W_wxyz = q_R_W_xyzw[[3, 0, 1, 2]]
+        pose_R_W = CuroboPose(position=t_R_W[None].to(self.device), quaternion=q_R_W_wxyz[None].to(self.device))
+        # Writes the pose into the existing tensor in place, so captured CUDA graphs stay valid.
+        self.ik_solver.scene_collision_checker.update_obstacle_pose(BACKGROUND_MESH_NAME, pose_R_W, env_idx=0)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
