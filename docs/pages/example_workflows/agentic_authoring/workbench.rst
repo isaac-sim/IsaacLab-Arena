@@ -1,5 +1,5 @@
-Author a Workbench Environment with A Code Agent
-================================================
+Author a Workbench Environment with a Coding Agent
+==================================================
 
 This workflow uses a coding agent to author and validate a workbench cleanup task.
 
@@ -39,7 +39,7 @@ oscilloscope, and a white bin. Preview it in Kit:
      --num_steps 1000 \
      --viz kit
 
-You should see the workbench scene with objects, and the Droid holding its pose. The preview
+You should see the workbench scene with objects and the DROID robot holding its pose. The preview
 exits after 1,000 steps. This preview does not attempt the task.
 
 Next, run the recipe with the :doc:`Object Control Runner <../../agentic_tools/object_control>`
@@ -109,7 +109,7 @@ Enter a prompt like the one below:
 
    Validate task success correctly with a force-based demo script.
 
-The agent leverages Arena's ``$author-environment`` to author and validate the requested environment.
+The agent uses Arena's ``author-environment`` skill to author and validate the requested environment.
 After Codex finishes (expect 10~20 minutes), it should return a successful force-based demonstration video like the one below:
 
 .. video:: ../../../images/workbench_cleanup_assets/tools_in_drawer.mp4
