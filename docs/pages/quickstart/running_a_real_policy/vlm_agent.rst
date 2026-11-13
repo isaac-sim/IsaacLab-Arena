@@ -109,6 +109,15 @@ from :doc:`../arena_env`: pick up the Rubik's cube and place it in the bowl, in 
 Run the example
 ---------------
 
+.. important::
+
+   This example evaluates how well an out-of-the-box VLM completes the task. The model is not
+   trained or tuned for the robot, so task completion is not guaranteed. Success rates vary with
+   the model and the placement seed, which sets the cube and bowl layout. They also vary between
+   trials with the same seed, because the model's responses are sampled, so the policy is not
+   deterministic. Long pauses, grasp and placement mistakes, and failed episodes are expected
+   results, not setup errors.
+
 :runtime_setup_tabs:
 
 Arena includes one configuration for each policy type:
@@ -134,9 +143,16 @@ Run the goal policy:
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml \
      runs.droid_pnp_vlm_goal.policy.endpoint=internal  # public or openai: also set policy.model
 
-The runner prints the endpoint and model it connects to, then steps the episode. Each request
-takes several seconds, and the simulation waits while a request is in flight. Run the chunk
+The runner prints the endpoint and model it connects to, then steps the episode. Run the chunk
 policy the same way with ``droid_pnp_vlm_chunk_experiment.yaml``.
+
+The simulation is frozen while a request is in flight, and each request takes several seconds, so
+the robot pauses every time the policy asks the model for a response. How often that happens
+depends on the policy: the goal policy requests when a goal ends, the chunk policy every
+``chunk_size`` steps, and the step policy (``chunk_size: 1``) on every simulation step. The step
+policy is therefore the slowest. A failed step episode makes a request on every step until the
+episode ends, at the task's time limit or earlier if the cube falls off the table. See
+:ref:`vlm-agent-strategies` for the number of requests each policy makes.
 
 Override settings for one Run on the command line. Each line below is one example:
 
@@ -154,7 +170,7 @@ Override settings for one Run on the command line. Each line below is one exampl
    runs.droid_pnp_vlm_goal.policy.endpoint=internal  # internal, public, or openai
    runs.droid_pnp_vlm_goal.policy.model=<model>
 
-For example, to run the step policy:
+For example, to run the step policy, which makes one request per simulation step:
 
 .. code-block:: bash
 
@@ -214,8 +230,8 @@ for a chunk of 15 commands. Most of these are model reasoning. A step episode co
 because it makes the most requests.
 
 A failed episode costs far more than a successful one, because the policy keeps requesting until
-the episode ends at 1,050 steps. A failed chunk episode used about 240k tokens, and a failed step
-episode about 2.4M.
+the episode ends, at 1,050 steps or earlier if the cube falls off the table. A failed chunk
+episode used about 240k tokens, and a failed step episode about 2.4M.
 
 Step mode is also the most sensitive to a single bad response. A command executes on the very
 next step, so one stray "open" while the robot carries the cube drops it. Goal and long-chunk
