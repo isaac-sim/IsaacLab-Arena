@@ -17,6 +17,9 @@ And the following new workflows:
 - Newton-based evaluation of contact-rich gear insertion and deformable pick-and-place.
 - VLM agent policy evaluation on DROID pick-and-place.
 
+To update environments, scripts, and output parsers from v0.3, see the
+:doc:`migration guide <migration_guide_v0_4>`.
+
 Details below:
 
 **Features and improvements**
