@@ -9,7 +9,7 @@ This release introduces the following features:
 - Agentic authoring of evaluation environments with coding agents.
 - Multimodal vision-language models (VLMs) as robot policies.
 - Reproducible evaluations through seeded, recorded, and replayed variations and placements.
-- An update to the Isaac Lab 3.0 release and Isaac Sim 6.2.
+- An update to the Isaac Lab 3.0 release, Isaac Sim 6.2, and Newton 1.6.
 
 And the following new workflows:
 
@@ -47,14 +47,16 @@ Details below:
   (#1513, #1572, #1617, #1621).
 - **Experiments and KPIs:** Experiments now have a name and record Arena git provenance. Added
   ``ArenaExperimentResult.from_experiment_output()`` to read results back, InfluxDB KPI exporters,
-  a Python API for OSMO Experiment submission, and tracked events that record recurring occurrences such as dropped objects (#1457, #1538,
-  #1540, #1585, #1586, #1587, #1588).
-- **Cameras:** Added ``camera_resolution_mode``. Its ``policy_default`` mode shrinks embodiment
-  cameras to fit the policy's image size, keeping each camera's aspect ratio (#1511).
+  a Python API for OSMO Experiment submission, and tracked events that record recurring
+  occurrences such as dropped objects (#1457, #1538, #1540, #1585, #1586, #1587, #1588).
+- **Cameras:** Added ``camera_resolution_mode``, which is off by default. When activated, its
+  ``policy_default`` mode shrinks embodiment cameras to fit the policy's image size, keeping each
+  camera's aspect ratio. With pi0.5 on DROID, this cuts camera memory from about 1 GB to under
+  40 MB per environment, so many more camera-based environments fit on one GPU (#1511).
 - **Task libraries and benchmarks:** Added eleven KitchenBench environments for knob turning,
   multi-object and multi-level pick-and-place, spatial placement, stacking, and microwave door
-  opening. Aligned RoboLab
-  environments with RoboLab, and added PerfLab benchmark Experiments (#1487, #1518, #1595).
+  opening. Aligned RoboLab environments with RoboLab, and added PerfLab benchmark Experiments
+  (#1487, #1518, #1595).
 
 **Documentation**
 
@@ -83,9 +85,11 @@ Details below:
 
 **Dependencies**
 
-- Updated Arena to the Isaac Lab 3.0.0 release and Isaac Sim 6.2, with a ``uv``-based Docker
-  installation (#1481).
-- Upgraded the cuRobo IK reachability check from cuRobo v1 to v2 (#1550).
+- Updated Arena to the Isaac Lab 3.0.0 release, Isaac Sim 6.2, and Newton 1.6.1, with a
+  ``uv``-based Docker installation (#1481).
+- Included cuRobo in every native ``uv`` and Docker install, replacing the separate cuRobo image,
+  and upgraded the IK reachability check from cuRobo v1 to v2. The check now runs by default for
+  embodiments with a cuRobo config, such as DROID (#1550).
 
 **Infrastructure and CI**
 
