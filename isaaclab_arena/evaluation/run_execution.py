@@ -246,7 +246,7 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
         else _build_arena_builder_from_cfg(cfg, hydra_overrides, rebuild_index)
     )
-    if cfg.env_cfg_override is not None:
+    if cfg.env_cfg_override:
         from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
 
         environment_callback = builder.arena_env.env_cfg_callback

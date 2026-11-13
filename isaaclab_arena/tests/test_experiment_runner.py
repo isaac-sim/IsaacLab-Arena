@@ -340,7 +340,7 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
 
 @pytest.mark.with_subprocess
 def test_experiment_runner_finishes_episode_budget_across_rebuilds(tmp_path):
-    """Finish each rebuild's exact episode allocation and match its results to trajectories."""
+    """Override the timeout through the CLI and match each rebuild's episode allocation to trajectories."""
     import h5py
 
     experiment_config_path = tmp_path / "finite_episodes.yaml"
@@ -350,7 +350,6 @@ runs:
   finite_episodes:
     environment:
       type: pick_and_place_maple_table
-      episode_length_s: 0.2
     environment_builder:
       num_envs: 2
       record_trajectories: true
@@ -366,7 +365,11 @@ runs:
     run_experiment_runner(
         str(experiment_config_path),
         config_option="--experiment_config",
-        extra_args=["--experiment_output_directory", str(output_dir)],
+        extra_args=[
+            "--experiment_output_directory",
+            str(output_dir),
+            "+runs.finite_episodes.env_cfg_override={episode_length_s:0.2}",
+        ],
     )
 
     experiment_result = json.loads((output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8"))
@@ -378,6 +381,8 @@ runs:
         records_path = run_dir / f"episode_results_rebuild{rebuild_index}.jsonl"
         records = [json.loads(line) for line in records_path.read_text(encoding="utf-8").splitlines()]
         assert len(records) == expected_count
+        # At the default 15 Hz control rate, the CLI's 0.2 s timeout is three steps.
+        assert all(record["episode_length"] == 3 for record in records)
         records_by_identity = {(record["env_id"], record["episode_in_env"]): record for record in records}
         assert len(records_by_identity) == expected_count
         dataset_path = run_dir / f"dataset_finite_episodes_rebuild{rebuild_index}.hdf5"

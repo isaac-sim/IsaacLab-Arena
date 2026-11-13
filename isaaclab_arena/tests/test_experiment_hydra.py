@@ -534,7 +534,7 @@ def test_recorded_variations_workflow_accepts_cli_timeout_override(config_name, 
         Path(TestConstants.arena_environments_dir) / "experiment_configs" / "placement_record_replay" / config_name
     )
     baseline = _load_experiment(config_path).runs[run_name]
-    assert baseline.env_cfg_override is None
+    assert baseline.env_cfg_override == {}
 
     run = _load_experiment(config_path, overrides=[f"+runs.{run_name}.env_cfg_override={{episode_length_s:1.0}}"]).runs[
         run_name
