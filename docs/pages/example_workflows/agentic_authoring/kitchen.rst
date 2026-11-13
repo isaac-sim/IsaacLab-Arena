@@ -316,8 +316,7 @@ results also include ``subtask_success_rate``, the success rate for each fruit,
 so you can see which placement the policy completed.
 
 The report shows each episode's result next to its recorded videos, one per
-camera. The Experiment's ``enable_cameras: true`` only gives the policy its
-camera inputs; videos are saved only when ``--record_camera_video`` is set.
+camera.
 
 .. video:: ../../../images/agentic_authoring/peninsula_kitchen_banana_and_orange_pi05_episode.mp4
    :width: 100%
@@ -352,8 +351,7 @@ camera inputs; videos are saved only when ``--record_camera_video`` is set.
             num_episodes: 3
 
 See :doc:`OpenPI <../../quickstart/running_a_real_policy/openpi>` for running
-the server and the Experiment Runner yourself, including serving the report over
-HTTP when your browser is on a different machine.
+the server and the Experiment Runner yourself.
 
 
 Going Further
