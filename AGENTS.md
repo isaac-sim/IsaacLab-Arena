@@ -26,16 +26,7 @@ Use `run-experiment` when executing an existing evaluation.
 
 ## Runtime environment
 
-Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run in the checkout's ready runtime: either the native uv environment at `.venv/bin/python` or the local repo clone's Docker container. Neither route requires the other. Use the `arena-runtime` skill to select the route and build the command, and `setup-arena` when neither route is ready. Don't skip runtime checks because one route is missing.
-
-- **Native uv:** run `env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python <script.py> [args...]` from the repo root. Don't use a bare `python` or rely on an activated virtual environment.
-- **Docker:** each clone gets its own container (shared image, per-clone name), so clones run in parallel. The repo root is mounted at `/workspaces/isaaclab_arena`. **Don't hardcode the container name.** Run as the host user, not root, with `isaaclab.sh -p` for non-interactive Python commands:
-
-  ```bash
-  docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" isaaclab.sh -p <script.py> [args...]
-  ```
-
-  Use the `dev-container` skill to build or rebuild the image and for contributor setup.
+Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run in the checkout's ready runtime: the native uv environment at `.venv/bin/python` or the local clone's Docker container. Either route is sufficient on its own; don't skip runtime work because a container isn't running. Before running such a command, use the `arena-runtime` skill to select the route and build the command, and don't use a bare `python`.
 
 Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, isort, pyupgrade, codespell) runs **on the host**.
 
