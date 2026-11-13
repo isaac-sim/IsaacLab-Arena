@@ -68,11 +68,11 @@ class AnchorInitializer(PlacementInitializerBase):
         an anchor, and chains that loop, fall back to fallback_bbox.
         """
         visited: set[PlaceableAsset] = set()
-        parent = get_relation(obj, On).parent
+        parent = get_relation(obj, On).reference
         while parent is not None and parent not in visited:
             if parent in anchor_objects:
                 return get_world_bbox_at_initial_pose(parent, asset_to_bbox)
             visited.add(parent)
             parent_on_relation = get_relation(parent, On)
-            parent = parent_on_relation.parent if parent_on_relation is not None else None
+            parent = parent_on_relation.reference if parent_on_relation is not None else None
         return fallback_bbox

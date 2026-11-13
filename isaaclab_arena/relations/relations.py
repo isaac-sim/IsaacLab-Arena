@@ -50,7 +50,7 @@ class RelationBase:
 
 
 class UnaryRelation(RelationBase):
-    """Base class for unary spatial relations (no parent object).
+    """Base class for unary spatial relations (no reference object).
 
     Unary relations constrain an object's position in world coordinates
     without referencing another object (e.g., AtPosition, PositionLimitsBox).
@@ -70,13 +70,13 @@ class Relation(RelationBase):
         """Return whether the relation constrains a single object."""
         return False
 
-    def __init__(self, parent: PlaceableAsset, relation_loss_weight: float = 1.0):
+    def __init__(self, reference: PlaceableAsset, relation_loss_weight: float = 1.0):
         """
         Args:
-            parent: The parent asset in the relationship.
+            reference: The reference asset in the relationship.
             relation_loss_weight: Weight for the relationship loss function.
         """
-        self.parent = parent
+        self.reference = reference
         self.relation_loss_weight = relation_loss_weight
 
 
@@ -98,12 +98,12 @@ class FaceTo(RelationBase):
 
     name = "face_to"
 
-    def __init__(self, parent: PlaceableAsset):
+    def __init__(self, reference: PlaceableAsset):
         """
         Args:
-            parent: Target object that defines the facing direction.
+            reference: Target object that defines the facing direction.
         """
-        self.parent = parent
+        self.reference = reference
 
     @staticmethod
     def is_unary() -> bool:
@@ -115,8 +115,8 @@ class FaceTo(RelationBase):
         face_to_count = sum(isinstance(relation, FaceTo) for relation in subject.get_relations())
         assert face_to_count == 1, f"Object '{subject.name}' has more than one FaceTo relation."
         assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have a FaceTo relation."
-        assert self.parent is not subject, f"Object '{subject.name}' cannot face itself."
-        assert self.parent in objects, f"FaceTo parent '{self.parent.name}' must participate in placement."
+        assert self.reference is not subject, f"Object '{subject.name}' cannot face itself."
+        assert self.reference in objects, f"FaceTo reference '{self.reference.name}' must participate in placement."
         assert not any(
             isinstance(relation, RotateAroundSolution) for relation in subject.get_relations()
         ), f"Object '{subject.name}' cannot combine FaceTo with RotateAroundSolution."
@@ -140,7 +140,7 @@ class AlignWith(Relation):
 
     def __init__(
         self,
-        parent: PlaceableAsset,
+        reference: PlaceableAsset,
         axis: Axis | str,
         offset_m: float = 0.0,
         tolerance_m: float = 0.02,
@@ -148,13 +148,13 @@ class AlignWith(Relation):
     ):
         """
         Args:
-            parent: Reference asset participating in placement.
+            reference: Reference asset participating in placement.
             axis: World axis to align, one of ``x``, ``y``, or ``z``.
             offset_m: Signed subject-minus-reference centre displacement along that axis.
             tolerance_m: Zero-penalty alignment band and maximum error accepted by placement validation.
             relation_loss_weight: Weight of the alignment objective during solving.
         """
-        super().__init__(parent, relation_loss_weight)
+        super().__init__(reference, relation_loss_weight)
         assert math.isfinite(offset_m), "offset_m must be finite"
         assert math.isfinite(tolerance_m) and tolerance_m >= 0, "tolerance_m must be finite and non-negative"
         assert math.isfinite(relation_loss_weight) and relation_loss_weight > 0, "Alignment weight must be positive"
@@ -164,18 +164,18 @@ class AlignWith(Relation):
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
         """Require a movable subject and a distinct reference that participates in placement."""
-        assert self.parent is not subject, "AlignWith requires a different reference asset"
+        assert self.reference is not subject, "AlignWith requires a different reference asset"
         assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have an AlignWith relation"
-        assert self.parent in objects, f"AlignWith reference '{self.parent.name}' must participate in placement"
+        assert self.reference in objects, f"AlignWith reference '{self.reference.name}' must participate in placement"
 
 
 @agent_ready
 @register_object_relation
 class NextTo(Relation):
-    """Indicates that an object should be placed next to a parent object, on a specified side.
+    """Indicates that an object should be placed next to a reference object, on a specified side.
 
     This relation specifies that a child object should be placed adjacent to
-    the parent object on a specified side, at a given distance. The gap may be anywhere within
+    the reference object on a specified side, at a given distance. The gap may be anywhere within
     ``tolerance_m`` of ``distance_m``.
 
     Note: Loss computation is handled by NextToLossStrategy in optimization/losses/relation_loss_strategies.py.
@@ -188,7 +188,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: PlaceableAsset,
+        reference: PlaceableAsset,
         side: Side | str,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
@@ -197,11 +197,11 @@ class NextTo(Relation):
     ):
         """
         Args:
-            parent: The parent asset that this object should be placed next to.
+            reference: The reference asset that this object should be placed next to.
             side: Which axis direction to place the object.
             relation_loss_weight: Weight for the relationship loss function.
-            distance_m: Target distance from parent's boundary in meters (default: 5cm).
-            cross_position_ratio: Where to place the child along the parent's perpendicular
+            distance_m: Target distance from the reference's boundary in meters (default: 5cm).
+            cross_position_ratio: Where to place the child along the reference's perpendicular
                 (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
                 the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
@@ -211,7 +211,7 @@ class NextTo(Relation):
                 distance_m as satisfied, and validation passes when the side and distance violations
                 are each within it. cross_position_ratio is a soft preference, not gated.
         """
-        super().__init__(parent, relation_loss_weight)
+        super().__init__(reference, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
         assert (
             cross_position_ratio is None or -1.0 <= cross_position_ratio <= 1.0
@@ -226,27 +226,27 @@ class NextTo(Relation):
 @agent_ready
 @register_object_relation
 class On(Relation):
-    """Indicates that an object should be placed on top of a parent object.
+    """Indicates that an object should be placed on top of a reference object.
 
     This relation specifies that a child object should be placed on top of
-    the parent object, with X/Y bounded within the parent's extent (optionally
+    the reference object, with X/Y bounded within the reference's extent (optionally
     inset by ``edge_margin_m`` so the child stays off the rim) and Z positioned
-    on the parent's top surface. With ``overlap=True``, only intersection with
-    the parent's original footprint is required on both horizontal axes; the margin is ignored.
+    on the reference's top surface. With ``overlap=True``, only intersection with
+    the reference's original footprint is required on both horizontal axes; the margin is ignored.
 
     Note: Footprint overlap does not guarantee stable support; the child may tip or fall.
 
     Note: Loss computation is handled by OnLossStrategy in optimization/losses/relation_loss_strategies.py.
 
     Validation:
-        The ``on_relation`` check rejects a child off the parent's top or outside its footprint.
+        The ``on_relation`` check rejects a child off the reference's top or outside its footprint.
     """
 
     name = "on"
 
     def __init__(
         self,
-        parent: PlaceableAsset,
+        reference: PlaceableAsset,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
         edge_margin_m: float = DEFAULT_ON_EDGE_MARGIN_M,
@@ -254,15 +254,15 @@ class On(Relation):
     ):
         """
         Args:
-            parent: The parent asset that this object should be placed on top of.
+            reference: The reference asset that this object should be placed on top of.
             relation_loss_weight: Weight for the relationship loss function.
-            clearance_m: Safety clearance above parent's surface in meters (default: 1cm).
-            edge_margin_m: Inward inset from each X/Y edge of the parent's surface in
+            clearance_m: Safety clearance above the reference's surface in meters (default: 1cm).
+            edge_margin_m: Inward inset from each X/Y edge of the reference's surface in
                 meters (default: 5cm), applied only for containment. Ignored for overlap.
             overlap: Allow footprint overlap instead of full containment on both X and Y
                 axes (default: False). Ignores edge_margin_m when True.
         """
-        super().__init__(parent, relation_loss_weight)
+        super().__init__(reference, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
         assert edge_margin_m >= 0.0, f"edge_margin_m must be non-negative, got {edge_margin_m}"
         self.clearance_m = clearance_m
@@ -278,7 +278,7 @@ class On(Relation):
 
 @register_object_relation
 class ClutterOn(On):
-    """Indicates that an object should be dropped on top of a parent object.
+    """Indicates that an object should be dropped on top of a reference object.
 
     The object's bottom must clear the support surface; contact is not required.
     The support may be an anchor or positioned jointly through its own relations.
@@ -301,7 +301,7 @@ class ClutterOn(On):
 
     def __init__(
         self,
-        parent: PlaceableAsset,
+        reference: PlaceableAsset,
         spread: float = 0.2,
         clearance_m: float = 0.01,
         gap_m: float = 0.03,
@@ -311,7 +311,7 @@ class ClutterOn(On):
     ):
         """
         Args:
-            parent: Support fixed with IsAnchor or positioned through its own relations.
+            reference: Support fixed with IsAnchor or positioned through its own relations.
             spread: Fraction of support width and depth available for release, centered on the support.
                 For example, 0.2 restricts each axis to its central 20%; settled objects may use the full support.
             clearance_m: Release clearance above the support in metres.
@@ -320,7 +320,7 @@ class ClutterOn(On):
             edge_margin_m: Inward margin within the release region in metres.
             relation_loss_weight: Weight for the relation loss.
         """
-        super().__init__(parent, relation_loss_weight, clearance_m=clearance_m, edge_margin_m=edge_margin_m)
+        super().__init__(reference, relation_loss_weight, clearance_m=clearance_m, edge_margin_m=edge_margin_m)
         assert 0 < spread <= 1, "spread must be in (0, 1]"
         assert isinstance(random_yaw, bool), "random_yaw must be a boolean"
         assert (
@@ -352,12 +352,12 @@ class ClutterOn(On):
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
         """Require a participating support and preserve validated release poses."""
-        assert self.parent in objects, "ClutterOn support must participate in placement"
-        assert get_relation(self.parent, ClutterOn) is None, "Nested ClutterOn supports are unsupported"
+        assert self.reference in objects, "ClutterOn support must participate in placement"
+        assert get_relation(self.reference, ClutterOn) is None, "Nested ClutterOn supports are unsupported"
         assert not subject.is_anchor, "ClutterOn cannot be an anchor"
         assert subject.get_spatial_relations() == [self], "ClutterOn must be the object's only spatial relation"
 
-        support = self.parent
+        support = self.reference
         if not support.is_anchor:
             assert get_relation(support, FaceTo) is None, f"ClutterOn support '{support.name}' cannot use FaceTo"
             rotation = get_relation(support, RotateAroundSolution)
@@ -372,11 +372,11 @@ class ClutterOn(On):
 @agent_ready
 @register_object_relation
 class NotNextTo(Relation):
-    """Forbids placing the child next to the parent on the given side.
+    """Forbids placing the child next to the reference on the given side.
 
-    The inverse of ``NextTo``. Blocks the whole half-plane past the parent's edge
-    on that side, within the parent's perpendicular footprint (for ``side=+Y``:
-    all of ``+Y`` past the ``+Y`` edge, clipped to the parent's ``X`` extent).
+    The inverse of ``NextTo``. Blocks the whole half-plane past the reference's edge
+    on that side, within the reference's perpendicular footprint (for ``side=+Y``:
+    all of ``+Y`` past the ``+Y`` edge, clipped to the reference's ``X`` extent).
     Anywhere off to either side of that footprint stays free, at any distance.
 
     Note: Loss computation is handled by NotNextToLossStrategy in optimization/losses/relation_loss_strategies.py.
@@ -389,20 +389,20 @@ class NotNextTo(Relation):
 
     def __init__(
         self,
-        parent: PlaceableAsset,
+        reference: PlaceableAsset,
         relation_loss_weight: float = 1.0,
         side: Side | str = Side.POSITIVE_X,
         tolerance_m: float = 1e-2,
     ):
         """
         Args:
-            parent: The parent asset whose adjacent half-plane is forbidden.
+            reference: The reference asset whose adjacent half-plane is forbidden.
             relation_loss_weight: Weight for the relationship loss function.
-            side: Which side of the parent is blocked (default: Side.POSITIVE_X).
+            side: Which side of the reference is blocked (default: Side.POSITIVE_X).
             tolerance_m: Slack (meters) for placement validation: the child passes when it has cleared
                 the keep-out zone to within this value.
         """
-        super().__init__(parent, relation_loss_weight)
+        super().__init__(reference, relation_loss_weight)
         assert tolerance_m >= 0.0, f"tolerance_m must be non-negative, got {tolerance_m}"
         self.side = Side(side)
         self.tolerance_m = tolerance_m
@@ -513,7 +513,7 @@ class RotateAroundSolution(RelationBase):
 class AtPosition(UnaryRelation):
     """Constrains object to specific world coordinates.
 
-    This is a unary relation (no parent) that pins an object's position to
+    This is a unary relation (no reference) that pins an object's position to
     specific x, y, and/or z world coordinates. Any axis set to None is
     unconstrained by this relation (allowing other relations like On to
     control that axis).

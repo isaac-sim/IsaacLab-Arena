@@ -58,7 +58,7 @@ class OnTreeInitializer(PlacementInitializerBase):
                 if on_relation is None:
                     positions[obj] = fallback_position
                 else:
-                    parent_world_bbox: AxisAlignedBoundingBox = sampled_world_bboxes[on_relation.parent]
+                    parent_world_bbox: AxisAlignedBoundingBox = sampled_world_bboxes[on_relation.reference]
                     # The positions that keep obj on its parent.
                     child_bbox_given_parent_position = get_child_bbox_given_parent_position(
                         obj, parent_world_bbox, asset_to_bbox
@@ -117,7 +117,7 @@ def _order_objects_for_sampling(
     while remaining:
         # Recompute the frontier after each object: a newly eligible descendant may supply a
         # reference needed by an object at a shallower level.
-        ready = [obj for obj in remaining if get_relation(obj, On).parent in ordered_set]
+        ready = [obj for obj in remaining if get_relation(obj, On).reference in ordered_set]
         assert ready, (
             "On relations must form a forest rooted at anchors, but no parent could be resolved for "
             f"{[obj.name for obj in remaining]}. Check for a cycle or a parent outside the placement set."
@@ -228,7 +228,7 @@ class AlignWithToAABBStrategy(RelationToAABBStrategy):
     """Narrow origins to an alignment band after its reference has been sampled."""
 
     def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
-        return (relation.parent,)
+        return (relation.reference,)
 
     def get_bounds(
         self,
@@ -236,14 +236,14 @@ class AlignWithToAABBStrategy(RelationToAABBStrategy):
         subject_bbox: AxisAlignedBoundingBox,
         sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
-        return _bounds_from_align_with(relation, subject_bbox, sampled_world_bboxes[relation.parent])
+        return _bounds_from_align_with(relation, subject_bbox, sampled_world_bboxes[relation.reference])
 
 
 class NextToToAABBStrategy(RelationToAABBStrategy):
     """Narrow origins to the requested side and gap after the reference has been sampled."""
 
     def get_dependencies(self, relation: RelationBase) -> tuple[PlaceableAsset, ...]:
-        return (relation.parent,)
+        return (relation.reference,)
 
     def get_bounds(
         self,
@@ -251,7 +251,7 @@ class NextToToAABBStrategy(RelationToAABBStrategy):
         subject_bbox: AxisAlignedBoundingBox,
         sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
-        return _bounds_from_next_to(relation, subject_bbox, sampled_world_bboxes[relation.parent])
+        return _bounds_from_next_to(relation, subject_bbox, sampled_world_bboxes[relation.reference])
 
 
 RELATION_TO_AABB_STRATEGIES: dict[type[RelationBase], RelationToAABBStrategy] = {

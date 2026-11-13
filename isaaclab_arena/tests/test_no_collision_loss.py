@@ -432,8 +432,8 @@ def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationS
     for obj in [*non_anchors, *anchors]:
         for rel in obj.get_relations():
             if isinstance(rel, On):
-                on_pairs.add((id(obj), id(rel.parent)))
-                on_pairs.add((id(rel.parent), id(obj)))
+                on_pairs.add((id(obj), id(rel.reference)))
+                on_pairs.add((id(rel.reference), id(obj)))
 
     for i, child in enumerate(non_anchors):
         child_pos = state.get_position(child)

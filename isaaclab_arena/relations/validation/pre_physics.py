@@ -158,13 +158,13 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
         """
         for obj in positions:
             for relation in obj.get_relations():
-                if not self._matches_relation(relation) or relation.parent not in positions:
+                if not self._matches_relation(relation) or relation.reference not in positions:
                     continue
                 child_world = env_bboxes[obj].translated(positions[obj])
-                parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
+                parent_world = env_bboxes[relation.reference].translated(positions[relation.reference])
                 # Preserve scalar height arithmetic at the strict On contact boundary.
                 bottom = positions[obj][2] + float(env_bboxes[obj].min_point[0, 2])
-                top = positions[relation.parent][2] + float(env_bboxes[relation.parent].max_point[0, 2])
+                top = positions[relation.reference][2] + float(env_bboxes[relation.reference].max_point[0, 2])
                 height_fits = relation.is_child_bottom_z_within_placement_height_range(
                     bottom, top, self._params.on_relation_z_tolerance_m
                 )
@@ -189,7 +189,7 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
         """Record a rejection for a child bottom outside the contact band above the support top."""
         rejections.append(
             Rejection(
-                f"'{obj.name}' {relation.name}({relation.parent.name}): bottom outside the contact band",
+                f"'{obj.name}' {relation.name}({relation.reference.name}): bottom outside the contact band",
                 detail=f"bottom z {bottom_z:.3f} m, support top z {top_z:.3f} m",
             )
         )
@@ -201,7 +201,7 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
         """Record a rejection for an edge margin wider than the support leaves around the child."""
         rejections.append(
             Rejection(
-                f"'{obj.name}' {relation.name}({relation.parent.name}): edge margin wider than the free space",
+                f"'{obj.name}' {relation.name}({relation.reference.name}): edge margin wider than the free space",
                 detail=f"edge_margin_m {margin:.3f} m, feasible margin {max(0.0, feasible_margin):.3f} m",
             )
         )
@@ -210,7 +210,7 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
     def _record_footprint_failure(rejections: list[Rejection], obj: PlaceableAsset, relation: On) -> None:
         """Record a rejection for a child footprint outside the support footprint."""
         rejections.append(
-            Rejection(f"'{obj.name}' {relation.name}({relation.parent.name}): footprint outside the support")
+            Rejection(f"'{obj.name}' {relation.name}({relation.reference.name}): footprint outside the support")
         )
 
     @staticmethod
@@ -281,7 +281,7 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
                 if not isinstance(relation, AlignWith):
                     continue
                 child_bbox = env_bboxes[obj]
-                parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
+                parent_world = env_bboxes[relation.reference].translated(positions[relation.reference])
                 axis_index = relation.axis.index
                 p_W_child_center = child_bbox.min_point.new_tensor(t_W_C) + child_bbox.center
                 center_distance = (
@@ -299,7 +299,7 @@ class AlignWithValidator(PrePhysicsPlacementValidator):
         """Record a rejection for a bounding-box centre outside the alignment tolerance."""
         rejections.append(
             Rejection(
-                f"'{obj.name}' align_with({relation.parent.name}, {relation.axis.value}): centre outside tolerance",
+                f"'{obj.name}' align_with({relation.reference.name}, {relation.axis.value}): centre outside tolerance",
                 detail=f"centre error {center_error_m:+.3f} m, tolerance {relation.tolerance_m} m",
             )
         )
@@ -335,7 +335,7 @@ class NextToValidator(PrePhysicsPlacementValidator):
             for rel in obj.get_relations():
                 if not isinstance(rel, NextTo):
                     continue
-                parent = rel.parent
+                parent = rel.reference
                 if parent not in positions:
                     continue
                 cfg = SIDE_CONFIGS[rel.side]
@@ -354,7 +354,7 @@ class NextToValidator(PrePhysicsPlacementValidator):
         rejections: list[Rejection], obj: PlaceableAsset, relation: NextTo, half_plane_m: float, distance_m: float
     ) -> None:
         """Record a NextTo rejection, reporting the wrong side before the gap error."""
-        cause = f"'{obj.name}' next_to({relation.parent.name}, {relation.side.value})"
+        cause = f"'{obj.name}' next_to({relation.reference.name}, {relation.side.value})"
         if half_plane_m > relation.tolerance_m:
             rejections.append(Rejection(f"{cause}: on the wrong side", detail=f"by {half_plane_m:.3f} m"))
         else:
@@ -398,7 +398,7 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
             for rel in obj.get_relations():
                 if not isinstance(rel, NotNextTo):
                     continue
-                parent = rel.parent
+                parent = rel.reference
                 if parent not in positions:
                     continue
                 cfg = SIDE_CONFIGS[rel.side]
@@ -426,7 +426,7 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
         """Record a rejection for a child inside the keep-out zone, with the distance left on each route out."""
         rejections.append(
             Rejection(
-                f"'{obj.name}' not_next_to({relation.parent.name}, {relation.side.value}): inside the keep-out zone",
+                f"'{obj.name}' not_next_to({relation.reference.name}, {relation.side.value}): inside the keep-out zone",
                 detail=(
                     f"{remaining_side_m:.3f} m to clear over the edge, {remaining_cross_m:.3f} m past the footprint end"
                 ),
@@ -464,7 +464,7 @@ class FaceToValidator(PrePhysicsPlacementValidator):
             if face_to is None:
                 continue
             subject_position = torch.tensor([positions[obj]])
-            target_position = torch.tensor([positions[face_to.parent]])
+            target_position = torch.tensor([positions[face_to.reference]])
             _, direction_is_defined = yaw_toward_positions(subject_position, target_position)
             if not direction_is_defined.item():
                 self._record_failure(rejections, obj, face_to, "too close to its target in XY to define a heading")
@@ -477,7 +477,7 @@ class FaceToValidator(PrePhysicsPlacementValidator):
     @staticmethod
     def _record_failure(rejections: list[Rejection], obj: PlaceableAsset, relation: FaceTo, reason: str) -> None:
         """Record a FaceTo rejection with the reason the facing yaw is missing."""
-        rejections.append(Rejection(f"'{obj.name}' face_to({relation.parent.name}): {reason}"))
+        rejections.append(Rejection(f"'{obj.name}' face_to({relation.reference.name}): {reason}"))
 
 
 @register_validator
@@ -598,9 +598,9 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         anchor_ids: set[int] = set()
         for obj in positions:
             for rel in obj.get_relations():
-                if isinstance(rel, On) and rel.parent in positions:
-                    on_pairs.add((id(obj), id(rel.parent)))
-                    on_pairs.add((id(rel.parent), id(obj)))
+                if isinstance(rel, On) and rel.reference in positions:
+                    on_pairs.add((id(obj), id(rel.reference)))
+                    on_pairs.add((id(rel.reference), id(obj)))
             if obj.is_anchor:
                 anchor_ids.add(id(obj))
         return on_pairs, anchor_ids

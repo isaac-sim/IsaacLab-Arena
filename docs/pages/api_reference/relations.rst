@@ -57,4 +57,4 @@ Enum parameters take their string values, for example ``side: positive_x``.
 .. py:class:: PlaceableAsset
    :module: isaaclab_arena.relations.placement_asset
 
-   An asset that relations can place. In YAML, a relation's ``parent`` is its ``reference`` node.
+   An asset that relations can place.

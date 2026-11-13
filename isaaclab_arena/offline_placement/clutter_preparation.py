@@ -50,9 +50,10 @@ def prepare_clutter_settling(env: ManagerBasedEnv, assets: list[PlaceableAsset])
         for relation in asset.get_relations():
             if isinstance(relation, On):
                 # A kinematic asset cannot follow a supporting clutter object when it falls.
-                assert (
-                    get_relation(relation.parent, ClutterOn) is None
-                ), f"Placed non-clutter asset {key!r} cannot be On falling clutter {relation.parent.get_scene_key()!r}"
+                assert get_relation(relation.reference, ClutterOn) is None, (
+                    f"Placed non-clutter asset {key!r} cannot be On falling clutter"
+                    f" {relation.reference.get_scene_key()!r}"
+                )
     # Inspect original assets, before solver collision discovery aggregates their geometry.
     passive_assets = discover_passive_assets(assets)
     uncovered = [
@@ -68,7 +69,7 @@ def prepare_clutter_settling(env: ManagerBasedEnv, assets: list[PlaceableAsset])
     assert gravity[0] == 0 and gravity[1] == 0 and gravity[2] < 0, "Offline settling requires downward world-Z gravity"
     support_keys = set()
     for asset in clutter_assets:
-        support_keys.add(get_relation(asset, ClutterOn).parent.get_scene_key())
+        support_keys.add(get_relation(asset, ClutterOn).reference.get_scene_key())
         key = asset.get_scene_key()
         assert key in env.scene.rigid_objects, f"Clutter object {key!r} must be a rigid object"
         assert spawned_rigid_body_is_dynamic(env.scene, key), f"Clutter object {key!r} must be dynamic"
