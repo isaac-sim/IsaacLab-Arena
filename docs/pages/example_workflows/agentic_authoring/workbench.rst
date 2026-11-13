@@ -18,10 +18,11 @@ set up either the native uv environment or the Arena Docker container:
 
 :runtime_setup_tabs:
 
-Run the commands below from the repository root in that runtime. Install and
-authenticate the Codex CLI on the host, then start it from the repository root
-so it can inspect Arena's source and use the repository's environment authoring
-skills.
+Run the commands below from the repository root in that runtime.
+
+Install and authenticate your favourite coding agent on the host,
+then start it from the repository root.
+In our example, we use Codex with ``GPT-6-Astra-high``.
 
 Step 1: Viewing an Existing Agent-Authored Environment
 ------------------------------------------------------
@@ -36,27 +37,37 @@ oscilloscope, and a white bin. Preview it in Kit:
 
 .. code-block:: bash
 
-   python -m isaaclab_arena.scripts.environment_runner \
+   python isaaclab_arena/evaluation/policy_runner.py \
      --env_spec isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml \
-     --viz kit \
-     --device cpu
+     --robot_control droid_differential_ik \
+     --policy_type zero_action \
+     --num_steps 1000 \
+     --viz kit
 
-The checked-in object-control recipe validates all four task steps:
+You should see the workbench scene with objects, and the Droid holding its pose. The preview
+exits after 1,000 steps. This preview does not attempt the task.
+
+Next, run the object-control recipe to see a force-based demonstration of all four subtasks:
 
 .. code-block:: bash
 
-   python -m isaaclab_arena.agentic_tools.object_control_runner \
+   python isaaclab_arena/agentic_tools/object_control_runner.py \
      --env_spec isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml \
      --commands isaaclab_arena_environments/workbench_cleanup/object_control/full_cleanup.jsonl \
      --output $HOME/eval/workbench/full_cleanup_demo \
-     --num_envs 1 \
      --seed 42 \
      --placement_seed 42 \
      --visualizer kit
 
-The recipe closes the drawer and toolcase, places the bin on the overhead
-shelf, and presses the oscilloscope power button. The system checks for
-composite task success.
+On success, the runner prints the following summary:
+
+.. code-block:: text
+
+   TASK_SUCCESS {"success": [true], "report": "/home/<user>/eval/workbench/full_cleanup_demo/validation.json"}
+
+The recipe applies bounded forces and joint efforts to close the drawer and toolcase, place the bin on the overhead
+shelf, and press the oscilloscope power button. The agentic authoring pipeline leverages this tool to validate the
+object physics and checks for task success without invoking a robot policy.
 
 .. video:: ../../../images/workbench_cleanup_assets/full_cleanup.mp4
    :width: 100%
