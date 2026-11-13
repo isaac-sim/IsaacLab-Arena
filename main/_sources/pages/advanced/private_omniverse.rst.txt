@@ -1,30 +1,73 @@
-Omniverse Authentication
-========================
+Storage API Access
+==================
 
 .. note::
 
-    These steps are only required if you are extending Isaac Lab Arena with your own
-    internal assets. Assets and files that are used by Isaac Lab Arena by default are
-    publicly available without additional authentication (i.e. without performing the
-    steps detailed on this page).
+   **Internal NVIDIA use only.** These steps are for NVIDIA employees accessing internal Arena assets.
+   Public S3 assets do not require login. Use ``omni.client`` 2.74.0 or newer.
 
-To allow the project to access Nvidia Omniverse assets or services
-e.g., stored scenes, USD files, or extensions on a **private** Nucleus server,
-you must authenticate using an Omniverse API token.
+1. Request write access (optional)
+----------------------------------
 
-Isaac Sim and other Nvidia Omniverse applications use two environment variables
-``OMNI_USER`` and ``OMNI_PASS`` to authenticate automatically.
+This step is only needed to upload or modify assets in the Arena folder. Join the
+``access-isaac-dev-storage-arena-write`` group on
+`DLRequest <https://dlrequest/GroupID/Home/Index>`__.
 
-To generate those, follow the instructions on the
-`Omniverse Authentication documentation <https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html>`_.
+2. Sign in and verify access
+----------------------------
 
-.. code-block:: bash
+Run the setup script from the repository root in your installed Arena runtime.
+It preserves existing credentials, starts NVIDIA device login only when credentials
+are missing, then lists the Arena storage root and reports whether you have write
+access.
 
-    export OMNI_USER='$omni-api-token'
-    export OMNI_PASS="YOUR_GENERATED_API_TOKEN"
+The script implements the device-code flow from the Storage API
+`authentication instructions <https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/auth/how-to.md>`__
+and the credential-file setup from the
+`login quickstart <https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md>`__.
 
-Where:
+.. tab-set::
 
-* ``OMNI_USER`` should be set to the literal string ``$omni-api-token`` (including the leading dollar sign)
+   .. tab-item:: Native uv
+      :selected:
 
-* ``OMNI_PASS`` should be the actual token value you generated.
+      .. code-block:: bash
+
+         uv run python tools/internal/setup_storage_access.py
+
+   .. tab-item:: Docker
+
+      Before creating the container, run from the repository root on the host:
+
+      .. code-block:: bash
+
+         mkdir -p "$HOME/.nvidia-omniverse"
+         unset OMNI_PASS
+         ./docker/run_docker.sh
+
+      With ``OMNI_PASS`` unset, the launcher bind-mounts the existing host
+      ``~/.nvidia-omniverse`` directory into the container.
+
+      Inside the container, run as your normal host user:
+
+      .. code-block:: bash
+
+         python tools/internal/setup_storage_access.py
+
+      The script writes ``config/auth.toml`` through the mount to the host.
+      Credentials survive container removal and are reused by new containers
+      launched with the same ``~/.nvidia-omniverse`` directory mount.
+
+When prompted, open https://login.microsoft.com/device in a browser, enter the
+code printed by the script, and complete your NVIDIA sign-in.
+
+This allows you to read and upload assets to the Arena folder in the Storage API.
+See :doc:`assets_management` for the asset upload and release workflow.
+
+Credentials are saved at ``~/.nvidia-omniverse/config/auth.toml``.
+``omni.client`` refreshes access tokens automatically.
+
+For renewing an existing login, follow the internal
+`device-login guide <https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md>`__.
+For unattended CI, use the
+`Storage API federation guide <https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/auth/federation.md>`__.

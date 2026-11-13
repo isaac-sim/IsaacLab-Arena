@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Omniverse Authentication &#8212; isaaclab_arena</title>
+    <title>Storage API Access &#8212; isaaclab_arena</title>
   
   
   
@@ -233,6 +233,10 @@
     </div>
   
 
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
   
 </div>
 
@@ -486,7 +490,7 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a aria-current="page" class="current reference internal" href="#">Omniverse Authentication</a></li>
+<li class="toctree-l1 current active"><a aria-current="page" class="current reference internal" href="#">Storage API Access</a></li>
 <li class="toctree-l1"><a class="reference internal" href="assets_management.html">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
 </ul>
@@ -549,7 +553,7 @@
         <i class="fa-solid fa-house"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Omniverse Authentication</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Storage API Access</span></li>
   </ul>
 </nav>
 </div>
@@ -566,31 +570,68 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="omniverse-authentication">
-<h1>Omniverse Authentication<a class="headerlink" href="#omniverse-authentication" title="Link to this heading">#</a></h1>
+  <section id="storage-api-access">
+<h1>Storage API Access<a class="headerlink" href="#storage-api-access" title="Link to this heading">#</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>These steps are only required if you are extending Isaac Lab Arena with your own
-internal assets. Assets and files that are used by Isaac Lab Arena by default are
-publicly available without additional authentication (i.e. without performing the
-steps detailed on this page).</p>
+<p><strong>Internal NVIDIA use only.</strong> These steps are for NVIDIA employees accessing internal Arena assets.
+Public S3 assets do not require login. Use <code class="docutils literal notranslate"><span class="pre">omni.client</span></code> 2.74.0 or newer.</p>
 </div>
-<p>To allow the project to access Nvidia Omniverse assets or services
-e.g., stored scenes, USD files, or extensions on a <strong>private</strong> Nucleus server,
-you must authenticate using an Omniverse API token.</p>
-<p>Isaac Sim and other Nvidia Omniverse applications use two environment variables
-<code class="docutils literal notranslate"><span class="pre">OMNI_USER</span></code> and <code class="docutils literal notranslate"><span class="pre">OMNI_PASS</span></code> to authenticate automatically.</p>
-<p>To generate those, follow the instructions on the
-<a class="reference external" href="https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html">Omniverse Authentication documentation</a>.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_USER</span><span class="o">=</span><span class="s1">&#39;$omni-api-token&#39;</span>
-<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_PASS</span><span class="o">=</span><span class="s2">&quot;YOUR_GENERATED_API_TOKEN&quot;</span>
+<section id="request-write-access-optional">
+<h2>1. Request write access (optional)<a class="headerlink" href="#request-write-access-optional" title="Link to this heading">#</a></h2>
+<p>This step is only needed to upload or modify assets in the Arena folder. Join the
+<code class="docutils literal notranslate"><span class="pre">access-isaac-dev-storage-arena-write</span></code> group on
+<a class="reference external" href="https://dlrequest/GroupID/Home/Index">DLRequest</a>.</p>
+</section>
+<section id="sign-in-and-verify-access">
+<h2>2. Sign in and verify access<a class="headerlink" href="#sign-in-and-verify-access" title="Link to this heading">#</a></h2>
+<p>Run the setup script from the repository root in your installed Arena runtime.
+It preserves existing credentials, starts NVIDIA device login only when credentials
+are missing, then lists the Arena storage root and reports whether you have write
+access.</p>
+<p>The script implements the device-code flow from the Storage API
+<a class="reference external" href="https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/auth/how-to.md">authentication instructions</a>
+and the credential-file setup from the
+<a class="reference external" href="https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md">login quickstart</a>.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>tools/internal/setup_storage_access.py
 </pre></div>
 </div>
-<p>Where:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">OMNI_USER</span></code> should be set to the literal string <code class="docutils literal notranslate"><span class="pre">$omni-api-token</span></code> (including the leading dollar sign)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">OMNI_PASS</span></code> should be the actual token value you generated.</p></li>
-</ul>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Docker</label><div class="sd-tab-content docutils">
+<p>Before creating the container, run from the repository root on the host:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.nvidia-omniverse&quot;</span>
+<span class="nb">unset</span><span class="w"> </span>OMNI_PASS
+./docker/run_docker.sh
+</pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">OMNI_PASS</span></code> unset, the launcher bind-mounts the existing host
+<code class="docutils literal notranslate"><span class="pre">~/.nvidia-omniverse</span></code> directory into the container.</p>
+<p>Inside the container, run as your normal host user:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>tools/internal/setup_storage_access.py
+</pre></div>
+</div>
+<p>The script writes <code class="docutils literal notranslate"><span class="pre">config/auth.toml</span></code> through the mount to the host.
+Credentials survive container removal and are reused by new containers
+launched with the same <code class="docutils literal notranslate"><span class="pre">~/.nvidia-omniverse</span></code> directory mount.</p>
+</div>
+</div>
+<p>When prompted, open <a class="reference external" href="https://login.microsoft.com/device">https://login.microsoft.com/device</a> in a browser, enter the
+code printed by the script, and complete your NVIDIA sign-in.</p>
+<p>This allows you to read and upload assets to the Arena folder in the Storage API.
+See <a class="reference internal" href="assets_management.html"><span class="doc">Assets Management</span></a> for the asset upload and release workflow.</p>
+<p>Credentials are saved at <code class="docutils literal notranslate"><span class="pre">~/.nvidia-omniverse/config/auth.toml</span></code>.
+<code class="docutils literal notranslate"><span class="pre">omni.client</span></code> refreshes access tokens automatically.</p>
+<p>For renewing an existing login, follow the internal
+<a class="reference external" href="https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md">device-login guide</a>.
+For unattended CI, use the
+<a class="reference external" href="https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/auth/federation.md">Storage API federation guide</a>.</p>
+</section>
 </section>
 
 
@@ -628,9 +669,26 @@ you must authenticate using an Omniverse API token.</p>
             
             
 
-<div class="bd-sidebar-secondary"></div>
+
+              
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#request-write-access-optional">1. Request write access (optional)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sign-in-and-verify-access">2. Sign in and verify access</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
 

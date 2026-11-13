@@ -490,7 +490,7 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Storage API Access</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
 </ul>
@@ -611,21 +611,6 @@ Docker Container</label><div class="sd-tab-content docutils">
 authenticate the Codex CLI on the host, then start it from the repository root
 so it can inspect Arena’s source and use the repository’s environment authoring
 skills.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Running this checked-in example currently requires NVIDIA employee access
-because some assets are hosted on the internal NVIDIA Storage API. The same
-authoring workflow works with public registered assets without this access.</p>
-<p>Authenticate as the user running Arena using the
-<a class="reference external" href="https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md">Storage API device-login quickstart</a>.
-The runtime needs <code class="docutils literal notranslate"><span class="pre">omni.client</span></code> 2.74.0 or newer and the credentials in
-<code class="docutils literal notranslate"><span class="pre">~/.nvidia-omniverse/config/auth.toml</span></code>; for Docker, these must be available
-inside the container.</p>
-<p>Enable Storage discovery in the shell where you run the commands below:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_STORAGE_DISCOVERY</span><span class="o">=</span>https://rc.storage.omni.nvidia.com
-</pre></div>
-</div>
-</div>
 </section>
 <section id="step-1-viewing-an-existing-agent-authored-environment">
 <h2>Step 1: Viewing an Existing Agent-Authored Environment<a class="headerlink" href="#step-1-viewing-an-existing-agent-authored-environment" title="Link to this heading">#</a></h2>

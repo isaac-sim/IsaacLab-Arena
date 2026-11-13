@@ -54,7 +54,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Jupyter Notebooks" href="../quickstart/jupyter_notebooks.html" />
-    <link rel="prev" title="Omniverse Authentication" href="private_omniverse.html" />
+    <link rel="prev" title="Storage API Access" href="private_omniverse.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -490,7 +490,7 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="private_omniverse.html">Storage API Access</a></li>
 <li class="toctree-l1 current active"><a aria-current="page" class="current reference internal" href="#">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
 </ul>
@@ -574,7 +574,7 @@
 <h1>Assets Management<a class="headerlink" href="#assets-management" title="Link to this heading">#</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><strong>Internal NVIDIA use only.</strong> This page documents workflows and infrastructure (OV Nucleus Server,
+<p><strong>Internal NVIDIA use only.</strong> This page documents workflows and infrastructure (Storage API,
 staging/production S3 buckets, internal ticketing) that are only accessible to NVIDIA employees.</p>
 </div>
 <div class="admonition note">
@@ -583,12 +583,12 @@ staging/production S3 buckets, internal ticketing) that are only accessible to N
 Assets and files that are used by Isaac Lab Arena by default are publicly available without additional authentication.</p>
 </div>
 <p>Isaac Lab Arena consumes assets from publicly available S3 buckets and LightWheel SDK registry.
-Isaac Lab Arena uses the following environment variables to access those S3 buckets:</p>
+Isaac Lab Arena uses the following constants to access those assets:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">ISAAC_NUCLEUS_DIR</span></code>: The directory of Isaac Sim’s assets on the production S3 bucket, containing assets that are compliant with legal requirements.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ISAACLAB_NUCLEUS_DIR</span></code>: The directory of Isaac Lab &amp; Isaac Lab Arena’s assets on the production S3 bucket, containing assets that are compliant with legal requirements.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ISAACLAB_STAGING_NUCLEUS_DIR</span></code>: The directory of Isaac Lab Arena’s development assets on the staging S3 bucket, auto-synced every 6 hours
-from the Nucleus Server (omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/). Those assets have not yet reviewed by legal team – use in production at your own risk.
+<li><p><code class="docutils literal notranslate"><span class="pre">ARENA_STAGING_STORAGE_DIR</span></code>: The directory of Isaac Lab Arena’s internal development assets in Storage API
+(<code class="docutils literal notranslate"><span class="pre">ovstorage://isaac/Isaac/IsaacLab</span></code>). Access to this directory is restricted to NVIDIA employees. Those assets have not yet been reviewed by the legal team – use in production at your own risk.
 Prior to each major release, the staging assets will be uploaded to the production bucket after being cleared by the legal team.</p></li>
 </ul>
 <div class="admonition note">
@@ -598,14 +598,16 @@ See the <a class="reference external" href="https://github.com/isaac-sim/IsaacLa
 </div>
 <section id="adding-assets">
 <h2>Adding assets<a class="headerlink" href="#adding-assets" title="Link to this heading">#</a></h2>
-<p>For immediate access to new uploads, use <code class="docutils literal notranslate"><span class="pre">ARENA_STAGING_NUCLEUS_DIR</span></code> from
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.assets.nucleus</span></code>. It points to the internal Nucleus location
-<code class="docutils literal notranslate"><span class="pre">omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab</span></code> and requires internal access.
+<p>Before uploading, authenticate with the Storage API by following <a class="reference internal" href="private_omniverse.html"><span class="doc">Storage API Access</span></a>.</p>
+<p>For immediate access to new uploads, use <code class="docutils literal notranslate"><span class="pre">ARENA_STAGING_STORAGE_DIR</span></code> from
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.assets.nucleus</span></code>. It points to the internal Storage API location
+<code class="docutils literal notranslate"><span class="pre">ovstorage://isaac/Isaac/IsaacLab</span></code> and requires internal access.
 Append <code class="docutils literal notranslate"><span class="pre">/Arena/assets/...</span></code> to build an asset path. <code class="docutils literal notranslate"><span class="pre">ARENA_NUCLEUS_DIR</span></code> uses the
 public S3 mirror, where uploads become available after synchronization.</p>
 <p>To add your own assets to Isaac Lab Arena’s <em>staging</em> S3 bucket, you can follow the following steps:</p>
 <ol class="arabic">
-<li><p>Upload your assets to the Nucleus Server (<code class="docutils literal notranslate"><span class="pre">omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena</span></code>). Depend on the type of your assets, you can upload them to the following directories:</p>
+<li><p>Open <a class="reference external" href="https://navigator.rc.storage.omni.nvidia.com/https%3A%2F%2Fstorage.rc.storage.omni.nvidia.com/path/https%3A%2F%2Fstsapiwus3isaac.blob.core.windows.net%2Fisaac%2FIsaac%2FIsaacLab%2FArena%2F">Storage Navigator</a>
+and upload your assets to the Storage API. Depending on the type of your assets, you can upload them to the following directories:</p>
 <ul class="simple">
 <li><p>Backgrounds: <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/assets/background_library</span></code></p></li>
 <li><p>Objects: <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/assets/object_library</span></code></p></li>
@@ -613,11 +615,11 @@ public S3 mirror, where uploads become available after synchronization.</p>
 <li><p>Policies: <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/${NAME_OF_THE_POLICY}</span></code></p></li>
 </ul>
 <p>Prefix assets with their source (e.g., <code class="docutils literal notranslate"><span class="pre">scarif_tower_01.usd</span></code>), upload to <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/assets/object_library</span></code>,
-and include a valid license file in the target folder. If you lack Nucleus Server write access, contact the isaaclab-arena team to facilitate the asset and license upload.</p>
+and include a valid license file in the target folder. If you lack Storage API write access, contact the isaaclab-arena team to facilitate the asset and license upload.</p>
 </li>
-<li><p>Update the USD path configurations to use the new assets as they are stored in <code class="docutils literal notranslate"><span class="pre">ISAACLAB_STAGING_NUCLEUS_DIR/Arena/assets</span></code> directory.
+<li><p>Update the USD path configurations to use the new assets as they are stored in <code class="docutils literal notranslate"><span class="pre">ARENA_STAGING_STORAGE_DIR/Arena/assets</span></code>.
 For example, if you want to use a new object, you can register the object in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/assets/object_library.py</span></code> as a derived class of <code class="docutils literal notranslate"><span class="pre">LibraryObject</span></code>, and add the USD path as its class attribute.</p></li>
-<li><p>Wait for at most 6 hours for the assets to be synced to the staging S3 bucket.</p></li>
+<li><p>Request synchronization to the staging S3 bucket on <a class="reference external" href="https://nvidia.atlassian.net/browse/ISIM-5288">ISIM-5288</a>.</p></li>
 <li><p>Run Isaac Lab Arena to verify that the assets are loaded correctly.</p></li>
 </ol>
 </section>
@@ -626,7 +628,7 @@ For example, if you want to use a new object, you can register the object in <co
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Syncing assets from the OV Nucleus Server to the <em>production</em> S3 bucket requires filing a ticket:
-<a class="reference external" href="https://jirasw.nvidia.com/browse/ISIM-5044">https://jirasw.nvidia.com/browse/ISIM-5044</a></p>
+<a class="reference external" href="https://jirasw.nvidia.com/browse/ISIM-5288">https://jirasw.nvidia.com/browse/ISIM-5288</a></p>
 </div>
 </section>
 </section>
@@ -647,7 +649,7 @@ For example, if you want to use a new object, you can register the object in <co
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Omniverse Authentication</p>
+        <p class="prev-next-title">Storage API Access</p>
       </div>
     </a>
     <a class="right-next"

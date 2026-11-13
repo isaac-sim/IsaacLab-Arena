@@ -23,26 +23,6 @@ authenticate the Codex CLI on the host, then start it from the repository root
 so it can inspect Arena's source and use the repository's environment authoring
 skills.
 
-.. note::
-
-   Running this checked-in example currently requires NVIDIA employee access
-   because some assets are hosted on the internal NVIDIA Storage API. The same
-   authoring workflow works with public registered assets without this access.
-
-   Authenticate as the user running Arena using the
-   `Storage API device-login quickstart
-   <https://gitlab-master.nvidia.com/omniverse/usd-storage/ops/sapi-deployments/-/blob/master/doc/user/kit/kit-vm-quickstart.md>`_.
-   The runtime needs ``omni.client`` 2.74.0 or newer and the credentials in
-   ``~/.nvidia-omniverse/config/auth.toml``; for Docker, these must be available
-   inside the container.
-
-   Enable Storage discovery in the shell where you run the commands below:
-
-   .. code-block:: bash
-
-      export OMNI_STORAGE_DISCOVERY=https://rc.storage.omni.nvidia.com
-
-
 Step 1: Viewing an Existing Agent-Authored Environment
 ------------------------------------------------------
 
