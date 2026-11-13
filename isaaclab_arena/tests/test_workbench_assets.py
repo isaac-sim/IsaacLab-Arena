@@ -5,8 +5,6 @@
 
 """Validate workbench asset configuration and uploaded layers."""
 
-import pytest
-
 
 def _test_workbench_asset_configuration(simulation_app, monkeypatch):
     from isaaclab_arena.assets.object_library import (
@@ -85,8 +83,6 @@ def _test_workbench_uploaded_articulations(simulation_app):
     return True
 
 
-# CI cannot access the ovstorage:// staging assets. Re-enable this test after the assets are uploaded to S3.
-@pytest.mark.skip(reason="Workbench staging assets require ovstorage access")
 def test_workbench_uploaded_articulations():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 

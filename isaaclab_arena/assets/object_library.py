@@ -20,7 +20,7 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ARENA_STAGING_STORAGE_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import (
@@ -2202,8 +2202,7 @@ class SimReadyCentralSocketSet(LibraryObject, Openable):
 
     registry_name = "simready_central_socket_set"
     tags = ["object", "openable", "sim-ready", "workbench"]
-    # TODO(qianl, 2026.11.11): Point this prepared asset to ARENA_NUCLEUS_DIR after it is published to S3.
-    usd_path = f"{ARENA_STAGING_STORAGE_DIR}/Arena/assets/object_library/workbench/socket_set.usda"
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/workbench/socket_set.usda"
     object_type = ObjectType.ARTICULATION
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
     openable_joint_name = "case_lid"
@@ -2221,8 +2220,7 @@ class SimReadyCentralOscilloscope(LibraryObject, Pressable):
 
     registry_name = "simready_central_oscilloscope"
     tags = ["object", "pressable", "sim-ready", "workbench"]
-    # TODO(qianl, 2026.11.11): Point this prepared asset to ARENA_NUCLEUS_DIR after it is published to S3.
-    usd_path = f"{ARENA_STAGING_STORAGE_DIR}/Arena/assets/object_library/workbench/oscilloscope.usda"
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/workbench/oscilloscope.usda"
     object_type = ObjectType.ARTICULATION
     spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
     pressable_joint_name = "joint_button_01_joint_00"

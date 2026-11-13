@@ -29,8 +29,6 @@ def _test_workbench_task_definitions_build(simulation_app) -> bool:
     return True
 
 
-# TODO(qianl, 2026.11.11): Re-enable after the workbench assets are published to public S3.
-@pytest.mark.skip(reason="Workbench staging assets require ovstorage access unavailable in CI")
 def test_workbench_task_definitions_build():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
