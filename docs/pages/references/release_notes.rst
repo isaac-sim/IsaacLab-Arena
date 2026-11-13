@@ -46,13 +46,14 @@ Details below:
   initial joint positions. Added ``UsdSource`` acquisition and search for SimReady Central assets
   (#1513, #1572, #1617, #1621).
 - **Experiments and KPIs:** Experiments now have a name and record Arena git provenance. Added
-  ``ArenaExperimentResult``, InfluxDB KPI exporters, a Python API for OSMO Experiment submission,
-  and tracked events that record recurring occurrences such as dropped objects (#1457, #1538,
+  ``ArenaExperimentResult.from_experiment_output()`` to read results back, InfluxDB KPI exporters,
+  a Python API for OSMO Experiment submission, and tracked events that record recurring occurrences such as dropped objects (#1457, #1538,
   #1540, #1585, #1586, #1587, #1588).
-- **Cameras:** Added ``camera_resolution_mode`` to render embodiment cameras at the policy's image
-  size, and an untiled renderer so camera intrinsics vary per environment (#1508, #1511).
+- **Cameras:** Added ``camera_resolution_mode``. Its ``policy_default`` mode shrinks embodiment
+  cameras to fit the policy's image size, keeping each camera's aspect ratio (#1511).
 - **Task libraries and benchmarks:** Added eleven KitchenBench environments for knob turning,
-  multi-object and multi-level pick-and-place, spatial placement, and stacking. Aligned RoboLab
+  multi-object and multi-level pick-and-place, spatial placement, stacking, and microwave door
+  opening. Aligned RoboLab
   environments with RoboLab, and added PerfLab benchmark Experiments (#1487, #1518, #1595).
 
 **Documentation**
@@ -67,8 +68,8 @@ Details below:
     in a KitchenBench kitchen and review the result (#1660, #1679).
   - **Newton gear insertion:** Preview, teleoperate, record, and replay a DROID gear insertion
     task, and evaluate a VLM agent policy on it (#1510, #1575, #1633).
-  - **Newton deformable pick-and-place:** Compare Newton and PhysX deformable bodies, teleoperate,
-    and evaluate OpenPI in closed loop (#1441, #1634).
+  - **Newton deformable pick-and-place:** Preview the task on the Newton or PhysX deformable
+    backend, teleoperate, and evaluate OpenPI in closed loop (#1441, #1634).
   - **VLM agent policy:** Evaluate goal, chunk, and step VLM policies on DROID pick-and-place
     (#1551, #1675).
   - **Recorded variation replay:** Replay recorded variation values from one or more result files
@@ -99,8 +100,9 @@ Details below:
 - **Recording and resets:** Fixed demo recording with variations and placement, and reset
   articulated objects to their initial joint positions with zero joint velocity (#1435, #1502,
   #1573).
-- **Rendering and interop:** Fixed camera initialization in Isaac Lab interop and kept Fabric
-  enabled in the environment runner for stable CPU PhysX scenes (#1554, #1613).
+- **Rendering and interop:** Fixed camera initialization in Isaac Lab interop, kept Fabric
+  enabled in the environment runner for stable CPU PhysX scenes, and fixed camera intrinsics
+  variation so per-environment intrinsics appear in rendered images (#1508, #1554, #1613).
 - **OSMO:** Fixed timings filename collisions and Run timeouts in the Experiment output collector
   (#1426).
 
