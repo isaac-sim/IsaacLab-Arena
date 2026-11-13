@@ -45,8 +45,7 @@ Query: "Run the zero-action smoke test from the installation guide."
 
 Expected behavior:
 
-- Uses a route the user chose earlier in the session; otherwise uses the preferred route in
-  `docs/pages/quickstart/installation.rst` and states the choice.
+- Uses a route the user chose earlier in the session; otherwise uses Docker and states the choice.
 - Replaces the guide's `python` with the selected route's interpreter.
 
 Known failure modes:

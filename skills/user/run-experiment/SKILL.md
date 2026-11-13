@@ -31,8 +31,7 @@ path; do not create new legacy configurations or apply Hydra overrides to them.
 3. Inspect the Experiment's Runs, policies, rollout limits, rebuild counts, environment counts,
    cameras, variations, and referenced files. Summarize unexpectedly large work before starting it.
 4. Preserve a native or Docker route already selected by the user. If both are ready and the
-   request does not choose one, use the preferred route in the current installation documentation
-   and state the choice. If neither route is ready, use `setup-arena`; do not install dependencies,
+   request does not choose one, use Docker and state the choice. If neither route is ready, use `setup-arena`; do not install dependencies,
    build an image, create mounts, or recreate a container here.
 5. Confirm that referenced configs, datasets, checkpoints, and output locations are available from
    the selected runtime. Identify a policy from each Run's resolved `policy.type`, not the

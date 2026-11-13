@@ -43,8 +43,7 @@ Choose the route as follows:
 - Keep a route the user has already chosen.
 - If only one route is ready, use it. A missing container is not a reason to skip runtime work when
   the native route is ready, and the reverse.
-- If both are ready, use the preferred route in `docs/pages/quickstart/installation.rst` and state
-  the choice.
+- If both are ready, use Docker and state the choice.
 - If neither is ready, stop, report the failed checks, and suggest that the user installs Arena
   with the native uv or Docker route through `setup-arena`. Do not install dependencies or start a
   container here.
