@@ -32,8 +32,7 @@ def _configure_newton_deformable_physics(
         "Newton deformable pick objects need the Newton backend. Omit --presets, or use a PhysX asset such as "
         "--pick_object deformable_cube_physx."
     )
-    # Vertex-only soft contacts can leave cube faces crossing the thin plate rim between nodes.
-    # Inflate only the plate collider to give those faces clearance without more solver steps.
+    # Inflate only the plate collider to avoid cube face penetration at the thin rim.
     env_cfg.scene.plate.spawn.collision_props = [NewtonCollisionCfg(contact_margin=0.002)]
     rigid_solver_cfg = physics_cfg.solver_cfg
     all_environment_bodies = [r"/World/envs/env_[^/]+/.*"]
@@ -75,13 +74,11 @@ def _configure_newton_deformable_physics(
             iterations=1,
         ),
         soft_contact_cfg=NewtonSoftContactCfg(
-            # Rigid-soft contact averages this with the rigid shape's stiffness.
             # Keep it comparable to the cube's elastic stiffness under gripper loads.
             soft_contact_ke=1.0e5,
             soft_contact_kd=10.0,
             soft_contact_mu=3.0,
         ),
-        # Refresh proxy contacts at 960 Hz for the default 120 Hz physics tick.
         num_substeps=8,
     )
     return env_cfg
