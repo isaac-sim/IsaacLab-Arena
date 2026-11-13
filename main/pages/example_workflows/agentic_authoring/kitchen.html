@@ -54,7 +54,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="Newton Environments" href="../newton/index.html" />
-    <link rel="prev" title="Author a Workbench Environment with Codex" href="workbench.html" />
+    <link rel="prev" title="Author a Workbench Environment with a Coding Agent" href="workbench.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -384,7 +384,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Agentic Authoring</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="workbench.html">Author a Workbench Environment with Codex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workbench.html">Author a Workbench Environment with a Coding Agent</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Author a <code class="docutils literal notranslate"><span class="pre">kitchen_bench</span></code> Environment with a Coding Agent</a></li>
 </ul>
 </details></li>
@@ -610,7 +610,11 @@ Docker Container</label><div class="sd-tab-content docutils">
 </div>
 <p>Install and authenticate your favourite coding agent on the host,
 then start it from the repository root.
-In our example, we use Codex with <code class="docutils literal notranslate"><span class="pre">GPT-6-Astra-high</span></code>.</p>
+In our example, we use Codex with GPT-6 Astra and high reasoning effort.</p>
+<p>Install the Codex CLI on the host using the official
+<a class="reference external" href="https://learn.chatgpt.com/docs/codex/cli#install-codex">installation guide</a>,
+then <a class="reference external" href="https://learn.chatgpt.com/docs/auth">authenticate</a> on the host with <code class="docutils literal notranslate"><span class="pre">codex</span> <span class="pre">login</span></code>.
+Codex CLI 0.160.0 or newer is recommended, check with <code class="docutils literal notranslate"><span class="pre">codex</span> <span class="pre">--version</span></code>.</p>
 </section>
 <section id="viewing-an-existing-kitchen-bench-environment">
 <h2>Viewing an Existing <code class="docutils literal notranslate"><span class="pre">kitchen_bench</span></code> Environment<a class="headerlink" href="#viewing-an-existing-kitchen-bench-environment" title="Link to this heading">#</a></h2>
@@ -618,6 +622,8 @@ In our example, we use Codex with <code class="docutils literal notranslate"><sp
 <code class="docutils literal notranslate"><span class="pre">kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl</span></code>, from the
 <a class="reference internal" href="../kitchen_bench_catalog.html"><span class="doc">Kitchen Benchmark Catalog</span></a>.</p>
 <p>Preview the existing scene by running it with some zero actions using:</p>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text">Arena runtime (activated uv environment or Arena Docker shell)</span><a class="headerlink" href="#id2" title="Link to this code">#</a></div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/cli_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mode<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml<span class="w"> </span><span class="se">\</span>
@@ -627,11 +633,12 @@ In our example, we use Codex with <code class="docutils literal notranslate"><sp
 <span class="w">  </span>--viz<span class="w"> </span>kit
 </pre></div>
 </div>
-<figure class="align-center" id="id2">
+</div>
+<figure class="align-center" id="id3">
 <a class="reference internal image-reference" href="../../../_images/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl_pi05.gif"><img alt="The DROID robot placing a banana and an orange in a wooden bowl in the G-shaped kitchen" src="../../../_images/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl_pi05.gif" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">A π0.5 policy placing the banana and the orange in the wooden bowl.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+<p><span class="caption-text">A π0.5 policy placing the banana and the orange in the wooden bowl.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
@@ -641,9 +648,12 @@ In our example, we use Codex with <code class="docutils literal notranslate"><sp
 DROID robot is required to place a banana and an orange in two bowls, in a
 kitchen setting.</p>
 <p>Start your favourite coding agent from the repository root.
-For this demonstration we’ll use Codex with <code class="docutils literal notranslate"><span class="pre">GPT-6-Astra-high</span></code>.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>codex<span class="w"> </span>--model<span class="w"> </span>GPT-6-Astra-high<span class="w"> </span>--yolo
+For this demonstration we’ll use Codex with GPT-6 Astra and high reasoning effort.</p>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text">Host terminal (repository root)</span><a class="headerlink" href="#id4" title="Link to this code">#</a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>codex<span class="w"> </span>--model<span class="w"> </span>gpt-6-astra<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;model_reasoning_effort=&quot;high&quot;&#39;</span><span class="w"> </span>--yolo
 </pre></div>
+</div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -652,26 +662,29 @@ runs commands without asking for approval and outside Codex’s sandbox.
 Do this at your own risk.</p>
 </div>
 <p>Enter following prompt to the agent, that describes the scene, the spatial arrangement, and the task.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Build a new evaluation environment at
-`isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml`.
-Use the Replicator peninsula kitchen with the DROID robot on a 0.8 m stand,
-on the floor at the long side of the island, facing it. On the countertop,
-place a wooden bowl and, farther from the robot, a red bowl; put a banana
-next to the wooden bowl and an orange next to the red bowl. Layouts should
-vary as much as possible between resets while keeping this arrangement: the
-robot anywhere along the long side, with bowls and fruit moving with it, on
-either side of existing counter items. The task is to put the banana in the
-wooden bowl and the orange in the red bowl, in either order; it succeeds only
-when both are in their bowls.
+<div class="literal-block-wrapper docutils container" id="id5">
+<div class="code-block-caption"><span class="caption-text">Prompt in the host Codex session</span><a class="headerlink" href="#id5" title="Link to this code">#</a></div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span> Build a new evaluation environment at
+ `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml`.
+ Use the Replicator peninsula kitchen with the DROID robot on a 0.8 m stand,
+ on the floor at the long side of the island, facing it. On the countertop,
+ place a wooden bowl and, farther from the robot, a red bowl; put a banana
+ next to the wooden bowl and an orange next to the red bowl. Layouts should
+ vary as much as possible between resets while keeping this arrangement: the
+ robot anywhere along the long side, with bowls and fruit moving with it, on
+ either side of existing counter items. The task is to put the banana in the
+ wooden bowl and the orange in the red bowl, in either order; it succeeds only
+ when both are in their bowls.
 
-Assets:
-- Kitchen: `replicator_kitchen_peninsula`
-- Robot: `droid_abs_joint_pos`
-- Wooden bowl: `wooden_bowl_hot3d_robolab`
-- Red bowl: `bowl_ycb_robolab`
-- Banana: `banana_ycb_robolab`
-- Orange: `orange_01_fruits_veggies_robolab`
+ Assets:
+ - Kitchen: `replicator_kitchen_peninsula`
+ - Robot: `droid_abs_joint_pos`
+ - Wooden bowl: `wooden_bowl_hot3d_robolab`
+ - Red bowl: `bowl_ycb_robolab`
+ - Banana: `banana_ycb_robolab`
+ - Orange: `orange_01_fruits_veggies_robolab`
 </pre></div>
+</div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -827,6 +840,8 @@ We’ve done that here such that you get similar results to us.</p>
 </div>
 </div>
 </details><p>To visualize the object placements in the environment, we can use the placement pool validation tool.</p>
+<div class="literal-block-wrapper docutils container" id="id6">
+<div class="code-block-caption"><span class="caption-text">Arena runtime (activated uv environment or Arena Docker shell)</span><a class="headerlink" href="#id6" title="Link to this code">#</a></div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/run_placement_pool_validation.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
@@ -835,6 +850,7 @@ We’ve done that here such that you get similar results to us.</p>
 <span class="w">  </span>--render
 </pre></div>
 </div>
+</div>
 <p>You should see something similar to the following video:</p>
 <figure  class="sphinx-contrib-video-container align-left"><video autoplay="True" controls="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../../_images/peninsula_kitchen_banana_and_orange_10_reset_layouts.mp4" type="video/mp4">The DROID robot, two bowls, a banana, and an orange repositioned along the kitchen island over ten resets</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">Ten reset layouts of the agent-authored peninsula kitchen environment.</span></p></figcaption></figure></section>
 <section id="evaluate-a-policy">
@@ -842,9 +858,13 @@ We’ve done that here such that you get similar results to us.</p>
 <p>The new environment can be used to evaluate a policy straight away. Ask the
 agent to evaluate the pi05 DROID checkpoint on it through a local OpenPI
 server:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Evaluate the pi05 DROID policy on the environment at
-`isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml` for 3 episodes
+<div class="literal-block-wrapper docutils container" id="id7">
+<div class="code-block-caption"><span class="caption-text">Prompt in the host Codex session</span><a class="headerlink" href="#id7" title="Link to this code">#</a></div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span> Evaluate the pi05 DROID policy on the environment at
+ `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml` for 3 episodes.
+ Record camera videos, and open the evaluation report in my browser when it&#39;s done.
 </pre></div>
+</div>
 </div>
 <p>The repository’s <code class="docutils literal notranslate"><span class="pre">run-experiment</span></code> and <code class="docutils literal notranslate"><span class="pre">serve-openpi-policy</span></code> skills guide
 the agent through the evaluation. Expect it to:</p>
@@ -858,11 +878,16 @@ first start builds the <code class="docutils literal notranslate"><span class="p
 ~19 GB) and downloads the ~11 GB checkpoint, so the agent should ask before
 starting it.</p></li>
 <li><p><strong>Run the evaluation:</strong> run the Experiment with
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/evaluation/experiment_runner.py</span></code> and report the results.</p></li>
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/evaluation/experiment_runner.py</span></code> and the <code class="docutils literal notranslate"><span class="pre">--record_camera_video</span></code>
+flag, then report the results.</p></li>
+<li><p><strong>Open the report:</strong> open the <code class="docutils literal notranslate"><span class="pre">index.html</span></code> evaluation report from the run’s
+output directory under <code class="docutils literal notranslate"><span class="pre">outputs/</span></code> in your browser.</p></li>
 </ol>
 <p>An episode only counts as a success when both fruits are in their bowls. The
 results also include <code class="docutils literal notranslate"><span class="pre">subtask_success_rate</span></code>, the success rate for each fruit,
 so you can see which placement the policy completed.</p>
+<p>The report shows each episode’s result next to its recorded videos, one per
+camera.</p>
 <figure  class="sphinx-contrib-video-container align-left"><video autoplay="True" controls="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../../_images/peninsula_kitchen_banana_and_orange_pi05_episode.mp4" type="video/mp4">Three camera views of the DROID robot running pi05 in the peninsula kitchen, placing the orange in the red bowl</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">A pi05 episode on the environment from our run, shown at 5x speed from the two external cameras and the wrist camera. The policy places the orange in the red bowl but not the banana in the wooden bowl, so the episode times out without success.</span></p></figcaption></figure><details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Experiment for the environment from our run</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
@@ -924,7 +949,7 @@ bowls with bounded forces. See <a class="reference internal" href="../../agentic
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Author a Workbench Environment with Codex</p>
+        <p class="prev-next-title">Author a Workbench Environment with a Coding Agent</p>
       </div>
     </a>
     <a class="right-next"

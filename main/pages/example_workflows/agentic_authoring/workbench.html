@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Author a Workbench Environment with Codex &#8212; isaaclab_arena</title>
+    <title>Author a Workbench Environment with a Coding Agent &#8212; isaaclab_arena</title>
   
   
   
@@ -384,7 +384,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Agentic Authoring</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Author a Workbench Environment with Codex</a></li>
+<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Author a Workbench Environment with a Coding Agent</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kitchen.html">Author a <code class="docutils literal notranslate"><span class="pre">kitchen_bench</span></code> Environment with a Coding Agent</a></li>
 </ul>
 </details></li>
@@ -556,7 +556,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Agentic Authoring</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Author a Workbench Environment with Codex</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Author a Workbench Environment with a Coding Agent</span></li>
   </ul>
 </nav>
 </div>
@@ -573,16 +573,9 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="author-a-workbench-environment-with-codex">
-<h1>Author a Workbench Environment with Codex<a class="headerlink" href="#author-a-workbench-environment-with-codex" title="Link to this heading">#</a></h1>
-<p>This workflow uses a coding agent to author a reviewable environment graph and
-run the result. Codex edits environment YAML files, reuses existing Arena
-features, and runs task and environment validation.</p>
-<p>The workflow:</p>
-<ul class="simple">
-<li><p>Previews a checked-in agent-authored environment and its force-based demonstration.</p></li>
-<li><p>Prompts Codex to author a related workbench cleanup task.</p></li>
-</ul>
+  <section id="author-a-workbench-environment-with-a-coding-agent">
+<h1>Author a Workbench Environment with a Coding Agent<a class="headerlink" href="#author-a-workbench-environment-with-a-coding-agent" title="Link to this heading">#</a></h1>
+<p>This workflow uses a coding agent to author and validate a workbench cleanup task.</p>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
 <p>Complete the <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Arena installation</span></a>, then
@@ -607,13 +600,16 @@ Docker Container</label><div class="sd-tab-content docutils">
 </div>
 </div>
 </div>
-<p>Run the commands below from the repository root in that runtime. Install and
-authenticate the Codex CLI on the host, then start it from the repository root
-so it can inspect Arena’s source and use the repository’s environment authoring
-skills.</p>
+<p>Install and authenticate your favourite coding agent on the host, then start it from the repository root.
+In our example, we use Codex with GPT-6 Astra and high reasoning effort.</p>
+<p>Install the Codex CLI on the host using the official
+<a class="reference external" href="https://learn.chatgpt.com/docs/codex/cli#install-codex">installation guide</a>,
+then <a class="reference external" href="https://learn.chatgpt.com/docs/auth">authenticate</a> on the host with <code class="docutils literal notranslate"><span class="pre">codex</span> <span class="pre">login</span></code>.
+Codex CLI 0.160.0 or newer is recommended, check with <code class="docutils literal notranslate"><span class="pre">codex</span> <span class="pre">--version</span></code>.</p>
 </section>
 <section id="step-1-viewing-an-existing-agent-authored-environment">
 <h2>Step 1: Viewing an Existing Agent-Authored Environment<a class="headerlink" href="#step-1-viewing-an-existing-agent-authored-environment" title="Link to this heading">#</a></h2>
+<p>Run this step in the Arena runtime (uv environment or inside the Docker container).</p>
 <p>Arena includes an agent-generated workbench scene and task:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/workbench_cleanup/scene_tool_bin_scope.yaml</span></code></p></li>
@@ -621,34 +617,59 @@ skills.</p>
 </ul>
 <p>The scene contains two tools in the open top drawer, an open socket set, an
 oscilloscope, and a white bin. Preview it in Kit:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.scripts.environment_runner<span class="w"> </span><span class="se">\</span>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">Arena runtime (activated uv environment or Arena Docker shell)</span><a class="headerlink" href="#id1" title="Link to this code">#</a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--device<span class="w"> </span>cpu
+<span class="w">  </span>--robot_control<span class="w"> </span>droid_differential_ik<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit
 </pre></div>
 </div>
-<p>The checked-in object-control recipe validates all four task steps:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.agentic_tools.object_control_runner<span class="w"> </span><span class="se">\</span>
+</div>
+<p>You should see the workbench scene with objects and the DROID robot holding its pose. The preview
+exits after 1,000 steps. This preview does not attempt the task.</p>
+<p>Next, run the recipe with the <a class="reference internal" href="../../agentic_tools/object_control.html"><span class="doc">Object Control Runner</span></a>
+to see a force-based demonstration of all four subtasks:</p>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text">Arena runtime (activated uv environment or Arena Docker shell)</span><a class="headerlink" href="#id2" title="Link to this code">#</a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/agentic_tools/object_control_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--commands<span class="w"> </span>isaaclab_arena_environments/workbench_cleanup/object_control/full_cleanup.jsonl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output<span class="w"> </span><span class="nv">$HOME</span>/eval/workbench/full_cleanup_demo<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--seed<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--placement_seed<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--visualizer<span class="w"> </span>kit
 </pre></div>
 </div>
-<p>The recipe closes the drawer and toolcase, places the bin on the overhead
-shelf, and presses the oscilloscope power button. The system checks for
-composite task success.</p>
+</div>
+<p>On success, the runner prints the following summary:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>TASK_SUCCESS {&quot;success&quot;: [true], &quot;report&quot;: &quot;/home/&lt;user&gt;/eval/workbench/full_cleanup_demo/validation.json&quot;}
+</pre></div>
+</div>
+<p>The recipe applies bounded forces and joint efforts to close the drawer and toolcase, place the bin on the overhead
+shelf, and press the oscilloscope power button. The agentic authoring pipeline leverages this tool to validate the
+object physics and checks for task success without invoking a robot policy.</p>
 <figure  class="sphinx-contrib-video-container align-left"><video autoplay="True" controls="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../../_images/full_cleanup.mp4" type="video/mp4">Force-based object control completing the workbench cleanup task</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">Complete all four workbench cleanup subtasks.</span></p></figcaption></figure></section>
 <section id="step-2-authoring-a-new-workbench-environment">
 <h2>Step 2: Authoring a New Workbench Environment<a class="headerlink" href="#step-2-authoring-a-new-workbench-environment" title="Link to this heading">#</a></h2>
-<p>Start Codex from the repository root:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>codex
+<p>Start Codex from the repository root on the host:</p>
+<div class="literal-block-wrapper docutils container" id="id3">
+<div class="code-block-caption"><span class="caption-text">Host terminal (repository root)</span><a class="headerlink" href="#id3" title="Link to this code">#</a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>codex<span class="w"> </span>--model<span class="w"> </span>gpt-6-astra<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;model_reasoning_effort=&quot;high&quot;&#39;</span><span class="w"> </span>--yolo
 </pre></div>
 </div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The command above will start Codex in <code class="docutils literal notranslate"><span class="pre">yolo</span></code> mode, which means that the agent
+runs commands without asking for approval and outside Codex’s sandbox.
+Do this at your own risk.</p>
+</div>
 <p>Enter a prompt like the one below:</p>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text">Prompt in the host Codex session</span><a class="headerlink" href="#id4" title="Link to this code">#</a></div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Set up an environment for evaluation of a workbench cleanup task.
 Use the simready_central workbench assets registered in
 isaaclab_arena/assets/background_library.py and
@@ -663,7 +684,9 @@ Task: put the tools into the drawer one by one, then close the drawer.
 Validate task success correctly with a force-based demo script.
 </pre></div>
 </div>
-<p>After Codex finishes (expect 10~20 minutes), it should return a successful force-based demonstration video like the one below:</p>
+</div>
+<p>The agent uses Arena’s <code class="docutils literal notranslate"><span class="pre">author-environment</span></code> skill to author and validate the requested environment.
+After Codex finishes (expect 10~20 minutes), it should return a successful force-based demonstration video like the one below:</p>
 <figure  class="sphinx-contrib-video-container align-left"><video autoplay="True" controls="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../../_images/tools_in_drawer.mp4" type="video/mp4">Force-based demonstration placing five tools into the top workbench drawer and closing it</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">Successful five-tool drawer cleanup using bounded forces and joint efforts.</span></p></figcaption></figure></section>
 </section>
 
