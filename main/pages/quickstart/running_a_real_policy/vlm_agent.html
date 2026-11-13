@@ -731,6 +731,15 @@ tracks the pose.</p></li>
 </section>
 <section id="run-the-example">
 <h2>Run the example<a class="headerlink" href="#run-the-example" title="Link to this heading">#</a></h2>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>This example evaluates how well an out-of-the-box VLM completes the task. The model is not
+trained or tuned for the robot, so task completion is not guaranteed. Success rates vary with
+the model and the placement seed, which sets the cube and bowl layout. They also vary between
+trials with the same seed, because the model’s responses are sampled, so the policy is not
+deterministic. Long pauses, grasp and placement mistakes, and failed episodes are expected
+results, not setup errors.</p>
+</div>
 <p>Prepare the Arena runtime from the repository root, using either a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the
 base Docker container (see <a class="reference internal" href="../installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
 <div class="sd-tab-set docutils">
@@ -843,9 +852,15 @@ Docker Container</label><div class="sd-tab-content docutils">
 <span class="w">  </span>runs.droid_pnp_vlm_goal.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
 </pre></div>
 </div>
-<p>The runner prints the endpoint and model it connects to, then steps the episode. Each request
-takes several seconds, and the simulation waits while a request is in flight. Run the chunk
+<p>The runner prints the endpoint and model it connects to, then steps the episode. Run the chunk
 policy the same way with <code class="docutils literal notranslate"><span class="pre">droid_pnp_vlm_chunk_experiment.yaml</span></code>.</p>
+<p>The simulation is frozen while a request is in flight, and each request takes several seconds, so
+the robot pauses every time the policy asks the model for a response. How often that happens
+depends on the policy: the goal policy requests when a goal ends, the chunk policy every
+<code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> steps, and the step policy (<code class="docutils literal notranslate"><span class="pre">chunk_size:</span> <span class="pre">1</span></code>) on every simulation step. The step
+policy is therefore the slowest. A failed step episode makes a request on every step until the
+episode ends, at the task’s time limit or earlier if the cube falls off the table. See
+<a class="reference internal" href="#vlm-agent-strategies"><span class="std std-ref">Goal, chunk, and step policies</span></a> for the number of requests each policy makes.</p>
 <p>Override settings for one Run on the command line. Each line below is one example:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step policy: one command per request</span>
 runs.droid_pnp_vlm_chunk.policy.chunk_size<span class="o">=</span><span class="m">1</span>
@@ -860,7 +875,7 @@ runs.droid_pnp_vlm_goal.policy.endpoint<span class="o">=</span>internal<span cla
 runs.droid_pnp_vlm_goal.policy.model<span class="o">=</span>&lt;model&gt;
 </pre></div>
 </div>
-<p>For example, to run the step policy:</p>
+<p>For example, to run the step policy, which makes one request per simulation step:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_chunk_experiment.yaml<span class="w"> </span><span class="se">\</span>
@@ -927,8 +942,8 @@ model returns differs by policy: about 300 tokens for a goal, 100 for a step com
 for a chunk of 15 commands. Most of these are model reasoning. A step episode costs the most
 because it makes the most requests.</p>
 <p>A failed episode costs far more than a successful one, because the policy keeps requesting until
-the episode ends at 1,050 steps. A failed chunk episode used about 240k tokens, and a failed step
-episode about 2.4M.</p>
+the episode ends, at 1,050 steps or earlier if the cube falls off the table. A failed chunk
+episode used about 240k tokens, and a failed step episode about 2.4M.</p>
 <p>Step mode is also the most sensitive to a single bad response. A command executes on the very
 next step, so one stray “open” while the robot carries the cube drops it. Goal and long-chunk
 modes request far less often and give the model time to observe the result of each response.</p>
