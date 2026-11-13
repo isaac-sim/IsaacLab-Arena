@@ -649,29 +649,66 @@ OpenAI. Review those terms before sending prompts or other data.</p>
 </div>
 </div>
 </div>
-<p>Set <code class="docutils literal notranslate"><span class="pre">ARENA_INFERENCE_ENDPOINT</span></code> to choose the default endpoint:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">ARENA_INFERENCE_ENDPOINT</span><span class="o">=</span>public<span class="w">  </span><span class="c1"># internal, public, or openai</span>
-</pre></div>
-</div>
 </section>
 <section id="select-the-endpoint-and-model">
-<h3>Select the endpoint and model<a class="headerlink" href="#select-the-endpoint-and-model" title="Link to this heading">#</a></h3>
-<p>If a Run sets <code class="docutils literal notranslate"><span class="pre">policy.endpoint</span></code>, it uses that endpoint instead of <code class="docutils literal notranslate"><span class="pre">ARENA_INFERENCE_ENDPOINT</span></code>.
-The example configurations set <code class="docutils literal notranslate"><span class="pre">policy.endpoint:</span> <span class="pre">internal</span></code>, whose default model is
-<code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-6-astra</span></code>. To use another endpoint, override
-the field, or delete it from the YAML so that the Run uses <code class="docutils literal notranslate"><span class="pre">ARENA_INFERENCE_ENDPOINT</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>runs.droid_pnp_vlm_goal.policy.endpoint<span class="o">=</span>public<span class="w">  </span><span class="c1"># internal, public, or openai</span>
+<span id="vlm-agent-endpoint-and-model"></span><h3>Select the endpoint and model<a class="headerlink" href="#select-the-endpoint-and-model" title="Link to this heading">#</a></h3>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The model is the policy, so its capability sets the success rate. Use
+<code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-6-astra</span></code>, the model behind every result on this page, or a model of
+similar capability. A smaller or weaker model may not complete the task at all.</p>
+</div>
+<p>Each Run selects its endpoint and model with <code class="docutils literal notranslate"><span class="pre">policy.endpoint</span></code> and <code class="docutils literal notranslate"><span class="pre">policy.model</span></code> in the
+experiment configuration YAML:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">droid_pnp_vlm_goal</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy</span>
+<span class="w">      </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internal</span><span class="w">  </span><span class="c1"># internal, public, or openai</span>
+<span class="w">      </span><span class="nt">model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openai/openai/gpt-6-astra</span><span class="w">  </span><span class="c1"># Must be served by the endpoint</span>
+<span class="w">      </span><span class="c1"># base_url: &lt;url&gt;   # Optional: any OpenAI-compatible URL</span>
 </pre></div>
 </div>
-<p>Each endpoint has a default model. The defaults for <code class="docutils literal notranslate"><span class="pre">internal</span></code>, <code class="docutils literal notranslate"><span class="pre">public</span></code>, and <code class="docutils literal notranslate"><span class="pre">openai</span></code>
-are defined by <code class="docutils literal notranslate"><span class="pre">INFERENCE_ENDPOINTS</span></code> in
-<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/inference/backend.py">isaaclab_arena/inference/backend.py</a>.
-Two more policy fields override the connection:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">policy.model</span></code>: another model on the same endpoint.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">policy.base_url</span></code>: any OpenAI-compatible URL. The API key still comes from the endpoint’s
-variable.</p></li>
-</ul>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 25.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">endpoint</span></code></p></th>
+<th class="head"><p>API key variable</p></th>
+<th class="head"><p>Endpoint</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">internal</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NV_API_KEY</span></code></p></td>
+<td><p>NVIDIA internal endpoint, for NVIDIA employees only.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">public</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NVIDIA_API_KEY</span></code></p></td>
+<td><p>Public NVIDIA endpoint at <a class="reference external" href="https://build.nvidia.com">build.nvidia.com</a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">openai</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OPENAI_API_KEY</span></code></p></td>
+<td><p>OpenAI API, billed to the OpenAI account that owns the key.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">policy.endpoint</span></code> and <code class="docutils literal notranslate"><span class="pre">policy.model</span></code> are required and have no defaults, so a Run that leaves
+either unset fails when the configuration loads. The example configurations set
+<code class="docutils literal notranslate"><span class="pre">endpoint:</span> <span class="pre">internal</span></code>, which is accessible by NVIDIA employees only, and
+<code class="docutils literal notranslate"><span class="pre">model:</span> <span class="pre">openai/openai/gpt-6-astra</span></code>, which only the internal endpoint serves. To switch one Run
+without editing the YAML, override both fields on the command line with a model the endpoint
+serves:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>runs.droid_pnp_vlm_goal.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># internal, public, or openai</span>
+runs.droid_pnp_vlm_goal.policy.model<span class="o">=</span>&lt;model&gt;
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">policy.base_url</span></code> optionally sends the requests to any OpenAI-compatible URL instead. The API key
+still comes from the endpoint’s variable.</p>
 <p>The model must support strict JSON-schema structured outputs
 (<code class="docutils literal notranslate"><span class="pre">response_format={&quot;type&quot;:</span> <span class="pre">&quot;json_schema&quot;,</span> <span class="pre">...}</span></code>). With image observations, it must also accept
 images. All results on this page were run with <code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-6-astra</span></code>. When the policy
@@ -746,7 +783,9 @@ Docker Container</label><div class="sd-tab-content docutils">
 <span class="w">        </span><span class="no">move above the destination, and open to release.</span>
 <span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy</span>
-<span class="w">      </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internal</span>
+<span class="w">      </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internal</span><span class="w">  </span><span class="c1"># internal, public, or openai</span>
+<span class="w">      </span><span class="c1"># The model must be served by the endpoint.</span>
+<span class="w">      </span><span class="nt">model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openai/openai/gpt-6-astra</span>
 <span class="w">      </span><span class="nt">vlm_embodiment_adapter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid</span>
 <span class="w">      </span><span class="nt">observation_modality</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_state</span>
 <span class="w">      </span><span class="nt">max_steps_per_goal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
@@ -786,7 +825,9 @@ Docker Container</label><div class="sd-tab-content docutils">
 <span class="w">        </span><span class="no">move above the destination, and open to release.</span>
 <span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_vlm_agent.vlm_agent_policy.VLMChunkPolicy</span>
-<span class="w">      </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internal</span>
+<span class="w">      </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internal</span><span class="w">  </span><span class="c1"># internal, public, or openai</span>
+<span class="w">      </span><span class="c1"># The model must be served by the endpoint.</span>
+<span class="w">      </span><span class="nt">model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openai/openai/gpt-6-astra</span>
 <span class="w">      </span><span class="nt">vlm_embodiment_adapter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid</span>
 <span class="w">      </span><span class="nt">observation_modality</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_state</span>
 <span class="w">      </span><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
@@ -798,7 +839,8 @@ Docker Container</label><div class="sd-tab-content docutils">
 </details><p>Run the goal policy:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.droid_pnp_vlm_goal.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
 </pre></div>
 </div>
 <p>The runner prints the endpoint and model it connects to, then steps the episode. Each request
@@ -814,7 +856,7 @@ runs.droid_pnp_vlm_chunk.environment_builder.placement_seed<span class="o">=</sp
 <span class="c1"># Four parallel environments, whose requests are sent concurrently</span>
 runs.droid_pnp_vlm_chunk.environment_builder.num_envs<span class="o">=</span><span class="m">4</span>
 <span class="c1"># Another endpoint and model</span>
-runs.droid_pnp_vlm_goal.policy.endpoint<span class="o">=</span>openai
+runs.droid_pnp_vlm_goal.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># internal, public, or openai</span>
 runs.droid_pnp_vlm_goal.policy.model<span class="o">=</span>&lt;model&gt;
 </pre></div>
 </div>
@@ -822,7 +864,8 @@ runs.droid_pnp_vlm_goal.policy.model<span class="o">=</span>&lt;model&gt;
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_chunk_experiment.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>runs.droid_pnp_vlm_chunk.policy.chunk_size<span class="o">=</span><span class="m">1</span>
+<span class="w">  </span>runs.droid_pnp_vlm_chunk.policy.chunk_size<span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.droid_pnp_vlm_chunk.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
 </pre></div>
 </div>
 <p>Add <code class="docutils literal notranslate"><span class="pre">--output_base_dir</span> <span class="pre">./output</span> <span class="pre">--record_camera_video</span></code> to save one video per camera, and add

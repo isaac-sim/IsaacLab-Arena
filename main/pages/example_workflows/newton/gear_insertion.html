@@ -827,27 +827,46 @@ valid with respect to the task’s success condition.</p>
 within 3.5 mm of the peg, a precise test of how well the model locates parts from camera images.
 See <a class="reference internal" href="../../concepts/policy/agent_policies.html#vlm-agent-policies"><span class="std std-ref">Agent as Policy</span></a> for how the policy works, and set up an inference API key as in
 <a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html"><span class="doc">VLM Agent</span></a>.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Gear insertion needs millimeter-level placement, so it depends heavily on the model’s
+capability. Use <code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-6-astra</span></code>, the model behind the rollouts below, or a model of
+similar capability. A smaller or weaker model may not complete the task at all.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All three configurations below set <code class="docutils literal notranslate"><span class="pre">policy.endpoint:</span> <span class="pre">internal</span></code> and
+<code class="docutils literal notranslate"><span class="pre">policy.model:</span> <span class="pre">openai/openai/gpt-6-astra</span></code>. The internal endpoint is accessible by NVIDIA
+employees only and reads <code class="docutils literal notranslate"><span class="pre">NV_API_KEY</span></code>. Each command below passes <code class="docutils literal notranslate"><span class="pre">policy.endpoint</span></code> for its
+Run; set it to <code class="docutils literal notranslate"><span class="pre">public</span></code> or <code class="docutils literal notranslate"><span class="pre">openai</span></code> to use another endpoint, and also append
+<code class="docutils literal notranslate"><span class="pre">runs.&lt;run</span> <span class="pre">name&gt;.policy.model=&lt;model&gt;</span></code> with a model that endpoint serves, since only the
+internal endpoint serves <code class="docutils literal notranslate"><span class="pre">gpt-6-astra</span></code>. See <a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html#vlm-agent-endpoint-and-model"><span class="std std-ref">Select the endpoint and model</span></a> for the API
+key each endpoint reads and the other connection fields.</p>
+</div>
 <p>Three experiment configurations run the policy on the <code class="docutils literal notranslate"><span class="pre">droid_abs_ik</span></code> embodiment with the full
 1280x720 camera images. They differ only in what the model is given. Run them from the repository
 root, so the prompt files they reference are found.</p>
 <p><strong>Images only.</strong> The model gets the camera images, the robot state, and the DROID default system
 prompt, and must locate the gear and the pegs in the images:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.droid_gear_insertion_vlm_goal_images.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
 </pre></div>
 </div>
 <p><strong>Images with exact object poses.</strong> <code class="docutils literal notranslate"><span class="pre">object_poses</span></code> adds the gear’s exact pose and its seated
 target pose to each request. A real robot does not observe these, so this run is a reference for
 what the policy achieves once it knows where the parts are:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.droid_gear_insertion_vlm_goal_object_poses.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
 </pre></div>
 </div>
 <p><strong>Images with a task prompt.</strong> <code class="docutils literal notranslate"><span class="pre">system_prompt_files</span></code> appends
 <code class="docutils literal notranslate"><span class="pre">experiment_configs/prompts/droid_gear_insertion.txt</span></code> to the default prompt. It describes the
 gear and peg geometry and a grasp and insertion strategy, but no object positions:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.droid_gear_insertion_vlm_goal_task_prompt.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
 </pre></div>
 </div>
 <p>Add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> to watch a rollout.</p>

@@ -31,26 +31,61 @@ The policy calls a remote VLM endpoint. Configure its API key before running an 
 
 .. include:: ../../_includes/inference_api_keys.rst.inc
 
+.. _vlm-agent-endpoint-and-model:
+
 Select the endpoint and model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If a Run sets ``policy.endpoint``, it uses that endpoint instead of ``ARENA_INFERENCE_ENDPOINT``.
-The example configurations set ``policy.endpoint: internal``, whose default model is
-``openai/openai/gpt-6-astra``. To use another endpoint, override
-the field, or delete it from the YAML so that the Run uses ``ARENA_INFERENCE_ENDPOINT``:
+.. important::
+
+   The model is the policy, so its capability sets the success rate. Use
+   ``openai/openai/gpt-6-astra``, the model behind every result on this page, or a model of
+   similar capability. A smaller or weaker model may not complete the task at all.
+
+Each Run selects its endpoint and model with ``policy.endpoint`` and ``policy.model`` in the
+experiment configuration YAML:
+
+.. code-block:: yaml
+
+   runs:
+     droid_pnp_vlm_goal:
+       policy:
+         type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
+         endpoint: internal  # internal, public, or openai
+         model: openai/openai/gpt-6-astra  # Must be served by the endpoint
+         # base_url: <url>   # Optional: any OpenAI-compatible URL
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 25 60
+
+   * - ``endpoint``
+     - API key variable
+     - Endpoint
+   * - ``internal``
+     - ``NV_API_KEY``
+     - NVIDIA internal endpoint, for NVIDIA employees only.
+   * - ``public``
+     - ``NVIDIA_API_KEY``
+     - Public NVIDIA endpoint at `build.nvidia.com <https://build.nvidia.com>`_.
+   * - ``openai``
+     - ``OPENAI_API_KEY``
+     - OpenAI API, billed to the OpenAI account that owns the key.
+
+``policy.endpoint`` and ``policy.model`` are required and have no defaults, so a Run that leaves
+either unset fails when the configuration loads. The example configurations set
+``endpoint: internal``, which is accessible by NVIDIA employees only, and
+``model: openai/openai/gpt-6-astra``, which only the internal endpoint serves. To switch one Run
+without editing the YAML, override both fields on the command line with a model the endpoint
+serves:
 
 .. code-block:: bash
 
-   runs.droid_pnp_vlm_goal.policy.endpoint=public  # internal, public, or openai
+   runs.droid_pnp_vlm_goal.policy.endpoint=internal  # internal, public, or openai
+   runs.droid_pnp_vlm_goal.policy.model=<model>
 
-Each endpoint has a default model. The defaults for ``internal``, ``public``, and ``openai``
-are defined by ``INFERENCE_ENDPOINTS`` in
-`isaaclab_arena/inference/backend.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/inference/backend.py>`_.
-Two more policy fields override the connection:
-
-* ``policy.model``: another model on the same endpoint.
-* ``policy.base_url``: any OpenAI-compatible URL. The API key still comes from the endpoint's
-  variable.
+``policy.base_url`` optionally sends the requests to any OpenAI-compatible URL instead. The API key
+still comes from the endpoint's variable.
 
 The model must support strict JSON-schema structured outputs
 (``response_format={"type": "json_schema", ...}``). With image observations, it must also accept
@@ -96,7 +131,8 @@ Run the goal policy:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml \
+     runs.droid_pnp_vlm_goal.policy.endpoint=internal  # public or openai: also set policy.model
 
 The runner prints the endpoint and model it connects to, then steps the episode. Each request
 takes several seconds, and the simulation waits while a request is in flight. Run the chunk
@@ -115,7 +151,7 @@ Override settings for one Run on the command line. Each line below is one exampl
    # Four parallel environments, whose requests are sent concurrently
    runs.droid_pnp_vlm_chunk.environment_builder.num_envs=4
    # Another endpoint and model
-   runs.droid_pnp_vlm_goal.policy.endpoint=openai
+   runs.droid_pnp_vlm_goal.policy.endpoint=internal  # internal, public, or openai
    runs.droid_pnp_vlm_goal.policy.model=<model>
 
 For example, to run the step policy:
@@ -125,7 +161,8 @@ For example, to run the step policy:
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_chunk_experiment.yaml \
-     runs.droid_pnp_vlm_chunk.policy.chunk_size=1
+     runs.droid_pnp_vlm_chunk.policy.chunk_size=1 \
+     runs.droid_pnp_vlm_chunk.policy.endpoint=internal  # public or openai: also set policy.model
 
 Add ``--output_base_dir ./output --record_camera_video`` to save one video per camera, and add
 ``--serve_evaluation_report`` to browse them, as for the :doc:`OpenPI <openpi>` policy.
