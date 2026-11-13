@@ -52,12 +52,15 @@ def _build_atomic_task_from_spec(
     *,
     task_description: str | None = None,
 ) -> Any:
-    """Look up the task class by name, resolve any Asset-typed kwargs, instantiate."""
+    """Build an atomic task and apply its description independently of the constructor signature."""
     task_class = TaskRegistry().get_task_by_name(task_spec.kind)
     task_init_kwargs = _resolve_node_refs_in_task_args(task_class, task_spec.params, assets_by_node_id)
-    if task_description and "task_description" not in task_init_kwargs:
-        task_init_kwargs["task_description"] = task_description
-    return task_class(**task_init_kwargs)
+    task_description = task_init_kwargs.pop("task_description", task_description)
+    task = task_class(**task_init_kwargs)
+    # TaskBase owns this field, but not every subclass accepts it as a constructor argument.
+    if task_description is not None:
+        task.task_description = task_description
+    return task
 
 
 def _resolve_node_refs_in_task_args(

@@ -160,31 +160,26 @@ def test_resolve_raises_on_non_string_node_id():
 # --------------------------------- build_task_from_spec ----------------------------------
 
 
-def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
-    built: list[Any] = []
-
-    class FakeTask:
-        def __init__(self, **kwargs):
-            built.append(kwargs)
-
-    registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
-    monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
-
+def test_build_task_from_spec_atomic_returns_single_task():
+    """Apply the root description even when the task constructor does not accept it."""
     from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
+    from isaaclab_arena.tasks.goal_pose_task import GoalPoseTask
 
+    cube = object()
     spec = CompositeTaskSpec(
         composition=TaskCompositionType.ATOMIC,
-        description="pick up the cube",
+        description="move the cube to its goal",
         subtasks=[
             TaskSpec(
-                kind="PickAndPlaceTask",
-                params={},
+                kind="GoalPoseTask",
+                params={"object": "cube"},
             )
         ],
     )
-    result = conversion.build_task_from_spec(spec, {})
-    assert isinstance(result, FakeTask)
-    assert built == [{"task_description": "pick up the cube"}]
+    result = conversion.build_task_from_spec(spec, {"cube": cube})
+    assert isinstance(result, GoalPoseTask)
+    assert result.object is cube
+    assert result.get_task_description() == "move the cube to its goal"
 
 
 @pytest.mark.parametrize("composition, subtasks_are_sequential", [("sequential", True), ("parallel", False)])
@@ -197,11 +192,12 @@ def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, 
             captured["task_description"] = task_description
             captured["subtasks_are_sequential"] = subtasks_are_sequential
 
-    monkeypatch.setattr(
-        conversion,
-        "_build_atomic_task_from_spec",
-        lambda task_spec, _assets, task_description=None: task_spec.kind,
-    )
+    class FakeTask:
+        def __init__(self):
+            self.task_description = "default subtask description"
+
+    registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
+    monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
     monkeypatch.setattr(
         "isaaclab_arena.tasks.composite_task_base.CompositeTaskBase",
         FakeCompositeTask,
@@ -213,33 +209,54 @@ def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, 
         composition=TaskCompositionType(composition),
         description="place two objects",
         subtasks=[
-            TaskSpec(kind="PickAndPlaceTask", params={}),
+            TaskSpec(kind="PickAndPlaceTask", params={"task_description": "first subtask"}),
             TaskSpec(kind="PickAndPlaceTask", params={}),
         ],
     )
     result = conversion.build_task_from_spec(spec, {})
     assert isinstance(result, FakeCompositeTask)
-    assert captured["subtasks"] == ["PickAndPlaceTask", "PickAndPlaceTask"]
+    assert [subtask.task_description for subtask in captured["subtasks"]] == [
+        "first subtask",
+        "default subtask description",
+    ]
     assert captured["task_description"] == "place two objects"
     assert captured["subtasks_are_sequential"] is subtasks_are_sequential
 
 
-def test_build_atomic_task_from_spec_params_task_description_takes_precedence(monkeypatch):
-    """An explicit ``task_description`` in params overrides the spec ``description`` field."""
-    captured: dict[str, Any] = {}
+@pytest.mark.parametrize("accepts_description", [False, True])
+@pytest.mark.parametrize(
+    "params, root_description, expected_description",
+    [
+        ({}, "from root", "from root"),
+        ({"task_description": "from params"}, "from root", "from params"),
+        ({}, None, "default description"),
+        ({"task_description": None}, "from root", "default description"),
+        ({"task_description": ""}, "from root", ""),
+    ],
+)
+def test_build_atomic_task_from_spec_description_precedence(
+    monkeypatch, accepts_description, params, root_description, expected_description
+):
+    """Descriptions work with either constructor signature and preserve omitted defaults."""
 
     class FakeTask:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
+        def __init__(self):
+            self.task_description = "default description"
 
-    registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
+    class FakeTaskWithDescription:
+        def __init__(self, task_description=None):
+            self.task_description = "default description" if task_description is None else task_description
+
+    task_class = FakeTaskWithDescription if accepts_description else FakeTask
+    registry = type("R", (), {"get_task_by_name": lambda self, _name: task_class})()
     monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
 
     from isaaclab_arena.environment_spec.arena_env_graph_types import TaskSpec
 
     spec = TaskSpec(
         kind="PickAndPlaceTask",
-        params={"task_description": "from params"},
+        params=params,
     )
-    conversion._build_atomic_task_from_spec(spec, {}, task_description="from root")
-    assert captured["task_description"] == "from params"
+    result = conversion._build_atomic_task_from_spec(spec, {}, task_description=root_description)
+    assert result.task_description == expected_description
+    assert spec.params == params
