@@ -66,6 +66,7 @@ Add the preset name to the ``vlm_embodiment_adapter`` check in ``VLMPolicyCfg`` 
    policy:
      type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
      endpoint: internal  # internal, public, or openai
+     model: openai/openai/gpt-6-astra  # Must be served by the endpoint
      vlm_embodiment_adapter: my_robot
      max_steps_per_goal: 30
 

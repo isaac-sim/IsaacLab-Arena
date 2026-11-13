@@ -80,7 +80,10 @@ def _policy(mode, inputs, infer):
     embodiment, _, _, gripper = inputs
     # Serial requests keep the mocked replies in environment order.
     config = VLMPolicyCfg(
-        endpoint="internal", system_prompt="Return absolute robot-root targets.", max_concurrent_requests=1
+        model="test-model",
+        endpoint="internal",
+        system_prompt="Return absolute robot-root targets.",
+        max_concurrent_requests=1,
     )
     if mode == "step":
         policy_type, adapter = VLMChunkPolicy, AbsoluteChunkActionAdapter(1)
@@ -90,6 +93,7 @@ def _policy(mode, inputs, infer):
         policy_type = VLMGoalPolicy
         adapter = AbsoluteGoalActionAdapter(PoseTargetMotionGenerator(gripper))
         config = VLMGoalPolicyCfg(
+            model="test-model",
             endpoint="internal",
             system_prompt="Return absolute robot-root targets.",
             max_steps_per_goal=2,

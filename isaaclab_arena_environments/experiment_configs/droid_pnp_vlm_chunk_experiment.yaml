@@ -27,7 +27,7 @@ runs:
     policy:
       type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMChunkPolicy
       endpoint: internal  # internal, public, or openai
-      # The model must be served by the endpoint; null selects the endpoint's default model.
+      # The model must be served by the endpoint.
       model: openai/openai/gpt-6-astra
       vlm_embodiment_adapter: droid
       observation_modality: image_state

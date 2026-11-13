@@ -126,6 +126,7 @@ def make_policy(backend, **kwargs):
     # Serial requests keep the mocked call order deterministic; concurrency has its own tests.
     kwargs.setdefault("max_concurrent_requests", 1)
     config = VLMPolicyCfg(
+        model="test-model",
         endpoint="internal",
         system_prompt="Return the joint targets using the supplied schema.",
         image_max_width_or_height=8,
@@ -198,6 +199,7 @@ def test_policy_uses_adapter_actions_for_each_environment(backend, action_dim):
 
     client.chat.completions.create.side_effect = create
     config = VLMPolicyCfg(
+        model="test-model",
         endpoint="internal",
         system_prompt="Use this robot's joint units.",
         image_max_width_or_height=8,
@@ -305,28 +307,38 @@ def test_environment_validation_precedes_inference(backend):
 @pytest.mark.parametrize("prompt", ["", " \n\t", None])
 def test_missing_prompt_is_rejected(prompt):
     with pytest.raises(AssertionError, match="policy.system_prompt"):
-        VLMPolicyCfg(endpoint="internal", system_prompt=prompt)
+        VLMPolicyCfg(model="test-model", endpoint="internal", system_prompt=prompt)
 
 
 def test_policy_configs_require_prompt_and_goal_budget():
     with pytest.raises(TypeError, match="system_prompt"):
         VLMPolicyCfg()
     with pytest.raises(TypeError, match="max_steps_per_goal"):
-        VLMGoalPolicyCfg(endpoint="internal", system_prompt="Control joints")
+        VLMGoalPolicyCfg(model="test-model", endpoint="internal", system_prompt="Control joints")
     with pytest.raises(TypeError, match="endpoint"):
-        VLMPolicyCfg(system_prompt="Control joints")
+        VLMPolicyCfg(model="test-model", system_prompt="Control joints")
+    with pytest.raises(TypeError, match="model"):
+        VLMPolicyCfg(endpoint="internal", system_prompt="Control joints")
 
 
 @pytest.mark.parametrize("max_steps", [0, -1, 1.5, True, None])
 def test_goal_config_rejects_invalid_step_budget(max_steps):
     with pytest.raises(AssertionError, match="max_steps_per_goal"):
-        VLMGoalPolicyCfg(endpoint="internal", system_prompt="Control joints", max_steps_per_goal=max_steps)
+        VLMGoalPolicyCfg(
+            model="test-model", endpoint="internal", system_prompt="Control joints", max_steps_per_goal=max_steps
+        )
 
 
 @pytest.mark.parametrize("endpoint", ["", "unknown"])
 def test_config_rejects_unknown_endpoint(endpoint):
     with pytest.raises(AssertionError, match="policy.endpoint"):
-        VLMPolicyCfg(system_prompt="Control joints", endpoint=endpoint)
+        VLMPolicyCfg(model="test-model", system_prompt="Control joints", endpoint=endpoint)
+
+
+@pytest.mark.parametrize("model", ["", " "])
+def test_config_rejects_empty_model(model):
+    with pytest.raises(AssertionError, match="policy.model"):
+        VLMPolicyCfg(endpoint="internal", model=model, system_prompt="Control joints")
 
 
 @pytest.mark.parametrize("config_endpoint", ["internal", "public"])
@@ -339,7 +351,9 @@ def test_policy_endpoint_ignores_environment_variable(monkeypatch, config_endpoi
     monkeypatch.setenv(backend_module.INFERENCE_ENDPOINT_ENV_VAR, "openai")
     for endpoint in backend_module.INFERENCE_ENDPOINTS.values():
         monkeypatch.setenv(endpoint.api_key_env_var, "test-only")
-    config = VLMPolicyCfg(system_prompt="Control joints", max_concurrent_requests=1, endpoint=config_endpoint)
+    config = VLMPolicyCfg(
+        model="test-model", system_prompt="Control joints", max_concurrent_requests=1, endpoint=config_endpoint
+    )
     policy = SingleCommandPolicy(config, observation_adapter=ObservationAdapter(), action_adapter=ActionAdapter())
     try:
         assert policy._inference_backend.endpoint.name == config_endpoint
@@ -408,11 +422,16 @@ def make_multi_step_policy(backend, adapter, *, max_steps_per_goal=2):
     if isinstance(adapter, ChunkActionAdapter):
         policy_type = VLMChunkPolicy
         config = VLMPolicyCfg(
-            endpoint="internal", system_prompt="Control these joints.", max_attempts=1, max_concurrent_requests=1
+            model="test-model",
+            endpoint="internal",
+            system_prompt="Control these joints.",
+            max_attempts=1,
+            max_concurrent_requests=1,
         )
     else:
         policy_type = VLMGoalPolicy
         config = VLMGoalPolicyCfg(
+            model="test-model",
             endpoint="internal",
             system_prompt="Control these joints.",
             max_attempts=1,
@@ -728,7 +747,7 @@ def test_invalid_model_actions_are_rejected_with_python_optimization():
             adapter = ActionAdapter()
             adapter.decode_command = Mock(return_value=command)
             policy = SingleCommandPolicy(
-                VLMPolicyCfg(endpoint="internal", system_prompt="Control joints", max_attempts=2),
+                VLMPolicyCfg(model="test-model", endpoint="internal", system_prompt="Control joints", max_attempts=2),
                 inference_backend=backend, observation_adapter=ObservationAdapter(), action_adapter=adapter,
             )
             try:
@@ -783,7 +802,11 @@ def test_config_wraps_object_poses_and_appends_prompt_files(backend, tmp_path):
     prompt_path = tmp_path / "task.txt"
     prompt_path.write_text("The peg is 0.1 m tall.\n")
     config = VLMPolicyCfg(
-        endpoint="internal", system_prompt="Act.", object_poses=["gear"], system_prompt_files=[str(prompt_path)]
+        model="test-model",
+        endpoint="internal",
+        system_prompt="Act.",
+        object_poses=["gear"],
+        system_prompt_files=[str(prompt_path)],
     )
     policy = SingleCommandPolicy(config, inference_backend=backend, action_adapter=ActionAdapter())
     try:
@@ -794,14 +817,22 @@ def test_config_wraps_object_poses_and_appends_prompt_files(backend, tmp_path):
     finally:
         policy.close()
     with pytest.raises(AssertionError, match="System prompt file does not exist"):
-        VLMPolicyCfg(endpoint="internal", system_prompt="Act.", system_prompt_files=[str(tmp_path / "missing.txt")])
+        VLMPolicyCfg(
+            model="test-model",
+            endpoint="internal",
+            system_prompt="Act.",
+            system_prompt_files=[str(tmp_path / "missing.txt")],
+        )
 
 
 @pytest.mark.parametrize("max_concurrent_requests", [0, -1, 1.5, None])
 def test_config_rejects_invalid_request_concurrency(max_concurrent_requests):
     with pytest.raises(AssertionError, match="max_concurrent_requests"):
         VLMPolicyCfg(
-            endpoint="internal", system_prompt="Control joints", max_concurrent_requests=max_concurrent_requests
+            model="test-model",
+            endpoint="internal",
+            system_prompt="Control joints",
+            max_concurrent_requests=max_concurrent_requests,
         )
 
 

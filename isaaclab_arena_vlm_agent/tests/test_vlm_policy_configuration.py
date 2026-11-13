@@ -246,7 +246,7 @@ def test_preset_supplies_prompt_and_strategy(monkeypatch, policy_type, cfg_type)
 )
 def test_invalid_flat_settings(options):
     with pytest.raises((AssertionError, ValueError)):
-        VLMChunkPolicyCfg(**{"chunk_size": 2, "endpoint": "internal", **options})
+        VLMChunkPolicyCfg(**{"chunk_size": 2, "endpoint": "internal", "model": "test-model", **options})
 
 
 @pytest.mark.parametrize("class_name", ["VLMChunkPolicy", "VLMGoalPolicy"])

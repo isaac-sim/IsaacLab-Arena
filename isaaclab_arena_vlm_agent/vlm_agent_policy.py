@@ -100,8 +100,8 @@ class VLMPolicyCfg(PolicyCfg):
     endpoint: str = field(kw_only=True)
     """Inference endpoint preset: internal, public, or openai."""
 
-    model: str | None = None
-    """Optional model override; image observations require a vision-capable model."""
+    model: str = field(kw_only=True)
+    """Model identifier served by the endpoint; image observations require a vision-capable model."""
 
     base_url: str | None = None
     """Optional URL override; credentials come from the endpoint's environment variable."""
@@ -122,6 +122,7 @@ class VLMPolicyCfg(PolicyCfg):
         assert (
             self.endpoint in INFERENCE_ENDPOINTS
         ), f"Unknown policy.endpoint {self.endpoint!r}; expected one of {sorted(INFERENCE_ENDPOINTS)}"
+        assert isinstance(self.model, str) and self.model.strip(), "Set policy.model to a model the endpoint serves"
         for path in self.system_prompt_files:
             assert Path(path).is_file(), f"System prompt file does not exist: '{path}'"
         self.observation_modality = ObservationModality(self.observation_modality)
