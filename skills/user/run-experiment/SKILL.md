@@ -30,9 +30,9 @@ path; do not create new legacy configurations or apply Hydra overrides to them.
 2. Resolve an explicit Experiment path. Never rely on the runner's legacy default configuration.
 3. Inspect the Experiment's Runs, policies, rollout limits, rebuild counts, environment counts,
    cameras, variations, and referenced files. Summarize unexpectedly large work before starting it.
-4. Preserve a native or Docker route already selected by the user. If both are ready and the
-   request does not choose one, use Docker and state the choice. If neither route is ready, use `setup-arena`; do not install dependencies,
-   build an image, create mounts, or recreate a container here.
+4. Use `arena-runtime` to select the checkout's ready native uv or Docker route. If it finds no
+   ready route, stop and suggest installing Arena through `setup-arena`; do not install
+   dependencies, build an image, create mounts, or recreate a container here.
 5. Confirm that referenced configs, datasets, checkpoints, and output locations are available from
    the selected runtime. Identify a policy from each Run's resolved `policy.type`, not the
    Experiment filename.
@@ -76,23 +76,12 @@ zero-action policy and requires no model or policy server.
 Always pass `--experiment_config` explicitly. Keep runner flags separate from trailing Hydra
 overrides.
 
-For native uv, run from the repository root and accept the Isaac Sim EULA non-interactively:
+Replace `<arena-python>` with the launcher for the route selected by `arena-runtime`:
+`env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python` from the repository root for native
+uv, or `docker exec --user <host-user> <container> isaaclab.sh -p` for Docker.
 
 ```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config <experiment.yaml> \
-  --viz none \
-  <override>...
-```
-
-For Docker, first use `docker ps` to select the single running container that mounts the absolute
-repository root. Resolve the host username separately with `id --user --name`, then substitute both literal
-values below rather than hardcoding a container name:
-
-```bash
-docker exec --user <host-user> <container> \
-  isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
+<arena-python> isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config <experiment.yaml> \
   --viz none \
   <override>...
@@ -160,6 +149,7 @@ preserved partial artifacts or failures.
 ## References
 
 - [Evaluations](evaluations.md)
+- [Arena runtime skill](../arena-runtime/SKILL.md)
 - [OpenPI server skill](../serve-openpi-policy/SKILL.md)
 - [GR00T server skill](../serve-gr00t-policy/SKILL.md)
 - [Arena Experiments](../../../docs/pages/concepts/concept_arena_experiments.rst)
