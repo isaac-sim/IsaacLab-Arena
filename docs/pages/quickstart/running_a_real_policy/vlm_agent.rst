@@ -114,9 +114,9 @@ The simulation is frozen while a request is in flight, and each request takes se
 the robot pauses every time the policy asks the model for a response. How often that happens
 depends on the policy: the goal policy requests when a goal ends, the chunk policy every
 ``chunk_size`` steps, and the step policy (``chunk_size: 1``) on every simulation step. The step
-policy is therefore the slowest. A failed step episode makes a request on each of its 1,050 steps
-and can take over an hour. See :ref:`vlm-agent-strategies` for the number of requests each
-policy makes.
+policy is therefore the slowest. A failed step episode makes a request on every step until the
+task's episode time limit ends it, and can take over an hour. See :ref:`vlm-agent-strategies` for
+the number of requests each policy makes.
 
 Override settings for one Run on the command line. Each line below is one example:
 
