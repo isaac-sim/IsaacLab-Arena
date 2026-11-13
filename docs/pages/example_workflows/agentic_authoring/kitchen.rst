@@ -21,7 +21,9 @@ set up either the native uv environment or the Arena Docker container:
 
 Install and authenticate your favourite coding agent on the host,
 then start it from the repository root.
-In our example, we use Codex with ``GPT-6-Astra-high``.
+In our example, we use Codex with GPT-6 Astra and high reasoning effort.
+
+:codex_setup:
 
 Viewing an Existing ``kitchen_bench`` Environment
 -------------------------------------------------
@@ -33,6 +35,7 @@ A similar existing environment is
 Preview the existing scene by running it with some zero actions using:
 
 .. code-block:: bash
+   :caption: Arena runtime (activated uv environment or Arena Docker shell)
 
    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
      --mode build \
@@ -58,11 +61,12 @@ DROID robot is required to place a banana and an orange in two bowls, in a
 kitchen setting.
 
 Start your favourite coding agent from the repository root.
-For this demonstration we'll use Codex with ``GPT-6-Astra-high``.
+For this demonstration we'll use Codex with GPT-6 Astra and high reasoning effort.
 
 .. code-block:: bash
+   :caption: Host terminal (repository root)
 
-   codex --model GPT-6-Astra-high --yolo
+   codex --model gpt-6-astra -c 'model_reasoning_effort="high"' --yolo
 
 .. note::
 
@@ -73,6 +77,7 @@ For this demonstration we'll use Codex with ``GPT-6-Astra-high``.
 Enter following prompt to the agent, that describes the scene, the spatial arrangement, and the task.
 
 .. code-block:: text
+   :caption: Prompt in the host Codex session
 
     Build a new evaluation environment at
     `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml`.
@@ -261,6 +266,7 @@ In our run, Astra completed and produced the following environment YAML after fo
 To visualize the object placements in the environment, we can use the placement pool validation tool.
 
 .. code-block:: bash
+   :caption: Arena runtime (activated uv environment or Arena Docker shell)
 
    python isaaclab_arena/scripts/run_placement_pool_validation.py \
      --env_spec isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml \
@@ -289,6 +295,7 @@ agent to evaluate the pi05 DROID checkpoint on it through a local OpenPI
 server:
 
 .. code-block:: text
+   :caption: Prompt in the host Codex session
 
     Evaluate the pi05 DROID policy on the environment at
     `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml` for 3 episodes

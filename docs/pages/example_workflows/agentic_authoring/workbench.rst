@@ -1,14 +1,7 @@
-Author a Workbench Environment with Codex
-=========================================
+Author a Workbench Environment with A Code Agent
+================================================
 
-This workflow uses a coding agent to author a reviewable environment graph and
-run the result. Codex edits environment YAML files, reuses existing Arena
-features, and runs task and environment validation.
-
-The workflow:
-
-* Previews a checked-in agent-authored environment and its force-based demonstration.
-* Prompts Codex to author a related workbench cleanup task.
+This workflow uses a coding agent to author and validate a workbench cleanup task.
 
 Prerequisites
 -------------
@@ -18,14 +11,15 @@ set up either the native uv environment or the Arena Docker container:
 
 :runtime_setup_tabs:
 
-Run the commands below from the repository root in that runtime.
+Install and authenticate your favourite coding agent on the host, then start it from the repository root.
+In our example, we use Codex with GPT-6 Astra and high reasoning effort.
 
-Install and authenticate your favourite coding agent on the host,
-then start it from the repository root.
-In our example, we use Codex with ``GPT-6-Astra-high``.
+:codex_setup:
 
 Step 1: Viewing an Existing Agent-Authored Environment
 ------------------------------------------------------
+
+Run this step in the Arena runtime (uv environment or inside the Docker container).
 
 Arena includes an agent-generated workbench scene and task:
 
@@ -36,6 +30,7 @@ The scene contains two tools in the open top drawer, an open socket set, an
 oscilloscope, and a white bin. Preview it in Kit:
 
 .. code-block:: bash
+   :caption: Arena runtime (activated uv environment or Arena Docker shell)
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --env_spec isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml \
@@ -47,9 +42,11 @@ oscilloscope, and a white bin. Preview it in Kit:
 You should see the workbench scene with objects, and the Droid holding its pose. The preview
 exits after 1,000 steps. This preview does not attempt the task.
 
-Next, run the object-control recipe to see a force-based demonstration of all four subtasks:
+Next, run the recipe with the :doc:`Object Control Runner <../../agentic_tools/object_control>`
+to see a force-based demonstration of all four subtasks:
 
 .. code-block:: bash
+   :caption: Arena runtime (activated uv environment or Arena Docker shell)
 
    python isaaclab_arena/agentic_tools/object_control_runner.py \
      --env_spec isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml \
@@ -81,15 +78,17 @@ object physics and checks for task success without invoking a robot policy.
 Step 2: Authoring a New Workbench Environment
 ---------------------------------------------
 
-Start Codex from the repository root:
+Start Codex from the repository root on the host:
 
 .. code-block:: bash
+   :caption: Host terminal (repository root)
 
-   codex
+   codex --model gpt-6-astra -c 'model_reasoning_effort="high"' --yolo
 
 Enter a prompt like the one below:
 
 .. code-block:: text
+   :caption: Prompt in the host Codex session
 
    Set up an environment for evaluation of a workbench cleanup task.
    Use the simready_central workbench assets registered in
@@ -104,6 +103,7 @@ Enter a prompt like the one below:
 
    Validate task success correctly with a force-based demo script.
 
+The agent leverages Arena's ``$author-environment`` to author and validate the requested environment.
 After Codex finishes (expect 10~20 minutes), it should return a successful force-based demonstration video like the one below:
 
 .. video:: ../../../images/workbench_cleanup_assets/tools_in_drawer.mp4

@@ -140,10 +140,16 @@ def runtime_setup_tabs_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
     )
 
 
+def codex_setup_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
+    """Replaces :codex_setup: with the shared Codex CLI setup instructions."""
+    source[0] = re.sub(r":codex_setup:", ".. include:: /pages/_includes/codex_setup.rst.inc", source[0])
+
+
 def setup(app: Sphinx) -> None:
     app.connect("source-read", isaaclab_arena_git_clone_code_block)
     app.connect("source-read", isaaclab_arena_code_link)
     app.connect("source-read", runtime_setup_tabs_replacer)
+    app.connect("source-read", codex_setup_replacer)
     app.connect("source-read", uv_run_command_replacer)
     app.connect("source-read", docker_run_command_replacer)
     app.add_config_value("isaaclab_arena_docs_config", {}, "env")
