@@ -85,9 +85,9 @@ class CuroboIKSolver:
             num_seeds: IK seeds optimized in parallel per pose.
             position_threshold: cuRobo internal IK position convergence threshold (m).
             rotation_threshold: cuRobo internal IK rotation convergence threshold (rad, geodesic angle).
-            collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": CUBOID_OBSTACLE_SLOTS}``. A world
-                with more obstacles than its slots fails to load, and ``load_background_mesh_obstacle`` needs a
-                ``"mesh"`` slot.
+            collision_cache_size: Obstacle slots per type; defaults to ``CUBOID_OBSTACLE_SLOTS`` cuboids and
+                ``BACKGROUND_MESH_SLOTS`` meshes. A world with more obstacles than its slots fails to load, and
+                ``load_background_mesh_obstacle`` needs a ``"mesh"`` slot.
             max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
             use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
             debug: Enable cuRobo/planner debug logging.
@@ -108,7 +108,9 @@ class CuroboIKSolver:
             robot=self.robot_cfg,
             # cuRobo only builds a collision checker when given a scene; update_world() fills it per layout.
             scene_model=Scene(cuboid=[]),
-            collision_cache=collision_cache_size or {"cuboid": CUBOID_OBSTACLE_SLOTS},
+            # The mesh slot is there even when no background is loaded: a cuboid-only solver built before one with an
+            # empty mesh slot makes cuRobo's solve fail with a CUDA illegal instruction.
+            collision_cache=collision_cache_size or {"cuboid": CUBOID_OBSTACLE_SLOTS, "mesh": BACKGROUND_MESH_SLOTS},
             device_cfg=self.device_cfg,
             num_seeds=num_seeds,
             position_tolerance=position_threshold,
@@ -195,7 +197,7 @@ class CuroboIKSolver:
 
         Its collision structure (BVH) is built here, once. Call ``update_background_mesh_pose_using_robot_base`` before
         solving to place it for the robot base. An empty mesh only clears it. Requires a ``"mesh"`` slot in
-        ``collision_cache_size``.
+        ``collision_cache_size``, which the default has.
 
         Args:
             mesh_W: Background mesh in world coordinates.
