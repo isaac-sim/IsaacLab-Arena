@@ -4,7 +4,7 @@ Run an Evaluation with Recorded Variations
 Recorded variations let an evaluation reproduce the same placement, lighting,
 object-presence, and camera conditions with a different number of parallel
 environments. This workflow uses the ``clamp_in_right_bin`` graph environment,
-whose standard episode timeout is 70 seconds, and the local zero-action policy.
+whose standard episode timeout is 60 seconds, and the local zero-action policy.
 
 The workflow has three stages:
 
@@ -28,8 +28,16 @@ and are not source files.
 Record Settled Placement Layouts
 --------------------------------
 
-From the repository root, record eight layouts that pass the configured
-post-physics checks:
+From the repository root, remove the workflow's previous generated outputs before
+starting or restarting all three stages.
+This also clears partial recordings and nonempty Experiment directories that would
+otherwise cause a retry to fail. Copy any results you want to keep elsewhere first:
+
+.. code-block:: bash
+
+   rm -rf -- outputs/recorded_variations_workflow
+
+Then record eight layouts that pass the configured post-physics checks:
 
 .. code-block:: bash
 
@@ -51,10 +59,10 @@ Record a 128-Episode Evaluation
 
 .. note::
 
-   To make steps 2 and 3 complete faster, temporarily edit
-   ``isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml`` and
-   change ``episode_length_s`` from ``70.0`` to ``1.0``. Keep the one-second
-   timeout through both recording and replay.
+   The commands for steps 2 and 3 set ``environment.env_cfg_override={episode_length_s:1.0}``
+   for their Run. The existing environment callback applies this override to the
+   task's standard 60-second timeout, so recording and replay finish faster without
+   editing the source YAML. See :doc:`../../concepts/environment/env_cfg_override`.
 
 The maintained Experiment Definition configures four parallel environments,
 the zero-action policy, two rebuilds, and 128 total episodes. Both rebuilds
@@ -88,7 +96,8 @@ Run the Experiment:
        isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml \
      --viz none \
      --experiment_output_directory \
-       outputs/recorded_variations_workflow/record
+       outputs/recorded_variations_workflow/record \
+     '+runs.recorded_variations.environment.env_cfg_override={episode_length_s:1.0}'
 
 The canonical recordings are written to:
 
@@ -122,7 +131,8 @@ Run the replay:
        isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml \
      --viz none \
      --experiment_output_directory \
-       outputs/recorded_variations_workflow/replay
+       outputs/recorded_variations_workflow/replay \
+     '+runs.recorded_variations_replay.environment.env_cfg_override={episode_length_s:1.0}'
 
 Verify the episode count, source-index coverage, and variation payloads:
 
@@ -169,8 +179,6 @@ parallel simulation environments.
 
 .. note::
 
-   After completing the workflow, discard the temporary timeout edit by
-   restoring ``episode_length_s`` in
-   ``isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml`` to
-   ``70.0``. The one-second timeout is only for this sample workflow and should
-   not be retained for normal evaluations.
+   For normal evaluations, omit the ``environment.env_cfg_override``
+   override to use the task's standard ``episode_length_s: 60.0``. No source-file
+   edit needs to be restored. The one-second timeout is only for this sample workflow.

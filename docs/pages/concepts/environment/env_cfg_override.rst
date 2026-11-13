@@ -9,6 +9,39 @@ physics backend.
 See :doc:`physics_configuration` for configuration scopes and application order, and
 :doc:`physics_backend_selection` for backend resolution and ``replicate_physics`` behavior.
 
+Per-Run Experiment overrides
+----------------------------
+
+For a graph-YAML environment, an Experiment Run can supply ``environment.env_cfg_override``
+without editing the graph file:
+
+.. code-block:: yaml
+
+   runs:
+     short_episodes:
+       environment:
+         type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+         env_cfg_override:
+           episode_length_s: 1.0
+       policy:
+         type: zero_action
+
+The same mapping can be supplied on the Experiment CLI:
+
+.. code-block:: bash
+
+   '+runs.short_episodes.environment.env_cfg_override={episode_length_s:1.0}'
+
+The Hydra ``+`` prefix allows adding fields that are not already declared in the mapping.
+
+Run overrides use the same validation as graph overrides and run through ``env_cfg_callback``
+after the graph's own overrides. Fields not specified by the Run retain their existing values.
+The effective Experiment YAML records the Run overrides for reproducibility.
+Omit the mapping to preserve the graph's configuration.
+
+``episode_length_s`` changes the duration of an enabled timeout; it does not enable a disabled
+timeout termination. The clamp task already enables it and defaults to 60 seconds.
+
 Minimal graph fragment
 ----------------------
 

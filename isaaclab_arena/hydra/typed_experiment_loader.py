@@ -359,10 +359,13 @@ def _graph_environment_cfg_from_yaml_values(
     """
     from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 
+    cli_overrides = dict(per_run_overrides)
+    env_cfg_override = cli_overrides.pop("env_cfg_override", None)
     return LegacyGraphEnvironmentCfg(
         enable_cameras=bool(per_run_overrides.get("enable_cameras", False)),
         env_spec_path=env_spec_path,
-        per_run_overrides=dict(per_run_overrides),
+        per_run_overrides=cli_overrides,
+        env_cfg_override=env_cfg_override,
     )
 
 

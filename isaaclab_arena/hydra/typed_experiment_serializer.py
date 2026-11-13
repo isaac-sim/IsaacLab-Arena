@@ -66,7 +66,10 @@ def _environment_yaml_values(
 ) -> dict[str, Any]:
     """Return one Run's environment section."""
     if isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
-        return {"type": run_cfg.environment.env_spec_path, **run_cfg.environment.per_run_overrides}
+        values = {"type": run_cfg.environment.env_spec_path, **run_cfg.environment.per_run_overrides}
+        if run_cfg.environment.env_cfg_override is not None:
+            values["env_cfg_override"] = run_cfg.environment.env_cfg_override
+        return values
     else:
         environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
         return {"type": environment_type.name, **dumped_environment_values}
