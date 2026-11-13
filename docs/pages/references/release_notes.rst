@@ -25,7 +25,7 @@ Details below:
   runner that checks task predicates through physics without a robot policy, a scene inspector with
   USD physics metadata, and workbench cleanup and KitchenBench authoring workflows (#1400, #1563,
   #1607, #1615, #1652, #1653, #1660).
-- **VLM policies:** Added ``VLMGoalPolicy``, ``VLMChunkPolicy``, and ``VLMStepPolicy`` with
+- **VLM policies:** Added ``VLMGoalPolicy`` and ``VLMChunkPolicy`` with
   robot-specific observation and action adapters, a shared multimodal inference backend, and
   Experiment Runner support with DROID pick-and-place and gear insertion examples (#1414, #1479,
   #1482, #1521, #1575, #1576).
