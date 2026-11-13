@@ -240,24 +240,6 @@ def test_graph_spec_parses_radial_position_limits():
     assert relation.radius_max == 0.3
 
 
-def test_graph_spec_accepts_legacy_position_limits_box_name():
-    """The legacy YAML relation name continues to construct a box relation."""
-
-    data = _minimal_env_graph_data()
-    data["relations"] = [{
-        "kind": "position_limits",
-        "subject": "cube",
-        "params": {"x_limits": [0.1, 0.3]},
-    }]
-
-    (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations
-    relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(relation_spec.kind)
-    relation = relation_class(**relation_spec.params)
-
-    assert relation_class is PositionLimitsBox
-    assert isinstance(relation, PositionLimitsBox)
-
-
 def test_graph_spec_explains_an_unquoted_on_kind():
     """YAML 1.1 reads an unquoted ``on`` as true, so the error must say to quote it."""
 

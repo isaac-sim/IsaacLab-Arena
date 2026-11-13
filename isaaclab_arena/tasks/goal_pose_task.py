@@ -33,6 +33,7 @@ class GoalPoseTask(TaskBase):
         target_z_range: tuple[float, float] | None = None,
         target_orientation_xyzw: tuple[float, float, float, float] | None = None,
         target_orientation_tolerance_rad: float | None = None,
+        task_description: str | None = None,
     ):
         """
         Args:
@@ -43,8 +44,9 @@ class GoalPoseTask(TaskBase):
             target_z_range: Success zone z-range [min, max] in meters.
             target_orientation_xyzw: Target quaternion [x, y, z, w].
             target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
+            task_description: Optional natural-language task instruction.
         """
-        super().__init__(episode_length_s=episode_length_s)
+        super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         self.object = object
         self.target_x_range = target_x_range
         self.target_y_range = target_y_range

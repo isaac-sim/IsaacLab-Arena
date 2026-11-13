@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from enum import Enum
 from unittest.mock import patch
@@ -88,6 +89,9 @@ def test_task_catalogue_excludes_structural_graph_fields():
     entries = {entry.name: entry for entry in catalogue.tasks}
 
     assert set(entries) == set(TaskRegistry().get_all_keys())
+    for name in entries:
+        task_init_params = inspect.signature(TaskRegistry().get_task_by_name(name).__init__).parameters
+        assert "task_description" in task_init_params, f"{name} cannot accept the spec description"
     assert entries["PressButtonTask"].required_params == ["pressable_object"]
     pick_params = entries["PickAndPlaceTask"].required_params + entries["PickAndPlaceTask"].optional_params
     assert "task_description" not in pick_params
