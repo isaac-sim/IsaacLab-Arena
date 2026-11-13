@@ -235,7 +235,7 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -
     hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
-    builder = (
+    return (
         build_arena_builder_from_legacy_graph(
             cfg.environment,
             environment_builder=cfg.environment_builder,
@@ -246,18 +246,6 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
         else _build_arena_builder_from_cfg(cfg, hydra_overrides, rebuild_index)
     )
-    if cfg.env_cfg_override:
-        from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
-
-        environment_callback = builder.arena_env.env_cfg_callback
-
-        def apply_run_env_cfg_override(env_cfg):
-            if environment_callback is not None:
-                env_cfg = environment_callback(env_cfg)
-            return apply_env_cfg_override(env_cfg, cfg.env_cfg_override)
-
-        builder.arena_env.env_cfg_callback = apply_run_env_cfg_override
-    return builder
 
 
 def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str], rebuild_index: int) -> ArenaEnvBuilder:

@@ -5,8 +5,9 @@
 
 """Typed configuration for compiling an Arena environment."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
@@ -59,6 +60,10 @@ class ArenaEnvBuilderCfg:
     camera, keeping its aspect ratio, to fit inside the image size the policy declares through
     ``PolicyBase.default_image_size``.
     """
+
+    env_cfg_override: dict[str, Any] = field(default_factory=dict)
+    """Validated Isaac Lab config overrides applied after the environment's existing callback.
+    An empty mapping leaves the environment config unchanged and supports Hydra's dictionary merging."""
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"

@@ -368,7 +368,7 @@ runs:
         extra_args=[
             "--experiment_output_directory",
             str(output_dir),
-            "+runs.finite_episodes.env_cfg_override={episode_length_s:0.2}",
+            "+runs.finite_episodes.environment_builder.env_cfg_override={episode_length_s:0.2}",
         ],
     )
 

@@ -60,6 +60,16 @@ the complete scene-root poses under the top-level ``placement`` key.
 Record Variations with Replayed Placement Layouts
 -------------------------------------------------
 
+The maintained Experiment Definition configures four parallel environments,
+the zero-action policy, two rebuilds, and 128 total episodes. Both rebuilds
+load the eight-row placement recording through
+``environment_builder.recorded_variation_samples_path``; the replay scheduler
+wraps as needed.
+The total budget is split evenly, so each rebuild records 64 episodes:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml
+   :language: yaml
+
 It enables two build-time variations:
 
 * ``light.hdr_image``
@@ -81,7 +91,11 @@ Run the Experiment:
      --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml \
      --viz none \
      --experiment_output_directory outputs/recorded_variations_workflow/record \
-     '+runs.recorded_variations.env_cfg_override={episode_length_s:1.0}'
+     '+runs.recorded_variations.environment_builder.env_cfg_override={episode_length_s:1.0}'
+
+The final argument shortens each episode from 60 seconds to 1 second for this
+run to speed up sampling. The replay command below uses the same
+value. Omit it for normal evaluations.
 
 The canonical recordings are written to:
 
@@ -114,7 +128,7 @@ Run the replay:
      --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml \
      --viz none \
      --experiment_output_directory outputs/recorded_variations_workflow/replay \
-     '+runs.recorded_variations_replay.env_cfg_override={episode_length_s:1.0}'
+     '+runs.recorded_variations_replay.environment_builder.env_cfg_override={episode_length_s:1.0}'
 
 Verify the episode count, source-index coverage, and variation payloads:
 

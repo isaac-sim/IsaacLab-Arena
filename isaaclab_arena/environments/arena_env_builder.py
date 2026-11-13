@@ -25,6 +25,7 @@ from isaaclab_teleop import IsaacTeleopCfg
 import isaaclab_arena_curobo  # noqa: F401
 from isaaclab_arena.assets.registries import DeviceRegistry, PolicyRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
+from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg, CameraResolutionMode
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
@@ -583,14 +584,16 @@ class ArenaEnvBuilder:
 
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
-            if resolved_physics_backend is PhysicsBackend.PHYSX:
-                assert isinstance(
-                    env_cfg.sim.physics, PhysxCfg
-                ), "env_cfg_callback changed the physics backend away from PhysX."
-            elif resolved_physics_backend is PhysicsBackend.NEWTON:
-                assert isinstance(
-                    env_cfg.sim.physics, NewtonCfg
-                ), "env_cfg_callback changed the physics backend away from Newton."
+        if self.cfg.env_cfg_override:
+            env_cfg = apply_env_cfg_override(env_cfg, self.cfg.env_cfg_override)
+        if resolved_physics_backend is PhysicsBackend.PHYSX:
+            assert isinstance(
+                env_cfg.sim.physics, PhysxCfg
+            ), "Environment configuration changed the physics backend away from PhysX."
+        elif resolved_physics_backend is PhysicsBackend.NEWTON:
+            assert isinstance(
+                env_cfg.sim.physics, NewtonCfg
+            ), "Environment configuration changed the physics backend away from Newton."
 
         env_kwargs: dict[str, Any] = {
             "variation_recorder": variation_recorder,

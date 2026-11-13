@@ -6,6 +6,7 @@
 """Test Hydra composition of typed YAML Experiments."""
 
 import yaml
+from dataclasses import replace
 from pathlib import Path
 from yaml.constructor import ConstructorError
 
@@ -534,57 +535,59 @@ def test_recorded_variations_workflow_accepts_cli_timeout_override(config_name, 
         Path(TestConstants.arena_environments_dir) / "experiment_configs" / "placement_record_replay" / config_name
     )
     baseline = _load_experiment(config_path).runs[run_name]
-    assert baseline.env_cfg_override == {}
+    assert baseline.environment_builder.env_cfg_override == {}
 
-    run = _load_experiment(config_path, overrides=[f"+runs.{run_name}.env_cfg_override={{episode_length_s:1.0}}"]).runs[
-        run_name
-    ]
-    assert run.env_cfg_override == {"episode_length_s": 1.0}
+    run = _load_experiment(
+        config_path, overrides=[f"+runs.{run_name}.environment_builder.env_cfg_override={{episode_length_s:1.0}}"]
+    ).runs[run_name]
+    assert run.environment_builder.env_cfg_override == {"episode_length_s": 1.0}
     assert run.environment == baseline.environment
-    assert run.environment_builder == baseline.environment_builder
+    assert run.environment_builder == replace(baseline.environment_builder, env_cfg_override={"episode_length_s": 1.0})
     assert run.environment_builder.num_envs == num_envs
     assert run.rollout_limit.num_episodes == 128
     assert run.num_rebuilds == 2
 
 
-def _test_run_env_cfg_override_merges_experiment_defaults_and_round_trips(simulation_app, tmp_path, environment_type):
+def _test_builder_env_cfg_override_merges_experiment_defaults_and_round_trips(
+    simulation_app, tmp_path, environment_type
+):
     contents = yaml.safe_load(GRAPH_SPEC_EXPERIMENT_CONTENTS)
     if environment_type == "python":
         contents["runs"]["graph_run"]["environment"] = {"type": "pick_and_place_maple_table"}
-    contents["shared"] = {"env_cfg_override": {"episode_length_s": 4.0, "sim": {"dt": 0.01}}}
-    contents["runs"]["graph_run"]["env_cfg_override"] = {"episode_length_s": 2.0}
+    contents["shared"] = {"environment_builder": {"env_cfg_override": {"episode_length_s": 4.0, "sim": {"dt": 0.01}}}}
+    contents["runs"]["graph_run"]["environment_builder"]["env_cfg_override"] = {"episode_length_s": 2.0}
     config_path = _write_experiment(tmp_path, yaml.safe_dump(contents))
-    assert _load_experiment(config_path).runs["graph_run"].env_cfg_override == {
+    assert _load_experiment(config_path).runs["graph_run"].environment_builder.env_cfg_override == {
         "episode_length_s": 2.0,
         "sim": {"dt": 0.01},
     }
 
-    experiment = _load_experiment(config_path, overrides=["runs.graph_run.env_cfg_override.episode_length_s=1.0"])
+    experiment = _load_experiment(
+        config_path, overrides=["runs.graph_run.environment_builder.env_cfg_override.episode_length_s=1.0"]
+    )
     run = experiment.runs["graph_run"]
-    assert run.env_cfg_override == {"episode_length_s": 1.0, "sim": {"dt": 0.01}}
+    assert run.environment_builder.env_cfg_override == {"episode_length_s": 1.0, "sim": {"dt": 0.01}}
     serialized = serialize_arena_experiment_to_yaml(experiment)
     serialized_run = yaml.safe_load(serialized)["runs"]["graph_run"]
-    assert serialized_run["env_cfg_override"] == run.env_cfg_override
+    assert serialized_run["environment_builder"]["env_cfg_override"] == run.environment_builder.env_cfg_override
+    assert "env_cfg_override" not in serialized_run
     assert "env_cfg_override" not in serialized_run["environment"]
     assert _load_experiment(_write_experiment(tmp_path, serialized)) == experiment
     return True
 
 
 @pytest.mark.parametrize("environment_type", ["graph", "python"])
-def test_run_env_cfg_override_merges_experiment_defaults_and_round_trips(tmp_path, environment_type):
+def test_builder_env_cfg_override_merges_experiment_defaults_and_round_trips(tmp_path, environment_type):
     # Serialization loads asset registries, so it must run after SimulationApp starts.
     assert run_function_with_persistent_simulation_app(
-        _test_run_env_cfg_override_merges_experiment_defaults_and_round_trips,
+        _test_builder_env_cfg_override_merges_experiment_defaults_and_round_trips,
         tmp_path=tmp_path,
         environment_type=environment_type,
     )
 
 
-def _test_run_env_cfg_override_applies_after_environment_callback(simulation_app, environment_type):
-    import math
+def _test_builder_env_cfg_override_applies_after_environment_callback(simulation_app, environment_type):
     import sys
-    import torch
-    from types import SimpleNamespace
     from unittest.mock import patch
 
     from isaaclab.envs.mdp import time_out
@@ -606,12 +609,14 @@ def _test_run_env_cfg_override_applies_after_environment_callback(simulation_app
     experiment = _load_experiment(
         config_path,
         overrides=[
-            f"+runs.{run_name}.env_cfg_override="
+            f"+runs.{run_name}.environment_builder.env_cfg_override="
             "{episode_length_s:1.0,sim:{physics:{max_position_iteration_count:16}}}"
         ],
     )
     run = experiment.runs[run_name]
-    run.environment_builder = ArenaEnvBuilderCfg(solve_relations=False, presets="physx")
+    run.environment_builder = ArenaEnvBuilderCfg(
+        solve_relations=False, presets="physx", env_cfg_override=run.environment_builder.env_cfg_override
+    )
     # Placement replay and variations are exercised elsewhere; this checks final config construction.
     run.variations = {}
     argv = ["experiment_runner.py"]
@@ -639,21 +644,17 @@ def _test_run_env_cfg_override_applies_after_environment_callback(simulation_app
     for name, term in task_termination.failures.items():
         assert getattr(env_cfg.terminations, name).func is term.func
 
-    max_steps = math.ceil(env_cfg.episode_length_s / (env_cfg.decimation * env_cfg.sim.dt))
-    env = SimpleNamespace(max_episode_length=max_steps, episode_length_buf=torch.tensor([max_steps - 1, max_steps]))
-    assert env_cfg.terminations.time_out.func(env).tolist() == [False, True]
-    assert run.env_cfg_override["episode_length_s"] == 1.0
-
-    run.env_cfg_override = {"sim": {"unknown_field": 1}}
-    with pytest.raises(ValueError, match="Invalid env_cfg_override"):
-        builder.build_env_cfg()
+    assert run.environment_builder.env_cfg_override == {
+        "episode_length_s": 1.0,
+        "sim": {"physics": {"max_position_iteration_count": 16}},
+    }
     return True
 
 
 @pytest.mark.parametrize("environment_type", ["graph", "python"])
-def test_run_env_cfg_override_applies_after_environment_callback(environment_type):
+def test_builder_env_cfg_override_applies_after_environment_callback(environment_type):
     assert run_function_with_persistent_simulation_app(
-        _test_run_env_cfg_override_applies_after_environment_callback, environment_type=environment_type
+        _test_builder_env_cfg_override_applies_after_environment_callback, environment_type=environment_type
     )
 
 

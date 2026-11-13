@@ -139,6 +139,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     # collection, which would pull Isaac Lab modules in before SimulationApp starts.
     monkeypatch.setattr("isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder", get_builder)
 
+    run.environment_builder.env_cfg_override = {"episode_length_s": 1.0}
     builder = legacy_graph_environment_cli.build_arena_builder_from_legacy_graph(
         run.environment,
         environment_builder=run.environment_builder,
@@ -161,6 +162,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
     assert captured["rebuild_index"] == 1
     assert captured["policy_cfg"] is run.policy
+    assert captured["builder_cfg"].env_cfg_override == {"episode_length_s": 1.0}
 
 
 def test_registered_environment_rejects_arguments_missing_from_its_typed_config():
