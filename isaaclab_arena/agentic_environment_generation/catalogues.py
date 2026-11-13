@@ -16,6 +16,17 @@ from typing import Any, get_args, get_type_hints
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.relations.relations import RelationBase
 
+# Keep the default prompt vocabulary limited to the previously tested tasks and relations.
+_TASK_CATALOGUE_INCLUDED_NAMES = frozenset({"CloseDoorTask", "OpenDoorTask", "PickAndPlaceTask"})
+_RELATION_CATALOGUE_INCLUDED_NAMES = frozenset({
+    "align_with",
+    "is_anchor",
+    "next_to",
+    "not_next_to",
+    "on",
+    "rotate_around_solution",
+})
+
 # Constructor kwargs already expressed as top-level ArenaEnvGraphTypes fields (not as
 # TaskSpec.params / SpatialRelationSpec.params). Keep them out of the agent catalogues.
 _TASK_CATALOGUE_EXCLUDED_PARAMS = frozenset({"task_description"})  # CompositeTaskSpec.description
@@ -128,11 +139,17 @@ class RelationCatalogue:
 
 def build_relation_catalogue(
     registry: ObjectRelationLibraryRegistry | None = None,
+    included_names: frozenset[str] = _RELATION_CATALOGUE_INCLUDED_NAMES,
 ) -> RelationCatalogue:
-    """Collect all registered object relations from ``ObjectRelationLibraryRegistry``."""
+    """Collect the registered object relations named in ``included_names``.
+
+    Args:
+        registry: Registry to look up relation classes in; defaults to the shared registry.
+        included_names: Names to expose, replacing the default selection.
+    """
     registry = registry or ObjectRelationLibraryRegistry()
     catalogue = RelationCatalogue()
-    for name in registry.get_all_keys():
+    for name in sorted(included_names):
         relation_cls = registry.get_object_relation_by_name(name)
         assert issubclass(relation_cls, RelationBase), f"{name!r} is not a RelationBase subclass"
         required_params, optional_params, enum_options = _collect_init_params(
@@ -190,11 +207,19 @@ class TaskCatalogue:
         return f"TASKS ({len(self.tasks)}):\n" + "\n".join(lines)
 
 
-def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
-    """Collect all registered tasks from ``TaskRegistry``."""
+def build_task_catalogue(
+    registry: TaskRegistry | None = None,
+    included_names: frozenset[str] = _TASK_CATALOGUE_INCLUDED_NAMES,
+) -> TaskCatalogue:
+    """Collect the registered tasks named in ``included_names``.
+
+    Args:
+        registry: Registry to look up task classes in; defaults to the shared registry.
+        included_names: Names to expose, replacing the default selection.
+    """
     registry = registry or TaskRegistry()
     catalogue = TaskCatalogue()
-    for name in sorted(registry.get_all_keys()):
+    for name in sorted(included_names):
         task_cls = registry.get_task_by_name(name)
         required_params, optional_params, enum_options = _collect_init_params(
             task_cls,

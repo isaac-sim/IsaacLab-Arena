@@ -23,7 +23,7 @@ from isaaclab_arena.agentic_environment_generation.simready_search_interface imp
     SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
 )
-from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.registries import AssetRegistry, TaskRegistry
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
@@ -75,7 +75,7 @@ def agent(stub_openai):
 
 
 def test_task_catalogue_collects_required_optional_and_enum_params():
-    catalogue = build_task_catalogue(_TestTaskRegistry())
+    catalogue = build_task_catalogue(_TestTaskRegistry(), included_names=frozenset({"TestTask"}))
 
     assert (
         catalogue.to_catalog_string()
@@ -88,26 +88,28 @@ def test_task_catalogue_excludes_structural_graph_fields():
     catalogue = build_task_catalogue()
     entries = {entry.name: entry for entry in catalogue.tasks}
 
-    assert set(entries) == set(TaskRegistry().get_all_keys())
+    assert list(entries) == ["CloseDoorTask", "OpenDoorTask", "PickAndPlaceTask"]
     for name in entries:
         task_init_params = inspect.signature(TaskRegistry().get_task_by_name(name).__init__).parameters
         assert "task_description" in task_init_params, f"{name} cannot accept the spec description"
-    assert entries["PressButtonTask"].required_params == ["pressable_object"]
     pick_params = entries["PickAndPlaceTask"].required_params + entries["PickAndPlaceTask"].optional_params
     assert "task_description" not in pick_params
     assert "max_separation" not in pick_params
     assert "support_cone_half_angle_rad" in pick_params
 
 
+def test_task_catalogue_can_include_tasks_outside_the_default_selection():
+    catalogue = build_task_catalogue(included_names=frozenset({"PressButtonTask"}))
+
+    assert [entry.name for entry in catalogue.tasks] == ["PressButtonTask"]
+    assert catalogue.tasks[0].required_params == ["pressable_object"]
+
+
 def test_relation_catalogue_collects_required_optional_and_enum_params():
     catalogue = build_relation_catalogue()
     entries = {entry.name: entry for entry in catalogue.relations}
 
-    assert set(entries) == set(ObjectRelationLibraryRegistry().get_all_keys())
-    assert entries["face_to"].required_params == []
-    assert not entries["face_to"].unary
-    assert "spread" in entries["clutter_on"].optional_params
-    assert entries["position_limits_box"].unary
+    assert list(entries) == ["align_with", "is_anchor", "next_to", "not_next_to", "on", "rotate_around_solution"]
     assert entries["align_with"].required_params == ["axis"]
     assert entries["align_with"].optional_params == ["offset_m", "tolerance_m", "relation_loss_weight"]
     assert entries["align_with"].enum_options == {"axis": ["x", "y", "z"]}
@@ -121,6 +123,27 @@ def test_relation_catalogue_collects_required_optional_and_enum_params():
     assert entries["next_to"].enum_options == {"side": ["positive_x", "negative_x", "positive_y", "negative_y"]}
     for entry in entries.values():
         assert "parent" not in entry.required_params + entry.optional_params
+
+
+def test_relation_catalogue_can_include_relations_outside_the_default_selection():
+    catalogue = build_relation_catalogue(included_names=frozenset({"position_limits_box", "face_to", "clutter_on"}))
+    entries = {entry.name: entry for entry in catalogue.relations}
+
+    assert list(entries) == ["clutter_on", "face_to", "position_limits_box"]
+    assert entries["face_to"].required_params == []
+    assert not entries["face_to"].unary
+    assert "spread" in entries["clutter_on"].optional_params
+    assert entries["position_limits_box"].unary
+
+
+@pytest.mark.parametrize(
+    ("build_catalogue", "entries_field"),
+    [(build_task_catalogue, "tasks"), (build_relation_catalogue, "relations")],
+)
+def test_catalogue_allows_empty_selection(build_catalogue, entries_field):
+    catalogue = build_catalogue(included_names=frozenset())
+
+    assert getattr(catalogue, entries_field) == []
 
 
 # ---------------------------------------------------------------------------
