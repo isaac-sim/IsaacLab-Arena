@@ -59,7 +59,7 @@ Record a 128-Episode Evaluation
 
 .. note::
 
-   The commands for steps 2 and 3 set ``environment.env_cfg_override={episode_length_s:1.0}``
+   The commands for steps 2 and 3 set ``env_cfg_override={episode_length_s:1.0}``
    for their Run. The existing environment callback applies this override to the
    task's standard 60-second timeout, so recording and replay finish faster without
    editing the source YAML. See :doc:`../../concepts/environment/env_cfg_override`.
@@ -97,7 +97,7 @@ Run the Experiment:
      --viz none \
      --experiment_output_directory \
        outputs/recorded_variations_workflow/record \
-     '+runs.recorded_variations.environment.env_cfg_override={episode_length_s:1.0}'
+     '+runs.recorded_variations.env_cfg_override={episode_length_s:1.0}'
 
 The canonical recordings are written to:
 
@@ -132,7 +132,7 @@ Run the replay:
      --viz none \
      --experiment_output_directory \
        outputs/recorded_variations_workflow/replay \
-     '+runs.recorded_variations_replay.environment.env_cfg_override={episode_length_s:1.0}'
+     '+runs.recorded_variations_replay.env_cfg_override={episode_length_s:1.0}'
 
 Verify the episode count, source-index coverage, and variation payloads:
 
@@ -179,6 +179,6 @@ parallel simulation environments.
 
 .. note::
 
-   For normal evaluations, omit the ``environment.env_cfg_override``
+   For normal evaluations, omit the ``env_cfg_override``
    override to use the task's standard ``episode_length_s: 60.0``. No source-file
    edit needs to be restored. The one-second timeout is only for this sample workflow.

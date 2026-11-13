@@ -86,6 +86,9 @@ class ArenaRunCfg:
     variations: dict[str, Any] = field(default_factory=dict)
     """Variation values applied when the environment is compiled."""
 
+    env_cfg_override: dict[str, Any] | None = None
+    """Validated Isaac Lab config overrides applied after the environment's existing callback."""
+
     def __post_init__(self) -> None:
         assert self.name, "run name must not be empty"
         if self.recorded_variation_samples_paths is not None:

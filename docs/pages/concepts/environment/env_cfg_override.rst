@@ -1,5 +1,5 @@
-Graph YAML ``env_cfg_override``
-=================================
+Environment configuration overrides
+===================================
 
 Environment graph YAML (``ArenaEnvGraphSpec``) may include an ``env_cfg_override`` mapping.
 ``build_arena_env_from_graph_spec`` turns that mapping into an ``env_cfg_callback`` that calls
@@ -12,8 +12,8 @@ See :doc:`physics_configuration` for configuration scopes and application order,
 Per-Run Experiment overrides
 ----------------------------
 
-For a graph-YAML environment, an Experiment Run can supply ``environment.env_cfg_override``
-without editing the graph file:
+An Experiment Run can supply ``env_cfg_override`` for either a graph-YAML environment or a
+registered Python environment. Place the mapping alongside ``environment`` and ``policy``:
 
 .. code-block:: yaml
 
@@ -21,23 +21,27 @@ without editing the graph file:
      short_episodes:
        environment:
          type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
-         env_cfg_override:
-           episode_length_s: 1.0
        policy:
          type: zero_action
+       rollout_limit:
+         num_episodes: 1
+       env_cfg_override:
+         episode_length_s: 1.0
 
 The same mapping can be supplied on the Experiment CLI:
 
 .. code-block:: bash
 
-   '+runs.short_episodes.environment.env_cfg_override={episode_length_s:1.0}'
+   '+runs.short_episodes.env_cfg_override={episode_length_s:1.0}'
 
 The Hydra ``+`` prefix allows adding fields that are not already declared in the mapping.
 
 Run overrides use the same validation as graph overrides and run through ``env_cfg_callback``
-after the graph's own overrides. Fields not specified by the Run retain their existing values.
+after the environment's existing callback, including any overrides in its graph YAML.
+Fields not specified by the Run retain their existing values.
 The effective Experiment YAML records the Run overrides for reproducibility.
-Omit the mapping to preserve the graph's configuration.
+Omit the mapping to preserve the environment's configuration. The override changes the generated
+Isaac Lab configuration; it does not rewrite the task definition or source files.
 
 ``episode_length_s`` changes the duration of an enabled timeout; it does not enable a disabled
 timeout termination. The clamp task already enables it and defaults to 60 seconds.
