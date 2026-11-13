@@ -1,0 +1,1333 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Migrating from v0.3 to v0.4 &#8212; isaaclab_arena</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=83a19d84" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
+
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/references/migration_guide_v0_4';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Citing Isaac Lab-Arena" href="citing_us.html" />
+    <link rel="prev" title="Release Notes" href="release_notes.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a></div>
+    
+      <div class="navbar-item"><div class="version-switcher__container dropdown">
+  <button type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-label="Version switcher list">
+    main
+    <span class="caret"></span>
+  </button>
+  <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
+    <a class="list-group-item list-group-item-action py-1 active"
+       href="migration_guide_v0_4.html" role="option" aria-current="true">main</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.1/index.html" role="option">0.3.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.0/index.html" role="option">0.3.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.3.0-prerelease/index.html" role="option">0.3.0-prerelease</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.2.1/index.html" role="option">0.2.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.2.0/index.html" role="option">0.2.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.1.1/index.html" role="option">0.1.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../release/0.1.0/index.html" role="option">0.1.0</a>
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Isaac Lab-Arena</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">Overview</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../whats_new/whats_new.html">What's New</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../whats_new/agentic_authoring.html">Agentic Evaluation Authoring</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../whats_new/agentic_authoring_workbench.html">Workbench Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../whats_new/agentic_authoring_kitchen.html">Kitchen Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../whats_new/newton_evaluation.html">Newton-Based Evaluation Workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../whats_new/vlm_policy.html">Multimodal VLM as a Policy</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../motivation/motivation.html">Why Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/arena_experiment.html">First Arena Experiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/environment_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../quickstart/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/openpi.html">OpenPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/running_a_real_policy/vlm_agent.html">VLM Agent</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/kitchen_bench_catalog.html">Kitchen Benchmark Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/python_environment_catalog.html">Python Environment Catalog</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/analysis/index.html">Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/analysis/variations.html">Run an Evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/analysis/recorded_variations.html">Run an Evaluation with Recorded Variations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/agentic_authoring/index.html">Agentic Authoring</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/agentic_authoring/workbench.html">Author a Workbench Environment with a Coding Agent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/agentic_authoring/kitchen.html">Author a <code class="docutils literal notranslate"><span class="pre">kitchen_bench</span></code> Environment with a Coding Agent</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/newton/index.html">Newton Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/newton/gear_insertion.html">Gear Insertion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/newton/deformable_pick_and_place.html">Deformable Pick and Place</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Agentic Tools</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_tools/index.html">Agentic Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_tools/object_control.html">Object Control Runner</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/environment_definition.html">Environment Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_configuration.html">Physics configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../concepts/offline_placement/clutter.html">Clutter Layouts</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/solver.html">Placement Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/validation.html">Placement Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/pooled_placement.html">Pooled Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/placement_diagnostics.html">Placement Diagnostics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/placement_success_benchmark.html">Placement Success Benchmark</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/in_process_policies.html">In-Process Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/server_client_policies.html">Server–Client Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/agent_policies.html">Agent as Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/code_policies.html">Code as Policy</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_arena_experiments.html">Arena Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/experiment_record_replay.html">Record and Replay Experiments</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Storage API Access</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/relations.html">Relations Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance and scaling</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="release_notes.html">Release Notes</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Migrating from v0.3 to v0.4</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Gallery</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../gallery/index.html">Gallery</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../community-contributions.html">Community Contributions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Development Team Internal</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../development_team_internal/index.html">Development Team Internal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../development_team_internal/dreamzero.html">DreamZero</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../development_team_internal/perflab_benchmarks.html">PerfLab Benchmarks</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-house"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="release_notes.html" class="nav-link">Release Notes</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Migrating from v0.3 to v0.4</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="migrating-from-v0-3-to-v0-4">
+<h1>Migrating from v0.3 to v0.4<a class="headerlink" href="#migrating-from-v0-3-to-v0-4" title="Link to this heading">#</a></h1>
+<p>This guide lists the changes to Arena’s public interfaces between <code class="docutils literal notranslate"><span class="pre">v0.3.0</span></code> and <code class="docutils literal notranslate"><span class="pre">v0.4.0</span></code>.
+It includes the changes released in <code class="docutils literal notranslate"><span class="pre">v0.3.1</span></code>.
+It covers the environment YAML format, the Python environment API, script entry points,
+Experiment Definitions, and evaluation outputs.
+For new features, see the <a class="reference internal" href="release_notes.html"><span class="doc">release notes</span></a>.</p>
+<p>Each section lists breaking changes first, then changes in behavior that need no edits but can change results.</p>
+<section id="environment-yaml">
+<h2>Environment YAML<a class="headerlink" href="#environment-yaml" title="Link to this heading">#</a></h2>
+<section id="breaking-changes">
+<h3>Breaking changes<a class="headerlink" href="#breaking-changes" title="Link to this heading">#</a></h3>
+<section id="placement-validator-settings-moved-to-placer-params">
+<h4>Placement validator settings moved to <code class="docutils literal notranslate"><span class="pre">placer_params</span></code><a class="headerlink" href="#placement-validator-settings-moved-to-placer-params" title="Link to this heading">#</a></h4>
+<p>The <code class="docutils literal notranslate"><span class="pre">placement_validators</span></code> block was removed. Its fields, and other placer settings, now go under
+<code class="docutils literal notranslate"><span class="pre">placer_params</span></code> (v0.3.1).</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="nt">placement_validators</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled_checks</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">no_overlap</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">on_relation</span>
+<span class="w">  </span><span class="nt">required_checks</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">no_overlap</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.4</span>
+<span class="nt">placer_params</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled_checks</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">no_overlap</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">on_relation</span>
+<span class="w">  </span><span class="nt">required_checks</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">no_overlap</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="positionlimitsbox-takes-limit-pairs">
+<h4>PositionLimitsBox takes limit pairs<a class="headerlink" href="#positionlimitsbox-takes-limit-pairs" title="Link to this heading">#</a></h4>
+<p>Replace the single-bound parameters with <code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code> pairs. Use <code class="docutils literal notranslate"><span class="pre">null</span></code> for an open side (#1537).</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">position_limits_box</span>
+<span class="w">  </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">x_min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.55</span>
+<span class="w">    </span><span class="nt">x_max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.7</span>
+<span class="w">    </span><span class="nt">z_min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span>
+</pre></div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.4</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">position_limits_box</span>
+<span class="w">  </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">x_limits</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.55</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.7</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">z_limits</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">null</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="object-instance-name-was-renamed-to-name">
+<h4>Object <code class="docutils literal notranslate"><span class="pre">instance_name</span></code> was renamed to <code class="docutils literal notranslate"><span class="pre">name</span></code><a class="headerlink" href="#object-instance-name-was-renamed-to-name" title="Link to this heading">#</a></h4>
+<p>This affects only YAML files that set <code class="docutils literal notranslate"><span class="pre">instance_name</span></code> explicitly. The node <code class="docutils literal notranslate"><span class="pre">id</span></code> is still the
+default name (#1507).</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">instance_name</span><span class="p">:</span><span class="w"> </span><span class="nv">pick_up_object</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.4</span>
+<span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">pick_up_object</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="pickandplacetask-uses-radians-for-the-support-cone">
+<h4>PickAndPlaceTask uses radians for the support cone<a class="headerlink" href="#pickandplacetask-uses-radians-for-the-support-cone" title="Link to this heading">#</a></h4>
+<p>Replace <code class="docutils literal notranslate"><span class="pre">support_cone_half_angle_deg</span></code> with <code class="docutils literal notranslate"><span class="pre">support_cone_half_angle_rad</span></code>. The default is unchanged
+at 45 degrees (v0.3.1, #1173).</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="nt">support_cone_half_angle_deg</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">45.0</span>
+</pre></div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.4</span>
+<span class="nt">support_cone_half_angle_rad</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.785</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="other-breaking-changes">
+<h4>Other breaking changes<a class="headerlink" href="#other-breaking-changes" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><strong>random_around_solution:</strong> the relation was removed. It had no effect in environments built by
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code>. Bound the object’s position with <code class="docutils literal notranslate"><span class="pre">position_limits_box</span></code> instead (#1494).</p></li>
+<li><p><strong>Relations on a mesh-collision background:</strong> a background with <code class="docutils literal notranslate"><span class="pre">collision_mode:</span> <span class="pre">mesh</span></code> that takes
+part in a relation now raises an error before solving. Previously, placement failed after a console
+warning. Anchor an <code class="docutils literal notranslate"><span class="pre">object_references</span></code> entry that points at the support surface instead (#1614).</p></li>
+<li><p><strong>Deformable asset names:</strong> the deformable assets added in v0.3.1 have one variant per physics
+backend. Replace the asset names <code class="docutils literal notranslate"><span class="pre">deformable_cube</span></code>, <code class="docutils literal notranslate"><span class="pre">deformable_surface</span></code> and
+<code class="docutils literal notranslate"><span class="pre">deformable_teddy_bear</span></code> with their <code class="docutils literal notranslate"><span class="pre">_physx</span></code> or <code class="docutils literal notranslate"><span class="pre">_newton</span></code> variant, for example
+<code class="docutils literal notranslate"><span class="pre">deformable_cube_physx</span></code> (#1441).</p></li>
+</ul>
+</section>
+</section>
+<section id="behavior-changes">
+<h3>Behavior changes<a class="headerlink" href="#behavior-changes" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>NextTo:</strong> <code class="docutils literal notranslate"><span class="pre">cross_position_ratio</span></code> now defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code>, which places the object anywhere
+along the side. Set <code class="docutils literal notranslate"><span class="pre">cross_position_ratio:</span> <span class="pre">0.0</span></code> to keep the previous centered placement. Gaps
+within <code class="docutils literal notranslate"><span class="pre">tolerance_m</span></code> of <code class="docutils literal notranslate"><span class="pre">distance_m</span></code> are now accepted, which gives more varied layouts (#1522, #1597).</p></li>
+<li><p><strong>Placement initializer:</strong> <code class="docutils literal notranslate"><span class="pre">initializer_type</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">ON_TREE</span></code> (v0.3.1, #1369).</p></li>
+<li><p><strong>PickAndPlaceTask success:</strong> the default <code class="docutils literal notranslate"><span class="pre">velocity_threshold</span></code> dropped from <code class="docutils literal notranslate"><span class="pre">0.1</span></code> to <code class="docutils literal notranslate"><span class="pre">0.003</span></code>,
+so the at-rest check is stricter (v0.3.1, #1178).</p></li>
+<li><p><strong>Object references:</strong> a relative <code class="docutils literal notranslate"><span class="pre">prim_path</span></code> resolves under the parent asset’s prim path, not
+under the background. This changes results only when <code class="docutils literal notranslate"><span class="pre">parent_id</span></code> is not the background (#1617).</p></li>
+<li><p><strong>Robot reachability:</strong> cuRobo is now always installed, so the <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> check runs by
+default for embodiments with a cuRobo config, such as DROID. It can reject layouts that v0.3
+accepted. To turn it off, list <code class="docutils literal notranslate"><span class="pre">placer_params.enabled_checks</span></code> without <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> (#1550).</p></li>
+<li><p><strong>Placement seeds:</strong> consecutive <code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> values now produce independent layouts, so a
+fixed seed gives a different layout than in v0.3 (#1523).</p></li>
+<li><p><strong>YAML booleans:</strong> an unquoted <code class="docutils literal notranslate"><span class="pre">kind:</span> <span class="pre">on</span></code> is read by YAML as <code class="docutils literal notranslate"><span class="pre">true</span></code>. It now fails with a
+message that asks you to quote it: <code class="docutils literal notranslate"><span class="pre">kind:</span> <span class="pre">'on'</span></code> (#1603).</p></li>
+</ul>
+</section>
+<section id="new-options">
+<h3>New options<a class="headerlink" href="#new-options" title="Link to this heading">#</a></h3>
+<p>These keys are new and optional:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">external_yaml</span></code> accepts a list of files as well as a single path. A value may be defined in only
+one file (#1504).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code> and <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code> set the physics backend and simulation
+settings (v0.3.1).</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">clutter_on</span></code> relation and <code class="docutils literal notranslate"><span class="pre">overlap</span></code> on the <code class="docutils literal notranslate"><span class="pre">on</span></code> relation (v0.3.1), and the <code class="docutils literal notranslate"><span class="pre">align_with</span></code>
+relation (#1522).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initial_pose</span></code> on assets (v0.3.1) and <code class="docutils literal notranslate"><span class="pre">initial_joint_positions</span></code> on articulation object
+references (#1617).</p></li>
+</ul>
+</section>
+</section>
+<section id="python-environments">
+<h2>Python environments<a class="headerlink" href="#python-environments" title="Link to this heading">#</a></h2>
+<section id="environment-builder">
+<h3>Environment builder<a class="headerlink" href="#environment-builder" title="Link to this heading">#</a></h3>
+<p>Rename <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder.compose_manager_cfg()</span></code> to <code class="docutils literal notranslate"><span class="pre">build_env_cfg()</span></code>. It returns the same
+<code class="docutils literal notranslate"><span class="pre">(env_cfg,</span> <span class="pre">env_kwargs)</span></code> pair (#1474).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="n">env_cfg</span><span class="p">,</span> <span class="n">env_kwargs</span> <span class="o">=</span> <span class="n">arena_builder</span><span class="o">.</span><span class="n">compose_manager_cfg</span><span class="p">()</span>
+
+<span class="c1"># v0.4</span>
+<span class="n">env_cfg</span><span class="p">,</span> <span class="n">env_kwargs</span> <span class="o">=</span> <span class="n">arena_builder</span><span class="o">.</span><span class="n">build_env_cfg</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">variations_hydra.compose_variations_cfg_and_apply_overrides()</span></code> is now
+<code class="docutils literal notranslate"><span class="pre">build_variations_cfg_with_overrides()</span></code> (#1474).</p>
+</section>
+<section id="assets">
+<h3>Assets<a class="headerlink" href="#assets" title="Link to this heading">#</a></h3>
+<section id="registry-names">
+<h4>Registry names<a class="headerlink" href="#registry-names" title="Link to this heading">#</a></h4>
+<p>An asset class declares its registry key with <code class="docutils literal notranslate"><span class="pre">registry_name</span></code> instead of <code class="docutils literal notranslate"><span class="pre">name</span></code>. This also applies
+to embodiments and HDR images. <code class="docutils literal notranslate"><span class="pre">name</span></code> now means only the asset’s name in the scene, so library objects
+take <code class="docutils literal notranslate"><span class="pre">name=</span></code> instead of <code class="docutils literal notranslate"><span class="pre">instance_name=</span></code> (#1507).</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyBox</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;my_box&quot;</span>
+
+<span class="n">box</span> <span class="o">=</span> <span class="n">CrackerBox</span><span class="p">(</span>
+    <span class="n">instance_name</span><span class="o">=</span><span class="s2">&quot;pick_up_object&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.4</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyBox</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">):</span>
+    <span class="n">registry_name</span> <span class="o">=</span> <span class="s2">&quot;my_box&quot;</span>
+
+<span class="n">box</span> <span class="o">=</span> <span class="n">CrackerBox</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;pick_up_object&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<p>The registry lookups <code class="docutils literal notranslate"><span class="pre">get_asset_by_name()</span></code> and <code class="docutils literal notranslate"><span class="pre">get_hdr_by_name()</span></code> take <code class="docutils literal notranslate"><span class="pre">registry_name=</span></code> as
+their keyword, as does the <code class="docutils literal notranslate"><span class="pre">register_asset_factory()</span></code> decorator.</p>
+<p>The deformable asset names also changed; see <a class="reference internal" href="#other-breaking-changes">Other breaking changes</a> under Environment YAML.</p>
+</section>
+<section id="usd-sources">
+<h4>USD sources<a class="headerlink" href="#usd-sources" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">Object</span></code>, <code class="docutils literal notranslate"><span class="pre">Background</span></code> and library classes accept a <code class="docutils literal notranslate"><span class="pre">usd_source</span></code> as an alternative to
+<code class="docutils literal notranslate"><span class="pre">usd_path</span></code>; pass only one. A <code class="docutils literal notranslate"><span class="pre">usd_source</span></code> is downloaded on first use and its local path is stored
+in <code class="docutils literal notranslate"><span class="pre">usd_path</span></code>. An explicit <code class="docutils literal notranslate"><span class="pre">usd_path</span></code> is kept as given. Lightwheel-backed assets declare
+<code class="docutils literal notranslate"><span class="pre">usd_source</span> <span class="pre">=</span> <span class="pre">LightwheelUsdSource(...)</span></code>, which replaces <code class="docutils literal notranslate"><span class="pre">LightwheelLazyPath</span></code> (#1621).</p>
+<p><code class="docutils literal notranslate"><span class="pre">Background</span></code> reordered its arguments, so positional calls must change:</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="n">Background</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">usd_path</span><span class="p">,</span> <span class="n">object_min_z</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.4</span>
+<span class="n">Background</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">object_min_z</span><span class="p">,</span>
+           <span class="n">usd_path</span><span class="o">=</span><span class="n">usd_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="object-poses">
+<h4>Object poses<a class="headerlink" href="#object-poses" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">ObjectBase.get_object_pose()</span></code> was removed. Read poses through <code class="docutils literal notranslate"><span class="pre">ArenaWorld</span></code>, described below (#1187).</p>
+</section>
+</section>
+<section id="tasks-and-success">
+<h3>Tasks and success<a class="headerlink" href="#tasks-and-success" title="Link to this heading">#</a></h3>
+<section id="success-is-declared-through-taskterminationcfg">
+<h4>Success is declared through <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg</span></code><a class="headerlink" href="#success-is-declared-through-taskterminationcfg" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">TaskBase.get_termination_cfg()</span></code> returns a <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg</span></code>. Success is a list of
+<code class="docutils literal notranslate"><span class="pre">CompletionCriteria</span></code>, which replace <code class="docutils literal notranslate"><span class="pre">ProgressObjective</span></code> and <code class="docutils literal notranslate"><span class="pre">get_progress_objectives()</span></code>.
+Failure terms go in <code class="docutils literal notranslate"><span class="pre">failures</span></code>. Predicate groups become predicate sequences (#1255, #1316).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">TerminationsCfg</span><span class="p">(</span>
+        <span class="n">success</span><span class="o">=</span><span class="n">TerminationTermCfg</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">ObjectOnDestinationTerm</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">}),</span>
+        <span class="n">object_dropped</span><span class="o">=</span><span class="n">object_dropped</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_progress_objectives</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">ProgressObjective</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;pick_and_place&quot;</span><span class="p">,</span> <span class="n">predicate_groups</span><span class="o">=</span><span class="p">[</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">])]</span>
+
+<span class="c1"># v0.4</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskTerminationCfg</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">TaskTerminationCfg</span><span class="p">(</span>
+        <span class="n">timeout_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">episode_length_s</span><span class="p">,</span>
+        <span class="n">success</span><span class="o">=</span><span class="p">[</span><span class="n">CompletionCriteria</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;pick_and_place&quot;</span><span class="p">,</span> <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">])],</span>
+        <span class="n">failures</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;object_dropped&quot;</span><span class="p">:</span> <span class="n">object_dropped</span><span class="p">},</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>A v0.3 <code class="docutils literal notranslate"><span class="pre">predicate_groups</span></code> list maps to <code class="docutils literal notranslate"><span class="pre">predicate_sequence</span></code>. A dict of named groups maps to
+<code class="docutils literal notranslate"><span class="pre">predicate_sequences</span></code> (plural). <code class="docutils literal notranslate"><span class="pre">CompletionCriteria</span></code> takes exactly one of the two.</p>
+<p>To require a condition to hold for several steps, wrap the predicate in <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code>
+(v0.3.1).</p>
+<p><code class="docutils literal notranslate"><span class="pre">ObjectOnDestinationTerm</span></code> was removed; use the <code class="docutils literal notranslate"><span class="pre">object_on_destination</span></code> predicate in
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.tasks.predicates.spatial</span></code>. Its signature changed: <code class="docutils literal notranslate"><span class="pre">destination_cfg</span></code> is required,
+every parameter except <code class="docutils literal notranslate"><span class="pre">support_cone_half_angle_rad</span></code> must be passed, and the support cone is in
+radians. <code class="docutils literal notranslate"><span class="pre">objects_on_destinations</span></code> was removed. A v0.3 <code class="docutils literal notranslate"><span class="pre">partial(object_on_destination,</span> <span class="pre">...)</span></code> that
+relied on defaults raises <code class="docutils literal notranslate"><span class="pre">TypeError</span></code>.</p>
+</section>
+<section id="sequential-tasks">
+<h4>Sequential tasks<a class="headerlink" href="#sequential-tasks" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> was removed. Use <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> with <code class="docutils literal notranslate"><span class="pre">subtasks_are_sequential=True</span></code>.
+Pass a flat list of subtasks; nested composite tasks are not supported (#1255).</p>
+</section>
+</section>
+<section id="scene-access-at-run-time">
+<h3>Scene access at run time<a class="headerlink" href="#scene-access-at-run-time" title="Link to this heading">#</a></h3>
+<p>Predicates, rewards, terminations, observations and metrics read the scene through <code class="docutils literal notranslate"><span class="pre">ArenaWorld</span></code>,
+available as <code class="docutils literal notranslate"><span class="pre">env.unwrapped.arena_world</span></code>. It replaces the helpers in
+<code class="docutils literal notranslate"><span class="pre">tasks/predicates/predicate_utils.py</span></code> and <code class="docutils literal notranslate"><span class="pre">live_scene_geometry.py</span></code> (#1173, #1187, #1195, #1197).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+<span class="n">t_W_O</span> <span class="o">=</span> <span class="n">get_root_pos_w</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">object_name</span><span class="p">)</span>
+<span class="n">v_W</span> <span class="o">=</span> <span class="n">get_root_lin_vel_w</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">object_name</span><span class="p">)</span>
+
+<span class="c1"># v0.4</span>
+<span class="n">t_W_O</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">arena_world</span><span class="o">.</span><span class="n">get_position_w</span><span class="p">(</span><span class="n">object_name</span><span class="p">)</span>
+<span class="n">v_W</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">arena_world</span><span class="o">.</span><span class="n">get_root_linear_velocity_w</span><span class="p">(</span><span class="n">object_name</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="physics-backend-and-callbacks">
+<h3>Physics backend and callbacks<a class="headerlink" href="#physics-backend-and-callbacks" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> takes <code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code>, which applies when <code class="docutils literal notranslate"><span class="pre">--presets</span></code> is
+not given. <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.presets</span></code> is a <code class="docutils literal notranslate"><span class="pre">PhysicsBackend</span></code> instead of a string. Python code may
+still pass a string; Experiment Definitions must use the enum names, as described below.</p>
+<p><code class="docutils literal notranslate"><span class="pre">env_cfg_callback</span></code> now runs after the physics backend is applied, so its physics settings are no longer
+overwritten by <code class="docutils literal notranslate"><span class="pre">--presets</span></code>. The callback must return the configuration and must not change the
+backend type (#1262, #1266).</p>
+</section>
+<section id="embodiments">
+<h3>Embodiments<a class="headerlink" href="#embodiments" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Terminations:</strong> <code class="docutils literal notranslate"><span class="pre">EmbodimentBase.get_termination_cfg()</span></code> and <code class="docutils literal notranslate"><span class="pre">termination_cfg</span></code> were removed. The
+builder reads terminations only from the task, so terminations set on an embodiment are dropped
+without an error. Move them to the task’s <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.failures</span></code>.</p></li>
+<li><p><strong>Recorders:</strong> <code class="docutils literal notranslate"><span class="pre">get_recorder_term_cfg()</span></code> takes <code class="docutils literal notranslate"><span class="pre">record_trajectories</span></code>, which the builder passes by
+keyword. Overrides with the v0.3 signature raise <code class="docutils literal notranslate"><span class="pre">TypeError</span></code>.</p></li>
+<li><p><strong>Mimic:</strong> custom Mimic environments must subclass <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaManagerBasedRLMimicEnv</span></code>, not
+Isaac Lab’s <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLMimicEnv</span></code>. Otherwise they have no <code class="docutils literal notranslate"><span class="pre">arena_world</span></code>, and predicates that
+read the scene fail.</p></li>
+<li><p><strong>Gripper:</strong> embodiments expose their gripper through <code class="docutils literal notranslate"><span class="pre">self.gripper</span></code>, for example <code class="docutils literal notranslate"><span class="pre">PandaGripper</span></code>
+or <code class="docutils literal notranslate"><span class="pre">RobotiqGripper</span></code>. Set it so that tasks can get it through <code class="docutils literal notranslate"><span class="pre">get_gripper()</span></code> (#1293).</p></li>
+</ul>
+</section>
+<section id="custom-variations-and-samplers">
+<h3>Custom variations and samplers<a class="headerlink" href="#custom-variations-and-samplers" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">VariationBase.configure_at_build_time()</span></code> took no arguments in v0.3. It now takes <code class="docutils literal notranslate"><span class="pre">seed</span></code>,
+<code class="docutils literal notranslate"><span class="pre">variation_key</span></code> and <code class="docutils literal notranslate"><span class="pre">rebuild_index</span></code>, which the builder passes by keyword. A <code class="docutils literal notranslate"><span class="pre">sampler</span></code> is
+required. Custom samplers must draw from the generator set through <code class="docutils literal notranslate"><span class="pre">set_generator()</span></code>, so that the
+same seed gives the same values (#1467).</p>
+<p>Custom placement validators subclass <code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> and implement
+<code class="docutils literal notranslate"><span class="pre">_validate_batch(batch,</span> <span class="pre">collision_objects,</span> <span class="pre">rejections)</span></code>. In v0.3 they subclassed
+<code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> and implemented <code class="docutils literal notranslate"><span class="pre">validate_batch()</span></code>. <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> is now in
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.base</span></code> (#1534).</p>
+</section>
+<section id="module-moves">
+<h3>Module moves<a class="headerlink" href="#module-moves" title="Link to this heading">#</a></h3>
+<p>No compatibility aliases were left at the old paths.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>v0.3</p></th>
+<th class="head"><p>v0.4</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd_helpers</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd.helpers</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd_pose_helpers</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd.pose</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd_prim_tree</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd.prim_tree</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd_articulation</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd.articulation</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.relation_solver</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.optimization.relation_solver</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.placement_events</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.runtime.placement_events</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.placement_validators</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.pre_physics</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.placement_validator_registry</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.registry</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.placement_validation</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.types</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.placement_pool_validation</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.offline_placement.pool_validation</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.visualization.episode_results_files</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.evaluation.episode_results_files</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.visualization.report_data</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.evaluation.report_data</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Modules you construct objects from keep their paths, for example <code class="docutils literal notranslate"><span class="pre">relations.relations</span></code>,
+<code class="docutils literal notranslate"><span class="pre">object_placer</span></code>, <code class="docutils literal notranslate"><span class="pre">pooled_object_placer</span></code>, <code class="docutils literal notranslate"><span class="pre">object_placer_params</span></code> and <code class="docutils literal notranslate"><span class="pre">placement_result</span></code>.
+Solver, geometry, validation and run-time modules moved into the <code class="docutils literal notranslate"><span class="pre">optimization</span></code>, <code class="docutils literal notranslate"><span class="pre">geometry</span></code>,
+<code class="docutils literal notranslate"><span class="pre">validation</span></code> and <code class="docutils literal notranslate"><span class="pre">runtime</span></code> subpackages (#1534). The USD helper moves are from v0.3.1, and the
+evaluation moves from #1604.</p>
+</section>
+<section id="removed">
+<h3>Removed<a class="headerlink" href="#removed" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">RandomAroundSolution</span></code>: use <code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code> (#1494).</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">&#64;agent_ready</span></code> decorator: remove it from your classes. The environment generator selects its
+tasks and relations through the <code class="docutils literal notranslate"><span class="pre">included_names</span></code> argument of its catalogue builders (#1671).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Scene.get_termination_cfg()</span></code>: declare terminations on the task (v0.3.1).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KukaAllegroEmbodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">DexsuiteLiftTask</span></code> and the <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code> environment (#1666).</p></li>
+</ul>
+</section>
+</section>
+<section id="script-entry-points">
+<h2>Script entry points<a class="headerlink" href="#script-entry-points" title="Link to this heading">#</a></h2>
+<p>Arena’s evaluation scripts keep their paths: <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code>, <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> and
+<code class="docutils literal notranslate"><span class="pre">environment_runner.py</span></code>. Imitation learning still uses Isaac Lab’s scripts, with the same
+<code class="docutils literal notranslate"><span class="pre">--external_callback</span></code> argument as in v0.3.</p>
+<p>Isaac Lab 3.0 removed <code class="docutils literal notranslate"><span class="pre">--headless</span></code>. Drop it from every command, including data generation; runs are
+headless unless a visualizer is selected with <code class="docutils literal notranslate"><span class="pre">--viz</span></code> (#1481).</p>
+<section id="running-in-docker">
+<h3>Running in Docker<a class="headerlink" href="#running-in-docker" title="Link to this heading">#</a></h3>
+<p>The Arena image installs Isaac Lab into <code class="docutils literal notranslate"><span class="pre">/opt/isaaclab-venv</span></code>. In an interactive container shell,
+<code class="docutils literal notranslate"><span class="pre">python</span></code> and <code class="docutils literal notranslate"><span class="pre">pytest</span></code> are aliased to Isaac Lab’s launcher, so documented commands work unchanged.
+In scripts and non-interactive <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">exec</span></code> commands, call <code class="docutils literal notranslate"><span class="pre">isaaclab.sh</span> <span class="pre">-p</span></code> explicitly.
+<code class="docutils literal notranslate"><span class="pre">/isaac-sim/python.sh</span></code> is no longer supported, because it bypasses Isaac Lab’s environment (#1481).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>&lt;container&gt;<span class="w"> </span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>...
+
+<span class="c1"># v0.4</span>
+docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>&lt;container&gt;<span class="w"> </span>isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>...
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">-c</span></code> option of <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span></code>, v0.3.1’s <code class="docutils literal notranslate"><span class="pre">-t</span></code> option, and the separate cuRobo image
+were removed. cuRobo is now part of every Docker and native <code class="docutils literal notranslate"><span class="pre">uv</span></code> install (#1550).</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+./docker/run_docker.sh<span class="w"> </span>-c
+</pre></div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.4</span>
+./docker/run_docker.sh
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<p>The host datasets, models and evaluation directories are mounted at <code class="docutils literal notranslate"><span class="pre">/home/&lt;user&gt;/datasets</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/home/&lt;user&gt;/models</span></code> and <code class="docutils literal notranslate"><span class="pre">/home/&lt;user&gt;/eval</span></code> instead of <code class="docutils literal notranslate"><span class="pre">/datasets</span></code>, <code class="docutils literal notranslate"><span class="pre">/models</span></code> and
+<code class="docutils literal notranslate"><span class="pre">/eval</span></code>. Update paths in commands and configs that run inside the container (#1612).</p>
+</section>
+<section id="reinforcement-learning-training">
+<h3>Reinforcement learning training<a class="headerlink" href="#reinforcement-learning-training" title="Link to this heading">#</a></h3>
+<p>Train Arena tasks with Arena’s <code class="docutils literal notranslate"><span class="pre">train.py</span></code>, which wraps Isaac Lab’s unified training entry point.
+Select the RL library with <code class="docutils literal notranslate"><span class="pre">--rl_library</span></code>. The other arguments are unchanged (v0.3.1, #1166).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.3</span>
+python<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span>--rl_training_mode<span class="w"> </span>--num_envs<span class="w"> </span><span class="m">4096</span>
+
+<span class="c1"># v0.4</span>
+python<span class="w"> </span>isaaclab_arena/scripts/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--rl_library<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span>--rl_training_mode<span class="w"> </span>--num_envs<span class="w"> </span><span class="m">4096</span>
+</pre></div>
+</div>
+</section>
+<section id="runner-behavior">
+<h3>Runner behavior<a class="headerlink" href="#runner-behavior" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">policy_runner.py</span> <span class="pre">--record_viewport_video</span></code> no longer enables cameras. Pass <code class="docutils literal notranslate"><span class="pre">--enable_cameras</span></code>
+when the environment needs them.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--presets</span></code> accepts only <code class="docutils literal notranslate"><span class="pre">physx</span></code> or <code class="docutils literal notranslate"><span class="pre">newton</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">environment_runner.py</span></code> requires PhysX and fails early under <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code>. It now keeps
+Fabric enabled, which keeps CPU PhysX scenes stable (#1385, #1554).</p></li>
+<li><p>The policy runner and the Experiment Runner run exactly the requested number of episodes. Previously,
+parallel environments could finish more episodes than requested (#1371).</p></li>
+<li><p>Isaac Lab’s recording and replay tools now apply Arena’s variation overrides and success checks
+(#1397, #1435).</p></li>
+</ul>
+</section>
+</section>
+<section id="experiment-definitions">
+<h2>Experiment Definitions<a class="headerlink" href="#experiment-definitions" title="Link to this heading">#</a></h2>
+<p>Most v0.3 Experiment Definitions still load. The exception is a lowercase <code class="docutils literal notranslate"><span class="pre">presets</span></code> value. The other
+changes are additions and one change to how shared settings merge.</p>
+<ul class="simple">
+<li><p><strong>Physics presets:</strong> <code class="docutils literal notranslate"><span class="pre">environment_builder.presets</span></code> is now validated against the <code class="docutils literal notranslate"><span class="pre">PhysicsBackend</span></code>
+enum names. Replace <code class="docutils literal notranslate"><span class="pre">presets:</span> <span class="pre">newton</span></code> with <code class="docutils literal notranslate"><span class="pre">presets:</span> <span class="pre">NEWTON</span></code>, and <code class="docutils literal notranslate"><span class="pre">presets:</span> <span class="pre">physx</span></code> with
+<code class="docutils literal notranslate"><span class="pre">presets:</span> <span class="pre">PHYSX</span></code>.</p></li>
+<li><p><strong>Experiment name:</strong> every Experiment has a <code class="docutils literal notranslate"><span class="pre">name</span></code>. It is taken from the top-level <code class="docutils literal notranslate"><span class="pre">name:</span></code> key, or
+from the file stem when the key is missing. Override it with <code class="docutils literal notranslate"><span class="pre">name=&lt;x&gt;</span></code> (#1585).</p></li>
+<li><p><strong>KPI exporters:</strong> the optional top-level <code class="docutils literal notranslate"><span class="pre">kpi_exporters</span></code> list selects the KPI files written after
+all Runs complete. The default is <code class="docutils literal notranslate"><span class="pre">[timing]</span></code> (#1588).</p></li>
+<li><p><strong>Rollout limits:</strong> <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_episodes_per_rebuild</span></code> sets the episodes for each rebuild. Its
+length must equal <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code> (#1544).</p></li>
+<li><p><strong>Shared rollout limits:</strong> a <code class="docutils literal notranslate"><span class="pre">rollout_limit</span></code> declared on a Run now replaces the one in <code class="docutils literal notranslate"><span class="pre">shared</span></code>
+instead of merging into it. A Run that sets <code class="docutils literal notranslate"><span class="pre">num_steps</span></code> no longer inherits a shared <code class="docutils literal notranslate"><span class="pre">num_episodes</span></code>.</p></li>
+<li><p><strong>Recorded variation replay:</strong> <code class="docutils literal notranslate"><span class="pre">recorded_variation_samples_paths</span></code> on a Run replays one recorded
+episode-results file per rebuild (#1394, #1429).</p></li>
+<li><p><strong>Builder options:</strong> <code class="docutils literal notranslate"><span class="pre">environment_builder</span></code> accepts <code class="docutils literal notranslate"><span class="pre">camera_resolution_mode</span></code>,
+<code class="docutils literal notranslate"><span class="pre">record_trajectories</span></code> and <code class="docutils literal notranslate"><span class="pre">recorded_variation_samples_path</span></code> (#1254, #1394, #1511).</p></li>
+<li><p><strong>Asset selection:</strong> a rigid object’s asset can vary per rebuild through the <code class="docutils literal notranslate"><span class="pre">asset_selection</span></code>
+variation (#1458).</p></li>
+<li><p><strong>Seeding:</strong> variations are now seeded from the Run’s <code class="docutils literal notranslate"><span class="pre">environment_builder.seed</span></code> (default <code class="docutils literal notranslate"><span class="pre">42</span></code>)
+and the variation key; each rebuild adds its index to the seed. The Experiment Runner does not read
+<code class="docutils literal notranslate"><span class="pre">--seed</span></code>. The same seed gives the same variation values, but they differ from the values v0.3
+produced (#1467).</p></li>
+</ul>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">getting_started</span>
+<span class="nt">kpi_exporters</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">success_rate</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">timing</span><span class="p p-Indicator">]</span>
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pick_and_place</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># environment and policy omitted</span>
+<span class="w">    </span><span class="nt">num_rebuilds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">    </span><span class="nt">variations</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">pick_up_object.asset_selection.enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">pick_up_object.asset_selection.registry_names</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">mustard_bottle_hot3d_robolab</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">rubiks_cube_hot3d_robolab</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</section>
+<section id="evaluation-outputs">
+<h2>Evaluation outputs<a class="headerlink" href="#evaluation-outputs" title="Link to this heading">#</a></h2>
+<p>The Experiment output layout is unchanged: one timestamped directory, with one subdirectory per Run.
+Metric names, such as <code class="docutils literal notranslate"><span class="pre">success_rate</span></code>, are unchanged.</p>
+<section id="combined-result-file">
+<h3>Combined result file<a class="headerlink" href="#combined-result-file" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">arena_experiment_result.json</span></code> gains top-level <code class="docutils literal notranslate"><span class="pre">git_stamp</span></code> (<code class="docutils literal notranslate"><span class="pre">git_sha</span></code>, <code class="docutils literal notranslate"><span class="pre">git_branch</span></code>) and
+<code class="docutils literal notranslate"><span class="pre">experiment_name</span></code> fields. Each Run gains <code class="docutils literal notranslate"><span class="pre">start_timestamp_ns</span></code> and <code class="docutils literal notranslate"><span class="pre">end_timestamp_ns</span></code>
+(#1540, #1585). Parsers that ignore unknown keys keep working.
+<code class="docutils literal notranslate"><span class="pre">ArenaExperimentResult.from_experiment_output()</span></code> reads these files, but requires the new fields, so
+it does not read v0.3 results (#1586).</p>
+</section>
+<section id="episode-results">
+<h3>Episode results<a class="headerlink" href="#episode-results" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">progress</span></code> block in <code class="docutils literal notranslate"><span class="pre">episode_results_rebuild&lt;i&gt;.jsonl</span></code> renamed its keys to match
+<code class="docutils literal notranslate"><span class="pre">CompletionCriteria</span></code> (v0.3.1):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>v0.3</p></th>
+<th class="head"><p>v0.4</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">progress.objectives</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">progress.criteria_by_name</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">completed_groups</span></code> / <code class="docutils literal notranslate"><span class="pre">total_groups</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">completed_sequences</span></code> / <code class="docutils literal notranslate"><span class="pre">total_sequences</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">events[].objective</span></code> / <code class="docutils literal notranslate"><span class="pre">events[].group</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">events[].criteria_name</span></code> / <code class="docutils literal notranslate"><span class="pre">events[].sequence_name</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>New fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">progress.consecutive_step_summary</span></code>, for <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code> requirements (#1382).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">progress.tracked_events</span></code>, for tasks that define tracked events (#1457).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">placement</span></code>, the layout used for the episode (#1427).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">replay_source_record_index</span></code>, written when replaying recorded variations (#1394).</p></li>
+</ul>
+</section>
+<section id="new-files">
+<h3>New files<a class="headerlink" href="#new-files" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;run&gt;/arena_run_timings.json</span></code> and <code class="docutils literal notranslate"><span class="pre">arena_experiment_timings.json</span></code> record step timings (#1198, #1426).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;run&gt;/arena_run_placement_diagnostics.json</span></code> records the placement checks that rejected candidates
+(#1560, #1602).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kpis_timing.json</span></code>, <code class="docutils literal notranslate"><span class="pre">kpis_success_rates.json</span></code> and <code class="docutils literal notranslate"><span class="pre">kpis_placement_success.json</span></code> are written
+by the exporters listed in <code class="docutils literal notranslate"><span class="pre">kpi_exporters</span></code> (#1587, #1588, #1623).</p></li>
+</ul>
+</section>
+<section id="recordings-and-videos">
+<h3>Recordings and videos<a class="headerlink" href="#recordings-and-videos" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>HDF5 recordings:</strong> the Experiment Runner writes <code class="docutils literal notranslate"><span class="pre">&lt;run&gt;/dataset_&lt;run&gt;_rebuild&lt;i&gt;.hdf5</span></code> in the Run
+directory. It no longer writes <code class="docutils literal notranslate"><span class="pre">dataset_&lt;run&gt;.hdf5</span></code> to <code class="docutils literal notranslate"><span class="pre">/tmp/isaaclab/logs</span></code>, where Runs and
+concurrent jobs could overwrite each other (#1449).</p></li>
+<li><p><strong>Camera videos:</strong> <code class="docutils literal notranslate"><span class="pre">--record_camera_video</span></code> records only RGB cameras. File names are unchanged.</p></li>
+<li><p><strong>Viewport videos:</strong> the viewport video uses Gymnasium’s default name, <code class="docutils literal notranslate"><span class="pre">rl-video-step-0.mp4</span></code>,
+instead of <code class="docutils literal notranslate"><span class="pre">viewport-rebuild&lt;i&gt;-env0-viewport-episode-0.mp4</span></code>. Every rebuild writes to the same
+file, so with <code class="docutils literal notranslate"><span class="pre">num_rebuilds</span></code> greater than 1 only the last rebuild’s video is kept.</p></li>
+</ul>
+</section>
+<section id="metric-values">
+<h3>Metric values<a class="headerlink" href="#metric-values" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">success_rate</span></code> no longer skips the first reset, and Runs finish exactly the requested number of
+episodes. Success rates can therefore differ slightly from v0.3 for the same policy (#1371).</p>
+</section>
+<section id="osmo">
+<h3>OSMO<a class="headerlink" href="#osmo" title="Link to this heading">#</a></h3>
+<p>The OSMO output collector reads <code class="docutils literal notranslate"><span class="pre">git_sha</span></code>, <code class="docutils literal notranslate"><span class="pre">git_branch</span></code>, <code class="docutils literal notranslate"><span class="pre">start_timestamp_ns</span></code> and
+<code class="docutils literal notranslate"><span class="pre">end_timestamp_ns</span></code> as top-level keys of each Run’s <code class="docutils literal notranslate"><span class="pre">experiment_runner_result.json</span></code>. It also
+requires every completed Run to have <code class="docutils literal notranslate"><span class="pre">arena_run_timings.json</span></code>. Outputs produced by v0.3 runners
+therefore cannot be collected with v0.4. A Run that times out is recorded as failed instead of
+failing the collector (#1426, #1540).</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="release_notes.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Release Notes</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="citing_us.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Citing Isaac Lab-Arena</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-yaml">Environment YAML</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#breaking-changes">Breaking changes</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#placement-validator-settings-moved-to-placer-params">Placement validator settings moved to <code class="docutils literal notranslate"><span class="pre">placer_params</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#positionlimitsbox-takes-limit-pairs">PositionLimitsBox takes limit pairs</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#object-instance-name-was-renamed-to-name">Object <code class="docutils literal notranslate"><span class="pre">instance_name</span></code> was renamed to <code class="docutils literal notranslate"><span class="pre">name</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#pickandplacetask-uses-radians-for-the-support-cone">PickAndPlaceTask uses radians for the support cone</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#other-breaking-changes">Other breaking changes</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#behavior-changes">Behavior changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#new-options">New options</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#python-environments">Python environments</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-builder">Environment builder</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#assets">Assets</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#registry-names">Registry names</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#usd-sources">USD sources</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#object-poses">Object poses</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tasks-and-success">Tasks and success</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#success-is-declared-through-taskterminationcfg">Success is declared through <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#sequential-tasks">Sequential tasks</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#scene-access-at-run-time">Scene access at run time</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#physics-backend-and-callbacks">Physics backend and callbacks</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#embodiments">Embodiments</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-variations-and-samplers">Custom variations and samplers</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#module-moves">Module moves</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removed">Removed</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#script-entry-points">Script entry points</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-in-docker">Running in Docker</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reinforcement-learning-training">Reinforcement learning training</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#runner-behavior">Runner behavior</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-definitions">Experiment Definitions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluation-outputs">Evaluation outputs</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#combined-result-file">Combined result file</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#episode-results">Episode results</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#new-files">New files</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#recordings-and-videos">Recordings and videos</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#metric-values">Metric values</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#osmo">OSMO</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

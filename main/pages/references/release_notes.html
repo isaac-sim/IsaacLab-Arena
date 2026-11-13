@@ -53,7 +53,7 @@
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Citing Isaac Lab-Arena" href="citing_us.html" />
+    <link rel="next" title="Migrating from v0.3 to v0.4" href="migration_guide_v0_4.html" />
     <link rel="prev" title="Performance and scaling" href="performance.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -501,7 +501,10 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance and scaling</a></li>
-<li class="toctree-l1 current active"><a aria-current="page" class="current reference internal" href="#">Release Notes</a></li>
+<li class="toctree-l1 current active has-children"><a aria-current="page" class="current reference internal" href="#">Release Notes</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="migration_guide_v0_4.html">Migrating from v0.3 to v0.4</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1"><a class="reference internal" href="citing_us.html">Citing Isaac Lab-Arena</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Gallery</span></p>
@@ -572,6 +575,123 @@
                   
   <section id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Link to this heading">#</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<section id="v0-4-0">
+<h2>v0.4.0<a class="headerlink" href="#v0-4-0" title="Link to this heading">#</a></h2>
+<p>This release introduces the following features:</p>
+<ul class="simple">
+<li><p>Agentic authoring of evaluation environments with coding agents.</p></li>
+<li><p>Multimodal vision-language models (VLMs) as robot policies.</p></li>
+<li><p>Reproducible evaluations through seeded, recorded, and replayed variations and placements.</p></li>
+<li><p>An update to the Isaac Lab 3.0 release, Isaac Sim 6.2, and Newton 1.6.</p></li>
+</ul>
+<p>And the following new workflows:</p>
+<ul class="simple">
+<li><p>Agentic authoring of workbench cleanup and kitchen pick-and-place environments.</p></li>
+<li><p>Newton-based evaluation of contact-rich gear insertion and deformable pick-and-place.</p></li>
+<li><p>VLM agent policy evaluation on DROID pick-and-place.</p></li>
+</ul>
+<p>To update environments, scripts, and output parsers from v0.3, see the
+<a class="reference internal" href="migration_guide_v0_4.html"><span class="doc">migration guide</span></a>.</p>
+<p>Details below:</p>
+<p><strong>Features and improvements</strong></p>
+<ul class="simple">
+<li><p><strong>Agentic authoring:</strong> Added an environment-authoring skill and agent guidance, an object-control
+runner that checks task predicates through physics without a robot policy, a scene inspector with
+USD physics metadata, and workbench cleanup and KitchenBench authoring workflows (#1400, #1563,
+#1607, #1615, #1652, #1653, #1660).</p></li>
+<li><p><strong>VLM policies:</strong> Added <code class="docutils literal notranslate"><span class="pre">VLMGoalPolicy</span></code> and <code class="docutils literal notranslate"><span class="pre">VLMChunkPolicy</span></code> with
+robot-specific observation and action adapters, a shared multimodal inference backend, and
+Experiment Runner support with DROID pick-and-place and gear insertion examples (#1414, #1479,
+#1482, #1521, #1575, #1576).</p></li>
+<li><p><strong>Newton workflows:</strong> Added a Newton gear insertion environment with DROID teleoperation,
+recording, and replay, and Newton DROID deformable pick-and-place. Newton runs now abort on
+physics buffer overflow (#1385, #1409, #1441).</p></li>
+<li><p><strong>Reproducible variations and placement:</strong> Seeded each variation from <code class="docutils literal notranslate"><span class="pre">--seed</span></code>, and added
+replay of recorded variation values and placement layouts across episodes, unified around
+<code class="docutils literal notranslate"><span class="pre">PlacementSample</span></code>. Added an <code class="docutils literal notranslate"><span class="pre">asset_selection</span></code> variation that spawns a different object asset
+per rebuild (#1393, #1394, #1427, #1429, #1452, #1458, #1467, #1517).</p></li>
+<li><p><strong>Placement relations and diagnostics:</strong> Added the <code class="docutils literal notranslate"><span class="pre">AlignWith</span></code> relation and
+<code class="docutils literal notranslate"><span class="pre">OrientedBoundingBox</span></code> collision checks, improved <code class="docutils literal notranslate"><span class="pre">NextTo</span></code> seeding, and allowed <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code>
+supports to move through their own relations. Placement now reports per-check validation counts,
+written to each Run’s output directory, and is measured by placement-success Experiments
+(#1389, #1477, #1480, #1522, #1556, #1560, #1597, #1602, #1623).</p></li>
+<li><p><strong>Assets and object references:</strong> Added nested <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> chains,
+<code class="docutils literal notranslate"><span class="pre">ArticulationObjectReference</span></code>, and placement of references to articulation links at their
+initial joint positions. Added <code class="docutils literal notranslate"><span class="pre">UsdSource</span></code> acquisition and search for SimReady Central assets
+(#1513, #1572, #1617, #1621).</p></li>
+<li><p><strong>Experiments and KPIs:</strong> Experiments now have a name and record Arena git provenance. Added
+<code class="docutils literal notranslate"><span class="pre">ArenaExperimentResult.from_experiment_output()</span></code> to read results back, InfluxDB KPI exporters,
+a Python API for OSMO Experiment submission, and tracked events that record recurring
+occurrences such as dropped objects (#1457, #1538, #1540, #1585, #1586, #1587, #1588).</p></li>
+<li><p><strong>Cameras:</strong> Added <code class="docutils literal notranslate"><span class="pre">camera_resolution_mode</span></code>, which is off by default. When activated, its
+<code class="docutils literal notranslate"><span class="pre">policy_default</span></code> mode shrinks embodiment cameras to fit the policy’s image size, keeping each
+camera’s aspect ratio. With pi0.5 on DROID, this cuts camera memory from about 1 GB to under
+40 MB per environment, so many more camera-based environments fit on one GPU (#1511).</p></li>
+<li><p><strong>Task libraries and benchmarks:</strong> Added eleven KitchenBench environments for knob turning,
+multi-object and multi-level pick-and-place, spatial placement, stacking, and microwave door
+opening. Aligned RoboLab environments with RoboLab, and added PerfLab benchmark Experiments
+(#1487, #1518, #1595).</p></li>
+</ul>
+<p><strong>Documentation</strong></p>
+<ul class="simple">
+<li><p>Added a What’s New section on agentic authoring, Newton workflows, and VLM policies, and aligned
+the homepage, overview, and README with it (#1579, #1600, #1609).</p></li>
+<li><p>Added new example workflows:</p>
+<ul>
+<li><p><strong>Agentic authoring, workbench:</strong> Prompt a coding agent to author a workbench cleanup task,
+and run a force-based reference demonstration (#1652, #1653).</p></li>
+<li><p><strong>Agentic authoring, kitchen:</strong> Prompt a coding agent to author a two-bowl pick-and-place task
+in a KitchenBench kitchen and review the result (#1660, #1679).</p></li>
+<li><p><strong>Newton gear insertion:</strong> Preview, teleoperate, record, and replay a DROID gear insertion
+task, and evaluate a VLM agent policy on it (#1510, #1575, #1633).</p></li>
+<li><p><strong>Newton deformable pick-and-place:</strong> Preview the task on the Newton or PhysX deformable
+backend, teleoperate, and evaluate OpenPI in closed loop (#1441, #1634).</p></li>
+<li><p><strong>VLM agent policy:</strong> Evaluate goal, chunk, and step VLM policies on DROID pick-and-place
+(#1551, #1675).</p></li>
+<li><p><strong>Recorded variation replay:</strong> Replay recorded variation values from one or more result files
+(#1429).</p></li>
+</ul>
+</li>
+<li><p>Added object-control and placement diagnostics guides, a generated relations reference, and a
+community contribution guide. Restructured the policy concept docs into four policy families
+(#1498, #1602, #1607, #1610, #1641).</p></li>
+<li><p>Removed the legacy agentic environment generation, Dexsuite Newton RL, and GR1 open-microwave
+tutorial pages (#1619, #1666, #1667).</p></li>
+</ul>
+<p><strong>Dependencies</strong></p>
+<ul class="simple">
+<li><p>Updated Arena to the Isaac Lab 3.0.0 release, Isaac Sim 6.2, and Newton 1.6.1, with a
+<code class="docutils literal notranslate"><span class="pre">uv</span></code>-based Docker installation (#1481).</p></li>
+<li><p>Included cuRobo in every native <code class="docutils literal notranslate"><span class="pre">uv</span></code> and Docker install, replacing the separate cuRobo image,
+and upgraded the IK reachability check from cuRobo v1 to v2. The check now runs by default for
+embodiments with a cuRobo config, such as DROID (#1550).</p></li>
+</ul>
+<p><strong>Infrastructure and CI</strong></p>
+<ul class="simple">
+<li><p>Baked the Arena git commit and branch into the Docker image (#1539).</p></li>
+<li><p>Improved CI caching and skipped runtime CI for docs-only PRs (#1571, #1624).</p></li>
+</ul>
+<p><strong>Bug fixes</strong></p>
+<ul class="simple">
+<li><p><strong>Placement correctness:</strong> Decorrelated candidate seeds across placement seeds, fixed the pool
+fallback and yawed mesh bounds, and failed early on relations on mesh-collision backgrounds
+(#1523, #1574, #1598, #1614).</p></li>
+<li><p><strong>Recording and resets:</strong> Fixed demo recording with variations and placement, and reset
+articulated objects to their initial joint positions with zero joint velocity (#1435, #1502,
+#1573).</p></li>
+<li><p><strong>Rendering and interop:</strong> Fixed camera initialization in Isaac Lab interop, kept Fabric
+enabled in the environment runner for stable CPU PhysX scenes, and fixed camera intrinsics
+variation so per-environment intrinsics appear in rendered images (#1508, #1554, #1613).</p></li>
+<li><p><strong>OSMO:</strong> Fixed timings filename collisions and Run timeouts in the Experiment output collector
+(#1426).</p></li>
+</ul>
+<p><strong>Limitations</strong></p>
+<ul class="simple">
+<li><p>Installation from a published Python package is not yet supported; use the native <code class="docutils literal notranslate"><span class="pre">uv</span></code> source workflow or Docker.</p></li>
+</ul>
+</section>
 <section id="v0-3-1">
 <h2>v0.3.1<a class="headerlink" href="#v0-3-1" title="Link to this heading">#</a></h2>
 <p>This release introduces:</p>
@@ -959,11 +1079,11 @@ performed on a single GPU.)</p></li>
       </div>
     </a>
     <a class="right-next"
-       href="citing_us.html"
+       href="migration_guide_v0_4.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Citing Isaac Lab-Arena</p>
+        <p class="prev-next-title">Migrating from v0.3 to v0.4</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -988,6 +1108,7 @@ performed on a single GPU.)</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-4-0">v0.4.0</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-3-1">v0.3.1</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-3-0">v0.3.0</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-2-0">v0.2.0</a></li>
