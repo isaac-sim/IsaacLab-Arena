@@ -255,6 +255,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         per_target = []
         for target_index, target in enumerate(targets):
             target_cuboid_name = cuboid_per_object[target].name
+            # Off for its own grasp: the gripper has to reach into the object it picks up.
             self._solver.set_obstacle_collision_enabled(target_cuboid_name, False)
             per_target.append(
                 solve_ik_feasibility(
@@ -265,6 +266,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                     require_collision_free=self._require_collision_free,
                 )
             )
+            # On so the next target's grasp treats this object as an obstacle.
             self._solver.set_obstacle_collision_enabled(target_cuboid_name, True)
         return IKFeasibility(
             feasible=torch.cat([ik.feasible for ik in per_target]),

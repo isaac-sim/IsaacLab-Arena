@@ -184,7 +184,7 @@ class CuroboIKSolver:
             torch.cuda.synchronize()
 
     def set_obstacle_collision_enabled(self, name: str, enabled: bool) -> None:
-        """Turn collision checking against one loaded obstacle off or back on; the obstacle stays loaded.
+        """Turn collision checking against one loaded obstacle on or off; the obstacle stays loaded.
 
         Args:
             name: The obstacle's cuboid name, as passed to ``update_world``.

@@ -91,7 +91,7 @@ def test_obstacle_blocks_a_collision_free_solve_until_cleared(droid_solver):
 
 
 def test_disabled_obstacle_stops_blocking_until_enabled_again(droid_solver):
-    """Switching a loaded obstacle off frees the blocked solve, and switching it back on blocks it again."""
+    """Switching a loaded obstacle off frees the blocked solve, and switching it on blocks it again."""
     from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, solve_ik_feasibility
 
