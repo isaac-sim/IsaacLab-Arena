@@ -63,7 +63,7 @@ default name (#1507).
 
 **PickAndPlaceTask uses radians for the support cone.**
 Replace ``support_cone_half_angle_deg`` with ``support_cone_half_angle_rad``. The default is unchanged
-at 45 degrees (#1173).
+at 45 degrees (v0.3.1, #1173).
 
 .. code-block:: yaml
 
@@ -79,8 +79,9 @@ solving. Previously, placement failed after a console warning. Anchor an ``objec
 that points at the support surface instead (#1614).
 
 **Deformable assets are split by backend.**
-The ``deformable_cube`` asset added in v0.3.1 is now ``deformable_cube_physx`` and
-``deformable_cube_newton``. Select the one that matches the physics backend (#1441).
+The deformable assets added in v0.3.1 have one variant per physics backend. Replace
+``deformable_cube``, ``deformable_surface`` and ``deformable_teddy_bear`` with their ``_physx`` or
+``_newton`` variant, for example ``deformable_cube_physx`` (#1441).
 
 **The Dexsuite lift task was removed.**
 ``DexsuiteLiftTask`` and the Kuka-Allegro embodiment have no replacement (#1666).
@@ -91,13 +92,14 @@ Behavior changes
 - **NextTo:** ``cross_position_ratio`` now defaults to ``None``, which places the object anywhere
   along the side. Set ``cross_position_ratio: 0.0`` to keep the previous centered placement. Gaps
   within ``tolerance_m`` of ``distance_m`` are now accepted, which gives more varied layouts (#1522, #1597).
-- **Placement initializer:** ``initializer_type`` defaults to ``ON_TREE`` (#1369).
+- **Placement initializer:** ``initializer_type`` defaults to ``ON_TREE`` (v0.3.1, #1369).
 - **PickAndPlaceTask success:** the default ``velocity_threshold`` dropped from ``0.1`` to ``0.003``,
-  so the at-rest check is stricter (#1178).
+  so the at-rest check is stricter (v0.3.1, #1178).
 - **Object references:** a relative ``prim_path`` resolves under the parent asset's prim path, not
   under the background. This changes results only when ``parent_id`` is not the background (#1617).
-- **Robot reachability:** the cuRobo ``ik_reachable`` check is off by default. Enable it with
-  ``placer_params: {reachability_config: {enabled: true}}`` (#1550).
+- **Robot reachability:** cuRobo is now always installed, so the ``ik_reachable`` check runs by
+  default for embodiments with a cuRobo config, such as DROID. It can reject layouts that v0.3
+  accepted. To turn it off, list ``placer_params.enabled_checks`` without ``ik_reachable`` (#1550).
 - **Placement seeds:** consecutive ``placement_seed`` values now produce independent layouts, so a
   fixed seed gives a different layout than in v0.3 (#1523).
 - **YAML booleans:** an unquoted ``kind: on`` is read by YAML as ``true``. It now fails with a
@@ -108,7 +110,8 @@ New options
 
 These keys are new and optional:
 
-- ``external_yaml`` accepts a list of files. A value may be defined in only one file (#1504).
+- ``external_yaml`` accepts a list of files as well as a single path. A value may be defined in only
+  one file (#1504).
 - ``default_physics_backend`` and ``env_cfg_override`` set the physics backend and simulation
   settings (v0.3.1).
 - The ``clutter_on`` relation and ``overlap`` on the ``on`` relation (v0.3.1), and the ``align_with``
@@ -135,7 +138,7 @@ Rename ``ArenaEnvBuilder.compose_manager_cfg()`` to ``build_env_cfg()``. It retu
    env_cfg, env_kwargs = arena_builder.build_env_cfg()
 
 ``variations_hydra.compose_variations_cfg_and_apply_overrides()`` is now
-``build_variations_cfg_with_overrides()``.
+``build_variations_cfg_with_overrides()`` (#1474).
 
 Assets
 ^^^^^^
@@ -159,8 +162,8 @@ take ``name=`` instead of ``instance_name=`` (#1507).
 
    box = CrackerBox(name="pick_up_object")
 
-The registry lookups take ``registry_name=`` as their keyword: ``get_asset_by_name()``,
-``get_hdr_by_name()`` and ``register_asset_factory()``.
+The registry lookups ``get_asset_by_name()`` and ``get_hdr_by_name()`` take ``registry_name=`` as
+their keyword, as does the ``register_asset_factory()`` decorator.
 
 **USD sources.**
 ``Object``, ``Background`` and library classes accept a ``usd_source`` as an alternative to
@@ -209,9 +212,17 @@ Failure terms go in ``failures``. Predicate groups become predicate sequences (#
            failures={"object_dropped": object_dropped},
        )
 
+A v0.3 ``predicate_groups`` list maps to ``predicate_sequence``. A dict of named groups maps to
+``predicate_sequences`` (plural). ``CompletionCriteria`` takes exactly one of the two.
+
 To require a condition to hold for several steps, wrap the predicate in ``TrueForConsecutiveStepsCfg``
-(#1305). ``ObjectOnDestinationTerm`` was removed; use the ``object_on_destination`` predicate in
-``isaaclab_arena.tasks.predicates.spatial``.
+(v0.3.1).
+
+``ObjectOnDestinationTerm`` was removed; use the ``object_on_destination`` predicate in
+``isaaclab_arena.tasks.predicates.spatial``. Its signature changed: ``destination_cfg`` is required,
+every parameter except ``support_cone_half_angle_rad`` must be passed, and the support cone is in
+radians. ``objects_on_destinations`` was removed. A v0.3 ``partial(object_on_destination, ...)`` that
+relied on defaults raises ``TypeError``.
 
 **Sequential tasks.**
 ``SequentialTaskBase`` was removed. Use ``CompositeTaskBase`` with ``subtasks_are_sequential=True``.
@@ -238,8 +249,8 @@ Physics backend and callbacks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``IsaacLabArenaEnvironment`` takes ``default_physics_backend``, which applies when ``--presets`` is
-not given. ``ArenaEnvBuilderCfg.presets`` is a ``PhysicsBackend`` instead of a string; strings are
-still accepted.
+not given. ``ArenaEnvBuilderCfg.presets`` is a ``PhysicsBackend`` instead of a string. Python code may
+still pass a string; Experiment Definitions must use the enum names, as described below.
 
 ``env_cfg_callback`` now runs after the physics backend is applied, so its physics settings are no longer
 overwritten by ``--presets``. The callback must return the configuration and must not change the
@@ -248,16 +259,29 @@ backend type (#1262, #1266).
 Embodiments
 ^^^^^^^^^^^
 
-Embodiments expose their gripper through ``self.gripper``, for example ``PandaGripper`` or
-``RobotiqGripper``. Custom embodiments must set it for gripper predicates such as
-``gripper_not_grasping`` to work (#1293, #1370).
+- **Terminations:** ``EmbodimentBase.get_termination_cfg()`` and ``termination_cfg`` were removed. The
+  builder reads terminations only from the task, so terminations set on an embodiment are dropped
+  without an error. Move them to the task's ``TaskTerminationCfg.failures``.
+- **Recorders:** ``get_recorder_term_cfg()`` takes ``record_trajectories``, which the builder passes by
+  keyword. Overrides with the v0.3 signature raise ``TypeError``.
+- **Mimic:** custom Mimic environments must subclass ``IsaacLabArenaManagerBasedRLMimicEnv``, not
+  Isaac Lab's ``ManagerBasedRLMimicEnv``. Otherwise they have no ``arena_world``, and predicates that
+  read the scene fail.
+- **Gripper:** embodiments expose their gripper through ``self.gripper``, for example ``PandaGripper``
+  or ``RobotiqGripper``. Set it so that tasks can get it through ``get_gripper()`` (#1293).
 
 Custom variations and samplers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``VariationBase.configure_at_build_time()`` takes ``seed`` and ``variation_key``. A ``sampler`` is
-required. Custom samplers must draw from the generator set through ``set_generator()``, so that the same
-``--seed`` gives the same values (#1467).
+``VariationBase.configure_at_build_time()`` took no arguments in v0.3. It now takes ``seed``,
+``variation_key`` and ``rebuild_index``, which the builder passes by keyword. A ``sampler`` is
+required. Custom samplers must draw from the generator set through ``set_generator()``, so that the
+same seed gives the same values (#1467).
+
+Custom placement validators subclass ``PrePhysicsPlacementValidator`` and implement
+``_validate_batch(batch, collision_objects, rejections)``. In v0.3 they subclassed
+``PlacementValidator`` and implemented ``validate_batch()``. ``PlacementValidator`` is now in
+``isaaclab_arena.relations.validation.base`` (#1534).
 
 Module moves
 ^^^^^^^^^^^^
@@ -276,12 +300,18 @@ No compatibility aliases were left at the old paths.
      - ``isaaclab_arena.utils.usd.pose``
    * - ``isaaclab_arena.utils.usd_prim_tree``
      - ``isaaclab_arena.utils.usd.prim_tree``
+   * - ``isaaclab_arena.utils.usd_articulation``
+     - ``isaaclab_arena.utils.usd.articulation``
    * - ``isaaclab_arena.relations.relation_solver``
      - ``isaaclab_arena.relations.optimization.relation_solver``
    * - ``isaaclab_arena.relations.placement_events``
      - ``isaaclab_arena.relations.runtime.placement_events``
    * - ``isaaclab_arena.relations.placement_validators``
      - ``isaaclab_arena.relations.validation.pre_physics``
+   * - ``isaaclab_arena.relations.placement_validator_registry``
+     - ``isaaclab_arena.relations.validation.registry``
+   * - ``isaaclab_arena.relations.placement_validation``
+     - ``isaaclab_arena.relations.validation.types``
    * - ``isaaclab_arena.relations.placement_pool_validation``
      - ``isaaclab_arena.offline_placement.pool_validation``
    * - ``isaaclab_arena.visualization.episode_results_files``
@@ -289,10 +319,11 @@ No compatibility aliases were left at the old paths.
    * - ``isaaclab_arena.visualization.report_data``
      - ``isaaclab_arena.evaluation.report_data``
 
-Relation types and placers keep their paths, for example ``isaaclab_arena.relations.relations`` and
-``isaaclab_arena.relations.object_placer``. The other modules in ``isaaclab_arena.relations`` moved
-into the ``optimization``, ``geometry``, ``validation`` and ``runtime`` subpackages (#1534).
-The USD helper moves are from #1218 and #1292, and the evaluation moves from #1604.
+Modules you construct objects from keep their paths, for example ``relations.relations``,
+``object_placer``, ``pooled_object_placer``, ``object_placer_params`` and ``placement_result``.
+Solver, geometry, validation and run-time modules moved into the ``optimization``, ``geometry``,
+``validation`` and ``runtime`` subpackages (#1534). The USD helper moves are from v0.3.1, and the
+evaluation moves from #1604.
 
 Removed
 ^^^^^^^
@@ -300,16 +331,19 @@ Removed
 - ``RandomAroundSolution``: use ``PositionLimitsBox`` (#1494).
 - The ``@agent_ready`` decorator: remove it from your classes. The environment generator selects its
   tasks and relations through the ``included_names`` argument of its catalogue builders (#1671).
-- ``Scene.get_termination_cfg()``: declare terminations on the task.
+- ``Scene.get_termination_cfg()``: declare terminations on the task (v0.3.1).
 - ``KukaAllegroEmbodiment``, ``DexsuiteLiftTask`` and the ``dexsuite_lift`` environment (#1666).
 
 
 Script entry points
 -------------------
 
-Arena's evaluation scripts keep their paths and arguments: ``policy_runner.py``,
-``experiment_runner.py`` and ``environment_runner.py``. Imitation learning still uses
-Isaac Lab's scripts, with the same ``--external_callback`` argument as in v0.3. Two workflows change.
+Arena's evaluation scripts keep their paths: ``policy_runner.py``, ``experiment_runner.py`` and
+``environment_runner.py``. Imitation learning still uses Isaac Lab's scripts, with the same
+``--external_callback`` argument as in v0.3.
+
+Isaac Lab 3.0 removed ``--headless``. Drop it from every command, including data generation; runs are
+headless unless a visualizer is selected with ``--viz`` (#1481).
 
 Running in Docker
 ^^^^^^^^^^^^^^^^^
@@ -327,8 +361,8 @@ In scripts and non-interactive ``docker exec`` commands, call ``isaaclab.sh -p``
    # v0.4
    docker exec <container> isaaclab.sh -p isaaclab_arena/evaluation/policy_runner.py ...
 
-The ``-c`` option of ``./docker/run_docker.sh`` and the separate cuRobo image were removed. cuRobo
-is now part of every Docker and native ``uv`` install (#1550).
+The ``-c`` option of ``./docker/run_docker.sh``, v0.3.1's ``-t`` option, and the separate cuRobo image
+were removed. cuRobo is now part of every Docker and native ``uv`` install (#1550).
 
 .. code-block:: bash
 
@@ -338,11 +372,15 @@ is now part of every Docker and native ``uv`` install (#1550).
    # v0.4
    ./docker/run_docker.sh
 
+The host datasets, models and evaluation directories are mounted at ``/home/<user>/datasets``,
+``/home/<user>/models`` and ``/home/<user>/eval`` instead of ``/datasets``, ``/models`` and
+``/eval``. Update paths in commands and configs that run inside the container (#1612).
+
 Reinforcement learning training
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Train Arena tasks with Arena's ``train.py``, which wraps Isaac Lab's unified training entry point.
-Select the RL library with ``--rl_library``. The other arguments are unchanged.
+Select the RL library with ``--rl_library``. The other arguments are unchanged (v0.3.1, #1166).
 
 .. code-block:: bash
 
@@ -374,8 +412,12 @@ Runner behavior
 Experiment Definitions
 ----------------------
 
-v0.3 Experiment Definitions still load. The changes are additions and one change to how shared settings
-merge.
+Most v0.3 Experiment Definitions still load. The exception is a lowercase ``presets`` value. The other
+changes are additions and one change to how shared settings merge.
+
+- **Physics presets:** ``environment_builder.presets`` is now validated against the ``PhysicsBackend``
+  enum names. Replace ``presets: newton`` with ``presets: NEWTON``, and ``presets: physx`` with
+  ``presets: PHYSX``.
 
 - **Experiment name:** every Experiment has a ``name``. It is taken from the top-level ``name:`` key, or
   from the file stem when the key is missing. Override it with ``name=<x>`` (#1585).
@@ -406,8 +448,10 @@ merge.
          pick_up_object.asset_selection.enabled: true
          pick_up_object.asset_selection.registry_names: [mustard_bottle_hot3d_robolab, rubiks_cube_hot3d_robolab]
 
-**Seeding:** variations are now seeded from ``--seed`` and the variation key. The same seed gives the
-same variation values, but they differ from the values v0.3 produced (#1467).
+**Seeding:** variations are now seeded from the Run's ``environment_builder.seed`` (default ``42``)
+and the variation key; each rebuild adds its index to the seed. The Experiment Runner does not read
+``--seed``. The same seed gives the same variation values, but they differ from the values v0.3
+produced (#1467).
 
 
 Evaluation outputs
@@ -429,7 +473,7 @@ Episode results
 ^^^^^^^^^^^^^^^
 
 The ``progress`` block in ``episode_results_rebuild<i>.jsonl`` renamed its keys to match
-``CompletionCriteria`` (#1255):
+``CompletionCriteria`` (v0.3.1):
 
 .. list-table::
    :header-rows: 1
@@ -468,7 +512,8 @@ Recordings and videos
   concurrent jobs could overwrite each other (#1449).
 - **Camera videos:** ``--record_camera_video`` records only RGB cameras. File names are unchanged.
 - **Viewport videos:** the viewport video uses Gymnasium's default name, ``rl-video-step-0.mp4``,
-  instead of ``viewport-rebuild<i>-env0-viewport-episode-0.mp4``.
+  instead of ``viewport-rebuild<i>-env0-viewport-episode-0.mp4``. Every rebuild writes to the same
+  file, so with ``num_rebuilds`` greater than 1 only the last rebuild's video is kept.
 
 Metric values
 ^^^^^^^^^^^^^
@@ -479,6 +524,8 @@ episodes. Success rates can therefore differ slightly from v0.3 for the same pol
 OSMO
 ^^^^
 
-The OSMO output collector requires the timestamps and git fields above in ``experiment_runner_result.json``,
-so outputs produced by v0.3 runners cannot be collected with v0.4. A Run that times out is recorded as
-failed instead of failing the collector (#1426, #1540).
+The OSMO output collector reads ``git_sha``, ``git_branch``, ``start_timestamp_ns`` and
+``end_timestamp_ns`` as top-level keys of each Run's ``experiment_runner_result.json``. It also
+requires every completed Run to have ``arena_run_timings.json``. Outputs produced by v0.3 runners
+therefore cannot be collected with v0.4. A Run that times out is recorded as failed instead of
+failing the collector (#1426, #1540).
