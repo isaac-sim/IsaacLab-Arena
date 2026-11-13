@@ -119,10 +119,6 @@ partial and complete replay, and episode scheduling across one or more rebuilds.
 
 Runs keep their YAML order and execute locally in that order.
 
-To change generated Isaac Lab settings such as the per-episode timeout, use the Run's
-``env_cfg_override`` mapping. It supports both graph-YAML and registered Python environments;
-see :doc:`Environment configuration overrides <environment/env_cfg_override>`.
-
 
 .. _sequential-batch-experiment-runner:
 
