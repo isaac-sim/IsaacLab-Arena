@@ -85,6 +85,12 @@ Start Codex from the repository root on the host:
 
    codex --model gpt-6-astra -c 'model_reasoning_effort="high"' --yolo
 
+.. note::
+
+   The command above will start Codex in ``yolo`` mode, which means that the agent
+   runs commands without asking for approval and outside Codex's sandbox.
+   Do this at your own risk.
+
 Enter a prompt like the one below:
 
 .. code-block:: text
