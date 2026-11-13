@@ -16,6 +16,17 @@ from typing import Any, get_args, get_type_hints
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.relations.relations import RelationBase
 
+# Keep the default prompt vocabulary limited to the previously tested tasks and relations.
+_TASK_CATALOGUE_INCLUDED_NAMES = frozenset({"CloseDoorTask", "OpenDoorTask", "PickAndPlaceTask"})
+_RELATION_CATALOGUE_INCLUDED_NAMES = frozenset({
+    "align_with",
+    "is_anchor",
+    "next_to",
+    "not_next_to",
+    "on",
+    "rotate_around_solution",
+})
+
 # Constructor kwargs already expressed as top-level ArenaEnvGraphTypes fields (not as
 # TaskSpec.params / SpatialRelationSpec.params). Keep them out of the agent catalogues.
 _TASK_CATALOGUE_EXCLUDED_PARAMS = frozenset({"task_description"})  # CompositeTaskSpec.description
@@ -62,7 +73,6 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
     registry = registry or AssetRegistry()
     catalogue = AssetCatalogue()
     # TODO(qianl): handle optional lights and hdr images.
-    # TODO(qianl): add tag to filter out validated/agent-ready assets only.
     # Classify by registry tags, not issubclass(Background/Object/EmbodimentBase): importing those
     # types pulls in pxr before SimulationApp and breaks unit tests.
     for name in registry.get_all_keys():
@@ -129,15 +139,19 @@ class RelationCatalogue:
 
 def build_relation_catalogue(
     registry: ObjectRelationLibraryRegistry | None = None,
+    included_names: frozenset[str] = _RELATION_CATALOGUE_INCLUDED_NAMES,
 ) -> RelationCatalogue:
-    """Collect agent-ready object relations from ``ObjectRelationLibraryRegistry``."""
+    """Collect the registered object relations named in ``included_names``.
+
+    Args:
+        registry: Registry to look up relation classes in; defaults to the shared registry.
+        included_names: Names to expose, replacing the default selection.
+    """
     registry = registry or ObjectRelationLibraryRegistry()
     catalogue = RelationCatalogue()
-    for name in registry.get_all_keys():
+    for name in sorted(included_names):
         relation_cls = registry.get_object_relation_by_name(name)
         assert issubclass(relation_cls, RelationBase), f"{name!r} is not a RelationBase subclass"
-        if not getattr(relation_cls, "agent_ready", False):
-            continue
         required_params, optional_params, enum_options = _collect_init_params(
             relation_cls,
             excluded_params=set(_RELATION_CATALOGUE_EXCLUDED_PARAMS),
@@ -162,7 +176,7 @@ def build_relation_catalogue(
 
 @dataclass
 class TaskCatalogueEntry:
-    """One agent_ready task exposed to the agent."""
+    """One registered task exposed to the agent."""
 
     name: str
     required_params: list[str]
@@ -173,7 +187,7 @@ class TaskCatalogueEntry:
 
 @dataclass
 class TaskCatalogue:
-    """Agent-ready task vocabulary for the agent prompt."""
+    """Registered task vocabulary for the agent prompt."""
 
     tasks: list[TaskCatalogueEntry] = field(default_factory=list)
 
@@ -193,19 +207,19 @@ class TaskCatalogue:
         return f"TASKS ({len(self.tasks)}):\n" + "\n".join(lines)
 
 
-def agent_ready_task_names(registry: TaskRegistry | None = None) -> frozenset[str]:
-    """Return ``TaskRegistry`` keys for tasks marked with ``@agent_ready``."""
-    registry = registry or TaskRegistry()
-    return frozenset(
-        name for name in registry.get_all_keys() if getattr(registry.get_task_by_name(name), "agent_ready", False)
-    )
+def build_task_catalogue(
+    registry: TaskRegistry | None = None,
+    included_names: frozenset[str] = _TASK_CATALOGUE_INCLUDED_NAMES,
+) -> TaskCatalogue:
+    """Collect the registered tasks named in ``included_names``.
 
-
-def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
-    """Collect agent_ready tasks from ``TaskRegistry``."""
+    Args:
+        registry: Registry to look up task classes in; defaults to the shared registry.
+        included_names: Names to expose, replacing the default selection.
+    """
     registry = registry or TaskRegistry()
     catalogue = TaskCatalogue()
-    for name in sorted(agent_ready_task_names(registry)):
+    for name in sorted(included_names):
         task_cls = registry.get_task_by_name(name)
         required_params, optional_params, enum_options = _collect_init_params(
             task_cls,

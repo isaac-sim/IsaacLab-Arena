@@ -51,8 +51,6 @@ class _TestTaskMode(Enum):
 class _TestTask:
     """Test task."""
 
-    agent_ready = True
-
     def __init__(self, target, mode: _TestTaskMode = _TestTaskMode.FAST, retries: int = 1):
         pass
 
@@ -76,7 +74,7 @@ def agent(stub_openai):
 
 
 def test_task_catalogue_collects_required_optional_and_enum_params():
-    catalogue = build_task_catalogue(_TestTaskRegistry())
+    catalogue = build_task_catalogue(_TestTaskRegistry(), included_names=frozenset({"TestTask"}))
 
     assert (
         catalogue.to_catalog_string()
@@ -89,25 +87,25 @@ def test_task_catalogue_excludes_structural_graph_fields():
     catalogue = build_task_catalogue()
     entries = {entry.name: entry for entry in catalogue.tasks}
 
-    assert "PickAndPlaceTask" in entries
+    assert list(entries) == ["CloseDoorTask", "OpenDoorTask", "PickAndPlaceTask"]
     pick_params = entries["PickAndPlaceTask"].required_params + entries["PickAndPlaceTask"].optional_params
     assert "task_description" not in pick_params
     assert "max_separation" not in pick_params
     assert "support_cone_half_angle_rad" in pick_params
 
 
+def test_task_catalogue_can_include_tasks_outside_the_default_selection():
+    catalogue = build_task_catalogue(included_names=frozenset({"PressButtonTask"}))
+
+    assert [entry.name for entry in catalogue.tasks] == ["PressButtonTask"]
+    assert catalogue.tasks[0].required_params == ["pressable_object"]
+
+
 def test_relation_catalogue_collects_required_optional_and_enum_params():
     catalogue = build_relation_catalogue()
     entries = {entry.name: entry for entry in catalogue.relations}
 
-    assert set(entries) == {
-        "align_with",
-        "is_anchor",
-        "next_to",
-        "not_next_to",
-        "on",
-        "rotate_around_solution",
-    }
+    assert list(entries) == ["align_with", "is_anchor", "next_to", "not_next_to", "on", "rotate_around_solution"]
     assert entries["align_with"].required_params == ["axis"]
     assert entries["align_with"].optional_params == ["offset_m", "tolerance_m", "relation_loss_weight"]
     assert entries["align_with"].enum_options == {"axis": ["x", "y", "z"]}
@@ -121,6 +119,27 @@ def test_relation_catalogue_collects_required_optional_and_enum_params():
     assert entries["next_to"].enum_options == {"side": ["positive_x", "negative_x", "positive_y", "negative_y"]}
     for entry in entries.values():
         assert "parent" not in entry.required_params + entry.optional_params
+
+
+def test_relation_catalogue_can_include_relations_outside_the_default_selection():
+    catalogue = build_relation_catalogue(included_names=frozenset({"position_limits_box", "face_to", "clutter_on"}))
+    entries = {entry.name: entry for entry in catalogue.relations}
+
+    assert list(entries) == ["clutter_on", "face_to", "position_limits_box"]
+    assert entries["face_to"].required_params == []
+    assert not entries["face_to"].unary
+    assert "spread" in entries["clutter_on"].optional_params
+    assert entries["position_limits_box"].unary
+
+
+@pytest.mark.parametrize(
+    ("build_catalogue", "entries_field"),
+    [(build_task_catalogue, "tasks"), (build_relation_catalogue, "relations")],
+)
+def test_catalogue_allows_empty_selection(build_catalogue, entries_field):
+    catalogue = build_catalogue(included_names=frozenset())
+
+    assert getattr(catalogue, entries_field) == []
 
 
 # ---------------------------------------------------------------------------
