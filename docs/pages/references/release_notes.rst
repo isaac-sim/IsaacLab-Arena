@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+.. toctree::
+   :hidden:
+
+   migration_guide_v0_4
+
 v0.4.0
 ------
 

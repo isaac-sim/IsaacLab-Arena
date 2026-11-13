@@ -16,75 +16,124 @@ Environment YAML
 Breaking changes
 ^^^^^^^^^^^^^^^^
 
-**Placement validator settings moved to** ``placer_params``.
+Placement validator settings moved to ``placer_params``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 The ``placement_validators`` block was removed. Its fields, and other placer settings, now go under
 ``placer_params`` (v0.3.1).
 
-.. code-block:: yaml
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-   # v0.3
-   placement_validators:
-     enabled_checks: [no_overlap, on_relation]
-     required_checks: [no_overlap]
+   .. grid-item::
 
-   # v0.4
-   placer_params:
-     enabled_checks: [no_overlap, on_relation]
-     required_checks: [no_overlap]
+      .. code-block:: yaml
 
-**PositionLimitsBox takes limit pairs.**
+         # v0.3
+         placement_validators:
+           enabled_checks:
+             - no_overlap
+             - on_relation
+           required_checks: [no_overlap]
+
+   .. grid-item::
+
+      .. code-block:: yaml
+
+         # v0.4
+         placer_params:
+           enabled_checks:
+             - no_overlap
+             - on_relation
+           required_checks: [no_overlap]
+
+PositionLimitsBox takes limit pairs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Replace the single-bound parameters with ``[min, max]`` pairs. Use ``null`` for an open side (#1537).
 
-.. code-block:: yaml
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-   # v0.3
-   - kind: position_limits_box
-     params: {x_min: 0.55, x_max: 0.7, z_min: 0.8}
+   .. grid-item::
 
-   # v0.4
-   - kind: position_limits_box
-     params: {x_limits: [0.55, 0.7], z_limits: [0.8, null]}
+      .. code-block:: yaml
 
-**The** ``random_around_solution`` **relation was removed.**
-It had no effect in environments built by ``ArenaEnvBuilder``. Bound the object's position with
-``position_limits_box`` instead (#1494).
+         # v0.3
+         - kind: position_limits_box
+           params:
+             x_min: 0.55
+             x_max: 0.7
+             z_min: 0.8
 
-**Object** ``instance_name`` **was renamed to** ``name``.
+   .. grid-item::
+
+      .. code-block:: yaml
+
+         # v0.4
+         - kind: position_limits_box
+           params:
+             x_limits: [0.55, 0.7]
+             z_limits: [0.8, null]
+
+Object ``instance_name`` was renamed to ``name``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 This affects only YAML files that set ``instance_name`` explicitly. The node ``id`` is still the
 default name (#1507).
 
-.. code-block:: yaml
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-   # v0.3
-   params: {instance_name: pick_up_object}
+   .. grid-item::
 
-   # v0.4
-   params: {name: pick_up_object}
+      .. code-block:: yaml
 
-**PickAndPlaceTask uses radians for the support cone.**
+         # v0.3
+         params: {instance_name: pick_up_object}
+
+   .. grid-item::
+
+      .. code-block:: yaml
+
+         # v0.4
+         params: {name: pick_up_object}
+
+PickAndPlaceTask uses radians for the support cone
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Replace ``support_cone_half_angle_deg`` with ``support_cone_half_angle_rad``. The default is unchanged
 at 45 degrees (v0.3.1, #1173).
 
-.. code-block:: yaml
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-   # v0.3
-   support_cone_half_angle_deg: 45.0
+   .. grid-item::
 
-   # v0.4
-   support_cone_half_angle_rad: 0.785
+      .. code-block:: yaml
 
-**Relations on a mesh-collision background fail early.**
-A background with ``collision_mode: mesh`` that takes part in a relation now raises an error before
-solving. Previously, placement failed after a console warning. Anchor an ``object_references`` entry
-that points at the support surface instead (#1614).
+         # v0.3
+         support_cone_half_angle_deg: 45.0
 
-**Deformable assets are split by backend.**
-The deformable assets added in v0.3.1 have one variant per physics backend. Replace
-``deformable_cube``, ``deformable_surface`` and ``deformable_teddy_bear`` with their ``_physx`` or
-``_newton`` variant, for example ``deformable_cube_physx`` (#1441).
+   .. grid-item::
 
-**The Dexsuite lift task was removed.**
-``DexsuiteLiftTask`` and the Kuka-Allegro embodiment have no replacement (#1666).
+      .. code-block:: yaml
+
+         # v0.4
+         support_cone_half_angle_rad: 0.785
+
+Other breaking changes
+~~~~~~~~~~~~~~~~~~~~~~
+
+- **random_around_solution:** the relation was removed. It had no effect in environments built by
+  ``ArenaEnvBuilder``. Bound the object's position with ``position_limits_box`` instead (#1494).
+- **Relations on a mesh-collision background:** a background with ``collision_mode: mesh`` that takes
+  part in a relation now raises an error before solving. Previously, placement failed after a console
+  warning. Anchor an ``object_references`` entry that points at the support surface instead (#1614).
+- **Deformable asset names:** the deformable assets added in v0.3.1 have one variant per physics
+  backend. Replace the asset names ``deformable_cube``, ``deformable_surface`` and
+  ``deformable_teddy_bear`` with their ``_physx`` or ``_newton`` variant, for example
+  ``deformable_cube_physx`` (#1441).
 
 Behavior changes
 ^^^^^^^^^^^^^^^^
@@ -143,29 +192,46 @@ Rename ``ArenaEnvBuilder.compose_manager_cfg()`` to ``build_env_cfg()``. It retu
 Assets
 ^^^^^^
 
-**Registry names.**
+Registry names
+~~~~~~~~~~~~~~
+
 An asset class declares its registry key with ``registry_name`` instead of ``name``. This also applies
 to embodiments and HDR images. ``name`` now means only the asset's name in the scene, so library objects
 take ``name=`` instead of ``instance_name=`` (#1507).
 
-.. code-block:: python
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-   # v0.3
-   class MyBox(LibraryObject):
-       name = "my_box"
+   .. grid-item::
 
-   box = CrackerBox(instance_name="pick_up_object")
+      .. code-block:: python
 
-   # v0.4
-   class MyBox(LibraryObject):
-       registry_name = "my_box"
+         # v0.3
+         class MyBox(LibraryObject):
+             name = "my_box"
 
-   box = CrackerBox(name="pick_up_object")
+         box = CrackerBox(
+             instance_name="pick_up_object")
+
+   .. grid-item::
+
+      .. code-block:: python
+
+         # v0.4
+         class MyBox(LibraryObject):
+             registry_name = "my_box"
+
+         box = CrackerBox(
+             name="pick_up_object")
 
 The registry lookups ``get_asset_by_name()`` and ``get_hdr_by_name()`` take ``registry_name=`` as
 their keyword, as does the ``register_asset_factory()`` decorator.
 
-**USD sources.**
+The deformable asset names also changed; see `Other breaking changes`_ under Environment YAML.
+
+USD sources
+~~~~~~~~~~~
+
 ``Object``, ``Background`` and library classes accept a ``usd_source`` as an alternative to
 ``usd_path``; pass only one. A ``usd_source`` is downloaded on first use and its local path is stored
 in ``usd_path``. An explicit ``usd_path`` is kept as given. Lightwheel-backed assets declare
@@ -173,21 +239,35 @@ in ``usd_path``. An explicit ``usd_path`` is kept as given. Lightwheel-backed as
 
 ``Background`` reordered its arguments, so positional calls must change:
 
-.. code-block:: python
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-   # v0.3
-   Background(name, usd_path, object_min_z)
+   .. grid-item::
 
-   # v0.4
-   Background(name, object_min_z, usd_path=usd_path)
+      .. code-block:: python
 
-**Object poses.**
+         # v0.3
+         Background(name, usd_path, object_min_z)
+
+   .. grid-item::
+
+      .. code-block:: python
+
+         # v0.4
+         Background(name, object_min_z,
+                    usd_path=usd_path)
+
+Object poses
+~~~~~~~~~~~~
+
 ``ObjectBase.get_object_pose()`` was removed. Read poses through ``ArenaWorld``, described below (#1187).
 
 Tasks and success
 ^^^^^^^^^^^^^^^^^
 
-**Success is declared through** ``TaskTerminationCfg``.
+Success is declared through ``TaskTerminationCfg``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 ``TaskBase.get_termination_cfg()`` returns a ``TaskTerminationCfg``. Success is a list of
 ``CompletionCriteria``, which replace ``ProgressObjective`` and ``get_progress_objectives()``.
 Failure terms go in ``failures``. Predicate groups become predicate sequences (#1255, #1316).
@@ -224,7 +304,9 @@ every parameter except ``support_cone_half_angle_rad`` must be passed, and the s
 radians. ``objects_on_destinations`` was removed. A v0.3 ``partial(object_on_destination, ...)`` that
 relied on defaults raises ``TypeError``.
 
-**Sequential tasks.**
+Sequential tasks
+~~~~~~~~~~~~~~~~
+
 ``SequentialTaskBase`` was removed. Use ``CompositeTaskBase`` with ``subtasks_are_sequential=True``.
 Pass a flat list of subtasks; nested composite tasks are not supported (#1255).
 
@@ -364,13 +446,22 @@ In scripts and non-interactive ``docker exec`` commands, call ``isaaclab.sh -p``
 The ``-c`` option of ``./docker/run_docker.sh``, v0.3.1's ``-t`` option, and the separate cuRobo image
 were removed. cuRobo is now part of every Docker and native ``uv`` install (#1550).
 
-.. code-block:: bash
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-   # v0.3
-   ./docker/run_docker.sh -c
+   .. grid-item::
 
-   # v0.4
-   ./docker/run_docker.sh
+      .. code-block:: bash
+
+         # v0.3
+         ./docker/run_docker.sh -c
+
+   .. grid-item::
+
+      .. code-block:: bash
+
+         # v0.4
+         ./docker/run_docker.sh
 
 The host datasets, models and evaluation directories are mounted at ``/home/<user>/datasets``,
 ``/home/<user>/models`` and ``/home/<user>/eval`` instead of ``/datasets``, ``/models`` and
@@ -433,6 +524,10 @@ changes are additions and one change to how shared settings merge.
   ``record_trajectories`` and ``recorded_variation_samples_path`` (#1254, #1394, #1511).
 - **Asset selection:** a rigid object's asset can vary per rebuild through the ``asset_selection``
   variation (#1458).
+- **Seeding:** variations are now seeded from the Run's ``environment_builder.seed`` (default ``42``)
+  and the variation key; each rebuild adds its index to the seed. The Experiment Runner does not read
+  ``--seed``. The same seed gives the same variation values, but they differ from the values v0.3
+  produced (#1467).
 
 .. code-block:: yaml
 
@@ -447,11 +542,6 @@ changes are additions and one change to how shared settings merge.
        variations:
          pick_up_object.asset_selection.enabled: true
          pick_up_object.asset_selection.registry_names: [mustard_bottle_hot3d_robolab, rubiks_cube_hot3d_robolab]
-
-**Seeding:** variations are now seeded from the Run's ``environment_builder.seed`` (default ``42``)
-and the variation key; each rebuild adds its index to the seed. The Experiment Runner does not read
-``--seed``. The same seed gives the same variation values, but they differ from the values v0.3
-produced (#1467).
 
 
 Evaluation outputs
