@@ -163,8 +163,9 @@ The registry lookups take ``registry_name=`` as their keyword: ``get_asset_by_na
 ``get_hdr_by_name()`` and ``register_asset_factory()``.
 
 **USD sources.**
-``Object``, ``Background`` and library classes take either ``usd_path`` or ``usd_source``, not both.
-After construction, ``usd_path`` is always a local path string. Lightwheel-backed assets declare
+``Object``, ``Background`` and library classes accept a ``usd_source`` as an alternative to
+``usd_path``; pass only one. A ``usd_source`` is downloaded on first use and its local path is stored
+in ``usd_path``. An explicit ``usd_path`` is kept as given. Lightwheel-backed assets declare
 ``usd_source = LightwheelUsdSource(...)``, which replaces ``LightwheelLazyPath`` (#1621).
 
 ``Background`` reordered its arguments, so positional calls must change:
