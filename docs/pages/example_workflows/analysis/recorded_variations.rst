@@ -28,16 +28,19 @@ and are not source files.
 Record Settled Placement Layouts
 --------------------------------
 
-From the repository root, remove the workflow's previous generated outputs before
-starting or restarting all three stages.
-This also clears partial recordings and nonempty Experiment directories that would
-otherwise cause a retry to fail. Copy any results you want to keep elsewhere first:
+.. note::
 
-.. code-block:: bash
+   Before starting or restarting all three stages, remove the workflow's previous
+   generated outputs. This also clears partial recordings and nonempty Experiment
+   directories that would otherwise cause a retry to fail. Copy any results you
+   want to keep elsewhere first:
 
-   rm -rf -- outputs/recorded_variations_workflow
+   .. code-block:: bash
 
-Then record eight layouts that pass the configured post-physics checks:
+      rm -rf -- outputs/recorded_variations_workflow
+
+From the repository root, record eight layouts that pass the configured
+post-physics checks:
 
 .. code-block:: bash
 
@@ -54,25 +57,8 @@ The verified run accepted all eight requested layouts. Each output row records
 the complete scene-root poses under the top-level ``placement`` key.
 
 
-Record a 128-Episode Evaluation
--------------------------------
-
-.. note::
-
-   The commands for steps 2 and 3 set ``env_cfg_override={episode_length_s:1.0}``
-   for their Run. The existing environment callback applies this override to the
-   task's standard 60-second timeout, so recording and replay finish faster without
-   editing the source YAML. See :doc:`../../concepts/environment/env_cfg_override`.
-
-The maintained Experiment Definition configures four parallel environments,
-the zero-action policy, two rebuilds, and 128 total episodes. Both rebuilds
-load the eight-row placement recording through
-``environment_builder.recorded_variation_samples_path``; the replay scheduler
-wraps as needed.
-The total budget is split evenly, so each rebuild records 64 episodes:
-
-.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml
-   :language: yaml
+Record Variations with Replayed Placement Layouts
+-------------------------------------------------
 
 It enables two build-time variations:
 
@@ -92,11 +78,9 @@ Run the Experiment:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config \
-       isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml \
+     --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml \
      --viz none \
-     --experiment_output_directory \
-       outputs/recorded_variations_workflow/record \
+     --experiment_output_directory outputs/recorded_variations_workflow/record \
      '+runs.recorded_variations.env_cfg_override={episode_length_s:1.0}'
 
 The canonical recordings are written to:
@@ -111,8 +95,8 @@ Zero action does not solve the task; task failure is expected and does not
 indicate an execution failure.
 
 
-Replay with Three Parallel Environments
-----------------------------------------
+Run Experiment with Replayed Variations and Placement Layouts
+-------------------------------------------------------------
 
 The replay Experiment Definition lists the two step-2 episode recordings,
 configures three parallel environments, and runs 128 total episodes. The
@@ -127,11 +111,9 @@ Run the replay:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config \
-       isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml \
+     --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml \
      --viz none \
-     --experiment_output_directory \
-       outputs/recorded_variations_workflow/replay \
+     --experiment_output_directory outputs/recorded_variations_workflow/replay \
      '+runs.recorded_variations_replay.env_cfg_override={episode_length_s:1.0}'
 
 Verify the episode count, source-index coverage, and variation payloads:
@@ -176,9 +158,3 @@ The matching replay payload contains:
 
 This verifies that recorded variation order is independent of the number of
 parallel simulation environments.
-
-.. note::
-
-   For normal evaluations, omit the ``env_cfg_override``
-   override to use the task's standard ``episode_length_s: 60.0``. No source-file
-   edit needs to be restored. The one-second timeout is only for this sample workflow.
