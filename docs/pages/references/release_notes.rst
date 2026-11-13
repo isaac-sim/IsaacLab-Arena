@@ -1,6 +1,114 @@
 Release Notes
 =============
 
+v0.4.0
+------
+
+This release introduces the following features:
+
+- Agentic authoring of evaluation environments with coding agents.
+- Multimodal vision-language models (VLMs) as robot policies.
+- Reproducible evaluations through seeded, recorded, and replayed variations and placements.
+- An update to the Isaac Lab 3.0 release and Isaac Sim 6.2.
+
+And the following new workflows:
+
+- Agentic authoring of workbench cleanup and kitchen pick-and-place environments.
+- Newton-based evaluation of contact-rich gear insertion and deformable pick-and-place.
+- VLM agent policy evaluation on DROID pick-and-place.
+
+Details below:
+
+**Features and improvements**
+
+- **Agentic authoring:** Added an environment-authoring skill and agent guidance, an object-control
+  runner that checks task predicates through physics without a robot policy, a scene inspector with
+  USD physics metadata, and workbench cleanup and KitchenBench authoring workflows (#1400, #1563,
+  #1607, #1615, #1652, #1653, #1660).
+- **VLM policies:** Added ``VLMGoalPolicy``, ``VLMChunkPolicy``, and ``VLMStepPolicy`` with
+  robot-specific observation and action adapters, a shared multimodal inference backend, and
+  Experiment Runner support with DROID pick-and-place and gear insertion examples (#1414, #1479,
+  #1482, #1521, #1575, #1576).
+- **Newton workflows:** Added a Newton gear insertion environment with DROID teleoperation,
+  recording, and replay, and Newton DROID deformable pick-and-place. Newton runs now abort on
+  physics buffer overflow (#1385, #1409, #1441).
+- **Reproducible variations and placement:** Seeded each variation from ``--seed``, and added
+  replay of recorded variation values and placement layouts across episodes, unified around
+  ``PlacementSample``. Added an ``asset_selection`` variation that spawns a different object asset
+  per rebuild (#1393, #1394, #1427, #1429, #1452, #1458, #1467, #1517).
+- **Placement relations and diagnostics:** Added the ``AlignWith`` relation and
+  ``OrientedBoundingBox`` collision checks, improved ``NextTo`` seeding, and allowed ``ClutterOn``
+  supports to move through their own relations. Placement now reports per-check validation counts,
+  written to each Run's output directory, and is measured by placement-success Experiments
+  (#1389, #1477, #1480, #1522, #1556, #1560, #1597, #1602, #1623).
+- **Assets and object references:** Added nested ``ObjectReference`` chains,
+  ``ArticulationObjectReference``, and placement of references to articulation links at their
+  initial joint positions. Added ``UsdSource`` acquisition and search for SimReady Central assets
+  (#1513, #1572, #1617, #1621).
+- **Experiments and KPIs:** Experiments now have a name and record Arena git provenance. Added
+  ``ArenaExperimentResult``, InfluxDB KPI exporters, a Python API for OSMO Experiment submission,
+  and tracked events that record recurring occurrences such as dropped objects (#1457, #1538,
+  #1540, #1585, #1586, #1587, #1588).
+- **Cameras:** Added ``camera_resolution_mode`` to render embodiment cameras at the policy's image
+  size, and an untiled renderer so camera intrinsics vary per environment (#1508, #1511).
+- **Task libraries and benchmarks:** Added eleven KitchenBench environments for knob turning,
+  multi-object and multi-level pick-and-place, spatial placement, and stacking. Aligned RoboLab
+  environments with RoboLab, and added PerfLab benchmark Experiments (#1487, #1518, #1595).
+
+**Documentation**
+
+- Added a What's New section on agentic authoring, Newton workflows, and VLM policies, and aligned
+  the homepage, overview, and README with it (#1579, #1600, #1609).
+- Added new example workflows:
+
+  - **Agentic authoring, workbench:** Prompt a coding agent to author a workbench cleanup task,
+    and run a force-based reference demonstration (#1652, #1653).
+  - **Agentic authoring, kitchen:** Prompt a coding agent to author a two-bowl pick-and-place task
+    in a KitchenBench kitchen and review the result (#1660, #1679).
+  - **Newton gear insertion:** Preview, teleoperate, record, and replay a DROID gear insertion
+    task, and evaluate a VLM agent policy on it (#1510, #1575, #1633).
+  - **Newton deformable pick-and-place:** Compare Newton and PhysX deformable bodies, teleoperate,
+    and evaluate OpenPI in closed loop (#1441, #1634).
+  - **VLM agent policy:** Evaluate goal, chunk, and step VLM policies on DROID pick-and-place
+    (#1551, #1675).
+  - **Recorded variation replay:** Replay recorded variation values from one or more result files
+    (#1429).
+
+- Added object-control and placement diagnostics guides, a generated relations reference, and a
+  community contribution guide. Restructured the policy concept docs into four policy families
+  (#1498, #1602, #1607, #1610, #1641).
+- Removed the legacy agentic environment generation, Dexsuite Newton RL, and GR1 open-microwave
+  tutorial pages (#1619, #1666, #1667).
+
+**Dependencies**
+
+- Updated Arena to the Isaac Lab 3.0.0 release and Isaac Sim 6.2, with a ``uv``-based Docker
+  installation (#1481).
+- Upgraded the cuRobo IK reachability check from cuRobo v1 to v2 (#1550).
+
+**Infrastructure and CI**
+
+- Baked the Arena git commit and branch into the Docker image (#1539).
+- Improved CI caching and skipped runtime CI for docs-only PRs (#1571, #1624).
+
+**Bug fixes**
+
+- **Placement correctness:** Decorrelated candidate seeds across placement seeds, fixed the pool
+  fallback and yawed mesh bounds, and failed early on relations on mesh-collision backgrounds
+  (#1523, #1574, #1598, #1614).
+- **Recording and resets:** Fixed demo recording with variations and placement, and reset
+  articulated objects to their initial joint positions with zero joint velocity (#1435, #1502,
+  #1573).
+- **Rendering and interop:** Fixed camera initialization in Isaac Lab interop and kept Fabric
+  enabled in the environment runner for stable CPU PhysX scenes (#1554, #1613).
+- **OSMO:** Fixed timings filename collisions and Run timeouts in the Experiment output collector
+  (#1426).
+
+**Limitations**
+
+- Installation from a published Python package is not yet supported; use the native ``uv`` source workflow or Docker.
+
+
 v0.3.1
 -------
 
