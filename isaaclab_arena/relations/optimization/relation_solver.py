@@ -123,7 +123,7 @@ class RelationSolver:
                 # Binary relation (On, NextTo, etc.)
                 elif isinstance(relation, Relation):
                     relation_strategy = cast(RelationLossStrategy, strategy)
-                    parent = relation.parent
+                    parent = relation.reference
                     if parent in state.anchor_objects:
                         parent_world_bbox = state.get_fixed_obstacle_world_bbox(parent)
                     else:
@@ -480,9 +480,9 @@ def _print_relation_debug(
 ) -> None:
     """Print debug information for a single binary relation."""
     child_bbox = obj.get_bounding_box()
-    parent_world_bbox = relation.parent.get_world_bounding_box()
+    parent_world_bbox = relation.reference.get_world_bounding_box()
 
-    print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
+    print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.reference.name}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
     print(
         f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"

@@ -19,7 +19,7 @@ from isaaclab_arena.relations.relations import RelationBase
 # Constructor kwargs already expressed as top-level ArenaEnvGraphTypes fields (not as
 # TaskSpec.params / SpatialRelationSpec.params). Keep them out of the agent catalogues.
 _TASK_CATALOGUE_EXCLUDED_PARAMS = frozenset({"task_description"})  # CompositeTaskSpec.description
-_RELATION_CATALOGUE_EXCLUDED_PARAMS = frozenset({"parent"})  # SpatialRelationSpec.reference
+_RELATION_CATALOGUE_EXCLUDED_PARAMS = frozenset({"reference"})  # SpatialRelationSpec.reference
 
 
 # ---------------------------------------------------------------------------

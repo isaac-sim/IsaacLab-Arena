@@ -94,8 +94,8 @@ def get_on_linked_pairs(objects: list[PlaceableAsset]) -> set[tuple[int, int]]:
     for obj in objects:
         for relation in obj.get_relations():
             if isinstance(relation, On):
-                on_pairs.add((id(obj), id(relation.parent)))
-                on_pairs.add((id(relation.parent), id(obj)))
+                on_pairs.add((id(obj), id(relation.reference)))
+                on_pairs.add((id(relation.reference), id(obj)))
     return on_pairs
 
 

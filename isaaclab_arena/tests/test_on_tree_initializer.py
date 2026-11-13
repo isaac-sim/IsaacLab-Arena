@@ -426,10 +426,10 @@ class _MatchReferenceX(Relation):
 
 class _MatchReferenceXToAABBStrategy(RelationToAABBStrategy):
     def get_dependencies(self, relation):
-        return (relation.parent,)
+        return (relation.reference,)
 
     def get_bounds(self, relation, subject_bbox, sampled_world_bboxes):
-        x = sampled_world_bboxes[relation.parent].min_point[0, 0].item()
+        x = sampled_world_bboxes[relation.reference].min_point[0, 0].item()
         return _bounding_box_from_partial_limits((x, None, None), (x, None, None))
 
 

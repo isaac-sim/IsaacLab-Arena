@@ -103,7 +103,7 @@ def test_joint_clutter_preserves_source_assets_and_rotated_complete_layouts(monk
             _assert_complete_release(layout, objects)
         assert len({layout.positions[tray] for layout in layouts}) == 2
     assert not tray.is_anchor
-    assert clutter.relations[0].parent is tray
+    assert clutter.relations[0].reference is tray
     for asset, relations, pose, bounds in zip(
         objects, original_relations, original_poses, original_bounds, strict=True
     ):
@@ -213,7 +213,7 @@ def test_clutter_validators_receive_complete_original_layouts_and_environment_id
             for candidate in batch.candidates:
                 assert set(candidate.positions) == set(candidate.bboxes) == set(objects)
                 assert not tray.is_anchor
-                assert clutter.relations[0].parent is tray
+                assert clutter.relations[0].reference is tray
                 assert candidate.orientations[tray] == pytest.approx(math.pi / 2)
                 assert candidate.bboxes[tray].size[0].tolist() == pytest.approx([0.7, 0.4, 0.05])
             return [True] * len(batch)
