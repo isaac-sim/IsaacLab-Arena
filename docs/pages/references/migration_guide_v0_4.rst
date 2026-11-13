@@ -78,6 +78,10 @@ A background with ``collision_mode: mesh`` that takes part in a relation now rai
 solving. Previously, placement failed after a console warning. Anchor an ``object_references`` entry
 that points at the support surface instead (#1614).
 
+**Deformable assets are split by backend.**
+The ``deformable_cube`` asset added in v0.3.1 is now ``deformable_cube_physx`` and
+``deformable_cube_newton``. Select the one that matches the physics backend (#1441).
+
 **The Dexsuite lift task was removed.**
 ``DexsuiteLiftTask`` and the Kuka-Allegro embodiment have no replacement (#1666).
 
@@ -92,6 +96,8 @@ Behavior changes
   so the at-rest check is stricter (#1178).
 - **Object references:** a relative ``prim_path`` resolves under the parent asset's prim path, not
   under the background. This changes results only when ``parent_id`` is not the background (#1617).
+- **Robot reachability:** the cuRobo ``ik_reachable`` check is off by default. Enable it with
+  ``placer_params: {reachability_config: {enabled: true}}`` (#1550).
 - **Placement seeds:** consecutive ``placement_seed`` values now produce independent layouts, so a
   fixed seed gives a different layout than in v0.3 (#1523).
 - **YAML booleans:** an unquoted ``kind: on`` is read by YAML as ``true``. It now fails with a
@@ -319,6 +325,17 @@ In scripts and non-interactive ``docker exec`` commands, call ``isaaclab.sh -p``
 
    # v0.4
    docker exec <container> isaaclab.sh -p isaaclab_arena/evaluation/policy_runner.py ...
+
+The ``-c`` option of ``./docker/run_docker.sh`` and the separate cuRobo image were removed. cuRobo
+is now part of every Docker and native ``uv`` install (#1550).
+
+.. code-block:: bash
+
+   # v0.3
+   ./docker/run_docker.sh -c
+
+   # v0.4
+   ./docker/run_docker.sh
 
 Reinforcement learning training
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
