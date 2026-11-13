@@ -61,11 +61,11 @@ Query: "Build and reset my new environment."
 
 Expected behavior:
 
-- Reports both failed checks and offers `setup-arena`.
+- Stops, reports both failed checks, and suggests installing Arena with the native uv or Docker
+  route through `setup-arena`.
 - Does not install dependencies, sync uv, or start a container without agreement.
-- States that the build and reset remain unrun.
 
 Known failure modes:
 
-- Reports static checks as if the environment had been built.
+- Continues with static checks and reports them in place of the build and reset.
 - Runs `uv sync` or `./docker/run_docker.sh` on its own.

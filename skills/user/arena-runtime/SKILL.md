@@ -45,9 +45,9 @@ Choose the route as follows:
   the native route is ready, and the reverse.
 - If both are ready, use the preferred route in `docs/pages/quickstart/installation.rst` and state
   the choice.
-- If neither is ready, report the failed checks and offer `setup-arena`. Continue only with work
-  that needs no runtime, and state which runtime checks remain unrun. Do not install dependencies
-  or start a container here.
+- If neither is ready, stop, report the failed checks, and suggest that the user installs Arena
+  with the native uv or Docker route through `setup-arena`. Do not install dependencies or start a
+  container here.
 
 ## Build commands
 
