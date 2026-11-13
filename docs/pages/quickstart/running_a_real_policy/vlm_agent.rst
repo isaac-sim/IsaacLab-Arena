@@ -76,7 +76,7 @@ Run the example
 
 .. important::
 
-   This policy evaluates how well an out-of-the-box VLM completes the task. The model is not
+   This example evaluates how well an out-of-the-box VLM completes the task. The model is not
    trained or tuned for the robot, so task completion is not guaranteed. Success rates vary with
    the model and the placement seed, which sets the cube and bowl layout. They also vary between
    trials with the same seed, because the model's responses are sampled, so the policy is not
@@ -115,8 +115,8 @@ the robot pauses every time the policy asks the model for a response. How often 
 depends on the policy: the goal policy requests when a goal ends, the chunk policy every
 ``chunk_size`` steps, and the step policy (``chunk_size: 1``) on every simulation step. The step
 policy is therefore the slowest. A failed step episode makes a request on every step until the
-task's episode time limit ends it. See :ref:`vlm-agent-strategies` for the number of requests
-each policy makes.
+episode ends, at the task's time limit or earlier if the cube falls off the table. See
+:ref:`vlm-agent-strategies` for the number of requests each policy makes.
 
 Override settings for one Run on the command line. Each line below is one example:
 
@@ -193,8 +193,8 @@ for a chunk of 15 commands. Most of these are model reasoning. A step episode co
 because it makes the most requests.
 
 A failed episode costs far more than a successful one, because the policy keeps requesting until
-the episode ends at 1,050 steps. A failed chunk episode used about 240k tokens, and a failed step
-episode about 2.4M.
+the episode ends, at 1,050 steps or earlier if the cube falls off the table. A failed chunk
+episode used about 240k tokens, and a failed step episode about 2.4M.
 
 Step mode is also the most sensitive to a single bad response. A command executes on the very
 next step, so one stray "open" while the robot carries the cube drops it. Goal and long-chunk
