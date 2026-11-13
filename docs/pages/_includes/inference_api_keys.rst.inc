@@ -52,9 +52,3 @@ container. This step is required only once per host environment.
          operated by OpenAI, not NVIDIA. Its availability, regional
          restrictions, data handling, pricing, and terms are controlled by
          OpenAI. Review those terms before sending prompts or other data.
-
-Set ``ARENA_INFERENCE_ENDPOINT`` to choose the default endpoint:
-
-.. code-block:: bash
-
-   export ARENA_INFERENCE_ENDPOINT=public  # internal, public, or openai
