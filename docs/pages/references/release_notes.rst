@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+.. toctree::
+   :hidden:
+
+   migration_guide_v0_4
+
 v0.4.0
 ------
 
@@ -16,6 +21,9 @@ And the following new workflows:
 - Agentic authoring of workbench cleanup and kitchen pick-and-place environments.
 - Newton-based evaluation of contact-rich gear insertion and deformable pick-and-place.
 - VLM agent policy evaluation on DROID pick-and-place.
+
+To update environments, scripts, and output parsers from v0.3, see the
+:doc:`migration guide <migration_guide_v0_4>`.
 
 Details below:
 
