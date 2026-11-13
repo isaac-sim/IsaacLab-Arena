@@ -26,7 +26,7 @@ Use `run-experiment` when executing an existing evaluation.
 
 ## Runtime environment
 
-Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run in the checkout's ready runtime: the native uv environment at `.venv/bin/python` or the local clone's Docker container. Either route is sufficient on its own; don't skip runtime work because a container isn't running. Before running such a command, use the `arena-runtime` skill to select the route and build the command, and don't use a bare `python`.
+Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run in the checkout's ready runtime: the native uv environment at `.venv/bin/python` or the local clone's Docker container. Either route is sufficient on its own. Before running such a command, use the `arena-runtime` skill to select the route and build the command, and don't use a bare `python`.
 
 Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, isort, pyupgrade, codespell) runs **on the host**.
 
