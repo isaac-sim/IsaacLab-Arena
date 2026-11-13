@@ -74,11 +74,6 @@ def _test_all_assets_in_registry(simulation_app, physics_backend: PhysicsBackend
         asset_classes = [asset_cls for asset_cls in asset_classes if "newton_only" not in asset_cls.tags]
     assert asset_classes, f"No objects selected for {physics_backend}"
     for idx, asset_cls in enumerate(asset_classes):
-        # Internal staging layers need Storage API access unavailable in public CI.
-        usd_path = getattr(asset_cls, "usd_path", None)
-        if usd_path is not None and usd_path.startswith("ovstorage://"):
-            print(f"Skipping staging-only asset: {asset_cls.registry_name}")
-            continue
         asset = asset_cls()
         # Set their pose
         pose = Pose(

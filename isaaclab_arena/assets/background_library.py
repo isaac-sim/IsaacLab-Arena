@@ -11,7 +11,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel_kitchens
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ARENA_STAGING_STORAGE_DIR, ISAAC_STAGING_NUCLEUS_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource
@@ -318,6 +318,5 @@ class SimReadyCentralWorkbench(LibraryBackground):
 
     registry_name = "simready_central_workbench"
     tags = ["background", "sim-ready", "workbench"]
-    # TODO(qianl, 2026.11.11): Point this prepared asset to ARENA_NUCLEUS_DIR after it is published to S3.
-    usd_path = f"{ARENA_STAGING_STORAGE_DIR}/Arena/assets/object_library/workbench/workbench.usda"
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/workbench/workbench.usda"
     object_min_z = 0.0

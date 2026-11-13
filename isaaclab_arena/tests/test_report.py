@@ -10,10 +10,7 @@ import re
 import subprocess
 import sys
 
-from isaaclab_arena.visualization.episode_results_files import (
-    format_episode_video_filename,
-    parse_episode_video_filename,
-)
+from isaaclab_arena.evaluation.episode_results_files import format_episode_video_filename, parse_episode_video_filename
 from isaaclab_arena.visualization.report import RunExecutionReport, _resolve_results_dir, build_report
 from isaaclab_arena.visualization.report_render import unique_slugs
 
@@ -117,9 +114,14 @@ def test_report_import_is_leaf_only():
     code = """
 import sys
 import isaaclab_arena.visualization.report
+allowed = {
+    'isaaclab_arena.evaluation',
+    'isaaclab_arena.evaluation.report_data',
+    'isaaclab_arena.evaluation.episode_results_files',
+}
 blocked = [
     name for name in sys.modules
-    if name.startswith('isaaclab_arena.evaluation')
+    if (name.startswith('isaaclab_arena.evaluation') and name not in allowed)
     or name.startswith('isaaclab_arena.video')
     or name.split('.')[0] in {'torch', 'gymnasium', 'moviepy'}
 ]

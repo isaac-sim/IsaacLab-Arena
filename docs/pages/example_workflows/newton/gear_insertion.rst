@@ -218,6 +218,22 @@ within 3.5 mm of the peg, a precise test of how well the model locates parts fro
 See :ref:`vlm-agent-policies` for how the policy works, and set up an inference API key as in
 :doc:`../../quickstart/running_a_real_policy/vlm_agent`.
 
+.. important::
+
+   Gear insertion needs millimeter-level placement, so it depends heavily on the model's
+   capability. Use ``openai/openai/gpt-6-astra``, the model behind the rollouts below, or a model of
+   similar capability. A smaller or weaker model may not complete the task at all.
+
+.. note::
+
+   All three configurations below set ``policy.endpoint: internal`` and
+   ``policy.model: openai/openai/gpt-6-astra``. The internal endpoint is accessible by NVIDIA
+   employees only and reads ``NV_API_KEY``. Each command below passes ``policy.endpoint`` for its
+   Run; set it to ``public`` or ``openai`` to use another endpoint, and also append
+   ``runs.<run name>.policy.model=<model>`` with a model that endpoint serves, since only the
+   internal endpoint serves ``gpt-6-astra``. See :ref:`vlm-agent-endpoint-and-model` for the API
+   key each endpoint reads and the other connection fields.
+
 Three experiment configurations run the policy on the ``droid_abs_ik`` embodiment with the full
 1280x720 camera images. They differ only in what the model is given. Run them from the repository
 root, so the prompt files they reference are found.
@@ -228,7 +244,8 @@ prompt, and must locate the gear and the pegs in the images:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml \
+     runs.droid_gear_insertion_vlm_goal_images.policy.endpoint=internal  # public or openai: also set policy.model
 
 **Images with exact object poses.** ``object_poses`` adds the gear's exact pose and its seated
 target pose to each request. A real robot does not observe these, so this run is a reference for
@@ -237,7 +254,8 @@ what the policy achieves once it knows where the parts are:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml \
+     runs.droid_gear_insertion_vlm_goal_object_poses.policy.endpoint=internal  # public or openai: also set policy.model
 
 **Images with a task prompt.** ``system_prompt_files`` appends
 ``experiment_configs/prompts/droid_gear_insertion.txt`` to the default prompt. It describes the
@@ -246,7 +264,8 @@ gear and peg geometry and a grasp and insertion strategy, but no object position
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml \
+     runs.droid_gear_insertion_vlm_goal_task_prompt.policy.endpoint=internal  # public or openai: also set policy.model
 
 Add ``--viz kit`` to watch a rollout.
 
