@@ -195,6 +195,28 @@ def test_example_yaml_policy_selectors_and_round_trip(monkeypatch, tmp_path, pol
     assert restored == experiment
 
 
+def test_example_yaml_without_endpoint_fails_to_load(monkeypatch, tmp_path):
+    from isaaclab_arena.assets import registries
+    from isaaclab_arena.evaluation import arena_experiment_config_loader as loader
+    from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
+
+    monkeypatch.setattr(registries, "ensure_assets_registered", lambda: None)
+    monkeypatch.setattr(
+        loader,
+        "_registered_environment_cfg_types",
+        lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+    )
+    root = Path(__file__).resolve().parents[2]
+    config_text = (
+        root / "isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml"
+    ).read_text()
+    config_lines = [line for line in config_text.splitlines() if not line.strip().startswith("endpoint:")]
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text("\n".join(config_lines))
+    with pytest.raises(ValueError, match="missing mandatory value: endpoint"):
+        loader.load_arena_experiment_from_config_file(config_path, device="cpu")
+
+
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
 def test_preset_supplies_prompt_and_strategy(monkeypatch, policy_type, cfg_type):
     monkeypatch.setattr(vlm_agent_policy, "InferenceBackend", Mock())
@@ -224,7 +246,7 @@ def test_preset_supplies_prompt_and_strategy(monkeypatch, policy_type, cfg_type)
 )
 def test_invalid_flat_settings(options):
     with pytest.raises((AssertionError, ValueError)):
-        VLMChunkPolicyCfg(**{"chunk_size": 2, **options})
+        VLMChunkPolicyCfg(**{"chunk_size": 2, "endpoint": "internal", **options})
 
 
 @pytest.mark.parametrize("class_name", ["VLMChunkPolicy", "VLMGoalPolicy"])

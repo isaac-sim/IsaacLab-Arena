@@ -245,7 +245,7 @@ prompt, and must locate the gear and the pegs in the images:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml \
-     runs.droid_gear_insertion_vlm_goal_images.policy.endpoint=internal  # or public, openai
+     runs.droid_gear_insertion_vlm_goal_images.policy.endpoint=internal  # public or openai: also set policy.model=null
 
 **Images with exact object poses.** ``object_poses`` adds the gear's exact pose and its seated
 target pose to each request. A real robot does not observe these, so this run is a reference for
@@ -255,7 +255,7 @@ what the policy achieves once it knows where the parts are:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml \
-     runs.droid_gear_insertion_vlm_goal_object_poses.policy.endpoint=internal  # or public, openai
+     runs.droid_gear_insertion_vlm_goal_object_poses.policy.endpoint=internal  # public or openai: also set policy.model=null
 
 **Images with a task prompt.** ``system_prompt_files`` appends
 ``experiment_configs/prompts/droid_gear_insertion.txt`` to the default prompt. It describes the
@@ -265,7 +265,7 @@ gear and peg geometry and a grasp and insertion strategy, but no object position
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml \
-     runs.droid_gear_insertion_vlm_goal_task_prompt.policy.endpoint=internal  # or public, openai
+     runs.droid_gear_insertion_vlm_goal_task_prompt.policy.endpoint=internal  # public or openai: also set policy.model=null
 
 Add ``--viz kit`` to watch a rollout.
 
