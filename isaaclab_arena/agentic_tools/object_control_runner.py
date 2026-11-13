@@ -109,7 +109,6 @@ def main() -> None:
                 "timers": get_timer_stats_json("object_control_runner"),
             }
             (app_args.output / "timings.json").write_text(json.dumps(timings, indent=2) + "\n", encoding="utf-8")
-            print("OBJECT_CONTROL_TIMINGS", json.dumps(timings), flush=True)
 
 
 def _assert_runner_args(args: argparse.Namespace) -> None:
