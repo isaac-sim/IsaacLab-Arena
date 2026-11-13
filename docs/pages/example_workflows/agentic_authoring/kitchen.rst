@@ -298,7 +298,8 @@ server:
    :caption: Prompt in the host Codex session
 
     Evaluate the pi05 DROID policy on the environment at
-    `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml` for 3 episodes
+    `isaaclab_arena_environments/agent_generated/peninsula_banana_and_orange_in_bowls.yaml` for 3 episodes.
+    Record camera videos, and open the evaluation report in my browser when it's done.
 
 The repository's ``run-experiment`` and ``serve-openpi-policy`` skills guide
 the agent through the evaluation. Expect it to:
@@ -312,11 +313,17 @@ the agent through the evaluation. Expect it to:
    ~19 GB) and downloads the ~11 GB checkpoint, so the agent should ask before
    starting it.
 3. **Run the evaluation:** run the Experiment with
-   ``isaaclab_arena/evaluation/experiment_runner.py`` and report the results.
+   ``isaaclab_arena/evaluation/experiment_runner.py`` and the ``--record_camera_video``
+   flag, then report the results.
+4. **Open the report:** open the ``index.html`` evaluation report from the run's
+   output directory under ``outputs/`` in your browser.
 
 An episode only counts as a success when both fruits are in their bowls. The
 results also include ``subtask_success_rate``, the success rate for each fruit,
 so you can see which placement the policy completed.
+
+The report shows each episode's result next to its recorded videos, one per
+camera.
 
 .. video:: ../../../images/agentic_authoring/peninsula_kitchen_banana_and_orange_pi05_episode.mp4
    :width: 100%
