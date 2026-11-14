@@ -50,6 +50,13 @@ def _config(cfg_type, modality="image_state"):
 
 
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
+def test_camera_resolution_uses_endpoint_image_limit(policy_type, cfg_type):
+    config = _config(cfg_type)
+    config.image_max_width_or_height = 512
+    assert policy_type.default_image_size(config) == (512, 512)
+
+
+@pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
 @pytest.mark.parametrize("modality", ["image", "state", "image_state"])
 def test_configured_execution_and_partial_reset(monkeypatch, policy_type, cfg_type, modality):
     backend = Mock()

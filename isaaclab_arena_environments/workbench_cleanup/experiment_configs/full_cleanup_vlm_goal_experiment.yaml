@@ -1,0 +1,63 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Uses the sequential task plus privileged object poses, articulation joint positions, and lid contact geometry.
+# Its system prompts also include hand-tuned DROID contact poses.
+runs:
+  full_cleanup:
+    environment:
+      type: isaaclab_arena_environments/workbench_cleanup/task_full_cleanup.yaml
+      enable_cameras: true
+    environment_builder:
+      num_envs: 1
+      seed: 42
+      camera_resolution_mode: POLICY_DEFAULT
+      placement_seed: 17
+      language_instruction: >-
+        Complete the workbench cleanup in order: close the top-left drawer,
+        close the socket toolcase lid, pick up the white bin and place it on
+        the overhead shelf, then press the oscilloscope power button to turn
+        it off. Release placed objects and withdraw after each interaction.
+    policy:
+      type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
+      endpoint: internal
+      model: openai/openai/gpt-6-astra
+      vlm_embodiment_adapter: droid
+      observation_modality: image_state
+      image_max_width_or_height: 512
+      max_steps_per_goal: 90
+      position_tolerance_m: 0.001
+      rotation_tolerance_rad: 0.02
+      object_poses:
+        - top_drawer
+        - top_drawer_body
+        - socket_set
+        - socket_set_lid
+        - white_bin
+        - overhead_shelf
+        - oscilloscope
+        - oscilloscope_power_button
+        - tabletop
+      joint_positions: [top_drawer, socket_set, oscilloscope]
+      grasp_points:
+        lid_outer_edge:
+          scene_key: socket_set_lid
+          aabb_fraction: [0.5, 0.0, 1.0]
+          offset_O_m: [0.0, 0.012, 0.004]
+          normal_O: [0.0, 0.0, 1.0]
+          revolute_motion:
+            scene_key: socket_set
+            body_name: Case_base
+            pivot_B_m: [0.0, 0.074, 0.03]
+            axis_B: [-1.0, 0.0, 0.0]
+            direction: -1
+      system_prompt_files:
+        - isaaclab_arena_environments/workbench_cleanup/prompts/full_cleanup.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/close_drawer.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/close_toolcase.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/bin_shelf.txt
+        - isaaclab_arena_environments/workbench_cleanup/prompts/turn_off_scope.txt
+    rollout_limit:
+      num_episodes: 5
