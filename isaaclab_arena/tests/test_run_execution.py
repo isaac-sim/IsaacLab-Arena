@@ -6,7 +6,7 @@
 import json
 import time
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
@@ -16,13 +16,11 @@ from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironme
 from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
-    ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME,
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg
 from isaaclab_arena.evaluation.run_status import RunStatus
-from isaaclab_arena.inference.backend import InferenceUsage
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.relations.placement_diagnostics import (
     AggregatedPlacementDiagnostics,
@@ -47,9 +45,6 @@ class _PolicyCfg(PolicyCfg):
 class _Policy:
     def has_length(self):
         return False
-
-    def get_inference_usage(self):
-        return None
 
 
 class _FinitePolicy(_Policy):
@@ -313,62 +308,6 @@ def test_cfg_for_rebuild_offsets_seed_per_rebuild():
     assert run_execution._cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
     # The original config is never mutated.
     assert run.environment_builder.seed == base_seed
-
-
-class _InferenceUsagePolicy(_Policy):
-    """Reports how many policies were built before it as its request count, so each rebuild's usage differs."""
-
-    num_built = 0
-
-    def __init__(self):
-        self.build_index = _InferenceUsagePolicy.num_built
-        _InferenceUsagePolicy.num_built += 1
-
-    def get_inference_usage(self):
-        return InferenceUsage(endpoint="test", model="test-model", num_requests=self.build_index)
-
-
-def _expected_inference_usage(num_rebuilds):
-    return [
-        asdict(InferenceUsage(endpoint="test", model="test-model", num_requests=build_index))
-        for build_index in range(num_rebuilds)
-    ]
-
-
-def _patch_build_and_run(monkeypatch, policy_type, rollout_policy):
-    _InferenceUsagePolicy.num_built = 0
-    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", lambda cfg, render_mode, **kwargs: _environment())
-    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy_type())
-    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
-    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
-    monkeypatch.setattr(run_execution, "rollout_policy", rollout_policy)
-
-
-@pytest.mark.parametrize("policy_type", [_Policy, _InferenceUsagePolicy])
-def test_build_and_run_writes_inference_usage_of_every_rebuild(monkeypatch, tmp_path, policy_type):
-    _patch_build_and_run(monkeypatch, policy_type, lambda env, policy, num_steps, num_episodes: None)
-
-    run_execution.build_and_run(_run(), output_dir=tmp_path)
-
-    usage_path = tmp_path / ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME
-    if policy_type is _Policy:
-        assert not usage_path.exists()
-        return
-    assert json.loads(usage_path.read_text(encoding="utf-8")) == _expected_inference_usage(num_rebuilds=2)
-
-
-def test_build_and_run_writes_inference_usage_of_a_failed_rollout(monkeypatch, tmp_path):
-    def rollout_policy(env, policy, num_steps, num_episodes):
-        if policy.build_index == 1:
-            raise RuntimeError("rollout failed")
-
-    _patch_build_and_run(monkeypatch, _InferenceUsagePolicy, rollout_policy)
-
-    with pytest.raises(RuntimeError, match="rollout failed"):
-        run_execution.build_and_run(_run(), output_dir=tmp_path)
-
-    usage_path = tmp_path / ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME
-    assert json.loads(usage_path.read_text(encoding="utf-8")) == _expected_inference_usage(num_rebuilds=2)
 
 
 def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
