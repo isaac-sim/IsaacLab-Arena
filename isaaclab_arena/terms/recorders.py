@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 import warp as wp
@@ -291,7 +291,9 @@ class TrajectoryRecorderTermsBaseCfg:
 
 
 def make_trajectory_recorder_terms_cfg(
-    frame_transformer_names: Sequence[str] = ("ee_frame",), asset_name: str = "robot"
+    frame_transformer_names: Sequence[str] = ("ee_frame",),
+    asset_name: str = "robot",
+    term_name: Callable[[str], str] = str,
 ) -> Any:
     """Build the per-step trajectory recorder terms for one embodiment's frame transformers and asset name.
 
@@ -307,10 +309,12 @@ def make_trajectory_recorder_terms_cfg(
         frame_transformer_names: Names of the scene's end-effector frame transformer sensors, one per
             tracked end-effector.
         asset_name: Scene entity name of the articulation that owns the end-effector frames.
+        term_name: Maps each end-effector pose term name to its configured name, for example to
+            prefix it with a robot instance key. Defaults to the unchanged name.
     """
     ee_pose_recorder_fields = [
         (
-            f"record_end_effector_poses_{index}",
+            term_name(f"record_end_effector_poses_{index}"),
             EndEffectorPosesRecorderCfg,
             EndEffectorPosesRecorderCfg(frame_transformer_name=frame_transformer_name, asset_name=asset_name),
         )

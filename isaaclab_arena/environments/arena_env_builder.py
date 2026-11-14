@@ -9,6 +9,7 @@ import datetime
 import gymnasium as gym
 from typing import TYPE_CHECKING, Any
 
+from isaaclab.app.settings_manager import get_settings_manager
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv, ViewerCfg
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
@@ -345,6 +346,13 @@ class ArenaEnvBuilder:
         """
         # A failed build reports no placement diagnostics, so they are set only once the build succeeds.
         self.placement_diagnostics = None
+        if self.arena_env.embodiment is not None and self.arena_env.embodiment.instance_key is not None:
+            assert not (
+                self.cfg.mimic
+                or self.arena_env.teleop_device is not None
+                or get_settings_manager().get("/isaaclab/xr/enabled", False)
+            ), "Mimic, teleoperation, and XR require an embodiment without an instance key"
+
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         variations = self.get_all_variations()
         if self.hydra_overrides:
