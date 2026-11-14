@@ -3,8 +3,7 @@ Run an Evaluation with Recorded Variations
 
 Recorded variations let an evaluation reproduce the same placement, lighting,
 object-presence, and camera conditions with a different number of parallel
-environments. This workflow uses the ``clamp_in_right_bin`` graph environment,
-whose standard episode timeout is 60 seconds, and the local zero-action policy.
+environments.
 
 The workflow has three stages:
 
@@ -13,6 +12,7 @@ The workflow has three stages:
 3. replay the two 64-row recordings in three environments and match each variation
    payload to its indexed source row.
 
+This workflow uses the ``clamp_in_right_bin`` YAML environment as an example.
 The generated JSONL files stay below ``outputs/recorded_variations_workflow``
 and are not source files.
 
@@ -50,8 +50,7 @@ post-physics checks:
      num_envs=4 env_spacing=2 layouts_per_env=2 \
      min_layouts=8 max_batches=5 seed=42 presets=physx \
      settle.num_steps=120 \
-     settle.validators.pose_shift.max_translation_m=0.015 \
-     --device cuda:0
+     settle.validators.pose_shift.max_translation_m=0.015
 
 The verified run accepted all eight requested layouts. Each output row records
 the complete scene-root poses under the top-level ``placement`` key.
