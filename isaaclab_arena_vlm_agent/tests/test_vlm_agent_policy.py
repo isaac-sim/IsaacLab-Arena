@@ -23,7 +23,12 @@ import pytest
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
-from isaaclab_arena.inference.backend import InferenceBackend, build_strict_schema
+from isaaclab_arena.inference.backend import (
+    INFERENCE_REQUEST_TIMER_NAME,
+    InferenceBackend,
+    InferenceUsage,
+    build_strict_schema,
+)
 from isaaclab_arena.utils.timer import get_timer_stats, reset_timer_stats
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
@@ -827,25 +832,25 @@ def test_inference_usage_counts_every_request_and_reported_tokens(backend):
         response('{"target": [1, 2]}'),  # Reports no usage.
     ]
     policy = make_policy(backend)
+    reset_timer_stats()
     try:
         policy.get_action(*inputs())
-        usage = policy.get_inference_usage()
-        request_latency_total_ms = usage.pop("request_latency_total_ms")
-        request_latency_max_ms = usage.pop("request_latency_max_ms")
-        assert usage == {
-            "endpoint": "internal",
-            "model": "test-model",
-            "num_requests": 3,
-            "num_responses_without_usage": 1,
-            "prompt_tokens": 100,
-            "completion_tokens": 7,
-        }
-        assert 0.0 <= request_latency_max_ms <= request_latency_total_ms
+        assert policy.get_inference_usage() == InferenceUsage(
+            endpoint="internal",
+            model="test-model",
+            num_requests=3,
+            num_responses_without_usage=1,
+            prompt_tokens=100,
+            completion_tokens=7,
+        )
+        # Every request records its latency, including the failed one.
+        assert get_timer_stats()[INFERENCE_REQUEST_TIMER_NAME].count == 3
     finally:
+        reset_timer_stats()
         policy.close()
 
 
-def test_inference_usage_times_concurrent_requests_one_by_one(backend):
+def test_concurrent_requests_each_record_their_own_latency(backend):
     request_seconds = 0.05
     # Each request waits for the other, so both are in flight at once.
     both_requests_sent = threading.Barrier(2)
@@ -857,13 +862,37 @@ def test_inference_usage_times_concurrent_requests_one_by_one(backend):
 
     backend.client.chat.completions.create.side_effect = create
     policy = make_policy(backend, max_concurrent_requests=2)
+    reset_timer_stats()
     try:
         policy.get_action(*inputs())
-        usage = policy.get_inference_usage()
-        assert usage["num_requests"] == 2
-        # Both requests count their own latency, though they overlap in time.
-        assert usage["request_latency_max_ms"] >= request_seconds * 1e3
-        assert usage["request_latency_total_ms"] >= 2 * request_seconds * 1e3
+        assert policy.get_inference_usage().num_requests == 2
+        # Both requests record their own latency, though they overlap in time. Each runs on a worker
+        # thread, so its timer is not nested under the step's timers on the calling thread.
+        request_timer_stats = get_timer_stats()[INFERENCE_REQUEST_TIMER_NAME]
+        assert request_timer_stats.count == 2
+        assert request_timer_stats.min_ms >= request_seconds * 1e3
+    finally:
+        reset_timer_stats()
+        policy.close()
+
+
+def test_failed_request_raises_after_the_other_requests_of_its_step_finish(backend, monkeypatch):
+    finished_requests = []
+
+    def infer(request):
+        if request.retry_label == "policy_action env 0":
+            raise RuntimeError("env 0 failed")
+        time.sleep(0.05)
+        finished_requests.append(request.retry_label)
+        return {"target": [1, 2]}
+
+    monkeypatch.setattr(backend, "infer", infer)
+    policy = make_policy(backend, max_concurrent_requests=2)
+    try:
+        with pytest.raises(RuntimeError, match="env 0 failed"):
+            policy.get_action(*inputs())
+        # No request is left in flight, so its usage and latency are recorded before the rollout ends.
+        assert finished_requests == ["policy_action env 1"]
     finally:
         policy.close()
 

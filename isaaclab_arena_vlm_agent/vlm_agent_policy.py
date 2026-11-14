@@ -13,9 +13,9 @@ import numpy as np
 import torch
 from abc import abstractmethod
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from copy import deepcopy
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -27,6 +27,7 @@ from isaaclab_arena.inference.backend import (
     INFERENCE_ENDPOINTS,
     InferenceBackend,
     InferenceRequest,
+    InferenceUsage,
     build_strict_schema,
 )
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
@@ -236,20 +237,14 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._last_actions: dict[int, torch.Tensor] = {}
         """Last action returned for each environment."""
 
-    def get_inference_usage(self) -> dict[str, Any]:
-        """Return the endpoint, model, and the VLM requests, tokens and latency since the policy was created.
-
-        After each rollout, the Run writes this usage to its output directory for KPI exporters to read.
-        """
-        return {
-            "endpoint": self._inference_backend.endpoint.name,
-            "model": self._inference_backend.model,
-            **asdict(self._inference_backend.usage),
-        }
+    def get_inference_usage(self) -> InferenceUsage:
+        """Return the endpoint, model, and the VLM requests and tokens since the policy was created."""
+        return self._inference_backend.usage
 
     def close(self) -> None:
         """Close the inference client and request threads owned by this policy."""
-        # Requests still in flight after a failed step are never read, so do not wait for them.
+        # A step returns or raises only after all its requests finish, so only an interrupted step leaves
+        # requests in flight; they are never read, so do not wait for them.
         self._request_executor.shutdown(wait=False, cancel_futures=True)
         self._inference_backend.client.close()
 
@@ -428,6 +423,9 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
     def _get_model_outputs(self, conversations: dict[int, list[dict]]) -> dict[int, dict[str, Any]]:
         """Send one structured-output request per conversation, up to max_concurrent_requests at a time.
 
+        Returns or raises only after every request finishes, so a failed request leaves no other request
+        in flight whose usage and latency would be missing when the rollout ends.
+
         Args:
             conversations: Chat messages keyed by environment index.
 
@@ -445,9 +443,13 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 )
             )
         # Launch all requests at once.
-        pending_outputs = self._request_executor.map(self._inference_backend.infer, requests)
-        # Wait for all requests. This is the slow part of a step.
-        model_outputs = list(pending_outputs)
+        pending_outputs = [
+            self._request_executor.submit(self._inference_backend.infer, request) for request in requests
+        ]
+        # Wait for all requests, even after one fails. This is the slow part of a step.
+        wait(pending_outputs)
+        # Raises the error of the first failed environment.
+        model_outputs = [pending_output.result() for pending_output in pending_outputs]
         return dict(zip(conversations, model_outputs))
 
     def _model_output_to_command(

@@ -6,7 +6,7 @@
 import json
 import time
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from types import SimpleNamespace
 
 import pytest
@@ -22,6 +22,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg
 from isaaclab_arena.evaluation.run_status import RunStatus
+from isaaclab_arena.inference.backend import InferenceUsage
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.relations.placement_diagnostics import (
     AggregatedPlacementDiagnostics,
@@ -46,6 +47,9 @@ class _PolicyCfg(PolicyCfg):
 class _Policy:
     def has_length(self):
         return False
+
+    def get_inference_usage(self):
+        return None
 
 
 class _FinitePolicy(_Policy):
@@ -312,7 +316,7 @@ def test_cfg_for_rebuild_offsets_seed_per_rebuild():
 
 
 class _InferenceUsagePolicy(_Policy):
-    """Reports how many policies were built before it, so each rebuild's usage differs."""
+    """Reports how many policies were built before it as its request count, so each rebuild's usage differs."""
 
     num_built = 0
 
@@ -321,7 +325,14 @@ class _InferenceUsagePolicy(_Policy):
         _InferenceUsagePolicy.num_built += 1
 
     def get_inference_usage(self):
-        return {"build_index": self.build_index}
+        return InferenceUsage(endpoint="test", model="test-model", num_requests=self.build_index)
+
+
+def _expected_inference_usage(num_rebuilds):
+    return [
+        asdict(InferenceUsage(endpoint="test", model="test-model", num_requests=build_index))
+        for build_index in range(num_rebuilds)
+    ]
 
 
 def _patch_build_and_run(monkeypatch, policy_type, rollout_policy):
@@ -343,7 +354,7 @@ def test_build_and_run_writes_inference_usage_of_every_rebuild(monkeypatch, tmp_
     if policy_type is _Policy:
         assert not usage_path.exists()
         return
-    assert json.loads(usage_path.read_text(encoding="utf-8")) == [{"build_index": 0}, {"build_index": 1}]
+    assert json.loads(usage_path.read_text(encoding="utf-8")) == _expected_inference_usage(num_rebuilds=2)
 
 
 def test_build_and_run_writes_inference_usage_of_a_failed_rollout(monkeypatch, tmp_path):
@@ -357,7 +368,7 @@ def test_build_and_run_writes_inference_usage_of_a_failed_rollout(monkeypatch, t
         run_execution.build_and_run(_run(), output_dir=tmp_path)
 
     usage_path = tmp_path / ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME
-    assert json.loads(usage_path.read_text(encoding="utf-8")) == [{"build_index": 0}, {"build_index": 1}]
+    assert json.loads(usage_path.read_text(encoding="utf-8")) == _expected_inference_usage(num_rebuilds=2)
 
 
 def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):

@@ -11,13 +11,14 @@ import copy
 import json
 import os
 import threading
-import time
 from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam
 from pydantic import BaseModel
+
+from isaaclab_arena.utils.timer import Timer
 
 # -----------------------------------------------------------------------------
 # Inference endpoints
@@ -95,6 +96,9 @@ def resolve_inference_endpoint(name: str | None = None) -> InferenceEndpoint:
 
 MAX_RETRIES_LIMIT = 10
 
+INFERENCE_REQUEST_TIMER_NAME = "inference_request"
+"""Timer each chat-completion request records its latency under, from sending it to its response or failure."""
+
 
 @dataclass(frozen=True)
 class InferenceRequest:
@@ -108,10 +112,22 @@ class InferenceRequest:
 
 @dataclass
 class InferenceUsage:
-    """Chat-completion requests an inference backend sent and the tokens their responses reported."""
+    """Chat-completion requests an inference backend sent to one model and the tokens their responses reported.
+
+    Each request's latency records under the INFERENCE_REQUEST_TIMER_NAME timer instead.
+    """
+
+    endpoint: str
+    """Name of the inference endpoint preset the requests were sent to."""
+
+    model: str
+    """Model identifier the requests named."""
 
     num_requests: int = 0
-    """Requests sent, including retries and requests that failed; the connection check is not counted."""
+    """Requests sent, including the backend's retries and requests that failed; the connection check is not counted.
+
+    The OpenAI client's own retries within a request are not counted, and their waits add to that request's latency.
+    """
 
     num_responses_without_usage: int = 0
     """Responses that reported no token usage, so their tokens are missing from the totals."""
@@ -121,12 +137,6 @@ class InferenceUsage:
 
     completion_tokens: int = 0
     """Completion tokens summed over the responses that reported usage."""
-
-    request_latency_total_ms: float = 0.0
-    """Wall time of every request, from sending it to its response or failure, summed in milliseconds."""
-
-    request_latency_max_ms: float = 0.0
-    """Wall time of the slowest request in milliseconds."""
 
 
 @dataclass(frozen=True)
@@ -194,7 +204,7 @@ class InferenceBackend:
         self._max_tokens = max_tokens
         self._max_retries = max_retries
         # Requests run concurrently on worker threads, so their usage is added under a lock.
-        self._usage = InferenceUsage()
+        self._usage = InferenceUsage(endpoint=inference_endpoint.name, model=resolved_model)
         self._usage_lock = threading.Lock()
         try:
             _ping(client, inference_endpoint, resolved_model)
@@ -224,37 +234,34 @@ class InferenceBackend:
             return replace(self._usage)
 
     def _create_completion(self, messages: list[ChatCompletionMessageParam], request: InferenceRequest) -> Any:
-        """Send one structured-output chat completion and count it, with its tokens and latency, in the usage."""
+        """Send one structured-output chat completion, time it, and count it with its tokens in the usage."""
         # Timed on the calling thread, so concurrent requests each record their own latency.
-        start_time = time.perf_counter()
+        response = None
         try:
-            response = self._client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": request.schema_name,
-                        "schema": request.response_schema,
+            with Timer(INFERENCE_REQUEST_TIMER_NAME):
+                response = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": request.schema_name,
+                            "schema": request.response_schema,
+                        },
                     },
-                },
-                **_completion_options(self._endpoint, self._max_tokens, self._temperature),
-            )
-        except Exception:
-            self._add_request_usage(None, (time.perf_counter() - start_time) * 1e3)
-            raise
-        self._add_request_usage(response, (time.perf_counter() - start_time) * 1e3)
+                    **_completion_options(self._endpoint, self._max_tokens, self._temperature),
+                )
+        finally:
+            self._add_request_usage(response)
         return response
 
-    def _add_request_usage(self, response: Any, latency_ms: float) -> None:
-        """Count one request, its latency, and the tokens its response reported; response is None on failure."""
+    def _add_request_usage(self, response: Any) -> None:
+        """Count one request and the tokens its response reported; response is None on failure."""
         usage = getattr(response, "usage", None)
         prompt_tokens = getattr(usage, "prompt_tokens", None)
         completion_tokens = getattr(usage, "completion_tokens", None)
         with self._usage_lock:
             self._usage.num_requests += 1
-            self._usage.request_latency_total_ms += latency_ms
-            self._usage.request_latency_max_ms = max(self._usage.request_latency_max_ms, latency_ms)
             if response is None:
                 return
             if prompt_tokens is None or completion_tokens is None:

@@ -10,7 +10,10 @@ import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from gymnasium.spaces.dict import Dict as GymSpacesDict
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
+
+if TYPE_CHECKING:
+    from isaaclab_arena.inference.backend import InferenceUsage
 
 
 @dataclass
@@ -58,6 +61,10 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     def close(self) -> None:
         """Release resources held by the policy."""
         pass
+
+    def get_inference_usage(self) -> InferenceUsage | None:
+        """Return the remote inference requests and tokens used since the policy was created, or None if it uses none."""
+        return None  # noqa: R501 - policies that call remote inference return their usage
 
     def set_task_description(self, task_description: str | None) -> str:
         """Set the task description of the task being evaluated."""

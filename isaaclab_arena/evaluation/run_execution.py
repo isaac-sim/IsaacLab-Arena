@@ -12,9 +12,9 @@ import os
 import time
 import traceback
 from copy import deepcopy
-from dataclasses import fields, replace
+from dataclasses import asdict, fields, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.inference.backend import InferenceUsage
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
     from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
@@ -120,7 +121,10 @@ def build_and_run(
     start_timestamp_ns = time.time_ns()
     metrics_per_rebuild: list[MetricsDataCollection] = []
     placement_diagnostics_per_rebuild: list[PlacementDiagnostics] = []
-    inference_usage_per_rebuild: list[dict[str, Any]] = []
+    # TODO(xinjieyao, 2026-11-13): Move the per-rebuild collectors (metrics, placement diagnostics, inference
+    # usage) behind one interface with before_rollout(), after_rollout() and on_error() hooks, so this function
+    # need not know about each of them.
+    inference_usage_per_rebuild: list[InferenceUsage] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _episodes_per_rebuild(cfg)
@@ -182,23 +186,23 @@ def build_and_run(
 
 
 def _record_inference_usage(
-    policy: PolicyBase | None, inference_usage_per_rebuild: list[dict[str, Any]], output_dir: str | Path
+    policy: PolicyBase | None, inference_usage_per_rebuild: list[InferenceUsage], output_dir: str | Path
 ) -> None:
     """Append the policy's inference usage, if it reports any, and write every rebuild's usage to the Run's file.
-
-    A policy that calls remote inference, such as a VLM agent policy, reports its usage with get_inference_usage().
 
     Args:
         policy: Policy of the rebuild that just ended, or None if it was never built.
         inference_usage_per_rebuild: Inference usage of the Run's earlier rebuilds, extended in place.
         output_dir: Run output directory, created if needed.
     """
-    if policy is None or not hasattr(policy, "get_inference_usage"):
+    inference_usage = policy.get_inference_usage() if policy is not None else None
+    if inference_usage is None:
         return
-    inference_usage_per_rebuild.append(policy.get_inference_usage())
+    inference_usage_per_rebuild.append(inference_usage)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     usage_path = Path(output_dir) / ARENA_SINGLE_RUN_INFERENCE_USAGE_FILENAME
-    usage_path.write_text(json.dumps(inference_usage_per_rebuild, allow_nan=False, indent=2) + "\n", encoding="utf-8")
+    usage_records = [asdict(usage) for usage in inference_usage_per_rebuild]
+    usage_path.write_text(json.dumps(usage_records, allow_nan=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _aggregate_and_write_placement_diagnostics(
