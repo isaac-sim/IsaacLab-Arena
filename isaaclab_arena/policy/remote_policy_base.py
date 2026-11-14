@@ -19,6 +19,9 @@ from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 
 MAX_RECONNECT_ATTEMPTS = 3
 
+BATCH_REQUEST_KEY = "batch"
+"""Wire key under which a batched request (and its response) carries one entry per environment."""
+
 
 class EmbodimentAdapter(ABC):
     """Translates between Arena's gym observation dict and an openpi-protocol server's
@@ -45,6 +48,11 @@ class RemoteChunkReplayPolicy:
     per env, keep the first ``open_loop_horizon`` actions, and yield them in order before
     refetching.
 
+    The envs that request a chunk on the same step share one ``{"batch": [obs, ...]}`` request when
+    ``config.batch_chunk_fetches`` is set and the server advertises ``batch_inference`` in its connect
+    metadata, which the batched openpi server in ``isaaclab_arena_openpi/server`` does; otherwise each
+    env gets its own request.
+
     Concrete policies inherit (RemoteChunkReplayPolicy, PolicyBase[ConcreteCfg]).
     The PolicyBase[ConcreteCfg] is the concrete config class for the policy, parameterized
     by a concrete Cfg class.
@@ -64,6 +72,11 @@ class RemoteChunkReplayPolicy:
         )
         self._adapter = adapter
         self._open_loop_horizon = open_loop_horizon
+        self._batch_chunk_fetches: bool = getattr(config, "batch_chunk_fetches", True)
+        self._max_batch_size: int | None = getattr(config, "max_batch_size", None)
+        assert (
+            self._max_batch_size is None or self._max_batch_size >= 1
+        ), f"max_batch_size must be at least 1 or None, got {self._max_batch_size}"
         self.device = config.policy_device
 
         self._remote_host = config.remote_host
@@ -82,6 +95,12 @@ class RemoteChunkReplayPolicy:
             ping_timeout=self._ping_timeout,
         )
         print(f"[{name}] Connected.")
+        if self._batch_chunk_fetches and not self.server_batches_requests():
+            print(f"[{name}] Server does not advertise batch_inference; sending one request per environment.")
+        self.chunk_requests = 0
+        """Chunk requests made so far, one per env and chunk."""
+        self.server_calls = 0
+        """Server calls made so far; fewer than ``chunk_requests`` when requests are batched."""
 
         # Per-env action cache. Lazy-allocated on the first get_action call when num_envs
         # is known. The wire format is one obs per request, so we keep one chunk + one step
@@ -99,14 +118,18 @@ class RemoteChunkReplayPolicy:
         num_envs = env.unwrapped.num_envs
         self._maybe_init_per_env_state(num_envs)
 
+        requesting_env_ids = [
+            env_id
+            for env_id in range(num_envs)
+            if self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
+        ]
+        if requesting_env_ids:
+            for env_id, chunk in zip(requesting_env_ids, self._fetch_action_chunks(observation, requesting_env_ids)):
+                self._cached_action_chunks[env_id] = chunk
+                self._next_chunk_steps[env_id] = 0
+
         actions = []
         for env_id in range(num_envs):
-            chunk_exhausted = (
-                self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
-            )
-            if chunk_exhausted:
-                self._cached_action_chunks[env_id] = self._fetch_action_chunk(observation, env_id)
-                self._next_chunk_steps[env_id] = 0
             actions.append(self._cached_action_chunks[env_id][self._next_chunk_steps[env_id]])
             self._next_chunk_steps[env_id] += 1
 
@@ -127,8 +150,34 @@ class RemoteChunkReplayPolicy:
         Does NOT stop the server process that runs in a separate container (or machine)
         and outlives this client.
         """
+        if self._websocket_client is not None and self.server_batches_requests() and self.chunk_requests:
+            print(
+                f"[{type(self).__name__}] {self.chunk_requests} chunk requests sent in {self.server_calls} batched"
+                f" server calls ({self.chunk_requests / max(self.server_calls, 1):.1f} environments per call)"
+            )
         _close_websocket_best_effort(self._websocket_client)
         self._websocket_client = None
+
+    def server_batches_requests(self) -> bool:
+        """Return whether chunk requests of several envs go to the server as one batched request.
+
+        True when ``config.batch_chunk_fetches`` is set and the connected server advertises
+        ``batch_inference`` in its connect metadata.
+        """
+        if not self._batch_chunk_fetches or self._websocket_client is None:
+            return False
+        return bool(self._websocket_client.get_server_metadata().get("batch_inference", False))
+
+    def _batch_size_limit(self) -> int:
+        """Return the most envs one batched request may carry: the config limit or the server's advertised one."""
+        assert self._websocket_client is not None
+        server_limit = self._websocket_client.get_server_metadata().get("max_batch_size")
+        if self._max_batch_size is not None and server_limit is not None:
+            return min(self._max_batch_size, int(server_limit))
+        if self._max_batch_size is not None:
+            return self._max_batch_size
+        assert server_limit is not None, "a server advertising batch_inference must advertise max_batch_size"
+        return int(server_limit)
 
     def _maybe_init_per_env_state(self, num_envs: int) -> None:
         if self._cached_action_chunks is None:
@@ -140,11 +189,33 @@ class RemoteChunkReplayPolicy:
             f" to {num_envs} mid-rollout; recreate the policy for the new num_envs."
         )
 
-    def _fetch_action_chunk(self, observation: dict[str, Any], env_id: int) -> np.ndarray:
-        extracted = self._adapter.extract(observation, env_id)
-        request = self._adapter.pack_request(extracted, self.task_description)
-        response = self._call_server_with_retry(request)
+    def _fetch_action_chunks(self, observation: dict[str, Any], env_ids: list[int]) -> list[np.ndarray]:
+        """Fetch the given envs' chunks, in env order.
 
+        With a batching server the envs are grouped into requests of at most ``_batch_size_limit()``
+        observations; otherwise each env gets its own request.
+        """
+        requests = [
+            self._adapter.pack_request(self._adapter.extract(observation, env_id), self.task_description)
+            for env_id in env_ids
+        ]
+        self.chunk_requests += len(requests)
+        if not self.server_batches_requests():
+            return [self._chunk_from_response(self._call_server_with_retry(request)) for request in requests]
+        batch_size = self._batch_size_limit()
+        chunks: list[np.ndarray] = []
+        for start in range(0, len(requests), batch_size):
+            batch = requests[start : start + batch_size]
+            response = self._call_server_with_retry({BATCH_REQUEST_KEY: batch})
+            responses = response[BATCH_REQUEST_KEY]
+            assert len(responses) == len(
+                batch
+            ), f"server returned {len(responses)} chunks for a batched request of {len(batch)} environments"
+            chunks.extend(self._chunk_from_response(entry) for entry in responses)
+        return chunks
+
+    def _chunk_from_response(self, response: dict[str, Any]) -> np.ndarray:
+        """Return the ``(open_loop_horizon, action_dim)`` float32 chunk of one env's server response."""
         chunk = np.asarray(response[self.server_response_actions_key])
         assert (
             chunk.ndim == 2 and chunk.shape[1] == self._adapter.action_dim
@@ -161,6 +232,7 @@ class RemoteChunkReplayPolicy:
         re-queries with a fresh observation rather than replaying a potentially-stale chunk
         against the new server state.
         """
+        self.server_calls += 1
         for attempt_index in range(MAX_RECONNECT_ATTEMPTS):
             try:
                 return self._websocket_client.infer(server_request)
