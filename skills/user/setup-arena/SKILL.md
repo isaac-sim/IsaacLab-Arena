@@ -126,8 +126,9 @@ the installation documentation inside the container, unless the user asks to ski
 Report the selected route and concrete evidence: interpreter or container, import path, and
 zero-action exit status when run. Treat setup readiness separately from policy success.
 
-Use `dev-container` for contributor bootstrap or forced rebuilds and `run-tests` only when the user
-explicitly asks for regression testing. Treat any requested experiment as the next workflow after
+Use `arena-runtime` to run later Arena commands in the ready route, `dev-container` for contributor
+bootstrap or forced rebuilds, and `run-tests` only when the user explicitly asks for regression
+testing. Treat any requested experiment as the next workflow after
 setup; do not absorb its policy, configuration, execution, or artifact checks into this skill.
 
 ## References

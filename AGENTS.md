@@ -24,17 +24,9 @@ For creating or changing environments, scenes, tasks, success conditions, or ran
 [author-environment](skills/developer/author-environment/SKILL.md) before implementing.
 Use `run-experiment` when executing an existing evaluation.
 
-## Docker environment
+## Runtime environment
 
-Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the local repo clone's Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside an interactive container shell, `python` invokes `isaaclab.sh -p`. Use the same launcher explicitly for non-interactive commands.
-
-Each clone gets its own container (shared image, per-clone name), so clones run in parallel. **Don't hardcode the container name** — use the `dev-container` skill to build, start, attach to, discover, or exec into the local clone's container.
-
-Run as the host user, not root.
-
-```bash
-docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" <command> [args...]
-```
+Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run in the checkout's ready runtime: the native uv environment at `.venv/bin/python` or the local clone's Docker container. Either route is sufficient on its own. Before running such a command, use the `arena-runtime` skill to select the route and build the command, and don't use a bare `python`.
 
 Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, isort, pyupgrade, codespell) runs **on the host**.
 

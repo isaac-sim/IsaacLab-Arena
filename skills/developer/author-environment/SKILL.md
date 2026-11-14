@@ -81,11 +81,13 @@ Read only the references relevant to the requested behavior:
 
 ## Validate and hand off
 
-Use [dev-container](../dev-container/SKILL.md) for the clone's runtime and host-user execution,
+Use [arena-runtime](../../user/arena-runtime/SKILL.md) to select the checkout's ready native uv or
+Docker runtime and build simulation commands,
 [setup-arena](../../user/setup-arena/SKILL.md) for requested runtime preparation, and
 [run-tests](../run-tests/SKILL.md) for pytest. Run lint and source inspection on the host.
-If no runtime is ready, complete static review and report the limit; do not install dependencies
-or claim runtime success. Authoring alone does not require policy rollouts or policy servers.
+If `arena-runtime` finds no ready runtime, stop and suggest that the user installs Arena with the
+native uv or Docker route through `setup-arena`; do not install it yourself or claim runtime
+success. Authoring alone does not require policy rollouts or policy servers.
 
 Check Python/YAML syntax, referenced constructors, registration, schema conversion, defaults, and
 feature reuse without importing Arena on the host. In a ready runtime, build and reset the

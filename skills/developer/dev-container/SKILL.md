@@ -1,13 +1,14 @@
 ---
 name: dev-container
-description: Bootstraps and maintains the Docker environment used when contributing to Isaac Lab-Arena. Use when preparing a checkout for development, installing contributor hooks, rebuilding the Arena image with or without cache, inspecting the clone-specific container, or running development commands inside it. For installing or using Arena without contribution work, use setup-arena instead.
+description: Bootstraps and maintains the Docker environment used when contributing to Isaac Lab-Arena. Use when preparing a checkout for development, installing contributor hooks, rebuilding the Arena image with or without cache, or inspecting the clone-specific container. For installing or using Arena without contribution work, use setup-arena instead; for selecting a runtime and running commands in it, use arena-runtime.
 allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id --user --name) Bash(pre-commit install) Bash(test -x *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *)
 ---
 
 # Dev Container
 
 Keep this skill limited to contributor setup and Docker image maintenance. Use `setup-arena` for
-ordinary installation, runtime selection, container startup, data mounts, and readiness checks.
+ordinary installation, container startup, data mounts, and readiness checks. Use `arena-runtime` to
+select the checkout's ready native uv or Docker route and run commands in it.
 
 If an explicit `/dev-container` request is only about running Arena, hand it off to `setup-arena` and
 do not install contributor tooling.
@@ -60,20 +61,9 @@ will be lost. After recreation, rediscover the container and rerun the import sm
 Use `-R` only when the user explicitly requests a no-cache rebuild or a cached layer is the suspected
 cause. Preserve the launcher's automatic per-checkout suffix unless the user requests `-s <suffix>`.
 
-## Run a development command
-
-Run commands as the host user, not root:
-
-```bash
-docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" <command> [args...]
-```
-
-Use `isaaclab.sh -p` for non-interactive Python commands; do not rely on the
-interactive `python` alias. Use `bash -c '<command>'` when shell syntax such as
-pipelines is needed.
-
 ## Hand off
 
+- Use `arena-runtime` to run development commands in the container or the native uv environment.
 - Use `run-tests` for pytest regression testing.
 - Run pre-commit hooks on the host when requested.
 - Use `commit-and-pr` only when the user asks to commit, push, or open a pull request.
