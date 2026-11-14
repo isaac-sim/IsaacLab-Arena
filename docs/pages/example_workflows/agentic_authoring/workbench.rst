@@ -107,7 +107,7 @@ Enter a prompt like the one below:
 
    Task: put the tools into the drawer one by one, then close the drawer.
 
-   Validate task success correctly with a force-based demo script.
+   Validate task success correctly with a force-based demo script. Save the demo video.
 
 The agent uses Arena's ``author-environment`` skill to author and validate the requested environment.
 After Codex finishes (expect 10~20 minutes), it should return a successful force-based demonstration video like the one below:
