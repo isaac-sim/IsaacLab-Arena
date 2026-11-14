@@ -645,7 +645,9 @@ Enabled build-time variations sample values and update configuration before scen
 addons, including <code class="docutils literal notranslate"><span class="pre">prim_physics</span></code>. The builder composes the scene and manager configs and
 assigns the default solver.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">env_cfg_callback</span></code> applies the environment’s <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code> to the composed config.
-These settings take precedence over earlier defaults; the selected backend stays the same.</p></li>
+The builder then applies <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.env_cfg_override</span></code>, configured in Experiments as
+<code class="docutils literal notranslate"><span class="pre">runs.&lt;name&gt;.environment_builder.env_cfg_override</span></code>. It takes precedence over the callback’s
+settings; the selected backend stays the same.</p></li>
 <li><p>Environment creation loads each USD using its ordinary spawn properties, then applies
 <code class="docutils literal notranslate"><span class="pre">prim_physics</span></code> overrides, then clones the configured asset and imports its physics.
 Every clone inherits the same spawn-time physics edits.</p></li>

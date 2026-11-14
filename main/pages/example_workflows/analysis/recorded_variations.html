@@ -580,8 +580,7 @@
 <h1>Run an Evaluation with Recorded Variations<a class="headerlink" href="#run-an-evaluation-with-recorded-variations" title="Link to this heading">#</a></h1>
 <p>Recorded variations let an evaluation reproduce the same placement, lighting,
 object-presence, and camera conditions with a different number of parallel
-environments. This workflow uses the <code class="docutils literal notranslate"><span class="pre">clamp_in_right_bin</span></code> graph environment,
-whose standard episode timeout is 70 seconds, and the local zero-action policy.</p>
+environments.</p>
 <p>The workflow has three stages:</p>
 <ol class="arabic simple">
 <li><p>record eight settled placement layouts;</p></li>
@@ -589,7 +588,8 @@ whose standard episode timeout is 70 seconds, and the local zero-action policy.<
 <li><p>replay the two 64-row recordings in three environments and match each variation
 payload to its indexed source row.</p></li>
 </ol>
-<p>The generated JSONL files stay below <code class="docutils literal notranslate"><span class="pre">outputs/recorded_variations_workflow</span></code>
+<p>This workflow uses the <code class="docutils literal notranslate"><span class="pre">clamp_in_right_bin</span></code> YAML environment as an example.
+The generated JSONL files stay below <code class="docutils literal notranslate"><span class="pre">outputs/recorded_variations_workflow</span></code>
 and are not source files.</p>
 <figure class="align-center">
 <a class="reference internal image-reference" href="../../../_images/recorded_variations_workflow.svg"><img alt="Three-stage workflow that records eight live-solved placement rows, replays placement while recording four live-sampled variations into two 64-row JSONL files, then replays all five conditions in three parallel environments and verifies each replay payload against its indexed source row." src="../../../_images/recorded_variations_workflow.svg" style="width: 100%;" />
@@ -597,6 +597,16 @@ and are not source files.</p>
 </figure>
 <section id="record-settled-placement-layouts">
 <h2>Record Settled Placement Layouts<a class="headerlink" href="#record-settled-placement-layouts" title="Link to this heading">#</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Before starting or restarting all three stages, remove the workflow’s previous
+generated outputs. This also clears partial recordings and nonempty Experiment
+directories that would otherwise cause a retry to fail. Copy any results you
+want to keep elsewhere first:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>rm<span class="w"> </span>-rf<span class="w"> </span>--<span class="w"> </span>outputs/recorded_variations_workflow
+</pre></div>
+</div>
+</div>
 <p>From the repository root, record eight layouts that pass the configured
 post-physics checks:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/record_placement_layouts.py<span class="w"> </span><span class="se">\</span>
@@ -605,22 +615,14 @@ post-physics checks:</p>
 <span class="w">  </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">env_spacing</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">layouts_per_env</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span><span class="nv">min_layouts</span><span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="nv">max_batches</span><span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="nv">presets</span><span class="o">=</span>physx<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>settle.num_steps<span class="o">=</span><span class="m">120</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>settle.validators.pose_shift.max_translation_m<span class="o">=</span><span class="m">0</span>.015<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--device<span class="w"> </span>cuda:0
+<span class="w">  </span>settle.validators.pose_shift.max_translation_m<span class="o">=</span><span class="m">0</span>.015
 </pre></div>
 </div>
 <p>The verified run accepted all eight requested layouts. Each output row records
 the complete scene-root poses under the top-level <code class="docutils literal notranslate"><span class="pre">placement</span></code> key.</p>
 </section>
-<section id="record-a-128-episode-evaluation">
-<h2>Record a 128-Episode Evaluation<a class="headerlink" href="#record-a-128-episode-evaluation" title="Link to this heading">#</a></h2>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To make steps 2 and 3 complete faster, temporarily edit
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml</span></code> and
-change <code class="docutils literal notranslate"><span class="pre">episode_length_s</span></code> from <code class="docutils literal notranslate"><span class="pre">70.0</span></code> to <code class="docutils literal notranslate"><span class="pre">1.0</span></code>. Keep the one-second
-timeout through both recording and replay.</p>
-</div>
+<section id="record-variations-with-replayed-placement-layouts">
+<h2>Record Variations with Replayed Placement Layouts<a class="headerlink" href="#record-variations-with-replayed-placement-layouts" title="Link to this heading">#</a></h2>
 <p>The maintained Experiment Definition configures four parallel environments,
 the zero-action policy, two rebuilds, and 128 total episodes. Both rebuilds
 load the eight-row placement recording through
@@ -667,13 +669,15 @@ The total budget is split evenly, so each rebuild records 64 episodes:</p>
 Other enabled variations are sampled live and recorded in each episode result.</p>
 <p>Run the Experiment:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>outputs/recorded_variations_workflow/record
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span>outputs/recorded_variations_workflow/record<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;+runs.recorded_variations.environment_builder.env_cfg_override={episode_length_s:1.0}&#39;</span>
 </pre></div>
 </div>
+<p>The final argument shortens each episode from 60 seconds to 1 second for this
+run to speed up sampling. The replay command below uses the same
+value. Omit it for normal evaluations.</p>
 <p>The canonical recordings are written to:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>outputs/recorded_variations_workflow/record/recorded_variations/episode_results_rebuild0.jsonl
 outputs/recorded_variations_workflow/record/recorded_variations/episode_results_rebuild1.jsonl
@@ -683,8 +687,8 @@ outputs/recorded_variations_workflow/record/recorded_variations/episode_results_
 Zero action does not solve the task; task failure is expected and does not
 indicate an execution failure.</p>
 </section>
-<section id="replay-with-three-parallel-environments">
-<h2>Replay with Three Parallel Environments<a class="headerlink" href="#replay-with-three-parallel-environments" title="Link to this heading">#</a></h2>
+<section id="run-experiment-with-replayed-variations-and-placement-layouts">
+<h2>Run Experiment with Replayed Variations and Placement Layouts<a class="headerlink" href="#run-experiment-with-replayed-variations-and-placement-layouts" title="Link to this heading">#</a></h2>
 <p>The replay Experiment Definition lists the two step-2 episode recordings,
 configures three parallel environments, and runs 128 total episodes. The
 two-file replay list supplies one file per rebuild, so each rebuild replays
@@ -718,11 +722,10 @@ all 64 rows:</p>
 </div>
 <p>Run the replay:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>outputs/recorded_variations_workflow/replay
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span>outputs/recorded_variations_workflow/replay<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;+runs.recorded_variations_replay.environment_builder.env_cfg_override={episode_length_s:1.0}&#39;</span>
 </pre></div>
 </div>
 <p>Verify the episode count, source-index coverage, and variation payloads:</p>
@@ -764,14 +767,6 @@ under <code class="docutils literal notranslate"><span class="pre">variations</s
 </ul>
 <p>This verifies that recorded variation order is independent of the number of
 parallel simulation environments.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>After completing the workflow, discard the temporary timeout edit by
-restoring <code class="docutils literal notranslate"><span class="pre">episode_length_s</span></code> in
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml</span></code> to
-<code class="docutils literal notranslate"><span class="pre">70.0</span></code>. The one-second timeout is only for this sample workflow and should
-not be retained for normal evaluations.</p>
-</div>
 </section>
 </section>
 
@@ -825,8 +820,8 @@ not be retained for normal evaluations.</p>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#record-settled-placement-layouts">Record Settled Placement Layouts</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#record-a-128-episode-evaluation">Record a 128-Episode Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#replay-with-three-parallel-environments">Replay with Three Parallel Environments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#record-variations-with-replayed-placement-layouts">Record Variations with Replayed Placement Layouts</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-experiment-with-replayed-variations-and-placement-layouts">Run Experiment with Replayed Variations and Placement Layouts</a></li>
 </ul>
   </nav></div>
 
