@@ -10,6 +10,9 @@ Adapted from nvblox_next.system.timer.
 Timers nest: a block entered inside another block records under the enclosing timer's name
 joined with its own, so the registry keys spell out the call tree.
 
+Timers are thread-safe. Nesting is tracked per thread, so a block on a worker thread records under
+its own name, not under a timer the thread that started the worker has open.
+
 Usage:
     from isaaclab_arena.utils.timer import Timer, print_timer_stats
 
@@ -28,7 +31,7 @@ import random
 import threading
 import time
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +40,9 @@ _reservoir_random_generator = random.Random()
 
 # Timing statistics accumulated over the process lifetime, keyed by qualified timer name.
 _timer_registry: dict[str, TimerStats] = {}
+
+# Guards the registry and its statistics, which timers on several threads update at once.
+_timer_registry_lock = threading.Lock()
 
 
 class _OpenTimerNames(threading.local):
@@ -106,12 +112,13 @@ class TimerStats:
 
 def _update_stats(name: str, elapsed_ms: float) -> None:
     """Create or update the registry entry for the given timer name."""
-    if name in _timer_registry:
-        _timer_registry[name].update(elapsed_ms)
-    else:
-        timer_stats = TimerStats()
-        timer_stats.update(elapsed_ms)
-        _timer_registry[name] = timer_stats
+    with _timer_registry_lock:
+        if name in _timer_registry:
+            _timer_registry[name].update(elapsed_ms)
+        else:
+            timer_stats = TimerStats()
+            timer_stats.update(elapsed_ms)
+            _timer_registry[name] = timer_stats
 
 
 class Timer:
@@ -174,8 +181,12 @@ class Timer:
 
 
 def get_timer_stats() -> dict[str, TimerStats]:
-    """Return a copy of the timer registry."""
-    return dict(_timer_registry)
+    """Return a snapshot of the timer registry that timers still running on other threads do not change."""
+    with _timer_registry_lock:
+        return {
+            name: replace(timer_stats, _reservoir=list(timer_stats._reservoir))
+            for name, timer_stats in _timer_registry.items()
+        }
 
 
 def get_timer_stats_json(app_name: str) -> list[dict]:
@@ -304,4 +315,5 @@ def print_timer_stats() -> None:
 
 def reset_timer_stats() -> None:
     """Clear the timer registry."""
-    _timer_registry.clear()
+    with _timer_registry_lock:
+        _timer_registry.clear()

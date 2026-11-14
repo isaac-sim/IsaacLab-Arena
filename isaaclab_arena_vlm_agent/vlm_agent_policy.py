@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from abc import abstractmethod
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
@@ -27,9 +27,11 @@ from isaaclab_arena.inference.backend import (
     INFERENCE_ENDPOINTS,
     InferenceBackend,
     InferenceRequest,
+    InferenceUsage,
     build_strict_schema,
 )
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
 from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
@@ -235,9 +237,14 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._last_actions: dict[int, torch.Tensor] = {}
         """Last action returned for each environment."""
 
+    def get_inference_usage(self) -> InferenceUsage:
+        """Return the endpoint, model, and the VLM requests and tokens since the policy was created."""
+        return self._inference_backend.usage
+
     def close(self) -> None:
         """Close the inference client and request threads owned by this policy."""
-        # Requests still in flight after a failed step are never read, so do not wait for them.
+        # A step returns or raises only after all its requests finish, so only an interrupted step leaves
+        # requests in flight; they are never read, so do not wait for them.
         self._request_executor.shutdown(wait=False, cancel_futures=True)
         self._inference_backend.client.close()
 
@@ -254,6 +261,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
 
         Environments that need a new prediction on this step request it concurrently, up to
         max_concurrent_requests at a time; the step returns once every request is validated.
+        A step that waits on the VLM records its wait under the "vlm_inference" timer.
         An environment without an active episode, whose rollout used up its episode budget, sends no
         request and holds its last action until the rollout ends. Holding keeps the robot still only
         when the adapter's actions are absolute targets.
@@ -286,9 +294,11 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 contents[env_id] = self._get_request_content(env, observation, env_id)
 
         # Request the new predictions concurrently and store them.
-        predictions = self._infer(contents, env.unwrapped.arena_world)
-        for env_id, prediction in predictions.items():
-            self._set_prediction(env_id, prediction)
+        if contents:
+            with Timer("vlm_inference"):
+                predictions = self._infer(contents, env.unwrapped.arena_world)
+            for env_id, prediction in predictions.items():
+                self._set_prediction(env_id, prediction)
 
         # Convert each active environment's next command into a native action.
         actions = []
@@ -357,6 +367,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         Each attempt sends every unresolved environment's request concurrently and then validates the
         responses on the calling thread, so adapters never read the world from a worker thread.
         Each environment keeps its own conversation, so corrections never leak across environments.
+        Each attempt's wait for its responses records under the "vlm_requests" timer.
 
         Args:
             contents: User-message content keyed by environment index.
@@ -381,7 +392,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         while conversations and attempts < self.config.max_attempts:
             attempts += 1
             # Step 2a: send all remaining requests at once.
-            model_outputs = self._get_model_outputs(conversations)
+            with Timer("vlm_requests"):
+                model_outputs = self._get_model_outputs(conversations)
             # Step 2b: check each output here, on the main thread.
             for env_id, model_output in model_outputs.items():
                 try:
@@ -411,6 +423,9 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
     def _get_model_outputs(self, conversations: dict[int, list[dict]]) -> dict[int, dict[str, Any]]:
         """Send one structured-output request per conversation, up to max_concurrent_requests at a time.
 
+        Returns or raises only after every request finishes, so a failed request leaves no other request
+        in flight whose usage and latency would be missing when the rollout ends.
+
         Args:
             conversations: Chat messages keyed by environment index.
 
@@ -428,9 +443,13 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 )
             )
         # Launch all requests at once.
-        pending_outputs = self._request_executor.map(self._inference_backend.infer, requests)
-        # Wait for all requests. This is the slow part of a step.
-        model_outputs = list(pending_outputs)
+        pending_outputs = [
+            self._request_executor.submit(self._inference_backend.infer, request) for request in requests
+        ]
+        # Wait for all requests, even after one fails. This is the slow part of a step.
+        wait(pending_outputs)
+        # Raises the error of the first failed environment.
+        model_outputs = [pending_output.result() for pending_output in pending_outputs]
         return dict(zip(conversations, model_outputs))
 
     def _model_output_to_command(

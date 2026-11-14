@@ -14,6 +14,7 @@ import subprocess
 import sys
 import textwrap
 import threading
+import time
 import torch
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -22,7 +23,13 @@ import pytest
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
-from isaaclab_arena.inference.backend import InferenceBackend, build_strict_schema
+from isaaclab_arena.inference.backend import (
+    INFERENCE_REQUEST_TIMER_NAME,
+    InferenceBackend,
+    InferenceUsage,
+    build_strict_schema,
+)
+from isaaclab_arena.utils.timer import get_timer_stats, reset_timer_stats
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 from isaaclab_arena_vlm_agent.motion_generator import MotionGenerator
@@ -418,14 +425,14 @@ class JointMotionGenerator(MotionGenerator):
         return np.clip(goal - positions, -self.max_step, self.max_step)
 
 
-def make_multi_step_policy(backend, adapter, *, max_steps_per_goal=2):
+def make_multi_step_policy(backend, adapter, *, max_steps_per_goal=2, max_attempts=1):
     if isinstance(adapter, ChunkActionAdapter):
         policy_type = VLMChunkPolicy
         config = VLMPolicyCfg(
             model="test-model",
             endpoint="internal",
             system_prompt="Control these joints.",
-            max_attempts=1,
+            max_attempts=max_attempts,
             max_concurrent_requests=1,
         )
     else:
@@ -434,7 +441,7 @@ def make_multi_step_policy(backend, adapter, *, max_steps_per_goal=2):
             model="test-model",
             endpoint="internal",
             system_prompt="Control these joints.",
-            max_attempts=1,
+            max_attempts=max_attempts,
             max_concurrent_requests=1,
             max_steps_per_goal=max_steps_per_goal,
         )
@@ -559,6 +566,32 @@ def test_inactive_environment_keeps_its_unfinished_goal_without_requests(backend
     assert backend.client.chat.completions.create.call_count == 3
     assert policy._current_goals[1][1] == 1
     assert 1 not in policy._previous_goals
+
+
+def test_vlm_timers_count_steps_that_wait_and_request_rounds(backend):
+    chunk = response('{"actions": [[1, 2], [3, 4]]}')
+    short_chunk = response('{"actions": [[1, 2]]}')
+    # Requests are serial, so responses arrive in environment order within each round.
+    backend.client.chat.completions.create.side_effect = [chunk, chunk, short_chunk, chunk, chunk]
+    policy = make_multi_step_policy(backend, JointChunkAdapter(chunk_size=2), max_attempts=2)
+    env, observation = inputs()
+    reset_timer_stats()
+    try:
+        # The first step requests a chunk; the second replays it without waiting on the VLM.
+        policy.get_action(env, observation)
+        policy.get_action(env, observation)
+        timer_stats = get_timer_stats()
+        assert timer_stats["vlm_inference"].count == 1
+        assert timer_stats["vlm_inference/vlm_requests"].count == 1
+
+        # The third step waits once, through env 0's rejected response and its correction.
+        policy.get_action(env, observation)
+        timer_stats = get_timer_stats()
+        assert timer_stats["vlm_inference"].count == 2
+        assert timer_stats["vlm_inference/vlm_requests"].count == 3
+    finally:
+        reset_timer_stats()
+        policy.close()
 
 
 @pytest.mark.parametrize(
@@ -788,6 +821,80 @@ def test_empty_choices_retry_without_correction_message(backend):
     calls = backend.client.chat.completions.create.call_args_list
     assert len(calls) == 3
     assert calls[0].kwargs["messages"] == calls[1].kwargs["messages"]
+
+
+def test_inference_usage_counts_every_request_and_reported_tokens(backend):
+    with_usage = response('{"target": [1, 2]}')
+    with_usage.usage = SimpleNamespace(prompt_tokens=100, completion_tokens=7)
+    backend.client.chat.completions.create.side_effect = [
+        ConnectionError("endpoint unreachable"),  # Retried by the backend.
+        with_usage,
+        response('{"target": [1, 2]}'),  # Reports no usage.
+    ]
+    policy = make_policy(backend)
+    reset_timer_stats()
+    try:
+        policy.get_action(*inputs())
+        assert policy.get_inference_usage() == InferenceUsage(
+            endpoint="internal",
+            model="test-model",
+            num_requests=3,
+            num_responses_without_usage=1,
+            prompt_tokens=100,
+            completion_tokens=7,
+        )
+        # Every request records its latency, including the failed one.
+        assert get_timer_stats()[INFERENCE_REQUEST_TIMER_NAME].count == 3
+    finally:
+        reset_timer_stats()
+        policy.close()
+
+
+def test_concurrent_requests_each_record_their_own_latency(backend):
+    request_seconds = 0.05
+    # Each request waits for the other, so both are in flight at once.
+    both_requests_sent = threading.Barrier(2)
+
+    def create(**kwargs):
+        both_requests_sent.wait(timeout=5)
+        time.sleep(request_seconds)
+        return response('{"target": [1, 2]}')
+
+    backend.client.chat.completions.create.side_effect = create
+    policy = make_policy(backend, max_concurrent_requests=2)
+    reset_timer_stats()
+    try:
+        policy.get_action(*inputs())
+        assert policy.get_inference_usage().num_requests == 2
+        # Both requests record their own latency, though they overlap in time. Each runs on a worker
+        # thread, so its timer is not nested under the step's timers on the calling thread.
+        request_timer_stats = get_timer_stats()[INFERENCE_REQUEST_TIMER_NAME]
+        assert request_timer_stats.count == 2
+        assert request_timer_stats.min_ms >= request_seconds * 1e3
+    finally:
+        reset_timer_stats()
+        policy.close()
+
+
+def test_failed_request_raises_after_the_other_requests_of_its_step_finish(backend, monkeypatch):
+    finished_requests = []
+
+    def infer(request):
+        if request.retry_label == "policy_action env 0":
+            raise RuntimeError("env 0 failed")
+        time.sleep(0.05)
+        finished_requests.append(request.retry_label)
+        return {"target": [1, 2]}
+
+    monkeypatch.setattr(backend, "infer", infer)
+    policy = make_policy(backend, max_concurrent_requests=2)
+    try:
+        with pytest.raises(RuntimeError, match="env 0 failed"):
+            policy.get_action(*inputs())
+        # No request is left in flight, so its usage and latency are recorded before the rollout ends.
+        assert finished_requests == ["policy_action env 1"]
+    finally:
+        policy.close()
 
 
 def test_missing_camera_keys_fail_before_inference(backend):

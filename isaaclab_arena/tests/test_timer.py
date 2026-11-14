@@ -7,6 +7,7 @@
 
 import json
 import random
+import threading
 
 import pytest
 
@@ -203,6 +204,39 @@ class TestTimer:
         """Verify the context manager yields the Timer instance."""
         with Timer("self_test") as timer:
             assert timer.name == "self_test"
+
+    def test_timers_on_several_threads_record_every_measurement(self) -> None:
+        """Verify concurrent worker-thread timers record under their own names without losing measurements."""
+        num_threads = 8
+        num_timings_per_thread = 200
+
+        def time_blocks() -> None:
+            for _ in range(num_timings_per_thread):
+                with Timer("worker"):
+                    pass
+
+        with Timer("main"):
+            threads = [threading.Thread(target=time_blocks) for _ in range(num_threads)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+        stats = get_timer_stats()
+        assert set(stats) == {"main", "worker"}
+        assert stats["worker"].count == num_threads * num_timings_per_thread
+
+    def test_stats_snapshot_does_not_change_with_later_timings(self) -> None:
+        """Verify get_timer_stats returns copies that later measurements leave unchanged."""
+        with Timer("op"):
+            pass
+        snapshot = get_timer_stats()
+        with Timer("op"):
+            pass
+
+        assert snapshot["op"].count == 1
+        assert len(snapshot["op"]._reservoir) == 1
+        assert get_timer_stats()["op"].count == 2
 
 
 class TestPrintTimerStats:
