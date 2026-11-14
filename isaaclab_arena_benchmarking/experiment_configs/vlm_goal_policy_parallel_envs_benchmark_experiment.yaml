@@ -30,7 +30,7 @@ shared:
     observation_modality: image_state
     max_steps_per_goal: 30
   rollout_limit:
-    # Three episodes per environment.
+    # Shared by the 4 environments; each new episode starts on whichever environment finishes first.
     num_episodes: 12
 
 runs:

@@ -65,7 +65,6 @@ def test_parallel_envs_benchmarks_differ_only_by_number_of_environments(load_exp
     (parallel_run,) = parallel_experiment.runs.values()
     # Every environment's request is sent at once.
     assert 1 < parallel_run.environment_builder.num_envs <= parallel_run.policy.max_concurrent_requests
-    assert parallel_run.rollout_limit.num_episodes % parallel_run.environment_builder.num_envs == 0
     expected_parallel_run = replace(
         run,
         name=parallel_run.name,
