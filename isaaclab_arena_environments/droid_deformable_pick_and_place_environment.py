@@ -25,12 +25,15 @@ def _configure_newton_deformable_physics(
     """Couple Newton rigid bodies to the VBD deformable solver."""
     from isaaclab_contrib.coupling import CouplerEntryCfg, CouplerProxyCfg, CouplerProxyMappingCfg
     from isaaclab_newton.physics import NewtonCfg, NewtonSoftContactCfg, VBDSolverCfg
+    from isaaclab_newton.sim.schemas import NewtonCollisionCfg
 
     physics_cfg = env_cfg.sim.physics
     assert isinstance(physics_cfg, NewtonCfg), (
         "Newton deformable pick objects need the Newton backend. Omit --presets, or use a PhysX asset such as "
         "--pick_object deformable_cube_physx."
     )
+    # Inflate only the plate collider to avoid cube face penetration at the thin rim.
+    env_cfg.scene.plate.spawn.collision_props = [NewtonCollisionCfg(contact_margin=0.002)]
     rigid_solver_cfg = physics_cfg.solver_cfg
     all_environment_bodies = [r"/World/envs/env_[^/]+/.*"]
     deformable_contact_bodies = [
@@ -39,7 +42,7 @@ def _configure_newton_deformable_physics(
         r"/World/envs/env_[^/]+/plate(?:/.*)?",
     ]
     soft_solver_cfg = VBDSolverCfg(
-        iterations=15,
+        iterations=30,
         rigid_body_contact_buffer_size=1024,
         rigid_body_particle_contact_buffer_size=8192,
     )
@@ -71,7 +74,8 @@ def _configure_newton_deformable_physics(
             iterations=1,
         ),
         soft_contact_cfg=NewtonSoftContactCfg(
-            soft_contact_ke=1.0e3,
+            # Keep it comparable to the cube's elastic stiffness under gripper loads.
+            soft_contact_ke=1.0e5,
             soft_contact_kd=10.0,
             soft_contact_mu=3.0,
         ),
