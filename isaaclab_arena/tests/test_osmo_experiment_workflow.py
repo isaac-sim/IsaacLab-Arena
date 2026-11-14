@@ -49,7 +49,12 @@ from osmo.tasks.experiment_runner_task import (
     ExperimentRunnerTaskCfg,
 )
 from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
-from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
+from osmo.tasks.pi0_server_task import (
+    DEFAULT_GPU_MEMORY,
+    REMOTE_GPU_MEMORY_FRACTION_SCRIPT_PATH,
+    Pi0ServerTask,
+    Pi0ServerTaskCfg,
+)
 from osmo.workflows.arena_experiment_workflow import EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS, ArenaExperimentWorkflow
 from osmo.workflows.dreamzero_split_workflows import DreamZeroEvaluationTaskCfg, DreamZeroEvaluationWorkflow
 from osmo.workflows.workflow import WorkflowCfg, osmo_duration_to_seconds
@@ -1103,6 +1108,29 @@ def test_pi0_server_cfg_rejects_mismatched_variant_and_config():
     """Reject a server config whose checkpoint fields do not match policy_variant."""
     with pytest.raises(AssertionError, match="policy_config.*serves variant 'pi05'.*policy_variant 'pi0'"):
         Pi0ServerTaskCfg(policy_variant="pi0")
+
+
+def test_pi0_server_gpu_memory_follows_the_client():
+    """The client's server_gpu_memory becomes the server's reservation, half the GPU when the client sets none."""
+    assert Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg()).gpu_memory == DEFAULT_GPU_MEMORY
+    task_cfg = Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(server_gpu_memory="12GB"))
+    assert task_cfg.gpu_memory == "12GB"
+    task = Pi0ServerTask(task_cfg, lead=False, task_name="policy-server-0")
+    task_dict = task.create_task_dict()
+    server_command = _task_file(task_dict, "/tmp/entry.sh")["contents"]
+    assert (
+        f'export XLA_PYTHON_CLIENT_MEM_FRACTION="$(bash {REMOTE_GPU_MEMORY_FRACTION_SCRIPT_PATH} 12GB)"'
+        in server_command
+    )
+    helper = _task_file(task_dict, REMOTE_GPU_MEMORY_FRACTION_SCRIPT_PATH)["contents"]
+    assert "gpu_memory_fraction()" in helper
+
+
+@pytest.mark.parametrize("gpu_memory", ["0", "1.5", "12", "12TB", "abc"])
+def test_pi0_server_cfg_rejects_invalid_gpu_memory(gpu_memory):
+    """Reject a reservation that is neither a fraction in (0, 1] nor a size with a GB or MB unit."""
+    with pytest.raises(AssertionError, match="gpu_memory must be a fraction"):
+        Pi0ServerTaskCfg(gpu_memory=gpu_memory)
 
 
 def test_pi0_server_quotes_configurable_shell_values():

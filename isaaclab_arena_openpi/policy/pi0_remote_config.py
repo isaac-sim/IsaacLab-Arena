@@ -31,3 +31,8 @@ class Pi0RemotePolicyCfg(PolicyCfg):
 
     ping_timeout: float | None = 300.0
     """Seconds to wait for a keepalive pong before dropping, or None to wait indefinitely."""
+
+    server_gpu_memory: str | None = None
+    """GPU memory the OSMO-launched server reserves for JAX: a fraction of the GPU such as ``"0.75"`` or a size
+    such as ``"12GB"``, or None for the server's default of half the GPU. A locally started server takes the
+    same value through ``run_openpi_server.sh -m``."""
