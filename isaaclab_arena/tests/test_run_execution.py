@@ -20,6 +20,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.relations.placement_diagnostics import (
@@ -120,6 +121,25 @@ def _run(**overrides):
 
 def _experiment(*run_cfgs: ArenaRunCfg) -> ArenaExperimentCfg:
     return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs}, name="experiment")
+
+
+@pytest.mark.parametrize("environment_type", ["graph", "python"])
+def test_build_arena_builder_from_run_cfg_preserves_environment_callback(monkeypatch, environment_type):
+    def environment_callback(env_cfg):
+        return env_cfg
+
+    arena_env = SimpleNamespace(env_cfg_callback=environment_callback)
+    builder = SimpleNamespace(arena_env=arena_env)
+    run = _run(environment_builder=ArenaEnvBuilderCfg(env_cfg_override={"episode_length_s": 1.0}))
+    if environment_type == "graph":
+        run.environment = LegacyGraphEnvironmentCfg(env_spec_path="environment.yaml")
+        builder_factory = "build_arena_builder_from_legacy_graph"
+    else:
+        builder_factory = "_build_arena_builder_from_cfg"
+    monkeypatch.setattr(run_execution, builder_factory, lambda *args, **kwargs: builder)
+
+    assert run_execution.build_arena_builder_from_run_cfg(run) is builder
+    assert arena_env.env_cfg_callback is environment_callback
 
 
 def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):
