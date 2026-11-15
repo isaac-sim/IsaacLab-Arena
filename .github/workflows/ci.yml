@@ -35,6 +35,7 @@ env:
   OMNICLIENT_HUB_MODE: disabled
 
 
+jobs:
 
   gpu_inventory:
     name: GPU Runner Inventory
