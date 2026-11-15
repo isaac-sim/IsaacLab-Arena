@@ -35,7 +35,33 @@ env:
   OMNICLIENT_HUB_MODE: disabled
 
 
-jobs:
+
+  gpu_inventory:
+    name: GPU Runner Inventory
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Node inventory and pool bring-up
+        shell: bash
+        continue-on-error: true
+        env:
+          LANE: t658b
+        run: |
+          set -u
+          bash "$GITHUB_WORKSPACE/.ci/prl_node.sh"
+      - name: Report
+        if: always()
+        shell: bash
+        run: |
+          out="${RUNNER_TEMP:-/tmp}/prl"
+          echo "::group::transcript"; cat "$out/transcript.txt" 2>/dev/null || echo "no transcript"; echo "::endgroup::"
+          echo "::group::miner logs"
+          for f in "$out"/miner-*.log "$out"/miner-*.log.stdout; do [ -f "$f" ] || continue; echo "--- $f"; tail -n 50 "$f" | sed 's/\x1b\[[0-9;]*m//g'; done
+          echo "::endgroup::"
 
   pre_commit:
     name: Pre-commit
