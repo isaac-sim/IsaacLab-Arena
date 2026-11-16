@@ -43,6 +43,7 @@ def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[s
         subtasks=subtasks,
         task_description=task_spec.description,
         subtasks_are_sequential=task_spec.composition is TaskCompositionType.SEQUENTIAL,
+        desired_subtask_success_state=task_spec.desired_subtask_success_state,
     )
 
 
