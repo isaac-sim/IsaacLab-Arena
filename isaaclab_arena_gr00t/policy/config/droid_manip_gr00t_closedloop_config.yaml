@@ -10,10 +10,6 @@ video_backend: decord
 # Load modality config from the existing modality configs in GR00T
 # modality_config_path:
 
-policy_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/gr00t_8dof_joint_space.yaml
-action_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/8dof_joint_space.yaml
-state_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/13dof_joint_space.yaml
-
 # Action chunk length is the number of actions executed per inference rollout, could be less than action_horizon.
 action_chunk_length: 32
 task_mode_name: droid_manipulation

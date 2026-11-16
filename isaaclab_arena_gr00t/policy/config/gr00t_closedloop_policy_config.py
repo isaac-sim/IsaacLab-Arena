@@ -40,28 +40,35 @@ class Gr00tClosedloopPolicyCfg:
         default=(480, 640, 3),
         metadata={"description": "Target size for images after resizing and padding as (height, width, channels)."},
     )
-    policy_joints_config_path: Path = field(
-        default=Path(__file__).parent.resolve() / "config" / "g1" / "gr00t_43dof_joint_space.yaml",
-        metadata={"description": "Path to the YAML file specifying the joint ordering configuration for GR00T policy."},
-    )
-    task_mode_name: str = field(
-        default=TaskMode.G1_LOCOMANIPULATION.value,
-        metadata={"description": "Task option name of the policy inference."},
-    )
-    # robot simulation specific parameters
-    action_joints_config_path: Path = field(
-        default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
+    policy_joints_config_path: Path | None = field(
+        default=None,
         metadata={
             "description": (
-                "Path to the YAML file specifying the joint ordering configuration for GR1 action space in Lab."
+                "Path to the YAML file listing the GR00T joint groups by sim joint name. Required by joint-space"
+                " embodiment adapters."
             )
         },
     )
-    state_joints_config_path: Path = field(
-        default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
+    task_mode_name: str = field(
+        default=TaskMode.G1_LOCOMANIPULATION.value,
+        metadata={"description": "Task option name of the policy inference; selects the embodiment adapter."},
+    )
+    # robot simulation specific parameters
+    action_joints_config_path: Path | None = field(
+        default=None,
         metadata={
             "description": (
-                "Path to the YAML file specifying the joint ordering configuration for GR1 state space in Lab."
+                "Path to the YAML file specifying the sim action joint order. Required by joint-space embodiment"
+                " adapters."
+            )
+        },
+    )
+    state_joints_config_path: Path | None = field(
+        default=None,
+        metadata={
+            "description": (
+                "Path to the YAML file specifying the sim state joint order. Required by joint-space embodiment"
+                " adapters."
             )
         },
     )
@@ -87,16 +94,16 @@ class Gr00tClosedloopPolicyCfg:
         assert (
             self.action_chunk_length <= self.action_horizon
         ), "action_chunk_length must be less than or equal to action_horizon"
-        # assert all paths exist
-        assert Path(
-            self.policy_joints_config_path
-        ).exists(), f"policy_joints_config_path does not exist: {self.policy_joints_config_path}"
-        assert Path(
-            self.action_joints_config_path
-        ).exists(), f"action_joints_config_path does not exist: {self.action_joints_config_path}"
-        assert Path(
-            self.state_joints_config_path
-        ).exists(), f"state_joints_config_path does not exist: {self.state_joints_config_path}"
+        # assert all configured paths exist
+        assert (
+            self.policy_joints_config_path is None or Path(self.policy_joints_config_path).exists()
+        ), f"policy_joints_config_path does not exist: {self.policy_joints_config_path}"
+        assert (
+            self.action_joints_config_path is None or Path(self.action_joints_config_path).exists()
+        ), f"action_joints_config_path does not exist: {self.action_joints_config_path}"
+        assert (
+            self.state_joints_config_path is None or Path(self.state_joints_config_path).exists()
+        ), f"state_joints_config_path does not exist: {self.state_joints_config_path}"
         if self.modality_config_path:
             assert Path(
                 self.modality_config_path

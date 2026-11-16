@@ -10,7 +10,8 @@ import torch
 import yaml
 from dataclasses import fields
 from pathlib import Path
-from typing import Any, TypeVar, Union
+from types import UnionType
+from typing import Any, TypeVar, Union, get_args, get_origin
 
 # Generic type variable for configuration classes
 ConfigType = TypeVar("ConfigType")
@@ -109,10 +110,8 @@ def load_robot_joints_config_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
 
 def convert_yaml_value(field_type: type, value: Any) -> Any:
     """Convert YAML value to the appropriate type based on field type annotation."""
-    # Handle Path fields
-    if field_type == Path or (
-        hasattr(field_type, "__origin__") and field_type.__origin__ is Union and Path in field_type.__args__
-    ):
+    # Handle Path fields, including Optional[Path] and Path | None
+    if field_type == Path or (get_origin(field_type) in (Union, UnionType) and Path in get_args(field_type)):
         if isinstance(value, str):
             return Path(value)
         return value

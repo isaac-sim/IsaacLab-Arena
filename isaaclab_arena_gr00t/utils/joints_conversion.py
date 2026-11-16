@@ -44,13 +44,6 @@ def _joint_name_to_policy_group(
             return "waist"
         return None
 
-    if tag == "OXE_DROID":
-        # DROID: policy groups are joint_position, gripper_position
-        for group, names in policy_joints_config.items():
-            if joint_name in names:
-                return group
-        return None
-
     # Fallback: find the policy group that contains this joint name
     for group, names in policy_joints_config.items():
         if joint_name in names:
