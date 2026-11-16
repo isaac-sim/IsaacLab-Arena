@@ -71,15 +71,6 @@ still implement ``PolicyBase``, and the runners treat them like any other policy
 converts chunks into per-step actions through a configurable ``ActionScheduler`` (see
 `action_scheduling/ <https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaaclab_arena/policy/action_scheduling>`__).
 
-The GR00T client has its own ``Gr00tEmbodimentAdapter``, because GR00T sends all environments in
-one request and keys state and actions by modality. ``extract_state_np`` returns the GR00T state
-arrays, ``build_action_np`` turns GR00T's action dictionary into environment actions, and
-``build_hold_action`` gives the action that waiting environments hold. The policy config's
-``task_mode_name`` selects the adapter. ``Gr00tDroidAdapter`` reads the DROID embodiment's
-``joint_pos`` and ``gripper_pos`` observations, so the gripper state uses the same 0 (open) to 1
-(closed) range as the gripper action. ``Gr00tJointSpaceAdapter`` maps raw sim joint positions
-to GR00T joint groups by name for GR1 and G1.
-
 
 Add a model or a robot
 ----------------------
@@ -87,8 +78,7 @@ Add a model or a robot
 To run an existing model on a new robot, write an ``EmbodimentAdapter`` for that robot's
 cameras, joint state, and action layout. Then add its name to the client's adapter lookup,
 which ``cosmos_embodiment_adapter`` or ``openpi_embodiment_adapter`` selects. The transport
-does not change. For GR00T, subclass ``Gr00tEmbodimentAdapter`` and add it to
-``create_gr00t_embodiment_adapter``.
+does not change.
 
 To add a model whose server speaks the OpenPI protocol, subclass ``RemoteChunkReplayPolicy`` and
 ``PolicyBase[YourCfg]``. Set ``name`` and ``server_response_actions_key``, and pass your adapter
