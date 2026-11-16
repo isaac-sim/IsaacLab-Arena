@@ -156,6 +156,10 @@ def record_spatial_memory_episode(env, env_id: int) -> dict[str, Any]:
             "action_phase_s": int(runtime.action_phase_steps[env_id]) * step_dt,
             "hidden_targets_seen_in_action_phase": hidden_violations,
             "targets_seen_before_action_phase": seen_before_action,
+            "visible_in_action_phase_s": {
+                name: int(runtime.visible_steps_in_action[env_id, index]) * step_dt
+                for index, name in enumerate(runtime.target_names)
+            },
             "static_max_displacement_m": float(runtime.static_max_displacement_m[env_id]),
             "tool_path_length_m": float(runtime.path_length_m[env_id]),
         }
