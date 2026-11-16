@@ -21,6 +21,8 @@ from __future__ import annotations
 import numpy as np
 import sys
 import torch
+import yaml
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -29,8 +31,9 @@ import pytest
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.policy import action_scheduling
 from isaaclab_arena_gr00t.policy import gr00t_remote_closedloop_policy as gr00t_policy
-from isaaclab_arena_gr00t.policy.gr00t_core import extract_obs_numpy_from_torch
+from isaaclab_arena_gr00t.policy.gr00t_core import apply_state_overrides, extract_obs_numpy_from_torch
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
+from isaaclab_arena_gr00t.utils.io_utils import to_numpy
 
 pytestmark = pytest.mark.gr00t_policy
 
@@ -64,6 +67,16 @@ def policy_config_yaml():
     return (
         Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
     )
+
+
+@pytest.fixture
+def policy_config_with_state_override(tmp_path, policy_config_yaml):
+    """Configure a scalar observation override for a G1 arm joint."""
+    config = yaml.safe_load(Path(policy_config_yaml).read_text())
+    config["state_observation_overrides"] = {"left_shoulder_pitch_joint": "replacement"}
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump(config))
+    return str(path)
 
 
 @pytest.fixture
@@ -272,48 +285,80 @@ def test_observation_overrides_preserve_input_and_other_joint_columns(as_numpy):
         "proprio": joint_observations,
     }
 
-    _, state_values = extract_obs_numpy_from_torch(
+    _, joint_values = extract_obs_numpy_from_torch(
         observation,
         ["camera"],
         joint_group_key="proprio",
         joint_pos_name="joint_state",
-        joint_observation_overrides={1: "scaled_position", 3: "sensor_value"},
+    )
+    np.testing.assert_array_equal(joint_values, original_positions)
+    state_values = apply_state_overrides(
+        joint_values,
+        {1: to_numpy(joint_observations["scaled_position"]), 3: to_numpy(joint_observations["sensor_value"])},
     )
 
     np.testing.assert_array_equal(state_values[:, 1], [0.25, 0.75])
     np.testing.assert_array_equal(state_values[:, 3], [1.5, -2.25])
     np.testing.assert_array_equal(state_values[:, [0, 2]], original_positions[:, [0, 2]])
+    assert state_values.dtype == joint_values.dtype
     np.testing.assert_array_equal(joint_positions.numpy(), original_positions)
 
 
 @pytest.mark.parametrize("replacement_shape", [(NUM_ENVS,), (NUM_ENVS, 2), (1, 1)])
-def test_observation_override_requires_one_scalar_per_env(synthetic_observation, replacement_shape):
+def test_observation_override_requires_one_scalar_per_env(replacement_shape):
     """Reject shapes that could broadcast one environment's value across the batch."""
-    synthetic_observation["policy"]["replacement"] = torch.zeros(replacement_shape)
-
-    with pytest.raises(AssertionError, match="Observation replacement has shape"):
-        extract_obs_numpy_from_torch(
-            synthetic_observation, ["robot_head_cam_rgb"], joint_observation_overrides={1: "replacement"}
-        )
+    with pytest.raises(AssertionError, match="State override for column 1 has shape"):
+        apply_state_overrides(np.zeros((NUM_ENVS, NUM_SIM_JOINTS)), {1: np.zeros(replacement_shape)})
 
 
 @pytest.mark.parametrize("joint_index", [-1, NUM_SIM_JOINTS])
-def test_observation_override_rejects_invalid_joint_index(synthetic_observation, joint_index):
+def test_observation_override_rejects_invalid_joint_index(joint_index):
     """Reject indices outside the joint-state matrix, including negative indexing."""
-    synthetic_observation["policy"]["replacement"] = torch.zeros((NUM_ENVS, 1))
-
     with pytest.raises(AssertionError, match=f"Joint index {joint_index} is outside"):
-        extract_obs_numpy_from_torch(
-            synthetic_observation, ["robot_head_cam_rgb"], joint_observation_overrides={joint_index: "replacement"}
-        )
+        apply_state_overrides(np.zeros((NUM_ENVS, NUM_SIM_JOINTS)), {joint_index: np.zeros((NUM_ENVS, 1))})
 
 
-def test_observation_override_requires_source_observation(synthetic_observation):
+def test_observation_override_requires_source_observation(
+    policy_config_with_state_override, synthetic_observation, fake_client_factory
+):
     """A missing replacement must not silently retain a raw joint value."""
+    clients = fake_client_factory()
+    policy = _build_policy(policy_config_with_state_override)
+    policy.set_task_description("pick up the brown box")
     with pytest.raises(AssertionError, match="replacement is not in policy"):
-        extract_obs_numpy_from_torch(
-            synthetic_observation, ["robot_head_cam_rgb"], joint_observation_overrides={1: "replacement"}
-        )
+        policy._get_action_chunk(synthetic_observation, ["robot_head_cam_rgb"])
+    assert clients[0].get_action_calls == 0
+
+
+def test_state_override_from_yaml_applies_to_non_droid_policy(
+    policy_config_with_state_override, synthetic_observation, fake_client_factory
+):
+    """The YAML mapping selects observations without requiring a DROID task mode."""
+    clients = fake_client_factory()
+    policy = _build_policy(policy_config_with_state_override)
+    policy.set_task_description("pick up the brown box")
+    original_positions = synthetic_observation["policy"]["robot_joint_pos"].clone()
+    replacement = torch.tensor([[0.25], [0.75]])
+    synthetic_observation["policy"]["replacement"] = replacement
+
+    policy._get_action_chunk(synthetic_observation, ["robot_head_cam_rgb"])
+
+    sent = clients[0].last_observation
+    np.testing.assert_array_equal(sent["state"]["left_arm"][:, 0, 0], replacement[:, 0].numpy())
+    torch.testing.assert_close(synthetic_observation["policy"]["robot_joint_pos"], original_positions)
+
+
+def test_state_override_rejects_unknown_joint_before_connecting(tmp_path, policy_config_yaml, fake_client_factory):
+    """Reject misspelled state joints during initialization before contacting the server."""
+    config = yaml.safe_load(Path(policy_config_yaml).read_text())
+    config["state_observation_overrides"] = {"missing_joint": "replacement"}
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump(config))
+    clients = fake_client_factory()
+
+    with pytest.raises(AssertionError, match="Unknown state joint in overrides: missing_joint"):
+        _build_policy(str(path))
+    assert not clients
 
 
 def test_action_response_is_translated_to_correct_tensor_shape(

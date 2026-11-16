@@ -65,6 +65,13 @@ class Gr00tClosedloopPolicyCfg:
             )
         },
     )
+    state_observation_overrides: dict[str, str] = field(
+        default_factory=dict,
+        metadata={
+            "description": "Simulation joint names mapped to scalar observations in the policy observation group."
+        },
+    )
+
     # Default to GPU policy and CPU physics simulation
     policy_device: str = field(
         default="cuda", metadata={"description": "Device to run the policy model on (e.g., 'cuda' or 'cpu')."}

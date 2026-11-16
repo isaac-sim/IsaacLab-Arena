@@ -23,13 +23,14 @@ from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyCfg,
+    apply_state_overrides,
     build_gr00t_action_tensor,
     build_gr00t_policy_observations,
     compute_action_dim,
     extract_obs_numpy_from_torch,
     load_gr00t_joint_configs,
 )
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
+from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file, to_numpy
 
 
 class ActionSchedulerType(str, Enum):
@@ -115,6 +116,12 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             self.robot_state_joints_config,
         ) = load_gr00t_joint_configs(self.policy_config)
 
+        self._state_observation_overrides: dict[int, str] = {}
+        for joint_name, observation_name in self.policy_config.state_observation_overrides.items():
+            assert joint_name in self.robot_state_joints_config, f"Unknown state joint in overrides: {joint_name}"
+            joint_index = self.robot_state_joints_config[joint_name]
+            self._state_observation_overrides[joint_index] = observation_name
+
         self.modality_configs = load_gr00t_modality_config_from_file(
             self.policy_config.modality_config_path,
             self.policy_config.embodiment_tag,
@@ -196,17 +203,18 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         # 1. Reuse the same obs translation as local policy
         assert self.task_description is not None, "Task description is not set"
         assert self._client is not None, "GR00T remote policy has been closed"
-        joint_observation_overrides = {}
-        if self.task_mode is TaskMode.DROID_MANIPULATION:
-            joint_observation_overrides[self.robot_state_joints_config["finger_joint"]] = "gripper_pos"
-        rgb_list_np, state_values_np = extract_obs_numpy_from_torch(
+        rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(
             nested_obs=observation,
             camera_names=camera_names,
-            joint_observation_overrides=joint_observation_overrides,
         )
+        overrides = {}
+        for joint_index, observation_name in self._state_observation_overrides.items():
+            assert observation_name in observation["policy"], f"{observation_name} is not in policy"
+            overrides[joint_index] = to_numpy(observation["policy"][observation_name])
+        state_values_np = apply_state_overrides(joint_pos_sim_np, overrides)
         policy_observations = build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
-            joint_pos_sim_np=state_values_np,
+            state_values_np=state_values_np,
             task_description=self.task_description,
             policy_config=self.policy_config,
             robot_state_joints_config=self.robot_state_joints_config,

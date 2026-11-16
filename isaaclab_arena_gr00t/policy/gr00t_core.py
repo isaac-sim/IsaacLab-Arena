@@ -9,9 +9,9 @@ This module is the single source of truth (SSOT) for GR00T closed-loop policy
 logic. It is structured so that:
 
 - **Torch/numpy conversion is isolated at boundaries**: observations convert to
-  numpy once via ``extract_obs_numpy_from_torch``; core logic is numpy-only;
+  numpy at the policy boundary; core logic is numpy-only;
   actions convert back to torch only in ``action_numpy_to_tensor``.
-- **Core logic is modular and numpy-only**: ``resize_rgb_for_policy``,
+- **Core logic is modular and numpy-only**: ``apply_state_overrides``, ``resize_rgb_for_policy``,
   ``remap_sim_joints_to_policy_joints_from_np`` (in joints_conversion),
   ``build_gr00t_policy_observations``, and ``build_gr00t_action_np`` do not
   use torch.
@@ -165,12 +165,8 @@ def extract_obs_numpy_from_torch(
     camera_group_key: str = "camera_obs",
     joint_group_key: str = "policy",
     joint_pos_name: str = "robot_joint_pos",
-    joint_observation_overrides: dict[int, str] | None = None,
 ) -> tuple[list[np.ndarray], np.ndarray]:
-    """Convert camera and joint-state observations to numpy, applying optional column overrides.
-
-    Overrides replace selected joint-state columns with scalar observations from the
-    same group. They apply to a copy, preserving the source observations.
+    """Convert camera and raw joint-position observations to numpy.
 
     Args:
         nested_obs: Env observation with camera_group_key (per-camera tensors)
@@ -179,42 +175,53 @@ def extract_obs_numpy_from_torch(
         camera_group_key: Top-level key for camera data in observation (default "camera_obs").
         joint_group_key: Top-level key for joint data in observation (default "policy").
         joint_pos_name: Key for the joint position array (default "robot_joint_pos").
-        joint_observation_overrides: Joint-state column index -> observation name
-            in joint_group_key. Each replacement observation must have shape (N, 1).
 
     Returns:
         rgb_list_np: List of (N, H, W, C) uint8 numpy arrays, one per camera.
-        state_values_np: (N, num_joints) numpy array in sim joint order, retaining
-            the joint array's dtype. Overridden columns contain policy state values
-            rather than raw joint positions.
+        joint_pos_sim_np: (N, num_joints) numpy array in sim joint order, retaining
+            the joint array's dtype.
     """
 
     rgb_list_np = _extract_rgb_from_nested_obs(
         nested_obs=nested_obs, camera_names=camera_names, group_key=camera_group_key, convert_to_numpy=True
     )
-    state_values_np = _extract_joints_from_nested_obs(
+    joint_pos_sim_np = _extract_joints_from_nested_obs(
         nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=joint_pos_name, convert_to_numpy=True
     )
-    if joint_observation_overrides:
-        assert state_values_np.ndim == 2, f"Expected a joint-state matrix, got shape {state_values_np.shape}"
-        state_values_np = state_values_np.copy()
-        num_envs, num_joints = state_values_np.shape
-        for joint_index, observation_name in joint_observation_overrides.items():
-            assert 0 <= joint_index < num_joints, f"Joint index {joint_index} is outside [0, {num_joints})"
-            replacement = _extract_joints_from_nested_obs(
-                nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=observation_name
-            )
-            assert replacement.shape == (
-                num_envs,
-                1,
-            ), f"Observation {observation_name} has shape {replacement.shape}, expected ({num_envs}, 1)"
-            state_values_np[:, joint_index] = replacement[:, 0]
-    return rgb_list_np, state_values_np
+    return rgb_list_np, joint_pos_sim_np
 
 
 # --------------------------------------------------------------------------- #
 # Core SSOT: policy inputs (numpy-only, modality-config driven)
 # --------------------------------------------------------------------------- #
+
+
+def apply_state_overrides(
+    state_values_np: np.ndarray,
+    overrides: dict[int, np.ndarray],
+) -> np.ndarray:
+    """Replace selected state columns without modifying the input arrays.
+
+    Args:
+        state_values_np: State values in sim joint order, shape (N, num_joints).
+        overrides: Column index to replacement values, each with shape (N, 1).
+
+    Returns:
+        Updated state values with the input dtype, or the input array when overrides are empty.
+    """
+    if not overrides:
+        return state_values_np
+    assert state_values_np.ndim == 2, f"Expected a state matrix, got shape {state_values_np.shape}"
+    state_values_np = state_values_np.copy()
+    num_envs, num_joints = state_values_np.shape
+    for joint_index, replacement in overrides.items():
+        assert 0 <= joint_index < num_joints, f"Joint index {joint_index} is outside [0, {num_joints})"
+        assert replacement.shape == (
+            num_envs,
+            1,
+        ), f"State override for column {joint_index} has shape {replacement.shape}, expected ({num_envs}, 1)"
+        state_values_np[:, joint_index] = replacement[:, 0]
+    return state_values_np
 
 
 def resize_rgb_for_policy(
@@ -245,7 +252,7 @@ def resize_rgb_for_policy(
 
 def build_gr00t_policy_observations(
     rgb_list_np: list[np.ndarray],
-    joint_pos_sim_np: np.ndarray,
+    state_values_np: np.ndarray,
     task_description: str,
     policy_config: Gr00tClosedloopPolicyCfg,
     robot_state_joints_config: dict[str, Any],
@@ -260,8 +267,7 @@ def build_gr00t_policy_observations(
 
     Args:
         rgb_list_np: List of RGB arrays, one per camera; each shape (N, H, W, C).
-        joint_pos_sim_np: Policy state values in sim joint order, shape (N, num_joints),
-            including any observation overrides applied during extraction.
+        state_values_np: State values in sim joint order, shape (N, num_joints).
         task_description: Language instruction for the policy.
         policy_config: Closed-loop config (target_image_size, etc.).
         robot_state_joints_config: State joint name->index for sim order.
@@ -276,7 +282,7 @@ def build_gr00t_policy_observations(
     if target_image_size is not None:
         rgb_list_np = resize_rgb_for_policy(rgb_list_np=rgb_list_np, target_image_size=target_image_size)
     joint_pos_state_policy = remap_sim_joints_to_policy_joints_from_np(
-        joint_pos_sim_np, robot_state_joints_config, policy_joints_config
+        state_values_np, robot_state_joints_config, policy_joints_config
     )
     num_envs = rgb_list_np[0].shape[0]
     language_keys = modality_configs["language"].modality_keys

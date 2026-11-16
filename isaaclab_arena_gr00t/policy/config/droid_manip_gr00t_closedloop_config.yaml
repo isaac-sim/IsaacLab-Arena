@@ -14,6 +14,10 @@ policy_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/gr00t_8dof_joi
 action_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/8dof_joint_space.yaml
 state_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/13dof_joint_space.yaml
 
+# The checkpoint expects 0 (open) to 1 (closed), matching DROID's 1 - width / max_width.
+state_observation_overrides:
+  finger_joint: gripper_pos
+
 # Action chunk length is the number of actions executed per inference rollout, could be less than action_horizon.
 action_chunk_length: 32
 task_mode_name: droid_manipulation
