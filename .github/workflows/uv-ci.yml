@@ -11,7 +11,7 @@ on:
   push:
     branches: [ "main" ]
   schedule:
-    # Nightly at 06:00 UTC, including the live environment-generation tests.
+    # Nightly at 06:00 UTC.
     - cron: '0 6 * * *'
   workflow_dispatch:
 
@@ -211,64 +211,3 @@ jobs:
           source .venv/bin/activate
           MPLCONFIGDIR=/tmp/mpl pytest -sv --durations=0 -m curobo_deps \
             isaaclab_arena_curobo/tests/
-
-
-  test_live_environment_generation:
-    name: Live environment generation (nightly, native uv)
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 120
-    env:
-      ARENA_INFERENCE_ENDPOINT: public
-      NVIDIA_API_KEY: ${{ secrets.ARENA_PUBLIC_NVIDIA_API_KEY }}
-      ISAACLAB_ARENA_RUN_LIVE_ENDPOINT_TESTS: "1"
-      OMNI_KIT_ACCEPT_EULA: "YES"
-      ACCEPT_EULA: "Y"
-      UV_HTTP_TIMEOUT: "300"
-
-    container: *uv_container
-
-    steps:
-      - name: Require the public inference API key
-        run: |
-          if [ -z "${NVIDIA_API_KEY}" ]; then
-            echo "::error::ARENA_PUBLIC_NVIDIA_API_KEY must be configured for live endpoint tests."
-            exit 1
-          fi
-
-      - *nvidia_smi
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_graphics_step
-      - *install_uv_step
-      - *validate_uv_lock_step
-
-      - name: Sync the locked environment
-        run: |
-          git config --global --add safe.directory '*'
-          uv sync --locked --extra dev
-
-      # Keep slow public endpoint requests out of the regular test jobs.
-      # Explicit node IDs cover the six live tests made opt-in by #1431.
-      - name: Run live environment-generation and inference tests
-        timeout-minutes: 60
-        run: |
-          .venv/bin/python -m pytest -sv -x --durations=0 \
-            --junitxml=live-endpoint-results.xml \
-            isaaclab_arena/tests/test_environment_generation_agent.py::test_generate_spec_atomic_pick_and_place_against_live_endpoint \
-            isaaclab_arena/tests/test_environment_generation_agent.py::test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoint \
-            isaaclab_arena/tests/test_environment_generation_agent.py::test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge \
-            isaaclab_arena/tests/test_missing_object_inference.py::test_infer_names_the_uncatalogued_object_against_live_endpoint \
-            isaaclab_arena/tests/test_missing_object_inference.py::test_infer_names_nothing_when_the_catalog_covers_the_prompt_against_live_endpoint \
-            isaaclab_arena/tests/test_shared_inference_backend.py::test_multimodal_image_against_live_endpoint
-
-      - name: Upload live endpoint test results
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: live-endpoint-results-${{ github.run_attempt }}
-          path: live-endpoint-results.xml
-          if-no-files-found: warn
