@@ -76,6 +76,10 @@ class Waypoint:
     gate: str | None = None
     """Name of a runtime condition that must hold before the plan advances past this waypoint."""
 
+    align_item: str | None = None
+    """When set, the target is the position the named held item should reach: the tool target is shifted by the
+    tool-to-item offset measured (in x and y) when the waypoint becomes active."""
+
     label: str = ""
     """Free-form label used in logs."""
 
@@ -88,6 +92,8 @@ class PlanState:
     index: int = 0
     steps_at_waypoint: int = 0
     steps_held: int = 0
+    item_offset_xy: tuple[float, float] | None = None
+    """Tool-to-item offset of the active ``align_item`` waypoint."""
 
     @property
     def done(self) -> bool:
@@ -175,7 +181,7 @@ class ToolPoseTracker:
         self._resync[env_id] = True
 
     def targets(
-        self, T_E_tool: torch.Tensor
+        self, T_E_tool: torch.Tensor, item_positions_e: dict[str, torch.Tensor] | None = None
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Return target positions, orientations, gripper commands and speed limits of the active waypoints."""
         targets_pos = T_E_tool[:, :3].clone()
@@ -188,6 +194,12 @@ class ToolPoseTracker:
             if waypoint is None:
                 continue
             targets_pos[env_id] = torch.tensor(waypoint.position_e, device=self.device)
+            if waypoint.align_item is not None and item_positions_e is not None and not plan.done:
+                if plan.item_offset_xy is None:
+                    offset = T_E_tool[env_id, :2] - item_positions_e[waypoint.align_item][env_id, :2]
+                    plan.item_offset_xy = (float(offset[0]), float(offset[1]))
+                targets_pos[env_id, 0] += plan.item_offset_xy[0]
+                targets_pos[env_id, 1] += plan.item_offset_xy[1]
             targets_quat[env_id] = torch.tensor(waypoint.quat_e, device=self.device)
             gripper[env_id] = waypoint.gripper
             max_speed[env_id] = waypoint.max_speed_mps
@@ -201,6 +213,7 @@ class ToolPoseTracker:
         joint_pos: torch.Tensor,
         joint_limits: torch.Tensor,
         gates: dict[str, torch.Tensor],
+        item_positions_e: dict[str, torch.Tensor] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Return arm joint targets (N, 7) and gripper commands (N,) that move each tool towards its waypoint.
 
@@ -210,8 +223,9 @@ class ToolPoseTracker:
             joint_pos: Current arm joint positions (N, 7).
             joint_limits: Arm joint limits (N, 7, 2).
             gates: Boolean (N,) tensors keyed by gate name.
+            item_positions_e: Item positions (N, 3) in the environment frame keyed by name, for ``align_item``.
         """
-        targets_pos, targets_quat, gripper, max_speed, max_angular = self.targets(T_E_tool)
+        targets_pos, targets_quat, gripper, max_speed, max_angular = self.targets(T_E_tool, item_positions_e)
         position_error = targets_pos - T_E_tool[:, :3]
         flip = (targets_quat * T_E_tool[:, 3:7]).sum(-1) < 0
         targets_quat = torch.where(flip.unsqueeze(-1), -targets_quat, targets_quat)
@@ -292,3 +306,4 @@ class ToolPoseTracker:
                     plan.index += 1
                     plan.steps_at_waypoint = 0
                     plan.steps_held = 0
+                    plan.item_offset_xy = None

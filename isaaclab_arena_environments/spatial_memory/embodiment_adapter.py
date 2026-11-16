@@ -50,7 +50,7 @@ class FrankaAdapter:
     """Posture the scripted controllers pull the arm towards in the IK null space."""
 
     registry_name: str = "franka_joint_pos"
-    arm_link_regex: str | None = "panda_link[1-7]"
+    arm_links: tuple[str, ...] = tuple(f"panda_link{index}" for index in range(1, 8))
     gripper_bodies: tuple[str, ...] = ("panda_hand", "panda_leftfinger", "panda_rightfinger")
     tool_body: str = "panda_hand"
     arm_action_name: str = "arm_action"

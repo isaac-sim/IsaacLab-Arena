@@ -189,9 +189,9 @@ class SpatialMemoryTaskLogic(ABC):
     def allowed_contacts(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
         """Return the (N, S, K) mask of contacts that are part of the task.
 
-        Sensors are ordered gripper bodies first, then items (see ``collision.filtered_sensor_labels``). The default
-        allows gripper contact with manipulated items, item contact with each other, and every item's contact with
-        the boards named in ``item_support_names``.
+        Sensors are ordered arm links, gripper bodies, then items (see ``collision.filtered_sensor_labels``). The
+        default allows robot contact with manipulated items, item contact with each other, and every item's contact
+        with the boards named in ``item_support_names``. Any robot contact with a board is a collision.
         """
         from isaaclab_arena_environments.spatial_memory.collision import filtered_sensor_labels
 
@@ -202,7 +202,7 @@ class SpatialMemoryTaskLogic(ABC):
         allowed = torch.zeros(len(labels), len(runtime.part_names), dtype=torch.bool, device=env.device)
         for sensor_index, label in enumerate(labels):
             for part_index, part in enumerate(runtime.part_names):
-                if label in self.embodiment.gripper_bodies:
+                if label in self.embodiment.arm_links or label in self.embodiment.gripper_bodies:
                     allowed[sensor_index, part_index] = part in manipulated
                 else:
                     allowed[sensor_index, part_index] = part in items or part in supports
@@ -217,8 +217,18 @@ class SpatialMemoryTaskLogic(ABC):
         return torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
 
     @abstractmethod
+    def success_terms(self, env, runtime: SpatialMemoryRuntime) -> dict[str, torch.Tensor]:
+        """Return the named conditions (each (N,)) that together make up task success.
+
+        Collision and searched-again are handled separately. The final value of each term is recorded per episode.
+        """
+
     def success(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
-        """Return the task-specific success condition (N,); collision and searched-again are handled separately."""
+        """Return the task-specific success condition (N,): all ``success_terms`` hold."""
+        success = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
+        for term in self.success_terms(env, runtime).values():
+            success &= term
+        return success
 
     def extra_failures(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
         """Return additional task-specific failure flags (N,)."""

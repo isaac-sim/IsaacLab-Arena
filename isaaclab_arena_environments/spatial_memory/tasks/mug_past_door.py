@@ -11,7 +11,7 @@ compartment, so the door and the front edges of the compartment are out of view,
 pass right by them.
 
 Phases: approach and grasp the mug (the cabinet and door are in view), lift, move in front of the opening, insert
-(action phase: tool inside the cabinet), lower, release and withdraw.
+(action phase: tool more than 3 cm inside the cabinet), lower, release and withdraw.
 Randomised: cabinet position, base height, target compartment, door angle (around the knob value), mug position.
 Difficulty knob: door opening angle in degrees (smaller is harder; 90 is perpendicular to the cabinet front).
 Success: mug upright and at rest on the target shelf inside the cabinet, gripper open and withdrawn, no collision.
@@ -53,6 +53,8 @@ GRASP_HEIGHT_M = 0.05
 APPROACH_PITCH_RAD = math.radians(45.0)
 """The hand approaches 45 degrees below horizontal, both at the counter and into the cabinet."""
 INSERT_DEPTH_M = 0.12
+ACTION_PHASE_DEPTH_M = 0.03
+"""The action phase starts once the tool is this far inside the cabinet."""
 TRANSIT_HEIGHT_M = 0.26
 """Lowest tool height for sideways moves over the counter."""
 """Distance of the placed mug's centre behind the cabinet front."""
@@ -154,9 +156,9 @@ class MugPastDoorLogic(SpatialMemoryTaskLogic):
 
     def action_phase(self, env, runtime) -> torch.Tensor:
         tool_x_e = self.tool_pose_w(env)[:, 0] - env.scene.env_origins[:, 0]
-        return tool_x_e > runtime.params["front_x"]
+        return tool_x_e > runtime.params["front_x"] + ACTION_PHASE_DEPTH_M
 
-    def success(self, env, runtime) -> torch.Tensor:
+    def success_terms(self, env, runtime) -> dict[str, torch.Tensor]:
         params = runtime.params
         mug_pose_e = env.arena_world.get_pose_e("mug")
         mug_velocity = env.arena_world.get_root_linear_velocity_w("mug").norm(dim=-1)
@@ -169,7 +171,13 @@ class MugPastDoorLogic(SpatialMemoryTaskLogic):
         upright = mug_up_w[:, 2] > math.cos(math.radians(15.0))
         tool_x_e = self.tool_pose_w(env)[:, 0] - env.scene.env_origins[:, 0]
         withdrawn = (tool_x_e < params["front_x"] - 0.03) & ~self.gripper_closed(env)
-        return inside_x & inside_y & on_support & upright & (mug_velocity < 0.02) & withdrawn
+        return {
+            "mug_inside_cabinet": inside_x & inside_y,
+            "mug_on_target_shelf": on_support,
+            "mug_upright": upright,
+            "mug_at_rest": mug_velocity < 0.02,
+            "released_and_withdrawn": withdrawn,
+        }
 
     def extra_failures(self, env, runtime) -> torch.Tensor:
         mug_z_e = env.arena_world.get_pose_e("mug")[:, 2]

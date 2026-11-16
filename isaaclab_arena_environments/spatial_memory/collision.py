@@ -5,11 +5,10 @@
 
 """Collision term: contacts between the robot (or a carried item) and scene geometry that the task does not need.
 
-PhysX reports per-partner forces only for a sensor on a single body, so the suite uses:
-
-* one unfiltered sensor over the arm links: any contact there is a collision;
-* one filtered sensor per gripper body and per item, against every scene part. Contacts that the task needs (fingers
-  on the grasped item, an item on its supports) are removed with an allowed-contact mask from the task logic.
+PhysX reports per-partner forces only for a sensor on a single body, so the suite puts one filtered sensor on every
+arm link, every gripper body and every item, each filtered against every scene part. Robot self-contacts are therefore
+never counted. Contacts that the task needs (fingers on the grasped item, an item on its supports) are removed with an
+allowed-contact mask from the task logic; any other contact of an arm link is a collision.
 """
 
 from __future__ import annotations
@@ -22,9 +21,6 @@ from isaaclab_arena_environments.spatial_memory.parts import PartKind
 if TYPE_CHECKING:
     from isaaclab_arena_environments.spatial_memory.runtime import SpatialMemoryRuntime
     from isaaclab_arena_environments.spatial_memory.task_logic import SpatialMemoryTaskLogic
-
-ARM_SENSOR_NAME = "sm_arm_contacts"
-"""Scene key of the unfiltered arm-link contact sensor."""
 
 CONTACT_FORCE_THRESHOLD_N = 0.5
 """Contact force above which two bodies count as touching."""
@@ -42,9 +38,7 @@ def make_contact_sensor_cfgs(logic: SpatialMemoryTaskLogic) -> dict:
     part_paths = ["{ENV_REGEX_NS}/" + spec.name for spec in logic.part_specs()]
     sensors = {}
     adapter = logic.embodiment
-    if adapter.arm_link_regex is not None:
-        sensors[ARM_SENSOR_NAME] = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/" + adapter.arm_link_regex)
-    for body_label in adapter.gripper_bodies:
+    for body_label in adapter.arm_links + adapter.gripper_bodies:
         sensors[filtered_sensor_name(body_label)] = ContactSensorCfg(
             prim_path="{ENV_REGEX_NS}/Robot/" + body_label, filter_prim_paths_expr=part_paths
         )
@@ -58,8 +52,8 @@ def make_contact_sensor_cfgs(logic: SpatialMemoryTaskLogic) -> dict:
 
 
 def filtered_sensor_labels(logic: SpatialMemoryTaskLogic) -> list[str]:
-    """Return the body labels that carry a filtered contact sensor, gripper bodies first, then items."""
-    labels = list(logic.embodiment.gripper_bodies)
+    """Return the body labels that carry a filtered contact sensor: arm links, gripper bodies, then items."""
+    labels = list(logic.embodiment.arm_links) + list(logic.embodiment.gripper_bodies)
     labels += [spec.name for spec in logic.part_specs() if spec.kind == PartKind.ITEM]
     return labels
 
@@ -71,23 +65,6 @@ def detect_collisions(env, runtime: SpatialMemoryRuntime, active: torch.Tensor) 
     body_labels: list[list[str]] = [[] for _ in range(env.num_envs)]
     partner_labels: list[list[str]] = [[] for _ in range(env.num_envs)]
     positions_w = torch.zeros(env.num_envs, 3, device=env.device)
-
-    if ARM_SENSOR_NAME in env.scene.keys():
-        arm_sensor = env.scene[ARM_SENSOR_NAME]
-        arm_forces = arm_sensor.data.net_forces_w.torch.norm(dim=-1)
-        arm_touching = arm_forces > CONTACT_FORCE_THRESHOLD_N
-        arm_any = arm_touching.any(dim=-1)
-        if arm_any.any():
-            strongest = arm_forces.argmax(dim=-1)
-            robot = env.scene["robot"]
-            for env_id in torch.nonzero(arm_any).flatten().tolist():
-                body_name = arm_sensor.body_names[int(strongest[env_id])]
-                body_labels[env_id].append(body_name)
-                partner_labels[env_id].append("scene")
-                positions_w[env_id] = robot.data.body_link_pose_w.torch[
-                    env_id, robot.data.body_names.index(body_name), :3
-                ]
-        colliding |= arm_any
 
     labels = filtered_sensor_labels(logic)
     allowed = logic.allowed_contacts(env, runtime)  # (N, S, K)

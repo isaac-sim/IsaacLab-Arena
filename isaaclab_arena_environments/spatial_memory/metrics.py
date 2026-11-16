@@ -131,6 +131,7 @@ def record_spatial_memory_episode(env, env_id: int) -> dict[str, Any]:
         for target_index, name in enumerate(runtime.target_names)
         if bool(runtime.visible_before_action[env_id, target_index])
     ]
+    success_terms = {name: bool(value[env_id]) for name, value in runtime.logic.success_terms(env, runtime).items()}
     collided = bool(runtime.collided[env_id])
     return {
         "spatial_memory": {
@@ -162,6 +163,7 @@ def record_spatial_memory_episode(env, env_id: int) -> dict[str, Any]:
             },
             "static_max_displacement_m": float(runtime.static_max_displacement_m[env_id]),
             "tool_path_length_m": float(runtime.path_length_m[env_id]),
+            "success_terms_at_end": success_terms,
         }
     }
 

@@ -59,8 +59,14 @@ class _SpatialMemoryScriptedPolicy:
         T_E_tool = logic.tool_pose_w(base_env).clone()
         T_E_tool[:, :3] -= base_env.scene.env_origins
         joint_pos, joint_limits = adapter.arm_joint_state(base_env)
+        item_positions_e = {name: base_env.arena_world.get_pose_e(name)[:, :3] for name in logic.item_names()}
         joint_targets, gripper = self._tracker.compute_joint_targets(
-            T_E_tool, adapter.tool_jacobian(base_env), joint_pos, joint_limits, logic.plan_gates(base_env, runtime)
+            T_E_tool,
+            adapter.tool_jacobian(base_env),
+            joint_pos,
+            joint_limits,
+            logic.plan_gates(base_env, runtime),
+            item_positions_e,
         )
         return adapter.make_action(base_env, joint_targets, gripper)
 

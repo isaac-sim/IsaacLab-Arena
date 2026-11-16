@@ -184,7 +184,7 @@ class DishwasherRackLogic(SpatialMemoryTaskLogic):
         in_rack = base_z < params["floor_z"] + LIP_HEIGHT_M - ACTION_PHASE_DEPTH_M
         return in_rack_x & in_rack & self.gripper_closed(env)
 
-    def success(self, env, runtime) -> torch.Tensor:
+    def success_terms(self, env, runtime) -> dict[str, torch.Tensor]:
         params = runtime.params
         item = self._active_item_pose_e(env, runtime)
         is_cup = params["item_index"] == 0
@@ -197,7 +197,13 @@ class DishwasherRackLogic(SpatialMemoryTaskLogic):
         upright = torch.where(is_cup, item_upright(env, "cup"), item_upright(env, "plate"))
         at_rest = torch.where(is_cup, item_at_rest(env, "cup"), item_at_rest(env, "plate"))
         tool_above = tool_position_e(env, self)[:, 2] > params["floor_z"] + LIP_HEIGHT_M + 0.05
-        return on_floor & in_slot_y & in_rack_x & upright & at_rest & gripper_open(env, self) & tool_above
+        return {
+            "item_in_target_slot": in_slot_y & in_rack_x,
+            "item_on_rack_floor": on_floor,
+            "item_upright": upright,
+            "item_at_rest": at_rest,
+            "released_and_lifted_out": gripper_open(env, self) & tool_above,
+        }
 
     def extra_failures(self, env, runtime) -> torch.Tensor:
         return self._active_item_pose_e(env, runtime)[:, 2] < runtime.params["floor_z"] - 0.1
