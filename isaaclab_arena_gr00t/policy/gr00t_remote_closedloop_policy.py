@@ -15,7 +15,7 @@ import gymnasium as gym
 import torch
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
@@ -30,6 +30,19 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     load_gr00t_joint_configs,
 )
 from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
+
+
+class _PolicyClient(Protocol):
+    """Operations used from GR00T's policy client."""
+
+    def ping(self) -> bool:
+        pass
+
+    def get_action(self, observations: dict[str, Any]) -> tuple[dict[str, Any], Any]:
+        pass
+
+    def reset(self) -> None:
+        pass
 
 
 class ActionSchedulerType(str, Enum):
@@ -120,13 +133,11 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             self.policy_config.embodiment_tag,
         )
 
-        # Action / chunk shapes
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
-        self.action_chunk_length = self.policy_config.action_chunk_length
 
         self._chunking_state: ActionScheduler | None = action_scheduler_cls(
             num_envs=self.num_envs,
-            action_chunk_length=self.action_chunk_length,
+            action_chunk_length=self.policy_config.action_chunk_length,
             action_horizon=self.policy_config.action_horizon,
             action_dim=self.action_dim,
             device=self.device,
@@ -142,7 +153,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             api_token=config.remote_api_token,
             strict=False,
         )
-        self._client: Any | None = client
+        self._client: _PolicyClient | None = client
         if not client.ping():
             raise ConnectionError(f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}")
 
@@ -167,10 +178,12 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         def fetch_chunk() -> torch.Tensor:
             return self._get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
 
-        return self._chunking_state.get_action(
-            fetch_chunk,
-            hold_action=self._extract_hold_action(observation),
+        hold_action = (
+            self._extract_hold_action(observation)
+            if isinstance(self._chunking_state, SyncedBatchActionScheduler)
+            else None
         )
+        return self._chunking_state.get_action(fetch_chunk, hold_action=hold_action)
 
     def _extract_hold_action(self, observation: dict[str, Any]) -> torch.Tensor:
         """Build the action vector that waiting envs should hold: their current sim joint positions
@@ -193,7 +206,6 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         if isinstance(camera_names, str):
             camera_names = [camera_names]
 
-        # 1. Reuse the same obs translation as local policy
         assert self.task_description is not None, "Task description is not set"
         assert self._client is not None, "GR00T remote policy has been closed"
         joint_observation_overrides = {}
@@ -214,10 +226,8 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             modality_configs=self.modality_configs,
         )
 
-        # 2. Call GR00T's own client
         robot_action_policy, _ = self._client.get_action(policy_observations)
 
-        # 3. Action translation from policy output to sim action tensor
         action_tensor = build_gr00t_action_tensor(
             robot_action_policy=robot_action_policy,
             task_mode=self.task_mode,
@@ -227,16 +237,16 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             embodiment_tag=self.policy_config.embodiment_tag,
         )
 
-        assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.action_chunk_length
+        assert (
+            action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.policy_config.action_chunk_length
+        )
         return action_tensor
 
     def reset(self, env_ids: torch.Tensor | None = None):
-        if env_ids is None:
-            env_ids = slice(None)
         assert self._client is not None, "GR00T remote policy has been closed"
         assert self._chunking_state is not None, "GR00T remote policy has been closed"
         self._client.reset()
-        self._chunking_state.reset(env_ids)
+        self._chunking_state.reset(slice(None) if env_ids is None else env_ids)
 
     def close(self) -> None:
         """Release Arena-side resources for the remote GR00T policy client."""
@@ -254,4 +264,3 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         finally:
             self._client = None
             self._chunking_state = None
-            self.modality_configs = None
