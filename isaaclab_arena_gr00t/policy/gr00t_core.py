@@ -107,56 +107,24 @@ def compute_action_dim(task_mode: TaskMode, robot_action_joints_config: dict[str
 # --------------------------------------------------------------------------- #
 
 
-def _extract_rgb_from_nested_obs(
-    nested_obs: dict[str, np.ndarray] | dict[str, torch.Tensor],
-    camera_names: list[str],
-    group_key: str = "camera_obs",
-    convert_to_numpy: bool = True,
-) -> list[np.ndarray]:
-    """Extract ordered list of RGB arrays from nested observation.
-
-    Args:
-        nested_obs: Dict with group_key (cam_name -> array or tensor).
-        camera_names: Ordered list of camera keys to read.
-        group_key: Top-level key for camera data (default "camera_obs").
-        convert_to_numpy: If True, convert each value to numpy; if False, return as-is.
-
-    Returns:
-        List of (N, H, W, C) arrays one per camera.
-
-    Raises:
-        AssertionError: If group_key or a requested camera key is missing.
-    """
-    assert group_key in nested_obs, f"{group_key} is not in observation"
-    rgb_list_np: list[np.ndarray] = []
-    for cam in camera_names:
-        assert cam in nested_obs[group_key], f"camera {cam} is not in {group_key}"
-        val = nested_obs[group_key][cam]
-        rgb_list_np.append(to_numpy(val) if convert_to_numpy else val)
-    return rgb_list_np
-
-
-def _extract_joints_from_nested_obs(
-    nested_obs: dict[str, np.ndarray] | dict[str, torch.Tensor],
-    group_key: str = "policy",
-    joint_pos_name: str = "robot_joint_pos",
-    convert_to_numpy: bool = True,
+def _extract_numpy_observation(
+    nested_obs: dict[str, Any],
+    group_key: str,
+    observation_name: str,
 ) -> np.ndarray:
-    """Extract robot joint positions from nested observation.
+    """Extract one array from a nested observation and convert it to numpy.
 
     Args:
-        nested_obs: Dict with group_key[joint_pos_name] (array or tensor).
-        group_key: Top-level key under which joint positions live (default "policy").
-        joint_pos_name: Key for the joint position array (default "robot_joint_pos").
-        convert_to_numpy: If True, convert to numpy; if False, return as-is.
+        nested_obs: Observation containing the requested group and value.
+        group_key: Top-level observation group.
+        observation_name: Value to extract from the group.
 
     Returns:
-        (N, num_joints) array in sim joint order.
+        Extracted value as a numpy array.
     """
     assert group_key in nested_obs, f"{group_key} is not in observation"
-    assert joint_pos_name in nested_obs[group_key], f"{joint_pos_name} is not in {group_key}"
-    val = nested_obs[group_key][joint_pos_name]
-    return to_numpy(val) if convert_to_numpy else val
+    assert observation_name in nested_obs[group_key], f"{observation_name} is not in {group_key}"
+    return to_numpy(nested_obs[group_key][observation_name])
 
 
 def extract_obs_numpy_from_torch(
@@ -189,21 +157,20 @@ def extract_obs_numpy_from_torch(
             rather than raw joint positions.
     """
 
-    rgb_list_np = _extract_rgb_from_nested_obs(
-        nested_obs=nested_obs, camera_names=camera_names, group_key=camera_group_key, convert_to_numpy=True
-    )
-    state_values_np = _extract_joints_from_nested_obs(
-        nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=joint_pos_name, convert_to_numpy=True
-    )
+    assert camera_group_key in nested_obs, f"{camera_group_key} is not in observation"
+    camera_observations = nested_obs[camera_group_key]
+    rgb_list_np = []
+    for camera_name in camera_names:
+        assert camera_name in camera_observations, f"camera {camera_name} is not in {camera_group_key}"
+        rgb_list_np.append(to_numpy(camera_observations[camera_name]))
+    state_values_np = _extract_numpy_observation(nested_obs, joint_group_key, joint_pos_name)
     if joint_observation_overrides:
         assert state_values_np.ndim == 2, f"Expected a joint-state matrix, got shape {state_values_np.shape}"
         state_values_np = state_values_np.copy()
         num_envs, num_joints = state_values_np.shape
         for joint_index, observation_name in joint_observation_overrides.items():
             assert 0 <= joint_index < num_joints, f"Joint index {joint_index} is outside [0, {num_joints})"
-            replacement = _extract_joints_from_nested_obs(
-                nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=observation_name
-            )
+            replacement = _extract_numpy_observation(nested_obs, joint_group_key, observation_name)
             assert replacement.shape == (
                 num_envs,
                 1,
@@ -272,9 +239,8 @@ def build_gr00t_policy_observations(
         Nested dict "language" / "video" / "state" with keys from modality
         config and arrays shaped for GR00T (e.g. video: N, 1, H, W, C).
     """
-    target_image_size = getattr(policy_config, "target_image_size", None)
-    if target_image_size is not None:
-        rgb_list_np = resize_rgb_for_policy(rgb_list_np=rgb_list_np, target_image_size=target_image_size)
+    target_image_size = policy_config.target_image_size
+    rgb_list_np = resize_rgb_for_policy(rgb_list_np=rgb_list_np, target_image_size=target_image_size)
     joint_pos_state_policy = remap_sim_joints_to_policy_joints_from_np(
         joint_pos_sim_np, robot_state_joints_config, policy_joints_config
     )
@@ -293,9 +259,8 @@ def build_gr00t_policy_observations(
         "video": {},
         "state": {},
     }
-    for i, video_key in enumerate(video_keys):
-
-        policy_observations["video"][video_key] = rgb_list_np[i].reshape(
+    for video_key, rgb_np in zip(video_keys, rgb_list_np):
+        policy_observations["video"][video_key] = rgb_np.reshape(
             num_envs, 1, target_image_size[0], target_image_size[1], target_image_size[2]
         )
     for state_key in state_keys:
