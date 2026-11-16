@@ -48,6 +48,39 @@ up to ``max_concurrent_requests`` at a time. Each environment keeps its own conv
 the model.
 
 
+Request and response formats
+----------------------------
+
+The pipeline works only with endpoints and models that follow the formats below. To use one that
+does not, you have to extend the code.
+
+**Request.** ``InferenceBackend`` calls the OpenAI Chat Completions API. Each request has a
+system message with the system prompt and a user message with the task, the state as JSON text,
+and the images as ``image_url`` parts holding base64 JPEG data URLs. It also sets
+``response_format={"type": "json_schema", ...}`` with the action adapter's schema. The endpoint
+and model must accept all of these.
+
+**Response.** The message content must be one JSON object that matches the action adapter's
+``response_model``. The included adapters expect:
+
+.. code-block:: text
+
+   VLMGoalPolicy:   {"values": [...]}
+   VLMChunkPolicy:  {"commands": [{"values": [...]}, ...]}
+
+The embodiment preset sets the order and meaning of ``values``. For DROID, they are the XYZ
+position, the XYZW quaternion, and the gripper command. ``InferenceBackend`` accepts two small
+variations: it reads ``reasoning_content`` when ``content`` is empty, and it drops a single-key
+wrapper such as ``{"input": {...}}`` that some models add around the answer.
+
+If your endpoint or model uses other formats, extend the code:
+
+* For an endpoint that is not OpenAI-compatible, or that returns the JSON in another field or
+  wrapper, change ``InferenceBackend`` in
+  `backend.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/inference/backend.py>`__.
+* For a different command layout, write a new action adapter, as described below.
+
+
 Extend the pipeline
 -------------------
 
