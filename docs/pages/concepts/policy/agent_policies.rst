@@ -68,10 +68,9 @@ and model must accept all of these.
    VLMGoalPolicy:   {"values": [...]}
    VLMChunkPolicy:  {"commands": [{"values": [...]}, ...]}
 
-The embodiment preset sets the order and meaning of ``values``. For DROID, they are the XYZ
-position, the XYZW quaternion, and the gripper command. ``InferenceBackend`` accepts two small
-variations: it reads ``reasoning_content`` when ``content`` is empty, and it drops a single-key
-wrapper such as ``{"input": {...}}`` that some models add around the answer.
+The embodiment preset sets the order and meaning of ``values``. ``InferenceBackend`` accepts two
+small variations: it reads ``reasoning_content`` when ``content`` is empty, and it drops a
+single-key wrapper such as ``{"input": {...}}`` that some models add around the answer.
 
 If your endpoint or model uses other formats, extend the code:
 
