@@ -30,8 +30,11 @@ class PoseTargetMotionGenerator(MotionGenerator):
         stall_margin_m: float = 0.001,
         stall_motion_tolerance_m: float = 0.0001,
         stall_steps: int = 3,
+        pose_stall_motion_tolerance_m: float = 0.0005,
+        pose_stall_rotation_tolerance_rad: float = 0.005,
+        pose_stall_steps: int = 5,
     ):
-        """Configure pose accuracy and detection of stationary closing grippers.
+        """Configure pose accuracy and detection of stationary grippers and blocked goals.
 
         Args:
             grippers: A single gripper, or measurements keyed by binary action term name for multiple grippers.
@@ -42,6 +45,9 @@ class PoseTargetMotionGenerator(MotionGenerator):
             stall_margin_m: Minimum closing error required to accept a stationary gripper short of the target.
             stall_motion_tolerance_m: Maximum opening-width change per step considered stationary.
             stall_steps: Consecutive stationary steps required to accept an unmet closing target.
+            pose_stall_motion_tolerance_m: Maximum controlled-body translation per step considered stationary.
+            pose_stall_rotation_tolerance_rad: Maximum controlled-body rotation per step considered stationary.
+            pose_stall_steps: Consecutive stationary steps required to report an unreached goal as blocked.
         """
         assert math.isfinite(position_tolerance_m) and position_tolerance_m > 0
         assert math.isfinite(rotation_tolerance_rad) and 0 < rotation_tolerance_rad <= math.pi
@@ -49,6 +55,9 @@ class PoseTargetMotionGenerator(MotionGenerator):
         assert math.isfinite(stall_margin_m) and stall_margin_m >= gripper_tolerance_m
         assert math.isfinite(stall_motion_tolerance_m) and stall_motion_tolerance_m >= 0
         assert type(stall_steps) is int and stall_steps > 0
+        assert math.isfinite(pose_stall_motion_tolerance_m) and pose_stall_motion_tolerance_m >= 0
+        assert math.isfinite(pose_stall_rotation_tolerance_rad) and pose_stall_rotation_tolerance_rad >= 0
+        assert type(pose_stall_steps) is int and pose_stall_steps > 0
         self.grippers = grippers if grippers is not None else {}
         self.position_tolerance_m = position_tolerance_m
         self.rotation_tolerance_rad = rotation_tolerance_rad
@@ -56,7 +65,11 @@ class PoseTargetMotionGenerator(MotionGenerator):
         self.stall_margin_m = stall_margin_m  # Require a meaningful target shortfall beyond normal tracking error.
         self.stall_motion_tolerance_m = stall_motion_tolerance_m  # Allow jitter when detecting stationary grippers.
         self.stall_steps = stall_steps  # Require consecutive stationary measurements rather than a brief pause.
+        self.pose_stall_motion_tolerance_m = pose_stall_motion_tolerance_m
+        self.pose_stall_rotation_tolerance_rad = pose_stall_rotation_tolerance_rad
+        self.pose_stall_steps = pose_stall_steps  # Let the controller accelerate before reporting a blocked goal.
         self._gripper_history: dict[tuple[int, int, str], tuple[bytes, int, float, int]] = {}
+        self._blocked_history: dict[tuple[int, int], tuple[bytes, int, np.ndarray, np.ndarray, int]] = {}
 
     def goal_reached(self, goal: np.ndarray, env, env_id: int) -> bool:
         """Check measured poses and accept grippers at target or stationary during closing.
@@ -73,6 +86,60 @@ class PoseTargetMotionGenerator(MotionGenerator):
         poses_reached = self._are_poses_reached(goal, env, env_id, indices)
         grippers_reached = self._are_grippers_at_target_or_stationary_while_closing(goal, env, env_id, indices)
         return poses_reached and grippers_reached
+
+    def goal_blocked(self, goal: np.ndarray, env, env_id: int) -> bool:
+        """Report an unreached goal whose controlled bodies and grippers stopped moving.
+
+        Contact, joint limits, or unreachable targets leave the measured pose short of the goal.
+
+        Args:
+            goal: Validated absolute target in native controller order.
+            env: Arena environment, optionally gym-wrapped.
+            env_id: Environment index within the batched world state.
+
+        Returns:
+            Whether the goal stayed unreached for the configured number of consecutive stationary steps.
+        """
+        indices = self._command_indices(goal, env)
+        base = env.unwrapped
+        poses = np.stack([
+            base.arena_world.get_body_pose_in_root(command.asset_name, command.body_name)[env_id].detach().cpu().numpy()
+            for command in indices.poses
+        ])
+        gaps = np.array([
+            float(self._get_gripper(command).get_opening_width_m(base.arena_world)[env_id])
+            for command in indices.grippers
+        ])
+        step = int(base.episode_length_buf[env_id])
+
+        # A changed goal or skipped simulation step resets the stationary-step count.
+        key = (id(base), env_id)
+        target = goal.tobytes()
+        previous = self._blocked_history.get(key)
+        stationary_steps = 0
+        if previous is not None:
+            previous_target, previous_step, previous_poses, previous_gaps, previous_count = previous
+            if target == previous_target:
+                # Repeated queries in the same simulation step preserve the count.
+                if step == previous_step:
+                    stationary_steps = previous_count
+                elif step == previous_step + 1 and self._is_stationary(previous_poses, poses, previous_gaps, gaps):
+                    stationary_steps = previous_count + 1
+        self._blocked_history[key] = (target, step, poses, gaps, stationary_steps)
+        return stationary_steps >= self.pose_stall_steps and not self.goal_reached(goal, env, env_id)
+
+    def _is_stationary(self, previous_poses, poses, previous_gaps, gaps) -> bool:
+        """Return whether all controlled bodies and grippers moved less than the stall tolerances."""
+        for previous, current in zip(previous_poses, poses):
+            if not _position_error_m(previous[:3], current[:3]) <= self.pose_stall_motion_tolerance_m:
+                return False
+            if not _rotation_error_rad(previous[3:], current[3:]) <= self.pose_stall_rotation_tolerance_rad:
+                return False
+        return bool(np.all(np.abs(gaps - previous_gaps) <= self.stall_motion_tolerance_m))
+
+    def _get_gripper(self, command) -> Gripper:
+        """Return the measurements for one binary gripper action term."""
+        return self.grippers[command.term_name] if isinstance(self.grippers, dict) else self.grippers
 
     def _command_indices(self, goal, env):
         """Check that the target uses supported pose controllers and known gripper measurements."""
@@ -105,7 +172,7 @@ class PoseTargetMotionGenerator(MotionGenerator):
         base = env.unwrapped
         reached = True
         for command in indices.grippers:
-            gripper = self.grippers[command.term_name] if isinstance(self.grippers, dict) else self.grippers
+            gripper = self._get_gripper(command)
             error = float(gripper.get_closing_error_m(base)[env_id])
             gap = float(gripper.get_opening_width_m(base.arena_world)[env_id])
             step = int(base.episode_length_buf[env_id])

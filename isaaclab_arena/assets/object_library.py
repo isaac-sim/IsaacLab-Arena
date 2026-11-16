@@ -13,7 +13,6 @@ import isaaclab.sim as sim_utils
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
 
-from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
@@ -21,7 +20,6 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
-from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
@@ -31,6 +29,10 @@ from isaaclab_arena.assets.object_utils import (
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS, SIMREADY_PHYSICS_VARIANTS
+from isaaclab_arena.assets.sources.base import UsdSource
+from isaaclab_arena.assets.sources.lightwheel import LightwheelUsdSource
+from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -45,6 +47,7 @@ class LibraryObject(Object):
 
     tags: list[str]
     usd_path: str | None = None
+    usd_source: UsdSource | None = None
     object_type: ObjectType = ObjectType.RIGID
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
     spawn_cfg_addon: dict[str, Any] = {}
@@ -73,8 +76,9 @@ class LibraryObject(Object):
         super().__init__(
             name=name,
             prim_path=prim_path,
-            tags=self.tags,
+            tags=list(self.tags),
             usd_path=self.usd_path,
+            usd_source=self.usd_source,
             object_type=self.object_type,
             scale=scale,
             initial_pose=initial_pose,
@@ -145,8 +149,7 @@ class Microwave(LibraryObject, Openable):
 
     registry_name = "microwave"
     tags = ["object", "openable"]
-    # Resolved lazily on first attribute access — see isaaclab_arena.assets.lightwheel_lazy.
-    usd_path = LightwheelLazyPath(registry_type="fixtures", file_name="Microwave039", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -171,7 +174,7 @@ class CoffeeMachine(LibraryObject, Pressable):
 
     registry_name = "coffee_machine"
     tags = ["object", "pressable"]
-    usd_path = LightwheelLazyPath(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -455,16 +458,36 @@ class DomeLight(LightBase):
         prim_path: str | None = default_prim_path,
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
-        hdr: "HDRImage | None" = None,  # noqa: F821
+        hdr: "HDRImage | str | None" = None,  # noqa: F821
+        intensity: float | None = None,
+        color: tuple[float, float, float] | None = None,
     ):
+        """Create a dome light.
+
+        Args:
+            name: Name of this light instance.
+            prim_path: USD prim path of the light.
+            initial_pose: Pose of the light.
+            spawner_cfg: Isaac Lab light config the light starts from.
+            hdr: An HDRImage instance, or the registered name of one, to use as the environment map.
+            intensity: Overrides the intensity of ``spawner_cfg`` if given.
+            color: Overrides the RGB color of ``spawner_cfg`` if given.
+        """
+        from isaaclab_arena.assets.registries import HDRImageRegistry
         from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
         from isaaclab_arena.variations.light_color_temperature_variation import LightColorTemperatureVariation
         from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
 
         super().__init__(name=name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg)
+        if isinstance(hdr, str):
+            hdr = HDRImageRegistry().get_hdr_by_name(hdr)()
         if hdr is not None:
             self.add_hdr(hdr)
+        if intensity is not None:
+            self.set_intensity(intensity)
+        if color is not None:
+            self.set_color(tuple(color))
         self.add_variation(HDRImageVariation(self))
         self.add_variation(LightIntensityVariation(self))
         self.add_variation(LightColorVariation(self))
@@ -533,6 +556,64 @@ class DirectionalLight(LightBase):
     def set_dome_light(self, dome_light: LightBase) -> None:
         """Register a dome light for the direction variation to dim when it activates."""
         self.get_variation("direction").set_dome_light(dome_light)
+
+
+@register_asset
+class SphereLight(LightBase):
+    """A sphere light with intensity and color variations."""
+
+    registry_name = "sphere_light"
+    default_prim_path = "{ENV_REGEX_NS}/sphere_light"
+    default_intensity = 5000.0
+    default_spawner_cfg = sim_utils.SphereLightCfg(intensity=default_intensity, radius=0.5)
+    default_initial_pose = Pose(position_xyz=(0.0, -0.6, 0.7), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+    spawner_cfg: sim_utils.SphereLightCfg
+
+    def __init__(
+        self,
+        name: str | None = None,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.SphereLightCfg = default_spawner_cfg,
+        intensity: float | None = None,
+        radius: float | None = None,
+        color: tuple[float, float, float] | None = None,
+    ):
+        """Create a sphere light.
+
+        Args:
+            name: Name of this light instance.
+            prim_path: USD prim path of the light.
+            initial_pose: Pose of the light. Defaults to ``default_initial_pose``.
+            spawner_cfg: Isaac Lab light config the light starts from.
+            intensity: Overrides the intensity of ``spawner_cfg`` if given.
+            radius: Overrides the sphere radius of ``spawner_cfg`` if given.
+            color: Overrides the RGB color of ``spawner_cfg`` if given.
+        """
+        from isaaclab_arena.variations.light_color_variation import LightColorVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
+
+        super().__init__(
+            name=name,
+            prim_path=prim_path,
+            initial_pose=initial_pose if initial_pose is not None else self.default_initial_pose,
+            spawner_cfg=spawner_cfg,
+        )
+        if intensity is not None:
+            self.set_intensity(intensity)
+        if radius is not None:
+            self.set_radius(radius)
+        if color is not None:
+            self.set_color(tuple(color))
+        self.add_variation(LightIntensityVariation(self))
+        self.add_variation(LightColorVariation(self))
+
+    def set_radius(self, radius: float) -> None:
+        """Set the radius of the light sphere."""
+        assert radius > 0.0, f"Sphere light radius must be positive, got {radius}."
+        self.spawner_cfg.radius = radius
+        self.object_cfg = self._init_object_cfg()
 
 
 @register_asset
@@ -681,7 +762,7 @@ class Broccoli(LibraryObject):
 
     registry_name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
-    usd_path = LightwheelLazyPath(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
 
 
 @register_asset
@@ -692,7 +773,7 @@ class SweetPotato(LibraryObject):
 
     registry_name = "sweet_potato"
     tags = ["object", "vegetable", "graspable"]
-    usd_path = LightwheelLazyPath(registry_type="objects", file_name="SweetPotato005", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="SweetPotato005", file_type="USD")
     scale = (1.5, 1.5, 1.5)
 
 
@@ -704,7 +785,7 @@ class Jug(LibraryObject):
 
     registry_name = "jug"
     tags = ["object", "graspable"]
-    usd_path = LightwheelLazyPath(registry_type="objects", file_name="Jug005", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="Jug005", file_type="USD")
     scale = (2.0, 2.0, 2.0)
 
 
@@ -716,7 +797,7 @@ class BeerBottle(LibraryObject):
 
     registry_name = "beer_bottle"
     tags = ["object", "graspable"]
-    usd_path = LightwheelLazyPath(registry_type="objects", file_name="beer016", file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="beer016", file_type="USD")
     scale = (1.2, 1.2, 1.2)
 
 
@@ -1036,7 +1117,6 @@ class ButterHopeRobolab(LibraryObject):
     registry_name = "butter_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/butter.usd"
-    scale = (2.2, 2.0, 1.8)
 
 
 @register_asset
@@ -1946,17 +2026,9 @@ class ProceduralTable(Object):
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawner_cfg=_PROCEDURAL_TABLE_SPAWN_CFG,
             initial_pose=initial_pose,
         )
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=_PROCEDURAL_TABLE_SPAWN_CFG,
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(cfg)
 
 
 _PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
@@ -1998,17 +2070,9 @@ class ProceduralCube(Object):
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawner_cfg=_PROCEDURAL_CUBE_SPAWN_CFG,
             initial_pose=initial_pose,
         )
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=_PROCEDURAL_CUBE_SPAWN_CFG,
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(cfg)
 
 
 def _newton_gear_insertion_spawn_cfg(*, mass: float, kinematic: bool, friction: float) -> dict[str, Any]:
@@ -2068,3 +2132,99 @@ class GearInsertionMediumGear(_NewtonGearInsertionObject):
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/gear_insertion/factory_gear_medium.usda"
     object_type = ObjectType.RIGID
     spawn_cfg_addon = _newton_gear_insertion_spawn_cfg(mass=0.019, kinematic=False, friction=0.8)
+
+
+def _make_simready_central_hand_tool_spawn_cfg_addon() -> dict[str, object]:
+    """Create common spawn overrides for SimReady Central hand tools."""
+    return {
+        "variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS,
+        "make_uninstanceable": True,
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(
+            linear_damping=2.0,
+            angular_damping=2.0,
+            sleep_threshold=0.0,
+        ),
+        "collision_props": sim_utils.CollisionPropertiesCfg(
+            contact_offset=0.001,
+            rest_offset=0.0,
+            mesh_collision_property=sim_utils.MeshCollisionPropertiesCfg(mesh_approximation_name="convexHull"),
+        ),
+    }
+
+
+@register_asset
+class SimReadyCentralWhiteBin(LibraryObject):
+    """A white plastic bin from SimReady Central."""
+
+    registry_name = "simready_central_white_bin"
+    tags = ["object", "container", "sim-ready", "workbench"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
+        "69a87329036cec0440403351c12230970c4e67d8/D00814/simready_usd/D00814.usd"
+    )
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
+
+
+@register_asset
+class SimReadyCentralSlottedScrewdriver(LibraryObject):
+    """A slotted screwdriver from SimReady Central."""
+
+    registry_name = "simready_central_slotted_screwdriver"
+    tags = ["object", "graspable", "tool", "sim-ready", "workbench"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/nvidia/simready-assets/resolve/"
+        "653d91e182011f357cf1644013cc94ddf194d349/handTool_screwdriver_slotted_55mm_a01/"
+        "simready_usd/sm_handTool_screwdriver_slotted_55mm_a01_01.usd"
+    )
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = _make_simready_central_hand_tool_spawn_cfg_addon()
+
+
+@register_asset
+class SimReadyCentralSmallWrench(LibraryObject):
+    """A combination wrench from SimReady Central."""
+
+    registry_name = "simready_central_small_wrench"
+    tags = ["object", "graspable", "tool", "sim-ready", "workbench"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/nvidia/simready-assets/resolve/"
+        "653d91e182011f357cf1644013cc94ddf194d349/handTool_wrench_combination_a01/"
+        "simready_usd/sm_handTool_wrench_combination_a01_01.usd"
+    )
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = _make_simready_central_hand_tool_spawn_cfg_addon()
+
+
+@register_asset
+class SimReadyCentralSocketSet(LibraryObject, Openable):
+    """A fixed-base ratchet socket set from SimReady Central."""
+
+    registry_name = "simready_central_socket_set"
+    tags = ["object", "openable", "sim-ready", "workbench"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/workbench/socket_set.usda"
+    object_type = ObjectType.ARTICULATION
+    spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
+    openable_joint_name = "case_lid"
+
+    def __init__(self, initial_joint_positions: dict[str, float] | None = None, **kwargs):
+        kwargs.setdefault("openable_joint_name", self.openable_joint_name)
+        super().__init__(**kwargs)
+        if initial_joint_positions is not None:
+            self.object_cfg.init_state.joint_pos = dict(initial_joint_positions)
+
+
+@register_asset
+class SimReadyCentralOscilloscope(LibraryObject, Pressable):
+    """A fixed oscilloscope from SimReady Central."""
+
+    registry_name = "simready_central_oscilloscope"
+    tags = ["object", "pressable", "sim-ready", "workbench"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/workbench/oscilloscope.usda"
+    object_type = ObjectType.ARTICULATION
+    spawn_cfg_addon = {"variants": SIMREADY_PHYSICS_VARIANTS}
+    pressable_joint_name = "joint_button_01_joint_00"
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("pressable_joint_name", self.pressable_joint_name)
+        super().__init__(**kwargs)

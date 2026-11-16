@@ -6,6 +6,28 @@ Welcome to Isaac Lab-Arena!
    be fully tested yet. For the tested version, please refer to the `release/0.3.0 branch
    <https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html>`_.
 
+.. container:: arena-release-banner
+
+   .. container:: arena-release-copy
+
+      .. rst-class:: arena-release-lead
+
+      The **v0.4 Developer Preview** is available now on main.
+
+      .. rst-class:: arena-release-features
+
+      Includes faster agentic evaluation authoring, Newton-based evaluation workflows, and multimodal VLMs as policies.
+
+      .. rst-class:: arena-release-schedule
+
+      The official and tested release will be available around 8 December.
+
+   .. button-ref:: pages/whats_new/whats_new
+      :ref-type: doc
+      :class: arena-release-action
+
+      See what’s new on main →
+
 .. _overview:
 
 .. raw:: html
@@ -53,9 +75,75 @@ Features
 --------
 
 .. _home-author-benchmarks:
+.. _author-benchmarks:
 
-Author benchmarks
-^^^^^^^^^^^^^^^^^
+:doc:`Author evaluations with agents <pages/whats_new/agentic_authoring>`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. _home-agentic-environment-generation:
+
+.. container:: arena-feature-row arena-feature-rich arena-agentic-lead
+
+   .. container:: arena-feature-copy
+
+      Describe the evaluation environment you want in natural language.
+      A coding agent finds SimReady USD assets
+      and uses Arena's features to build environments and configure evaluation workflows.
+
+   .. container:: arena-agentic-walkthrough
+
+      .. container:: arena-agentic-walkthrough-toolbar
+
+         .. raw:: html
+
+            <span>Sample: A coding agent authors a workbench cleanup environment, evaluates a VLM-based policy on it, and adds variations.</span>
+
+      .. video:: images/whats_new/agentic_authoring_workbench_walkthrough.mp4
+         :width: 100%
+         :alt: A coding agent authors a workbench cleanup evaluation environment, evaluates a VLM policy, and adds variations
+         :muted:
+         :playsinline:
+         :preload: none
+         :poster: _images/agentic-authoring-walkthrough.webp
+
+      .. raw:: html
+
+         <aside id="arena-authoring-case-study" class="arena-authoring-results" aria-labelledby="arena-authoring-case-study-title">
+           <div class="arena-authoring-results__header">
+             <p id="arena-authoring-case-study-title"><strong>Case study:</strong> With Arena, the agent built environments at scale <strong>faster and at 72% lower cost.</strong></p>
+             <a href="pages/whats_new/agentic_authoring_workbench.html#analysis">Read more <span aria-hidden="true">→</span></a>
+           </div>
+           <ul class="arena-authoring-results__metrics">
+             <li>
+               <strong>5.25× <span>faster</span></strong>
+               <span>to a validated environment</span>
+             </li>
+             <li>
+               <strong class="arena-authoring-results__cost">72% <span>lower<br>cost</span></strong>
+             </li>
+             <li>
+               <strong>0 <span>custom Python</span></strong>
+               <span>for the environment</span>
+             </li>
+             <li>
+               <strong class="arena-authoring-results__qualitative">Physically stable<br>&amp; collision-free</strong>
+               <span>layout variations</span>
+             </li>
+           </ul>
+         </aside>
+
+   .. container:: arena-video-poster-sources
+
+      .. image:: images/landing/agentic-authoring-walkthrough.webp
+         :alt: Agentic workbench evaluation authoring walkthrough preview
+         :loading: lazy
+
+.. container:: arena-authoring-foundation
+
+   .. rubric:: The building blocks behind agentic authoring
+
+   The features below give coding agents the building blocks to author evaluations.
+   Use the same tools directly to compose environments, place objects, and add variations.
 
 .. _home-modular-environment-composition:
 
@@ -225,64 +313,6 @@ Author benchmarks
 
                      **Environment ready for evaluation**
 
-.. _home-agentic-environment-generation:
-
-.. container:: arena-feature-row arena-feature-rich
-
-   .. grid:: 1 1 2 2
-      :gutter: 4
-      :class-container: arena-feature-grid
-
-      .. grid-item::
-         :columns: 12 12 5 5
-
-         .. container:: arena-feature-copy
-
-            .. container:: arena-feature-heading
-
-               .. rubric:: :doc:`Agentic environment generation <pages/concepts/agentic_environment_generation/index>`
-
-               .. raw:: html
-
-                  <span class="arena-experimental-chip" tabindex="0" aria-describedby="arena-agentic-experimental-note">
-                    <i aria-hidden="true"></i>Experimental<b aria-hidden="true">?</b>
-                    <span id="arena-agentic-experimental-note" role="tooltip">The underlying agents and architecture may change in future versions.</span>
-                  </span>
-
-            Describe the benchmark you want in natural language. The agent infers constraints,
-            produces an editable spec, fetches existing SimReady USDs, and builds the Arena
-            environment(s).
-
-      .. grid-item::
-         :columns: 12 12 7 7
-
-         .. container:: arena-agentic-proof arena-agentic-giggles
-
-            .. container:: arena-agentic-demo
-
-               .. container:: arena-agentic-prompt
-
-                  .. rubric:: Input prompt
-
-                  Using a DROID robot and maple table, pick up one fruit, one bottle, and one
-                  utensil in any order, then place all three into a bin. Generate each environment
-                  with a different fruit, bottle, utensil, and bin. Add distractor kitchen objects,
-                  such as a mug and a SPAM can, to the table; the distractors are not part of the
-                  task.
-
-               .. container:: arena-agentic-connector
-
-                  →
-
-               .. container:: arena-agentic-output arena-agentic-output-heterogeneous
-
-                  .. rubric:: Output: Ready-to-evaluate Arena environments
-
-                  .. image:: images/landing/droid-heterogeneous-fruit-bottle-utensil-pnp.gif
-                     :width: 100%
-                     :alt: Four generated Arena environments in which DROID places a fruit, bottle, and utensil into different bins among distractor objects
-                     :loading: lazy
-
 .. _home-variation-system:
 
 .. container:: arena-feature-row arena-feature-rich
@@ -420,6 +450,62 @@ Author benchmarks
                    <div><small>Isaac Lab-Arena</small><strong>Evaluate policy</strong></div>
                  </article>
                </div>
+
+.. _home-newton-environments:
+
+.. container:: arena-feature-row arena-feature-rich
+
+   .. container:: arena-feature-copy
+
+      .. rubric:: :doc:`Contact-rich and deformable environments with Newton <pages/whats_new/newton_evaluation>`
+
+      Build evaluation environments for tight-tolerance insertion and deformable-object
+      manipulation with the Newton physics backend. Run these tasks through Arena's evaluation
+      workflows.
+
+   .. container:: arena-newton-proof
+
+      .. container:: arena-newton-example
+
+         .. rubric:: :doc:`Gear insertion <pages/example_workflows/newton/gear_insertion>`
+
+         .. video:: images/whats_new/arena_v04_newton_rigid_gear_insertion.mp4
+            :width: 100%
+            :alt: DROID inserts a gear onto a peg, with the rendered scene beside the Newton collision geometry
+            :loop:
+            :muted:
+            :playsinline:
+            :nocontrols:
+            :preload: none
+            :poster: _images/newton-gear-overview.webp
+
+         Tight-tolerance contact between a gear and a peg.
+
+      .. container:: arena-newton-example
+
+         .. rubric:: :doc:`Deformable pick and place <pages/example_workflows/newton/deformable_pick_and_place>`
+
+         .. video:: images/whats_new/arena_v04_newton_deformables.mp4
+            :width: 100%
+            :alt: DROID places a deformable block on a plate, with the rendered scene beside the Newton deformable mesh
+            :loop:
+            :muted:
+            :playsinline:
+            :nocontrols:
+            :preload: none
+            :poster: _images/newton-deformable-overview.webp
+
+         Objects deform as the robot grasps and moves them.
+
+   .. container:: arena-video-poster-sources
+
+      .. image:: images/landing/newton-gear-overview.webp
+         :alt: Newton gear insertion preview
+         :loading: lazy
+
+      .. image:: images/landing/newton-deformable-overview.webp
+         :alt: Newton deformable pick-and-place preview
+         :loading: lazy
 
 .. _home-execute-evaluations:
 
@@ -677,6 +763,11 @@ Execute large-scale parallel policy evaluations
             Run leading foundation models GR00T, π0.5, or bring your own policy behind a server.
             Arena exchanges observations and actions through one client contract across processes,
             GPUs, or machines.
+
+            .. rst-class:: arena-policy-vlm-note
+
+            Now available: evaluate multimodal VLMs as policies.
+            :doc:`See an example <pages/whats_new/vlm_policy>`.
 
       .. grid-item::
          :columns: 12 12 7 7
@@ -1056,6 +1147,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    :caption: Isaac Lab-Arena
 
    Overview <self>
+   What's New <pages/whats_new/whats_new>
    Why Isaac Lab-Arena <pages/motivation/motivation>
 
 .. toctree::
@@ -1089,7 +1181,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
 
    pages/example_workflows/example_environments
    pages/example_workflows/analysis/index
-   pages/example_workflows/agentic_env_gen/index
+   pages/example_workflows/agentic_authoring/index
    pages/example_workflows/newton/index
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
@@ -1097,10 +1189,16 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
 .. toctree::
    :maxdepth: 1
    :hidden:
+   :caption: Agentic Tools
+
+   pages/agentic_tools/index
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
    :caption: Concepts
 
    pages/concepts/environment/index
-   pages/concepts/agentic_environment_generation/index
    pages/concepts/scene/index
    pages/concepts/task/index
    pages/concepts/embodiment/index
@@ -1118,6 +1216,13 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    pages/advanced/private_omniverse
    pages/advanced/assets_management
    pages/quickstart/jupyter_notebooks
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: API Reference
+
+   pages/api_reference/relations
 
 .. toctree::
    :maxdepth: 1

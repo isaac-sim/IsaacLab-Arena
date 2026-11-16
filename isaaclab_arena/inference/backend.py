@@ -149,10 +149,11 @@ class InferenceBackend:
         ), f"max_retries must be in [0, {MAX_RETRIES_LIMIT}), got {max_retries}"
         inference_endpoint = resolve_inference_endpoint(endpoint)
         resolved_api_key = api_key or os.getenv(inference_endpoint.api_key_env_var)
+        # Point to the environment variable only when it selected the endpoint.
+        endpoint_hint = "" if endpoint else f" Select another endpoint with {INFERENCE_ENDPOINT_ENV_VAR}."
         assert resolved_api_key, (
             f"API key required for the {inference_endpoint.name!r} inference endpoint: set "
-            f"{inference_endpoint.api_key_env_var} or pass api_key. Select another endpoint with "
-            f"{INFERENCE_ENDPOINT_ENV_VAR}."
+            f"{inference_endpoint.api_key_env_var} or pass api_key.{endpoint_hint}"
         )
         resolved_base_url = base_url or inference_endpoint.base_url
         resolved_model = model or inference_endpoint.model

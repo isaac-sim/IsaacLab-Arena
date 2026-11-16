@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import (
+    ArticulationObjectReference,
     ObjectReference,
     OpenableObjectReference,
     PressableObjectReference,
@@ -29,7 +30,7 @@ _DEFAULT_DOME_LIGHT_ASSET_NAME = "light"
 _DEFAULT_DOME_LIGHT_NODE_ID = "auto_dome_light"
 _DEFAULT_DIRECTIONAL_LIGHT_ASSET_NAME = "directional_light"
 _DEFAULT_DIRECTIONAL_LIGHT_NODE_ID = "auto_directional_light"
-_AFFORDANCE_REFERENCE_CLASSES: dict[str, type[ObjectReference]] = {
+_AFFORDANCE_REFERENCE_CLASSES: dict[str, type[ArticulationObjectReference]] = {
     "openable_joint_name": OpenableObjectReference,
     "pressable_joint_name": PressableObjectReference,
     "turnable_joint_name": TurnableObjectReference,
@@ -155,6 +156,8 @@ def _instantiate_object_reference(
         **parse_asset_params(ref.params),
     }
     if not joint_param_names:
+        if ref.object_type == ObjectType.ARTICULATION:
+            return ArticulationObjectReference(**common_kwargs)
         return ObjectReference(object_type=ref.object_type, **common_kwargs)
 
     # Affordance references always set object_type=ARTICULATION; omit the YAML value.

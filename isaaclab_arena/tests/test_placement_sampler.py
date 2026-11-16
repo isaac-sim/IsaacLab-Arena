@@ -10,7 +10,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from isaaclab_arena.relations.placement_sampler import (
+from isaaclab_arena.relations.runtime.placement_sampler import (
     PlacementSample,
     PlacementSampler,
     RecordedPlacementSampler,

@@ -19,11 +19,23 @@ userdel ubuntu 2>/dev/null || true
 # User/group ID of the host user are set through env variables when calling docker run further down.
 groupadd --force --gid "$DOCKER_RUN_GROUP_ID" "$DOCKER_RUN_GROUP_NAME"
 
+# Add the host's plugdev group ID so the container user can access USB devices.
+USER_GROUPS="sudo,isaac-sim"
+if [ -n "${DOCKER_RUN_PLUGDEV_GROUP_ID:-}" ]; then
+    if usb_group_entry=$(getent group "$DOCKER_RUN_PLUGDEV_GROUP_ID"); then
+        usb_group_name=${usb_group_entry%%:*}
+    else
+        usb_group_name="arena-plugdev-$DOCKER_RUN_PLUGDEV_GROUP_ID"
+        groupadd --gid "$DOCKER_RUN_PLUGDEV_GROUP_ID" "$usb_group_name"
+    fi
+    USER_GROUPS+=",$usb_group_name"
+fi
+
 # Re-add the user
 useradd --create-home --no-log-init \
         --uid "$DOCKER_RUN_USER_ID" \
         --gid "$DOCKER_RUN_GROUP_NAME" \
-        --groups sudo,isaac-sim \
+        --groups "$USER_GROUPS" \
         --shell /bin/bash \
         $DOCKER_RUN_USER_NAME
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME
@@ -41,10 +53,6 @@ touch /home/$DOCKER_RUN_USER_NAME/.sudo_as_admin_successful
 
 cp /etc/bash.bashrc /home/$DOCKER_RUN_USER_NAME/.bashrc
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME/.bashrc
-
-# Add the models, datasets, and eval folders if they don't exist
-mkdir -p /datasets /models /eval
-chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /datasets /models /eval
 
 # Create the _isaac_sim symlink if it doesn't exist
 if [ ! -e "$WORKDIR/submodules/IsaacLab/_isaac_sim" ]; then

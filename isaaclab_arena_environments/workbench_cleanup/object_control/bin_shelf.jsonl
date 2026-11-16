@@ -1,0 +1,12 @@
+{"action":"mark","index":0,"boundary":"start","title":"Place white bin on overhead shelf"}
+{"action":"lift","name":"white_bin","height":1.0,"seconds":3.0,"rotation_mode":"torque","rotation_gain":6.0,"angular_damping":0.6,"max_torque":5.0}
+{"action":"move","name":"white_bin","goal":[0.4,0.23,1.0],"orientation":[0.0,0.0,0.0,1.0],"seconds":3.0,"rotation_mode":"torque","rotation_gain":6.0,"angular_damping":0.6,"max_torque":5.0}
+{"action":"move","name":"white_bin","goal":[0.4,0.23,1.55],"seconds":3.0,"rotation_mode":"torque","rotation_gain":6.0,"angular_damping":0.6,"max_torque":5.0}
+{"action":"move","name":"white_bin","goal":[-0.05,0.23,1.55],"orientation":[0.0,0.13052619,0.0,0.99144486],"seconds":3.0,"rotation_mode":"torque","rotation_gain":6.0,"angular_damping":0.6,"max_torque":5.0}
+{"action":"move","name":"white_bin","goal":[-0.05,0.23,1.22],"seconds":3.0,"rotation_mode":"torque","rotation_gain":6.0,"angular_damping":0.6,"max_torque":5.0}
+{"action":"release","name":"white_bin"}
+{"action":"check","index":0,"timeout_steps":2400}
+{"action":"wait","seconds":2.0}
+{"action":"mark","index":0,"boundary":"end","title":"Place white bin on overhead shelf"}
+{"action":"wait_final"}
+{"action":"finish"}

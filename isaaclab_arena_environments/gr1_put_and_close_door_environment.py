@@ -178,10 +178,14 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
         pickup_object.add_relation(On(kitchen_counter_top))
         pickup_object.add_relation(
             PositionLimitsBox(
-                x_min=PICKUP_OBJECT_X_M - RANDOMIZATION_HALF_RANGE_X_M,
-                x_max=PICKUP_OBJECT_X_M + RANDOMIZATION_HALF_RANGE_X_M,
-                y_min=PICKUP_OBJECT_Y_M - RANDOMIZATION_HALF_RANGE_Y_M,
-                y_max=PICKUP_OBJECT_Y_M + RANDOMIZATION_HALF_RANGE_Y_M,
+                x_limits=(
+                    PICKUP_OBJECT_X_M - RANDOMIZATION_HALF_RANGE_X_M,
+                    PICKUP_OBJECT_X_M + RANDOMIZATION_HALF_RANGE_X_M,
+                ),
+                y_limits=(
+                    PICKUP_OBJECT_Y_M - RANDOMIZATION_HALF_RANGE_Y_M,
+                    PICKUP_OBJECT_Y_M + RANDOMIZATION_HALF_RANGE_Y_M,
+                ),
             )
         )
         # Consider changing to other values for different objects, below is for ranch dressing bottle.

@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType
+from isaaclab_arena.relations.optimization.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.reachability_config import ReachabilityConfig
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -25,8 +25,8 @@ class ObjectPlacerParams:
 
     random_yaw_init: bool = False
     """If True, give each non-anchor object a random fixed yaw about Z (uniform in [-pi, pi)) for
-    scene variety. ClutterOn uses its own random_yaw setting. Not optimized; collisions use the
-    conservative box enclosing the rotated object."""
+    scene variety. ClutterOn uses its own random_yaw setting. Not optimized; collision checks use the
+    rotated box."""
 
     max_placement_attempts: int = 10
     """Number of candidate layouts solved and ranked per result. Higher values raise the chance a valid
@@ -36,7 +36,12 @@ class ObjectPlacerParams:
     """If True, automatically set solved positions on objects after placement."""
 
     verbose: bool = False
-    """If True, print progress information."""
+    """If True, print progress information and, after each check runs on a batch, its rejections with their measured
+    violations. Each batch prints its rejection causes with their counts either way."""
+
+    max_printed_rejections_per_cause: int | None = 3
+    """With verbose, the most rejections printed for each cause of each check on a batch; the remaining ones are
+    counted on one line. None prints every rejection. The placement diagnostics keep every rejection either way."""
 
     placement_seed: int | None = None
     """Random seed for reproducible placement. If None, uses current RNG state."""
@@ -55,7 +60,8 @@ class ObjectPlacerParams:
     environment has many distinct configurations to draw from."""
 
     allow_best_loss_fallbacks: bool = True
-    """Whether pooled placement may use best-loss layouts when no valid layout is found."""
+    """Whether pooled placement may fill an environment's remaining slots with best-loss layouts when its last
+    batch leaves it without enough valid layouts."""
 
     enabled_checks: set[str] | None = None
     """Check names to evaluate during placement. None runs every registered build-time check.
@@ -88,6 +94,9 @@ class ObjectPlacerParams:
         assert (
             math.isfinite(self.on_relation_z_tolerance_m) and self.on_relation_z_tolerance_m >= 0
         ), "on_relation_z_tolerance_m must be finite and non-negative"
+        assert (
+            self.max_printed_rejections_per_cause is None or self.max_printed_rejections_per_cause >= 0
+        ), "max_printed_rejections_per_cause must be None or non-negative"
         if self.enabled_checks is not None and self.required_checks is not None:
             extra = self.required_checks - self.enabled_checks
             assert not extra, f"required_checks must be a subset of enabled_checks; unexpected: {sorted(extra)}"

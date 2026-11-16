@@ -49,6 +49,11 @@ class Pi0RemotePolicy(RemoteChunkReplayPolicy, PolicyBase[Pi0RemotePolicyCfg]):
         )
         super().__init__(config, adapter, adapter.open_loop_horizon_by_variant[config.policy_variant])
 
+    @classmethod
+    def default_image_size(cls, config: Pi0RemotePolicyCfg) -> tuple[int, int]:
+        """Return the (height, width) the selected openpi adapter resizes camera images to."""
+        return _resolve_openpi_embodiment_adapter(config.openpi_embodiment_adapter).target_image_size
+
 
 def _resolve_openpi_embodiment_adapter(key: str) -> Pi0EmbodimentAdapter:
     """Instantiate the adapter registered under ``key``.

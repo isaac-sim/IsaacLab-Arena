@@ -158,6 +158,7 @@ rebuild runs at least one episode. The Run-level
    default is one complete pass over the JSONL in every rebuild. An explicit
    total episode limit is instead split across rebuilds.
 
-All recorded replay requires ``rollout_limit.num_steps`` to be unset and a
-policy without a fixed action-sequence length. When set,
-``rollout_limit.num_episodes`` must be at least ``num_rebuilds``.
+All recorded replay requires ``rollout_limit.num_steps`` and
+``rollout_limit.num_episodes_per_rebuild`` to be unset and a policy without a
+fixed action-sequence length. When set, ``rollout_limit.num_episodes`` must be
+at least ``num_rebuilds``.

@@ -12,7 +12,7 @@ from pathlib import Path
 class Gr00tDatasetConfig:
     # Datasets & task specific parameters
     data_root: Path = field(
-        default=Path("/datasets/"),
+        default=Path("~/datasets"),
         metadata={"description": "Root directory for all data storage."},
     )
     language_instruction: str = field(
@@ -141,6 +141,7 @@ class Gr00tDatasetConfig:
 
     def __post_init__(self):
 
+        self.data_root = Path(self.data_root).expanduser()
         self.hdf5_file_path = self.data_root / self.hdf5_name
         self.lerobot_data_dir = self.data_root / self.hdf5_name.replace(".hdf5", "") / "lerobot"
 

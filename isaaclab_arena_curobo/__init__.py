@@ -7,9 +7,6 @@
 
 from __future__ import annotations
 
-try:
-    # Importing this submodule registers ReachabilityValidator as the ``ik_reachable`` build-time check.
-    # Delist the validator check if the cuRobo deps are not installed.
-    from isaaclab_arena_curobo import ik_reachability_validator as _ik_reachability_validator  # noqa: F401
-except ImportError:
-    pass
+# Importing this submodule registers ReachabilityValidator as the ``ik_reachable`` build-time check.
+# cuRobo is a locked Arena dependency, so an import failure means a broken install and is not swallowed.
+from isaaclab_arena_curobo import ik_reachability_validator as _ik_reachability_validator  # noqa: F401

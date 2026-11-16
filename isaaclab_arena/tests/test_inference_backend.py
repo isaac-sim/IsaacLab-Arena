@@ -98,8 +98,14 @@ class TestInit:
         mock_cls.assert_called_once_with(api_key="env-key", base_url=PUBLIC_ENDPOINT.base_url)
 
     def test_raises_when_no_key_anywhere(self, stub_openai):
-        with pytest.raises(AssertionError, match=f"set {PUBLIC_ENDPOINT.api_key_env_var}"):
+        with pytest.raises(AssertionError, match=f"set {PUBLIC_ENDPOINT.api_key_env_var}") as error:
             InferenceBackend()
+        assert INFERENCE_ENDPOINT_ENV_VAR in str(error.value)
+
+    def test_missing_key_for_an_explicit_endpoint_omits_the_environment_variable(self, stub_openai):
+        with pytest.raises(AssertionError, match=f"set {INTERNAL_ENDPOINT.api_key_env_var}") as error:
+            InferenceBackend(endpoint=INTERNAL_ENDPOINT.name)
+        assert INFERENCE_ENDPOINT_ENV_VAR not in str(error.value)
 
     def test_selected_endpoint_sets_base_url_model_and_key(self, monkeypatch, stub_openai):
         mock_cls, _ = stub_openai

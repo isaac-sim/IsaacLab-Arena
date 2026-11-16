@@ -51,8 +51,8 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.relations.geometry.passive_collision_objects import get_placement_collision_objects
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.passive_collision_objects import get_placement_collision_objects
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.scene.scene import Scene

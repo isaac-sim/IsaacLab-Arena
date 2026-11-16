@@ -21,7 +21,7 @@ def apply_env_cfg_override(
     env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
     override: dict[str, Any],
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
-    """Apply a validated graph ``env_cfg_override`` in place."""
+    """Apply a validated ``env_cfg_override`` mapping in place."""
     apply_config_override(
         env_cfg,
         override,

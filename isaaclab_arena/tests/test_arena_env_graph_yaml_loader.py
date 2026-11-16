@@ -172,7 +172,8 @@ def test_robolab_task_yaml_loads_scene_include():
     task_path = Path(__file__).resolve().parents[2] / "isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml"
     spec = ArenaEnvGraphSpec.from_yaml(task_path)
     assert spec.env_name == "banana_in_bowl"
-    assert len(spec.objects) == 2
+    # Two scene objects plus the explicit dome and sphere light nodes.
+    assert {obj.id for obj in spec.objects} == {"banana", "bowl", "light", "sphere_light"}
     assert spec.task.subtasks[0].params["pick_up_object"] == "banana"
 
 

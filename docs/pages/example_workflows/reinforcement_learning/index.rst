@@ -57,9 +57,7 @@ using the provided checkpoints.
 Prerequisites
 ^^^^^^^^^^^^^
 
-Start the isaaclab docker container
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 We store models on Hugging Face, so you'll need log in to Hugging Face if you haven't already.
 
@@ -73,7 +71,7 @@ You'll need to create folders for logs, checkpoints, and models:
 
     export LOG_DIR=logs/rsl_rl
     mkdir -p $LOG_DIR
-    export MODELS_DIR=/models/isaaclab_arena/reinforcement_learning
+    export MODELS_DIR="$HOME/models/isaaclab_arena/reinforcement_learning"
     mkdir -p $MODELS_DIR
 
 Workflow Steps

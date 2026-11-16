@@ -63,7 +63,7 @@ def get_embodiment_curobo_cfg(embodiment: EmbodimentBase) -> CuroboEmbodimentCfg
 _DROID_CUROBO_ASSET_DIR = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/droid_fixed_mimic_joint"
 
 DROID_CUROBO_CFG = CuroboEmbodimentCfg(
-    robot_cfg_template=f"{_DROID_CUROBO_ASSET_DIR}/franka_robotiq_2f_85_zero_curobo.yml",
+    robot_cfg_template=f"{_DROID_CUROBO_ASSET_DIR}/franka_robotiq_2f_85_zero_curobo_v2.yaml",
     robot_urdf=f"{_DROID_CUROBO_ASSET_DIR}/urdf/franka_robotiq_2f_85_zero.urdf",
     robot_name="franka_robotiq",
     ee_link_name="base_link",

@@ -66,7 +66,9 @@ The settings in the :ref:`scope table <physics-configuration-scopes>` are applie
    addons, including ``prim_physics``. The builder composes the scene and manager configs and
    assigns the default solver.
 3. ``env_cfg_callback`` applies the environment's ``env_cfg_override`` to the composed config.
-   These settings take precedence over earlier defaults; the selected backend stays the same.
+   The builder then applies ``ArenaEnvBuilderCfg.env_cfg_override``, configured in Experiments as
+   ``runs.<name>.environment_builder.env_cfg_override``. It takes precedence over the callback's
+   settings; the selected backend stays the same.
 4. Environment creation loads each USD using its ordinary spawn properties, then applies
    ``prim_physics`` overrides, then clones the configured asset and imports its physics.
    Every clone inherits the same spawn-time physics edits.

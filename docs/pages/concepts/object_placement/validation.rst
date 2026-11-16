@@ -20,7 +20,7 @@ that passes ``is_available()`` and survives ``enabled_checks`` (see
 :ref:`validation-toggle`). Each solved batch then runs in two passes:
 
 1. **Inexpensive checks** (``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
-   ``not_next_to``, ``face_to``) over every candidate.
+   ``not_next_to``, ``align_with``, ``face_to``) over every candidate.
 2. **Expensive checks** (``ik_reachable``) only on candidates that already
    passed every *required* inexpensive check.
 
@@ -35,8 +35,9 @@ with ten attempts each produce a batch of forty candidates. Filtering and rankin
 keep each candidate's geometry and results together. Sample IDs are local to a
 solve, not persistent layout identifiers across solves or pool refills.
 
-``PlacementCandidateGenerator`` samples orientations, fits the bounds to those
-rotations and places clutter above its support and nearby objects before solving.
+``PlacementCandidateGenerator`` samples orientations and fits the bounds before
+sampling positions. It then places clutter above its support and nearby objects
+before solving.
 After solving, ``ObjectPlacer`` applies ``FaceTo`` headings and refits the bounds.
 ``PlacementValidationRunner`` then replaces each candidate's check results.
 Here, *expensive* means computational cost, such as solving IK. Neither validation
@@ -48,8 +49,8 @@ Verdicts land in each candidate's ``PlacementValidationResults``. A
 does not invalidate the layout. ``PooledObjectPlacer``
 (:doc:`./pooled_placement`) uses these results to rank candidates and to
 reject-and-refill until each environment has enough valid layouts. By default,
-if the final refill batch still has no valid candidate, Arena can store a
-best-loss layout that failed required checks
+if the final refill batch leaves an environment without enough valid layouts,
+Arena can fill the rest with best-loss layouts that failed required checks
 (``allow_best_loss_fallbacks=True``); see :doc:`./pooled_placement`.
 
 Pre-physics and offline post-physics validators share the ``PlacementValidator``
@@ -95,6 +96,11 @@ Types of Validators
      - Inexpensive
      - Yes
      - Every ``NotNextTo`` keep-out zone is cleared within tolerance.
+   * - ``align_with``
+     - Build-time
+     - Inexpensive
+     - Yes
+     - Bounding-box centres match the world-axis offset within the alignment tolerance.
    * - ``face_to``
      - Build-time
      - Inexpensive
@@ -111,7 +117,7 @@ Geometric and Relation Checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
-``not_next_to``, and ``face_to`` are always registered. The first five mirror the corresponding
+``not_next_to``, ``align_with``, and ``face_to`` are always registered. The first six mirror the corresponding
 relation's loss term, so low-loss solver output and validator verdicts stay
 consistent. ``face_to`` is different: ``FaceTo`` is applied as a post-solve
 heading rather than a continuous loss, and the check only verifies that a
@@ -147,10 +153,10 @@ IK Reachability (``ik_reachable``)
    (green). Distractors outside the reachable volume may appear red for
    illustration, but they never reject the layout.
 
-``ReachabilityValidator`` lives in the optional ``isaaclab_arena_curobo``
-extension. It registers when that package imports successfully and the
-embodiment has a cuRobo config (e.g. Droid). ``ArenaEnvBuilder`` wires
-the env's embodiment into ``reachability_config`` automatically.
+``ReachabilityValidator`` lives in the ``isaaclab_arena_curobo`` extension. It
+registers whenever the embodiment has a cuRobo config (e.g. Droid);
+``ArenaEnvBuilder`` wires the env's embodiment into ``reachability_config``
+automatically. See :ref:`validation-toggle` to turn it off.
 
 It gates only objects marked ``RequiresReachability`` — a relation that tasks
 such as ``PickAndPlaceTask`` stamp automatically. With no such relation, the
@@ -166,6 +172,20 @@ check passes trivially. Grasp offset and IK tolerances are configurable; see
    With ``debug_visualize`` on, green spheres mark a reachable,
    collision-free grasp; red marks a failure that rejects the candidate.
 
+While the environment builds, every batch of candidate layouts reports how many
+of them passed each check. ``ik_reachable`` counts only candidates that passed
+the required inexpensive checks:
+
+.. code-block:: text
+
+   [placement] Validated 50 candidate layout(s); passed per check: on_relation=46/50, clutter_on_relation=50/50, align_with=50/50, next_to=50/50, not_next_to=50/50, face_to=50/50, no_overlap=45/50, ik_reachable=39/44
+
+A low ``ik_reachable`` ratio means most sampled layouts put a target object
+outside the arm's workspace, and the placer keeps resampling. A composite task
+rejects more layouts than an atomic one, because every pick and place target
+must be reachable in the same layout. When an environment finds no reachable
+layout at all, it falls back to its lowest-loss layout.
+
 .. _validation-toggle:
 
 Enabling and Disabling Checks
@@ -174,10 +194,15 @@ Enabling and Disabling Checks
 Two concepts control the build-time checks: which checks **run**
 (``enabled_checks``) and, of those, which must **pass** for a layout to be
 valid (``required_checks``). By default every registered check runs and is
-required — so when cuRobo is available, ``ik_reachable`` gates placement
-automatically. Making a check optional (enabled but not required) keeps it
-running and reported without rejecting layouts, which is the usual way to
-keep placement geometry-only.
+required — so for an embodiment with a cuRobo config, ``ik_reachable`` gates
+placement automatically. Making a check optional (enabled but not required)
+keeps it running and reported without rejecting layouts. To skip
+``ik_reachable`` entirely, list the checks to run without it:
+
+.. code-block:: yaml
+
+   placer_params:
+     enabled_checks: [no_overlap, on_relation, clutter_on_relation, next_to, not_next_to, align_with, face_to]
 
 Both are set on ``ObjectPlacerParams`` in Python or the ``placer_params`` block
 in YAML; see :doc:`../environment/environment_definition`.
@@ -291,7 +316,7 @@ limits.
    * - Unsupported support orientation or tilted mesh release
      - Keep supports upright at multiples of 90 degrees in yaw. For clutter
        with roll or pitch, set the object's ``collision_mode="bbox"``; see
-       :ref:`ClutterOn settings <clutter-on-relation>`.
+       :class:`ClutterOn settings <isaaclab_arena.relations.relations.ClutterOn>`.
    * - Release footprint cannot fit
      - Compare the rotated object bounds with ``spread`` and ``edge_margin_m``.
        Enlarge the release region or use smaller objects; also inspect neighboring
@@ -334,8 +359,8 @@ what to adjust:
      - What to check or change
    * - ``solver validation failed``
      - A layout failed a required solver check.
-     - Read earlier solver diagnostics and check relation constraints and collision
-       geometry. Increasing settling time cannot fix a solver failure.
+     - Read the :doc:`placement diagnostics <./placement_diagnostics>` and check
+       relation constraints and collision geometry. Increasing settling time cannot fix a solver failure.
    * - ``physics_settled``
      - Final root velocity is too high.
      - Inspect contacts and support. Increase ``settle.num_steps`` if motion is
@@ -370,12 +395,17 @@ Pre-Physics Validators
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Pre-physics validators check the solver's proposed layout before physics is advanced. Subclass
-``PrePhysicsPlacementValidator`` and register a unique ``check`` name which should be included in
-``ObjectPlacerParams.enabled_checks``. Return one boolean per candidate, in batch order. For
-example, reject layouts with any object origin above 1.5 metres:
+``PrePhysicsPlacementValidator``, register a unique ``check`` name which should be included in
+``ObjectPlacerParams.enabled_checks``, and implement ``_validate_batch``. Return one boolean per
+candidate, in batch order, and append a ``Rejection`` to ``rejections`` for each candidate you
+reject. Its ``cause`` names what failed without measured values, so rejections of the same kind
+are counted together, and its ``detail`` holds the measured violation. Rejections appear in the
+:doc:`placement diagnostics <./placement_diagnostics>`. For example, reject
+layouts with any object origin above 1.5 metres:
 
 .. code-block:: python
 
+   from isaaclab_arena.relations.placement_diagnostics import Rejection
    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
    from isaaclab_arena.relations.validation.registry import register_validator
 
@@ -383,12 +413,20 @@ example, reject layouts with any object origin above 1.5 metres:
    class MaxOriginHeightValidator(PrePhysicsPlacementValidator):
        check = "max_origin_height"
 
-       def validate_batch(self, batch, collision_objects):
+       def _validate_batch(self, batch, collision_objects, rejections):
            verdicts = []
            for candidate in batch.candidates:
-               below_limit = all(
-                   position[2] <= 1.5 for position in candidate.positions.values()
+               highest_obj, highest_position = max(
+                   candidate.positions.items(), key=lambda item: item[1][2]
                )
+               below_limit = highest_position[2] <= 1.5
+               if not below_limit:
+                   rejections.append(
+                       Rejection(
+                           f"'{highest_obj.name}': origin above 1.5 m",
+                           detail=f"origin z {highest_position[2]:.3f} m",
+                       )
+                   )
                verdicts.append(below_limit)
            return verdicts
 

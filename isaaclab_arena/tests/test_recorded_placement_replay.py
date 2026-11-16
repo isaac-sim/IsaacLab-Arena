@@ -20,11 +20,11 @@ def _test_recorded_placement_replay_applies_complete_layouts(simulation_app):
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.relations.placement_sampler import (
+    from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
+    from isaaclab_arena.relations.runtime.placement_sampler import (
         deserialize_placement_samples,
         placement_samples_to_pose_columns,
     )
-    from isaaclab_arena.relations.relation_solver import RelationSolver
     from isaaclab_arena.variations.recorded_variation_samples import load_rebuild_variation_record
 
     record = load_rebuild_variation_record(LAYOUTS, build_time_variation_keys=set())
@@ -141,7 +141,7 @@ def _test_recorded_placement_replays_all_compound_asset_roots(simulation_app, tm
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.relations.placement_sampler import PlacementSample, write_placement_samples
+    from isaaclab_arena.relations.runtime.placement_sampler import PlacementSample, write_placement_samples
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
 
@@ -210,7 +210,7 @@ def _test_recorded_root_replay_preserves_articulation_joint_reset(simulation_app
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.relations.placement_sampler import PlacementSample, write_placement_samples
+    from isaaclab_arena.relations.runtime.placement_sampler import PlacementSample, write_placement_samples
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tests.test_background_physics_reset import _create_background_usds
     from isaaclab_arena.utils.pose import Pose
@@ -219,7 +219,7 @@ def _test_recorded_root_replay_preserves_articulation_joint_reset(simulation_app
     online_path = tmp_path / "online_asset.usd"
     _create_background_usds(str(background_path), str(online_path), include_joint_network=False)
     key = "referenced_articulation"
-    background = Background("background", str(background_path), object_min_z=0.0)
+    background = Background(name="background", object_min_z=0.0, usd_path=str(background_path))
     reference = ObjectReference(
         name=key,
         prim_path="{ENV_REGEX_NS}/background/referenced_articulation",

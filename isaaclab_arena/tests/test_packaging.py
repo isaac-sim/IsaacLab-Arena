@@ -16,8 +16,11 @@ import tomllib
 from importlib import metadata
 from pathlib import Path
 
+import pytest
+
 PACKAGE_ROOTS = (
     "isaaclab_arena",
+    "isaaclab_arena_benchmarking",
     "isaaclab_arena_cosmos",
     "isaaclab_arena_curobo",
     "isaaclab_arena_dreamzero",
@@ -32,6 +35,10 @@ PACKAGE_ROOTS = (
 DISCOVERABLE_MODULES = (
     "isaaclab_arena.evaluation.policy_runner",
     "isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task",
+    "isaaclab_arena_benchmarking.benchmarks.registry",
+    "isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter",
+    "isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter",
+    "isaaclab_arena_benchmarking.utils.influxdb_kpi_records",
 )
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
@@ -62,3 +69,41 @@ def test_native_openpi_client_matches_server_commit():
     assert pyproject_config["dependency-groups"]["openpi"] == ["openpi-client"]
     assert "openpi" in pyproject_config["tool"]["uv"]["default-groups"]
     assert openpi_client_source["rev"] == openpi_server_commit
+
+
+def _discover_packages_like_setuptools() -> set[str]:
+    """Return the packages setuptools discovers with the pyproject.toml configuration."""
+    find_packages = pytest.importorskip("setuptools").find_packages
+    pyproject_config = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    find_config = pyproject_config["tool"]["setuptools"]["packages"]["find"]
+    assert find_config["namespaces"] is False, "Packages without __init__.py are only found with namespaces = true."
+    (where,) = find_config["where"]
+    return set(
+        find_packages(
+            where=str(REPOSITORY_ROOT / where),
+            include=find_config["include"],
+            exclude=find_config.get("exclude", ()),
+        )
+    )
+
+
+def test_benchmarking_packages_are_discovered_by_setuptools():
+    """The OSMO collector imports these from the installed image, not from the repository root."""
+    discovered_packages = _discover_packages_like_setuptools()
+    for package in (
+        "isaaclab_arena_benchmarking",
+        "isaaclab_arena_benchmarking.utils",
+        "isaaclab_arena_benchmarking.benchmarks",
+        "isaaclab_arena_benchmarking.benchmarks.success_rate",
+        "isaaclab_arena_benchmarking.benchmarks.timing",
+    ):
+        assert package in discovered_packages, package
+
+
+def test_benchmarking_directories_with_modules_are_packages():
+    benchmarking_root = REPOSITORY_ROOT / "isaaclab_arena_benchmarking"
+    for module_path in benchmarking_root.rglob("*.py"):
+        relative_path = module_path.relative_to(benchmarking_root)
+        if "tests" in relative_path.parts or module_path.name == "__init__.py":
+            continue
+        assert (module_path.parent / "__init__.py").is_file(), f"{module_path.parent} has no __init__.py"

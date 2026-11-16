@@ -1,0 +1,22 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: workbench_turn_off_scope
+external_yaml: scene_tool_bin_scope.yaml
+env_cfg_override:
+  viewer:
+    # Show the screen and power button from the front.
+    eye: [1.2, -1.35, 1.35]
+    lookat: [0.03, -0.32, 0.8]
+task:
+  composition: atomic
+  description: Press the oscilloscope power button to turn its screen off.
+  subtasks:
+  - kind: PressButtonTask
+    params:
+      pressable_object: oscilloscope
+      pressedness_threshold: 0.8
+      reset_pressedness: 1.0
+      episode_length_s: 60.0

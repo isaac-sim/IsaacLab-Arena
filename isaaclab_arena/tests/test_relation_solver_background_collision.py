@@ -102,8 +102,11 @@ def _make_usd_background():
 
 def test_background_collision_object_combines_meshes():
     """Multiple fixed background meshes are represented as one collision-only object."""
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject, make_fixed_collision_objects
     from isaaclab_arena.relations.collision_mode import CollisionMode
+    from isaaclab_arena.relations.geometry.background_collision_object import (
+        FixedCollisionObject,
+        make_fixed_collision_objects,
+    )
 
     left = _mesh_box("left_cabinet", (0.2, 0.2, 0.2), (-1.0, 0.0, 0.0))
     right = _mesh_box("right_cabinet", (0.2, 0.2, 0.2), (1.0, 0.0, 0.0))
@@ -137,8 +140,8 @@ def test_background_collision_objects_reject_failed_whole_background(monkeypatch
     import pytest
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.geometry.background_collision_object import make_fixed_collision_objects
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena.utils.usd.helpers import NoCollisionMeshError
 
@@ -167,7 +170,7 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError
 
     obj = Object.__new__(Object)
@@ -201,7 +204,7 @@ def test_warp_mesh_cache_keys_exclusions(monkeypatch):
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
 
     obj = Object.__new__(Object)
     obj.name = "kitchen"
@@ -235,7 +238,7 @@ def test_warp_mesh_cache_follows_spawn_cfg(monkeypatch):
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
 
     extents_by_path = {"/tmp/small.usda": 1.0, "/tmp/big.usda": 2.0}
 
@@ -275,7 +278,7 @@ def test_warp_mesh_cache_follows_spawn_cfg(monkeypatch):
 
 def test_background_anchor_exclusions_can_remove_all_meshes(monkeypatch):
     """A background fully represented by anchors contributes no additional collision object."""
-    from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
+    from isaaclab_arena.relations.geometry.background_collision_object import make_fixed_collision_objects
 
     kitchen = _make_usd_background()
 
@@ -297,7 +300,7 @@ def test_background_exclusions_preserve_unsupported_geometry_error(monkeypatch):
     """Unsupported geometry outside exclusions remains a fatal background extraction failure."""
     import pytest
 
-    from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
+    from isaaclab_arena.relations.geometry.background_collision_object import make_fixed_collision_objects
     from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError
 
     kitchen = _make_usd_background()
@@ -314,15 +317,14 @@ def test_background_exclusions_preserve_unsupported_geometry_error(monkeypatch):
         )
 
 
-def test_passive_background_excludes_relation_anchor_subtrees(monkeypatch):
-    """Background aggregation omits geometry represented separately by relation anchors."""
-    from unittest.mock import MagicMock
-
-    import isaaclab_arena.relations.passive_collision_objects as passive_module
+def test_passive_background_excludes_nested_relation_anchor_subtrees(monkeypatch):
+    """Background aggregation omits nested geometry represented separately by relation anchors."""
+    import isaaclab_arena.relations.geometry.passive_collision_objects as passive_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.relations.collision_mode import CollisionMode
-    from isaaclab_arena.relations.passive_collision_objects import get_placement_collision_objects
+    from isaaclab_arena.relations.geometry.passive_collision_objects import get_placement_collision_objects
+    from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.utils.pose import Pose
 
     kitchen = Background.__new__(Background)
@@ -331,10 +333,12 @@ def test_passive_background_excludes_relation_anchor_subtrees(monkeypatch):
     kitchen.initial_pose = Pose.identity()
     kitchen.relations = []
 
-    counter = MagicMock(spec=ObjectReference)
-    counter.is_anchor = True
-    counter.parent_asset = kitchen
-    counter.prim_path_in_parent_usd = "/Kitchen/counter"
+    cabinet = ObjectReference.__new__(ObjectReference)
+    cabinet.parent_asset = kitchen
+    counter = ObjectReference.__new__(ObjectReference)
+    counter.relations = [IsAnchor()]
+    counter.parent_asset = cabinet
+    counter._prim_path_in_parent_usd = "/Kitchen/cabinet/counter"
     calls = {}
 
     def fake_make_fixed(objects, excluded_prim_paths_by_object=None):
@@ -346,9 +350,10 @@ def test_passive_background_excludes_relation_anchor_subtrees(monkeypatch):
 
     result = get_placement_collision_objects([counter, counter], [kitchen], CollisionMode.MESH)
 
+    assert counter.root_asset is kitchen
     assert result == [kitchen]
     assert calls["objects"] == [kitchen]
-    assert calls["exclusions"] == {kitchen: {"/Kitchen/counter"}}
+    assert calls["exclusions"] == {kitchen: {"/Kitchen/cabinet/counter"}}
 
 
 def test_background_collision_objects_treat_background_none_pose_as_identity(monkeypatch):
@@ -356,8 +361,8 @@ def test_background_collision_objects_treat_background_none_pose_as_identity(mon
     import torch
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.geometry.background_collision_object import make_fixed_collision_objects
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
 
     kitchen = Background.__new__(Background)
     kitchen.name = "kitchen"
@@ -382,8 +387,8 @@ def test_background_collision_objects_reject_bbox_whole_background():
     import pytest
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
     from isaaclab_arena.relations.collision_mode import CollisionMode
+    from isaaclab_arena.relations.geometry.background_collision_object import make_fixed_collision_objects
     from isaaclab_arena.utils.pose import Pose
 
     kitchen = Background.__new__(Background)
@@ -421,9 +426,9 @@ def test_mesh_in_world_frame_applies_pose_rotation():
 
 def test_collision_objects_add_no_overlap_loss():
     """Box overlapping the obstacle incurs positive loss; zero loss when the obstacle is absent."""
-    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
+    from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
     from isaaclab_arena.relations.relations import On
 
     desk = _make_desk()
@@ -448,10 +453,13 @@ def test_collision_objects_add_no_overlap_loss():
 
 def test_fixed_collision_object_from_factory_adds_mesh_loss():
     """Factory-built fixed meshes participate in MESH no-overlap loss."""
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject, make_fixed_collision_objects
-    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.geometry.background_collision_object import (
+        FixedCollisionObject,
+        make_fixed_collision_objects,
+    )
+    from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
+    from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
-    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
     from isaaclab_arena.relations.relations import On
 
     desk = _make_desk()
@@ -470,7 +478,7 @@ def test_fixed_collision_object_from_factory_adds_mesh_loss():
 
 def test_solver_pushes_object_off_background_obstacle():
     """Full solve moves the box onto the clear (right) half of the desk."""
-    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import On
 
@@ -491,7 +499,7 @@ def test_solver_pushes_object_off_background_obstacle():
 
 def test_solve_without_collision_objects_is_a_noop():
     """Omitting collision objects must not raise and still solves the On placement."""
-    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import On
 
@@ -511,7 +519,7 @@ def test_relation_solver_state_rejects_object_as_collision_object():
     """An object cannot be both optimized and a fixed collision obstacle."""
     import pytest
 
-    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+    from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
 
     desk = _make_desk()
     box = _make_box()
@@ -524,6 +532,10 @@ def test_relation_solver_state_rejects_object_as_collision_object():
 def test_validate_no_overlap_rejects_background_overlap():
     """ObjectPlacer validation flags a placed object overlapping a fixed background obstacle."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.optimization.placement_candidate_batch import (
+        PlacementCandidate,
+        PlacementCandidateBatch,
+    )
     from isaaclab_arena.relations.relations import On
     from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
@@ -536,17 +548,20 @@ def test_validate_no_overlap_rejects_background_overlap():
     env_bboxes = {desk: desk.get_bounding_box(), box: box.get_bounding_box()}
 
     overlapping = {desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}
-    assert not validator._validate_no_overlap(overlapping, env_bboxes, [background])
 
     clear = {desk: (0.0, 0.0, 0.0), box: (1.5, 0.3, 0.1)}
-    assert validator._validate_no_overlap(clear, env_bboxes, [background])
+    batch = PlacementCandidateBatch([
+        PlacementCandidate(0, 0, overlapping, {}, env_bboxes),
+        PlacementCandidate(1, 0, clear, {}, env_bboxes),
+    ])
+    assert validator.validate_batch(batch, [background]) == [False, True]
 
 
 def _test_discover_passive_assets_filters(simulation_app) -> bool:
     """Discovery retains source identities; collision construction aggregates covered geometry."""
     from unittest.mock import MagicMock, patch
 
-    import isaaclab_arena.relations.passive_collision_objects as passive_collision_module
+    import isaaclab_arena.relations.geometry.passive_collision_objects as passive_collision_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -576,6 +591,8 @@ def _test_discover_passive_assets_filters(simulation_app) -> bool:
     kitchen_no_pose = fake_object("kitchen_no_pose", [], "kitchen.usd", None, spec=Background)
     counter_ref = fake_object("counter_ref", [], None, fixed_pose, spec=ObjectReference)
     counter_ref.parent_asset = kitchen
+    # MagicMock does not evaluate ObjectReference's root_asset property from parent_asset.
+    counter_ref.root_asset = kitchen
     anchored = fake_object("anchored", [IsAnchor()], "a.usd", fixed_pose)
     no_usd = fake_object("no_usd", [], None, fixed_pose)
     no_usd.object_type = ObjectType.BASE
@@ -621,7 +638,7 @@ def _test_passive_references_follow_placed_parent(simulation_app, usd_path):
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.collision_mode import CollisionMode
-    from isaaclab_arena.relations.passive_collision_objects import (
+    from isaaclab_arena.relations.geometry.passive_collision_objects import (
         discover_passive_assets,
         get_placement_collision_objects,
     )
@@ -674,7 +691,7 @@ def test_background_with_pose_range_rejected_for_aggregate_collision():
     import pytest
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.passive_collision_objects import discover_passive_assets
+    from isaaclab_arena.relations.geometry.passive_collision_objects import discover_passive_assets
     from isaaclab_arena.utils.pose import PoseRange
 
     background = MagicMock(spec=Background)
@@ -942,6 +959,7 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     reference.get_relations.return_value = [IsAnchor()]
     background = MagicMock(spec=Background)
     reference.parent_asset = background
+    reference.root_asset = background
     reference.prim_path_in_parent_usd = "/Kitchen/counter"
     reference.is_anchor = True
     calls = {}
@@ -964,10 +982,12 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
             calls["collision_objects"] = collision_objects
 
     monkeypatch.setattr(
-        "isaaclab_arena.relations.passive_collision_objects.discover_passive_assets",
+        "isaaclab_arena.relations.geometry.passive_collision_objects.discover_passive_assets",
         fake_discover_passive_assets,
     )
-    monkeypatch.setattr("isaaclab_arena.relations.passive_collision_objects.make_fixed_collision_objects", aggregate)
+    monkeypatch.setattr(
+        "isaaclab_arena.relations.geometry.passive_collision_objects.make_fixed_collision_objects", aggregate
+    )
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
@@ -1014,7 +1034,7 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
             calls["collision_objects"] = collision_objects
 
     monkeypatch.setattr(
-        "isaaclab_arena.relations.passive_collision_objects.discover_passive_assets",
+        "isaaclab_arena.relations.geometry.passive_collision_objects.discover_passive_assets",
         fake_discover_passive_assets,
     )
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
@@ -1061,7 +1081,7 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
             calls["collision_objects"] = collision_objects
 
     monkeypatch.setattr(
-        "isaaclab_arena.relations.passive_collision_objects.discover_passive_assets",
+        "isaaclab_arena.relations.geometry.passive_collision_objects.discover_passive_assets",
         fake_discover_passive_assets,
     )
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
@@ -1120,3 +1140,27 @@ def _test_clutter_release_uses_usd_mesh_geometry(simulation_app, tmp_path):
 
 def test_clutter_release_uses_usd_mesh_geometry(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_clutter_release_uses_usd_mesh_geometry, tmp_path=tmp_path)
+
+
+def test_placed_background_with_mesh_collision_is_rejected(monkeypatch):
+    """Relations on a mesh-collision background fail fast; with bbox collision they stay allowed."""
+    import pytest
+
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.relations.geometry import passive_collision_objects
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode
+
+    background = Background.__new__(Background)
+    background.name = "kitchen"
+    background.collision_mode = CollisionMode.MESH
+    monkeypatch.setattr(passive_collision_objects, "discover_passive_assets", lambda *args, **kwargs: [])
+
+    with pytest.raises(ValueError, match="Background 'kitchen' has relations and mesh collision"):
+        passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.BBOX)
+
+    background.collision_mode = None
+    assert (
+        passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.BBOX) == []
+    )
+    with pytest.raises(ValueError, match="anchor an object reference to the support surface"):
+        passive_collision_objects.get_placement_collision_objects([background], [background], CollisionMode.MESH)

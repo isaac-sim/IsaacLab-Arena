@@ -55,8 +55,9 @@ class DeformableObject(ObjectBase):
         self._pose_event_cfg = self._build_reset_event()
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
-        """Validate the simulation physics backend matches the deformable's physics preset."""
-        from isaaclab_newton.physics import NewtonCfg
+        """Validate the simulation backend and solver support this deformable."""
+        from isaaclab_contrib.coupling import CouplerCfg
+        from isaaclab_newton.physics import NewtonCfg, VBDSolverCfg
         from isaaclab_physx.physics import PhysxCfg
 
         physics_cfg = sim_cfg.physics
@@ -71,6 +72,18 @@ class DeformableObject(ObjectBase):
             f"DeformableObject '{self.name}' is configured for {str(self.physics_preset)!r}, "
             f"not the selected backend {str(selected_backend)!r}"
         )
+        if selected_backend is PhysicsBackend.NEWTON:
+            solver_cfg = physics_cfg.solver_cfg
+            supports_deformables = isinstance(solver_cfg, VBDSolverCfg)
+            if isinstance(solver_cfg, CouplerCfg):
+                supports_deformables = any(
+                    isinstance(entry.solver_cfg, VBDSolverCfg) and (entry.all_particles or entry.particles)
+                    for entry in solver_cfg.entries
+                )
+            assert supports_deformables, (
+                f"DeformableObject '{self.name}' requires a Newton VBD solver that owns particles; "
+                f"got {type(solver_cfg).__name__}"
+            )
 
     @staticmethod
     def _infer_physics_preset(spawner_cfg: DeformableObjectSpawnerCfg) -> PhysicsBackend:

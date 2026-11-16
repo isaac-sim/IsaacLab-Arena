@@ -17,6 +17,7 @@ from isaaclab_arena_vlm_agent.absolute_action_adapter import AbsoluteChunkAction
 from isaaclab_arena_vlm_agent.command_indices import AbsoluteCommandIndices, GripperCommandIndex, PoseCommandIndices
 from isaaclab_arena_vlm_agent.observation_adapter import ImageStateObservationAdapter
 from isaaclab_arena_vlm_agent.pose_target_motion_generator import PoseTargetMotionGenerator
+from isaaclab_arena_vlm_agent.tests.fake_scene import FakeScene, make_mounted_camera
 from isaaclab_arena_vlm_agent.vlm_agent_policy import VLMChunkPolicy, VLMGoalPolicy, VLMGoalPolicyCfg, VLMPolicyCfg
 
 
@@ -30,26 +31,35 @@ def inputs(monkeypatch):
     embodiment = SimpleNamespace(
         get_observation_cfg=lambda: SimpleNamespace(
             policy=SimpleNamespace(concatenate_terms=False, gripper_pos=SimpleNamespace(func=Mock())),
-            camera_obs=SimpleNamespace(front=SimpleNamespace(func=Mock(), params={"data_type": "rgb"})),
+            camera_obs=SimpleNamespace(
+                front=SimpleNamespace(
+                    func=Mock(), params={"data_type": "rgb", "sensor_cfg": SimpleNamespace(name="sensor")}
+                )
+            ),
         ),
         get_action_cfg=lambda: SimpleNamespace(arm=SimpleNamespace(asset_name="robot", body_name="tool")),
     )
     world = SimpleNamespace(get_body_pose_in_root=Mock(return_value=torch.tensor([[0.4, 0, 0.3, 0, 0, 0, 1]] * 2)))
+    world.get_pose_w = Mock(return_value=torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]] * 2))
+    world.get_body_pose_w = Mock(return_value=torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]] * 2))
     env = SimpleNamespace(
         unwrapped=SimpleNamespace(
             num_envs=2,
-            action_dim=8,
             device="cpu",
+            cfg=SimpleNamespace(observations=embodiment.get_observation_cfg()),
+            scene=FakeScene(sensor=make_mounted_camera(torch.eye(3).repeat(2, 1, 1))),
             arena_world=world,
             observation_manager=SimpleNamespace(
                 active_terms={"policy": ["gripper_pos"]}, group_obs_concatenate={"policy": False}
             ),
             action_manager=SimpleNamespace(
+                total_action_dim=8,
                 action=torch.zeros(2, 8),
                 active_terms=["arm"],
                 get_term=lambda name: SimpleNamespace(cfg=embodiment.get_action_cfg().arm),
             ),
             episode_length_buf=torch.zeros(2, dtype=torch.long),
+            active_episode_mask=torch.ones(2, dtype=torch.bool),
         )
     )
     observation = {
@@ -68,7 +78,13 @@ def _target(x=0.6):
 
 def _policy(mode, inputs, infer):
     embodiment, _, _, gripper = inputs
-    config = VLMPolicyCfg(system_prompt="Return absolute robot-root targets.")
+    # Serial requests keep the mocked replies in environment order.
+    config = VLMPolicyCfg(
+        model="test-model",
+        endpoint="internal",
+        system_prompt="Return absolute robot-root targets.",
+        max_concurrent_requests=1,
+    )
     if mode == "step":
         policy_type, adapter = VLMChunkPolicy, AbsoluteChunkActionAdapter(1)
     elif mode == "chunk":
@@ -76,11 +92,17 @@ def _policy(mode, inputs, infer):
     else:
         policy_type = VLMGoalPolicy
         adapter = AbsoluteGoalActionAdapter(PoseTargetMotionGenerator(gripper))
-        config = VLMGoalPolicyCfg(system_prompt="Return absolute robot-root targets.", max_steps_per_goal=2)
+        config = VLMGoalPolicyCfg(
+            model="test-model",
+            endpoint="internal",
+            system_prompt="Return absolute robot-root targets.",
+            max_steps_per_goal=2,
+            max_concurrent_requests=1,
+        )
     policy = policy_type(
         config,
         inference_backend=SimpleNamespace(infer=infer),
-        observation_adapter=ImageStateObservationAdapter(embodiment),
+        observation_adapter=ImageStateObservationAdapter(),
         action_adapter=adapter,
     )
     policy.set_task_description("Move the gripper")
@@ -130,7 +152,8 @@ def test_invalid_commands_request_specific_corrections(inputs, mode, values, mes
     actions = _policy(mode, inputs, infer).get_action(env, observation)
     assert torch.isfinite(actions).all()
     assert infer.call_count == 3
-    correction = infer.call_args_list[1].args[0].messages[-1]["content"]
+    # Both envs request first; env 0's correction follows.
+    correction = infer.call_args_list[2].args[0].messages[-1]["content"]
     assert message in correction
 
 

@@ -66,9 +66,7 @@ by downloading the pre-generated output of the preceding step(s), which we provi
 Prerequisites
 ^^^^^^^^^^^^^
 
-Start the isaaclab docker container
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 We store data on Hugging Face, so you'll need log in to Hugging Face if you haven't already.
 
@@ -78,12 +76,12 @@ We store data on Hugging Face, so you'll need log in to Hugging Face if you have
 
 Create the folders for the data and models:
 
-.. code:: bash
+.. code-block:: bash
 
-    export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
-    mkdir -p $DATASET_DIR
-    export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
-    mkdir -p $MODELS_DIR
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/locomanipulation_tutorial"
+   mkdir -p $DATASET_DIR
+   export MODELS_DIR="$HOME/models/isaaclab_arena/locomanipulation_tutorial"
+   mkdir -p $MODELS_DIR
 
 Workflow Steps
 ^^^^^^^^^^^^^^

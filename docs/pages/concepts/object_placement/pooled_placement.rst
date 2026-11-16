@@ -35,11 +35,12 @@ need to place each environment separately.
 
 .. note::
 
-   Arena prefers layouts that pass every required check. If an environment
-   still has unfilled pool slots and its final refill batch produces no valid
-   layout, the default ``allow_best_loss_fallbacks=True`` allows Arena to store
-   the batch's highest-ranked candidates for those slots. Arena reports when it
-   uses this fallback. Set the option to ``False`` to fail placement instead.
+   Arena prefers layouts that pass every required check. If the final refill
+   batch leaves an environment without enough valid layouts, the default
+   ``allow_best_loss_fallbacks=True`` allows Arena to fill its remaining slots
+   with the batch's highest-ranked candidates that failed at least one required
+   check. Arena reports when it uses this fallback. Set the option to ``False``
+   to fail placement instead.
 
 Layouts and Object Identity
 ---------------------------
@@ -77,6 +78,14 @@ reset.
 Set ``ObjectPlacerParams.resolve_on_reset=False`` to reuse the layout assigned
 during environment creation. The equivalent command-line option is
 ``--no-resolve_on_reset``. Keep the default to change layouts across episodes.
+
+Diagnosing Placement
+--------------------
+
+Each fill of the pool, at creation or during a reset that finds a partition
+empty, records how its candidates did and why the checks rejected them. Arena
+prints a summary after each batch. See :doc:`./placement_diagnostics` for what
+is recorded, where to read it, and how to act on it.
 
 Reproducibility
 ---------------

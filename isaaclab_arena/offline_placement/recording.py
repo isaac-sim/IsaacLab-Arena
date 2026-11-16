@@ -88,9 +88,9 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
         env: Built environment whose writable physics roots will be recorded.
         assets: Placement and unplaced scene assets represented in the recording.
     """
-    from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+    from isaaclab_arena.relations.geometry.bounding_box_helpers import has_heterogeneous_objects
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-    from isaaclab_arena.relations.placement_sampler import validate_root_reset_for_placement_replay
+    from isaaclab_arena.relations.runtime.placement_sampler import validate_root_reset_for_placement_replay
 
     env = env.unwrapped
     assert not has_heterogeneous_objects(assets), "Resolve object sets before recording reusable layouts"
@@ -124,7 +124,7 @@ def write_settled_layouts(
     The caller validates recording compatibility before sampling and owns env.
     This function does not reset, step or close it. Existing output is never overwritten.
     """
-    from isaaclab_arena.relations.placement_sampler import (
+    from isaaclab_arena.relations.runtime.placement_sampler import (
         placement_samples_from_pose_columns,
         validate_placement_sample_assets,
         write_placement_samples,

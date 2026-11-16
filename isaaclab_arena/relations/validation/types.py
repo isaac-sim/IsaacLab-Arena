@@ -21,6 +21,9 @@ class PlacementCheck(StrEnum):
     CLUTTER_ON_RELATION = "clutter_on_relation"
     """Build-time check: clutter fits its release region and clears its support surface."""
 
+    ALIGN_WITH = "align_with"
+    """Build-time check: centre alignment errors are within each relation's tolerance."""
+
     NEXT_TO = "next_to"
     """Build-time check: every ``NextTo`` relation holds — child on the requested side at the target
     offset, within the relation's ``tolerance_m``."""

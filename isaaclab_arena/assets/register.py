@@ -124,12 +124,6 @@ def register_task(cls):
     return cls
 
 
-def agent_ready(cls):
-    """Mark a registered class as available to the environment-generation agent."""
-    cls.agent_ready = True
-    return cls
-
-
 def _policy_cfg_type_from_policy(policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
     """Read ``PolicyBase[Cfg]`` so the registry can map a config back to its policy."""
     # Importing PolicyBase at module load time creates assets.register -> policy package ->

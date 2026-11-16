@@ -7,19 +7,12 @@
 
 from __future__ import annotations
 
-import os
 import torch
 
 import isaaclab.utils.math as math_utils
 
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena.utils.pose import Pose
-
-# cuRobo captures a CUDA graph on the IK solver's first solve and, by default, errors when a later
-# solve changes the "goal type" (warmup runs a single-goal solve, then we issue a batched
-# ``solve_batch``). On CUDA >= 12 cuRobo resets the graph instead of erroring when this opts in.
-# ``setdefault`` keeps any explicit user override; setting it at import lands it before any solve.
-os.environ.setdefault("CUROBO_TORCH_CUDA_GRAPH_RESET", "1")
 
 # Top-down grasp orientation (gripper approach axis pointing -Z) in the robot base frame, (x, y, z, w).
 DOWN_FACING_QUAT_XYZW = (0.0, 1.0, 0.0, 0.0)

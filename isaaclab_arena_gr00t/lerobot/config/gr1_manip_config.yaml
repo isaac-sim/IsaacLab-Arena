@@ -8,7 +8,7 @@
 # Example for GR1 tabletop manipulation task
 
 # Root directory for all data storage
-data_root: "/datasets/isaaclab_arena/static_manipulation_tutorial"
+data_root: "~/datasets/isaaclab_arena/static_manipulation_tutorial"
 
 # Instruction given to the policy in natural language
 language_instruction: "Reach out to the microwave and open it."

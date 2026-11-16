@@ -65,7 +65,7 @@ def load_arena_experiment_from_config_file(
         with path.open(encoding="utf-8") as experiment_config_file:
             legacy_experiment_config = json.load(experiment_config_file)
         run_cfgs = run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
-        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs})
+        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs}, name=path.stem)
 
     experiment_cfg = load_arena_experiment_from_yaml(
         path,
@@ -85,7 +85,7 @@ def load_arena_experiment_from_config_file(
             environment_builder=environment_builder_with_process_device,
         )
         runs_with_process_device[run_name] = run_config_with_process_device
-    return ArenaExperimentCfg(runs=runs_with_process_device)
+    return replace(experiment_cfg, runs=runs_with_process_device)
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
@@ -94,12 +94,7 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     from isaaclab_arena_environments.cli import ensure_environments_registered
 
     ensure_environments_registered()
-    registry = EnvironmentRegistry()
-    environment_cfg_types = {}
-    for name in registry.get_all_keys():
-        environment_factory_type = registry.get_component_by_name(name)
-        environment_cfg_types[name] = registry.get_environment_cfg_type(environment_factory_type)
-    return environment_cfg_types
+    return EnvironmentRegistry().get_environment_cfg_types()
 
 
 def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:

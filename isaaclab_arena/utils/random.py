@@ -3,9 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import hashlib
 import math
 import random
 import torch
+
+
+def derive_seed(*key_parts: object) -> int:
+    """Derive an independent 64-bit torch seed from key parts such as ``(seed, env_id, candidate_id)``.
+
+    Unlike ``seed + offset``, nearby keys never share a seed: ``derive_seed(42, 1)`` and ``derive_seed(43, 0)`` differ.
+    """
+    digest = hashlib.sha256(":".join(str(part) for part in key_parts).encode()).digest()
+    # Torch generator seeds are 64-bit, so keep the first 8 bytes of the digest.
+    return int.from_bytes(digest[:8], "big")
 
 
 def get_random_rotation(generator: torch.Generator | None = None) -> float:

@@ -1,0 +1,68 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.85
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_l_shaped_scandinavian
+  params:
+    collision_mode: mesh
+objects: []
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+- id: toaster_timer
+  parent_id: kitchen
+  prim_path: toaster_oven_main_group
+  object_type: articulation
+  params:
+    turnable_joint_name: knob_time_joint
+    min_level_angle_deg: 30.0
+    max_level_angle_deg: 150.0
+    num_levels: 5
+# Sample within alignment bands instead of pulling each layout to a single offset.
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: toaster_timer
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: align_with
+  subject: droid
+  reference: toaster_timer
+  params:
+    axis: x
+    offset_m: -0.11
+    tolerance_m: 0.22
+- kind: align_with
+  subject: droid
+  reference: toaster_timer
+  params:
+    axis: y
+    offset_m: -1.06
+    tolerance_m: 0.10
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.4
+task:
+  composition: atomic
+  description: Turn the lower timer knob on the toaster oven clockwise to level 2.
+  subtasks:
+  - kind: TurnKnobTask
+    params:
+      turnable_object: toaster_timer
+      target_level: 2

@@ -3,8 +3,7 @@ Run an Evaluation with Recorded Variations
 
 Recorded variations let an evaluation reproduce the same placement, lighting,
 object-presence, and camera conditions with a different number of parallel
-environments. This workflow uses the ``clamp_in_right_bin`` graph environment,
-whose standard episode timeout is 70 seconds, and the local zero-action policy.
+environments.
 
 The workflow has three stages:
 
@@ -13,6 +12,7 @@ The workflow has three stages:
 3. replay the two 64-row recordings in three environments and match each variation
    payload to its indexed source row.
 
+This workflow uses the ``clamp_in_right_bin`` YAML environment as an example.
 The generated JSONL files stay below ``outputs/recorded_variations_workflow``
 and are not source files.
 
@@ -28,6 +28,17 @@ and are not source files.
 Record Settled Placement Layouts
 --------------------------------
 
+.. note::
+
+   Before starting or restarting all three stages, remove the workflow's previous
+   generated outputs. This also clears partial recordings and nonempty Experiment
+   directories that would otherwise cause a retry to fail. Copy any results you
+   want to keep elsewhere first:
+
+   .. code-block:: bash
+
+      rm -rf -- outputs/recorded_variations_workflow
+
 From the repository root, record eight layouts that pass the configured
 post-physics checks:
 
@@ -39,22 +50,14 @@ post-physics checks:
      num_envs=4 env_spacing=2 layouts_per_env=2 \
      min_layouts=8 max_batches=5 seed=42 presets=physx \
      settle.num_steps=120 \
-     settle.validators.pose_shift.max_translation_m=0.015 \
-     --device cuda:0
+     settle.validators.pose_shift.max_translation_m=0.015
 
 The verified run accepted all eight requested layouts. Each output row records
 the complete scene-root poses under the top-level ``placement`` key.
 
 
-Record a 128-Episode Evaluation
--------------------------------
-
-.. note::
-
-   To make steps 2 and 3 complete faster, temporarily edit
-   ``isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml`` and
-   change ``episode_length_s`` from ``70.0`` to ``1.0``. Keep the one-second
-   timeout through both recording and replay.
+Record Variations with Replayed Placement Layouts
+-------------------------------------------------
 
 The maintained Experiment Definition configures four parallel environments,
 the zero-action policy, two rebuilds, and 128 total episodes. Both rebuilds
@@ -84,11 +87,14 @@ Run the Experiment:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config \
-       isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml \
+     --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml \
      --viz none \
-     --experiment_output_directory \
-       outputs/recorded_variations_workflow/record
+     --experiment_output_directory outputs/recorded_variations_workflow/record \
+     '+runs.recorded_variations.environment_builder.env_cfg_override={episode_length_s:1.0}'
+
+The final argument shortens each episode from 60 seconds to 1 second for this
+run to speed up sampling. The replay command below uses the same
+value. Omit it for normal evaluations.
 
 The canonical recordings are written to:
 
@@ -102,8 +108,8 @@ Zero action does not solve the task; task failure is expected and does not
 indicate an execution failure.
 
 
-Replay with Three Parallel Environments
-----------------------------------------
+Run Experiment with Replayed Variations and Placement Layouts
+-------------------------------------------------------------
 
 The replay Experiment Definition lists the two step-2 episode recordings,
 configures three parallel environments, and runs 128 total episodes. The
@@ -118,11 +124,10 @@ Run the replay:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --experiment_config \
-       isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml \
+     --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml \
      --viz none \
-     --experiment_output_directory \
-       outputs/recorded_variations_workflow/replay
+     --experiment_output_directory outputs/recorded_variations_workflow/replay \
+     '+runs.recorded_variations_replay.environment_builder.env_cfg_override={episode_length_s:1.0}'
 
 Verify the episode count, source-index coverage, and variation payloads:
 
@@ -166,11 +171,3 @@ The matching replay payload contains:
 
 This verifies that recorded variation order is independent of the number of
 parallel simulation environments.
-
-.. note::
-
-   After completing the workflow, discard the temporary timeout edit by
-   restoring ``episode_length_s`` in
-   ``isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml`` to
-   ``70.0``. The one-second timeout is only for this sample workflow and should
-   not be retained for normal evaluations.

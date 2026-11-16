@@ -14,11 +14,11 @@ import trimesh
 
 import pytest
 
-from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache, greedy_sphere_decomposition
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import NoCollisionLossStrategy
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
-from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache, greedy_sphere_decomposition
 from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -89,8 +89,8 @@ def _compute_no_overlap_loss_mesh_serial_for_test(
     slope: float,
 ) -> torch.Tensor:
     """Reference the pre-batching per-candidate mesh loss for equivalence testing."""
-    from isaaclab_arena.relations.no_overlap_mesh import _rotate_bbox_extents
-    from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
+    from isaaclab_arena.relations.geometry.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
+    from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import _rotate_bbox_extents
     from isaaclab_arena.utils.yaw import rotate_points_by_yaw_batch
 
     total_loss = torch.zeros(state.batch_size, device=state.device, dtype=torch.float32)
@@ -148,7 +148,7 @@ def _compute_no_overlap_loss_mesh_serial_for_test(
             obstacle_bbox_yaws = torch.where(
                 mesh_cache.pair_obstacle_bbox_includes_yaw,
                 torch.zeros(num_pairs, device=state.device),
-                obstacle_yaws,
+                obstacle_yaws - mesh_cache.pair_fixed_obstacle_yaw_tensor,
             )
             subject_bbox_min, subject_bbox_max = _rotate_bbox_extents(
                 subject_bbox_min, subject_bbox_max, subject_bbox_yaws
@@ -232,7 +232,7 @@ def test_effective_yaw_ignores_placed_initial_pose_unless_allowed():
 
 def test_mesh_broadphase_rotates_bbox_about_object_origin():
     """Mesh broadphase bbox rotation matches AxisAlignedBoundingBox origin-frame semantics."""
-    from isaaclab_arena.relations.no_overlap_mesh import _rotate_bbox_extents
+    from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import _rotate_bbox_extents
 
     bbox = AxisAlignedBoundingBox(min_point=(0.1, -0.01, -0.02), max_point=(0.3, 0.01, 0.02))
     expected = bbox.rotated_around_z(torch.tensor([math.pi / 2]))
@@ -545,11 +545,11 @@ def test_validate_no_overlap_mesh_catches_overlap():
 
     # Overlapping positions
     positions = {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.0, 0.0, 0.05)}
-    assert not validator._validate_no_overlap_mesh(positions, _env_bboxes_for(positions))
+    assert not validator._validate_no_overlap_mesh(positions, _env_bboxes_for(positions), rejections=[])
 
     # Separated positions
     positions_sep = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
-    assert validator._validate_no_overlap_mesh(positions_sep, _env_bboxes_for(positions_sep))
+    assert validator._validate_no_overlap_mesh(positions_sep, _env_bboxes_for(positions_sep), rejections=[])
 
 
 @requires_warp
@@ -590,7 +590,7 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
 @requires_warp
 def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     """A sentinel SDF (no resolvable face) must fail validation, not certify collision-free."""
-    from isaaclab_arena.relations import warp_sdf_kernels
+    from isaaclab_arena.relations.geometry import warp_sdf_kernels
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
@@ -607,7 +607,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     validator = NoOverlapValidator(params)
     positions = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
     env_bboxes = _env_bboxes_for(positions)
-    assert validator._validate_no_overlap_mesh(positions, env_bboxes)
+    assert validator._validate_no_overlap_mesh(positions, env_bboxes, rejections=[])
 
     # Force every query to hit the sentinel; the same separated layout must now fail.
     from isaaclab_arena.relations.validation import pre_physics as _pv_mod
@@ -619,7 +619,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
 
     monkeypatch.setattr(warp_sdf_kernels, "mesh_sdf", fake_sdf)
     monkeypatch.setattr(_pv_mod, "mesh_sdf", fake_sdf)
-    assert not validator._validate_no_overlap_mesh(positions, env_bboxes)
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, rejections=[])
 
 
 @requires_warp
@@ -654,14 +654,14 @@ def test_validate_no_overlap_mesh_respects_anchor_yaw():
     # but inside rotated anchor (half-length=0.1 now spans Y).
     positions = {table: (0.0, 0.0, 0.0), anchor: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}
     assert not validator._validate_no_overlap_mesh(
-        positions, _env_bboxes_for(positions)
+        positions, _env_bboxes_for(positions), rejections=[]
     ), "Validator should detect overlap with yawed anchor"
 
 
 @requires_warp
 def test_mesh_sdf_backward_gradient():
     """mesh_sdf backward gradient points toward the nearest face for an interior point."""
-    from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
+    from isaaclab_arena.relations.geometry.warp_sdf_kernels import mesh_sdf
 
     mesh = trimesh.creation.box(extents=(0.2, 0.2, 0.2))
     manager = WarpMeshAndSphereCache(num_spheres=10, device="cpu")
@@ -873,7 +873,9 @@ def test_yawed_aabb_proxy_validation_is_not_double_rotated():
         ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
     )
 
-    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, orientations={source: math.pi / 2})
+    assert not validator._validate_no_overlap_mesh(
+        positions, env_bboxes, orientations={source: math.pi / 2}, rejections=[]
+    )
 
 
 @requires_warp
@@ -948,7 +950,7 @@ def test_validate_no_overlap_mesh_respects_yawed_collision_object():
         ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
     )
 
-    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, collision_objects=[obstacle])
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, collision_objects=[obstacle], rejections=[])
 
 
 @requires_warp
@@ -974,10 +976,114 @@ def test_solver_mesh_loss_broadphase_respects_yawed_collision_object():
     assert solver.last_loss_per_env[0].item() > 0.0
 
 
+_YAW_0_XYZW = (0.0, 0.0, 0.0, 1.0)
+_YAW_90_XYZW = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
+_YAW_180_XYZW = (0.0, 0.0, 1.0, 0.0)
+# A long thin bar's bounds: long along X, or along Y once turned a quarter.
+_BAR_ALONG_X = AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025))
+_BAR_ALONG_Y = AxisAlignedBoundingBox(min_point=(-0.01, -0.2, -0.025), max_point=(0.01, 0.2, 0.025))
+
+
+class _ReferenceLikeObject(DummyObject):
+    """Dummy object whose bounds, like an ObjectReference's, already include its own yaw in its parent's axes."""
+
+    parent_rotation_xyzw = _YAW_0_XYZW
+    """Rotation of the parent's axes, which the bounds are expressed in."""
+
+    def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
+        """Return the parent rotation."""
+        return self.parent_rotation_xyzw
+
+
+@requires_warp
+@pytest.mark.parametrize(
+    "is_reference, parent_rotation_xyzw, bounding_box, rotation_xyzw, position_xyz, subject_offset_xyz",
+    [
+        # A prim long along its own X, yawed 90° in an unrotated parent: its bounds are long along the parent's Y.
+        pytest.param(True, _YAW_0_XYZW, _BAR_ALONG_Y, _YAW_90_XYZW, (0.0, 0.0, 0.0), (0.0, 0.1, 0.0), id="reference"),
+        pytest.param(
+            True, _YAW_0_XYZW, _BAR_ALONG_Y, _YAW_90_XYZW, (1.0, 2.0, 0.0), (0.0, 0.1, 0.0), id="reference_off_origin"
+        ),
+        # The same prim in a parent yawed 90°: the pose yaw is 180°, so the bar lies along world X.
+        pytest.param(
+            True,
+            _YAW_90_XYZW,
+            _BAR_ALONG_Y,
+            _YAW_180_XYZW,
+            (0.0, 0.0, 0.0),
+            (0.1, 0.0, 0.0),
+            id="reference_yawed_parent",
+        ),
+        # A plain anchor's bounds are in its own frame, so the pose yaw turns them.
+        pytest.param(False, None, _BAR_ALONG_X, _YAW_90_XYZW, (0.5, -0.3, 0.0), (0.0, 0.1, 0.0), id="plain_anchor"),
+    ],
+)
+def test_mesh_broadphase_keeps_a_subject_inside_a_fixed_obstacle(
+    is_reference, parent_rotation_xyzw, bounding_box, rotation_xyzw, position_xyz, subject_offset_xyz
+):
+    """A subject inside a yawed fixed obstacle's mesh, but outside a wrongly rotated or placed box, still gets loss."""
+    obstacle_type = _ReferenceLikeObject if is_reference else DummyObject
+    obstacle = obstacle_type(
+        "obstacle", bounding_box=bounding_box, collision_mesh=trimesh.creation.box(extents=(0.4, 0.02, 0.05))
+    )
+    if is_reference:
+        obstacle.parent_rotation_xyzw = parent_rotation_xyzw
+    obstacle.set_initial_pose(Pose(position_xyz=position_xyz, rotation_xyzw=rotation_xyzw))
+    obstacle.add_relation(IsAnchor())
+    subject = _make_box_obj("subject", sx=0.02, sy=0.02, sz=0.02)
+    subject_position_xyz = tuple(t + offset for t, offset in zip(position_xyz, subject_offset_xyz))
+    initial = [{obstacle: position_xyz, subject: subject_position_xyz}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([obstacle, subject], initial)
+
+    assert solver.last_loss_per_env[0].item() > 0.0, "Broad phase must keep a subject that penetrates the mesh"
+
+
+@requires_warp
+@pytest.mark.parametrize(
+    "rotation_xyzw, orientation_yaw, child_xy",
+    [
+        # The bar turns from +X to +Y.
+        pytest.param(_YAW_0_XYZW, math.pi / 2, (0.0, 0.1), id="from_zero_yaw"),
+        # The bar turns from +Y to -X. Turning its bounds by the whole override, or the wrong way, misses the child.
+        pytest.param(_YAW_90_XYZW, math.pi, (-0.1, 0.0), id="from_a_quarter_turn"),
+    ],
+)
+def test_mesh_broadphase_follows_an_orientations_yaw_for_a_fixed_obstacle(rotation_xyzw, orientation_yaw, child_xy):
+    """An orientations yaw for an anchor turns its broad-phase box along with its mesh."""
+    table = _make_table()
+    # A bar running from its origin along its own +X, so its bounds are off-centre.
+    bar_mesh = trimesh.creation.box(extents=(0.2, 0.02, 0.05))
+    bar_mesh.apply_translation((0.1, 0.0, 0.0))
+    target = DummyObject(
+        "target",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        collision_mesh=bar_mesh,
+    )
+    target.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05), rotation_xyzw=rotation_xyzw))
+    target.add_relation(IsAnchor())
+    child = _make_cylinder("child", radius=0.015)
+    child.add_relation(On(table))
+    # Beyond the culling margin of the unturned bar, but inside its mesh once it is turned.
+    initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (*child_xy, 0.05)}]
+
+    losses = []
+    for orientations in (None, [{target: orientation_yaw, child: 0.0}]):
+        solver = RelationSolver(
+            params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+        )
+        solver.solve([table, target, child], initial, orientations=orientations)
+        losses.append(solver.last_loss_per_env[0].item())
+
+    loss_unturned, loss_turned = losses
+    assert loss_turned > loss_unturned, f"Turning the bar into the child must add loss, got {losses}"
+
+
 @requires_warp
 def test_multi_mesh_sdf_distinct_meshes():
     """Regression: mesh_indices routing could silently query only mesh 0."""
-    from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
+    from isaaclab_arena.relations.geometry.warp_sdf_kernels import multi_mesh_sdf
 
     # Tall cylinder vs flat box — maximally different SDF at the query point.
     cylinder = trimesh.creation.cylinder(radius=0.05, height=0.3, sections=32)
@@ -1006,7 +1112,7 @@ def test_multi_mesh_sdf_distinct_meshes():
 
 @requires_warp
 def test_multi_mesh_sdf_backward():
-    from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
+    from isaaclab_arena.relations.geometry.warp_sdf_kernels import multi_mesh_sdf
 
     mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
     mgr = WarpMeshAndSphereCache(num_spheres=10, device="cpu")
@@ -1114,6 +1220,10 @@ def test_anchor_initial_pose_yaw_affects_collision():
 def test_aabb_gate_does_not_reject_diagonal_cylinders():
     """Regression: MESH-mode validator accepts cylinders whose AABBs overlap but meshes don't."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.optimization.placement_candidate_batch import (
+        PlacementCandidate,
+        PlacementCandidateBatch,
+    )
     from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _make_table()
@@ -1134,18 +1244,19 @@ def test_aabb_gate_does_not_reject_diagonal_cylinders():
 
     # Sanity: AABB check without skip_mesh_pairs REJECTS this layout
     env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
-    assert not validator._validate_no_overlap(
-        positions, env_bboxes, skip_mesh_pairs=False
-    ), "Sanity check failed: AABB should reject diagonal cylinders"
+    batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, env_bboxes)])
+    assert validator._validate_no_overlap(batch, [], skip_mesh_pairs=False, rejections=[]) == [
+        False
+    ], "Sanity check failed: AABB should reject diagonal cylinders"
 
     # With skip_mesh_pairs=True (MESH mode), AABB validator skips this pair
-    assert validator._validate_no_overlap(
-        positions, env_bboxes, skip_mesh_pairs=True
-    ), "AABB validator with skip_mesh_pairs should accept this pair"
+    assert validator._validate_no_overlap(batch, [], skip_mesh_pairs=True, rejections=[]) == [
+        True
+    ], "AABB validator with skip_mesh_pairs should accept this pair"
 
     # Mesh validator accepts (cylinders don't actually overlap)
     assert validator._validate_no_overlap_mesh(
-        positions, env_bboxes
+        positions, env_bboxes, rejections=[]
     ), "Mesh validator should accept diagonal cylinders that don't geometrically overlap"
 
 
@@ -1212,7 +1323,7 @@ def test_mesh_mode_queries_aabb_subject_against_mesh_background():
 @requires_warp
 def test_mesh_mode_scores_background_collision_object():
     """Aggregated background meshes participate in MESH-mode solve and validation."""
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
@@ -1270,9 +1381,9 @@ def test_mesh_mode_scores_mixed_mesh_aabb_placed_pair():
 @requires_warp
 def test_batched_mesh_loss_matches_test_only_serial_oracle():
     """Batched mesh loss matches the former serial calculation for losses and position gradients."""
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
-    from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh
-    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+    from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import compute_no_overlap_loss_mesh
+    from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
 
     table = _make_table()
     a = _make_box_obj("box_a", sx=0.16, sy=0.06, sz=0.08)
@@ -1348,8 +1459,10 @@ def test_tilted_clutter_requires_bbox_collision():
 
     support = _make_table()
     rods = [_make_box_obj(f"rod_{i}", 0.8, 0.04, 0.04) for i in range(2)]
+    # A 5 cm release region forces the tilted 4 cm footprints to overlap in XY,
+    # so vertical separation is required regardless of the sampled positions.
     for rod in rods:
-        rod.relations = [ClutterOn(support, random_yaw=False), RotateAroundSolution(pitch_rad=math.pi / 2)]
+        rod.relations = [ClutterOn(support, spread=0.05, random_yaw=False), RotateAroundSolution(pitch_rad=math.pi / 2)]
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False),
         enabled_checks={PlacementCheck.NO_OVERLAP, PlacementCheck.CLUTTER_ON_RELATION},
@@ -1372,4 +1485,6 @@ def test_tilted_clutter_requires_bbox_collision():
         for rod in rods
     ]
     assert all(float(box.min_point[0, 2]) >= 0.025 for box in bounds)
-    assert float(bounds[1].min_point[0, 2] - bounds[0].max_point[0, 2]) >= 0
+    # The seed decides whether the rods are released side by side or stacked, and in which order, so only
+    # require that the rotated bounds do not intersect.
+    assert not bool(bounds[0].overlaps(bounds[1]).item())

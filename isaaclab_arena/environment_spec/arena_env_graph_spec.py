@@ -130,12 +130,13 @@ class ArenaEnvGraphSpec(BaseModel):
     def _assert_object_reference_parents(
         object_references: list[ObjectReferenceSpec], valid_parent_ids: set[str]
     ) -> None:
-        """Ensure each object reference's parent is a background or object asset."""
+        """Ensure each reference parent is an asset or an earlier object reference."""
         for ref in object_references:
             assert ref.parent_id in valid_parent_ids, (
                 f"Object reference '{ref.id}' references invalid parent '{ref.parent_id}'; "
-                "parent must be the background or an object id"
+                "parent must be the background, an object, or an earlier object reference"
             )
+            valid_parent_ids.add(ref.id)
 
     @staticmethod
     def _assert_relation_references(relations: list[SpatialRelationSpec], known_ids: set[str]) -> None:

@@ -4,7 +4,6 @@ DOCKER_IMAGE_NAME='isaaclab_arena'
 DOCKER_VERSION_TAG='latest'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source "$SCRIPT_DIR/setup/target_tag.sh"
 
 WORKDIR="/workspaces/isaaclab_arena"
 
@@ -14,8 +13,6 @@ DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
 MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 # Default mount directory on the host machine for the evaluation directory
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
-# Named image target
-DOCKER_TARGET="dev"
 BUILD_OPTIONS=()
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
@@ -26,7 +23,7 @@ FORCE_REBUILD=false
 CONTAINER_SUFFIX=""
 CONTAINER_SUFFIX_EXPLICIT=false
 
-while getopts ":d:m:e:hn:rRvn:s:ct:" OPTION; do
+while getopts ":d:m:e:hn:rRvn:s:" OPTION; do
     case $OPTION in
 
         d)
@@ -52,12 +49,6 @@ while getopts ":d:m:e:hn:rRvn:s:ct:" OPTION; do
         v)
             set -x
             ;;
-        c)
-            DOCKER_TARGET="dev-curobo"
-            ;;
-        t)
-            DOCKER_TARGET=$OPTARG
-            ;;
         s)
             CONTAINER_SUFFIX="-${OPTARG}"
             CONTAINER_SUFFIX_EXPLICIT=true
@@ -77,8 +68,6 @@ while getopts ":d:m:e:hn:rRvn:s:ct:" OPTION; do
             echo "  -n <docker name> (Name of the docker image that will be built or used. Default is \"$DOCKER_IMAGE_NAME\".)"
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
-            echo "  -c (Select the dev-curobo target.)"
-            echo "  -t <target> (Select dev or dev-curobo; default: dev.)"
             echo "  -s <suffix> (Suffix appended to the container name, allowing multiple containers to run simultaneously."
             echo "      Defaults to the repo directory name after 'IsaacLab-Arena', so each clone gets its own container.)"
             exit 0
@@ -107,19 +96,15 @@ if [ "$CONTAINER_SUFFIX_EXPLICIT" = false ]; then
     [ -n "$derived" ] && CONTAINER_SUFFIX="-${derived}"
 fi
 
-DOCKER_VERSION_TAG=$(default_tag_for_target "$DOCKER_TARGET")
-
 # Display the values being used
 echo "Using Docker image: $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"
-
-echo "Using Docker target: $DOCKER_TARGET"
 
 if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ] && \
     [ "$FORCE_REBUILD" = false ]; then
     echo "Docker image $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG already exists. Not rebuilding."
     echo "Use -r option to force the rebuild."
 else
-    "$SCRIPT_DIR/build_docker.sh" -t "$DOCKER_TARGET" \
+    "$SCRIPT_DIR/build_docker.sh" \
         -n "${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG}" "${BUILD_OPTIONS[@]}"
 fi
 
@@ -128,11 +113,8 @@ if [ "$(docker ps -a --quiet --filter status=exited --filter "name=^${DOCKER_IMA
     docker rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX > /dev/null
 fi
 
-add_volume_if_it_exists() {
-    local src="$1"
-    local dst="$2"
-    [ -d "$src" ] && echo "-v $src:$dst"
-}
+# Create the host directories that are mounted into the container home.
+mkdir -p "$DATASETS_HOST_MOUNT_DIRECTORY" "$MODELS_HOST_MOUNT_DIRECTORY" "$EVAL_HOST_MOUNT_DIRECTORY"
 
 # Forward host SSH auth into the container when available.
 SSH_DOCKER_ARGS=()
@@ -144,7 +126,8 @@ fi
 # If container is running, attach to it, otherwise start
 if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG$CONTAINER_SUFFIX 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
-  docker exec -it $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX su $(id -un)
+  docker exec -it --user "$(id --user --name)" \
+    "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX" bash
 else
     DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX"
                     "--privileged"
@@ -155,9 +138,9 @@ else
                     "--runtime=nvidia"
                     "--gpus=all"
                     "-v" "$(cd "$SCRIPT_DIR/.." && pwd):${WORKDIR}"
-                    $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
-                    $(add_volume_if_it_exists $MODELS_HOST_MOUNT_DIRECTORY /models)
-                    $(add_volume_if_it_exists $EVAL_HOST_MOUNT_DIRECTORY /eval)
+                    "-v" "$DATASETS_HOST_MOUNT_DIRECTORY:/home/$(id -un)/datasets"
+                    "-v" "$MODELS_HOST_MOUNT_DIRECTORY:/home/$(id -un)/models"
+                    "-v" "$EVAL_HOST_MOUNT_DIRECTORY:/home/$(id -un)/eval"
                     "-v" "$HOME/.bash_history:/home/$(id -un)/.bash_history"
                     "-v" "$HOME/.config/osmo:/home/$(id -un)/.config/osmo"
                     "-v" "$HOME/.config/gh:/home/$(id -un)/.config/gh"
@@ -189,6 +172,15 @@ else
                     # Tell requests/urllib3 to use the system cert bundle
                     "--env" "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
                     )
+
+    # Share the USB directory so newly connected devices appear in the container.
+    if [ -d /dev/bus/usb ]; then
+        DOCKER_RUN_ARGS+=("--mount" "type=bind,source=/dev/bus/usb,target=/dev/bus/usb")
+        if HOST_PLUGDEV_GROUP=$(getent group plugdev); then
+            HOST_PLUGDEV_GID=$(printf '%s\n' "$HOST_PLUGDEV_GROUP" | cut -d: -f3)
+            DOCKER_RUN_ARGS+=("--env" "DOCKER_RUN_PLUGDEV_GROUP_ID=$HOST_PLUGDEV_GID")
+        fi
+    fi
 
     # map omniverse auth or config so we have connection to the dev nucleus
     if [ -n "$OMNI_PASS" ]; then

@@ -16,6 +16,7 @@ from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.usd.articulation import (
+    adjust_prismatic_joint_positions_for_spawn_scale,
     articulation_joint_prims,
     compute_posed_prim_world_deltas,
     resolve_joint_pos_patterns,
@@ -549,8 +550,10 @@ def _extract_trimesh_from_usd_at_joint_pos(
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
     root_path = default_prim.GetPath().pathString
-    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
-    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
+    joint_prims = articulation_joint_prims(default_prim)
+    resolved = resolve_joint_pos_patterns(joint_prims, joint_pos)
+    posed_joint_pos = adjust_prismatic_joint_positions_for_spawn_scale(joint_prims, resolved, scale)
+    deltas = compute_posed_prim_world_deltas(stage, root_path, posed_joint_pos)
     return trimesh.util.concatenate(_posed_link_bbox_meshes(stage, default_prim, deltas, scale))
 
 
@@ -654,7 +657,8 @@ def compute_local_bounding_box_from_usd_at_joint_pos(
 
     Args:
         usd_path: Path to the articulation's .usd/.usda/.usdc file.
-        joint_pos: Joint positions keyed by exact joint name or Isaac Lab regex, revolute in radians.
+        joint_pos: Joint positions keyed by exact joint name or Isaac Lab regex, revolute in radians and
+            prismatic in metres of the spawned asset.
         scale: Spawn-time scale passed to ``UsdFileCfg``.
         prim_path: Optional sub-prim to bound. When None, bounds the full default prim.
 
@@ -682,8 +686,10 @@ def _compute_local_bounding_box_from_usd_at_joint_pos(
     root_path = default_prim.GetPath().pathString
     bound_prim = stage.GetPrimAtPath(prim_path) if prim_path is not None else default_prim
     assert bound_prim.IsValid(), f"prim not found: {prim_path} in {usd_path}"
-    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
-    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
+    joint_prims = articulation_joint_prims(default_prim)
+    resolved = resolve_joint_pos_patterns(joint_prims, joint_pos)
+    posed_joint_pos = adjust_prismatic_joint_positions_for_spawn_scale(joint_prims, resolved, scale)
+    deltas = compute_posed_prim_world_deltas(stage, root_path, posed_joint_pos)
 
     # Expressing corners relative to the root cancels its own transform, including the root scale
     # Isaac Lab's spawner ignores, so only the caller's spawn scale applies.

@@ -44,7 +44,10 @@ generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`).
 
 In-order asset selection (``RigidAssetSelectionVariation`` in :ref:`available-variations`) is the
 exception: rebuild k spawns the k-th name of its ``registry_names``, so set ``num_rebuilds`` to the
-length of the list to spawn each name once.
+length of the list to spawn each name once. To give each name its own episode count, list the
+counts in the same order in ``rollout_limit.num_episodes_per_rebuild``; for example,
+``registry_names: [cracker_box, sugar_box]`` with ``num_rebuilds: 2`` and
+``num_episodes_per_rebuild: [20, 5]`` runs 20 episodes with the cracker box and 5 with the sugar box.
 
 A :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` fits neither row: it assigns one member
 to each parallel environment when the environment is built and keeps it for every episode of that
@@ -141,7 +144,7 @@ With Isaac Lab's ``record_demos.py`` and Arena's ``environment_registration_call
 append the same variation overrides to the recording command, for example
 ``pick_up_object.mass.enabled=true`` for ``pick_and_place_maple_table``.
 Arena consumes its variation overrides and returns the remaining arguments to the Isaac Lab script.
-See :doc:`Teleoperation Data Collection <../../example_workflows/static_manipulation/step_2_teleoperation>`
+See :doc:`Teleoperation Data Collection <../../example_workflows/sequential_static_manipulation/step_2_teleoperation>`
 for recording setup and the full command using the callback.
 
 

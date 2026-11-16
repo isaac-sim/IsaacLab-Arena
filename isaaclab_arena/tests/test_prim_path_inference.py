@@ -28,18 +28,23 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import (
     kitchen_prim_tree,
     kitchen_resolve_response,
 )
-from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdArticulationInfo, UsdJointInfo, UsdPrimRecord
 
 
 def test_prim_tree_catalog_nested_format():
     tree = [
-        UsdPrimRecord("cab_1_main_group", ObjectType.ARTICULATION, ("right_door_joint",)),
+        UsdPrimRecord(
+            "cab_1_main_group",
+            ObjectType.ARTICULATION,
+            articulation=UsdArticulationInfo(("right_door_joint",)),
+        ),
         UsdPrimRecord("cab_1_main_group/corpus", ObjectType.RIGID),
         UsdPrimRecord("cab_1_main_group/corpus/back", ObjectType.BASE),
     ]
     assert (
         _prim_tree_catalog(tree)
-        == "BACKGROUND PRIM TREE:\ncab_1_main_group (articulation right_door_joint)\n  corpus (rigid)\n    back (base)"
+        == "BACKGROUND PRIM TREE:\ncab_1_main_group (articulation joints=[right_door_joint])\n"
+        "  corpus (rigid)\n    back (base)"
     )
 
 
@@ -110,7 +115,16 @@ def test_enforce_object_reference_types_uses_task_roles(capsys):
 @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
 def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load_tree, stub_openai):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
-    mock_load_tree.return_value = kitchen_prim_tree()
+    joint = UsdJointInfo(
+        type_name="PhysicsRevoluteJoint",
+        enabled=True,
+        body_0_path="cabinet",
+        body_1_path="door",
+    )
+    mock_load_tree.return_value = [
+        *kitchen_prim_tree(),
+        UsdPrimRecord("inference_only_joint", ObjectType.BASE, joint=joint),
+    ]
     _, client = stub_openai
     backend = inference_backend(stub_openai)
     client.chat.completions.create.return_value = chat_response(content=json.dumps(kitchen_resolve_response()))
@@ -118,6 +132,8 @@ def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     merged = inference.infer(spec, [])
     client.chat.completions.create.assert_called_once()
+    user_message = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+    assert "inference_only_joint" not in user_message
     counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
     fridge = next(ref for ref in merged.object_references if ref.id == "fridge")
     assert counter.prim_path == "counter_right_main_group/top_geometry"

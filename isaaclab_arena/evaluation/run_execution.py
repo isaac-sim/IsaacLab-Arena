@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import time
 import traceback
 from copy import deepcopy
 from dataclasses import fields, replace
@@ -16,7 +17,8 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
@@ -24,8 +26,12 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
 )
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
+from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
+from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
+from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
+from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
@@ -36,6 +42,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+    from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 
 def execute_experiment(
@@ -63,6 +70,7 @@ def execute_experiment(
         run_output_dir = output_dir / run_cfg.name
         # Clear timers.
         reset_timer_stats()
+        start_timestamp_ns = time.time_ns()
         try:
             result = build_and_run(
                 run_cfg,
@@ -74,7 +82,14 @@ def execute_experiment(
                 ),
             )
         except Exception as error:
-            results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
+            results.append(
+                ArenaRunResult(
+                    run_name=run_cfg.name,
+                    status=RunStatus.FAILED,
+                    start_timestamp_ns=start_timestamp_ns,
+                    end_timestamp_ns=time.time_ns(),
+                )
+            )
             print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
             print(f"Traceback: {traceback.format_exc()}", flush=True)
             if not continue_on_error:
@@ -82,9 +97,14 @@ def execute_experiment(
             continue
 
         print_timer_stats()
-        write_run_timings(run_output_dir)
+        _write_run_outputs(run_output_dir, result)
         results.append(result)
     return results
+
+
+def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult) -> None:
+    """Write a completed Run's timings to its output directory."""
+    write_run_timings(run_output_dir)
 
 
 def build_and_run(
@@ -92,8 +112,10 @@ def build_and_run(
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
 ) -> ArenaRunResult:
-    """Build and execute one typed Arena run, then return its result."""
+    """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
+    start_timestamp_ns = time.time_ns()
     metrics_per_rebuild: list[MetricsDataCollection] = []
+    placement_diagnostics_per_rebuild: list[PlacementDiagnostics] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _episodes_per_rebuild(cfg)
@@ -114,6 +136,10 @@ def build_and_run(
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
             )
+            # Read before the rollout, whose resets can refill the placement pool and replace its diagnostics.
+            placement_diagnostics = get_placement_diagnostics(env)
+            if placement_diagnostics is not None:
+                placement_diagnostics_per_rebuild.append(placement_diagnostics)
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
@@ -128,14 +154,42 @@ def build_and_run(
             metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
+        except Exception as error:
+            # A failed fill leaves no pool to read its diagnostics from, so they are taken from its error.
+            if isinstance(error, PlacementPoolFillError):
+                placement_diagnostics_per_rebuild.append(error.diagnostics)
+            _aggregate_and_write_placement_diagnostics(placement_diagnostics_per_rebuild, output_dir)
+            raise
         finally:
             close_run_resources(policy, env)
 
+    placement_diagnostics = _aggregate_and_write_placement_diagnostics(placement_diagnostics_per_rebuild, output_dir)
     return ArenaRunResult(
         run_name=cfg.name,
         status=RunStatus.COMPLETED,
+        start_timestamp_ns=start_timestamp_ns,
+        end_timestamp_ns=time.time_ns(),
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
+        placement_diagnostics=placement_diagnostics,
     )
+
+
+def _aggregate_and_write_placement_diagnostics(
+    placement_diagnostics_per_fill: list[PlacementDiagnostics], output_dir: str | Path
+) -> AggregatedPlacementDiagnostics | None:
+    """Return the fills' diagnostics as a run's placement diagnostics, written to its placement diagnostics file in
+    output_dir, or None without writing a file when there are no fills.
+
+    Args:
+        placement_diagnostics_per_fill: Diagnostics of each placement pool fill of the run, in order.
+        output_dir: Run output directory, created if needed.
+    """
+    if not placement_diagnostics_per_fill:
+        return None
+    placement_diagnostics = AggregatedPlacementDiagnostics(placement_diagnostics_per_fill)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    placement_diagnostics.save(Path(output_dir) / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME)
+    return placement_diagnostics
 
 
 def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
@@ -187,6 +241,7 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -
             environment_builder=cfg.environment_builder,
             hydra_overrides=hydra_overrides,
             rebuild_index=rebuild_index,
+            policy_cfg=cfg.policy,
         )
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
         else _build_arena_builder_from_cfg(cfg, hydra_overrides, rebuild_index)
@@ -206,6 +261,7 @@ def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str], 
         cfg.environment_builder,
         hydra_overrides=hydra_overrides,
         rebuild_index=rebuild_index,
+        policy_cfg=cfg.policy,
     )
 
 
@@ -248,6 +304,8 @@ def _resolve_rollout_limit(
 
 def _episodes_per_rebuild(cfg: ArenaRunCfg) -> list[int | None]:
     """Resolve one rollout episode budget per environment rebuild."""
+    if cfg.rollout_limit.num_episodes_per_rebuild is not None:
+        return list(cfg.rollout_limit.num_episodes_per_rebuild)
     if cfg.recorded_variation_samples_paths is not None:
         if cfg.rollout_limit.num_episodes is None:
             return [_recorded_episode_count(path) for path in cfg.recorded_variation_samples_paths]

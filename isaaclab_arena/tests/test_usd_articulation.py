@@ -112,6 +112,35 @@ def _test_prismatic_joint_translates_child_link(simulation_app) -> bool:
     return True
 
 
+def _test_spawn_scale_keeps_prismatic_travel_of_posed_geometry(simulation_app) -> bool:
+    """Posed bounds and meshes slide by the prismatic position in metres, which the spawn scale does not scale."""
+    import tempfile
+
+    from isaaclab_arena.utils.usd.helpers import (
+        compute_local_bounding_box_from_usd_at_joint_pos,
+        extract_trimesh_from_usd_at_joint_pos,
+    )
+
+    stage = _build_two_link_arm(joint_type="prismatic")
+    scale = (2.0, 2.0, 2.0)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        usd_path = f"{tmp_dir}/slider.usda"
+        stage.Export(usd_path)
+        rest_bounds = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, {}, scale, prim_path="/root/forearm")
+        slid_bounds = compute_local_bounding_box_from_usd_at_joint_pos(
+            usd_path, {"elbow": 0.25}, scale, prim_path="/root/forearm"
+        )
+        rest_mesh = extract_trimesh_from_usd_at_joint_pos(usd_path, {}, scale)
+        slid_mesh = extract_trimesh_from_usd_at_joint_pos(usd_path, {"elbow": 0.25}, scale)
+
+    # The scaled forearm reaches x = 2.2 at rest, so 0.25 m of travel takes it to 2.45.
+    np.testing.assert_allclose(rest_bounds.max_point.numpy()[0], [2.2, 0.2, 0.2], atol=1e-6)
+    np.testing.assert_allclose(slid_bounds.max_point.numpy()[0], [2.45, 0.2, 0.2], atol=1e-6)
+    np.testing.assert_allclose(rest_mesh.vertices.max(axis=0)[0], 2.2, atol=1e-6)
+    np.testing.assert_allclose(slid_mesh.vertices.max(axis=0)[0], 2.45, atol=1e-6)
+    return True
+
+
 def _test_authored_pose_away_from_joint_zero_is_corrected(simulation_app) -> bool:
     """Geometry follows the joint values, not the pose the asset was authored in.
 
@@ -381,6 +410,12 @@ def test_zero_joint_position_preserves_authored_pose():
 
 def test_prismatic_joint_translates_child_link():
     assert run_function_with_persistent_simulation_app(_test_prismatic_joint_translates_child_link, headless=HEADLESS)
+
+
+def test_spawn_scale_keeps_prismatic_travel_of_posed_geometry():
+    assert run_function_with_persistent_simulation_app(
+        _test_spawn_scale_keeps_prismatic_travel_of_posed_geometry, headless=HEADLESS
+    )
 
 
 def test_authored_pose_away_from_joint_zero_is_corrected():

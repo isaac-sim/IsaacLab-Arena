@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Image encoding utilities."""
+"""Image encoding and camera calibration utilities."""
 
 import base64
 import io
@@ -34,7 +34,7 @@ def extract_rgb_images_from_camera_observations(
     return images
 
 
-def image_to_jpeg_data_url(image: np.ndarray, max_width_or_height: int) -> str:
+def image_to_jpeg_data_url(image: np.ndarray, max_width_or_height: int) -> tuple[str, tuple[int, int]]:
     """Encode an RGB or RGBA image as JPEG, preserving aspect ratio without upscaling.
 
     Args:
@@ -42,7 +42,7 @@ def image_to_jpeg_data_url(image: np.ndarray, max_width_or_height: int) -> str:
         max_width_or_height: Maximum encoded image width or height, in pixels.
 
     Returns:
-        A JPEG data URL for an image-capable chat-completion endpoint.
+        A JPEG data URL and its actual (width, height) in pixels.
     """
     assert max_width_or_height > 0, "max_width_or_height must be positive"
     assert image.ndim == 3 and image.shape[-1] in (3, 4), f"Unexpected image shape {image.shape}"
@@ -51,4 +51,19 @@ def image_to_jpeg_data_url(image: np.ndarray, max_width_or_height: int) -> str:
     frame.thumbnail((max_width_or_height, max_width_or_height))
     buffer = io.BytesIO()
     frame.save(buffer, format="JPEG", quality=85)
-    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii"), frame.size
+
+
+def resize_camera_geometry(geometry: dict, original_size: tuple[int, int], resized_size: tuple[int, int]) -> None:
+    """Update camera intrinsics and image dimensions in place after resizing.
+
+    Args:
+        geometry: Camera calibration containing an intrinsic_matrix and image_size_px.
+        original_size: Original image (width, height) in pixels.
+        resized_size: Actual resized image (width, height) in pixels.
+    """
+    intrinsics = np.array(geometry["intrinsic_matrix"], dtype=float)
+    intrinsics[0] *= resized_size[0] / original_size[0]
+    intrinsics[1] *= resized_size[1] / original_size[1]
+    geometry["intrinsic_matrix"] = intrinsics.tolist()
+    geometry["image_size_px"] = list(resized_size)

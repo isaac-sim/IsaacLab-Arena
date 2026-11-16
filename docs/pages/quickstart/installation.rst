@@ -4,28 +4,6 @@ Installation
 This page describes how to install Isaac Lab Arena, either natively with ``uv``
 or from source inside a Docker container.
 
-.. list-table:: Supported workflows by installation method
-   :header-rows: 1
-
-   * - Installation method
-     - Evaluation
-     - Imitation learning
-     - Reinforcement learning
-     - Agentic environment generation
-     - cuRobo integration
-   * - Docker
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-   * - uv
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-     - ✗
-
 Supported Systems
 -----------------
 
@@ -57,16 +35,7 @@ Sync the environment and activate it:
 ``.python-version``), installs Isaac Lab Arena and Isaac Lab editable from
 ``submodules/IsaacLab``, and pulls the matching Isaac Sim, PyTorch, and Newton
 wheels at the versions pinned by the committed lockfile. The ``dev`` extra
-installs the Streamlit and SimReady search dependencies used by the
-:doc:`agentic environment generation workflow
-</pages/concepts/agentic_environment_generation/index>`.
-
-.. note::
-   Native ``uv`` installs do not include the optional ``isaaclab_arena_curobo``
-   package, so :doc:`cuRobo-based reachability validation
-   </pages/concepts/object_placement/validation>` (the ``ik_reachable`` check)
-   is not available. Use the Docker workflow with ``./docker/run_docker.sh -c``
-   instead.
+installs optional development tools, such as Jupyter, debugpy, and the Rerun SDK.
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -122,21 +91,15 @@ installation options.
 
 The container will build (if needed) and drop you into an interactive shell.
 
-For :doc:`cuRobo-based reachability validation
-</pages/concepts/object_placement/validation>`, launch with the ``-c`` flag
-instead (native ``uv`` installs do not support this check):
-
-:docker_run_curobo:
-
 .. note::
-   The run docker script mounts the following directories from the host machine if they exist:
+   The run docker script mounts the following directories from the host machine into the
+   container user's home directory, creating them on the host if they do not exist:
 
-   - **Datasets**: ``$HOME/datasets`` → ``/datasets``
-   - **Models**: ``$HOME/models`` → ``/models``
-   - **Evaluation**: ``$HOME/eval`` → ``/eval``
+   - **Datasets**: ``$HOME/datasets``
+   - **Models**: ``$HOME/models``
+   - **Evaluation**: ``$HOME/eval``
 
-   When mounted a user avoids re-downloading datasets and models between container restarts,
-   so our suggestion is to create these directories on the host machine before running the container.
+   Mounting them lets a user avoid re-downloading datasets and models between container restarts.
    Note that the path of the mounted directories are configurable — see ``docker/run_docker.sh``
    for the full list of arguments.
 

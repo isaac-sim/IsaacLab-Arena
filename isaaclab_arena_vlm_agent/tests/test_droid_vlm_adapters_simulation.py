@@ -14,7 +14,7 @@ def _test_droid_absolute_pose_adapters(simulation_app):
 
     from isaaclab.utils.math import combine_frame_transforms
 
-    from isaaclab_arena.embodiments.droid.droid import DroidDifferentialIKEmbodiment
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteDifferentialIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -26,23 +26,17 @@ def _test_droid_absolute_pose_adapters(simulation_app):
     from isaaclab_arena_vlm_agent.pose_target_motion_generator import PoseTargetMotionGenerator
 
     # Use a translated, rotated root and separate environment origins to expose world/root confusion.
-    embodiment = DroidDifferentialIKEmbodiment(
+    embodiment = DroidAbsoluteDifferentialIKEmbodiment(
         initial_pose=Pose(
             position_xyz=(0.7, -0.4, 1.35),
             rotation_xyzw=(0.0, 0.0, math.sin(0.3), math.cos(0.3)),
         )
     )
 
-    def absolute_pose_actions(cfg):
-        cfg.actions.arm_action.controller.use_relative_mode = False
-        cfg.actions.arm_action.scale = 1.0
-        return cfg
-
     arena_env = IsaacLabArenaEnvironment(
         name="droid_vlm_adapter_test",
         scene=Scene(),
         embodiment=embodiment,
-        env_cfg_callback=absolute_pose_actions,
     )
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
     try:
@@ -97,6 +91,16 @@ def _test_droid_absolute_pose_adapters(simulation_app):
             goal[0] += 0.1
             assert not generator.goal_reached(goal, env, env_id)
 
+        # The prompt's grasp offset must locate the embodiment's open finger-pad midpoint G.
+        from isaaclab_arena_vlm_agent.droid_adapter import GRASP_POINT_OFFSET_M
+
+        T_W_E = base.arena_world.get_body_pose_w("robot", "base_link")
+        t_E_G = T_W_E.new_tensor([GRASP_POINT_OFFSET_M, 0.0, 0.0]).expand(base.num_envs, 3)
+        t_W_G, _ = combine_frame_transforms(T_W_E[:, :3], T_W_E[:, 3:], t_E_G)
+        torch.testing.assert_close(
+            base.arena_world.get_frame_position_w("ee_frame", "end_effector"), t_W_G, atol=1e-4, rtol=0.0
+        )
+
     finally:
         env.close()
     return True
@@ -125,6 +129,14 @@ def _test_droid_joint_position_adapters(simulation_app):
         base = env.unwrapped
         adapter = AbsoluteChunkActionAdapter(1)
         assert adapter.is_robot_action_space_supported(env)
+        from isaaclab_arena_vlm_agent.droid_adapter import DroidVLMAdapter
+
+        preset = DroidVLMAdapter()
+        for pose_adapter in (
+            preset.make_chunk_action_adapter(2),
+            preset.make_goal_action_adapter(0.01, 0.1),
+        ):
+            assert not pose_adapter.is_robot_action_space_supported(env)
         joint_names = tuple(f"panda_joint{i}" for i in range(1, 8))
         targets = base.arena_world.get_joint_positions("robot", joint_names)
         actions = []

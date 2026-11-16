@@ -155,10 +155,53 @@ Every asset has an object type that determines how it is simulated:
 
 - **RIGID** — a single rigid body (boxes, bottles, tools, furniture).
 - **ARTICULATION** — a multi-body scene object with joints (doors, drawers, appliances).
+- **DEFORMABLE** — a body represented by deformable simulation nodes (soft cubes, cloth,
+  or other compliant objects).
 - **BASE** — no physics; used for static backgrounds and markers.
 
 Deformable and backend-specific spawn configs must match the environment's resolved physics
 backend (PhysX or Newton). See :doc:`../environment/physics_backend_selection`.
+
+Deformable objects
+------------------
+
+``DeformableObject`` represents a body whose geometry changes during simulation. Its spawn
+configuration selects the physics implementation: ``PhysxDeformableBodyPropertiesCfg`` for
+PhysX or ``NewtonDeformableBodyPropertiesCfg`` for Newton. The selected implementation must
+match the environment's physics backend.
+
+Newton deformables additionally require a Vertex Block Descent (VBD) solver that owns their
+particles. ``DeformableObject.validate_simulation_cfg()`` accepts either a direct
+``VBDSolverCfg`` or a coupled solver with a particle-owning VBD entry. It rejects Newton
+configurations that provide only ``MJWarpSolverCfg`` or that include a VBD entry without
+assigning particles. This validation runs after the environment's ``env_cfg_callback``, so
+an environment can install its coupled rigid-body and deformable solvers before Arena checks
+the final simulation configuration.
+
+Arena uses two complementary geometry representations for a deformable:
+
+* Before simulation, ``get_bounding_box()`` returns the undeformed, local-frame bounds from
+  the spawn configuration or USD. Relation placement uses these rest bounds to sample an
+  initial pose without requiring a running physics view.
+* During simulation, ``ArenaWorld`` reads the live deformable state. It exposes the current
+  nodal vertices, centroid, world bounds, and mean nodal velocity through the same geometry
+  query interface used by task predicates.
+
+Predicates therefore evaluate the deformed object rather than its rest bounds. For example,
+pick-and-place checks use the live centroid and velocity, while deformable support checks use
+the lowest live nodes near the destination geometry. Deformables do not currently provide an
+Isaac Lab contact sensor, so predicates that support them use these geometry queries.
+
+The following image shows four initial placements sampled from the same ``On`` and ``NextTo``
+relations. The undeformed cube bounds keep every sample on the table and beside the plate;
+the live nodal geometry takes over after simulation starts.
+
+.. image:: ../../../images/deformable_pick_and_place_sampled_placements.png
+   :align: center
+   :alt: Four relation-sampled placements of a deformable cube beside a plate
+
+For a complete task and backend-specific commands, see
+:doc:`../../example_workflows/newton/deformable_pick_and_place`.
 
 Backgrounds
 -----------
@@ -220,6 +263,39 @@ you use an ``ObjectReference``.
 
 The ``parent_asset`` tells the environment which spawned USD the prim path belongs to.
 The prim path uses ``{ENV_REGEX_NS}`` so it resolves correctly across parallel environments.
+
+Use ``ArticulationObjectReference`` to configure initial joints on a referenced articulation:
+
+.. code-block:: python
+
+   from isaaclab_arena.assets.object_reference import ArticulationObjectReference
+
+   microwave = ArticulationObjectReference(
+       name="microwave",
+       prim_path="{ENV_REGEX_NS}/kitchen/microwave",
+       parent_asset=kitchen,
+       initial_joint_positions={"microjoint": -0.5},
+   )
+
+Joint keys may be exact names or Isaac Lab regex patterns. Values are radians for revolute joints
+and metres for prismatic joints. ``OpenableObjectReference``, ``PressableObjectReference``, and
+``TurnableObjectReference`` inherit this option. In graph YAML, the existing ``object_type: articulation`` and
+``params.initial_joint_positions`` fields select the class automatically.
+
+A reference can also name a link of an ``ARTICULATION`` object, such as a door or a drawer.
+When a revolute or prismatic joint moves the link, the reference is placed where the
+parent's configured initial joint positions put it, and during simulation it follows the link.
+Create the articulation reference before its link references so they use that initial joint
+state. Links inside a ``BASE`` background, such as a kitchen's cabinet doors, keep their authored
+poses.
+
+.. code-block:: python
+
+   door = ObjectReference(
+       name="microwave_door",
+       prim_path="{ENV_REGEX_NS}/kitchen/microwave/Microwave039_door",
+       parent_asset=microwave,
+   )
 
 Rigid object sets
 -----------------

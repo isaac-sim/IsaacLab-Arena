@@ -135,10 +135,17 @@ Use this table as a reading map:
      - How ranked layouts are stored, assigned to environments, reproduced, and
        refreshed on reset
      - :doc:`object_placement/pooled_placement`
+   * - Placement diagnostics
+     - Why candidate layouts were rejected, where to read it, and what to change
+     - :doc:`object_placement/placement_diagnostics`
    * - Homogeneous and heterogeneous objects
      - How the same or different registered objects are represented and placed
        across parallel environments
      - :doc:`object_placement/homogeneous_and_heterogeneous_placement`
+   * - Placement success benchmark
+     - How to measure placement success across the RoboLab and KitchenBench
+       environments
+     - :doc:`object_placement/placement_success_benchmark`
 
 Try It Out
 ----------
@@ -187,4 +194,6 @@ objects to see placement adapt to different dimensions and footprints.
    object_placement/solver
    object_placement/validation
    object_placement/pooled_placement
+   object_placement/placement_diagnostics
    object_placement/homogeneous_and_heterogeneous_placement
+   object_placement/placement_success_benchmark

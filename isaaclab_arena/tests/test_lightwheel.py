@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
+from isaaclab_arena.assets.sources.lightwheel import acquire_lightwheel_asset
 
 
 def test_acquire_lightwheel_asset_fetches_object():

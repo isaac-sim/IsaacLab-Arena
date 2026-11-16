@@ -30,11 +30,11 @@ The experiment is defined by this configuration:
    .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
       :language: yaml
 
-In the Base Docker container, set the output directory used by this workflow:
+In the Arena runtime prepared in :doc:`index`, set the output directory used by this workflow:
 
 .. code-block:: bash
 
-   export CAMERA_SENSITIVITY_OUTPUT_DIR="/eval/camera_sensitivity_workflow"
+   export CAMERA_SENSITIVITY_OUTPUT_DIR="$HOME/eval/camera_sensitivity_workflow"
    mkdir -p "${CAMERA_SENSITIVITY_OUTPUT_DIR}"
 
 Arena requires this directory to be empty. With the OpenPI server running, run the evaluation from
@@ -78,7 +78,7 @@ report. The run shown on this page produced:
      success_rate                       1.0000
    ======================================================================
 
-   Wrote evaluation report with 1 task(s), 1 run(s) and 10 episode(s) to: /eval/camera_sensitivity_workflow/index.html (+2 linked page(s))
+   Wrote evaluation report with 1 task(s), 1 run(s) and 10 episode(s) to: ${CAMERA_SENSITIVITY_OUTPUT_DIR}/index.html (+2 linked page(s))
    Serving evaluation report at http://localhost:8001/index.html (Ctrl+C to stop).
 
 Your metrics may differ. On the host, open
@@ -107,7 +107,7 @@ episodes. The recording below shows the three DROID camera views for the first e
    :align: center
    :caption: Each episode includes its outcome, task progress, recorded camera views, and sampled variation values.
 
-Press :kbd:`Ctrl+C` in the Base Docker container when you finish reviewing the report. This stops
+Press :kbd:`Ctrl+C` in the terminal running the evaluation when you finish reviewing the report. This stops
 the report server; the HTML pages, videos, and episode results remain in the output directory.
 
 Look beyond the success rate

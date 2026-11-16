@@ -249,6 +249,12 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
 
     registry_name = "droid_differential_ik"
 
+    use_relative_ik_mode: bool = True
+    """Whether the arm action takes pose deltas instead of absolute pose targets."""
+
+    arm_action_scale: float = 0.5
+    """Scale applied to arm actions."""
+
     def __init__(
         self,
         enable_cameras: bool = False,
@@ -273,6 +279,8 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             collision_mode=collision_mode,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
+        self.action_config.arm_action.controller.use_relative_mode = self.use_relative_ik_mode
+        self.action_config.arm_action.scale = self.arm_action_scale
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply shared Newton spawn setup, then diff-IK-specific Newton tuning."""
@@ -284,11 +292,20 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         """Apply Newton-specific differential-IK configuration."""
         self.action_config.arm_action.controller = DifferentialIKControllerCfg(
             command_type="pose",
-            use_relative_mode=True,
+            use_relative_mode=self.use_relative_ik_mode,
             ik_method="adaptive_dls",
             joint_limit_avoidance_gain=0.10,
             joint_limit_avoidance_margin=0.35,
         )
+
+
+@register_asset
+class DroidAbsoluteDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
+    """DROID differential IK accepting unscaled root-relative XYZ/XYZW pose targets."""
+
+    registry_name = "droid_abs_ik"
+    use_relative_ik_mode = False
+    arm_action_scale = 1.0
 
 
 @register_asset

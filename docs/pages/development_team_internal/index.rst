@@ -9,3 +9,4 @@ not part of the supported user-facing documentation.
    :maxdepth: 1
 
    dreamzero
+   perflab_benchmarks

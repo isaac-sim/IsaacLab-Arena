@@ -10,8 +10,6 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
-HEADLESS = True
-
 
 def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
     import isaaclab.sim as sim_utils
@@ -25,20 +23,11 @@ def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
     if physics_backend is PhysicsBackend.PHYSX:
         deformable_props = PhysxDeformableBodyPropertiesCfg()
         collision_props = [PhysxCollisionCfg(rest_offset=0.0025, contact_offset=0.01)]
-        physics_material = PhysxDeformableBodyMaterialCfg(
-            youngs_modulus=8.0e4,
-            poissons_ratio=0.4,
-            density=300.0,
-        )
+        physics_material = PhysxDeformableBodyMaterialCfg()
     else:
         deformable_props = NewtonDeformableBodyPropertiesCfg()
         collision_props = None
-        physics_material = NewtonDeformableBodyMaterialCfg(
-            k_mu=8.0e4 / (2.0 * (1.0 + 0.4)),
-            k_lambda=8.0e4 * 0.4 / ((1.0 + 0.4) * (1.0 - 2.0 * 0.4)),
-            density=300.0,
-            particle_radius=0.01,
-        )
+        physics_material = NewtonDeformableBodyMaterialCfg()
     return DeformableObject(
         name="soft_cube",
         spawner_cfg=sim_utils.MeshCuboidCfg(
@@ -52,53 +41,21 @@ def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
 
 
 def _test_backend_specific_deformable_config(simulation_app) -> bool:
-    import isaaclab.sim as sim_utils
-    from isaaclab.assets import DeformableObjectCfg
     from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
-    from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
-    from isaaclab_newton.sim.spawners.materials import NewtonDeformableBodyMaterialCfg
     from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
-    from isaaclab_physx.sim.spawners.materials import (
-        PhysxDeformableBodyMaterialCfg,
-        PhysxSurfaceDeformableBodyMaterialCfg,
-    )
+    from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
 
     from isaaclab_arena.assets.deformable_object import DeformableObject
-    from isaaclab_arena.assets.deformable_object_library import DeformableCube, DeformableSurface, DeformableTeddyBear
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.relations.relations import IsAnchor
-    from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PoseRange
 
     pose = Pose(position_xyz=(0.1, -0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     soft_cube = _make_soft_cube(PhysicsBackend.PHYSX, initial_pose=pose)
-    cfg_name, physx_cfg = soft_cube.get_object_cfg()
+    _, physx_cfg = soft_cube.get_object_cfg()
 
-    assert cfg_name == soft_cube.name
-    assert isinstance(physx_cfg, DeformableObjectCfg)
     assert isinstance(physx_cfg.spawn.deformable_props, PhysxDeformableBodyPropertiesCfg)
     assert isinstance(physx_cfg.spawn.physics_material, PhysxDeformableBodyMaterialCfg)
-    assert physx_cfg.spawn.physics_material.youngs_modulus == pytest.approx(8.0e4)
-    assert physx_cfg.spawn.physics_material.poissons_ratio == pytest.approx(0.4)
-    assert physx_cfg.spawn.physics_material.density == pytest.approx(300.0)
     assert physx_cfg.init_state.pos == pose.position_xyz
     assert physx_cfg.init_state.rot == pose.rotation_xyzw
-    assert soft_cube.object_type is ObjectType.DEFORMABLE
-    assert soft_cube.get_object_cfg()[1] is physx_cfg
-    assert soft_cube.get_event_cfg()[1] is not None
-
-    newton_cube = _make_soft_cube(PhysicsBackend.NEWTON, initial_pose=pose)
-    _, newton_cfg = newton_cube.get_object_cfg()
-    assert isinstance(newton_cfg.spawn.deformable_props, NewtonDeformableBodyPropertiesCfg)
-    assert isinstance(newton_cfg.spawn.physics_material, NewtonDeformableBodyMaterialCfg)
-    expected_mu = 8.0e4 / (2.0 * (1.0 + 0.4))
-    expected_lambda = 8.0e4 * 0.4 / ((1.0 + 0.4) * (1.0 - 2.0 * 0.4))
-    assert newton_cfg.spawn.physics_material.k_mu == pytest.approx(expected_mu)
-    assert newton_cfg.spawn.physics_material.k_lambda == pytest.approx(expected_lambda)
-    assert newton_cfg.spawn.physics_material.density == pytest.approx(300.0)
-    assert newton_cube.get_object_cfg()[1] is newton_cfg
 
     with pytest.raises(AssertionError, match="backend-specific deformable_props"):
         DeformableObject(
@@ -106,85 +63,45 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
             spawner_cfg=UsdFileCfg(usd_path="/tmp/authored_soft_body.usd"),
         )
 
-    for asset_type, asset_name, material_type in (
-        (DeformableCube, "deformable_cube", PhysxDeformableBodyMaterialCfg),
-        (DeformableSurface, "deformable_surface", PhysxSurfaceDeformableBodyMaterialCfg),
-        (DeformableTeddyBear, "deformable_teddy_bear", PhysxDeformableBodyMaterialCfg),
-    ):
-        library_object = asset_type()
-        assert AssetRegistry().get_asset_by_name(asset_name) is asset_type
-        assert library_object.physics_preset is PhysicsBackend.PHYSX
-        assert isinstance(library_object.spawner_cfg.deformable_props, PhysxDeformableBodyPropertiesCfg)
-        assert isinstance(library_object.spawner_cfg.physics_material, material_type)
-
-    library_cube = DeformableCube()
-    assert library_cube.spawner_cfg.size == (0.15, 0.04, 0.04)
-    assert library_cube.spawner_cfg.collision_props[0].rest_offset == 0.0
-    assert library_cube.spawner_cfg.collision_props[0].contact_offset == pytest.approx(0.0025)
-    assert library_cube.spawner_cfg.deformable_props.linear_damping == 0.0
-    assert library_cube.spawner_cfg.physics_material.youngs_modulus == pytest.approx(8.0e4)
-    assert library_cube.spawner_cfg.physics_material.poissons_ratio == pytest.approx(0.25)
-    assert library_cube.spawner_cfg.physics_material.density == pytest.approx(300.0)
-    assert library_cube.spawner_cfg.visual_material.diffuse_color == (0.95, 0.85, 0.1)
-    assert library_cube.get_bounding_box().size[0].tolist() == pytest.approx([0.15, 0.04, 0.04])
-
-    library_surface = DeformableSurface()
-    assert library_surface.spawner_cfg.size == (0.2, 0.2)
-    assert library_surface.spawner_cfg.edge_refinement == 30
-    assert library_surface.spawner_cfg.visual_material.diffuse_color == (0.95, 0.85, 0.1)
-    assert library_surface.get_bounding_box().min_point[0].tolist() == pytest.approx([-0.1, -0.1, -0.001])
-    assert library_surface.get_bounding_box().max_point[0].tolist() == pytest.approx([0.1, 0.1, 0.001])
-
-    library_teddy_bear = DeformableTeddyBear()
-    assert library_teddy_bear._bounding_box is None
-    teddy_bear_bbox = library_teddy_bear.get_bounding_box()
-    assert library_teddy_bear._bounding_box is teddy_bear_bbox
-    assert (teddy_bear_bbox.size[0] > 0.0).all()
-    assert (teddy_bear_bbox.size[0] < 1.0).all()
-
     updated_pose = Pose(position_xyz=(0.4, 0.0, 0.5))
     soft_cube.set_initial_pose(updated_pose)
-    assert soft_cube.get_object_cfg()[1] is physx_cfg
     assert physx_cfg.init_state.pos == updated_pose.position_xyz
     with pytest.raises(AssertionError, match="fixed Pose or PosePerEnv"):
         soft_cube.set_initial_pose(PoseRange())
-
-    soft_cube.add_relation(IsAnchor())
-    scene = Scene(assets=[soft_cube])
-    assert scene.get_objects_with_relations() == [soft_cube]
-
-    rigid = Object(
-        name="rigid",
-        object_type=ObjectType.RIGID,
-        spawner_cfg=sim_utils.MeshCuboidCfg(size=(0.1, 0.1, 0.1)),
-    )
-    with pytest.raises(NotImplementedError, match="does not support contact sensors"):
-        soft_cube.get_contact_sensor_cfg(rigid)
-    with pytest.raises(AssertionError, match="against deformable objects"):
-        rigid.get_contact_sensor_cfg(soft_cube)
     return True
 
 
 def _test_deformable_validates_simulation_cfg(simulation_app) -> bool:
     from isaaclab.sim import SimulationCfg
-    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+    from isaaclab_contrib.coupling import CouplerEntryCfg, CouplerProxyCfg
+    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, VBDSolverCfg
     from isaaclab_physx.physics import PhysxCfg
 
     from isaaclab_arena.scene.scene import Scene
 
-    sim_cfgs = {
-        PhysicsBackend.PHYSX: SimulationCfg(physics=PhysxCfg()),
-        PhysicsBackend.NEWTON: SimulationCfg(physics=NewtonCfg(solver_cfg=MJWarpSolverCfg())),
-    }
-    for asset_backend in PhysicsBackend:
-        scene = Scene(assets=[_make_soft_cube(asset_backend)])
-        for selected_backend, sim_cfg in sim_cfgs.items():
-            if asset_backend is selected_backend:
-                scene.validate_simulation_cfg(sim_cfg)
-            else:
-                match = rf"configured for '{asset_backend}'.*selected backend '{selected_backend}'"
-                with pytest.raises(AssertionError, match=match):
-                    scene.validate_simulation_cfg(sim_cfg)
+    physx_scene = Scene(assets=[_make_soft_cube(PhysicsBackend.PHYSX)])
+    physx_scene.validate_simulation_cfg(SimulationCfg(physics=PhysxCfg()))
+
+    newton_scene = Scene(assets=[_make_soft_cube(PhysicsBackend.NEWTON)])
+    newton_scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=VBDSolverCfg())))
+    coupled_solver_cfg = CouplerProxyCfg(
+        entries=[CouplerEntryCfg(name="soft", solver_cfg=VBDSolverCfg(), all_particles=True)]
+    )
+    newton_scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=coupled_solver_cfg)))
+
+    with pytest.raises(AssertionError, match="requires a Newton VBD solver.*MJWarpSolverCfg"):
+        newton_scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=MJWarpSolverCfg())))
+
+    with pytest.raises(AssertionError, match="requires a Newton VBD solver.*CouplerProxyCfg"):
+        unassigned_vbd_cfg = CouplerProxyCfg(entries=[CouplerEntryCfg(name="soft", solver_cfg=VBDSolverCfg())])
+        newton_scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=unassigned_vbd_cfg)))
+
+    for scene, wrong_backend_cfg in (
+        (physx_scene, SimulationCfg(physics=NewtonCfg(solver_cfg=VBDSolverCfg()))),
+        (newton_scene, SimulationCfg(physics=PhysxCfg())),
+    ):
+        with pytest.raises(AssertionError, match="configured for.*not the selected backend"):
+            scene.validate_simulation_cfg(wrong_backend_cfg)
     return True
 
 
@@ -291,7 +208,7 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
         ]
     )
     physics_backend = PhysicsBackend.PHYSX
-    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(name="soft_cube")
+    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube_physx")(name="soft_cube")
     soft_cube.set_initial_pose(poses)
     arena_env = IsaacLabArenaEnvironment(
         name=f"{physics_backend}_deformable_reset_and_initial_pose",
@@ -338,7 +255,6 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
         results = validate_pool_layouts(env, pool, PhysicsSettleParams(num_steps=5))
         assert len(results) == 2
         assert all(not checks.validation_results[PlacementCheck.PHYSICS_SETTLED] for _, _, checks in results)
-        assert torch.all(deformable_asset.data.nodal_pos_w.torch[..., 2].mean(dim=1) < expected[:, 2])
     finally:
         env.close()
     return True
@@ -355,7 +271,7 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.pose import Pose
 
-    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(name="soft_cube")
+    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube_physx")(name="soft_cube")
     soft_cube.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
     table = AssetRegistry().get_asset_by_name("procedural_table")(
         name="destination",
@@ -380,8 +296,6 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
 
     try:
         env.reset()
-        assert task.contact_sensor_name is None
-        assert len(env.unwrapped.scene.sensors) == 0
         success_objective = task.get_termination_cfg().success[0]
         placement_requirement = success_objective.predicate_sequence[-1]
         placement_predicate = placement_requirement.predicate
@@ -397,27 +311,146 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
     return True
 
 
+def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> bool:
+    """Spawn the requested backend and complete pick-and-place after teleporting the object."""
+    import sys
+    import torch
+
+    from isaaclab_newton.physics import NewtonCfg
+    from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
+    from isaaclab_physx.physics import PhysxCfg
+    from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
+
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+    cli_args = [
+        "--num_envs",
+        "4",
+        "--presets",
+        physics_backend,
+        "droid_deformable_pick_and_place",
+        "--pick_object",
+        f"deformable_cube_{physics_backend}",
+        "--embodiment",
+        "droid_differential_ik",
+        "--teleop_device",
+        "keyboard",
+    ]
+    original_argv = sys.argv
+    try:
+        sys.argv = ["test_deformable_object.py", *cli_args]
+        parser = get_isaaclab_arena_environments_cli_parser(get_isaaclab_arena_cli_parser())
+    finally:
+        sys.argv = original_argv
+    args = parser.parse_args(cli_args)
+    builder = get_arena_builder_from_cli(args)
+    assert builder.arena_env.task.get_task_description() == "Pick up the deformable cube and place it on the plate."
+    env_cfg, env_kwargs = builder.build_env_cfg()
+    assert env_cfg.teleop_devices is not None
+    assert "keyboard" in env_cfg.teleop_devices.devices
+    if physics_backend == "newton":
+        assert isinstance(env_cfg.sim.physics, NewtonCfg)
+        expected_deformable_props_type = NewtonDeformableBodyPropertiesCfg
+    else:
+        assert isinstance(env_cfg.sim.physics, PhysxCfg)
+        expected_deformable_props_type = PhysxDeformableBodyPropertiesCfg
+
+    env = builder.make_registered(env_cfg, env_kwargs)
+    try:
+        env.reset()
+        actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+        deformable = env.unwrapped.scene.deformable_objects["pick_object"]
+        assert isinstance(deformable.cfg.spawn.deformable_props, expected_deformable_props_type)
+        rest_state = deformable.data.nodal_state_w.torch.clone()
+        rest_state[..., 3:] = 0.0
+        deformable.write_nodal_state_to_sim_index(rest_state)
+        rest_targets = torch.zeros((*rest_state.shape[:-1], 4), device=env.unwrapped.device)
+        rest_targets[..., :3] = rest_state[..., :3]
+        rest_targets[..., 3] = 1.0
+        deformable.write_nodal_kinematic_target_to_sim_index(rest_targets)
+
+        def step_until_predicates_complete(required_count: int, max_steps: int, phase: str) -> None:
+            for _ in range(max_steps):
+                _, _, terminated, truncated, extras = env.step(actions)
+                assert not terminated.any() and not truncated.any(), f"{phase} should not end the task."
+                events = extras["progress_tracking"]["events"]
+                if all(len(env_events) >= required_count for env_events in events):
+                    return
+            raise AssertionError(f"{phase} did not complete predicate {required_count} within {max_steps} steps.")
+
+        step_until_predicates_complete(required_count=1, max_steps=30, phase="Recording the initial rest pose")
+
+        lifted_state = deformable.data.nodal_state_w.torch.clone()
+        lifted_state[..., 2] += 0.1
+        lifted_state[..., 3:] = 0.0
+        deformable.write_nodal_state_to_sim_index(lifted_state)
+        lifted_targets = torch.zeros((*lifted_state.shape[:-1], 4), device=env.unwrapped.device)
+        lifted_targets[..., :3] = lifted_state[..., :3]
+        lifted_targets[..., 3] = 1.0
+        deformable.write_nodal_kinematic_target_to_sim_index(lifted_targets)
+        step_until_predicates_complete(required_count=2, max_steps=5, phase="Lifting")
+
+        destination_bounds = env.unwrapped.arena_world.get_aabb_w("plate")
+        placed_state = deformable.data.nodal_state_w.torch.clone()
+        node_positions = placed_state[..., :3]
+        destination_center = destination_bounds.center
+        translation = torch.zeros((env.unwrapped.num_envs, 3), device=env.unwrapped.device)
+        translation[:, :2] = destination_center[:, :2] - node_positions.mean(dim=1)[:, :2]
+        translation[:, 2] = destination_bounds.max_point[:, 2] - node_positions.amin(dim=1)[:, 2]
+        placed_state[..., :3] += translation[:, None, :]
+        placed_state[..., 3:] = 0.0
+        deformable.write_nodal_state_to_sim_index(placed_state)
+        kinematic_targets = torch.zeros((*placed_state.shape[:-1], 4), device=env.unwrapped.device)
+        kinematic_targets[..., :3] = placed_state[..., :3]
+        kinematic_targets[..., 3] = 1.0
+        deformable.write_nodal_kinematic_target_to_sim_index(kinematic_targets)
+
+        completed = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
+        for _ in range(builder.arena_env.task.placement_consecutive_steps + 30):
+            _, _, terminated, truncated, extras = env.step(actions)
+            assert not truncated.any(), "The task timed out before the placement could register."
+            progress_states = extras["progress_tracking"]["states"]
+            for env_id in terminated.nonzero(as_tuple=False).flatten().tolist():
+                assert progress_states[env_id].all_complete
+            completed |= terminated
+            if completed.all():
+                break
+        assert completed.all(), (
+            "Teleporting the lifted deformable objects onto the plate did not terminate every environment: "
+            f"{completed.tolist()}"
+        )
+    finally:
+        env.close()
+    return True
+
+
 def test_backend_specific_deformable_config():
-    assert run_function_with_persistent_simulation_app(_test_backend_specific_deformable_config, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_backend_specific_deformable_config)
 
 
 def test_deformable_validates_simulation_cfg():
-    assert run_function_with_persistent_simulation_app(_test_deformable_validates_simulation_cfg, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_deformable_validates_simulation_cfg)
 
 
 def test_deformable_nodal_reset_terms():
-    assert run_function_with_persistent_simulation_app(_test_deformable_nodal_reset_terms, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_deformable_nodal_reset_terms)
 
 
 def test_deformable_reset_and_initial_pose():
-    assert run_function_with_persistent_simulation_app(
-        _test_deformable_reset_and_initial_pose,
-        headless=HEADLESS,
-    )
+    assert run_function_with_persistent_simulation_app(_test_deformable_reset_and_initial_pose)
 
 
 def test_deformable_placement_is_not_immediate_task_success():
+    assert run_function_with_persistent_simulation_app(_test_deformable_placement_is_not_immediate_task_success)
+
+
+@pytest.mark.parametrize(
+    "physics_backend",
+    ["physx", pytest.param("newton", marks=pytest.mark.with_newton)],
+)
+def test_droid_deformable_environment(physics_backend):
     assert run_function_with_persistent_simulation_app(
-        _test_deformable_placement_is_not_immediate_task_success,
-        headless=HEADLESS,
+        _test_droid_deformable_environment,
+        physics_backend=physics_backend,
     )

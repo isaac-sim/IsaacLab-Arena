@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from isaaclab_arena.visualization.episode_results_files import format_episode_video_filename
-from isaaclab_arena.visualization.report_data import (
+from isaaclab_arena.evaluation.episode_results_files import format_episode_video_filename
+from isaaclab_arena.evaluation.report_data import (
     EpisodeIdentity,
     EpisodeSummary,
     JobSummary,

@@ -10,9 +10,7 @@ If you do not want to do the preceding step of recording demonstrations, you can
 the pre-recorded datasets and jump to :ref:`sequential_step_1_annotate_demonstrations`.
 
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 
 .. _sequential_step_1_annotate_demonstrations:

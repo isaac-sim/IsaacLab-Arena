@@ -1,16 +1,14 @@
 Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:
 
-:docker_run_default:
+Once the runtime is ready, set the models directory if you plan to download pre-trained checkpoints:
 
-Once inside the container, set the models directory if you plan to download pre-trained checkpoints:
+.. code-block:: bash
 
-.. code:: bash
-
-    export MODELS_DIR=/models/isaaclab_arena/reinforcement_learning
-    mkdir -p $MODELS_DIR
+   export MODELS_DIR="$HOME/models/isaaclab_arena/reinforcement_learning"
+   mkdir -p $MODELS_DIR
 
 This tutorial assumes you've completed :doc:`step_2_policy_training` and have a trained checkpoint,
 or you can download a pre-trained one as described below.

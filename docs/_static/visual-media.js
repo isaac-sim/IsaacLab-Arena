@@ -34,7 +34,6 @@ document.addEventListener("DOMContentLoaded", () => {
     "sugar_box_web.mp4": "Object swap evaluation with a sugar box",
     "tomato_sauce_can_web.mp4": "Object swap evaluation with a tomato sauce can",
     "bagels_on_plate_web.mp4": "Relational placement of bagels on a plate",
-    "penisula_mustard_mesh_web.mp4": "Agent-generated mustard placement environment",
   };
   const videos = Array.from(visualPage.querySelectorAll("video"));
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

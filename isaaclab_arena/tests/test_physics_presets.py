@@ -47,6 +47,7 @@ def _build_env_cfg(
     env_cfg_callback=None,
     env_cfg_override=None,
     default_physics_backend=None,
+    builder_env_cfg_override=None,
 ):
     """Build a real env cfg through ArenaEnvBuilder.build_env_cfg with the given preset."""
     from functools import partial
@@ -91,7 +92,10 @@ def _build_env_cfg(
         **env_init_kwargs,
     )
 
-    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1, presets=presets))
+    builder = ArenaEnvBuilder(
+        arena_env,
+        ArenaEnvBuilderCfg(num_envs=1, presets=presets, env_cfg_override=builder_env_cfg_override or {}),
+    )
     env_cfg, _ = builder.build_env_cfg()
     return env_cfg
 
@@ -122,7 +126,7 @@ def _test_env_cfg_callback_cannot_swap_physx_for_newton(simulation_app) -> bool:
         env_cfg.sim.physics = ArenaPhysicsCfg().newton
         return env_cfg
 
-    with pytest.raises(AssertionError, match="env_cfg_callback changed the physics backend away from PhysX"):
+    with pytest.raises(AssertionError, match="Environment configuration changed the physics backend away from PhysX"):
         _build_env_cfg(presets="physx", env_cfg_callback=_swap_to_newton)
     return True
 
@@ -134,7 +138,7 @@ def _test_env_cfg_callback_cannot_swap_newton_for_physx(simulation_app) -> bool:
         env_cfg.sim.physics = ArenaPhysicsCfg().physx
         return env_cfg
 
-    with pytest.raises(AssertionError, match="env_cfg_callback changed the physics backend away from Newton"):
+    with pytest.raises(AssertionError, match="Environment configuration changed the physics backend away from Newton"):
         _build_env_cfg(presets="newton", env_cfg_callback=_swap_to_physx)
     return True
 
@@ -361,10 +365,11 @@ def _test_builder_rejects_unsafe_or_incompatible_targets(simulation_app) -> bool
     return True
 
 
-def _test_cli_preset_rejects_conflicting_yaml_backend(simulation_app) -> bool:
+def _test_cli_preset_rejects_conflicting_override_backend(simulation_app, override_source) -> bool:
     override = {"sim": {"physics": {"_target_": "isaaclab_newton.physics.NewtonCfg"}}}
-    with pytest.raises(AssertionError, match="env_cfg_callback changed the physics backend away from PhysX"):
-        _build_env_cfg(presets="physx", env_cfg_override=override)
+    override_key = "env_cfg_override" if override_source == "environment" else "builder_env_cfg_override"
+    with pytest.raises(AssertionError, match="Environment configuration changed the physics backend away from PhysX"):
+        _build_env_cfg(presets="physx", **{override_key: override})
     return True
 
 
@@ -470,9 +475,10 @@ def test_builder_rejects_unsafe_or_incompatible_targets():
     )
 
 
-def test_cli_preset_rejects_conflicting_yaml_backend():
+@pytest.mark.parametrize("override_source", ["environment", "builder"])
+def test_cli_preset_rejects_conflicting_override_backend(override_source):
     assert run_function_with_persistent_simulation_app(
-        _test_cli_preset_rejects_conflicting_yaml_backend, headless=HEADLESS
+        _test_cli_preset_rejects_conflicting_override_backend, headless=HEADLESS, override_source=override_source
     )
 
 

@@ -60,4 +60,4 @@ Available devices
 
    For a full walkthrough — collecting demonstrations on a static manipulation
    task using an Apple Vision Pro or Meta Quest — see
-   :doc:`../../example_workflows/static_manipulation/step_2_teleoperation`.
+   :doc:`../../example_workflows/sequential_static_manipulation/step_2_teleoperation`.
