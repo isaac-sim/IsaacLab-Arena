@@ -68,7 +68,9 @@ class Gr00tClosedloopPolicyCfg:
     state_observation_overrides: dict[str, str] = field(
         default_factory=dict,
         metadata={
-            "description": "Simulation joint names mapped to scalar observations in the policy observation group."
+            "description": (
+                "Simulation joint names mapped to observations in the policy group, each with shape (num_envs, 1)."
+            )
         },
     )
 

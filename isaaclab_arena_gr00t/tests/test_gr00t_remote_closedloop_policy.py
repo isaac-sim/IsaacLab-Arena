@@ -318,26 +318,19 @@ def test_observation_override_rejects_invalid_joint_index(joint_index):
         apply_state_overrides(np.zeros((NUM_ENVS, NUM_SIM_JOINTS)), {joint_index: np.zeros((NUM_ENVS, 1))})
 
 
-def test_observation_override_requires_source_observation(
+def test_state_override_from_yaml_requires_and_applies_source_observation(
     policy_config_with_state_override, synthetic_observation, fake_client_factory
 ):
-    """A missing replacement must not silently retain a raw joint value."""
-    clients = fake_client_factory()
-    policy = _build_policy(policy_config_with_state_override)
-    policy.set_task_description("pick up the brown box")
-    with pytest.raises(AssertionError, match="replacement is not in policy"):
-        policy._get_action_chunk(synthetic_observation, ["robot_head_cam_rgb"])
-    assert clients[0].get_action_calls == 0
-
-
-def test_state_override_from_yaml_applies_to_non_droid_policy(
-    policy_config_with_state_override, synthetic_observation, fake_client_factory
-):
-    """The YAML mapping selects observations without requiring a DROID task mode."""
+    """The YAML mapping requires and applies its source observation without a DROID task mode."""
     clients = fake_client_factory()
     policy = _build_policy(policy_config_with_state_override)
     policy.set_task_description("pick up the brown box")
     original_positions = synthetic_observation["policy"]["robot_joint_pos"].clone()
+
+    with pytest.raises(AssertionError, match="replacement is not in policy"):
+        policy._get_action_chunk(synthetic_observation, ["robot_head_cam_rgb"])
+    assert clients[0].get_action_calls == 0
+
     replacement = torch.tensor([[0.25], [0.75]])
     synthetic_observation["policy"]["replacement"] = replacement
 
