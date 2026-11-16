@@ -225,8 +225,9 @@ class RobolabMapleTable(LibraryBackground):
     }
 
     def __init__(self, **kwargs):
-        # Disable reset to prevent the nested-physics spawner from replacing out custom spawner.
-        super().__init__(reset_nested_physics=False, **kwargs)
+        # Disable reset by default so the nested-physics spawner does not replace the custom spawner above.
+        kwargs.setdefault("reset_nested_physics", False)
+        super().__init__(**kwargs)
 
 
 @register_asset
