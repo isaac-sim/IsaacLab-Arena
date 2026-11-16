@@ -611,15 +611,16 @@ installs optional development tools, such as Jupyter, debugpy, and the Rerun SDK
 </pre></div>
 </div>
 <p>Launch a short zero-action rollout as a visual validation that things are
-running:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">20</span><span class="w"> </span>cube_goal_pose
+running. Without <code class="docutils literal notranslate"><span class="pre">--experiment_config</span></code>, the Experiment Runner runs
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/experiment_configs/smoke_test_experiment.yaml</span></code>, which steps the
+<code class="docutils literal notranslate"><span class="pre">cube_goal_pose</span></code> environment 20 times with the zero-action policy:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py
 </pre></div>
 </div>
 <p>Optionally, watch the rollout in the GUI visualizer by adding <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> (and
 a few more steps so there is time to see it):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">200</span><span class="w"> </span>cube_goal_pose
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span>runs.smoke_test.rollout_limit.num_steps<span class="o">=</span><span class="m">200</span>
 </pre></div>
 </div>
 <p>Optionally verify the installation by running the test phases:</p>
