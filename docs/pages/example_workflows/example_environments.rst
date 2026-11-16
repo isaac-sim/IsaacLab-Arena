@@ -14,7 +14,7 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
   scene, embodiment, task, objects, and relations declaratively. These are
   passed with ``--env_spec``.
 
-The environments are grouped into three catalogs:
+The environments are grouped into four catalogs:
 
 Robolab-Inspired Benchmark
 --------------------------
@@ -36,6 +36,18 @@ tasks across Lightwheel RoboCasa and Replicator kitchen layouts.
 
 See :doc:`kitchen_bench_catalog` for all 31 environment specs and their Pi
 policy executions.
+
+Workbench Cleanup
+-----------------
+
+Workbench cleanup environment graph YAMLs live under
+``isaaclab_arena_environments/workbench_cleanup/``. They define DROID tasks
+for closing a drawer and toolcase, pressing an oscilloscope button, and
+placing a bin on an overhead shelf.
+
+See :doc:`workbench_catalog` for the four atomic tasks and their sequential
+cleanup task, VLM Experiment Definitions, a sample evaluation command, and
+recorded policy executions.
 
 Python Environment Catalog
 --------------------------
@@ -63,4 +75,5 @@ See Also
 
    robolab_task_catalog
    kitchen_bench_catalog
+   workbench_catalog
    python_environment_catalog

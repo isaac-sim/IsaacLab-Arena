@@ -1,0 +1,47 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Uses camera images and robot state plus privileged object poses, socket-set joint positions, and lid contact geometry.
+# Its system prompt also includes hand-tuned DROID contact poses.
+runs:
+  close_toolcase:
+    environment:
+      type: isaaclab_arena_environments/workbench_cleanup/task_close_toolcase.yaml
+      enable_cameras: true
+    environment_builder:
+      num_envs: 1
+      seed: 42
+      camera_resolution_mode: POLICY_DEFAULT
+      placement_seed: 17
+      language_instruction: >-
+        Close the open socket toolcase lid while leaving its base on the workbench.
+    policy:
+      type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMGoalPolicy
+      endpoint: internal
+      model: openai/openai/gpt-6-astra
+      vlm_embodiment_adapter: droid
+      observation_modality: image_state
+      image_max_width_or_height: 512
+      max_steps_per_goal: 90
+      position_tolerance_m: 0.002
+      rotation_tolerance_rad: 0.05
+      object_poses: [socket_set, socket_set_lid, tabletop]
+      joint_positions: [socket_set]
+      grasp_points:
+        lid_outer_edge:
+          scene_key: socket_set_lid
+          aabb_fraction: [0.5, 0.0, 1.0]
+          offset_O_m: [0.0, 0.012, 0.004]
+          normal_O: [0.0, 0.0, 1.0]
+          revolute_motion:
+            scene_key: socket_set
+            body_name: Case_base
+            pivot_B_m: [0.0, 0.074, 0.03]
+            axis_B: [-1.0, 0.0, 0.0]
+            direction: -1
+      system_prompt_files:
+        - isaaclab_arena_environments/workbench_cleanup/prompts/close_toolcase.txt
+    rollout_limit:
+      num_episodes: 5

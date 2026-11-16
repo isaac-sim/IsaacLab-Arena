@@ -31,7 +31,9 @@ from isaaclab_arena.inference.backend import (
 )
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
+from isaaclab_arena_vlm_agent.grasp_point_adapter import GraspPointCfg, GraspPointObservationAdapter
 from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
+from isaaclab_arena_vlm_agent.joint_position_adapter import JointPositionObservationAdapter
 from isaaclab_arena_vlm_agent.object_pose_adapter import ObjectPoseObservationAdapter
 from isaaclab_arena_vlm_agent.observation_adapter import (
     ImageObservationAdapter,
@@ -113,6 +115,20 @@ class VLMPolicyCfg(PolicyCfg):
     These poses are privileged state that cameras and robot sensors do not provide.
     """
 
+    joint_positions: list[str] = field(default_factory=list)
+    """Scene keys of articulations whose exact joint positions are added to the prompt values.
+
+    Wraps the modality's adapter in JointPositionObservationAdapter; ignored when an observation adapter is injected.
+    These positions are privileged state that cameras and robot sensors do not provide.
+    """
+
+    grasp_points: dict[str, GraspPointCfg] = field(default_factory=dict)
+    """Named grasp/contact points with optional surface normals and articulation motion tangents.
+
+    Wraps the modality's adapter in GraspPointObservationAdapter; ignored when an observation adapter is injected.
+    These authored candidates use privileged object poses and do not establish grasp feasibility.
+    """
+
     def __post_init__(self):
         if self.system_prompt is None:
             assert self.vlm_embodiment_adapter is not None, "Set policy.system_prompt or policy.vlm_embodiment_adapter"
@@ -183,6 +199,11 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
     Each request contains the observations selected by the adapter and the task description.
     """
 
+    @classmethod
+    def default_image_size(cls, config: VLMPolicyCfg) -> tuple[int, int]:
+        """Fit rendered cameras to the image size transmitted to the inference endpoint."""
+        return config.image_max_width_or_height, config.image_max_width_or_height
+
     def __init__(
         self,
         config: VLMPolicyCfg,
@@ -205,6 +226,10 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             observation_adapter = adapter_type()
             if config.object_poses:
                 observation_adapter = ObjectPoseObservationAdapter(observation_adapter, config.object_poses)
+            if config.joint_positions:
+                observation_adapter = JointPositionObservationAdapter(observation_adapter, config.joint_positions)
+            if config.grasp_points:
+                observation_adapter = GraspPointObservationAdapter(observation_adapter, config.grasp_points)
         assert isinstance(observation_adapter, VLMObservationAdapter)
         assert isinstance(action_adapter, AgentActionAdapter)
         self.observation_adapter = observation_adapter
