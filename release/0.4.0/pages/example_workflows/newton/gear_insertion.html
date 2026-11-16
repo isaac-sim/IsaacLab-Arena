@@ -1,0 +1,998 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Gear Insertion &#8212; isaaclab_arena</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=83a19d84" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
+
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/newton/gear_insertion';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Deformable Pick and Place" href="deformable_pick_and_place.html" />
+    <link rel="prev" title="Newton Environments" href="index.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a></div>
+    
+      <div class="navbar-item"><div class="version-switcher__container dropdown">
+  <button type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-label="Version switcher list">
+    0.4.0
+    <span class="caret"></span>
+  </button>
+  <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../../main/pages/example_workflows/newton/gear_insertion.html" role="option">main</a>
+    <a class="list-group-item list-group-item-action py-1 active"
+       href="gear_insertion.html" role="option" aria-current="true">0.4.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.3.1/index.html" role="option">0.3.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.3.0/index.html" role="option">0.3.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.3.0-prerelease/index.html" role="option">0.3.0-prerelease</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.2.1/index.html" role="option">0.2.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.2.0/index.html" role="option">0.2.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.1.1/index.html" role="option">0.1.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.1.0/index.html" role="option">0.1.0</a>
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Isaac Lab-Arena</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../index.html">Overview</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../whats_new/whats_new.html">What's New</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../whats_new/agentic_authoring.html">Agentic Evaluation Authoring</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../whats_new/agentic_authoring_workbench.html">Workbench Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../whats_new/agentic_authoring_kitchen.html">Kitchen Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../../whats_new/newton_evaluation.html">Newton-Based Evaluation Workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../whats_new/vlm_policy.html">Multimodal VLM as a Policy</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../motivation/motivation.html">Why Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/arena_experiment.html">First Arena Experiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/environment_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/openpi.html">OpenPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html">VLM Agent</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kitchen_bench_catalog.html">Kitchen Benchmark Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_environment_catalog.html">Python Environment Catalog</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../analysis/index.html">Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../analysis/variations.html">Run an Evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analysis/recorded_variations.html">Run an Evaluation with Recorded Variations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_authoring/index.html">Agentic Authoring</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_authoring/workbench.html">Author a Workbench Environment with a Coding Agent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_authoring/kitchen.html">Author a <code class="docutils literal notranslate"><span class="pre">kitchen_bench</span></code> Environment with a Coding Agent</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Newton Environments</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Gear Insertion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deformable_pick_and_place.html">Deformable Pick and Place</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Agentic Tools</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../agentic_tools/index.html">Agentic Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../agentic_tools/object_control.html">Object Control Runner</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/environment_definition.html">Environment Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_configuration.html">Physics configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../concepts/offline_placement/clutter.html">Clutter Layouts</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/solver.html">Placement Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/validation.html">Placement Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/pooled_placement.html">Pooled Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/placement_diagnostics.html">Placement Diagnostics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/placement_success_benchmark.html">Placement Success Benchmark</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/in_process_policies.html">In-Process Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/server_client_policies.html">Server–Client Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/agent_policies.html">Agent as Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/code_policies.html">Code as Policy</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/concept_arena_experiments.html">Arena Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/experiment_record_replay.html">Record and Replay Experiments</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Storage API Access</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../api_reference/relations.html">Relations Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../references/performance.html">Performance and scaling</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../references/release_notes.html">Release Notes</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../references/migration_guide_v0_4.html">Migrating from v0.3 to v0.4</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Gallery</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../gallery/index.html">Gallery</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../community-contributions.html">Community Contributions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Development Team Internal</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../development_team_internal/index.html">Development Team Internal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../development_team_internal/dreamzero.html">DreamZero</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../development_team_internal/perflab_benchmarks.html">PerfLab Benchmarks</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-house"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Newton Environments</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Gear Insertion</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="gear-insertion">
+<h1>Gear Insertion<a class="headerlink" href="#gear-insertion" title="Link to this heading">#</a></h1>
+<p>Use a keyboard or SpaceMouse to teleoperate and pick up a gear with the DROID robot and insert it onto the
+peg board. This walkthrough covers previewing the environment, recording demonstrations,
+replaying the saved dataset, and evaluating a vision-language model (VLM) agent as the policy.</p>
+<section id="task-overview">
+<h2>Task Overview<a class="headerlink" href="#task-overview" title="Link to this heading">#</a></h2>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">gear_insertion</span></code></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p>DROID with differential inverse kinematics control</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p>Maple table with a gear and peg board</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Task</strong></p></td>
+<td><p>Pick up the gear and seat it on the middle peg of the peg board</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Physics</strong></p></td>
+<td><p>Newton (selected automatically by the environment)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Teleoperation devices</strong></p></td>
+<td><p>Keyboard or SpaceMouse</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
+<p>Complete the <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Arena installation</span></a>.
+Then open a <strong>host terminal at the Arena repository root</strong>.</p>
+<section id="spacemouse-setup-optional">
+<span id="spacemouse-setup"></span><h3>SpaceMouse Setup (Optional)<a class="headerlink" href="#spacemouse-setup-optional" title="Link to this heading">#</a></h3>
+<p>Skip this section if using keyboard input. <strong>Stop the Arena container if it is running</strong>,
+then copy and paste the entire block below into a terminal on the Linux host:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>groupadd<span class="w"> </span>-f<span class="w"> </span>plugdev
+sudo<span class="w"> </span>usermod<span class="w"> </span>-aG<span class="w"> </span>plugdev<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$USER</span><span class="s2">&quot;</span>
+sudo<span class="w"> </span>tee<span class="w"> </span>/etc/udev/rules.d/70-arena-spacemouse.rules<span class="w"> </span><span class="s">&lt;&lt;&#39;EOF&#39;</span>
+<span class="s">SUBSYSTEM==&quot;usb&quot;, ENV{DEVTYPE}==&quot;usb_device&quot;, ATTR{idVendor}==&quot;256f&quot;, GROUP=&quot;plugdev&quot;, MODE=&quot;0660&quot;, TAG+=&quot;uaccess&quot;</span>
+<span class="s">SUBSYSTEM==&quot;usb&quot;, ENV{DEVTYPE}==&quot;usb_device&quot;, ATTR{idVendor}==&quot;046d&quot;, ATTR{idProduct}==&quot;c626|c628&quot;, GROUP=&quot;plugdev&quot;, MODE=&quot;0660&quot;, TAG+=&quot;uaccess&quot;</span>
+<span class="s">EOF</span>
+sudo<span class="w"> </span>udevadm<span class="w"> </span>control<span class="w"> </span>--reload-rules
+</pre></div>
+</div>
+<p>Unplug and reconnect the SpaceMouse, then log out and back in.</p>
+</section>
+<section id="open-the-arena-runtime">
+<h3>Open the Arena Runtime<a class="headerlink" href="#open-the-arena-runtime" title="Link to this heading">#</a></h3>
+<p>If using Docker, start the container from the repository root on the host:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<p>Run the remaining commands from the repository root in the activated native
+environment or inside the Docker container (<code class="docutils literal notranslate"><span class="pre">/workspaces/isaaclab_arena</span></code>).</p>
+<p>Create a directory for your demonstrations:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/datasets/gear_insertion&quot;</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>Keep using this terminal so <code class="docutils literal notranslate"><span class="pre">DATASET_DIR</span></code> remains set.</p>
+</section>
+</section>
+<section id="step-1-launch-the-environment">
+<h2>Step 1: Launch the Environment<a class="headerlink" href="#step-1-launch-the-environment" title="Link to this heading">#</a></h2>
+<p>Run a zero-action policy to preview the scene:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gear_insertion
+</pre></div>
+</div>
+<p>You should see the DROID robot, the gear, and the peg assembly on the table. The simulation
+steps with zero actions so you can inspect the scene. Newton is selected automatically.</p>
+<p>The preview exits after 1,000 steps. Increase <code class="docutils literal notranslate"><span class="pre">--num_steps</span></code> for a longer preview, or press
+<code class="docutils literal notranslate"><span class="pre">Ctrl+C</span></code> in the terminal to stop it. Finish the preview before starting recording.</p>
+<a class="reference internal image-reference" href="../../../_images/gear_insertion_env.png"><img alt="../../../_images/gear_insertion_env.png" class="align-center" src="../../../_images/gear_insertion_env.png" style="height: 400px;" />
+</a>
+</section>
+<section id="step-2-record-demonstrations">
+<h2>Step 2: Record Demonstrations<a class="headerlink" href="#step-2-record-demonstrations" title="Link to this heading">#</a></h2>
+<p>Choose the tab for your input device.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Keyboard</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>gear_insertion<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--teleop_device<span class="w"> </span>keyboard<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_demos<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-reset_sim_buffer_each_episode<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/gear_insertion_teleop_demos.hdf5&quot;</span>
+</pre></div>
+</div>
+<p><strong>Controls</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 60.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Action</p></th>
+<th class="head"><p>Input</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Move along the X axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">W</span></code> / <code class="docutils literal notranslate"><span class="pre">S</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Move along the Y axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">A</span></code> / <code class="docutils literal notranslate"><span class="pre">D</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Move along the Z axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Q</span></code> / <code class="docutils literal notranslate"><span class="pre">E</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Rotate about the X axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Z</span></code> / <code class="docutils literal notranslate"><span class="pre">X</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Rotate about the Y axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">T</span></code> / <code class="docutils literal notranslate"><span class="pre">G</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Rotate about the Z axis</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">C</span></code> / <code class="docutils literal notranslate"><span class="pre">V</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Open or close the gripper</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">K</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Reset the current attempt</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">R</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+SpaceMouse</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>gear_insertion<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_demos<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-reset_sim_buffer_each_episode<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/gear_insertion_teleop_demos.hdf5&quot;</span>
+</pre></div>
+</div>
+<p><strong>Controls</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 60.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Action</p></th>
+<th class="head"><p>Input</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Move the gripper</p></td>
+<td><p>Move the cap laterally or vertically</p></td>
+</tr>
+<tr class="row-odd"><td><p>Change the gripper orientation</p></td>
+<td><p>Rotate the cap</p></td>
+</tr>
+<tr class="row-even"><td><p>Open or close the gripper</p></td>
+<td><p>Press the left button</p></td>
+</tr>
+<tr class="row-odd"><td><p>Reset the current attempt</p></td>
+<td><p>Press the right button</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<p>Use the selected teleop device to pick up the gear and insert it onto the <strong>middle peg</strong> of the peg board.</p>
+<p>When the environment reports success, the script saves the demonstration and reports the
+number of successful demonstrations recorded in the terminal. If more demonstrations are
+needed, the environment resets for the next attempt. Resetting an unsuccessful attempt
+discards that attempt.</p>
+<p>The script exits after saving <code class="docutils literal notranslate"><span class="pre">--num_demos</span></code> successful demonstrations. Increase
+<code class="docutils literal notranslate"><span class="pre">--num_demos</span></code> to record more demonstrations, or press <code class="docutils literal notranslate"><span class="pre">Ctrl+C</span></code> in the terminal to stop earlier.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>It may take a few seconds for the environment to reset after a successful demonstration as it saves the episode to the HDF5 dataset.</p>
+</div>
+<p>The recording options used here are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--num_demos</span> <span class="pre">1</span></code>: collect one successful demonstration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--num_success_steps</span> <span class="pre">1</span></code>: save as soon as the environment reports success. The task’s own
+checks still require the gear to remain seated and settled before reporting success.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--no-reset_sim_buffer_each_episode</span></code>: Newton requirement. Preserve simulation buffers between attempts.
+The environment still resets after each successful demonstration or manual reset.</p></li>
+</ul>
+<a class="reference internal image-reference" href="../../../_images/gear_insertion_env_teleop.gif"><img alt="../../../_images/gear_insertion_env_teleop.gif" class="align-center" src="../../../_images/gear_insertion_env_teleop.gif" style="height: 400px;" />
+</a>
+</section>
+<section id="step-3-replay-demonstrations">
+<h2>Step 3: Replay Demonstrations<a class="headerlink" href="#step-3-replay-demonstrations" title="Link to this heading">#</a></h2>
+<p>After recording finishes, replay the saved dataset:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/tools/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>gear_insertion<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda:0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/gear_insertion_teleop_demos.hdf5&quot;</span>
+</pre></div>
+</div>
+<p>You should see the recorded motions replayed. The script replays all
+demonstrations in the dataset and exits when finished.</p>
+<p>With the Kit window focused, press <code class="docutils literal notranslate"><span class="pre">B</span></code> to pause the replayed actions and <code class="docutils literal notranslate"><span class="pre">N</span></code> to resume.</p>
+<a class="reference internal image-reference" href="../../../_images/gear_insertion_env_replay.gif"><img alt="../../../_images/gear_insertion_env_replay.gif" class="align-center" src="../../../_images/gear_insertion_env_replay.gif" style="height: 400px;" />
+</a>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Non-determinism may be observed when replaying demonstrations with Newton because
+physics in Isaac Lab is not deterministically reproducible across <code class="docutils literal notranslate"><span class="pre">env.reset()</span></code>
+calls. A demonstration may therefore fail during replay even though it succeeded
+during recording. Demonstrations with more aggressive actions and borderline grasps
+are more susceptible to this issue. All recorded demonstrations in the HDF5 remain
+valid with respect to the task’s success condition.</p>
+</div>
+</section>
+<section id="step-4-evaluate-a-vlm-agent-policy">
+<span id="gear-insertion-vlm-agent"></span><h2>Step 4: Evaluate a VLM Agent Policy<a class="headerlink" href="#step-4-evaluate-a-vlm-agent-policy" title="Link to this heading">#</a></h2>
+<p>A hosted VLM can also act as the policy, through <code class="docutils literal notranslate"><span class="pre">VLMGoalPolicy</span></code>. Gear insertion needs the gear
+within 3.5 mm of the peg, a precise test of how well the model locates parts from camera images.
+See <a class="reference internal" href="../../concepts/policy/agent_policies.html#vlm-agent-policies"><span class="std std-ref">Agent as Policy</span></a> for how the policy works, and set up an inference API key as in
+<a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html"><span class="doc">VLM Agent</span></a>.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Gear insertion needs millimeter-level placement, so it depends heavily on the model’s
+capability. Use <code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-6-astra</span></code>, the model behind the rollouts below, or a model of
+similar capability. A smaller or weaker model may not complete the task at all.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All three configurations below set <code class="docutils literal notranslate"><span class="pre">policy.endpoint:</span> <span class="pre">internal</span></code> and
+<code class="docutils literal notranslate"><span class="pre">policy.model:</span> <span class="pre">openai/openai/gpt-6-astra</span></code>. The internal endpoint is accessible by NVIDIA
+employees only and reads <code class="docutils literal notranslate"><span class="pre">NV_API_KEY</span></code>. Each command below passes <code class="docutils literal notranslate"><span class="pre">policy.endpoint</span></code> for its
+Run; set it to <code class="docutils literal notranslate"><span class="pre">public</span></code> or <code class="docutils literal notranslate"><span class="pre">openai</span></code> to use another endpoint, and also append
+<code class="docutils literal notranslate"><span class="pre">runs.&lt;run</span> <span class="pre">name&gt;.policy.model=&lt;model&gt;</span></code> with a model that endpoint serves, since only the
+internal endpoint serves <code class="docutils literal notranslate"><span class="pre">gpt-6-astra</span></code>. See <a class="reference internal" href="../../quickstart/running_a_real_policy/vlm_agent.html#vlm-agent-endpoint-and-model"><span class="std std-ref">Select the endpoint and model</span></a> for the API
+key each endpoint reads and the other connection fields.</p>
+</div>
+<p>Three experiment configurations run the policy on the <code class="docutils literal notranslate"><span class="pre">droid_abs_ik</span></code> embodiment with the full
+1280x720 camera images. They differ only in what the model is given. Run them from the repository
+root, so the prompt files they reference are found.</p>
+<p><strong>Images only.</strong> The model gets the camera images, the robot state, and the DROID default system
+prompt, and must locate the gear and the pegs in the images:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_images_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.droid_gear_insertion_vlm_goal_images.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
+</pre></div>
+</div>
+<p><strong>Images with exact object poses.</strong> <code class="docutils literal notranslate"><span class="pre">object_poses</span></code> adds the gear’s exact pose and its seated
+target pose to each request. A real robot does not observe these, so this run is a reference for
+what the policy achieves once it knows where the parts are:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_object_poses_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.droid_gear_insertion_vlm_goal_object_poses.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
+</pre></div>
+</div>
+<p><strong>Images with a task prompt.</strong> <code class="docutils literal notranslate"><span class="pre">system_prompt_files</span></code> appends
+<code class="docutils literal notranslate"><span class="pre">experiment_configs/prompts/droid_gear_insertion.txt</span></code> to the default prompt. It describes the
+gear and peg geometry and a grasp and insertion strategy, but no object positions:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_gear_insertion_vlm_goal_task_prompt_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.droid_gear_insertion_vlm_goal_task_prompt.policy.endpoint<span class="o">=</span>internal<span class="w">  </span><span class="c1"># public or openai: also set policy.model</span>
+</pre></div>
+</div>
+<p>Add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> to watch a rollout.</p>
+<p>The same layout under each experiment: images only (left), exact object poses (middle), and the
+task prompt (right). These rollouts were run with <code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-6-astra</span></code>. The model is the
+policy: switching to another model or endpoint evaluates a different policy, so its success rate
+will differ.</p>
+<a class="reference internal image-reference" href="../../../_images/gear_insertion_vlm_agent.gif"><img alt="../../../_images/gear_insertion_vlm_agent.gif" class="align-center" src="../../../_images/gear_insertion_vlm_agent.gif" style="width: 100%;" />
+</a>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Newton Environments</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="deformable_pick_and_place.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Deformable Pick and Place</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-overview">Task Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#spacemouse-setup-optional">SpaceMouse Setup (Optional)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#open-the-arena-runtime">Open the Arena Runtime</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-launch-the-environment">Step 1: Launch the Environment</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-record-demonstrations">Step 2: Record Demonstrations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-replay-demonstrations">Step 3: Replay Demonstrations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-evaluate-a-vlm-agent-policy">Step 4: Evaluate a VLM Agent Policy</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="460" viewBox="0 0 900 460" role="img" aria-labelledby="title description">
+  <title id="title">Online placement and offline recording</title>
+  <desc id="description">Both workflows solve relations, validate candidates, and build placement pools. Online placement applies solved poses on reset before policy evaluation. Offline recording resets, settles, validates, and saves accepted final root poses to JSONL. Replay restores those poses for policy evaluation without solving or settling again.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8" fill="#42566b"/>
+    </marker>
+    <style>
+      text { font-family: Arial, sans-serif; fill: #162c40; text-anchor: middle; }
+      .heading { font-size: 21px; font-weight: bold; }
+      .detail { font-size: 17px; }
+      .box { stroke: #42566b; stroke-width: 1.5; rx: 8; }
+      .flow { fill: none; stroke: #42566b; stroke-width: 2; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="900" height="460" fill="white"/>
+
+  <rect class="box" x="180" y="16" width="540" height="66" fill="#e7f1f9"/>
+  <text class="heading" x="450" y="43">Shared placement pipeline</text>
+  <text class="detail" x="450" y="66">Solve relations → pre-physics checks → placement pools</text>
+  <path class="flow" d="M310,82 V102 H180 V154"/>
+  <path class="flow" d="M590,82 V102 H640 V154"/>
+
+  <rect class="box" x="30" y="154" width="300" height="66" fill="#e7f1f9"/>
+  <text class="heading" x="180" y="182">Online placement</text>
+  <text class="detail" x="180" y="205">Reset to solved poses from the pool</text>
+  <path class="flow" d="M180,220 V370"/>
+
+  <rect class="box" x="410" y="154" width="460" height="66" fill="#e8f3e1"/>
+  <text class="heading" x="640" y="182">Offline recording</text>
+  <text class="detail" x="640" y="205">Reset → settle → post-physics checks</text>
+  <path class="flow" d="M640,220 V262"/>
+
+  <rect class="box" x="410" y="262" width="460" height="66" fill="#e8f3e1"/>
+  <text class="heading" x="640" y="290">Save accepted layouts to JSONL</text>
+  <text class="detail" x="640" y="313">Final root poses and validation results</text>
+  <path class="flow" d="M640,328 V370"/>
+
+  <rect class="box" x="410" y="370" width="460" height="66" fill="#e7f1f9"/>
+  <text class="heading" x="640" y="398">Replay saved root poses on reset</text>
+  <text class="detail" x="640" y="421">Skip solving and the recording-time settling pass</text>
+  <path class="flow" d="M410,403 H330"/>
+
+  <rect class="box" x="30" y="370" width="300" height="66" fill="#f1f3f5"/>
+  <text class="heading" x="180" y="398">Run policy evaluation</text>
+  <text class="detail" x="180" y="421">Physics advances normally</text>
+</svg>
