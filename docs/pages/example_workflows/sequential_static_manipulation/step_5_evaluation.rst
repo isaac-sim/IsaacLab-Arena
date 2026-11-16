@@ -279,8 +279,8 @@ just over-fitting to a single object mesh.
 Step 4: Sequential Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A sequential batch of Runs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``experiment_runner.py`` script.
-It minimizes the overhead of reloading system modules and environment classes for each Run while keeping the simulation application alive.
+A sequential batch of runs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``experiment_runner.py`` script.
+It minimizes the overhead of reloading system modules and environment classes for each run while keeping the simulation application alive.
 The batch is defined in an Experiment YAML file. The example below evaluates the policy on an unseen jug and on the ranch dressing bottle.
 
 .. dropdown:: Configuration file (``gr1_sequential_static_manip_gr00t_experiment.yaml``):
@@ -298,7 +298,7 @@ Run the batch evaluation:
      --experiment_config isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
-You should see the following output on the console indicating the Runs and metrics.
+You should see the following output on the console indicating the runs and metrics.
 
 .. code-block:: text
 
