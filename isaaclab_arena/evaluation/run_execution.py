@@ -114,6 +114,9 @@ def build_and_run(
 ) -> ArenaRunResult:
     """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
     start_timestamp_ns = time.time_ns()
+    # TODO(xinjieyao, 2026-11-15): Move the per-rebuild collectors (metrics, placement diagnostics, and the coming
+    # inference usage) behind one interface with before_rollout(), after_rollout() and on_error() hooks, so this
+    # function need not know about each of them.
     metrics_per_rebuild: list[MetricsDataCollection] = []
     placement_diagnostics_per_rebuild: list[PlacementDiagnostics] = []
     output_dir = str(output_dir)
