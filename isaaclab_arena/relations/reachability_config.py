@@ -34,3 +34,7 @@ class ReachabilityConfig:
 
     require_collision_free: bool = True
     """If True, it's also collision-free with the robot itself."""
+
+    include_background_obstacles: bool = True
+    """If True, the IK collision world also holds the fixed background mesh (e.g. kitchen cabinets and walls). Scenes
+    without one load nothing."""

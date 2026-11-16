@@ -286,3 +286,33 @@ def test_unknown_hand_link_is_reported_against_the_robot_config():
     host.hand_link_names = ["not_a_link"]
     with pytest.raises(AssertionError, match="not_a_link"):
         solve_ik_feasibility(host, _identity_grasps(), require_collision_free=True)
+
+
+def test_scene_cuboids_are_expressed_in_the_robot_base_frame():
+    """Batch conversion matches the single-pose world-to-base transform, rotation included."""
+    import math
+
+    import isaaclab.utils.math as math_utils
+
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, scene_from_cuboids
+
+    q_W_R_xyzw = (0.0, 0.0, math.sin(math.pi / 8), math.cos(math.pi / 8))
+    t_W_R = (1.0, -2.0, 0.5)
+    cuboids = [
+        AABBCollisionCuboid("a", (0.1, 0.2, 0.3), Pose(position_xyz=(2.0, 0.0, 1.0))),
+        AABBCollisionCuboid("b", (0.1, 0.1, 0.1), Pose(position_xyz=(0.0, 1.0, 0.0), rotation_xyzw=q_W_R_xyzw)),
+    ]
+    scene = scene_from_cuboids(cuboids, t_W_R, q_W_R_xyzw)
+
+    for cuboid, curobo_cuboid in zip(cuboids, scene.cuboid):
+        t_R_O, q_R_O_xyzw = world_pose_to_robot_frame(
+            torch.tensor(cuboid.pose_W_O.position_xyz),
+            torch.tensor(cuboid.pose_W_O.rotation_xyzw),
+            torch.tensor(t_W_R),
+            torch.tensor(q_W_R_xyzw),
+        )
+        expected = torch.cat([t_R_O, math_utils.convert_quat(q_R_O_xyzw, to="wxyz")])
+        assert torch.allclose(torch.tensor(curobo_cuboid.pose, dtype=torch.float32), expected, atol=1e-5)
+        assert curobo_cuboid.name == cuboid.name

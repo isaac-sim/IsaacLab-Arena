@@ -88,3 +88,50 @@ def test_obstacle_blocks_a_collision_free_solve_until_cleared(droid_solver):
         droid_solver.update_world([], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
     result = solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True)
     assert result.feasible.tolist() == [True]
+
+
+def test_disabled_obstacle_stops_blocking_until_enabled_again(droid_solver):
+    """Switching a loaded obstacle off frees the blocked solve, and switching it on blocks it again."""
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, solve_ik_feasibility
+
+    T_B_E = _default_ee_pose(droid_solver)
+    t_B_E = tuple(T_B_E[0, :3, 3].tolist())
+    block = AABBCollisionCuboid(name="block", dims_xyz=(0.4, 0.4, 0.4), pose_W_O=Pose(position_xyz=t_B_E))
+    droid_solver.update_world([block], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+    try:
+        droid_solver.set_obstacle_collision_enabled("block", False)
+        assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]
+        droid_solver.set_obstacle_collision_enabled("block", True)
+        assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [False]
+    finally:
+        droid_solver.update_world([], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+
+
+def test_background_mesh_blocks_a_solve_only_where_the_base_pose_places_it(droid_solver):
+    """A world-frame mesh box blocks the solve when the base pose puts it around the end effector, not once the base
+    moves away, and not after an empty mesh clears it."""
+    import trimesh
+
+    from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
+
+    T_B_E = _default_ee_pose(droid_solver)
+    t_B_E = T_B_E[0, :3, 3].tolist()
+    # The base is moved and turned so that the mesh's world-to-base-frame transform is exercised too.
+    t_W_B = (1.0, -0.5, 0.2)
+    q_W_B_xyzw = (0.0, 0.0, 0.70710678, 0.70710678)
+    block_B = trimesh.creation.box(extents=(0.4, 0.4, 0.4), transform=trimesh.transformations.translation_matrix(t_B_E))
+    T_W_B = trimesh.transformations.quaternion_matrix((q_W_B_xyzw[3], *q_W_B_xyzw[:3]))
+    T_W_B[:3, 3] = t_W_B
+    block_W = block_B.copy().apply_transform(T_W_B)
+    droid_solver.load_background_mesh_obstacle(block_W)
+    try:
+        droid_solver.update_background_mesh_pose_using_robot_base(t_W_B, q_W_B_xyzw)
+        assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [False]
+        # Moving the base 3 m leaves the world-fixed box out of reach, without reloading it.
+        droid_solver.update_background_mesh_pose_using_robot_base((t_W_B[0] + 3.0, t_W_B[1], t_W_B[2]), q_W_B_xyzw)
+        assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]
+        droid_solver.update_background_mesh_pose_using_robot_base(t_W_B, q_W_B_xyzw)
+    finally:
+        droid_solver.load_background_mesh_obstacle(trimesh.Trimesh())
+    assert solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True).feasible.tolist() == [True]
