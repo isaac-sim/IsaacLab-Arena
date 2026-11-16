@@ -29,6 +29,7 @@ import pytest
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.policy import action_scheduling
 from isaaclab_arena_gr00t.policy import gr00t_remote_closedloop_policy as gr00t_policy
+from isaaclab_arena_gr00t.policy.gr00t_core import extract_obs_numpy_from_torch
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 pytestmark = pytest.mark.gr00t_policy
@@ -209,7 +210,8 @@ def test_observation_sent_to_server_has_expected_structure(
 
 @pytest.mark.parametrize(
     ("finger_joint_position", "normalized_gripper_position"),
-    [(0.0, 0.0), (torch.pi / 8, 0.5), (torch.pi / 4, 1.0)],
+    [(0.0, 0.0), (torch.pi / 8, 0.5), (torch.pi / 4, 1.0), (0.461 / 2, 0.5), (0.461, 1.0)],
+    ids=["open", "physx_half", "physx_closed", "newton_half", "newton_closed"],
 )
 def test_droid_observation_sends_normalized_gripper_position(
     fake_client_factory, finger_joint_position, normalized_gripper_position
@@ -223,6 +225,7 @@ def test_droid_observation_sends_normalized_gripper_position(
     robot_joint_positions = torch.zeros((NUM_ENVS, 13), dtype=torch.float32)
     robot_joint_positions[:, :7] = arm_joint_positions
     robot_joint_positions[:, 7] = finger_joint_position
+    original_robot_joint_positions = robot_joint_positions.clone()
     observation = {
         "camera_obs": {
             "external_camera_rgb": torch.zeros(
@@ -249,6 +252,68 @@ def test_droid_observation_sends_normalized_gripper_position(
         sent["state"]["gripper_position"][:, 0, :],
         np.full((NUM_ENVS, 1), normalized_gripper_position),
     )
+    torch.testing.assert_close(robot_joint_positions, original_robot_joint_positions)
+
+
+@pytest.mark.parametrize("as_numpy", [False, True])
+def test_observation_overrides_preserve_input_and_other_joint_columns(as_numpy):
+    """Scalar observations replace selected columns without altering the source joint state."""
+    joint_positions = torch.arange(NUM_ENVS * 4, dtype=torch.float32).reshape(NUM_ENVS, 4)
+    original_positions = joint_positions.numpy().copy()
+    joint_observations = {
+        "joint_state": joint_positions,
+        "scaled_position": torch.tensor([[0.25], [0.75]]),
+        "sensor_value": torch.tensor([[1.5], [-2.25]]),
+    }
+    if as_numpy:
+        joint_observations = {name: value.numpy() for name, value in joint_observations.items()}
+    observation = {
+        "camera_obs": {"camera": torch.zeros((NUM_ENVS, 4, 4, NUM_CHANNELS), dtype=torch.uint8)},
+        "proprio": joint_observations,
+    }
+
+    _, state_values = extract_obs_numpy_from_torch(
+        observation,
+        ["camera"],
+        joint_group_key="proprio",
+        joint_pos_name="joint_state",
+        joint_observation_overrides={1: "scaled_position", 3: "sensor_value"},
+    )
+
+    np.testing.assert_array_equal(state_values[:, 1], [0.25, 0.75])
+    np.testing.assert_array_equal(state_values[:, 3], [1.5, -2.25])
+    np.testing.assert_array_equal(state_values[:, [0, 2]], original_positions[:, [0, 2]])
+    np.testing.assert_array_equal(joint_positions.numpy(), original_positions)
+
+
+@pytest.mark.parametrize("replacement_shape", [(NUM_ENVS,), (NUM_ENVS, 2), (1, 1)])
+def test_observation_override_requires_one_scalar_per_env(synthetic_observation, replacement_shape):
+    """Reject shapes that could broadcast one environment's value across the batch."""
+    synthetic_observation["policy"]["replacement"] = torch.zeros(replacement_shape)
+
+    with pytest.raises(AssertionError, match="Observation replacement has shape"):
+        extract_obs_numpy_from_torch(
+            synthetic_observation, ["robot_head_cam_rgb"], joint_observation_overrides={1: "replacement"}
+        )
+
+
+@pytest.mark.parametrize("joint_index", [-1, NUM_SIM_JOINTS])
+def test_observation_override_rejects_invalid_joint_index(synthetic_observation, joint_index):
+    """Reject indices outside the joint-state matrix, including negative indexing."""
+    synthetic_observation["policy"]["replacement"] = torch.zeros((NUM_ENVS, 1))
+
+    with pytest.raises(AssertionError, match=f"Joint index {joint_index} is outside"):
+        extract_obs_numpy_from_torch(
+            synthetic_observation, ["robot_head_cam_rgb"], joint_observation_overrides={joint_index: "replacement"}
+        )
+
+
+def test_observation_override_requires_source_observation(synthetic_observation):
+    """A missing replacement must not silently retain a raw joint value."""
+    with pytest.raises(AssertionError, match="replacement is not in policy"):
+        extract_obs_numpy_from_torch(
+            synthetic_observation, ["robot_head_cam_rgb"], joint_observation_overrides={1: "replacement"}
+        )
 
 
 def test_action_response_is_translated_to_correct_tensor_shape(

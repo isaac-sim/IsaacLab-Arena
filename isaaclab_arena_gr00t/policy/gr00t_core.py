@@ -165,55 +165,51 @@ def extract_obs_numpy_from_torch(
     camera_group_key: str = "camera_obs",
     joint_group_key: str = "policy",
     joint_pos_name: str = "robot_joint_pos",
+    joint_observation_overrides: dict[int, str] | None = None,
 ) -> tuple[list[np.ndarray], np.ndarray]:
-    """Convert torch env observation to numpy for the closed-loop pipeline.
+    """Convert camera and joint-state observations to numpy, applying optional column overrides.
 
-    Single torch-to-numpy boundary; downstream core logic is numpy-only.
+    Overrides replace selected joint-state columns with scalar observations from the
+    same group. They apply to a copy, preserving the source observations.
 
     Args:
-        observation: Env observation with camera_group_key (per-camera tensors)
-            and joint_group_key[joint_pos_key] (torch tensor).
+        nested_obs: Env observation with camera_group_key (per-camera tensors)
+            and joint_group_key[joint_pos_name] (torch tensor).
         camera_names: Ordered list of camera keys to read from camera_group_key.
         camera_group_key: Top-level key for camera data in observation (default "camera_obs").
         joint_group_key: Top-level key for joint data in observation (default "policy").
-        joint_pos_key: Key for the joint position array (default "robot_joint_pos").
+        joint_pos_name: Key for the joint position array (default "robot_joint_pos").
+        joint_observation_overrides: Joint-state column index -> observation name
+            in joint_group_key. Each replacement observation must have shape (N, 1).
 
     Returns:
         rgb_list_np: List of (N, H, W, C) uint8 numpy arrays, one per camera.
-        joint_pos_sim_np: (N, num_joints) float64 numpy array in sim joint order.
-
+        state_values_np: (N, num_joints) numpy array in sim joint order, retaining
+            the joint array's dtype. Overridden columns contain policy state values
+            rather than raw joint positions.
     """
 
     rgb_list_np = _extract_rgb_from_nested_obs(
         nested_obs=nested_obs, camera_names=camera_names, group_key=camera_group_key, convert_to_numpy=True
     )
-    joint_pos_sim_np = _extract_joints_from_nested_obs(
+    state_values_np = _extract_joints_from_nested_obs(
         nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=joint_pos_name, convert_to_numpy=True
     )
-    return rgb_list_np, joint_pos_sim_np
-
-
-def extract_normalized_gripper_position_numpy_from_torch(
-    nested_obs: dict[str, Any],
-    group_key: str = "policy",
-    observation_name: str = "gripper_pos",
-) -> np.ndarray:
-    """Extract the normalized gripper position from a torch environment observation.
-
-    Args:
-        nested_obs: Environment observation containing the normalized gripper position.
-        group_key: Top-level key under which the observation lives.
-        observation_name: Key for the normalized gripper position.
-
-    Returns:
-        Normalized gripper positions with shape (N, 1).
-    """
-    return _extract_joints_from_nested_obs(
-        nested_obs=nested_obs,
-        group_key=group_key,
-        joint_pos_name=observation_name,
-        convert_to_numpy=True,
-    )
+    if joint_observation_overrides:
+        assert state_values_np.ndim == 2, f"Expected a joint-state matrix, got shape {state_values_np.shape}"
+        state_values_np = state_values_np.copy()
+        num_envs, num_joints = state_values_np.shape
+        for joint_index, observation_name in joint_observation_overrides.items():
+            assert 0 <= joint_index < num_joints, f"Joint index {joint_index} is outside [0, {num_joints})"
+            replacement = _extract_joints_from_nested_obs(
+                nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=observation_name
+            )
+            assert replacement.shape == (
+                num_envs,
+                1,
+            ), f"Observation {observation_name} has shape {replacement.shape}, expected ({num_envs}, 1)"
+            state_values_np[:, joint_index] = replacement[:, 0]
+    return rgb_list_np, state_values_np
 
 
 # --------------------------------------------------------------------------- #
@@ -255,7 +251,6 @@ def build_gr00t_policy_observations(
     robot_state_joints_config: dict[str, Any],
     policy_joints_config: dict[str, Any],
     modality_configs: dict[str, Any],
-    normalized_gripper_position_np: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Build GR00T policy observation dict from numpy env observations.
 
@@ -265,14 +260,13 @@ def build_gr00t_policy_observations(
 
     Args:
         rgb_list_np: List of RGB arrays, one per camera; each shape (N, H, W, C).
-        joint_pos_sim_np: Joint positions in sim order, shape (N, num_joints).
+        joint_pos_sim_np: Policy state values in sim joint order, shape (N, num_joints),
+            including any observation overrides applied during extraction.
         task_description: Language instruction for the policy.
         policy_config: Closed-loop config (target_image_size, etc.).
         robot_state_joints_config: State joint name->index for sim order.
         policy_joints_config: Policy group name->list of joint names.
         modality_configs: Dict with "language", "video", "state" modality configs.
-        normalized_gripper_position_np: DROID gripper position normalized from open
-            (0) to closed (1), or None for other embodiments.
 
     Returns:
         Nested dict "language" / "video" / "state" with keys from modality
@@ -285,14 +279,6 @@ def build_gr00t_policy_observations(
         joint_pos_sim_np, robot_state_joints_config, policy_joints_config
     )
     num_envs = rgb_list_np[0].shape[0]
-    if TaskMode(policy_config.task_mode_name) is TaskMode.DROID_MANIPULATION:
-        assert normalized_gripper_position_np is not None, "DROID requires the normalized gripper_pos observation"
-        assert normalized_gripper_position_np.shape == (
-            num_envs,
-            1,
-        ), f"normalized gripper position has shape {normalized_gripper_position_np.shape}, expected ({num_envs}, 1)"
-        joint_pos_state_policy["gripper_position"] = normalized_gripper_position_np
-
     language_keys = modality_configs["language"].modality_keys
     video_keys = modality_configs["video"].modality_keys
     state_keys = modality_configs["state"].modality_keys
