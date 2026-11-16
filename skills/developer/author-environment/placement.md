@@ -5,8 +5,8 @@ rejected layouts, see
 [placement diagnostics](../../../docs/pages/concepts/object_placement/placement_diagnostics.rst).
 
 Look up each relation in [relations.py](../../../isaaclab_arena/relations/relations.py). A relation
-class's `name` is its YAML `kind`, and its `__init__` arguments go under `params`, except `parent`,
-which is the YAML `reference`. Its `Validation:` section names the check that rejects bad
+class's `name` is its YAML `kind`, and its `__init__` arguments go under `params`, except `reference`,
+which sits beside `subject`. Its `Validation:` section names the check that rejects bad
 placements, and its `Restrictions:` section, where present, lists the combinations it rejects.
 
 ## A simple layout

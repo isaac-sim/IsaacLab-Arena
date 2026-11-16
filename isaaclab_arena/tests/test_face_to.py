@@ -329,7 +329,7 @@ def test_face_to_registers_as_binary_graph_relation():
 
     assert registry.is_registered(spec.kind, ensure_loaded=False)
     (relation,) = subject.get_relations()
-    assert relation.parent is target
+    assert relation.reference is target
     with pytest.raises(ValidationError, match="requires relation.reference"):
         SpatialRelationSpec(kind="face_to", subject="camera")
 

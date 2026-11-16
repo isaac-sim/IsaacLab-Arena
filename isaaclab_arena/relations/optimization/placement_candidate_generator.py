@@ -91,7 +91,7 @@ class PlacementCandidateGenerator:
             for relation in subject.get_relations():
                 if not isinstance(relation, AlignWith) or relation.axis.value == "z":
                     continue
-                for asset in (subject, relation.parent):
+                for asset in (subject, relation.reference):
                     if get_relation(asset, FaceTo) is None:
                         continue
                     # Include fixed roll/pitch, which can move a centre off the yaw axis.
@@ -170,11 +170,13 @@ class PlacementCandidateGenerator:
         for index in torch.randperm(len(clutter_objects), generator=generator).tolist():
             obj = clutter_objects[index]
             relation = get_relation(obj, ClutterOn)
-            support = relation.get_release_region_bbox(bboxes[relation.parent].translated(positions[relation.parent]))
+            support = relation.get_release_region_bbox(
+                bboxes[relation.reference].translated(positions[relation.reference])
+            )
             obstacles = [
                 bboxes[other].translated(position)
                 for other, position in positions.items()
-                if other not in pending_clutter and other is not relation.parent
+                if other not in pending_clutter and other is not relation.reference
             ]
             obstacles.extend(collision_bboxes)
             # A non-overlapping seed selects the release column above the support;
