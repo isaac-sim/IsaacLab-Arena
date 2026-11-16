@@ -9,7 +9,11 @@ import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-CAMERA_ENV_NAMES = ["spatial_memory_mug_past_door", "spatial_memory_dishwasher_rack"]
+CAMERA_ENV_NAMES = [
+    "spatial_memory_mug_past_door",
+    "spatial_memory_dishwasher_rack",
+    "spatial_memory_machine_tending",
+]
 
 
 def _test_image_observation_variants(simulation_app) -> bool:
