@@ -10,12 +10,11 @@ from __future__ import annotations
 import math
 import torch
 from collections.abc import Sequence
-from dataclasses import MISSING
+from functools import partial
 
 import isaaclab.envs.mdp as mdp
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg as EventTerm
-from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.cable import Cable
@@ -24,7 +23,9 @@ from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 DEFAULT_ROUTE_RADIAL_CUTOFF = 0.05
 DEFAULT_ROUTE_AXIAL_CUTOFF = 0.015
@@ -165,14 +166,6 @@ class CableRoutingEventsCfg:
     )
 
 
-@configclass
-class CableRoutingTerminationsCfg:
-    """Cable-route success and episode timeout terms."""
-
-    time_out: DoneTerm = DoneTerm(func=mdp.time_out, time_out=True)
-    success: DoneTerm = MISSING
-
-
 @register_task
 class CableRoutingTask(TaskBase):
     """Route one cable around an ordered sequence of pegs."""
@@ -227,27 +220,30 @@ class CableRoutingTask(TaskBase):
             cable_initial_pose.position_xyz if cable_initial_pose is not None else (0.0, 0.0, 0.0)
         )
         self._events_cfg = CableRoutingEventsCfg()
-        self._terminations_cfg = CableRoutingTerminationsCfg(
-            success=DoneTerm(
-                func=cable_route_success,
-                params={
-                    "cable_asset_name": cable.name,
-                    "peg_asset_names": tuple(peg.name for peg in self.pegs),
-                    "route_directions": self.route_directions,
-                    "radial_cutoff": radial_cutoff,
-                    "axial_cutoff": axial_cutoff,
-                    "completion_winding": completion_winding,
-                    "maximum_completion_winding": maximum_completion_winding,
-                    "maximum_local_cable_length": maximum_local_cable_length,
-                },
-            )
-        )
+        self._route_success_params = {
+            "cable_asset_name": cable.name,
+            "peg_asset_names": tuple(peg.name for peg in self.pegs),
+            "route_directions": self.route_directions,
+            "radial_cutoff": radial_cutoff,
+            "axial_cutoff": axial_cutoff,
+            "completion_winding": completion_winding,
+            "maximum_completion_winding": maximum_completion_winding,
+            "maximum_local_cable_length": maximum_local_cable_length,
+        }
 
     def get_scene_cfg(self):
         return None
 
-    def get_termination_cfg(self):
-        return self._terminations_cfg
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=[
+                CompletionCriteria(
+                    name="route_cable",
+                    predicate_sequence=[partial(cable_route_success, **self._route_success_params)],
+                )
+            ],
+        )
 
     def get_events_cfg(self):
         return self._events_cfg
