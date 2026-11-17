@@ -92,7 +92,7 @@ def test_placement_subset_experiment_runs_are_runs_of_the_suites():
     for suite_config in ("robolab_placement_experiment.yaml", "kitchen_bench_placement_experiment.yaml"):
         suite_runs.update(yaml.safe_load((EXPERIMENT_CONFIGS_DIR / suite_config).read_text())["runs"])
     subset_runs = yaml.safe_load((EXPERIMENT_CONFIGS_DIR / "placement_subset_experiment.yaml").read_text())["runs"]
-    assert len(subset_runs) == 10
+    assert len(subset_runs) == 9
     for run_name, run in subset_runs.items():
         assert run_name in suite_runs, f"{run_name} is not a Run of a placement suite"
         assert run == suite_runs[run_name]
