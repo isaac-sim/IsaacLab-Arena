@@ -2102,16 +2102,20 @@ def _newton_gear_insertion_spawn_cfg(*, mass: float, kinematic: bool, friction: 
     }
 
 
-class _NewtonGearInsertionObject(LibraryObject):
-    """Gear asset with collision and rigid-body properties authored for Newton."""
-
-    tags = ["object", "gear", "gear_insertion", "newton_only"]
+class _NewtonOnlyObject(LibraryObject):
+    """Library object whose collision and rigid-body properties are authored for Newton only."""
 
     def validate_simulation_cfg(self, sim_cfg: sim_utils.SimulationCfg) -> None:
         """Reject physics backends incompatible with the asset's Newton properties."""
         from isaaclab_newton.physics import NewtonCfg
 
         assert isinstance(sim_cfg.physics, NewtonCfg), f"Asset '{self.name}' requires the Newton physics backend."
+
+
+class _NewtonGearInsertionObject(_NewtonOnlyObject):
+    """Gear asset with collision and rigid-body properties authored for Newton."""
+
+    tags = ["object", "gear", "gear_insertion", "newton_only"]
 
 
 @register_asset
@@ -2268,28 +2272,28 @@ class YamCableRoutingTable(LibraryObject):
     """Static workcell table used by the YAM cable-routing task."""
 
     registry_name = "yam_cable_routing_table"
-    tags = ["background", "table", "yam", "cable_routing"]
+    tags = ["table", "yam", "cable_routing"]
     usd_path = f"{CABLE_ROUTING_ASSET_DIR}/table/industrial__yam_workcell_table/industrial__yam_workcell_table.usda"
     object_type = ObjectType.BASE
 
 
 @register_asset
-class YamCableRoutingBoard(LibraryObject):
+class YamCableRoutingBoard(_NewtonOnlyObject):
     """Kinematic ManipulationNet task board used for YAM cable routing."""
 
     registry_name = "yam_cable_routing_board"
-    tags = ["object", "fixture", "yam", "cable_routing"]
+    tags = ["object", "fixture", "yam", "cable_routing", "newton_only"]
     usd_path = f"{CABLE_ROUTING_ASSET_DIR}/manipulationnet/board.usdc"
     object_type = ObjectType.RIGID
     spawn_cfg_addon = _newton_yam_cable_routing_fixture_spawn_cfg()
 
 
 @register_asset
-class YamCableRoutingRoundPeg(LibraryObject):
+class YamCableRoutingRoundPeg(_NewtonOnlyObject):
     """Kinematic ManipulationNet round peg used for YAM cable routing."""
 
     registry_name = "yam_cable_routing_round_peg"
-    tags = ["object", "fixture", "peg", "yam", "cable_routing"]
+    tags = ["object", "fixture", "peg", "yam", "cable_routing", "newton_only"]
     usd_path = f"{CABLE_ROUTING_ASSET_DIR}/manipulationnet/round_peg.usdc"
     object_type = ObjectType.RIGID
     spawn_cfg_addon = _newton_yam_cable_routing_fixture_spawn_cfg()
