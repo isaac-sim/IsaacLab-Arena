@@ -445,6 +445,18 @@ def _write_policy_yaml(tmp_path: Path, source_yaml: str, **changes) -> str:
         ({"gr00t_embodiment_adapter": None}, "gr00t_embodiment_adapter is required"),
         ({"gr00t_embodiment_adapter": "droid"}, "must be a dotted class path"),
         ({"gr00t_embodiment_adapter": "pathlib.Path"}, "is not a Gr00tEmbodimentAdapter subclass"),
+        (
+            {"gr00t_embodiment_adapter": "isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter.Gr00tDroid"},
+            "droid_adapter has no Gr00tDroid",
+        ),
+        (
+            {
+                "gr00t_embodiment_adapter": (
+                    "isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter.Gr00tEmbodimentAdapter"
+                )
+            },
+            r"does not implement \['build_action_np', 'build_hold_action', 'extract_state_np'\]",
+        ),
         ({"embodiment_tag": "GR1"}, "Gr00tDroidAdapter requires embodiment_tag 'OXE_DROID'"),
         (
             {"state_joints_config_path": "isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml"},
@@ -459,6 +471,29 @@ def test_embodiment_adapter_config_errors(tmp_path, fake_client_factory, changes
     with pytest.raises(AssertionError, match=message):
         _build_policy(_write_policy_yaml(tmp_path, DROID_CONFIG_YAML, **changes))
     assert not clients
+
+
+def test_embodiment_tag_matches_adapter_in_any_case(tmp_path, fake_client_factory):
+    """The policy YAML's embodiment tag matches the adapter's tag regardless of case, like GR00T's tag lookup."""
+    fake_client_factory(ping_ok=True)
+
+    policy = _build_policy(_write_policy_yaml(tmp_path, DROID_CONFIG_YAML, embodiment_tag="oxe_droid"))
+    assert isinstance(policy.embodiment_adapter, Gr00tDroidAdapter)
+
+
+def test_adapter_subclass_loads_joint_maps_from_str_paths():
+    """A subclass may set its joint-map paths as str instead of Path."""
+
+    class Gr1ArmsAdapterWithStrPaths(Gr00tGr1ArmsAdapter):
+        policy_joints_config_path = str(Gr00tGr1ArmsAdapter.policy_joints_config_path)
+        state_joints_config_path = str(Gr00tGr1ArmsAdapter.state_joints_config_path)
+        action_joints_config_path = str(Gr00tGr1ArmsAdapter.action_joints_config_path)
+
+    adapter = Gr1ArmsAdapterWithStrPaths()
+    reference = Gr00tGr1ArmsAdapter()
+    assert adapter.policy_joints_config == reference.policy_joints_config
+    assert adapter.state_joints_config == reference.state_joints_config
+    assert adapter.action_joints_config == reference.action_joints_config
 
 
 def test_gr1_adapter_maps_joints_by_name():

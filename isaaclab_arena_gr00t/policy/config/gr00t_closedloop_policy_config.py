@@ -99,7 +99,7 @@ class Gr00tClosedloopPolicyCfg:
             " isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter.Gr00tDroidAdapter"
         )
         adapter_type = import_gr00t_embodiment_adapter_class(self.gr00t_embodiment_adapter)
-        assert self.embodiment_tag == adapter_type.embodiment_tag, (
+        assert self.embodiment_tag.upper() == adapter_type.embodiment_tag.upper(), (
             f"{adapter_type.__name__} requires embodiment_tag {adapter_type.embodiment_tag!r}, got"
             f" {self.embodiment_tag!r}"
         )

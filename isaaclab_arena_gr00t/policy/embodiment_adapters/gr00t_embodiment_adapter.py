@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import inspect
 import numpy as np
 import torch
 from abc import ABC, abstractmethod
@@ -41,11 +42,15 @@ class Gr00tEmbodimentAdapter(ABC):
 
 
 def import_gr00t_embodiment_adapter_class(class_path: str) -> type[Gr00tEmbodimentAdapter]:
-    """Import the Gr00tEmbodimentAdapter subclass named by a dotted class path."""
+    """Import the concrete Gr00tEmbodimentAdapter subclass named by a dotted class path."""
     assert "." in class_path, f"gr00t_embodiment_adapter must be a dotted class path, got {class_path!r}"
     module_path, class_name = class_path.rsplit(".", 1)
-    adapter_type = getattr(import_module(module_path), class_name)
+    adapter_type = getattr(import_module(module_path), class_name, None)
+    assert adapter_type is not None, f"gr00t_embodiment_adapter {class_path!r}: {module_path} has no {class_name}"
     assert isinstance(adapter_type, type) and issubclass(
         adapter_type, Gr00tEmbodimentAdapter
     ), f"gr00t_embodiment_adapter {class_path!r} is not a Gr00tEmbodimentAdapter subclass"
+    assert not inspect.isabstract(
+        adapter_type
+    ), f"gr00t_embodiment_adapter {class_path!r} does not implement {sorted(adapter_type.__abstractmethods__)}"
     return adapter_type
