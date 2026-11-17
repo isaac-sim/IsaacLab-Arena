@@ -102,10 +102,11 @@ def droid_observation():
             "joint_pos": torch.arange(NUM_ENVS * DROID_NUM_ARM_JOINTS, dtype=torch.float32).reshape(
                 NUM_ENVS, DROID_NUM_ARM_JOINTS
             ),
-            # Normalized gripper closure: half closed and fully closed.
-            "gripper_pos": torch.tensor([[0.5], [1.0]]),
-            # Last env actions; the final column is the 0-to-1 gripper command.
-            "actions": torch.tensor([[0.0] * DROID_NUM_ARM_JOINTS + [1.0], [0.0] * DROID_NUM_ARM_JOINTS + [0.0]]),
+            # Normalized gripper closure: fully closed and half closed.
+            "gripper_pos": torch.tensor([[1.0], [0.5]]),
+            # Last env actions; the final column is the 0-to-1 gripper command. Env 1 is still closing, so its last
+            # command (1.0) differs from both its measured closure (0.5) and a zero fill.
+            "actions": torch.tensor([[0.0] * DROID_NUM_ARM_JOINTS + [0.0], [0.0] * DROID_NUM_ARM_JOINTS + [1.0]]),
         },
     }
 
@@ -361,12 +362,14 @@ def test_default_image_size_keeps_gr00t_padding_in_the_loop():
 # ---------------- embodiment adapter tests ---------------- #
 
 
-def test_task_mode_selects_embodiment_adapter(policy_config_yaml, fake_client_factory):
-    """Each task mode selects its embodiment adapter."""
+def test_config_selects_embodiment_adapter(policy_config_yaml, fake_client_factory):
+    """gr00t_embodiment_adapter in the policy YAML selects the adapter."""
     fake_client_factory(ping_ok=True)
 
     assert isinstance(_build_policy(DROID_CONFIG_YAML).embodiment_adapter, Gr00tDroidAdapter)
-    assert isinstance(_build_policy(GR1_CONFIG_YAML).embodiment_adapter, Gr00tGr1ArmsAdapter)
+    gr1_adapter = _build_policy(GR1_CONFIG_YAML).embodiment_adapter
+    assert isinstance(gr1_adapter, Gr00tGr1ArmsAdapter)
+    assert gr1_adapter.action_dim == 36  # 14 arm joints and 22 hand joints
     assert isinstance(_build_policy(policy_config_yaml).embodiment_adapter, Gr00tG1WbcAdapter)
 
 
@@ -421,14 +424,31 @@ def test_droid_synced_batch_holds_arm_joints_and_last_gripper_command(droid_obse
     torch.testing.assert_close(action[1], expected_hold)
 
 
-def test_g1_wbc_adapter_requires_joint_configs(tmp_path, policy_config_yaml, fake_client_factory):
-    """The G1 adapter fails without its joint YAMLs before connecting to the server."""
-    config = yaml.safe_load(Path(policy_config_yaml).read_text())
-    del config["state_joints_config_path"]
+def _write_policy_yaml(tmp_path: Path, source_yaml: str, **changes) -> str:
+    """Copy a policy YAML with keys changed, or removed when the new value is None."""
+    config = yaml.safe_load(Path(source_yaml).read_text())
+    for key, value in changes.items():
+        if value is None:
+            config.pop(key, None)
+        else:
+            config[key] = value
     config_path = tmp_path / "policy.yaml"
     config_path.write_text(yaml.safe_dump(config))
+    return str(config_path)
+
+
+@pytest.mark.parametrize(
+    "changes, message",
+    [
+        ({"gr00t_embodiment_adapter": None}, "gr00t_embodiment_adapter is required"),
+        ({"gr00t_embodiment_adapter": "franka"}, "Unknown gr00t_embodiment_adapter 'franka'"),
+        ({"embodiment_tag": "GR1"}, "requires embodiment_tag 'OXE_DROID'"),
+    ],
+)
+def test_embodiment_adapter_config_errors(tmp_path, fake_client_factory, changes, message):
+    """A missing or unknown adapter key, or an embodiment tag the adapter does not serve, fails before connecting."""
     clients = fake_client_factory(ping_ok=True)
 
-    with pytest.raises(AssertionError, match="state_joints_config_path is required"):
-        _build_policy(str(config_path))
+    with pytest.raises(AssertionError, match=message):
+        _build_policy(_write_policy_yaml(tmp_path, DROID_CONFIG_YAML, **changes))
     assert not clients

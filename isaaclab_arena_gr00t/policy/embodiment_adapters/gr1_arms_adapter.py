@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+from pathlib import Path
 from typing import Any
 
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg
 from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import Gr00tEmbodimentAdapter
 from isaaclab_arena_gr00t.utils.io_utils import load_robot_joints_config_from_yaml, to_numpy
 from isaaclab_arena_gr00t.utils.joints_conversion import (
@@ -20,22 +20,30 @@ from isaaclab_arena_gr00t.utils.joints_conversion import (
     sim_joint_pos_to_hold_action,
 )
 
+_GR1_JOINTS_DIR = Path(__file__).resolve().parents[2] / "embodiments" / "gr1"
+
 
 class Gr00tGr1ArmsAdapter(Gr00tEmbodimentAdapter):
     """Maps GR1's GR00T arm and hand joint groups to and from sim joint positions by joint name.
 
-    The policy config's joint YAMLs list the GR00T joint groups and the sim state and action joint orders.
     GR00T state values are the raw ``robot_joint_pos`` observation, so the checkpoint must use sim joint units.
     """
 
-    def __init__(self, policy_config: Gr00tClosedloopPolicyCfg):
-        assert policy_config.policy_joints_config_path is not None, "policy_joints_config_path is required"
-        assert policy_config.action_joints_config_path is not None, "action_joints_config_path is required"
-        assert policy_config.state_joints_config_path is not None, "state_joints_config_path is required"
-        self.embodiment_tag = policy_config.embodiment_tag
-        self.policy_joints_config = load_robot_joints_config_from_yaml(policy_config.policy_joints_config_path)
-        self.action_joints_config = load_robot_joints_config_from_yaml(policy_config.action_joints_config_path)
-        self.state_joints_config = load_robot_joints_config_from_yaml(policy_config.state_joints_config_path)
+    embodiment_tag = "GR1"
+
+    policy_joints_config_path = _GR1_JOINTS_DIR / "gr00t_26dof_joint_space.yaml"
+    """GR00T joint groups, each listing its sim joint names in GR00T order."""
+
+    state_joints_config_path = _GR1_JOINTS_DIR / "54dof_joint_space.yaml"
+    """Sim joint order of the ``robot_joint_pos`` observation."""
+
+    action_joints_config_path = _GR1_JOINTS_DIR / "36dof_joint_space.yaml"
+    """Sim joint order of the env action."""
+
+    def __init__(self):
+        self.policy_joints_config = load_robot_joints_config_from_yaml(self.policy_joints_config_path)
+        self.state_joints_config = load_robot_joints_config_from_yaml(self.state_joints_config_path)
+        self.action_joints_config = load_robot_joints_config_from_yaml(self.action_joints_config_path)
         self.action_dim = len(self.action_joints_config)
 
     def extract_state_np(self, observation: dict[str, Any]) -> dict[str, np.ndarray]:

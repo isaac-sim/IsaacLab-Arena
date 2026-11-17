@@ -23,6 +23,8 @@ class Gr00tDroidAdapter(Gr00tEmbodimentAdapter):
     term accepts. Each env action is the 7 arm joint targets followed by the gripper command.
     """
 
+    embodiment_tag = "OXE_DROID"
+
     num_arm_joints = 7
     """Franka arm joints in GR00T's ``joint_position`` state and action."""
 

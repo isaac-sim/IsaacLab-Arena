@@ -147,13 +147,13 @@ def build_gr00t_policy_observations(
     """Build GR00T policy observation dict from numpy env observations.
 
     Resizes RGB, then fills language / video / state keys from modality config.
-    No torch; use after :func:`extract_rgb_numpy_from_torch` and the embodiment
+    No torch; use after ``extract_rgb_numpy_from_torch`` and the embodiment
     adapter's ``extract_state_np``.
 
     Args:
         rgb_list_np: List of RGB arrays, one per camera; each shape (N, H, W, C).
-        state_np: GR00T state key -> (N, dim) array; keys absent from the state
-            modality config are not sent.
+        state_np: GR00T state key -> (N, dim) array. It must contain every state modality key;
+            other keys are not sent.
         task_description: Language instruction for the policy.
         policy_config: Closed-loop config (target_image_size, etc.).
         modality_configs: Dict with "language", "video", "state" modality configs.
@@ -187,11 +187,9 @@ def build_gr00t_policy_observations(
             num_envs, 1, target_image_size[0], target_image_size[1], target_image_size[2]
         )
     for state_key in state_keys:
-        if state_key in state_np:
-            arr = state_np[state_key]
-            assert (
-                arr.shape[0] == num_envs
-            ), f"state_np[{state_key}] has shape {arr.shape} but expected ({num_envs}, -1)"
-            policy_observations["state"][state_key] = arr.reshape(num_envs, 1, -1)
+        assert state_key in state_np, f"State key {state_key!r} is missing; the adapter returned {sorted(state_np)}"
+        arr = state_np[state_key]
+        assert arr.shape[0] == num_envs, f"state_np[{state_key}] has shape {arr.shape} but expected ({num_envs}, -1)"
+        policy_observations["state"][state_key] = arr.reshape(num_envs, 1, -1)
 
     return policy_observations

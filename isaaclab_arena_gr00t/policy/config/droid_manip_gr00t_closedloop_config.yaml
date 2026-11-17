@@ -12,7 +12,7 @@ video_backend: decord
 
 # Action chunk length is the number of actions executed per inference rollout, could be less than action_horizon.
 action_chunk_length: 32
-task_mode_name: droid_manipulation
+gr00t_embodiment_adapter: droid
 
 pov_cam_name_sim: ["external_camera_rgb", "wrist_camera_rgb"]
 

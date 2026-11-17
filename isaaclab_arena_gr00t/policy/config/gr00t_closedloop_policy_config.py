@@ -6,8 +6,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
-
 
 @dataclass
 class Gr00tClosedloopPolicyCfg:
@@ -40,35 +38,12 @@ class Gr00tClosedloopPolicyCfg:
         default=(480, 640, 3),
         metadata={"description": "Target size for images after resizing and padding as (height, width, channels)."},
     )
-    policy_joints_config_path: Path | None = field(
+    gr00t_embodiment_adapter: str | None = field(
         default=None,
         metadata={
             "description": (
-                "Path to the YAML file listing the GR00T joint groups by sim joint name. Required by joint-space"
-                " embodiment adapters."
-            )
-        },
-    )
-    task_mode_name: str = field(
-        default=TaskMode.G1_LOCOMANIPULATION.value,
-        metadata={"description": "Task option name of the policy inference; selects the embodiment adapter."},
-    )
-    # robot simulation specific parameters
-    action_joints_config_path: Path | None = field(
-        default=None,
-        metadata={
-            "description": (
-                "Path to the YAML file specifying the sim action joint order. Required by joint-space embodiment"
-                " adapters."
-            )
-        },
-    )
-    state_joints_config_path: Path | None = field(
-        default=None,
-        metadata={
-            "description": (
-                "Path to the YAML file specifying the sim state joint order. Required by joint-space embodiment"
-                " adapters."
+                "Embodiment adapter that translates Arena observations and actions for GR00T: 'droid', 'gr1_arms',"
+                " or 'g1_wbc'."
             )
         },
     )
@@ -94,16 +69,6 @@ class Gr00tClosedloopPolicyCfg:
         assert (
             self.action_chunk_length <= self.action_horizon
         ), "action_chunk_length must be less than or equal to action_horizon"
-        # assert all configured paths exist
-        assert (
-            self.policy_joints_config_path is None or Path(self.policy_joints_config_path).exists()
-        ), f"policy_joints_config_path does not exist: {self.policy_joints_config_path}"
-        assert (
-            self.action_joints_config_path is None or Path(self.action_joints_config_path).exists()
-        ), f"action_joints_config_path does not exist: {self.action_joints_config_path}"
-        assert (
-            self.state_joints_config_path is None or Path(self.state_joints_config_path).exists()
-        ), f"state_joints_config_path does not exist: {self.state_joints_config_path}"
         if self.modality_config_path:
             assert Path(
                 self.modality_config_path
@@ -118,13 +83,6 @@ class Gr00tClosedloopPolicyCfg:
             "NEW_EMBODIMENT",
             "OXE_DROID",
         ], "embodiment_tag must be one of the following: " + ", ".join(["GR1", "NEW_EMBODIMENT", "OXE_DROID"])
-        if self.task_mode_name == TaskMode.G1_LOCOMANIPULATION.value:
-            assert (
-                self.embodiment_tag == "NEW_EMBODIMENT"
-            ), "embodiment_tag must be new_embodiment for G1 locomanipulation"
-        elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
-            assert self.embodiment_tag == "GR1", "embodiment_tag must be GR1 for GR1 tabletop manipulation"
-        elif self.task_mode_name == TaskMode.DROID_MANIPULATION.value:
-            assert self.embodiment_tag == "OXE_DROID", "embodiment_tag must be OXE_DROID for DROID manipulation"
-        else:
-            raise ValueError(f"Invalid inference mode: {self.task_mode}")
+        assert (
+            self.gr00t_embodiment_adapter is not None
+        ), "gr00t_embodiment_adapter is required: 'droid', 'gr1_arms', or 'g1_wbc' (it replaces task_mode_name)"
