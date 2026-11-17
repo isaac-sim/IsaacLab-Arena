@@ -318,9 +318,9 @@ the agent through the evaluation. Expect it to:
 4. **Open the report:** open the ``index.html`` evaluation report from the run's
    output directory under ``outputs/`` in your browser.
 
-An episode only counts as a success when both fruits are in their bowls. The
-results also include ``subtask_success_rate``, the success rate for each fruit,
-so you can see which placement the policy completed.
+An episode only counts as a success when both fruits are in their bowls. Each
+episode's ``progress`` field in the episode results records which of the two
+placements the policy completed.
 
 The report shows each episode's result next to its recorded videos, one per
 camera.
