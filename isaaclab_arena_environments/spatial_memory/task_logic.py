@@ -254,6 +254,14 @@ class SpatialMemoryTaskLogic(ABC):
         """Return whether the egocentric image is withheld at this step (N,)."""
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
+    def update_frame_withholding(
+        self, env, runtime: SpatialMemoryRuntime, visible: torch.Tensor, active: torch.Tensor
+    ) -> None:
+        """Hook called once per control step, before ``camera_blocked``, with the unmasked visibility (N, T).
+
+        Only called when ``withholds_camera_frames`` is set.
+        """
+
     # ----------------------------------------------------------------------------------------------------------------
     # Hooks
     # ----------------------------------------------------------------------------------------------------------------

@@ -11,7 +11,7 @@ compartment, so the door and the front edges of the compartment are out of view,
 pass right by them.
 
 Phases: approach and grasp the mug (the cabinet and door are in view), lift, move in front of the opening, insert
-(action phase: tool more than 3 cm inside the cabinet), lower, release and withdraw.
+(action phase: tool more than 5 cm inside the cabinet), lower, release and withdraw.
 Randomised: cabinet position, base height, target compartment, door angle (around the knob value), mug position.
 Difficulty knob: door opening angle in degrees (smaller is harder; 90 is perpendicular to the cabinet front).
 Success: mug upright and at rest on the target shelf inside the cabinet, gripper open and withdrawn, no collision.
@@ -53,7 +53,7 @@ GRASP_HEIGHT_M = 0.05
 APPROACH_PITCH_RAD = math.radians(45.0)
 """The hand approaches 45 degrees below horizontal, both at the counter and into the cabinet."""
 INSERT_DEPTH_M = 0.12
-ACTION_PHASE_DEPTH_M = 0.03
+ACTION_PHASE_DEPTH_M = 0.05
 """The action phase starts once the tool is this far inside the cabinet."""
 TRANSIT_HEIGHT_M = 0.26
 """Lowest tool height for sideways moves over the counter."""
@@ -71,6 +71,10 @@ class MugPastDoorLogic(SpatialMemoryTaskLogic):
     default_difficulty = 90.0
     episode_length_s = 40.0
     task_description = "Pick up the mug and put it on the indicated shelf inside the open cabinet."
+
+    def door_angle_deg(self) -> float:
+        """Return the nominal door opening angle in degrees (the difficulty knob)."""
+        return self.difficulty
 
     def cabinet_height(self) -> float:
         return 2.0 * COMPARTMENT_HEIGHT_M + 3.0 * BOARD_T_M
@@ -98,7 +102,9 @@ class MugPastDoorLogic(SpatialMemoryTaskLogic):
         center_y = uniform(generator, -0.08, -0.02)
         base_z = uniform(generator, 0.13, 0.16)  # top face of the bottom board
         target = choice(generator, 2)
-        door_angle = math.radians(self.difficulty + uniform(generator, -DOOR_ANGLE_JITTER_DEG, DOOR_ANGLE_JITTER_DEG))
+        door_angle = math.radians(
+            self.door_angle_deg() + uniform(generator, -DOOR_ANGLE_JITTER_DEG, DOOR_ANGLE_JITTER_DEG)
+        )
         center_x = front_x + 0.5 * CABINET_DEPTH_M
         height = self.cabinet_height()
         bottom_z = base_z - t  # underside of the bottom board

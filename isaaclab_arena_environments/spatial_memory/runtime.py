@@ -234,8 +234,12 @@ def update_runtime(env, logic: SpatialMemoryTaskLogic) -> SpatialMemoryRuntime:
     )
     T_W_mount, T_W_occluders = logic.adjust_camera_and_occluder_poses(env, runtime, T_W_mount, T_W_occluders)
     counts = model.compute(T_W_mount, T_W_parts, T_W_occluders)
-    visible = counts > 0
     runtime.visible_points[:] = counts
+    visible = counts > 0
+    if logic.withholds_camera_frames:
+        # A withheld frame shows nothing, so nothing counts as seen in it.
+        logic.update_frame_withholding(env, runtime, visible, active)
+        visible = visible & ~logic.camera_blocked(env, runtime).unsqueeze(-1)
     runtime.visible_steps += (visible & active.unsqueeze(-1)).long()
 
     # Action phase and static-while-hidden.
