@@ -1,6 +1,7 @@
 # Spatial-memory task suite: plan
 
-Status: Phase 0 (orientation). This note records how Arena composes environments, how each of the ten
+Status: all ten tasks are built and tested; results and the user-facing description are in [README.md](README.md).
+This note records how Arena composes environments, how each of the ten
 tasks maps onto what the repository offers, and the open questions. The user asked for the work to
 continue through all phases without stopping, so each open question below lists the default that
 was taken; review can overturn any of them.
@@ -128,8 +129,8 @@ compartments are sized for that approach.
 | 9 | `spatial_memory_restock_slot` | cubby shelf (grid) in front, most cubbies filled; new item on a side counter | Franka, wrist | which cubbies are free once the held item is in front of the camera | empty cubbies | boxes |
 | 5 | `spatial_memory_back_of_shelf` | deep shelf, a front row of tall items with one gap, a short target behind the gap | Franka, wrist | target and gap edges once the hand enters the front row | gap width (m) | boxes |
 | 6 | `spatial_memory_high_shelf` | high shelf with a front lip above the working area, existing items on it, item on the counter | Franka, wrist | shelf surface, lip and existing items once the item is over the shelf | number of existing items | boxes |
-| 3 | `spatial_memory_tray_carry` | floor, counter corner and chair blocks on the route, destination table, a tray/box load | G1 WBC (`g1_wbc_joint`), head camera | lower part of the route (obstacles) while the load is carried | load size (m) | humanoid carrying; see open question Q3 |
-| 10 | `spatial_memory_door_closed` | task 1 scene; the door may change angle while the robot faces away | Franka, wrist | the new door pose, except for a re-observation window | re-observation window (s) | - |
+| 3 | `spatial_memory_tray_carry` | floor, counter corner and chair blocks on the route, pick and destination tables, a box load | G1 WBC (`g1_wbc_joint`, 50 Hz), head camera | each obstacle while the robot carries the box past it (see Q3) | box height (m) | box squeezed between the hands |
+| 10 | `spatial_memory_moved_cart` | task 1 scene plus a cart that may move between the carry lane and aside while the robot grasps | Franka, wrist | the cart's new pose, except for a re-observation window (frames withheld) | re-observation window (s) | a cart instead of a door (see Q4) |
 
 Episode phases, randomisation, success and failure terms per task are defined in the task module
 docstrings and summarised in `README.md` (Phase 4).
@@ -149,8 +150,12 @@ docstrings and summarised in `README.md` (Phase 4).
   more than `reobservation_budget_s` (default 1.0 s) before the first gripper close.
 - **Q3 Task 3 embodiment.** The G1 WBC embodiment walks with a navigate command, but no scripted
   bimanual tray grasp exists. *Default:* try G1 WBC with a two-handed squeeze grasp; if that is not
-  reliable, report task 3 as blocked rather than fake it.
+  reliable, report task 3 as blocked rather than fake it. *Outcome:* at 50 Hz the walking controller carries a
+  squeezed box reliably. Measured: the box is too narrow to hide an obstacle the robot walks around while it is
+  still ahead, so the hidden claim covers passing the obstacle (out of the head camera's view).
 - **Q4 Task 10 re-observation window.** *Default:* the wrist image is blanked (zeros) outside the
-  initial look phase and outside a window of `difficulty` seconds after the door re-enters view.
+  initial look phase and outside a window of `difficulty` seconds after the movable element re-enters view.
+  *Outcome:* the movable element is a cart: a door swinging between open and half-open barely changes the oracle's
+  route, so the path-length tolerance would test nothing.
 - **Q5 Contacts that count.** *Default:* any arm-link contact, any hand/finger contact with a fixture
   board and any carried-object contact with a board other than its start and goal supports.
