@@ -246,7 +246,8 @@ def update_runtime(env, logic: SpatialMemoryTaskLogic) -> SpatialMemoryRuntime:
         runtime.static_reference_poses_w[starting] = T_W_parts[starting]
     runtime.in_action_phase[:] = in_action
     runtime.action_phase_steps += in_action.long()
-    runtime.visible_steps_in_action += (visible & in_action.unsqueeze(-1)).long()
+    hidden_phase = logic.hidden_phase_mask(env, runtime, in_action)
+    runtime.visible_steps_in_action += (visible & hidden_phase).long()
     before_action = active & (runtime.action_phase_start_step == NOT_SET)
     runtime.visible_before_action |= visible & before_action.unsqueeze(-1)
     if in_action.any():

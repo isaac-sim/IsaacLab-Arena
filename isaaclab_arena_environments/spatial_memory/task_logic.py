@@ -172,6 +172,14 @@ class SpatialMemoryTaskLogic(ABC):
     def action_phase(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
         """Return whether each environment is in the action phase, during which hidden targets must stay hidden."""
 
+    def hidden_phase_mask(self, env, runtime: SpatialMemoryRuntime, in_action: torch.Tensor) -> torch.Tensor:
+        """Return (N, T): when each target's visibility is checked against the hidden-geometry claim.
+
+        The default is the action phase for every target; tasks whose targets are hidden in different phases
+        override it.
+        """
+        return in_action.unsqueeze(-1).expand(-1, len(runtime.target_names))
+
     def static_part_mask(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
         """Return (N, K) parts that must not move while hidden; by default every part except manipulated items."""
         manipulated = set(self.manipulated_item_names())
