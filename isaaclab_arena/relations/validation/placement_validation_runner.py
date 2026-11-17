@@ -16,6 +16,7 @@ from isaaclab_arena.relations.placement_diagnostics import (
     ValidationCheckDiagnostics,
 )
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
+from isaaclab_arena.utils.timer import Timer
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.geometry.collision_object import CollisionObject
@@ -118,7 +119,8 @@ class PlacementValidationRunner:
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
                 rejections = rejections_by_check[validator.check]
-                verdicts = validator.validate_batch(batch, collision_objects, rejections)
+                with Timer(f"check_{validator.check}"):
+                    verdicts = validator.validate_batch(batch, collision_objects, rejections)
                 layout_pass_verdicts_by_check[validator.check] = verdicts
                 evaluated_layout_indices_by_check[validator.check] = list(range(num_candidates))
                 self._print_rejections(validator.check, rejections)
@@ -146,7 +148,10 @@ class PlacementValidationRunner:
                 # only passed layouts are validated
                 rejections = rejections_by_check[validator.check]
                 passed_layouts = batch.select(passed_layout_indices)
-                verdicts_over_passed_layout = validator.validate_batch(passed_layouts, collision_objects, rejections)
+                with Timer(f"check_{validator.check}"):
+                    verdicts_over_passed_layout = validator.validate_batch(
+                        passed_layouts, collision_objects, rejections
+                    )
                 verdicts = [False] * num_candidates
                 for layout_index_within_batch, verdict in zip(
                     passed_layout_indices, verdicts_over_passed_layout, strict=True
