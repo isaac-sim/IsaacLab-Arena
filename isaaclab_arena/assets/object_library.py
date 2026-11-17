@@ -2267,7 +2267,7 @@ def _newton_yam_cable_routing_fixture_spawn_cfg() -> dict[str, Any]:
 class YamCableRoutingTable(LibraryObject):
     """Static workcell table used by the YAM cable-routing task."""
 
-    name = "yam_cable_routing_table"
+    registry_name = "yam_cable_routing_table"
     tags = ["background", "table", "yam", "cable_routing"]
     usd_path = f"{CABLE_ROUTING_ASSET_DIR}/table/industrial__yam_workcell_table/industrial__yam_workcell_table.usda"
     object_type = ObjectType.BASE
@@ -2277,7 +2277,7 @@ class YamCableRoutingTable(LibraryObject):
 class YamCableRoutingBoard(LibraryObject):
     """Kinematic ManipulationNet task board used for YAM cable routing."""
 
-    name = "yam_cable_routing_board"
+    registry_name = "yam_cable_routing_board"
     tags = ["object", "fixture", "yam", "cable_routing"]
     usd_path = f"{CABLE_ROUTING_ASSET_DIR}/manipulationnet/board.usdc"
     object_type = ObjectType.RIGID
@@ -2288,7 +2288,7 @@ class YamCableRoutingBoard(LibraryObject):
 class YamCableRoutingRoundPeg(LibraryObject):
     """Kinematic ManipulationNet round peg used for YAM cable routing."""
 
-    name = "yam_cable_routing_round_peg"
+    registry_name = "yam_cable_routing_round_peg"
     tags = ["object", "fixture", "peg", "yam", "cable_routing"]
     usd_path = f"{CABLE_ROUTING_ASSET_DIR}/manipulationnet/round_peg.usdc"
     object_type = ObjectType.RIGID

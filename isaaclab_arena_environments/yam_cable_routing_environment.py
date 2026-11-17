@@ -40,6 +40,7 @@ class YamCableRoutingEnvironment(ArenaEnvironmentFactory[YamCableRoutingEnvironm
         from isaaclab_arena.embodiments.yam.yam import BimanualYamEmbodiment
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.tasks.cable_routing_task import CableRoutingTask
+        from isaaclab_arena.utils.physics_backend import PhysicsBackend
         from isaaclab_arena_environments.yam_cable_routing.physics import configure_yam_cable_routing_physics
         from isaaclab_arena_environments.yam_cable_routing.scene import (
             BOARD_TOP_Z,
@@ -73,7 +74,5 @@ class YamCableRoutingEnvironment(ArenaEnvironmentFactory[YamCableRoutingEnvironm
             scene=scene_assets.scene,
             task=task,
             env_cfg_callback=configure_yam_cable_routing_physics,
-            # The CouplerProxy configuration is part of the task contract. A
-            # global PhysX or stock Newton preset would silently replace it.
-            supported_physics_presets=(),
+            default_physics_backend=PhysicsBackend.NEWTON,
         )

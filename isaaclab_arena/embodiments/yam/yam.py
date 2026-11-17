@@ -237,7 +237,7 @@ class BimanualYamCameraCfg(ArenaCameraCfg):
 class BimanualYamEmbodiment(EmbodimentBase):
     """Two fixed-base YAM manipulators controlled by absolute joint targets."""
 
-    name = "yam_bimanual"
+    registry_name = "yam_bimanual"
     tags = ["embodiment", "yam", "bimanual"]
     default_arm_mode = ArmMode.DUAL_ARM
 

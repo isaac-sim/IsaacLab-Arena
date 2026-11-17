@@ -115,23 +115,23 @@ class YamCableRoutingScene:
 def build_yam_cable_routing_scene(asset_registry: AssetRegistry) -> YamCableRoutingScene:
     """Build the fixed table, board, two pegs, cable, ground, and light."""
     table = asset_registry.get_asset_by_name("yam_cable_routing_table")(
-        instance_name="table",
+        name="table",
         prim_path="{ENV_REGEX_NS}/Table",
         initial_pose=Pose(position_xyz=TABLE_FRAME_POSITION, rotation_xyzw=TABLE_FRAME_ROTATION),
     )
     board = asset_registry.get_asset_by_name("yam_cable_routing_board")(
-        instance_name="board",
+        name="board",
         prim_path="{ENV_REGEX_NS}/Board",
         initial_pose=Pose(position_xyz=BOARD_POSITION),
     )
     peg_type = asset_registry.get_asset_by_name("yam_cable_routing_round_peg")
     peg_0 = peg_type(
-        instance_name="peg_0",
+        name="peg_0",
         prim_path="{ENV_REGEX_NS}/Peg0",
         initial_pose=Pose(position_xyz=PEG_POSITIONS[0]),
     )
     peg_1 = peg_type(
-        instance_name="peg_1",
+        name="peg_1",
         prim_path="{ENV_REGEX_NS}/Peg1",
         initial_pose=Pose(position_xyz=PEG_POSITIONS[1]),
     )
@@ -157,14 +157,14 @@ def build_yam_cable_routing_scene(asset_registry: AssetRegistry) -> YamCableRout
         tags=["deformable", "cable"],
     )
     ground = asset_registry.get_asset_by_name("ground_plane")(
-        instance_name="ground",
+        name="ground",
         spawner_cfg=sim_utils.GroundPlaneCfg(
             color=(0.20, 0.20, 0.20),
             physics_material=make_fixture_material(),
         ),
     )
     sky_light = asset_registry.get_asset_by_name("light")(
-        instance_name="sky_light",
+        name="sky_light",
         prim_path="/World/skyLight",
     )
     sky_light.set_intensity(1500.0)
