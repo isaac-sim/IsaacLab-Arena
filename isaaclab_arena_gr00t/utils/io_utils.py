@@ -92,6 +92,7 @@ def load_json(file_path: str | Path, **kwargs) -> dict[str, Any]:
 
 def load_dict_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
     """Load dictionary from YAML file"""
+    yaml_path = Path(yaml_path)
     assert yaml_path.exists(), f"{yaml_path} does not exist"
     # also return empty dict if the file is empty
     if yaml_path.stat().st_size == 0:
