@@ -149,8 +149,7 @@ def list_variations(args_parser: argparse.ArgumentParser) -> None:
 
 def main():
     """Run an IsaacLab Arena environment with a policy.
-    Use --distributed with torchrun command for one process per GPU on multi-GPU machines. AppLauncher uses LOCAL_RANK for device.
-    Multi-GPU evaluation with --distributed is deprecated.
+    Multi-GPU evaluation with --distributed and torchrun is deprecated.
     """
     args_parser = get_isaaclab_arena_cli_parser()
     # We do this as the parser is shared between the example environment and policy runner
@@ -159,8 +158,9 @@ def main():
     if args_cli.distributed:
         warnings.warn(
             "Multi-GPU evaluation with --distributed and torchrun is deprecated and will be removed together with"
-            " policy_runner.py. Evaluate in one process with more environments (--num_envs), or run Experiment"
-            " Runs in parallel on OSMO.",
+            " policy_runner.py. Ranks do not merge their metrics, and the report from local rank 0 can miss results"
+            " from other ranks. Evaluate in one process with more environments (--num_envs), or run Experiment Runs"
+            " in parallel on OSMO.",
             FutureWarning,
         )
 
