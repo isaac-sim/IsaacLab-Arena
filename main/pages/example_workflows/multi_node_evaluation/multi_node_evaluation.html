@@ -810,23 +810,28 @@ common ones are:</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">ovx-l40s</span></code></p></td>
 <td><p>Hardware platform requested for each Run.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.gpus</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.labels</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[workstreams=isaac_lab_arena]</span></code></p></td>
+<td><p>OSMO labels attached to the workflow, as <code class="docutils literal notranslate"><span class="pre">key=value</span></code> entries.
+Replace them with <code class="docutils literal notranslate"><span class="pre">'osmo.labels=[&quot;team=robotics&quot;,&quot;project=alpha&quot;]'</span></code> or clear them with <code class="docutils literal notranslate"><span class="pre">'osmo.labels=[]'</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.gpus</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>GPUs requested per Run.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.cpus</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.cpus</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">15</span></code></p></td>
 <td><p>CPU cores requested per Run.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.memory</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.memory</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">128Gi</span></code></p></td>
 <td><p>Memory requested per Run.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.storage</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.storage</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">200Gi</span></code></p></td>
 <td><p>Storage requested per Run.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.output_url</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">osmo.output_url</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">swift://pdx.s8k.io/...</span></code></p></td>
 <td><p>Swift path for collected results.
 Use <code class="docutils literal notranslate"><span class="pre">{{workflow_id}}</span></code> for a unique path per workflow.</p></td>
