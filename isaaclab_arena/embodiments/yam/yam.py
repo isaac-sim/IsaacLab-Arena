@@ -264,7 +264,6 @@ class BimanualYamEmbodiment(EmbodimentBase):
         self.observation_config = BimanualYamObservationsCfg()
         self.camera_config = BimanualYamCameraCfg() if enable_cameras else None
         if self.camera_config is not None:
-            self.camera_config.use_tiled_camera = False
             self.camera_config.set_robot_prim_paths("{ENV_REGEX_NS}/YamLeft", "{ENV_REGEX_NS}/YamRight")
             self.camera_config.set_robot_mount_positions(left_position, right_position)
             self.add_camera_variations(self.camera_config)
