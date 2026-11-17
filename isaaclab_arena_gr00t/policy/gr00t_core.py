@@ -3,28 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""GR00T policy core: config, camera conversion, and policy observation building.
+"""GR00T client parts shared by all embodiments: the base policy config, camera image conversion, and request building.
 
-This module is the single source of truth (SSOT) for the embodiment-independent
-parts of GR00T closed-loop policy logic. Embodiment-specific state and action
-translation lives in ``Gr00tEmbodimentAdapter`` subclasses. It is structured so that:
-
-- **Torch/numpy conversion is isolated at boundaries**: camera observations
-  convert to numpy via ``extract_rgb_numpy_from_torch`` and robot state via the
-  adapter's ``extract_state_np``; core logic is numpy-only; actions convert back
-  to torch only in ``to_tensor``.
-- **Core logic is modular and numpy-only**: ``resize_rgb_for_policy`` and
-  ``build_gr00t_policy_observations`` do not use torch.
-
-Pipeline: env (torch) -> ``extract_rgb_numpy_from_torch`` + adapter
-``extract_state_np`` -> numpy core -> adapter ``build_action_np`` ->
-``to_tensor`` -> tensor.
+``build_gr00t_policy_observations`` combines the resized camera images, the state arrays, and the language
+instruction into the observation dict the GR00T server expects.
 """
 
 from __future__ import annotations
 
 import numpy as np
-import torch
 from dataclasses import dataclass
 from typing import Any
 
@@ -57,35 +44,6 @@ class Gr00tBasePolicyCfg(PolicyCfg):
 # --------------------------------------------------------------------------- #
 
 
-def _extract_rgb_from_nested_obs(
-    nested_obs: dict[str, np.ndarray] | dict[str, torch.Tensor],
-    camera_names: list[str],
-    group_key: str = "camera_obs",
-    convert_to_numpy: bool = True,
-) -> list[np.ndarray]:
-    """Extract ordered list of RGB arrays from nested observation.
-
-    Args:
-        nested_obs: Dict with group_key (cam_name -> array or tensor).
-        camera_names: Ordered list of camera keys to read.
-        group_key: Top-level key for camera data (default "camera_obs").
-        convert_to_numpy: If True, convert each value to numpy; if False, return as-is.
-
-    Returns:
-        List of (N, H, W, C) arrays one per camera.
-
-    Raises:
-        AssertionError: If group_key or a requested camera key is missing.
-    """
-    assert group_key in nested_obs, f"{group_key} is not in observation"
-    rgb_list_np: list[np.ndarray] = []
-    for cam in camera_names:
-        assert cam in nested_obs[group_key], f"camera {cam} is not in {group_key}"
-        val = nested_obs[group_key][cam]
-        rgb_list_np.append(to_numpy(val) if convert_to_numpy else val)
-    return rgb_list_np
-
-
 def extract_rgb_numpy_from_torch(
     nested_obs: dict[str, Any],
     camera_names: list[str],
@@ -101,9 +59,12 @@ def extract_rgb_numpy_from_torch(
     Returns:
         List of (N, H, W, C) uint8 numpy arrays, one per camera.
     """
-    return _extract_rgb_from_nested_obs(
-        nested_obs=nested_obs, camera_names=camera_names, group_key=camera_group_key, convert_to_numpy=True
-    )
+    assert camera_group_key in nested_obs, f"{camera_group_key} is not in observation"
+    rgb_list_np: list[np.ndarray] = []
+    for cam in camera_names:
+        assert cam in nested_obs[camera_group_key], f"camera {cam} is not in {camera_group_key}"
+        rgb_list_np.append(to_numpy(nested_obs[camera_group_key][cam]))
+    return rgb_list_np
 
 
 # --------------------------------------------------------------------------- #

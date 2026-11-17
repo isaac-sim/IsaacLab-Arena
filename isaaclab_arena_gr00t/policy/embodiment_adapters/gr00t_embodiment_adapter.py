@@ -10,10 +10,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from importlib import import_module
 from typing import Any
-
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg
 
 
 class Gr00tEmbodimentAdapter(ABC):
@@ -42,44 +40,12 @@ class Gr00tEmbodimentAdapter(ABC):
         """Return the (num_envs, action_dim) action that holds each robot at its current state."""
 
 
-def _load_droid_adapter() -> type[Gr00tEmbodimentAdapter]:
-    from isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter import Gr00tDroidAdapter
-
-    return Gr00tDroidAdapter
-
-
-def _load_gr1_arms_adapter() -> type[Gr00tEmbodimentAdapter]:
-    from isaaclab_arena_gr00t.policy.embodiment_adapters.gr1_arms_adapter import Gr00tGr1ArmsAdapter
-
-    return Gr00tGr1ArmsAdapter
-
-
-def _load_g1_wbc_adapter() -> type[Gr00tEmbodimentAdapter]:
-    from isaaclab_arena_gr00t.policy.embodiment_adapters.g1_wbc_adapter import Gr00tG1WbcAdapter
-
-    return Gr00tG1WbcAdapter
-
-
-_EMBODIMENT_ADAPTER_LOADERS: dict[str, Callable[[], type[Gr00tEmbodimentAdapter]]] = {
-    "droid": _load_droid_adapter,
-    "gr1_arms": _load_gr1_arms_adapter,
-    "g1_wbc": _load_g1_wbc_adapter,
-}
-"""Registry mapping gr00t_embodiment_adapter keys to loaders for their adapter classes. Loaders defer the
-import so adapter modules can import Gr00tEmbodimentAdapter without a cycle, and so only the selected
-embodiment's dependencies load."""
-
-
-def create_gr00t_embodiment_adapter(policy_config: Gr00tClosedloopPolicyCfg) -> Gr00tEmbodimentAdapter:
-    """Create the embodiment adapter named by the policy config's ``gr00t_embodiment_adapter``."""
-    key = policy_config.gr00t_embodiment_adapter
-    loader = _EMBODIMENT_ADAPTER_LOADERS.get(key)
-    assert (
-        loader is not None
-    ), f"Unknown gr00t_embodiment_adapter {key!r}; expected one of {sorted(_EMBODIMENT_ADAPTER_LOADERS)}"
-    adapter_type = loader()
-    assert policy_config.embodiment_tag == adapter_type.embodiment_tag, (
-        f"gr00t_embodiment_adapter {key!r} requires embodiment_tag {adapter_type.embodiment_tag!r}, got"
-        f" {policy_config.embodiment_tag!r}"
-    )
-    return adapter_type()
+def import_gr00t_embodiment_adapter_class(class_path: str) -> type[Gr00tEmbodimentAdapter]:
+    """Import the Gr00tEmbodimentAdapter subclass named by a dotted class path."""
+    assert "." in class_path, f"gr00t_embodiment_adapter must be a dotted class path, got {class_path!r}"
+    module_path, class_name = class_path.rsplit(".", 1)
+    adapter_type = getattr(import_module(module_path), class_name)
+    assert isinstance(adapter_type, type) and issubclass(
+        adapter_type, Gr00tEmbodimentAdapter
+    ), f"gr00t_embodiment_adapter {class_path!r} is not a Gr00tEmbodimentAdapter subclass"
+    return adapter_type

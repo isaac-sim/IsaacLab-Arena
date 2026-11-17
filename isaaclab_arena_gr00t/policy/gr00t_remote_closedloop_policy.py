@@ -21,7 +21,9 @@ from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg
-from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import create_gr00t_embodiment_adapter
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import (
+    import_gr00t_embodiment_adapter_class,
+)
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyCfg,
     build_gr00t_policy_observations,
@@ -106,7 +108,8 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         self.device = config.policy_device
 
         # Embodiment adapter (Arena observations/actions to and from GR00T state/action dicts)
-        self.embodiment_adapter = create_gr00t_embodiment_adapter(self.policy_config)
+        adapter_type = import_gr00t_embodiment_adapter_class(self.policy_config.gr00t_embodiment_adapter)
+        self.embodiment_adapter = adapter_type()
 
         self.modality_configs = load_gr00t_modality_config_from_file(
             self.policy_config.modality_config_path,
@@ -200,6 +203,10 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         action_tensor = to_tensor(self.embodiment_adapter.build_action_np(robot_action_policy), self.device)
 
         assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.action_chunk_length
+        assert action_tensor.shape[2] == self.action_dim, (
+            f"{type(self.embodiment_adapter).__name__}.build_action_np returned width {action_tensor.shape[2]},"
+            f" expected action_dim {self.action_dim}"
+        )
         return action_tensor
 
     def reset(self, env_ids: torch.Tensor | None = None):

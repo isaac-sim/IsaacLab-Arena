@@ -6,6 +6,10 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import (
+    import_gr00t_embodiment_adapter_class,
+)
+
 
 @dataclass
 class Gr00tClosedloopPolicyCfg:
@@ -42,10 +46,22 @@ class Gr00tClosedloopPolicyCfg:
         default=None,
         metadata={
             "description": (
-                "Embodiment adapter that translates Arena observations and actions for GR00T: 'droid', 'gr1_arms',"
-                " or 'g1_wbc'."
+                "Dotted class path of the Gr00tEmbodimentAdapter that translates Arena observations and actions"
+                " for GR00T."
             )
         },
+    )
+    policy_joints_config_path: str | None = field(
+        default=None,
+        metadata={"description": "Removed: the embodiment adapter loads its own joint maps. Must be left unset."},
+    )
+    action_joints_config_path: str | None = field(
+        default=None,
+        metadata={"description": "Removed: the embodiment adapter loads its own joint maps. Must be left unset."},
+    )
+    state_joints_config_path: str | None = field(
+        default=None,
+        metadata={"description": "Removed: the embodiment adapter loads its own joint maps. Must be left unset."},
     )
     # Default to GPU policy and CPU physics simulation
     policy_device: str = field(
@@ -77,12 +93,22 @@ class Gr00tClosedloopPolicyCfg:
         if isinstance(self.pov_cam_name_sim, str):
             self.pov_cam_name_sim = [self.pov_cam_name_sim]
 
-        # embodiment_tag
-        assert self.embodiment_tag in [
-            "GR1",
-            "NEW_EMBODIMENT",
-            "OXE_DROID",
-        ], "embodiment_tag must be one of the following: " + ", ".join(["GR1", "NEW_EMBODIMENT", "OXE_DROID"])
-        assert (
-            self.gr00t_embodiment_adapter is not None
-        ), "gr00t_embodiment_adapter is required: 'droid', 'gr1_arms', or 'g1_wbc' (it replaces task_mode_name)"
+        assert self.gr00t_embodiment_adapter is not None, (
+            "gr00t_embodiment_adapter is required (it replaces task_mode_name): the dotted class path of a"
+            " Gr00tEmbodimentAdapter, such as"
+            " isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter.Gr00tDroidAdapter"
+        )
+        adapter_type = import_gr00t_embodiment_adapter_class(self.gr00t_embodiment_adapter)
+        assert self.embodiment_tag == adapter_type.embodiment_tag, (
+            f"{adapter_type.__name__} requires embodiment_tag {adapter_type.embodiment_tag!r}, got"
+            f" {self.embodiment_tag!r}"
+        )
+        removed_joint_keys = [
+            name
+            for name in ("policy_joints_config_path", "action_joints_config_path", "state_joints_config_path")
+            if getattr(self, name) is not None
+        ]
+        assert not removed_joint_keys, (
+            f"{removed_joint_keys} are no longer supported: each embodiment adapter loads its own joint maps."
+            " Remove these keys, or subclass the adapter to use custom joint maps."
+        )

@@ -12,8 +12,9 @@ Verifies:
 - the obs dict sent to the server has the expected language/video/state structure;
 - the action dict returned by the server is converted to a tensor of the
   expected (num_envs, action_chunk_length, action_dim) shape;
-- the DROID adapter sends the embodiment's normalized gripper observation and
-  returns arm targets followed by the gripper command;
+- the DROID adapter sends the embodiment's gripper closure fraction (0 open, 1 closed)
+  and returns arm targets followed by the gripper command;
+- the GR1 adapter maps state, action, and hold slots by joint name;
 - ``reset`` propagates to the client;
 - a failing ping during construction raises ``ConnectionError``.
 """
@@ -102,7 +103,7 @@ def droid_observation():
             "joint_pos": torch.arange(NUM_ENVS * DROID_NUM_ARM_JOINTS, dtype=torch.float32).reshape(
                 NUM_ENVS, DROID_NUM_ARM_JOINTS
             ),
-            # Normalized gripper closure: fully closed and half closed.
+            # Gripper closure fraction (0 open, 1 closed): fully closed and half closed.
             "gripper_pos": torch.tensor([[1.0], [0.5]]),
             # Last env actions; the final column is the 0-to-1 gripper command. Env 1 is still closing, so its last
             # command (1.0) differs from both its measured closure (0.5) and a zero fill.
@@ -333,8 +334,9 @@ def test_synced_batch_holds_joint_position_for_env_after_partial_reset(
     action = policy.get_action(env=None, observation=synthetic_observation)
     # No new chunk fetched (env 0 not yet exhausted, so .all() is False).
     assert clients[0].get_action_calls == 1
-    expected_hold = policy._extract_hold_action(synthetic_observation)
-    torch.testing.assert_close(action[1], expected_hold[1])
+    expected_hold = torch.zeros(EXPECTED_ACTION_DIM)
+    expected_hold[:NUM_SIM_JOINTS] = synthetic_observation["policy"]["robot_joint_pos"][1]
+    torch.testing.assert_close(action[1], expected_hold)
 
 
 def test_default_image_size_keeps_gr00t_padding_in_the_loop():
@@ -373,8 +375,8 @@ def test_config_selects_embodiment_adapter(policy_config_yaml, fake_client_facto
     assert isinstance(_build_policy(policy_config_yaml).embodiment_adapter, Gr00tG1WbcAdapter)
 
 
-def test_droid_state_sent_to_server_uses_normalized_gripper(droid_observation, fake_client_factory):
-    """DROID state comes from the embodiment's arm and normalized gripper observations, not raw joint angles."""
+def test_droid_state_sent_to_server_uses_gripper_closure_fraction(droid_observation, fake_client_factory):
+    """DROID state comes from the embodiment's arm joints and gripper closure fraction, not the raw finger angle."""
     clients = fake_client_factory(ping_ok=True, action_response_factory=_make_droid_action_response)
     policy = _build_policy(DROID_CONFIG_YAML)
     policy.set_task_description("put the lemon in the bowl")
@@ -441,14 +443,65 @@ def _write_policy_yaml(tmp_path: Path, source_yaml: str, **changes) -> str:
     "changes, message",
     [
         ({"gr00t_embodiment_adapter": None}, "gr00t_embodiment_adapter is required"),
-        ({"gr00t_embodiment_adapter": "franka"}, "Unknown gr00t_embodiment_adapter 'franka'"),
-        ({"embodiment_tag": "GR1"}, "requires embodiment_tag 'OXE_DROID'"),
+        ({"gr00t_embodiment_adapter": "droid"}, "must be a dotted class path"),
+        ({"gr00t_embodiment_adapter": "pathlib.Path"}, "is not a Gr00tEmbodimentAdapter subclass"),
+        ({"embodiment_tag": "GR1"}, "Gr00tDroidAdapter requires embodiment_tag 'OXE_DROID'"),
+        (
+            {"state_joints_config_path": "isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml"},
+            r"\['state_joints_config_path'\] are no longer supported",
+        ),
     ],
 )
 def test_embodiment_adapter_config_errors(tmp_path, fake_client_factory, changes, message):
-    """A missing or unknown adapter key, or an embodiment tag the adapter does not serve, fails before connecting."""
+    """An invalid adapter class path, a mismatched embodiment tag, or a removed joint key fails before connecting."""
     clients = fake_client_factory(ping_ok=True)
 
     with pytest.raises(AssertionError, match=message):
         _build_policy(_write_policy_yaml(tmp_path, DROID_CONFIG_YAML, **changes))
     assert not clients
+
+
+def test_gr1_adapter_maps_joints_by_name():
+    """GR1 state, action, and hold slots follow the joint names in the adapter's joint YAMLs."""
+    adapter = Gr00tGr1ArmsAdapter()
+    policy_groups = yaml.safe_load(Path(adapter.policy_joints_config_path).read_text())["joints"]
+    state_columns = yaml.safe_load(Path(adapter.state_joints_config_path).read_text())["joints"]
+    action_columns = yaml.safe_load(Path(adapter.action_joints_config_path).read_text())["joints"]
+    # Each sim joint's position equals its state column, so every value identifies its joint.
+    joint_pos = torch.arange(len(state_columns), dtype=torch.float32).repeat(NUM_ENVS, 1)
+    observation = {"policy": {"robot_joint_pos": joint_pos}}
+
+    state = adapter.extract_state_np(observation)
+    for group, joint_names in policy_groups.items():
+        expected = [state_columns[name] for name in joint_names]
+        np.testing.assert_array_equal(state[group], np.tile(expected, (NUM_ENVS, 1)))
+
+    # Each GR00T action value encodes its group and its position within the group.
+    horizon = 4
+    response = {}
+    for group_idx, (group, joint_names) in enumerate(policy_groups.items()):
+        values = 100 * group_idx + np.arange(len(joint_names), dtype=np.float32)
+        response[group] = np.broadcast_to(values, (NUM_ENVS, horizon, len(joint_names))).copy()
+    action = adapter.build_action_np(response)
+    assert action.shape == (NUM_ENVS, horizon, len(action_columns))
+    for group_idx, (group, joint_names) in enumerate(policy_groups.items()):
+        for joint_idx, name in enumerate(joint_names):
+            np.testing.assert_array_equal(action[..., action_columns[name]], 100 * group_idx + joint_idx)
+
+    hold = adapter.build_hold_action(observation)
+    for name, column in action_columns.items():
+        expected_value = float(state_columns.get(name, 0.0))
+        torch.testing.assert_close(hold[:, column], torch.full((NUM_ENVS,), expected_value))
+
+
+def test_default_image_size_rejects_mismatched_embodiment_tag(tmp_path):
+    """The adapter and embodiment tag are checked when the policy YAML loads, before any env is built."""
+    cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
+        policy_config_yaml_path=_write_policy_yaml(tmp_path, DROID_CONFIG_YAML, embodiment_tag="GR1"),
+        remote_host="unused",
+        remote_port=0,
+        remote_api_token=None,
+    )
+
+    with pytest.raises(AssertionError, match="Gr00tDroidAdapter requires embodiment_tag 'OXE_DROID'"):
+        gr00t_policy.Gr00tRemoteClosedloopPolicy.default_image_size(cfg)
