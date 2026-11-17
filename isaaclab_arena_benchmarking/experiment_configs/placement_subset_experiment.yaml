@@ -55,11 +55,6 @@ runs:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_soup_in_far_bowl.yaml
     environment_builder:
       placement_seed: 3800000
-  kitchen_bench_replicator_l_island_bowl_sink:
-    environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_bowl_sink.yaml
-    environment_builder:
-      placement_seed: 3100000
   kitchen_bench_lightwheel_open_fridge:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml
