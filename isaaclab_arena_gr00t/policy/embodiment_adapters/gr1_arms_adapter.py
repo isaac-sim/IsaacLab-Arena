@@ -7,11 +7,52 @@
 
 from __future__ import annotations
 
-from isaaclab_arena_gr00t.policy.embodiment_adapters.joint_space_adapter import Gr00tJointSpaceAdapter
+import numpy as np
+import torch
+from typing import Any
+
+from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import Gr00tEmbodimentAdapter
+from isaaclab_arena_gr00t.utils.io_utils import load_robot_joints_config_from_yaml, to_numpy
+from isaaclab_arena_gr00t.utils.joints_conversion import (
+    remap_policy_joints_to_sim_joints_np,
+    remap_sim_joints_to_policy_joints_from_np,
+    sim_joint_pos_to_hold_action,
+)
 
 
-class Gr00tGr1ArmsAdapter(Gr00tJointSpaceAdapter):
-    """Joint-space adapter for GR1, whose GR00T state and actions are the arm and hand joint groups.
+class Gr00tGr1ArmsAdapter(Gr00tEmbodimentAdapter):
+    """Maps GR1's GR00T arm and hand joint groups to and from sim joint positions by joint name.
 
-    Each env action is the sim-ordered joint targets from the policy config's action joint YAML.
+    The policy config's joint YAMLs list the GR00T joint groups and the sim state and action joint orders.
+    GR00T state values are the raw ``robot_joint_pos`` observation, so the checkpoint must use sim joint units.
     """
+
+    def __init__(self, policy_config: Gr00tClosedloopPolicyCfg):
+        assert policy_config.policy_joints_config_path is not None, "policy_joints_config_path is required"
+        assert policy_config.action_joints_config_path is not None, "action_joints_config_path is required"
+        assert policy_config.state_joints_config_path is not None, "state_joints_config_path is required"
+        self.embodiment_tag = policy_config.embodiment_tag
+        self.policy_joints_config = load_robot_joints_config_from_yaml(policy_config.policy_joints_config_path)
+        self.action_joints_config = load_robot_joints_config_from_yaml(policy_config.action_joints_config_path)
+        self.state_joints_config = load_robot_joints_config_from_yaml(policy_config.state_joints_config_path)
+        self.action_dim = len(self.action_joints_config)
+
+    def extract_state_np(self, observation: dict[str, Any]) -> dict[str, np.ndarray]:
+        joint_pos_sim_np = to_numpy(observation["policy"]["robot_joint_pos"])
+        return remap_sim_joints_to_policy_joints_from_np(
+            joint_pos_sim_np, self.state_joints_config, self.policy_joints_config
+        )
+
+    def build_action_np(self, policy_action: dict[str, np.ndarray]) -> np.ndarray:
+        return remap_policy_joints_to_sim_joints_np(
+            policy_action, self.policy_joints_config, self.action_joints_config, embodiment_tag=self.embodiment_tag
+        )
+
+    def build_hold_action(self, observation: dict[str, Any]) -> torch.Tensor:
+        return sim_joint_pos_to_hold_action(
+            observation["policy"]["robot_joint_pos"],
+            self.state_joints_config,
+            self.action_joints_config,
+            self.action_dim,
+        )

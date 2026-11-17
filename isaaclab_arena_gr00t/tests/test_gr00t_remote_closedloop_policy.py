@@ -362,7 +362,7 @@ def test_default_image_size_keeps_gr00t_padding_in_the_loop():
 
 
 def test_task_mode_selects_embodiment_adapter(policy_config_yaml, fake_client_factory):
-    """DROID uses its observation-based adapter; GR1 and G1 use joint-space adapters."""
+    """Each task mode selects its embodiment adapter."""
     fake_client_factory(ping_ok=True)
 
     assert isinstance(_build_policy(DROID_CONFIG_YAML).embodiment_adapter, Gr00tDroidAdapter)
@@ -421,8 +421,8 @@ def test_droid_synced_batch_holds_arm_joints_and_last_gripper_command(droid_obse
     torch.testing.assert_close(action[1], expected_hold)
 
 
-def test_joint_space_adapter_requires_joint_configs(tmp_path, policy_config_yaml, fake_client_factory):
-    """A joint-space task mode without its joint YAMLs fails before connecting to the server."""
+def test_g1_wbc_adapter_requires_joint_configs(tmp_path, policy_config_yaml, fake_client_factory):
+    """The G1 adapter fails without its joint YAMLs before connecting to the server."""
     config = yaml.safe_load(Path(policy_config_yaml).read_text())
     del config["state_joints_config_path"]
     config_path = tmp_path / "policy.yaml"

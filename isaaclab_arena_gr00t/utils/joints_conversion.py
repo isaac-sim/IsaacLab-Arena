@@ -201,3 +201,29 @@ def remap_policy_joints_to_sim_joints(
     )
     data = torch.from_numpy(result_np).to(device)
     return JointsAbsPosition(joints_pos=data, joints_order_config=sim_joints_config)
+
+
+def sim_joint_pos_to_hold_action(
+    joint_pos_sim: torch.Tensor,
+    state_joints_config: dict[str, int],
+    action_joints_config: dict[str, int],
+    action_dim: int,
+) -> torch.Tensor:
+    """Return a (num_envs, action_dim) action that holds each action joint at its current sim position.
+
+    Action slots without a joint of the same name in the state config hold zero.
+
+    Args:
+        joint_pos_sim: (num_envs, num_state_joints) sim joint positions in state config order.
+        state_joints_config: Sim joint name -> joint index in state order.
+        action_joints_config: Sim joint name -> joint index in action order.
+        action_dim: Width of the returned action. Slots past the action joints hold zero.
+    """
+    hold_action = torch.zeros(
+        (joint_pos_sim.shape[0], action_dim), dtype=joint_pos_sim.dtype, device=joint_pos_sim.device
+    )
+    for joint_name, action_idx in action_joints_config.items():
+        state_idx = state_joints_config.get(joint_name)
+        if state_idx is not None:
+            hold_action[:, action_idx] = joint_pos_sim[:, state_idx]
+    return hold_action
