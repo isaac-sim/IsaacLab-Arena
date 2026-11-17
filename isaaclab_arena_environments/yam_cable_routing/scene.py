@@ -135,7 +135,8 @@ def build_yam_cable_routing_scene(asset_registry: AssetRegistry) -> YamCableRout
         prim_path="{ENV_REGEX_NS}/Peg1",
         initial_pose=Pose(position_xyz=PEG_POSITIONS[1]),
     )
-    # CableRoutingTask restores the complete scene in one ordered reset event.
+    # CableRoutingTask's reset_scene_to_default event restores the fixtures, robots, and cable. The cable's own
+    # reset event also runs, before it, and writes the same default segment state.
     for fixture in (board, peg_0, peg_1):
         fixture.disable_reset_pose()
 
