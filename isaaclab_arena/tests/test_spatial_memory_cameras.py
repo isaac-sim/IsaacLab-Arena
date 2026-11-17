@@ -32,6 +32,43 @@ def _test_visibility_matches_rendering(simulation_app) -> bool:
     return True
 
 
+def _test_withheld_frames_are_blank(simulation_app) -> bool:
+    import torch
+
+    from isaaclab_arena_environments.spatial_memory.evaluation import make_spatial_memory_env
+    from isaaclab_arena_environments.spatial_memory.policies import SpatialMemoryOraclePolicy
+    from isaaclab_arena_environments.spatial_memory.runtime import get_runtime
+
+    env = make_spatial_memory_env("spatial_memory_moved_cart", num_envs=2, seed=1234, enable_cameras=True)
+    try:
+        base = env.unwrapped
+        runtime = get_runtime(base)
+        key = runtime.logic.embodiment.camera_obs_key()
+        policy = SpatialMemoryOraclePolicy()
+        obs, _ = env.reset()
+        seen_frame = False
+        seen_blank = False
+        with torch.inference_mode():
+            for _ in range(60):
+                obs, _, _, _, _ = env.step(policy.get_action(env, obs))
+                image = obs["camera_obs"][key]
+                blocked = runtime.logic.camera_blocked(base, runtime)
+                for env_id in range(base.num_envs):
+                    is_blank = not bool(image[env_id].any())
+                    assert is_blank == bool(blocked[env_id]), "A withheld frame must be blank and only then."
+                    seen_blank |= is_blank
+                    seen_frame |= not is_blank
+        assert seen_frame and seen_blank, "Expected both camera frames (the look) and withheld frames."
+    finally:
+        env.close()
+    return True
+
+
+@pytest.mark.with_cameras
+def test_spatial_memory_withheld_frames_are_blank():
+    assert run_function_with_persistent_simulation_app(_test_withheld_frames_are_blank, enable_cameras=True)
+
+
 @pytest.mark.with_cameras
 def test_spatial_memory_image_observation_variants():
     assert run_function_with_persistent_simulation_app(_test_image_observation_variants, enable_cameras=True)

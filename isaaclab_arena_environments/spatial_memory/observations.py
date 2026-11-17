@@ -161,13 +161,42 @@ def online_map(env) -> torch.Tensor:
     return get_online_map_provider(env).query(env)
 
 
-def masked_camera_image(env, image_func, image_params: dict, logic) -> torch.Tensor:
-    """Return the camera image with withheld steps replaced by zeros (used by the re-observation-window task)."""
-    image = image_func(env, **image_params)
-    runtime = get_runtime(env, logic)
-    blocked = logic.camera_blocked(env, runtime)
-    shape = (-1,) + (1,) * (image.dim() - 1)
-    return torch.where(blocked.view(shape), torch.zeros_like(image), image)
+def _make_masked_camera_image_term():
+    """Return the class-based observation term that withholds camera frames (Isaac Lab imports are deferred)."""
+    from isaaclab.managers import ManagerTermBase
+    from isaaclab.managers import ObservationTermCfg as ObsTerm
+    from isaaclab.managers import SceneEntityCfg
+
+    class MaskedCameraImage(ManagerTermBase):
+        """Camera image with withheld steps replaced by zeros (used by the re-observation-window task).
+
+        Wraps the embodiment's own camera term, which may be a function or a class-based term.
+        """
+
+        def __init__(self, cfg, env):
+            super().__init__(cfg, env)
+            image_func = cfg.params["image_func"]
+            self._image_params = dict(cfg.params["image_params"])
+            for value in self._image_params.values():
+                if isinstance(value, SceneEntityCfg):
+                    value.resolve(env.scene)
+            if isinstance(image_func, type):
+                self._image_term = image_func(ObsTerm(func=image_func, params=self._image_params), env)
+            else:
+                self._image_term = image_func
+
+        def reset(self, env_ids=None) -> None:
+            if hasattr(self._image_term, "reset"):
+                self._image_term.reset(env_ids)
+
+        def __call__(self, env, image_func, image_params: dict, logic) -> torch.Tensor:
+            image = self._image_term(env, **self._image_params)
+            runtime = get_runtime(env, logic)
+            blocked = logic.camera_blocked(env, runtime)
+            shape = (-1,) + (1,) * (image.dim() - 1)
+            return torch.where(blocked.view(shape), torch.zeros_like(image), image)
+
+    return MaskedCameraImage
 
 
 def make_task_observation_cfg(logic, variant: ObservationVariant):
@@ -235,7 +264,7 @@ def apply_observation_variant(env_cfg, logic, variant: ObservationVariant, histo
             if not isinstance(term, ObsTerm):
                 continue
             masked = ObsTerm(
-                func=masked_camera_image,
+                func=_make_masked_camera_image_term(),
                 params={"image_func": term.func, "image_params": dict(term.params), "logic": logic},
             )
             setattr(camera_group, term_name, masked)
