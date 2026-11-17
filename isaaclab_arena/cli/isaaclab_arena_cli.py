@@ -61,10 +61,7 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         "--distributed",
         action="store_true",
         default=False,
-        help=(
-            "Run one process per GPU under torchrun; AppLauncher uses LOCAL_RANK for device. Deprecated for"
-            " policy_runner.py evaluation."
-        ),
+        help="Run distributed (one process per GPU). Use with torchrun; AppLauncher uses LOCAL_RANK for device.",
     )
 
 
