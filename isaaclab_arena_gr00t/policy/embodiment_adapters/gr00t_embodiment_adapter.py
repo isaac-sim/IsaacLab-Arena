@@ -23,7 +23,7 @@ class Gr00tEmbodimentAdapter(ABC):
     """
 
     embodiment_tag: str
-    """GR00T embodiment tag of the checkpoints this adapter serves. The policy config must use the same tag."""
+    """GR00T embodiment tag of the checkpoints this adapter serves; it selects the GR00T modality config."""
 
     action_dim: int
     """Width of one env action produced by build_action_np."""
@@ -41,9 +41,21 @@ class Gr00tEmbodimentAdapter(ABC):
         """Return the (num_envs, action_dim) action that holds each robot at its current state."""
 
 
-def import_gr00t_embodiment_adapter_class(class_path: str) -> type[Gr00tEmbodimentAdapter]:
-    """Import the concrete Gr00tEmbodimentAdapter subclass named by a dotted class path."""
-    assert "." in class_path, f"gr00t_embodiment_adapter must be a dotted class path, got {class_path!r}"
+GR00T_EMBODIMENT_ADAPTER_CLASS_PATHS = {
+    "droid": "isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter.Gr00tDroidAdapter",
+    "gr1_arms": "isaaclab_arena_gr00t.policy.embodiment_adapters.gr1_arms_adapter.Gr00tGr1ArmsAdapter",
+    "g1_wbc": "isaaclab_arena_gr00t.policy.embodiment_adapters.g1_wbc_adapter.Gr00tG1WbcAdapter",
+}
+"""Built-in adapter names and the class paths they select."""
+
+
+def import_gr00t_embodiment_adapter_class(name_or_class_path: str) -> type[Gr00tEmbodimentAdapter]:
+    """Import the concrete Gr00tEmbodimentAdapter subclass named by a built-in adapter name or a dotted class path."""
+    class_path = GR00T_EMBODIMENT_ADAPTER_CLASS_PATHS.get(name_or_class_path, name_or_class_path)
+    assert "." in class_path, (
+        f"gr00t_embodiment_adapter must be one of {sorted(GR00T_EMBODIMENT_ADAPTER_CLASS_PATHS)} or a dotted class"
+        f" path, got {name_or_class_path!r}"
+    )
     module_path, class_name = class_path.rsplit(".", 1)
     adapter_type = getattr(import_module(module_path), class_name, None)
     assert adapter_type is not None, f"gr00t_embodiment_adapter {class_path!r}: {module_path} has no {class_name}"

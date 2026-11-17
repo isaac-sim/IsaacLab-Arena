@@ -7,7 +7,6 @@
 language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
 # Action horizon is the number of actions predicted by the policy per inference rollout, defined in the GN1.6 modality_config_path.
 action_horizon: 50
-embodiment_tag: NEW_EMBODIMENT
 video_backend: decord
 modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
 
@@ -15,4 +14,4 @@ modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config
 action_chunk_length: 50
 pov_cam_name_sim: "robot_head_cam_rgb"
 
-gr00t_embodiment_adapter: isaaclab_arena_gr00t.policy.embodiment_adapters.g1_wbc_adapter.Gr00tG1WbcAdapter
+gr00t_embodiment_adapter: g1_wbc

@@ -113,7 +113,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
         self.modality_configs = load_gr00t_modality_config_from_file(
             self.policy_config.modality_config_path,
-            self.policy_config.embodiment_tag,
+            self.embodiment_adapter.embodiment_tag,
         )
 
         # Action / chunk shapes
