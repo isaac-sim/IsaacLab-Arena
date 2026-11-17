@@ -18,6 +18,12 @@ container. This step is required only once per host environment.
 
          export NVIDIA_API_KEY="YOUR_NGC_API_KEY"
 
+      .. note::
+
+         This endpoint is shared and is not always stable. A ``504 Gateway Timeout``
+         error usually means the service is overloaded or temporarily down. Wait a
+         few minutes, then retry the command.
+
    .. tab-item:: NVIDIA Internal Endpoint
 
       From the NVIDIA network, generate an internal API key at
