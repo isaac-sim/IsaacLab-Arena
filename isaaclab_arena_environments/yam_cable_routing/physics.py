@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.object_library import YAM_CABLE_ROUTING_CONTACT_DAMPING as CONTACT_DAMPING
 from isaaclab_arena.assets.object_library import YAM_CABLE_ROUTING_CONTACT_GAP as CONTACT_GAP
 from isaaclab_arena.assets.object_library import YAM_CABLE_ROUTING_CONTACT_STIFFNESS as CONTACT_STIFFNESS
-from isaaclab_arena.assets.object_library import make_yam_cable_routing_fixture_material as make_fixture_material
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
@@ -31,8 +30,6 @@ def configure_yam_cable_routing_physics(
     assert isinstance(env_cfg.sim.physics, NewtonCfg), "yam_cable_routing requires the Newton physics backend"
     env_cfg.sim.dt = 1.0 / 120.0
     env_cfg.sim.render_interval = 4
-    env_cfg.sim.use_newton_actuators = True
-    env_cfg.sim.physics_material = make_fixture_material()
     env_cfg.sim.physics = NewtonCfg(
         solver_cfg=CouplerProxyCfg(
             entries=[
@@ -89,5 +86,4 @@ def configure_yam_cable_routing_physics(
         debug_mode=False,
     )
     env_cfg.decimation = 4
-    env_cfg.scene.replicate_physics = True
     return env_cfg

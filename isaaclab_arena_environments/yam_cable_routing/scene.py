@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING
 import isaaclab.sim as sim_utils
 
 from isaaclab_arena.assets.cable import Cable
+from isaaclab_arena.assets.object_library import make_yam_cable_routing_fixture_material
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena_environments.yam_cable_routing.physics import make_fixture_material
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -160,7 +160,7 @@ def build_yam_cable_routing_scene(asset_registry: AssetRegistry) -> YamCableRout
         name="ground",
         spawner_cfg=sim_utils.GroundPlaneCfg(
             color=(0.20, 0.20, 0.20),
-            physics_material=make_fixture_material(),
+            physics_material=make_yam_cable_routing_fixture_material(),
         ),
     )
     sky_light = asset_registry.get_asset_by_name("light")(

@@ -2237,7 +2237,7 @@ YAM_CABLE_ROUTING_CONTACT_GAP = 0.001
 
 
 def make_yam_cable_routing_fixture_material():
-    """Create the Newton material shared by the cable-routing fixtures and simulation."""
+    """Create the Newton contact material of the cable-routing board, pegs, and ground plane."""
     from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
 
     return NewtonMaterialPropertiesCfg(
