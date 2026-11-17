@@ -2,7 +2,3 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-
-"""YAM robot embodiments."""
-
-from .yam import *
