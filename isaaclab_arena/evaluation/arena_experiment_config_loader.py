@@ -102,9 +102,6 @@ def resolve_policy_type_from_name_or_class_path(policy_name_or_class_path: str) 
 
     Args:
         policy_name_or_class_path: Registered policy name, or a ``module_path.ClassName`` path.
-
-    Returns:
-        The policy class.
     """
     from isaaclab_arena.assets.registries import PolicyRegistry
 
