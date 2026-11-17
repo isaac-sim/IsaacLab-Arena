@@ -11,6 +11,7 @@ import torch
 from dataclasses import dataclass
 
 from isaaclab_arena_environments.spatial_memory.geometry import compose_poses
+from isaaclab_arena_environments.spatial_memory.layout_utils import FLOOR_Z_M
 from isaaclab_arena_environments.spatial_memory.visibility import CameraModel, RobotOccluder, camera_model_from_cfg
 
 FRANKA_TOOL_OFFSET = (0.0, 0.0, 0.107, 0.0, 0.0, 0.0, 1.0)
@@ -49,6 +50,9 @@ class FrankaAdapter:
     rest_joint_pose: tuple[float, ...] = FRANKA_READY_JOINT_POS
     """Posture the scripted controllers pull the arm towards in the IK null space."""
 
+    floor_z_m: float = FLOOR_Z_M
+    """Floor height in the environment frame (the robot base is at the origin)."""
+
     registry_name: str = "franka_joint_pos"
     arm_links: tuple[str, ...] = tuple(f"panda_link{index}" for index in range(1, 8))
     gripper_bodies: tuple[str, ...] = ("panda_hand", "panda_leftfinger", "panda_rightfinger")
@@ -71,6 +75,16 @@ class FrankaAdapter:
             embodiment.set_initial_joint_pose(list(self.initial_joint_pose) + [0.04, 0.04])
         embodiment.spawn_cfg_addon = {"robot": {"activate_contact_sensors": True}}
         return embodiment
+
+    def configure_env_cfg(self, env_cfg):
+        """Return the compiled environment configuration with the embodiment's requirements applied."""
+        return env_cfg
+
+    def make_scripted_controller(self, env):
+        """Return the controller that follows the suite's waypoint plans for this embodiment."""
+        from isaaclab_arena_environments.spatial_memory.controller import FrankaPlanFollower
+
+        return FrankaPlanFollower(env, self)
 
     def camera_model(self) -> CameraModel:
         """Return the wrist camera model."""

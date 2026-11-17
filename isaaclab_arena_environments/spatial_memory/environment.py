@@ -41,7 +41,6 @@ def build_spatial_memory_environment(
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena_environments.spatial_memory.layout_utils import FLOOR_Z_M
     from isaaclab_arena_environments.spatial_memory.metrics import record_spatial_memory_episode
     from isaaclab_arena_environments.spatial_memory.observations import ObservationVariant, apply_observation_variant
     from isaaclab_arena_environments.spatial_memory.parts import make_part_object
@@ -55,12 +54,14 @@ def build_spatial_memory_environment(
     parts = [
         make_part_object(spec, tuple(nominal[index, :3].tolist())) for index, spec in enumerate(logic.part_specs())
     ]
-    ground = asset_registry.get_asset_by_name("ground_plane")(initial_pose=Pose(position_xyz=(0.0, 0.0, FLOOR_Z_M)))
+    floor_z = logic.embodiment.floor_z_m
+    ground = asset_registry.get_asset_by_name("ground_plane")(initial_pose=Pose(position_xyz=(0.0, 0.0, floor_z)))
     light = asset_registry.get_asset_by_name("light")()
     embodiment = logic.embodiment.make_embodiment(enable_cameras=cfg.enable_cameras)
     embodiment.set_initial_pose(Pose.identity())
 
     def env_cfg_callback(env_cfg):
+        env_cfg = logic.embodiment.configure_env_cfg(env_cfg)
         return apply_observation_variant(env_cfg, logic, variant, cfg.history_k)
 
     return IsaacLabArenaEnvironment(

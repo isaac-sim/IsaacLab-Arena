@@ -307,3 +307,42 @@ class ToolPoseTracker:
                     plan.steps_at_waypoint = 0
                     plan.steps_held = 0
                     plan.item_offset_xy = None
+
+
+class FrankaPlanFollower:
+    """Follow per-environment waypoint plans on the Franka with joint-position actions.
+
+    Args:
+        env: The unwrapped environment.
+        adapter: The Franka embodiment adapter.
+    """
+
+    def __init__(self, env, adapter):
+        self._adapter = adapter
+        self._tracker = ToolPoseTracker(env.num_envs, env.device, env.step_dt, adapter.rest_joint_pose)
+
+    @property
+    def plans(self) -> list[PlanState]:
+        """Per-environment plan progress."""
+        return self._tracker.plans
+
+    def set_plan(self, env_id: int, plan: list[Waypoint]) -> None:
+        """Start ``plan`` in environment ``env_id``."""
+        self._tracker.set_plan(env_id, plan)
+
+    def action(self, env, logic, runtime) -> torch.Tensor:
+        """Return the environment action (N, A) that advances every plan by one control step."""
+        adapter = self._adapter
+        T_E_tool = logic.tool_pose_w(env).clone()
+        T_E_tool[:, :3] -= env.scene.env_origins
+        joint_pos, joint_limits = adapter.arm_joint_state(env)
+        item_positions_e = {name: env.arena_world.get_pose_e(name)[:, :3] for name in logic.item_names()}
+        joint_targets, gripper = self._tracker.compute_joint_targets(
+            T_E_tool,
+            adapter.tool_jacobian(env),
+            joint_pos,
+            joint_limits,
+            logic.plan_gates(env, runtime),
+            item_positions_e,
+        )
+        return adapter.make_action(env, joint_targets, gripper)

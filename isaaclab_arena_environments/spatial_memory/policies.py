@@ -25,7 +25,6 @@ from dataclasses import dataclass
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
-from isaaclab_arena_environments.spatial_memory.controller import ToolPoseTracker
 from isaaclab_arena_environments.spatial_memory.runtime import get_runtime
 from isaaclab_arena_environments.spatial_memory.task_logic import PlanMode
 
@@ -46,35 +45,20 @@ class _SpatialMemoryScriptedPolicy:
     mode: str = PlanMode.ORACLE
 
     def _init_scripted(self) -> None:
-        self._tracker: ToolPoseTracker | None = None
+        self._controller = None
         self._needs_plan: torch.Tensor | None = None
 
     def _scripted_action(self, env: gym.Env) -> torch.Tensor:
         base_env = env.unwrapped
         runtime = get_runtime(base_env)
         logic = runtime.logic
-        adapter = logic.embodiment
-        if self._tracker is None:
-            self._tracker = ToolPoseTracker(
-                base_env.num_envs, base_env.device, base_env.step_dt, adapter.rest_joint_pose
-            )
+        if self._controller is None:
+            self._controller = logic.embodiment.make_scripted_controller(base_env)
             self._needs_plan = torch.ones(base_env.num_envs, dtype=torch.bool)
         for env_id in torch.nonzero(self._needs_plan).flatten().tolist():
-            self._tracker.set_plan(env_id, logic.plan(base_env, runtime, env_id, self.mode))
+            self._controller.set_plan(env_id, logic.plan(base_env, runtime, env_id, self.mode))
         self._needs_plan[:] = False
-        T_E_tool = logic.tool_pose_w(base_env).clone()
-        T_E_tool[:, :3] -= base_env.scene.env_origins
-        joint_pos, joint_limits = adapter.arm_joint_state(base_env)
-        item_positions_e = {name: base_env.arena_world.get_pose_e(name)[:, :3] for name in logic.item_names()}
-        joint_targets, gripper = self._tracker.compute_joint_targets(
-            T_E_tool,
-            adapter.tool_jacobian(base_env),
-            joint_pos,
-            joint_limits,
-            logic.plan_gates(base_env, runtime),
-            item_positions_e,
-        )
-        return adapter.make_action(base_env, joint_targets, gripper)
+        return self._controller.action(base_env, logic, runtime)
 
     def _scripted_reset(self, env_ids: torch.Tensor | None) -> None:
         if self._needs_plan is None:
