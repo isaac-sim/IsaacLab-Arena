@@ -32,6 +32,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.yam.actions import FiniteJointPositionActionCfg, NormalizedFiniteJointPositionActionCfg
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
 
 YAM_USD_PATH = f"{CABLE_ROUTING_ASSET_DIR}/yam/i2rt_yam_cable_routing.usda"
@@ -271,6 +272,10 @@ class BimanualYamEmbodiment(EmbodimentBase):
     def get_scene_key(self) -> str:
         """Return the left articulation as the primary scene key."""
         return "left_robot"
+
+    def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
+        """Reject backends other than Newton, which the YAM gripper equality and gravity compensation need."""
+        assert backend is PhysicsBackend.NEWTON, f"{self.registry_name} requires the Newton physics backend."
 
     def get_initial_pose(self) -> Pose:
         """Return the midpoint pose of the fixed bimanual base layout."""

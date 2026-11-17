@@ -28,6 +28,7 @@ def configure_yam_cable_routing_physics(
     from isaaclab_contrib.coupling import CouplerEntryCfg, CouplerProxyCfg, CouplerProxyMappingCfg
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonShapeCfg, VBDSolverCfg
 
+    assert isinstance(env_cfg.sim.physics, NewtonCfg), "yam_cable_routing requires the Newton physics backend"
     env_cfg.sim.dt = 1.0 / 120.0
     env_cfg.sim.render_interval = 4
     env_cfg.sim.use_newton_actuators = True
