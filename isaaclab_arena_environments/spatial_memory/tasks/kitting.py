@@ -11,7 +11,7 @@ one after the other. Each request (a one-hot colour) is revealed only once the r
 longer than the 3 s frame history. For each request the robot must reach back, pick the requested part from its bin on
 the first reach, carry it to the tray and place it there.
 
-Hidden: the rack and its parts at the start of each reach (from the request until the hand is 0.36 m from the rack).
+Hidden: the rack and its parts at the start of each reach (from the request until the hand is 0.42 m from the rack).
 The tray's visibility while the hand is over the bins is logged but not claimed: the tilted wrist camera can catch it at
 the edge of its view, and the robot sees the tray again whenever it turns back to it, so it is not a memory demand.
 Randomised: which part is in which bin, rack tier heights, the tray position, the requested parts.
@@ -42,7 +42,6 @@ from isaaclab_arena_environments.spatial_memory.task_logic import LayoutSample, 
 from isaaclab_arena_environments.spatial_memory.tasks.fetch_behind import (
     LOOK_JOINT_POSE,
     LOOK_POSITION,
-    REACH_START_END_Y,
     REST_JOINT_POSE,
     SHELF_CENTER_X,
     SHELF_EDGE_Y,
@@ -53,6 +52,8 @@ from isaaclab_arena_environments.spatial_memory.tasks.fetch_behind import (
 from isaaclab_arena_environments.spatial_memory.visibility import VisibilityTarget
 
 NUM_REQUESTS = 2
+REACH_START_END_Y = 0.06
+"""The reach-start (action) phase lasts from a request until the tool passes this y, 0.42 m from the low tier."""
 PART_SIZE_M = (0.045, 0.045, 0.08)
 """Parts are upright cylinders, so a grasp works from any wrist yaw."""
 BIN_BASE_M = (0.105, 0.13, 0.01)
