@@ -262,7 +262,7 @@ class SpatialMemoryTaskLogic(ABC):
             self.update_memory_probe(env, runtime, visible, active)
 
     def update_memory_probe(self, env, runtime: SpatialMemoryRuntime, visible: torch.Tensor, active: torch.Tensor):
-        """Reveal the instruction once the memory targets were seen and then stayed hidden for ``reveal_delay_s``.
+        """Reveal the instruction once the memory targets were seen and then all stayed hidden for ``reveal_delay_s``.
 
         After the reveal and before the first gripper close, count the steps in which a memory target is visible;
         exceeding ``reobservation_budget_s`` marks the episode as "searched again".

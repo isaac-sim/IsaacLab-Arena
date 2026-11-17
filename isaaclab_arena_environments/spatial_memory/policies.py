@@ -23,6 +23,7 @@ import gymnasium as gym
 import torch
 from dataclasses import dataclass
 
+from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena_environments.spatial_memory.controller import ToolPoseTracker
 from isaaclab_arena_environments.spatial_memory.runtime import get_runtime
@@ -30,8 +31,13 @@ from isaaclab_arena_environments.spatial_memory.task_logic import PlanMode
 
 
 @dataclass
-class SpatialMemoryScriptedPolicyCfg(PolicyCfg):
-    """Configure a scripted spatial-memory controller."""
+class SpatialMemoryOraclePolicyCfg(PolicyCfg):
+    """Configure the spatial-memory oracle controller."""
+
+
+@dataclass
+class SpatialMemoryBlindPolicyCfg(PolicyCfg):
+    """Configure the spatial-memory blind controller."""
 
 
 class _SpatialMemoryScriptedPolicy:
@@ -79,14 +85,15 @@ class _SpatialMemoryScriptedPolicy:
             self._needs_plan[env_ids.cpu()] = True
 
 
-class SpatialMemoryOraclePolicy(_SpatialMemoryScriptedPolicy, PolicyBase[SpatialMemoryScriptedPolicyCfg]):
+@register_policy
+class SpatialMemoryOraclePolicy(_SpatialMemoryScriptedPolicy, PolicyBase[SpatialMemoryOraclePolicyCfg]):
     """Privileged waypoint controller that uses the hidden geometry."""
 
     name = "spatial_memory_oracle"
     mode = PlanMode.ORACLE
 
-    def __init__(self, config: SpatialMemoryScriptedPolicyCfg | None = None):
-        super().__init__(config or SpatialMemoryScriptedPolicyCfg())
+    def __init__(self, config: SpatialMemoryOraclePolicyCfg | None = None):
+        super().__init__(config or SpatialMemoryOraclePolicyCfg())
         self._init_scripted()
 
     def get_action(self, env: gym.Env, observation) -> torch.Tensor:
@@ -96,14 +103,15 @@ class SpatialMemoryOraclePolicy(_SpatialMemoryScriptedPolicy, PolicyBase[Spatial
         self._scripted_reset(env_ids)
 
 
-class SpatialMemoryBlindPolicy(_SpatialMemoryScriptedPolicy, PolicyBase[SpatialMemoryScriptedPolicyCfg]):
+@register_policy
+class SpatialMemoryBlindPolicy(_SpatialMemoryScriptedPolicy, PolicyBase[SpatialMemoryBlindPolicyCfg]):
     """Waypoint controller that ignores hidden geometry (straight-line motions or nominal guesses)."""
 
     name = "spatial_memory_blind"
     mode = PlanMode.BLIND
 
-    def __init__(self, config: SpatialMemoryScriptedPolicyCfg | None = None):
-        super().__init__(config or SpatialMemoryScriptedPolicyCfg())
+    def __init__(self, config: SpatialMemoryBlindPolicyCfg | None = None):
+        super().__init__(config or SpatialMemoryBlindPolicyCfg())
         self._init_scripted()
 
     def get_action(self, env: gym.Env, observation) -> torch.Tensor:

@@ -58,6 +58,9 @@ def _robot_root_pose_w(env) -> torch.Tensor:
 def instruction(env, logic) -> torch.Tensor:
     """Task instruction (for example a one-hot colour); zeros until the task reveals it."""
     runtime = get_runtime(env, logic)
+    if not runtime.params:
+        # The observation manager evaluates terms once before the first layout is sampled.
+        return torch.zeros(env.num_envs, logic.instruction_dim(), device=env.device)
     return logic.instruction(env, runtime)
 
 

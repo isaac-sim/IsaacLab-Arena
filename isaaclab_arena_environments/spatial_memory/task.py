@@ -96,6 +96,12 @@ class SpatialMemoryTask(TaskBase):
     def get_observation_cfg(self):
         return make_task_observation_cfg(self.logic, self.observation_variant)
 
+    def get_viewer_cfg(self):
+        from isaaclab.envs.common import ViewerCfg
+
+        # A close view of the robot and its workspace, from behind its right shoulder.
+        return ViewerCfg(eye=(-0.75, -1.15, 1.1), lookat=(0.45, 0.1, 0.15), origin_type="env", env_index=0)
+
     def get_mimic_env_cfg(self, arm_mode):
         raise NotImplementedError("Spatial-memory tasks do not define a Mimic configuration.")
 
