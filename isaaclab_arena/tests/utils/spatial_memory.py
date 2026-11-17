@@ -157,14 +157,18 @@ def check_observation_variants(env_name: str, enable_cameras: bool = False, num_
             assert "policy" in obs, f"{variant}: missing proprioception group."
             if enable_cameras:
                 assert "camera_obs" in obs, f"{variant}: missing camera group."
+            # The embodiment's first proprioceptive term (its name depends on the embodiment).
+            proprio = obs["policy"]
+            if isinstance(proprio, dict):
+                proprio = next(iter(proprio.values()))
             if variant == "history_k":
                 k = default_history_length(env.unwrapped.step_dt)
-                assert obs["policy"]["joint_pos"].shape[:2] == (num_envs, k), obs["policy"]["joint_pos"].shape
+                assert proprio.shape[:2] == (num_envs, k), proprio.shape
                 if enable_cameras:
                     image = next(iter(obs["camera_obs"].values()))
                     assert image.shape[:2] == (num_envs, k), image.shape
             else:
-                assert obs["policy"]["joint_pos"].dim() == 2
+                assert proprio.dim() == 2
             if variant == "oracle_map":
                 points = obs["oracle_map"]["points"]
                 boxes = obs["oracle_map"]["boxes"]
