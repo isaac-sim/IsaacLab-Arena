@@ -44,15 +44,15 @@ def create_gr00t_embodiment_adapter(policy_config: Gr00tClosedloopPolicyCfg) -> 
     # Imports are deferred so adapter modules can import Gr00tEmbodimentAdapter without a cycle.
     task_mode = TaskMode(policy_config.task_mode_name)
     if task_mode == TaskMode.DROID_MANIPULATION:
-        from isaaclab_arena_gr00t.policy.droid_adapter import Gr00tDroidAdapter
+        from isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter import Gr00tDroidAdapter
 
         return Gr00tDroidAdapter()
     if task_mode == TaskMode.G1_LOCOMANIPULATION:
-        from isaaclab_arena_gr00t.policy.joint_space_adapter import Gr00tG1LocomanipAdapter
+        from isaaclab_arena_gr00t.policy.embodiment_adapters.g1_wbc_adapter import Gr00tG1WbcAdapter
 
-        return Gr00tG1LocomanipAdapter(policy_config)
+        return Gr00tG1WbcAdapter(policy_config)
     if task_mode == TaskMode.GR1_TABLETOP_MANIPULATION:
-        from isaaclab_arena_gr00t.policy.joint_space_adapter import Gr00tJointSpaceAdapter
+        from isaaclab_arena_gr00t.policy.embodiment_adapters.gr1_arms_adapter import Gr00tGr1ArmsAdapter
 
-        return Gr00tJointSpaceAdapter(policy_config)
+        return Gr00tGr1ArmsAdapter(policy_config)
     raise ValueError(f"Unsupported task mode: {task_mode}")

@@ -21,12 +21,12 @@ from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import create_gr00t_embodiment_adapter
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyCfg,
     build_gr00t_policy_observations,
     extract_rgb_numpy_from_torch,
 )
-from isaaclab_arena_gr00t.policy.gr00t_embodiment_adapter import create_gr00t_embodiment_adapter
 from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file, to_tensor
 
 

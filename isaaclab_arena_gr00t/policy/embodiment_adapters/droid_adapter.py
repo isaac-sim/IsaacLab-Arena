@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from typing import Any
 
-from isaaclab_arena_gr00t.policy.gr00t_embodiment_adapter import Gr00tEmbodimentAdapter
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import Gr00tEmbodimentAdapter
 from isaaclab_arena_gr00t.utils.io_utils import to_numpy
 
 

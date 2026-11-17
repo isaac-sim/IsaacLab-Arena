@@ -33,8 +33,9 @@ import pytest
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.policy import action_scheduling
 from isaaclab_arena_gr00t.policy import gr00t_remote_closedloop_policy as gr00t_policy
-from isaaclab_arena_gr00t.policy.droid_adapter import Gr00tDroidAdapter
-from isaaclab_arena_gr00t.policy.joint_space_adapter import Gr00tG1LocomanipAdapter
+from isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter import Gr00tDroidAdapter
+from isaaclab_arena_gr00t.policy.embodiment_adapters.g1_wbc_adapter import Gr00tG1WbcAdapter
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr1_arms_adapter import Gr00tGr1ArmsAdapter
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 pytestmark = pytest.mark.gr00t_policy
@@ -49,6 +50,7 @@ ACTION_CHUNK_LENGTH = 50
 EXPECTED_ACTION_DIM = 50  # 43 joints + 3 nav + 1 base height + 3 torso rpy
 
 DROID_CONFIG_YAML = str(Path(gr00t_policy.__file__).parent / "config" / "droid_manip_gr00t_closedloop_config.yaml")
+GR1_CONFIG_YAML = str(Path(gr00t_policy.__file__).parent / "config" / "gr1_manip_gr00t_closedloop_config.yaml")
 DROID_CAMERA_SHAPE = (NUM_ENVS, 360, 640, NUM_CHANNELS)
 DROID_ACTION_HORIZON = 32  # action_horizon in droid_manip_gr00t_closedloop_config.yaml
 DROID_NUM_ARM_JOINTS = 7
@@ -360,11 +362,12 @@ def test_default_image_size_keeps_gr00t_padding_in_the_loop():
 
 
 def test_task_mode_selects_embodiment_adapter(policy_config_yaml, fake_client_factory):
-    """DROID uses its observation-based adapter; G1 keeps the joint-space adapter with WBC commands."""
+    """DROID uses its observation-based adapter; GR1 and G1 use joint-space adapters."""
     fake_client_factory(ping_ok=True)
 
     assert isinstance(_build_policy(DROID_CONFIG_YAML).embodiment_adapter, Gr00tDroidAdapter)
-    assert isinstance(_build_policy(policy_config_yaml).embodiment_adapter, Gr00tG1LocomanipAdapter)
+    assert isinstance(_build_policy(GR1_CONFIG_YAML).embodiment_adapter, Gr00tGr1ArmsAdapter)
+    assert isinstance(_build_policy(policy_config_yaml).embodiment_adapter, Gr00tG1WbcAdapter)
 
 
 def test_droid_state_sent_to_server_uses_normalized_gripper(droid_observation, fake_client_factory):
