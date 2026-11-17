@@ -313,6 +313,7 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
 
 def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> bool:
     """Spawn the requested backend and complete pick-and-place after teleporting the object."""
+    import math
     import sys
     import torch
 
@@ -362,6 +363,20 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         deformable = env.unwrapped.scene.deformable_objects["pick_object"]
         assert isinstance(deformable.cfg.spawn.deformable_props, expected_deformable_props_type)
+        # Teleportation excites elastic motion, which can take more than two seconds to decay.
+        # Keep the production speed threshold and exit each settling phase as soon as it completes.
+        settling_steps = math.ceil(5.0 / env.unwrapped.step_dt)
+
+        def motion_diagnostics() -> dict[str, list[float]]:
+            nodal_velocity_W = deformable.data.nodal_vel_w.torch
+            mean_velocity_W = env.unwrapped.arena_world.get_mean_linear_velocity_w("pick_object")
+            mean_speed = torch.linalg.vector_norm(mean_velocity_W, dim=-1)
+            nodal_speed = torch.linalg.vector_norm(nodal_velocity_W, dim=-1)
+            return {
+                "mean_speed_m_s": mean_speed.tolist(),
+                "nodal_p90_speed_m_s": torch.quantile(nodal_speed, 0.9, dim=1).tolist(),
+            }
+
         rest_state = deformable.data.nodal_state_w.torch.clone()
         rest_state[..., 3:] = 0.0
         deformable.write_nodal_state_to_sim_index(rest_state)
@@ -377,9 +392,14 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
                 events = extras["progress_tracking"]["events"]
                 if all(len(env_events) >= required_count for env_events in events):
                     return
-            raise AssertionError(f"{phase} did not complete predicate {required_count} within {max_steps} steps.")
+            raise AssertionError(
+                f"{phase} did not complete predicate {required_count} within {max_steps} steps. "
+                f"Progress counts: {[len(env_events) for env_events in events]}; {motion_diagnostics()}"
+            )
 
-        step_until_predicates_complete(required_count=1, max_steps=30, phase="Recording the initial rest pose")
+        step_until_predicates_complete(
+            required_count=1, max_steps=settling_steps, phase="Recording the initial rest pose"
+        )
 
         lifted_state = deformable.data.nodal_state_w.torch.clone()
         lifted_state[..., 2] += 0.1
@@ -407,7 +427,7 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         deformable.write_nodal_kinematic_target_to_sim_index(kinematic_targets)
 
         completed = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
-        for _ in range(builder.arena_env.task.placement_consecutive_steps + 30):
+        for _ in range(builder.arena_env.task.placement_consecutive_steps + settling_steps):
             _, _, terminated, truncated, extras = env.step(actions)
             assert not truncated.any(), "The task timed out before the placement could register."
             progress_states = extras["progress_tracking"]["states"]
@@ -418,7 +438,7 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
                 break
         assert completed.all(), (
             "Teleporting the lifted deformable objects onto the plate did not terminate every environment: "
-            f"{completed.tolist()}"
+            f"{completed.tolist()}; {motion_diagnostics()}"
         )
     finally:
         env.close()
@@ -447,7 +467,10 @@ def test_deformable_placement_is_not_immediate_task_success():
 
 @pytest.mark.parametrize(
     "physics_backend",
-    ["physx", pytest.param("newton", marks=pytest.mark.with_newton)],
+    [
+        "physx",
+        pytest.param("newton", marks=pytest.mark.with_newton),
+    ],
 )
 def test_droid_deformable_environment(physics_backend):
     assert run_function_with_persistent_simulation_app(

@@ -69,7 +69,11 @@ class DeformableCubePhysx(LibraryDeformableObject):
     tags = ["object", "deformable", "physx"]
     spawner_cfg = sim_utils.MeshCuboidCfg(
         size=(0.15, 0.04, 0.04),
-        deformable_props=PhysxDeformableBodyPropertiesCfg(linear_damping=0.0),
+        deformable_props=PhysxDeformableBodyPropertiesCfg(
+            linear_damping=0.0,
+            # Dampen residual contact oscillations so the cube can settle after release.
+            settling_damping=50.0,
+        ),
         collision_props=[PhysxCollisionCfg(rest_offset=0.0, contact_offset=0.0025)],
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
         physics_material=PhysxDeformableBodyMaterialCfg(
