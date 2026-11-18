@@ -37,9 +37,9 @@ Evaluation Methods
 There are three ways to evaluate a trained policy. Each one runs ``experiment_runner.py`` with an
 Experiment YAML:
 
-1. **Single environment**: detailed evaluation with metrics
-2. **Parallel environments**: larger-scale statistical evaluation
-3. **Batch evaluation**: automated evaluation across multiple checkpoints
+1. **One environment**: evaluate one checkpoint and print its metrics
+2. **Parallel environments**: evaluate one checkpoint across many environments for more episodes
+3. **Several checkpoints**: one Run per checkpoint in the same Experiment, evaluated in sequence
 
 
 Method 1: Single Environment Evaluation
@@ -122,8 +122,8 @@ episodes on the command line:
    :height: 400px
 
 
-Method 3: Batch Evaluation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Method 3: Compare Checkpoints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To evaluate multiple checkpoints in sequence, declare one Run per checkpoint in an Experiment YAML.
 This YAML evaluates ``model_1000.pt`` and ``model_1999.pt`` from the downloaded folder. Values
