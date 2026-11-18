@@ -7,10 +7,12 @@ or from source inside a Docker container.
 Supported Systems
 -----------------
 
-Isaac Lab Arena runs on Isaac Sim ``6.0.1`` and Isaac Lab ``3.0.0``.
+Isaac Lab Arena runs on Isaac Sim ``6.2.0`` and Isaac Lab ``3.0.0``.
 The dependencies are installed automatically by either workflow below.
 Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are detailed in
-`Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html>`_.
+`Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/requirements.html>`_.
+
+Isaac Lab Arena requires NVIDIA driver 580 or newer, because it uses PyTorch built for CUDA 13.0.
 
 
 Native uv developer setup
