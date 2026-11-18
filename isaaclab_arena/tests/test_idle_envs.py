@@ -24,10 +24,6 @@ def test_idle_env_ids_are_the_envs_outside_the_active_episode_mask():
     assert idle_env_ids(env) == []
 
 
-def test_idle_env_ids_is_empty_for_an_env_without_episode_tracking():
-    assert idle_env_ids(types.SimpleNamespace(unwrapped=types.SimpleNamespace(num_envs=3))) == []
-
-
 def _make_droid_env(embodiment: str):
     from isaaclab_arena.assets.registries import EnvironmentRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -67,15 +63,18 @@ def _test_hold_action_keeps_the_absolute_joint_position_arm_in_place(simulation_
 
 
 def _test_hold_action_is_zero_for_relative_joint_position_terms(simulation_app):
-    """Relative joint position terms hold with a zero delta."""
+    """Relative joint position terms hold with a zero delta, not by repeating the last delta."""
     from isaaclab_arena.policy.idle_envs import hold_action_from_action_manager
 
     env = _make_droid_env("droid_rel_joint_pos")
     try:
         env.reset()
+        action_dim = env.unwrapped.action_manager.total_action_dim
+        env.step(torch.full((NUM_ENVS, action_dim), 0.1, device=env.unwrapped.device))
         hold_action = hold_action_from_action_manager(env)
-        assert hold_action.shape == (NUM_ENVS, env.unwrapped.action_manager.total_action_dim)
-        assert torch.all(hold_action == 0.0)
+        assert hold_action.shape == (NUM_ENVS, action_dim)
+        assert torch.all(hold_action[:, :7] == 0.0), "relative arm terms hold with a zero delta, not the last delta"
+        assert torch.all(hold_action[:, 7] == 0.1), "the binary gripper repeats its last command"
     finally:
         env.close()
     return True

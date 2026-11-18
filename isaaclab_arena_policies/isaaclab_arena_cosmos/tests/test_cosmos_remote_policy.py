@@ -23,7 +23,9 @@ from isaaclab_arena_cosmos.policy.droid_adapter import CosmosDroidAdapter
 
 
 def _fake_env(num_envs: int = 1):
-    return types.SimpleNamespace(unwrapped=types.SimpleNamespace(num_envs=num_envs))
+    return types.SimpleNamespace(
+        unwrapped=types.SimpleNamespace(num_envs=num_envs, active_episode_mask=torch.ones(num_envs, dtype=torch.bool))
+    )
 
 
 def _fake_observation(num_envs: int = 1) -> dict:
