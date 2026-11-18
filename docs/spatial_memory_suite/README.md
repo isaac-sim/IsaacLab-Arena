@@ -199,6 +199,41 @@ Success rates over 50 seeds (seed 1234) at the default difficulty:
 | 9 | Restock into the empty slot | 1.00 | 0.22 |
 | 10 | The cart someone moved | 0.98 | 0.12 |
 
+## A model baseline: pi05 (zero-shot)
+
+The Franka tasks can run on DROID (a Franka with a Robotiq gripper) with `--robot droid`, so policies trained on DROID
+data can be evaluated on them. The `droid_wrist_only` OpenPI adapter fills both pi0/pi05 image inputs from the wrist
+camera, which keeps the evaluation egocentric. Start the OpenPI server (see the OpenPI quickstart), then:
+
+```bash
+python isaaclab_arena/evaluation/policy_runner.py \
+    --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
+    --policy_variant pi05 --openpi_embodiment_adapter droid_wrist_only \
+    --remote_host 127.0.0.1 --remote_port 8000 \
+    --num_episodes 20 --num_envs 1 --enable_cameras \
+    spatial_memory_mug_past_door --robot droid
+```
+
+pi05 (`pi05_droid_jointpos`, zero-shot, the task description as its prompt), 20 episodes per task:
+
+| # | Task | Success | Collision rate |
+| - | --- | --- | --- |
+| 1 | Put the mug away past the open door | 0.00 | 0.95 |
+| 4 | Load the dishwasher lower rack | 0.00 | 0.15 |
+| 5 | Take the item from the back of the shelf | 0.00 | 1.00 |
+| 6 | Put the item on the high shelf | 0.00 | 0.95 |
+| 7 | Machine tending through an opening | 0.00 | 1.00 |
+| 9 | Restock into the empty slot | 0.00 | 0.30 |
+| 10 | The cart someone moved | 0.00 | 1.00 |
+
+As a check that the setup works, the same server and wrist-only adapter solve Arena's DROID pick-and-place task
+(`droid_pnp_openpi_experiment.yaml`) in 5 of 5 episodes, as does the standard exterior-and-wrist input.
+
+Tasks 2 and 8 are left out: their instruction (which colour to fetch) is a `task_obs` vector that a language-prompted
+policy cannot read. Task 3 runs on the G1. The zero scores do not isolate memory: the suite's scenes, primitive objects
+and insertions into enclosed volumes are far from pi05's training data, so it fails before memory matters. A policy
+that solves the visible-geometry part of these tasks is needed to measure the memory gap.
+
 ## Deviations from the brief
 
 - **Embodiment.** The Franka runs joint-position control with Arena's high-gain arm instead of `franka_ik`, because
