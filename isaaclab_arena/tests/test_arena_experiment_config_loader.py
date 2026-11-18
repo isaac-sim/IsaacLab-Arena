@@ -190,8 +190,6 @@ def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch)
     experiment = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
     assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
 
-    with pytest.raises(AssertionError, match="must register a config"):
-        registry.get_environment_cfg_type(ExternalFrankaTableEnvironment)
     with pytest.raises(AssertionError, match="unknown environment type 'external_without_config'"):
         load_arena_experiment_from_config_file(
             GETTING_STARTED_YAML_PATH,
@@ -199,11 +197,9 @@ def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch)
             overrides=["shared.environment.type=external_without_config"],
         )
 
-    # Typed loading keeps registered aliases after the legacy lookup is removed.
+    # Typed loading keeps registered aliases.
     factory = registry.get_component_by_name("pick_and_place_maple_table")
     registry.register(factory, "maple_alias")
-    # Remove this deletion when the registry's cleanup TODO removes the legacy map.
-    monkeypatch.delattr(registry, "_cfg_types_by_factory_type")
     configured = registry.get_environment_cfg_types()
     assert configured["maple_alias"] is configured["pick_and_place_maple_table"]
     assert "external_without_config" not in configured

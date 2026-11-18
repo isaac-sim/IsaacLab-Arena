@@ -70,7 +70,7 @@ def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():
         environment_factory_type = environment_registry.get_component_by_name(environment_name)
         assert issubclass(environment_factory_type, ArenaEnvironmentFactory)
 
-        environment_cfg_type = environment_registry.get_environment_cfg_type(environment_factory_type)
+        environment_cfg_type = environment_registry.get_environment_cfg_types()[environment_name]
         assert _get_legacy_argparse_cfg_type(environment_factory_type) is environment_cfg_type
         assert is_dataclass(environment_cfg_type), f"{environment_cfg_type.__name__} must be a dataclass"
 
