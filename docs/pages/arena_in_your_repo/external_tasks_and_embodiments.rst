@@ -76,13 +76,21 @@ The ``@register_asset`` decorator registers the class with the
 ``AssetRegistry`` under its ``registry_name``, ``"franka_ik_soft"``, so it can be fetched
 the same way as any built-in embodiment (see :ref:`putting_it_all_together` below for an example).
 
+Recording a Custom Value per Episode
+------------------------------------
+
+The example also records the highest speed the object reached in each episode. It defines the
+``ObjectPeakSpeed`` term from :doc:`../concepts/task/concept_episode_recording_design` and adds it to
+the environment through ``episode_recorder_terms``, as shown below. Each line of the episode results
+then holds the value under the term's name, for example ``"object_motion": {"peak_speed": 0.83}``.
+
 .. _putting_it_all_together:
 
 Putting It All Together
 -----------------------
 
 Here we create an example environment, like in :doc:`external_environments`, but this time
-that composes the custom task and custom embodiment.
+that composes the custom task, the custom embodiment, and the episode recorder term.
 
 .. code-block:: python
 
@@ -123,6 +131,11 @@ that composes the custom task and custom embodiment.
                embodiment=embodiment,
                scene=scene,
                task=task,
+               episode_recorder_terms={
+                   "object_motion": EpisodeRecorderTermCfg(
+                       func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
+                   )
+               },
            )
 
        @staticmethod
