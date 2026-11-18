@@ -13,8 +13,6 @@ Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are det
 `Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/requirements.html>`_.
 
 Isaac Lab Arena requires NVIDIA driver 580 or newer, because it uses PyTorch built for CUDA 13.0.
-With an older driver, runs on the GPU stop at startup with
-``The NVIDIA driver on your system is too old``.
 
 
 Native uv developer setup
