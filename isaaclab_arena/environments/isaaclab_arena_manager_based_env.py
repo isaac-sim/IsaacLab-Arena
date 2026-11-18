@@ -13,7 +13,7 @@ from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg, RecorderTermCfg
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
-from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
+from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 from isaaclab_arena.recording.arena_recorder_manager import (
     ArenaRecorderManager,
     PostStepHookRecorderCfg,
@@ -157,18 +157,16 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             elif not _has_recorder_terms(recorder_cfg):
                 # The per-step hook records nothing, so it alone must not create an empty dataset file.
                 recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_NONE
-            if self.cfg.task_progress is not None:
-                recorder_cfg.progress_tracking = ProgressTrackingRecorderCfg()
-            else:
-                recorder_cfg.post_step_hook = PostStepHookRecorderCfg()
+            recorder_cfg.post_step_hook = PostStepHookRecorderCfg()
             self.cfg.recorders = recorder_cfg
         self.recorder_manager = ArenaRecorderManager(recorder_cfg, self)
 
     def update_task_progress(self) -> None:
-        """Advance configured task progress at most once per control step."""
+        """Advance task progress at most once per control step and publish it in ``extras["progress_tracking"]``."""
         if self._progress_tracker is not None and self._task_progress_step != self.common_step_counter:
             self._progress_tracker.step(self, step_index=self.episode_length_buf)
             self._task_progress_step = self.common_step_counter
+            self.extras["progress_tracking"] = self._progress_tracker.get_progress_snapshot()
 
     def get_language_instruction(self) -> str | None:
         """Return the language instruction that is passed to the policy."""
