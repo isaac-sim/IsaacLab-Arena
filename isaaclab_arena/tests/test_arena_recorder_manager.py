@@ -145,3 +145,44 @@ def _test_empty_recorder_configuration(_simulation_app):
 
 def test_empty_recorder_configuration():
     assert run_function_with_persistent_simulation_app(_test_empty_recorder_configuration)
+
+
+def _test_isaac_lab_skips_record_post_step_without_recorder_terms(_simulation_app):
+    """Isaac Lab calls record_post_step() only while a recorder term is active, which PostStepHookRecorder relies on."""
+    import torch
+    from unittest.mock import patch
+
+    from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+
+    # No task progress, no episode recorder term that follows the episode, and no trajectory recording, so Arena
+    # adds no recorder term.
+    environment = IsaacLabArenaEnvironment(name="no_recorder_terms", scene=Scene(), embodiment=NoEmbodiment())
+    builder = ArenaEnvBuilder(environment, ArenaEnvBuilderCfg(num_envs=1, solve_relations=False))
+    env = builder.make_registered()
+    base_env = env.unwrapped
+    try:
+        assert not base_env.recorder_manager.active_terms, "The test environment must have no recorder terms."
+        env.reset()
+        action = torch.zeros(env.action_space.shape, device=base_env.device)
+        with patch.object(
+            base_env.recorder_manager, "record_post_step", wraps=base_env.recorder_manager.record_post_step
+        ) as record_post_step:
+            env.step(action)
+        assert record_post_step.call_count == 0, (
+            "Isaac Lab now calls RecorderManager.record_post_step() every step, also without recorder terms"
+            " (https://github.com/isaac-sim/IsaacLab/pull/8822). Remove the workaround for the old behavior:"
+            " PostStepHookRecorder and its cfg in isaaclab_arena/recording/arena_recorder_manager.py, the code"
+            " that adds it in IsaacLabArenaManagerBasedRLEnv.load_managers(), the active_terms check at the top of"
+            " ArenaRecorderManager.record_post_step(), and this test."
+        )
+    finally:
+        env.close()
+    return True
+
+
+def test_isaac_lab_skips_record_post_step_without_recorder_terms():
+    assert run_function_with_persistent_simulation_app(_test_isaac_lab_skips_record_post_step_without_recorder_terms)

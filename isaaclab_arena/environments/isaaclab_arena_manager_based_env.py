@@ -147,6 +147,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
         # Isaac Lab calls record_post_step only while a recorder term is active, so add a term that
         # records nothing whenever task progress or an episode recorder term needs per-step updates.
+        # TODO(cvolk, 2026-11-18): Remove this block with PostStepHookRecorder once Arena's Isaac Lab includes
+        # https://github.com/isaac-sim/IsaacLab/pull/8822.
         if self.cfg.task_progress is not None or self.episode_recorder_manager.has_post_step_terms:
             if not recorder_cfg or isinstance(recorder_cfg, dict):
                 recorder_terms = recorder_cfg or {}
