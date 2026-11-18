@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -24,9 +25,12 @@ from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
 if TYPE_CHECKING:
+    import gymnasium as gym
+
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-    from isaaclab_arena.evaluation.arena_run import ArenaRunResult
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
+    from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase
 
 
 # TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
@@ -119,7 +123,15 @@ def _export_selected_kpis(experiment_output_directory: Path, experiment_cfg: Are
     export_kpis(experiment_output_directory, experiment_cfg.kpi_exporters)
 
 
-def main():
+def main(datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None) -> None:
+    """Run an Arena Experiment (one or more typed or legacy-JSON Runs).
+
+    Args:
+        datagen_collector_factory: Optional Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase].
+            When given, each Run whose ArenaRunCfg.datagen is not None gets a collector
+            built from it, driven via a CallbackRecorderTerm. When None, no datagen
+            collection runs and behavior matches the plain evaluation path.
+    """
     args_cli, experiment_overrides = parse_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
     legacy_experiment_config = load_legacy_json_experiment_config(
@@ -199,6 +211,7 @@ def main():
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
             continue_on_error=args_cli.continue_on_error,
+            datagen_collector_factory=datagen_collector_factory,
         )
         for run_result in run_results:
             if run_result.metrics is not None:

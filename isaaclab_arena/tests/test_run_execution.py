@@ -30,6 +30,7 @@ from isaaclab_arena.relations.placement_diagnostics import (
 )
 from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.timer import Timer
 
 
@@ -391,7 +392,7 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
 def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
     received = []
 
-    def build_and_run(run_cfg, output_dir, video_cfg):
+    def build_and_run(run_cfg, output_dir, video_cfg, datagen_collector_factory=None):
         received.append((run_cfg.name, output_dir, video_cfg.video_base_dir))
         return ArenaRunResult(
             run_name=run_cfg.name,
@@ -417,7 +418,7 @@ def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
 def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path):
     attempted = []
 
-    def build_and_run(run_cfg, output_dir, video_cfg):
+    def build_and_run(run_cfg, output_dir, video_cfg, datagen_collector_factory=None):
         attempted.append(run_cfg.name)
         if run_cfg.name == "failing":
             raise RuntimeError("rollout failed")
@@ -453,7 +454,7 @@ def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path)
 def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):
     attempted = []
 
-    def build_and_run(run_cfg, output_dir, video_cfg):
+    def build_and_run(run_cfg, output_dir, video_cfg, datagen_collector_factory=None):
         attempted.append(run_cfg.name)
         raise RuntimeError("rollout failed")
 
@@ -510,7 +511,7 @@ def test_build_environment_tolerates_an_environment_without_recorders(monkeypatc
 def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_path):
     """Each Run's timings cover that Run alone, matching what OSMO produces per process."""
 
-    def build_and_run(run_cfg, output_dir, video_cfg):
+    def build_and_run(run_cfg, output_dir, video_cfg, datagen_collector_factory=None):
         with Timer(run_cfg.name):
             pass
         return ArenaRunResult(
@@ -536,7 +537,7 @@ def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_pat
 def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_path):
     """A failed Run leaves no timings file, which is what the Experiment aggregation expects."""
 
-    def build_and_run(run_cfg, output_dir, video_cfg):
+    def build_and_run(run_cfg, output_dir, video_cfg, datagen_collector_factory=None):
         if run_cfg.name == "failing":
             raise RuntimeError("rollout failed")
         with Timer("step"):
@@ -574,7 +575,7 @@ def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebu
         ("failing_fill", 0): second_build,
     }
 
-    def build_environment(cfg, render_mode, output_dir, rebuild_index):
+    def build_environment(cfg, render_mode, output_dir, rebuild_index, datagen_collector_factory=None):
         if (cfg.name, rebuild_index) == ("failing_fill", 1):
             raise PlacementPoolFillError("pool could not fill", failed_fill)
         return _environment(diagnostics_per_build.get((cfg.name, rebuild_index)))
@@ -611,3 +612,48 @@ def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebu
     for run_name, expected_fills in expected_fills_per_run.items():
         path = tmp_path / run_name / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
         assert AggregatedPlacementDiagnostics.load(path) == AggregatedPlacementDiagnostics(expected_fills)
+
+
+def _test_merges_datagen_term_into_none_recorders_cfg(simulation_app):
+    from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
+
+    from isaaclab_arena.recording.callback_recorder_term import CallbackRecorderTermHandlers
+
+    merged = run_execution._with_datagen_recorder_term(None, build_handlers=lambda env: CallbackRecorderTermHandlers())
+
+    assert isinstance(merged, RecorderManagerBaseCfg)
+    assert hasattr(merged, "datagen_callback")
+    return True
+
+
+def test_merges_datagen_term_into_none_recorders_cfg():
+    assert run_function_with_persistent_simulation_app(_test_merges_datagen_term_into_none_recorders_cfg)
+
+
+def _test_preserves_existing_recorder_terms_alongside_datagen_term(simulation_app):
+    from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
+
+    from isaaclab_arena.recording.callback_recorder_term import CallbackRecorderTermHandlers
+    from isaaclab_arena.utils.configclass import make_configclass
+
+    ExistingRecordersCfg = make_configclass(
+        "ExistingRecordersCfg", [("existing_term", object, "sentinel")], bases=(RecorderManagerBaseCfg,)
+    )
+    existing = ExistingRecordersCfg()
+    # A pre-set value on a field RecorderManagerBaseCfg also declares (not just existing_term,
+    # which only datagen_recorders_cfg lacks): merging must not let datagen_recorders_cfg's
+    # inherited base-class default for this field silently overwrite it.
+    existing.dataset_filename = "already_configured_dataset"
+
+    merged = run_execution._with_datagen_recorder_term(
+        existing, build_handlers=lambda env: CallbackRecorderTermHandlers()
+    )
+
+    assert merged.existing_term == "sentinel"
+    assert merged.dataset_filename == "already_configured_dataset"
+    assert hasattr(merged, "datagen_callback")
+    return True
+
+
+def test_preserves_existing_recorder_terms_alongside_datagen_term():
+    assert run_function_with_persistent_simulation_app(_test_preserves_existing_recorder_terms_alongside_datagen_term)

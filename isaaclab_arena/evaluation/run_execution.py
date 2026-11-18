@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import time
 import traceback
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import fields, replace
 from pathlib import Path
@@ -39,9 +40,13 @@ from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for
 if TYPE_CHECKING:
     import gymnasium as gym
 
+    from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
+
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+    from isaaclab_arena.recording.callback_recorder_term import CallbackRecorderTermHandlers
     from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 
@@ -51,6 +56,7 @@ def execute_experiment(
     record_viewport_video: bool = False,
     record_camera_video: bool = False,
     continue_on_error: bool = False,
+    datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None,
 ) -> list[ArenaRunResult]:
     """Execute an experiment's runs in order and return their results.
 
@@ -60,6 +66,8 @@ def execute_experiment(
         record_viewport_video: Whether to record the viewport for each run.
         record_camera_video: Whether to record observation cameras for each run.
         continue_on_error: Whether to continue with later runs after one fails.
+        datagen_collector_factory: Optional Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase]
+            forwarded to build_and_run for each run.
 
     Returns:
         One result per attempted run, in execution order.
@@ -80,6 +88,7 @@ def execute_experiment(
                     record_camera_video=record_camera_video,
                     video_base_dir=str(run_output_dir),
                 ),
+                datagen_collector_factory=datagen_collector_factory,
             )
         except Exception as error:
             results.append(
@@ -111,8 +120,17 @@ def build_and_run(
     cfg: ArenaRunCfg,
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
+    datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None,
 ) -> ArenaRunResult:
-    """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
+    """Build and execute one typed Arena run, then return its result stamped with its start and end times.
+
+    Args:
+        cfg: The run to build and execute.
+        output_dir: Directory the run's outputs are written to.
+        video_cfg: Optional video recording settings.
+        datagen_collector_factory: Optional Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase]
+            forwarded to _build_environment_from_cfg for each rebuild.
+    """
     start_timestamp_ns = time.time_ns()
     # TODO(xinjieyao, 2026-11-15): Move the per-rebuild collectors (metrics, placement diagnostics, and the coming
     # inference usage) behind one interface with before_rollout(), after_rollout() and on_error() hooks, so this
@@ -138,6 +156,7 @@ def build_and_run(
                 rebuild_video_cfg.render_mode,
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
+                datagen_collector_factory=datagen_collector_factory,
             )
             # Read before the rollout, whose resets can refill the placement pool and replace its diagnostics.
             placement_diagnostics = get_placement_diagnostics(env)
@@ -205,11 +224,38 @@ def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
     return cfg
 
 
+def _with_datagen_recorder_term(
+    recorders_cfg: RecorderManagerBaseCfg | None,
+    build_handlers: Callable[[gym.Env], CallbackRecorderTermHandlers],
+) -> RecorderManagerBaseCfg:
+    """Merge a CallbackRecorderTerm using build_handlers into recorders_cfg.
+
+    recorders_cfg may be None (no other recorder terms configured for this run).
+    """
+    # Isaac Lab manager modules must not load before SimulationApp, so import them when first used.
+    from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
+
+    from isaaclab_arena.recording.callback_recorder_term import CallbackRecorderTermCfg
+    from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
+
+    datagen_recorders_cfg = make_configclass(
+        "DatagenRecorderManagerCfg",
+        [("datagen_callback", CallbackRecorderTermCfg, CallbackRecorderTermCfg(build_handlers=build_handlers))],
+        bases=(RecorderManagerBaseCfg,),
+    )()
+    # datagen_recorders_cfg is passed first so recorders_cfg's already-configured values (not
+    # datagen_recorders_cfg's inherited base-class defaults) win on any field both share.
+    return combine_configclass_instances(
+        "RecorderManagerCfg", datagen_recorders_cfg, recorders_cfg, bases=(RecorderManagerBaseCfg,)
+    )
+
+
 def _build_environment_from_cfg(
     cfg: ArenaRunCfg,
     render_mode: str | None,
     output_dir: str | Path,
     rebuild_index: int = 0,
+    datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None,
 ) -> gym.Env:
     """Compile and instantiate a run's environment.
 
@@ -218,6 +264,9 @@ def _build_environment_from_cfg(
         render_mode: Render mode required by the enabled video recorders.
         output_dir: Directory the run's recorded dataset is exported to.
         rebuild_index: Index of the rebuild this environment serves.
+        datagen_collector_factory: Optional Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase].
+            When given and cfg.datagen is not None, its collector is driven via a
+            CallbackRecorderTerm merged into the env's recorders config.
     """
     # Copy runtime-derived recorder output options into the builder cfg so
     # ArenaEnvBuilder.build_env_cfg sees them without mutating the caller's run config.
@@ -225,7 +274,25 @@ def _build_environment_from_cfg(
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg, rebuild_index=rebuild_index)
-    return arena_builder.make_registered(render_mode=render_mode)
+    if datagen_collector_factory is None or cfg.datagen is None:
+        return arena_builder.make_registered(render_mode=render_mode)
+
+    # ArenaEnvBuilder only sets env_cfg.recorders when mimic is disabled, so a
+    # requested datagen collector would silently never be invoked in mimic mode.
+    assert not cfg.environment_builder.mimic, (
+        f"Run '{cfg.name}' requests datagen collection but mimic mode never sets env_cfg.recorders,"
+        " so the collector would silently never be invoked"
+    )
+
+    from isaaclab_arena.evaluation.datagen_collector import build_datagen_callback_handlers
+
+    def build_handlers(env: gym.Env, run_cfg: ArenaRunCfg = cfg) -> CallbackRecorderTermHandlers:
+        collector: DatagenCollectorBase = datagen_collector_factory(run_cfg, env)
+        return build_datagen_callback_handlers(collector, env=env)
+
+    _, env_cfg, env_kwargs = arena_builder.build_registered()
+    env_cfg.recorders = _with_datagen_recorder_term(env_cfg.recorders, build_handlers)
+    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -> ArenaEnvBuilder:
