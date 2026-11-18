@@ -11,11 +11,9 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.utils import clone
-from isaaclab.utils.string import string_to_callable
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.physics_config import UsdFileCfgPrimPhysicsWrapper
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
@@ -59,29 +57,12 @@ class Background(Object):
         self.object_min_z = object_min_z
 
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
-        """Return the background's spawn config.
-
-        The returned spawner deactivates the physics scenes authored in the background USD. With
-        reset_nested_physics, it also de-instances subtrees containing rigid bodies or articulations and
-        replaces any configured USD spawn function. Without reset_nested_physics, a config with a custom
-        spawn function is returned unchanged, so the physics scenes in its USD stay active.
-        """
+        """Return a USD spawner that materializes nested instance-proxy physics."""
         cfg = super()._get_spawn_cfg(activate_contact_sensors)
         if self.reset_nested_physics:
             assert isinstance(cfg, UsdFileCfg), "Nested background physics requires a USD file spawner"
-        elif not _spawns_with_standard_usd_spawner(cfg):
-            return cfg
-        cfg = cfg.copy()
-        spawn_func = (
-            _spawn_from_usd_with_resettable_nested_physics
-            if self.reset_nested_physics
-            else _spawn_from_usd_without_physics_scenes
-        )
-        if isinstance(cfg, UsdFileCfgPrimPhysicsWrapper):
-            # The per-prim physics spawner runs its wrapped USD spawner before applying the edits.
-            cfg.usd_spawn_func = spawn_func
-        else:
-            cfg.func = spawn_func
+            cfg = cfg.copy()
+            cfg.func = _spawn_from_usd_with_resettable_nested_physics
         return cfg
 
     def get_nested_physics_prim_paths(
@@ -142,19 +123,6 @@ def _deinstance_nested_physics(prim: Usd.Prim) -> None:
         assert deinstanced, f"Failed to de-instance nested physics subtree '{path}'"
 
 
-def _spawns_with_standard_usd_spawner(cfg) -> bool:
-    """Return whether the config spawns with Isaac Lab's spawn_from_usd, directly or under per-prim physics."""
-    if type(cfg) is UsdFileCfg:
-        spawn_func = cfg.func
-    elif type(cfg) is UsdFileCfgPrimPhysicsWrapper:
-        spawn_func = cfg.usd_spawn_func
-    else:
-        return False
-    if isinstance(spawn_func, str):
-        spawn_func = string_to_callable(str(spawn_func))
-    return spawn_func is spawn_from_usd
-
-
 def _deactivate_physics_scenes(prim: Usd.Prim) -> None:
     """Deactivate the physics scenes under the spawned background prim, except those inside instanced subtrees."""
     from pxr import Usd, UsdPhysics
@@ -165,20 +133,6 @@ def _deactivate_physics_scenes(prim: Usd.Prim) -> None:
     physics_scenes = [candidate for candidate in Usd.PrimRange(prim) if candidate.IsA(UsdPhysics.Scene)]
     for physics_scene in physics_scenes:
         physics_scene.SetActive(False)
-
-
-@clone
-def _spawn_from_usd_without_physics_scenes(
-    prim_path: str,
-    cfg: UsdFileCfg,
-    translation: tuple[float, float, float] | None = None,
-    orientation: tuple[float, float, float, float] | None = None,
-    **kwargs,
-) -> Usd.Prim:
-    """Spawn a USD background with its own physics scenes deactivated."""
-    prim = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
-    _deactivate_physics_scenes(prim)
-    return prim
 
 
 @clone

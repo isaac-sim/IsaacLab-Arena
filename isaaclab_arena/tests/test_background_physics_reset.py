@@ -462,7 +462,6 @@ def _test_background_spawn_deactivates_embedded_physics_scene(_) -> bool:
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
 
     with tempfile.TemporaryDirectory() as temp_dir:
         background_path = f"{temp_dir}/background.usd"
@@ -471,83 +470,18 @@ def _test_background_spawn_deactivates_embedded_physics_scene(_) -> bool:
         UsdPhysics.Scene.Define(source_stage, "/Background/PhysicsScene")
         source_stage.GetRootLayer().Save()
 
-        # Cover the plain USD spawner and the per-prim physics wrapper, with and without nested-physics reset.
-        for reset_nested_physics in (True, False):
-            for with_prim_physics in (True, False):
-                stage = create_new_stage()
-                for index in range(2):
-                    UsdGeom.Xform.Define(stage, f"/World/env_{index}")
-                spawn_cfg_addon = {"prim_physics": {"free_body": MassCfg(mass=2.0)}} if with_prim_physics else {}
-                background = Background(
-                    name="background",
-                    usd_path=background_path,
-                    object_min_z=0.0,
-                    reset_nested_physics=reset_nested_physics,
-                    spawn_cfg_addon=spawn_cfg_addon,
-                )
-                spawn = background.object_cfg.spawn
-                spawn.func("/World/env_.*/background", spawn)
-                for index in range(2):
-                    root = stage.GetPrimAtPath(f"/World/env_{index}/background")
-                    # The background's own scene is inactive in every environment.
-                    assert not root.GetChild("PhysicsScene").IsActive()
-                    # Only reset_nested_physics de-instances subtrees containing physics.
-                    assert root.GetChild("Prop_OnlineVisual").IsInstanceable() != reset_nested_physics
-                    expected_mass = 2.0 if with_prim_physics else 1.0
-                    mass = UsdPhysics.MassAPI(root.GetChild("free_body")).GetMassAttr().Get()
-                    assert mass == pytest.approx(expected_mass)
+        stage = create_new_stage()
+        for index in range(2):
+            UsdGeom.Xform.Define(stage, f"/World/env_{index}")
+        background = Background(name="background", usd_path=background_path, object_min_z=0.0)
+        spawn = background.object_cfg.spawn
+        spawn.func("/World/env_.*/background", spawn)
+        for index in range(2):
+            # The background's own scene is inactive in every environment.
+            physics_scene = stage.GetPrimAtPath(f"/World/env_{index}/background/PhysicsScene")
+            assert physics_scene.IsValid() and not physics_scene.IsActive()
     return True
 
 
 def test_background_spawn_deactivates_embedded_physics_scene():
     assert run_function_with_persistent_simulation_app(_test_background_spawn_deactivates_embedded_physics_scene)
-
-
-def _test_background_keeps_custom_spawn_function_without_nested_reset(_) -> bool:
-    """Without nested-physics reset, a custom USD spawn function still runs, alone or under per-prim physics."""
-    import tempfile
-
-    from isaaclab.sim import UsdFileCfg
-    from isaaclab.sim.spawners.from_files import spawn_from_usd
-    from isaaclab.sim.utils import clone, create_new_stage
-    from pxr import Sdf, UsdGeom, UsdPhysics
-
-    from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_prim_physics
-    from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
-
-    @clone
-    def spawn_with_marker(prim_path, cfg, translation=None, orientation=None, **kwargs):
-        prim = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
-        prim.CreateAttribute("arena:test_custom_spawn", Sdf.ValueTypeNames.Bool).Set(True)
-        return prim
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        background_path = f"{temp_dir}/background.usd"
-        _create_background_usds(background_path, f"{temp_dir}/online_asset.usd", include_joint_network=False)
-        custom_cfg = UsdFileCfg(usd_path=background_path, func=spawn_with_marker)
-        wrapped_cfg = make_usd_spawn_cfg_with_prim_physics(custom_cfg, {"free_body": MassCfg(mass=2.0)})
-        for spawner_cfg in (custom_cfg, wrapped_cfg):
-            stage = create_new_stage()
-            for index in range(2):
-                UsdGeom.Xform.Define(stage, f"/World/env_{index}")
-            background = Background(
-                name="background", object_min_z=0.0, reset_nested_physics=False, spawner_cfg=spawner_cfg
-            )
-            spawn = background.object_cfg.spawn
-            spawn.func("/World/env_.*/background", spawn)
-            for index in range(2):
-                root = stage.GetPrimAtPath(f"/World/env_{index}/background")
-                # The custom spawn function ran, and its edit reached every environment.
-                assert root.GetAttribute("arena:test_custom_spawn").Get()
-                if spawner_cfg is wrapped_cfg:
-                    # Per-prim physics still runs around the custom spawn function.
-                    mass = UsdPhysics.MassAPI(root.GetChild("free_body")).GetMassAttr().Get()
-                    assert mass == pytest.approx(2.0)
-    return True
-
-
-def test_background_keeps_custom_spawn_function_without_nested_reset():
-    assert run_function_with_persistent_simulation_app(
-        _test_background_keeps_custom_spawn_function_without_nested_reset
-    )
