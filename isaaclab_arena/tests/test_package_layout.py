@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check that every directory of Python code in the installed packages has an ``__init__.py``.
+"""Check that every directory of Python code in the installed packages is installed by setuptools.
 
 The ``__init__.py`` is what makes a directory part of the built wheel; setuptools skips directories without one.
 """
@@ -11,6 +11,8 @@ The ``__init__.py`` is what makes a directory part of the built wheel; setuptool
 import os
 import pathlib
 import tomllib
+
+from setuptools import find_packages
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -23,38 +25,41 @@ ALLOWLIST = {
 }
 
 
-def _installed_package_roots() -> list[str]:
-    """Return the top-level package names that ``pyproject.toml`` includes in the wheel."""
+def _setuptools_find_config() -> dict:
+    """Return the ``[tool.setuptools.packages.find]`` table of ``pyproject.toml``."""
     with open(REPO_ROOT / "pyproject.toml", "rb") as f:
         pyproject = tomllib.load(f)
-    patterns = pyproject["tool"]["setuptools"]["packages"]["find"]["include"]
-    return [pattern.rstrip("*") for pattern in patterns]
+    return pyproject["tool"]["setuptools"]["packages"]["find"]
 
 
-def _directories_without_init_py(package_root: str) -> list[str]:
-    """Return directories under ``package_root`` holding ``.py`` files but no ``__init__.py``."""
-    missing = []
-    for directory, subdirectories, files in os.walk(REPO_ROOT / package_root):
-        subdirectories[:] = [name for name in subdirectories if name != "__pycache__" and not name.startswith(".")]
-        has_python_files = any(name.endswith(".py") for name in files)
-        if has_python_files and "__init__.py" not in files:
-            missing.append(pathlib.Path(directory).relative_to(REPO_ROOT).as_posix())
-    return missing
+def _python_directories_not_installed() -> set[str]:
+    """Return directories holding ``.py`` files that setuptools does not install.
+
+    A directory is installed only if it and every parent up to the top-level package have an ``__init__.py``,
+    so a missing parent is caught even when the parent has no ``.py`` files of its own.
+    """
+    config = _setuptools_find_config()
+    include = config["include"]
+    installed = set(find_packages(where=str(REPO_ROOT), include=include, exclude=config.get("exclude", [])))
+    not_installed = set()
+    for package_root in (pattern.rstrip("*") for pattern in include):
+        for directory, subdirectories, files in os.walk(REPO_ROOT / package_root):
+            subdirectories[:] = [name for name in subdirectories if name != "__pycache__" and not name.startswith(".")]
+            if not any(name.endswith(".py") for name in files):
+                continue
+            relative = pathlib.Path(directory).relative_to(REPO_ROOT)
+            if ".".join(relative.parts) not in installed:
+                not_installed.add(relative.as_posix())
+    return not_installed
 
 
-def test_python_directories_have_init_py():
+def test_python_directories_are_installed():
     # The wheel is built with ``namespaces = false``, so setuptools drops any directory without an
     # ``__init__.py`` (and everything below it) from a non-editable install.
-    missing = []
-    for package_root in _installed_package_roots():
-        missing.extend(_directories_without_init_py(package_root))
-    unexpected = sorted(set(missing) - ALLOWLIST)
-    assert not unexpected, f"Directories with Python files but no __init__.py (add one or allowlist): {unexpected}"
+    unexpected = sorted(_python_directories_not_installed() - ALLOWLIST)
+    assert not unexpected, f"Directories with Python files not installed by setuptools (add __init__.py): {unexpected}"
 
 
 def test_allowlist_has_no_stale_entries():
-    missing = set()
-    for package_root in _installed_package_roots():
-        missing.update(_directories_without_init_py(package_root))
-    stale = sorted(ALLOWLIST - missing)
-    assert not stale, f"ALLOWLIST entries that now have an __init__.py or no Python files: {stale}"
+    stale = sorted(ALLOWLIST - _python_directories_not_installed())
+    assert not stale, f"ALLOWLIST entries that are now installed or have no Python files: {stale}"
