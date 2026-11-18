@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test how the builder combines built-in, task, and environment episode recorder terms."""
+"""Test how ArenaEnvBuilder combines built-in, task, and environment episode recorder terms."""
 
 import pytest
 

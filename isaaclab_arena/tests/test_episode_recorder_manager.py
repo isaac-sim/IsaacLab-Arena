@@ -13,15 +13,16 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _make_env(num_envs: int = 2):
-    """Return a stand-in env with the attributes the manager reads for the core fields."""
+def _make_env():
+    """Return a two-env stand-in with the attributes the manager reads for the core fields."""
     import torch
     from types import SimpleNamespace
 
     success = torch.tensor([True, False])
     return SimpleNamespace(
-        num_envs=num_envs,
+        num_envs=2,
         device="cpu",
+        # A playing sim makes the manager create class-based terms right away instead of at sim start.
         sim=SimpleNamespace(is_playing=lambda: True),
         cfg=SimpleNamespace(seed=7),
         termination_manager=SimpleNamespace(active_terms=["success"], get_term=lambda name: success),
@@ -32,13 +33,13 @@ def _make_env(num_envs: int = 2):
     )
 
 
-def _make_manager(terms: dict, output_path, env=None):
+def _make_manager(terms: dict, output_path):
     """Build an EpisodeRecorderManager for the given terms that writes to output_path (no file if None)."""
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager, EpisodeRecorderTermCfg
     from isaaclab_arena.utils.configclass import make_configclass
 
     fields = [(name, EpisodeRecorderTermCfg, term_cfg) for name, term_cfg in terms.items()]
-    manager = EpisodeRecorderManager(make_configclass("TestEpisodeRecordersCfg", fields)(), env or _make_env())
+    manager = EpisodeRecorderManager(make_configclass("TestEpisodeRecordersCfg", fields)(), _make_env())
     if output_path is not None:
         manager.set_output_path(output_path)
     return manager
@@ -236,6 +237,7 @@ def _test_terms_without_post_step_need_no_per_step_hook(simulation_app, output_d
         output_dir / "r.jsonl",
     )
     assert not manager.has_post_step_terms
+    # Stepping and resetting stay safe no-ops for terms without their own post_step() and reset().
     manager.post_step()
     assert manager.reset(None) == {}
     return True

@@ -16,7 +16,7 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 
 
 def record_progress_results(env, env_id: int) -> dict[str, Any] | None:
-    """Return the progress-tracking state of env_id's finished episode, or None without progress tracking."""
+    """Return the final progress scores and events of env_id's episode, or None if the env has no task progress."""
     progress = env.extras.get("progress_tracking")
     if not progress:
         return None
