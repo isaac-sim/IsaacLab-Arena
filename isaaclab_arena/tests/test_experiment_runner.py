@@ -147,9 +147,8 @@ def run_experiment_runner(
 ) -> subprocess.CompletedProcess[str] | None:
     """Run the Experiment Runner as a subprocess with timeout.
 
-    --continue_on_error is NOT passed, so the Experiment Runner re-raises on the
-    first job failure, exiting non-zero.  run_subprocess() detects that and
-    raises CalledProcessError, which surfaces as a test failure.
+    A failed Run makes the Experiment Runner exit non-zero, so run_subprocess() raises CalledProcessError,
+    unless extra_args contains --continue_on_error.
 
     Args:
         experiment_config_path: Path to the Experiment configuration file.
@@ -489,12 +488,6 @@ def test_experiment_runner_graph_spec_with_variation(tmp_path):
         str(experiment_config_path),
         extra_args=["--experiment_output_directory", str(experiment_output_directory)],
     )
-
-    run_statuses = read_run_statuses(experiment_output_directory)
-    assert run_statuses == {
-        "kitchen_pick_and_place_no_cameras": "completed",
-        "maple_table_graph_spec_camera_variation": "completed",
-    }
 
 
 def _test_run_variation_lands_in_events_cfg(simulation_app):

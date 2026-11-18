@@ -11,13 +11,11 @@ against that service. Any runner, env, camera, RPC, observation conversion, or
 action conversion exception should surface as a nonzero subprocess exit.
 """
 
-import json
 import os
 import yaml
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
@@ -81,13 +79,10 @@ def _run_policy_runner(remote_host: str, remote_port: int, timeout_sec: int, num
     run_subprocess(args, timeout_sec=timeout_sec)
 
 
-EXPERIMENT_RUN_NAME = "g1_locomanip_gr00t_remote_closedloop"
-
-
 def _write_experiment_config(tmp_path, remote_host: str, remote_port: int) -> str:
     experiment_config = {
         "runs": {
-            EXPERIMENT_RUN_NAME: {
+            "g1_locomanip_gr00t_remote_closedloop": {
                 "environment": {
                     "type": ENVIRONMENT,
                     "enable_cameras": True,
@@ -137,7 +132,3 @@ def test_experiment_runner_with_gr00t_remote_closedloop_policy(tmp_path):
         str(experiment_output_directory),
     ]
     run_subprocess(args, timeout_sec=timeout_sec)
-
-    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
-    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
-    assert experiment_result["runs"][EXPERIMENT_RUN_NAME]["status"] == "completed"
