@@ -40,7 +40,8 @@ control step, ``reset()`` when an episode starts, and the term itself when the e
        def post_step(self, env):
            velocity_w = env.arena_world.get_mean_linear_velocity_w(self._object_name)
            speed = torch.linalg.norm(velocity_w, dim=-1)
-           # Update in place: Arena may step inside torch.inference_mode() and reset outside it.
+           # Update in place: a tensor created inside torch.inference_mode(), where Arena may step,
+           # cannot be written in place by reset() outside it.
            torch.maximum(self._peak_speed, speed, out=self._peak_speed)
 
        def reset(self, env_ids=None):

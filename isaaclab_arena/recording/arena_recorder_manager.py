@@ -42,7 +42,7 @@ class ArenaRecorderManager(RecorderManager):
     """
 
     def record_post_step(self) -> None:
-        """Update task progress and episode recorder terms before recorder terms observe the completed step."""
+        """Advance task progress and the episode recorder terms, then run the Isaac Lab recorder terms for this step."""
         if not self.active_terms:
             return
         self._env.update_task_progress()
@@ -116,7 +116,10 @@ class ArenaRecorderManager(RecorderManager):
 
 
 class PostStepHookRecorder(RecorderTerm):
-    """Records nothing. Keeps Isaac Lab calling record_post_step so Arena can update per-step state."""
+    """Recorder term that records nothing and keeps Isaac Lab calling ``record_post_step()`` every control step.
+
+    That call is where ArenaRecorderManager advances task progress and the episode recorder terms.
+    """
 
     def record_post_step(self):
         return None, None

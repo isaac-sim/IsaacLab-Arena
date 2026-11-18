@@ -155,7 +155,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 for term_name, term_cfg in recorder_terms.items():
                     setattr(recorder_cfg, term_name, term_cfg)
             elif not _has_recorder_terms(recorder_cfg):
-                # The per-step hook records nothing, so it alone must not create an empty dataset file.
+                # PostStepHookRecorder records nothing, so on its own it must not create an empty dataset file.
                 recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_NONE
             recorder_cfg.post_step_hook = PostStepHookRecorderCfg()
             self.cfg.recorders = recorder_cfg
