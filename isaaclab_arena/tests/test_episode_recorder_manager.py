@@ -219,11 +219,21 @@ def test_class_term_is_stepped_and_reset_per_env(tmp_path):
     )
 
 
-def _test_function_terms_need_no_post_step(simulation_app, output_dir):
-    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+def _test_terms_without_post_step_need_no_per_step_hook(simulation_app, output_dir):
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm, EpisodeRecorderTermCfg
+
+    class EndOfEpisodeValue(EpisodeRecorderTerm):
+        """Records a value when the episode ends, without following the episode step by step."""
+
+        def __call__(self, env, env_id):
+            return {"value": 1}
 
     manager = _make_manager(
-        {"bucket": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1})}, output_dir / "r.jsonl"
+        {
+            "bucket": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1}),
+            "end_value": EpisodeRecorderTermCfg(func=EndOfEpisodeValue),
+        },
+        output_dir / "r.jsonl",
     )
     assert not manager.has_post_step_terms
     manager.post_step()
@@ -231,7 +241,7 @@ def _test_function_terms_need_no_post_step(simulation_app, output_dir):
     return True
 
 
-def test_function_terms_need_no_post_step(tmp_path):
+def test_terms_without_post_step_need_no_per_step_hook(tmp_path):
     assert run_function_with_persistent_simulation_app(
-        partial(_test_function_terms_need_no_post_step, output_dir=tmp_path)
+        partial(_test_terms_without_post_step_need_no_per_step_hook, output_dir=tmp_path)
     )

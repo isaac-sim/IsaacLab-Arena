@@ -117,7 +117,9 @@ class EpisodeRecorderManager(ManagerBase):
     @property
     def has_post_step_terms(self) -> bool:
         """Whether any term follows its episode step by step."""
-        return bool(self._class_term_cfgs)
+        return any(
+            type(term_cfg.func).post_step is not EpisodeRecorderTerm.post_step for term_cfg in self._class_term_cfgs
+        )
 
     def post_step(self) -> None:
         """Let every class-based term update its state after a control step."""
@@ -146,10 +148,6 @@ class EpisodeRecorderManager(ManagerBase):
                 if output is None:
                     continue
                 self._assert_json_object(term_name, output)
-                assert term_name not in record, (
-                    f"Episode recorder term '{term_name}' would overwrite a core record field; "
-                    "add the field to CORE_FIELD_NAMES."
-                )
                 record[term_name] = output
             self._append_record(record)
 
@@ -174,9 +172,7 @@ class EpisodeRecorderManager(ManagerBase):
         return fields
 
     def _append_record(self, record: dict[str, Any]) -> None:
-        """Append one record to the output JSONL (one object per line); no-op if no path was set."""
-        if self._output_path is None:
-            return
+        """Append one record to the output JSONL, one object per line."""
         with open(self._output_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, allow_nan=False) + "\n")
 

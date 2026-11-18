@@ -227,6 +227,10 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
 
 
 def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
+    from isaaclab_arena.recording.episode_recorder_manager import CORE_FIELD_NAMES
+
+    # Term names are checked against CORE_FIELD_NAMES, so it must list every core field the manager writes.
+    assert CORE_KEYS | {"replay_source_record_index"} == CORE_FIELD_NAMES
     env, output_path = create_recorder_env(output_dir)
     try:
         records = _roll_out_and_read_episode_record(env, output_path)
