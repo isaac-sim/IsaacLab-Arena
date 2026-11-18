@@ -86,7 +86,7 @@ When the Run finishes, the runner prints a metrics summary:
 
    lift_object_rsl_rl:
      num_episodes                           20
-     success_rate                       0.8100
+     success_rate                       1.0000
    ======================================================================
 
 
@@ -114,7 +114,7 @@ episodes on the command line:
 
    lift_object_rsl_rl:
      num_episodes                         1024
-     success_rate                       0.7200
+     success_rate                       1.0000
    ======================================================================
 
 .. image:: ../../../images/lift_object_rl_parallel.gif
@@ -163,11 +163,11 @@ The runner evaluates the Runs in YAML order and prints a summary for both:
 
    lift_object_model_1000:
      num_episodes                         1024
-     success_rate                       0.6526
+     success_rate                       0.9697
 
    lift_object_model_1999:
      num_episodes                         1024
-     success_rate                       0.7408
+     success_rate                       1.0000
    ======================================================================
 
 
@@ -179,7 +179,7 @@ The Lift Object task reports two metrics:
 - ``success_rate``: fraction of episodes where the object reached the target position within tolerance
 - ``num_episodes``: total number of completed episodes during the evaluation run
 
-A well-trained policy should reach 70–90% success rate. Results will vary with the target range,
+A well-trained policy should reach a success rate of at least 70%. Results will vary with the target range,
 random seed, and hardware.
 
 .. note::
