@@ -11,14 +11,12 @@ The test passes if no environment errors out during startup or stepping.
 """
 
 import argparse
-import json
 import yaml
 
 import pytest
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
-from isaaclab_arena.tests.test_experiment_runner import run_experiment_runner
+from isaaclab_arena.tests.test_experiment_runner import read_run_statuses, run_experiment_runner
 from isaaclab_arena_environments.cli import add_environment_cli_args, ensure_environments_registered
 
 NUM_STEPS = 2
@@ -71,14 +69,11 @@ def test_experiment_runner_all_environments(tmp_path):
     run_experiment_runner(
         str(config_path),
         headless=HEADLESS,
-        config_option="--experiment_config",
         extra_args=["--experiment_output_directory", str(experiment_output_directory)],
         timeout_sec=30 * 60,
     )
 
-    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
-    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
-    run_statuses = {run_name: run_result["status"] for run_name, run_result in experiment_result["runs"].items()}
+    run_statuses = read_run_statuses(experiment_output_directory)
     assert run_statuses == {run_name: "completed" for run_name in runs}
 
 

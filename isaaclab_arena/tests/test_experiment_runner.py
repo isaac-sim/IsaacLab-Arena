@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -148,7 +148,6 @@ def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
 def run_experiment_runner(
     experiment_config_path: str,
     headless: bool = HEADLESS,
-    config_option: str = "--eval_jobs_config",
     extra_args: list[str] | None = None,
     capture_output: bool = False,
     timeout_sec: int | None = None,
@@ -162,7 +161,6 @@ def run_experiment_runner(
     Args:
         experiment_config_path: Path to the Experiment configuration file.
         headless: Whether to run in headless mode.
-        config_option: CLI option used to pass the Experiment path.
         extra_args: Additional Experiment Runner arguments.
         capture_output: Whether to capture and return the subprocess output.
         timeout_sec: Override the default subprocess timeout in seconds.
@@ -171,7 +169,7 @@ def run_experiment_runner(
         The completed subprocess when output is captured, otherwise None.
     """
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/experiment_runner.py"]
-    args.append(config_option)
+    args.append("--experiment_config")
     args.append(experiment_config_path)
     args.extend(extra_args or [])
     if not headless:
@@ -179,6 +177,12 @@ def run_experiment_runner(
         args.append(DEFAULT_VISUALIZER)
 
     return run_subprocess(args, capture_output=capture_output, timeout_sec=timeout_sec)
+
+
+def read_run_statuses(experiment_output_directory: Path) -> dict[str, str]:
+    """Return each Run's status from an Experiment's result file."""
+    experiment_result = ArenaExperimentResult.from_experiment_output(experiment_output_directory)
+    return {run_name: run_data["status"] for run_name, run_data in experiment_result.runs.items()}
 
 
 def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monkeypatch, tmp_path):
@@ -245,7 +249,6 @@ runs:
 
     result = run_experiment_runner(
         str(experiment_config_path),
-        config_option="--experiment_config",
         extra_args=[
             "--experiment_output_directory",
             str(tmp_path / "output"),
@@ -314,7 +317,6 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
 
     run_experiment_runner(
         str(experiment_config_path),
-        config_option="--experiment_config",
         extra_args=["--experiment_output_directory", str(output_dir)],
     )
 
@@ -364,7 +366,6 @@ runs:
     output_dir = tmp_path / "output"
     run_experiment_runner(
         str(experiment_config_path),
-        config_option="--experiment_config",
         extra_args=[
             "--experiment_output_directory",
             str(output_dir),
@@ -512,9 +513,7 @@ def test_experiment_runner_runs_default_experiment(tmp_path, monkeypatch):
         str(experiment_output_directory),
     ])
 
-    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
-    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
-    run_statuses = {run_name: run_result["status"] for run_name, run_result in experiment_result["runs"].items()}
+    run_statuses = read_run_statuses(experiment_output_directory)
     assert run_statuses == {"smoke_test": "completed"}
 
 
@@ -550,13 +549,10 @@ runs:
 
     run_experiment_runner(
         str(experiment_config_path),
-        config_option="--experiment_config",
         extra_args=["--experiment_output_directory", str(experiment_output_directory)],
     )
 
-    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
-    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
-    run_statuses = {run_name: run_result["status"] for run_name, run_result in experiment_result["runs"].items()}
+    run_statuses = read_run_statuses(experiment_output_directory)
     assert run_statuses == {"single_env_joint": "completed", "multi_env_pink": "completed"}
 
 
@@ -653,13 +649,10 @@ def test_experiment_runner_graph_spec_with_variation(tmp_path):
 
     run_experiment_runner(
         str(experiment_config_path),
-        config_option="--experiment_config",
         extra_args=["--experiment_output_directory", str(experiment_output_directory)],
     )
 
-    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
-    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
-    run_statuses = {run_name: run_result["status"] for run_name, run_result in experiment_result["runs"].items()}
+    run_statuses = read_run_statuses(experiment_output_directory)
     assert run_statuses == {
         "kitchen_pick_and_place_no_cameras": "completed",
         "maple_table_graph_spec_camera_variation": "completed",
