@@ -79,6 +79,7 @@ See the [documentation overview](https://isaac-sim.github.io/IsaacLab-Arena/rele
 
 - Linux (Ubuntu 22.04+)
 - NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/requirements.html))
+- NVIDIA driver 580 or newer (Arena uses PyTorch built for CUDA 13.0)
 - [uv](https://docs.astral.sh/uv/) (for the native install), or Docker and the NVIDIA Container Toolkit (for the container install)
 - Git
 
