@@ -147,8 +147,8 @@ def test_empty_recorder_configuration():
     assert run_function_with_persistent_simulation_app(_test_empty_recorder_configuration)
 
 
-def _test_isaac_lab_skips_record_post_step_without_recorder_terms(_simulation_app):
-    """Isaac Lab calls record_post_step() only while a recorder term is active, which PostStepHookRecorder relies on."""
+def _test_post_step_hook_recorder_is_still_needed(_simulation_app):
+    """Guards PostStepHookRecorder: fails once Isaac Lab calls record_post_step() without recorder terms (#8822)."""
     import torch
     from unittest.mock import patch
 
@@ -184,5 +184,5 @@ def _test_isaac_lab_skips_record_post_step_without_recorder_terms(_simulation_ap
     return True
 
 
-def test_isaac_lab_skips_record_post_step_without_recorder_terms():
-    assert run_function_with_persistent_simulation_app(_test_isaac_lab_skips_record_post_step_without_recorder_terms)
+def test_post_step_hook_recorder_is_still_needed():
+    assert run_function_with_persistent_simulation_app(_test_post_step_hook_recorder_is_still_needed)
