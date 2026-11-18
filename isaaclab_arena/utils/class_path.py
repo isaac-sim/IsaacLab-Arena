@@ -12,9 +12,6 @@ def import_class_from_path(class_path: str, separator: str = ".") -> type:
     Args:
         class_path: Module path and class name joined by ``separator``, for example ``my_package.envs.MyEnvironment``.
         separator: Text between the module path and the class name.
-
-    Returns:
-        The imported class.
     """
     assert (
         separator in class_path
