@@ -217,6 +217,8 @@ class G1Adapter:
     """Bodies that hold the load."""
 
     tool_body: str = "pelvis"
+    body_prim_paths: dict[str, str] = field(default_factory=dict)
+    """Prim path below the robot prim of each contact body whose prim is not a direct child (default: its name)."""
 
     def make_embodiment(self, enable_cameras: bool):
         """Create the Arena embodiment (contact reporting is enabled on the G1 by default)."""

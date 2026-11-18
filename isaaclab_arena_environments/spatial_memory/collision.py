@@ -40,7 +40,8 @@ def make_contact_sensor_cfgs(logic: SpatialMemoryTaskLogic) -> dict:
     adapter = logic.embodiment
     for body_label in adapter.arm_links + adapter.gripper_bodies:
         sensors[filtered_sensor_name(body_label)] = ContactSensorCfg(
-            prim_path="{ENV_REGEX_NS}/Robot/" + body_label, filter_prim_paths_expr=part_paths
+            prim_path="{ENV_REGEX_NS}/Robot/" + adapter.body_prim_paths.get(body_label, body_label),
+            filter_prim_paths_expr=part_paths,
         )
     for spec in logic.part_specs():
         if spec.kind != PartKind.ITEM:

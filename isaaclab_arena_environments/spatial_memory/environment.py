@@ -31,6 +31,10 @@ class SpatialMemoryEnvironmentCfg(ArenaEnvironmentCfg):
     difficulty: float | None = None
     """Value of the task's difficulty knob; None uses the task default."""
 
+    robot: Literal["default", "droid"] = "default"
+    """``droid`` swaps the Franka tasks' robot for DROID (Franka with a Robotiq gripper) to evaluate DROID-trained
+    policies; the scripted controllers support only the default robot."""
+
 
 def build_spatial_memory_environment(
     name: str, logic: SpatialMemoryTaskLogic, cfg: SpatialMemoryEnvironmentCfg
@@ -46,6 +50,11 @@ def build_spatial_memory_environment(
     from isaaclab_arena_environments.spatial_memory.parts import make_part_object
     from isaaclab_arena_environments.spatial_memory.task import SpatialMemoryTask
 
+    if cfg.robot == "droid":
+        from isaaclab_arena_environments.spatial_memory.embodiment_adapter import DroidAdapter, FrankaAdapter
+
+        assert isinstance(logic.embodiment, FrankaAdapter), f"{name} cannot run on DROID: it is not a Franka task."
+        logic.embodiment = DroidAdapter()
     variant = ObservationVariant(cfg.observation_variant)
     asset_registry = AssetRegistry()
     # Spawn every part at the layout of a fixed sample so that the first frames are physically sensible; the reset

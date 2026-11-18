@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import torch
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from isaaclab_arena_environments.spatial_memory.geometry import compose_poses
 from isaaclab_arena_environments.spatial_memory.layout_utils import FLOOR_Z_M
@@ -57,6 +57,8 @@ class FrankaAdapter:
     arm_links: tuple[str, ...] = tuple(f"panda_link{index}" for index in range(1, 8))
     gripper_bodies: tuple[str, ...] = ("panda_hand", "panda_leftfinger", "panda_rightfinger")
     tool_body: str = "panda_hand"
+    body_prim_paths: dict[str, str] = field(default_factory=dict)
+    """Prim path below the robot prim of each contact body whose prim is not a direct child (default: its name)."""
     arm_action_name: str = "arm_action"
 
     def make_embodiment(self, enable_cameras: bool):
@@ -144,3 +146,87 @@ class FrankaAdapter:
         term = env.action_manager.get_term(self.arm_action_name)
         arm_action = (joint_targets - term._offset) / term._scale
         return torch.cat([arm_action, gripper.unsqueeze(-1)], dim=-1)
+
+
+DROID_TOOL_OFFSET = (0.131, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
+"""Grasp point between the Robotiq finger pads in the gripper's ``base_link`` frame (approach axis +x)."""
+
+DROID_IMAGE_SIZE = (360, 640)
+"""(height, width) of the DROID wrist image; enough for policies that resize to 224 x 224."""
+
+
+@dataclass
+class DroidAdapter:
+    """DROID (Franka with a Robotiq 2F-85) with absolute joint-position actions and its wrist camera.
+
+    For evaluating policies trained on DROID data on the Franka tasks; the suite's scripted controllers drive the
+    Franka hand and do not support it.
+    """
+
+    floor_z_m: float = FLOOR_Z_M
+    """Floor height in the environment frame (the robot base is at the origin)."""
+
+    registry_name: str = "droid_abs_joint_pos"
+    arm_links: tuple[str, ...] = tuple(f"panda_link{index}" for index in range(1, 8))
+    gripper_bodies: tuple[str, ...] = (
+        "robotiq_base_link",
+        "robotiq_left_inner_finger",
+        "robotiq_right_inner_finger",
+    )
+    tool_body: str = "base_link"
+    body_prim_paths: dict[str, str] = field(
+        default_factory=lambda: {
+            "robotiq_base_link": "Gripper/Robotiq_2F_85/base_link",
+            "robotiq_left_inner_finger": "Gripper/Robotiq_2F_85/left_inner_finger",
+            "robotiq_right_inner_finger": "Gripper/Robotiq_2F_85/right_inner_finger",
+        }
+    )
+    """Prim path below the robot prim of each contact body whose prim is not a direct child."""
+
+    def make_embodiment(self, enable_cameras: bool):
+        """Create the DROID embodiment on a stand that reaches the floor, rendering only a downsized wrist camera."""
+        from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
+
+        embodiment = DroidAbsoluteJointPositionEmbodiment(enable_cameras=enable_cameras, stand_height_m=-self.floor_z_m)
+        cameras = embodiment.camera_config
+        cameras.wrist_camera.height, cameras.wrist_camera.width = DROID_IMAGE_SIZE
+        # The suite is egocentric: the exterior cameras are kept tiny, and nothing should read them.
+        for name in ("external_camera", "external_camera_2"):
+            camera = getattr(cameras, name)
+            camera.height, camera.width = 18, 32
+        return embodiment
+
+    def configure_env_cfg(self, env_cfg):
+        """Return the compiled environment configuration unchanged."""
+        return env_cfg
+
+    def make_scripted_controller(self, env):
+        """The scripted controllers drive the Franka hand only."""
+        raise NotImplementedError("The spatial-memory scripted controllers support the Franka and the G1, not DROID.")
+
+    def camera_model(self) -> CameraModel:
+        """Return the wrist camera model at the rendered resolution."""
+        from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
+
+        camera_cfg = DroidCameraCfg().wrist_camera
+        camera_cfg.height, camera_cfg.width = DROID_IMAGE_SIZE
+        return camera_model_from_cfg(camera_cfg, mount_body="base_link")
+
+    def camera_obs_key(self) -> str:
+        """Return the observation key of the egocentric RGB image."""
+        return "wrist_camera_rgb"
+
+    def robot_occluders(self) -> list[RobotOccluder]:
+        """Return no robot boxes: the gripper is ignored, which can only overstate what the camera sees."""
+        return []
+
+    def tool_pose_w(self, env) -> torch.Tensor:
+        """Return the grasp point pose (N, 7) in the world frame."""
+        robot = env.scene["robot"]
+        T_W_gripper = robot.data.body_link_pose_w.torch[:, robot.data.body_names.index(self.tool_body)]
+        offset = torch.tensor(DROID_TOOL_OFFSET, device=env.device).expand(env.num_envs, 7)
+        return compose_poses(T_W_gripper, offset)
+
+    def gripper_closed(self, env) -> torch.Tensor:
+        """Return whether the gripper is commanded closed (N,): the binary command closes above 0.5."""
+        return env.action_manager.action[:, -1] > 0.5

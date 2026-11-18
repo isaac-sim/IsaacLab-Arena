@@ -66,15 +66,22 @@ class CameraModel:
 
 
 def camera_model_from_cfg(camera_cfg, mount_body: str) -> CameraModel:
-    """Build a ``CameraModel`` from an Isaac Lab ``CameraCfg`` with a pinhole spawn and a ROS-convention offset.
+    """Build a ``CameraModel`` from an Isaac Lab ``CameraCfg`` with a pinhole spawn and a ROS or OpenGL offset.
 
     The renderer fits the horizontal aperture to the image width and keeps pixels square, so the vertical focal
     length equals the horizontal one (this is checked against rendered segmentation in the suite's camera test).
     """
-    assert camera_cfg.offset.convention == "ros", "The camera offset must use the ROS convention."
+    convention = camera_cfg.offset.convention
+    assert convention in ("ros", "opengl"), f"Unsupported camera offset convention {convention!r}."
     spawn = camera_cfg.spawn
     focal_x_px = camera_cfg.width * spawn.focal_length / spawn.horizontal_aperture
-    T_body_cam = tuple(float(v) for v in camera_cfg.offset.pos) + tuple(float(v) for v in camera_cfg.offset.rot)
+    q_body_cam = tuple(float(v) for v in camera_cfg.offset.rot)
+    if convention == "opengl":
+        q_opengl = torch.tensor(q_body_cam).unsqueeze(0)
+        q_body_cam = tuple(
+            math_utils.convert_camera_frame_orientation_convention(q_opengl, origin="opengl", target="ros")[0].tolist()
+        )
+    T_body_cam = tuple(float(v) for v in camera_cfg.offset.pos) + q_body_cam
     near_m, far_m = spawn.clipping_range
     return CameraModel(
         mount_body=mount_body,

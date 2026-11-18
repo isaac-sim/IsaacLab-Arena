@@ -65,4 +65,8 @@ def _resolve_openpi_embodiment_adapter(key: str) -> Pi0EmbodimentAdapter:
         from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
 
         return Pi0DroidAdapter()
-    raise ValueError(f"Unknown openpi_embodiment_adapter {key!r}; expected 'droid'")
+    if key == "droid_wrist_only":
+        from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidWristOnlyAdapter
+
+        return Pi0DroidWristOnlyAdapter()
+    raise ValueError(f"Unknown openpi_embodiment_adapter {key!r}; expected 'droid' or 'droid_wrist_only'")
