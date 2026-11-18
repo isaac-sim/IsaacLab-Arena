@@ -450,7 +450,7 @@ runs:
 
 
 @pytest.mark.with_subprocess
-def test_experiment_runner_graph_spec_with_variation(tmp_path):
+def test_experiment_runner_graph_spec_camera_run_and_camera_less_run(tmp_path):
     """Run a graph-spec environment with a camera variation next to a camera-less Run.
 
     The graph-spec Run checks that enable_cameras reaches the embodiment, so the wrist camera variation resolves.
@@ -480,7 +480,7 @@ def test_experiment_runner_graph_spec_with_variation(tmp_path):
             },
         }
     }
-    experiment_config_path = tmp_path / "graph_spec_with_variation.yaml"
+    experiment_config_path = tmp_path / "graph_spec_camera_and_camera_less_runs.yaml"
     experiment_config_path.write_text(yaml.safe_dump(experiment_config, sort_keys=False), encoding="utf-8")
     experiment_output_directory = tmp_path / "output"
 
