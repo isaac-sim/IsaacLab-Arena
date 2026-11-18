@@ -59,7 +59,7 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     """Policy that uses a trained RSL-RL model for inference.
 
     Loads the checkpoint and agent config (``params/agent.yaml``) produced by
-    IsaacLab's ``train.py``. No separate policy config file is required.
+    IsaacLab's ``train.py``.
 
     Example Run in an Experiment YAML:
 
