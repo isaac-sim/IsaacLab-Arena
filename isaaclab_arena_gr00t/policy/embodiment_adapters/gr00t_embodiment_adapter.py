@@ -11,8 +11,9 @@ import inspect
 import numpy as np
 import torch
 from abc import ABC, abstractmethod
-from importlib import import_module
 from typing import Any
+
+from isaaclab_arena.utils.class_path import import_class_from_path
 
 
 class Gr00tEmbodimentAdapter(ABC):
@@ -56,10 +57,8 @@ def import_gr00t_embodiment_adapter_class(name_or_class_path: str) -> type[Gr00t
         f"gr00t_embodiment_adapter must be one of {sorted(GR00T_EMBODIMENT_ADAPTER_CLASS_PATHS)} or a dotted class"
         f" path, got {name_or_class_path!r}"
     )
-    module_path, class_name = class_path.rsplit(".", 1)
-    adapter_type = getattr(import_module(module_path), class_name, None)
-    assert adapter_type is not None, f"gr00t_embodiment_adapter {class_path!r}: {module_path} has no {class_name}"
-    assert isinstance(adapter_type, type) and issubclass(
+    adapter_type = import_class_from_path(class_path)
+    assert issubclass(
         adapter_type, Gr00tEmbodimentAdapter
     ), f"gr00t_embodiment_adapter {class_path!r} is not a Gr00tEmbodimentAdapter subclass"
     assert not inspect.isabstract(
