@@ -29,6 +29,8 @@ Arena comes with an existing collection of predicates under ``isaaclab_arena.tas
 * ``object_moving`` — an object exceeds a linear velocity threshold.
 * ``objects_in_proximity`` — two objects are within configured axis-aligned distances.
 * ``object_on_destination`` — destination-footprint, upward-support, and velocity checks for a placement goal.
+* ``object_hull_centroid_in_closed_hull`` — the mean of an object's convex-hull vertices is inside a destination's closed hull.
+* ``object_hull_centroid_in_open_container`` — the same point passes the destination's hull checks after removing its top faces.
 
 .. note::
 
