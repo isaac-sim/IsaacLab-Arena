@@ -167,7 +167,7 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
             scene=scene,
             task=task,
             episode_recorder_terms={
-                "object_motion": EpisodeRecorderTermCfg(
+                "object_peak_speed": EpisodeRecorderTermCfg(
                     func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
                 )
             },

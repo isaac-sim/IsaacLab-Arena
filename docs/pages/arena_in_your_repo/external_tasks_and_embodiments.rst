@@ -82,7 +82,7 @@ Recording a Custom Value per Episode
 The example also records the highest speed the object reached in each episode. It defines the
 ``ObjectPeakSpeed`` term from :doc:`../concepts/task/concept_episode_recording_design` and adds it to
 the environment through ``episode_recorder_terms``, as shown below. Each line of the episode results
-then holds the value under the term's name, for example ``"object_motion": {"peak_speed": 0.83}``.
+then holds the value under the term's name, for example ``"object_peak_speed": {"peak_speed": 0.83}``.
 
 .. _putting_it_all_together:
 
@@ -132,7 +132,7 @@ that composes the custom task, the custom embodiment, and the episode recorder t
                scene=scene,
                task=task,
                episode_recorder_terms={
-                   "object_motion": EpisodeRecorderTermCfg(
+                   "object_peak_speed": EpisodeRecorderTermCfg(
                        func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
                    )
                },
