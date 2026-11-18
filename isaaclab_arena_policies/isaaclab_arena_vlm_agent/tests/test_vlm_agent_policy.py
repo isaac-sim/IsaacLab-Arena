@@ -30,6 +30,7 @@ from isaaclab_arena.inference.backend import (
     build_strict_schema,
 )
 from isaaclab_arena.utils.timer import get_timer_stats, reset_timer_stats
+from isaaclab_arena_vlm_agent import vlm_agent_policy
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.image_utils import extract_rgb_images_from_camera_observations
 from isaaclab_arena_vlm_agent.motion_generator import MotionGenerator
@@ -492,40 +493,46 @@ def test_chunks_replay_in_order_and_reset_independently(backend, action_dim):
     assert len(calls) == 6
 
 
-def test_environments_without_an_active_episode_hold_their_last_action_without_requests(backend):
+def _patch_hold_action(monkeypatch, hold_actions):
+    """Replace the action-manager hold action, which the fake env cannot build, with a fixed tensor."""
+    monkeypatch.setattr(vlm_agent_policy, "hold_action_from_action_manager", lambda env: hold_actions)
+
+
+def test_environments_without_an_active_episode_hold_without_requests(backend, monkeypatch):
     targets = iter([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
     backend.client.chat.completions.create.side_effect = lambda **kwargs: response(
         json.dumps({"target": next(targets)})
     )
+    hold_actions = torch.tensor([[-1.0, -1.0], [-2.0, -2.0]])
+    _patch_hold_action(monkeypatch, hold_actions)
     policy = make_policy(backend)
     env, observation = inputs()
     try:
-        # Env 1 never had an episode, so it still needs one action, which it then holds.
+        # Env 1 never had an episode, so it holds from the first step without a request.
         env.unwrapped.active_episode_mask = torch.tensor([True, False])
         first_actions = policy.get_action(env, observation)
-        assert backend.client.chat.completions.create.call_count == 2
+        assert backend.client.chat.completions.create.call_count == 1
+        torch.testing.assert_close(first_actions[1], hold_actions[1])
 
-        second_actions = policy.get_action(env, observation)
-        assert backend.client.chat.completions.create.call_count == 3
-        torch.testing.assert_close(second_actions[1], first_actions[1])
-
-        # Env 0's episode ends without a replacement, so it is inactive too.
+        # Env 0's episode ends without a replacement, so it holds too.
         env.unwrapped.active_episode_mask = torch.tensor([False, False])
-        third_actions = policy.get_action(env, observation)
-        assert backend.client.chat.completions.create.call_count == 3
-        torch.testing.assert_close(third_actions, second_actions)
+        second_actions = policy.get_action(env, observation)
+        assert backend.client.chat.completions.create.call_count == 1
+        torch.testing.assert_close(second_actions, hold_actions)
 
-        # Resetting env 1 discards its last action, so it needs a new one.
+        # Env 1 is assigned an episode and requests again.
+        env.unwrapped.active_episode_mask = torch.tensor([False, True])
         policy.reset(torch.tensor([1]))
-        fourth_actions = policy.get_action(env, observation)
-        assert backend.client.chat.completions.create.call_count == 4
-        torch.testing.assert_close(fourth_actions[0], third_actions[0])
-        assert not torch.equal(fourth_actions[1], third_actions[1])
+        third_actions = policy.get_action(env, observation)
+        assert backend.client.chat.completions.create.call_count == 2
+        torch.testing.assert_close(third_actions[0], hold_actions[0])
+        assert not torch.equal(third_actions[1], hold_actions[1])
     finally:
         policy.close()
 
 
-def test_inactive_environment_keeps_its_unfinished_chunk_without_requests(backend):
+def test_inactive_environment_keeps_its_unfinished_chunk_without_requests(backend, monkeypatch):
+    _patch_hold_action(monkeypatch, torch.full((2, 2), 4.0))
     chunks = iter([
         [[1, 1], [2, 2], [3, 3]],
         [[4, 4], [5, 5], [6, 6]],
@@ -547,7 +554,9 @@ def test_inactive_environment_keeps_its_unfinished_chunk_without_requests(backen
     assert [command.tolist() for command in policy._chunks[1]] == [[5.0, 5.0], [6.0, 6.0]]
 
 
-def test_inactive_environment_keeps_its_unfinished_goal_without_requests(backend):
+def test_inactive_environment_keeps_its_unfinished_goal_without_requests(backend, monkeypatch):
+    _patch_hold_action(monkeypatch, torch.full((2, 2), 0.25))
+
     def create(**kwargs):
         state = json.loads(kwargs["messages"][1]["content"][1]["text"])
         return response(json.dumps({"target": (np.asarray(state["joint_positions"]) + 1).tolist()}))
