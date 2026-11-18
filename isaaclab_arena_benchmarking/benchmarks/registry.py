@@ -12,6 +12,7 @@ exporters through ``get_exporters_by_name``, which imports the exporter modules 
 from __future__ import annotations
 
 import importlib
+import traceback
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -72,17 +73,24 @@ def assert_valid_kpi_exporter_names(exporter_names: Sequence[str]) -> None:
     assert not duplicate_names, f"Select each KPI exporter once; duplicate KPI exporters {duplicate_names}"
 
 
-def export_kpis(output_dir: Path, exporter_names: Sequence[str]) -> list[Path]:
+def export_kpis(
+    output_dir: Path,
+    exporter_names: Sequence[str],
+    *,
+    raise_on_exporter_failure: bool = True,
+) -> list[Path]:
     """Write the KPI records files of a finished Experiment, unless any of the Runs in the Experiment failed.
 
-    Every selected exporter runs even if an earlier one raises; the first exception is then re-raised. When any of
-    the Runs in the Experiment failed, the failed Runs are printed, each exporter's ``on_experiment_incomplete`` is
-    called and no KPI file is written. With no exporter selected, nothing is read or written.
+    Every selected exporter runs even if an earlier one raises. When any of the Runs in the Experiment failed, the
+    failed Runs are printed, each exporter's ``on_experiment_incomplete`` is called and no KPI file is written. With no exporter selected,
+    nothing is read or written.
 
     Args:
         output_dir: Experiment output root holding ``arena_experiment_result.json``.
         exporter_names: Names of the registered exporters to run, each at most once; no two may share
             a record type. Empty to export nothing.
+        raise_on_exporter_failure: Whether to re-raise the first exporter exception after every exporter ran. When
+            False, each failure is printed with its exporter name instead.
 
     Returns:
         Paths of the records files actually written; empty when any Run failed. An exporter with no records writes none.
@@ -124,9 +132,11 @@ def export_kpis(output_dir: Path, exporter_names: Sequence[str]) -> list[Path]:
             continue
         if written_path is not None:
             written_paths.append(written_path)
-    # Print every failure before the re-raise, so a later failure is not lost behind the first.
+    # Print every failure before any re-raise, so a later failure is not lost behind the first.
     for name, error in failures:
         print(f"KPI exporter {name!r} failed: {type(error).__name__}: {error}")
-    if failures:
+        if not raise_on_exporter_failure:
+            traceback.print_exception(error)
+    if failures and raise_on_exporter_failure:
         raise failures[0][1]
     return written_paths
