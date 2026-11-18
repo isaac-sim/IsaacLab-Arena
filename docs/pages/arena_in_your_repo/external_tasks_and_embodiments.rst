@@ -79,8 +79,8 @@ the same way as any built-in embodiment (see :ref:`putting_it_all_together` belo
 Recording a Custom Value per Episode
 ------------------------------------
 
-The example also records the highest speed the object reached in each episode. It defines the
-``ObjectPeakSpeed`` term from :doc:`../concepts/task/concept_episode_recording_design` and adds it to
+The example also records the highest speed the object reached in each episode. It defines an
+``ObjectPeakSpeed`` episode recorder term (see :ref:`recording-per-episode-values`) and adds it to
 the environment through ``episode_recorder_terms``, as shown below. Each line of the episode results
 then holds the value under the term's name, for example ``"object_peak_speed": {"peak_speed": 0.83}``.
 

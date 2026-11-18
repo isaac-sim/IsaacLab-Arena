@@ -46,6 +46,37 @@ Individual tasks can be combined into order-independent or sequential composite 
 returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``, declaring its ``success`` criteria,
 named ``failures``, and ``timeout_s`` time limit.
 
+.. _recording-per-episode-values:
+
+Recording your own values
+-------------------------
+
+For every finished episode, Arena writes one line to the episode results, with its success, task
+progress, and the variations drawn for it. A task adds a value of its own by returning an
+**episode recorder term** from ``get_episode_recorder_terms()``. Each episode's line then holds the
+term's output under the term's name:
+
+.. code-block:: python
+
+   class MyPickAndPlaceTask(PickAndPlaceTask):
+       def get_episode_recorder_terms(self):
+           return {
+               "object_peak_speed": EpisodeRecorderTermCfg(
+                   func=ObjectPeakSpeed, params={"object_name": self.pick_up_object.name}
+               )
+           }
+
+.. code-block:: json
+
+   {"env_id": 0, "episode_in_env": 3, "success": true, "object_peak_speed": {"peak_speed": 0.83}}
+
+A term returns a dictionary of JSON values. It is either a function that Arena calls when the episode
+ends, or a class derived from ``EpisodeRecorderTerm`` that also updates its state after every control
+step, like ``ObjectPeakSpeed`` in :doc:`../../arena_in_your_repo/external_tasks_and_embodiments`.
+An environment adds terms the same way through ``IsaacLabArenaEnvironment(episode_recorder_terms=...)``,
+and a composite task adds ``_subtask_<i>`` to its subtasks' term names. Rates and averages across
+episodes are computed when the lines are read.
+
 More details
 ------------
 
@@ -55,4 +86,3 @@ More details
    concept_composite_tasks_design
    concept_progress_tracking_design
    concept_rl_tasks_design
-   concept_episode_recording_design
