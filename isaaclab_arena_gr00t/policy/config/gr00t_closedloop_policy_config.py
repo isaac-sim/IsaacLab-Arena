@@ -6,7 +6,10 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import (
+    GR00T_EMBODIMENT_ADAPTER_CLASS_PATHS,
+    import_gr00t_embodiment_adapter_class,
+)
 
 
 @dataclass
@@ -18,14 +21,6 @@ class Gr00tClosedloopPolicyCfg:
     )
     action_horizon: int = field(
         default=16, metadata={"description": "Number of actions in the policy's predictionhorizon."}
-    )
-    embodiment_tag: str = field(
-        default="NEW_EMBODIMENT",
-        metadata={
-            "description": (
-                "Identifier for the robot embodiment used in the policy inference (e.g., 'gr1' or 'new_embodiment')."
-            )
-        },
     )
     denoising_steps: int = field(
         default=4, metadata={"description": "Number of denoising steps used in the policy inference."}
@@ -40,28 +35,13 @@ class Gr00tClosedloopPolicyCfg:
         default=(480, 640, 3),
         metadata={"description": "Target size for images after resizing and padding as (height, width, channels)."},
     )
-    policy_joints_config_path: Path = field(
-        default=Path(__file__).parent.resolve() / "config" / "g1" / "gr00t_43dof_joint_space.yaml",
-        metadata={"description": "Path to the YAML file specifying the joint ordering configuration for GR00T policy."},
-    )
-    task_mode_name: str = field(
-        default=TaskMode.G1_LOCOMANIPULATION.value,
-        metadata={"description": "Task option name of the policy inference."},
-    )
-    # robot simulation specific parameters
-    action_joints_config_path: Path = field(
-        default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
+    gr00t_embodiment_adapter: str | None = field(
+        default=None,
         metadata={
             "description": (
-                "Path to the YAML file specifying the joint ordering configuration for GR1 action space in Lab."
-            )
-        },
-    )
-    state_joints_config_path: Path = field(
-        default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
-        metadata={
-            "description": (
-                "Path to the YAML file specifying the joint ordering configuration for GR1 state space in Lab."
+                "Gr00tEmbodimentAdapter that translates Arena observations and actions for GR00T, and whose"
+                " embodiment tag selects the modality config: a built-in name (droid, gr1_arms, g1_wbc) or a"
+                " dotted class path."
             )
         },
     )
@@ -87,16 +67,6 @@ class Gr00tClosedloopPolicyCfg:
         assert (
             self.action_chunk_length <= self.action_horizon
         ), "action_chunk_length must be less than or equal to action_horizon"
-        # assert all paths exist
-        assert Path(
-            self.policy_joints_config_path
-        ).exists(), f"policy_joints_config_path does not exist: {self.policy_joints_config_path}"
-        assert Path(
-            self.action_joints_config_path
-        ).exists(), f"action_joints_config_path does not exist: {self.action_joints_config_path}"
-        assert Path(
-            self.state_joints_config_path
-        ).exists(), f"state_joints_config_path does not exist: {self.state_joints_config_path}"
         if self.modality_config_path:
             assert Path(
                 self.modality_config_path
@@ -105,19 +75,9 @@ class Gr00tClosedloopPolicyCfg:
         if isinstance(self.pov_cam_name_sim, str):
             self.pov_cam_name_sim = [self.pov_cam_name_sim]
 
-        # embodiment_tag
-        assert self.embodiment_tag in [
-            "GR1",
-            "NEW_EMBODIMENT",
-            "OXE_DROID",
-        ], "embodiment_tag must be one of the following: " + ", ".join(["GR1", "NEW_EMBODIMENT", "OXE_DROID"])
-        if self.task_mode_name == TaskMode.G1_LOCOMANIPULATION.value:
-            assert (
-                self.embodiment_tag == "NEW_EMBODIMENT"
-            ), "embodiment_tag must be new_embodiment for G1 locomanipulation"
-        elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
-            assert self.embodiment_tag == "GR1", "embodiment_tag must be GR1 for GR1 tabletop manipulation"
-        elif self.task_mode_name == TaskMode.DROID_MANIPULATION.value:
-            assert self.embodiment_tag == "OXE_DROID", "embodiment_tag must be OXE_DROID for DROID manipulation"
-        else:
-            raise ValueError(f"Invalid inference mode: {self.task_mode}")
+        assert self.gr00t_embodiment_adapter is not None, (
+            "gr00t_embodiment_adapter is required (it replaces task_mode_name): one of"
+            f" {sorted(GR00T_EMBODIMENT_ADAPTER_CLASS_PATHS)} or the dotted class path of a Gr00tEmbodimentAdapter"
+        )
+        # Import the adapter class now so a bad name fails at config load, before any env is built.
+        import_gr00t_embodiment_adapter_class(self.gr00t_embodiment_adapter)

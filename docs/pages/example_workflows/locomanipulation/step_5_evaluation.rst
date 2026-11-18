@@ -68,7 +68,7 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``g1_locomanip_gr00t_closedloop_config.yaml``):
    :animate: fade-in
@@ -77,18 +77,13 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
 
       language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
       action_horizon: 50
-      embodiment_tag: NEW_EMBODIMENT
       video_backend: decord
       modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
-
-      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
 
       action_chunk_length: 50
       pov_cam_name_sim: "robot_head_cam_rgb"
 
-      task_mode_name: g1_locomanipulation
+      gr00t_embodiment_adapter: g1_wbc
 
 Test the policy in a single environment with visualization via the GUI run:
 
@@ -121,49 +116,24 @@ Step 2: Run Parallel Environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-.. tab-set::
+Test the policy in 5 parallel environments with visualization via the GUI run:
 
-   .. tab-item:: Single GPU Evaluation
+.. code-block:: bash
 
-      Test the policy in 5 parallel environments with visualization via the GUI run:
-
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-           --viz kit \
-           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-           --remote_host 127.0.0.1 \
-           --remote_port 5555 \
-           --num_steps 1200 \
-           --num_envs 5 \
-           --enable_cameras \
-           --device cuda \
-           --policy_device cuda  \
-           galileo_g1_locomanip_pick_and_place \
-           --object brown_box \
-           --embodiment g1_wbc_joint
-
-   .. tab-item:: Distribute Multi-GPU Evaluation
-
-      Test the policy in 5 parallel environments on each GPU with 2 GPUs total run:
-
-      .. code-block:: bash
-
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-           --remote_host 127.0.0.1 \
-           --remote_port 5555 \
-           --num_steps 1200 \
-           --num_envs 5 \
-           --enable_cameras \
-           --device cuda \
-           --policy_device cuda  \
-           --distributed \
-           galileo_g1_locomanip_pick_and_place \
-           --object brown_box \
-           --embodiment g1_wbc_joint
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+     --remote_host 127.0.0.1 \
+     --remote_port 5555 \
+     --num_steps 1200 \
+     --num_envs 5 \
+     --enable_cameras \
+     --device cuda \
+     --policy_device cuda  \
+     galileo_g1_locomanip_pick_and_place \
+     --object brown_box \
+     --embodiment g1_wbc_joint
 
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation

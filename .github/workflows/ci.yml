@@ -15,10 +15,16 @@ on:
     - cron: '0 6 * * *'
   workflow_dispatch:
 
-# Concurrency control to prevent parallel runs on the same PR
+# Concurrency control differs by how the run was triggered:
+# - PR: a new push cancels the older run of the same PR.
+# - POST-MERGE: a running job is never interrupted. GitHub keeps at most one
+#   pending run per group, so a newer push to main replaces any older pending
+#   run. The pending run starts once the current one finishes and checks out
+#   the newest main, so no merged change is missing from the published image.
+# - NIGHTLY: has its own group, so merges neither cancel nor replace it.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

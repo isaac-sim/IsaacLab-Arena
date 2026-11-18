@@ -76,15 +76,11 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
 
       language_instruction: "Place the sauce bottle on the top shelf of the fridge, and close the fridge door."
       action_horizon: 16
-      embodiment_tag: GR1
       video_backend: decord
       modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
 
-      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml
       action_chunk_length: 16
-      task_mode_name: gr1_tabletop_manipulation
+      gr00t_embodiment_adapter: gr1_arms
 
       pov_cam_name_sim: "robot_pov_cam_rgb"
 
@@ -138,44 +134,22 @@ Step 2: Run Parallel environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-.. tab-set::
+Test the policy in 10 parallel environments with visualization via the GUI run:
 
-   .. tab-item:: Single GPU Evaluation
+.. code-block:: bash
 
-      Test the policy in 10 parallel environments with visualization via the GUI run:
-
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-           --remote_host 127.0.0.1 \
-           --remote_port 5555 \
-           --num_steps 2000 \
-           --num_envs 10 \
-           --enable_cameras \
-           put_item_in_fridge_and_close_door \
-           --embodiment gr1_joint \
-           --object ranch_dressing_hope_robolab
-
-   .. tab-item:: Distribute Multi-GPU Evaluation
-
-      Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
-
-      .. code-block:: bash
-
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-           --remote_host 127.0.0.1 \
-           --remote_port 5555 \
-           --num_steps 2000 \
-           --num_envs 10 \
-           --enable_cameras \
-           --distributed \
-           put_item_in_fridge_and_close_door \
-           --embodiment gr1_joint \
-           --object ranch_dressing_hope_robolab
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+     --remote_host 127.0.0.1 \
+     --remote_port 5555 \
+     --num_steps 2000 \
+     --num_envs 10 \
+     --enable_cameras \
+     put_item_in_fridge_and_close_door \
+     --embodiment gr1_joint \
+     --object ranch_dressing_hope_robolab
 
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
@@ -211,45 +185,23 @@ Step 3: Multi-object Heterogeneous Evaluation
 
 This step demonstrates evaluation of the policy in heterogeneous environments with multiple objects.
 
-.. tab-set::
+Test the policy in 10 parallel environments with visualization via the GUI run:
 
-   .. tab-item:: Single GPU Evaluation
+.. code-block:: bash
 
-      Test the policy in 10 parallel environments with visualization via the GUI run:
+   python isaaclab_arena/evaluation/policy_runner.py \
+   --viz kit \
+   --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+   --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+   --remote_host 127.0.0.1 \
+   --remote_port 5555 \
+   --num_steps 2000 \
+   --num_envs 10 \
+   --enable_cameras \
+   put_item_in_fridge_and_close_door \
+   --embodiment gr1_joint \
+   --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-         --viz kit \
-         --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-         --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-         --remote_host 127.0.0.1 \
-         --remote_port 5555 \
-         --num_steps 2000 \
-         --num_envs 10 \
-         --enable_cameras \
-         put_item_in_fridge_and_close_door \
-         --embodiment gr1_joint \
-         --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
-
-   .. tab-item:: Distribute Multi-GPU Evaluation
-
-      Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
-
-      .. code-block:: bash
-
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-           --remote_host 127.0.0.1 \
-           --remote_port 5555 \
-           --num_steps 2000 \
-           --num_envs 10 \
-           --enable_cameras \
-           --distributed \
-           put_item_in_fridge_and_close_door \
-           --embodiment gr1_joint \
-           --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
