@@ -492,8 +492,7 @@ def test_experiment_runner_graph_spec_camera_run_and_camera_less_run(tmp_path):
 
 def _test_run_variation_lands_in_events_cfg(simulation_app):
     """Enable a wrist camera extrinsics variation and check that it shows up as an event term in the cfg."""
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutLimitCfg
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
     from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
     from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -504,10 +503,7 @@ def _test_run_variation_lands_in_events_cfg(simulation_app):
     run_cfg = ArenaRunCfg(
         name="maple_table_camera_extrinsics",
         environment=PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=True, embodiment="droid_abs_joint_pos"),
-        environment_builder=ArenaEnvBuilderCfg(num_envs=1, device="cuda:0"),
         policy=ZeroActionPolicyCfg(),
-        rollout_limit=RolloutLimitCfg(num_steps=NUM_STEPS),
-        # Enabling wrist camera extrinsics variation.
         variations={"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
     )
     arena_builder = build_arena_builder_from_run_cfg(run_cfg)
