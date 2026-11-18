@@ -77,7 +77,7 @@ def _test_consecutive_step_summary(simulation_app):
     for step in range(1, 4):
         _step(tracker, env, [step])
     calls = held.calls
-    env.extras = {"progress_tracking": {"states": tracker.get_state(), "events": tracker.get_events()}}
+    env.extras = {"progress_tracking": tracker.get_progress_snapshot()}
     recorded = json.loads(json.dumps(record_progress_results(env, 0)))
     summary = recorded["consecutive_step_summary"]
     assert [
@@ -351,7 +351,7 @@ def _test_instantaneous_predicates_allow_unindexed_updates(simulation_app):
     assert [event.step for event in tracker.get_events()[0]] == [-1, -1]
     assert tracker.get_consecutive_step_summary(0) == []
     env.progress_tracker = tracker
-    env.extras = {"progress_tracking": {"states": tracker.get_state(), "events": tracker.get_events()}}
+    env.extras = {"progress_tracking": tracker.get_progress_snapshot()}
     recorded = record_progress_results(env, 0)
     assert "consecutive_step_summary" not in recorded
     assert recorded["criteria_by_name"]["plain"]["is_complete"]
@@ -515,13 +515,13 @@ def _test_environment_updates_and_resets_requirement_counters(simulation_app):
 
     requirement = TrueForConsecutiveStepsCfg(partial(_controlled_predicate, predicate_name="resting"), required_steps=3)
     criteria = CompletionCriteria(name="rest", predicate_sequence=[requirement])
-    env, manager, recorder = _make_environment_and_manager(["resting"], success_criteria=[criteria])
+    env, manager = _make_environment_and_manager(["resting"], success_criteria=[criteria])
     for step_index in (1, 2):
         _advance_step(env)
         manager.compute()
         assert manager.get_term("success").tolist() == [False, False]
         assert env.predicate_calls["resting"] == step_index
-        recorder.record_post_step()
+        env.update_task_progress()
         assert env.progress_tracker.is_complete().tolist() == [False, False]
         assert env.predicate_calls["resting"] == step_index
 
@@ -539,7 +539,7 @@ def _test_environment_updates_and_resets_requirement_counters(simulation_app):
     calls_after_completion = env.predicate_calls["resting"]
     _advance_step(env)
     manager.compute()
-    recorder.record_post_step()
+    env.update_task_progress()
     assert manager.get_term("success").tolist() == [True, True]
     assert env.progress_tracker.is_complete().tolist() == [True, True]
     assert env.predicate_calls["resting"] == calls_after_completion
