@@ -18,12 +18,12 @@ shared:
     num_episodes: 1024
 
 runs:
-  # Checkpoints in the download folder of the reinforcement learning evaluation tutorial
-  # ($MODELS_DIR there).
+  # Checkpoints in the tutorial's download folder: $MODELS_DIR, or its default location when
+  # MODELS_DIR is unset.
   lift_object_model_1000:
     policy:
-      checkpoint_path: ${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning/lift_object_checkpoint/model_1000.pt
+      checkpoint_path: ${oc.env:MODELS_DIR,${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning}/lift_object_checkpoint/model_1000.pt
 
   lift_object_model_1999:
     policy:
-      checkpoint_path: ${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning/lift_object_checkpoint/model_1999.pt
+      checkpoint_path: ${oc.env:MODELS_DIR,${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning}/lift_object_checkpoint/model_1999.pt

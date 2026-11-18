@@ -13,7 +13,7 @@ runs:
       type: lift_object
     policy:
       type: rsl_rl
-      # Download folder of the reinforcement learning evaluation tutorial ($MODELS_DIR there).
-      checkpoint_path: ${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning/lift_object_checkpoint/model_1999.pt
+      # The tutorial's download folder: $MODELS_DIR, or its default location when MODELS_DIR is unset.
+      checkpoint_path: ${oc.env:MODELS_DIR,${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning}/lift_object_checkpoint/model_1999.pt
     rollout_limit:
       num_episodes: 20
