@@ -8,11 +8,13 @@
 import re
 import subprocess
 import yaml
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from osmo.submit_arena_experiment import build_arena_experiment_submission_cfg
 
 REPO_ROOT = Path(TestConstants.repo_root).resolve()
@@ -138,6 +140,12 @@ def test_benchmark_name_matches_its_composed_experiment(entry):
     for backend in PHYSICS_BACKEND_NAME_TOKENS:
         if f"-{backend}-" in name:
             for run_cfg in run_cfgs:
+                # An explicit preset overrides the backend the environment defaults to.
+                presets = run_cfg.environment_builder.presets
+                if presets is not None:
+                    assert (
+                        str(PhysicsBackend(presets).value) == backend
+                    ), f"{name!r}: Run {run_cfg.name!r} sets presets {presets!r}"
                 pick_object = getattr(run_cfg.environment, "pick_object", None)
                 if pick_object is not None:
                     assert pick_object.endswith(f"_{backend}"), f"{name!r}: Run {run_cfg.name!r} picks {pick_object!r}"
@@ -156,12 +164,17 @@ def test_newton_and_physx_deformable_benchmarks_differ_only_in_the_backend():
         assert physx_name in entries_by_name, f"{newton_name!r} has no PhysX baseline {physx_name!r}"
         newton_entry, physx_entry = entries_by_name[newton_name], entries_by_name[physx_name]
         assert newton_entry["experiment_cfg"] == physx_entry["experiment_cfg"]
-        newton_run_cfg = next(iter(_compose_benchmark_submission(newton_entry).experiment_cfg.runs.values()))
-        physx_run_cfg = next(iter(_compose_benchmark_submission(physx_entry).experiment_cfg.runs.values()))
-        assert newton_run_cfg.environment_builder.num_envs == physx_run_cfg.environment_builder.num_envs
-        assert type(newton_run_cfg.policy) is type(physx_run_cfg.policy)
-        assert newton_run_cfg.environment.pick_object.endswith("_newton")
-        assert physx_run_cfg.environment.pick_object.endswith("_physx")
+        newton_run_cfgs = _compose_benchmark_submission(newton_entry).experiment_cfg.runs
+        physx_run_cfgs = _compose_benchmark_submission(physx_entry).experiment_cfg.runs
+        assert list(newton_run_cfgs) == list(physx_run_cfgs)
+        for run_name, newton_run_cfg in newton_run_cfgs.items():
+            physx_run_cfg = physx_run_cfgs[run_name]
+            assert newton_run_cfg.environment.pick_object.endswith("_newton")
+            assert physx_run_cfg.environment.pick_object.endswith("_physx")
+            # Everything else, such as seeds, cameras, rollout limit and presets, must be equal.
+            assert replace(newton_run_cfg, environment=replace(newton_run_cfg.environment, pick_object="")) == replace(
+                physx_run_cfg, environment=replace(physx_run_cfg.environment, pick_object="")
+            ), f"{newton_name!r} and {physx_name!r} differ beyond the physics backend in Run {run_name!r}"
 
 
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
