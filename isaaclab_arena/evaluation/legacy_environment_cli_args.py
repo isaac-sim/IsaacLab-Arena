@@ -7,8 +7,8 @@
 
 from typing import Any
 
-# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this module with the JSON evaluation-job
-# frontend once experiment_runner loads typed YAML experiments directly.
+# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this module when graph-YAML environments
+# have a typed configuration and no longer use the argparse compatibility path.
 
 
 def legacy_environment_args_to_cli_args(args: dict[str, Any]) -> list[str]:
