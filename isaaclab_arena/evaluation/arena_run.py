@@ -19,6 +19,7 @@ from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
+    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, ArenaExperimentRunData
     from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 
 
@@ -148,20 +149,24 @@ class ArenaRunResult:
     relations, or that replay recorded layouts, are left out, and the field is None when every rebuild is."""
 
 
-def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[ArenaRunResult]) -> PrettyTable:
-    """Build a table containing the configuration and current status of every Run."""
+def build_runs_info_table(
+    run_cfgs: Iterable[ArenaRunCfg],
+    results: Iterable[ArenaRunResult],
+    experiment_result: ArenaExperimentResult | None = None,
+) -> PrettyTable:
+    """Build a table with the configuration and status of every Run.
+
+    Args:
+        run_cfgs: The configured Runs, one row each.
+        results: The Runs' execution results; Runs without one are shown as pending.
+        experiment_result: The finished Experiment's result. When given, the table also shows each Run's recorded
+            episode count and success rate.
+    """
     results_by_name = {result.run_name: result for result in results}
-    table = PrettyTable(
-        field_names=[
-            "Run Name",
-            "Status",
-            "Policy Type",
-            "Num Envs",
-            "Num Steps",
-            "Num Episodes",
-            "Num Rebuilds",
-        ]
-    )
+    field_names = ["Run Name", "Status", "Policy Type", "Num Envs", "Num Steps", "Num Episodes", "Num Rebuilds"]
+    if experiment_result is not None:
+        field_names += ["Recorded Episodes", "Success Rate"]
+    table = PrettyTable(field_names=field_names)
     policy_registry = PolicyRegistry()
     for run_cfg in run_cfgs:
         result = results_by_name.get(run_cfg.name)
@@ -171,7 +176,7 @@ def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[Are
             num_episodes = rollout_limit.num_episodes_per_rebuild
         else:
             num_episodes = rollout_limit.num_episodes
-        table.add_row([
+        row = [
             run_cfg.name,
             result.status.value if result is not None else "pending",
             policy_type.name,
@@ -179,5 +184,20 @@ def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[Are
             rollout_limit.num_steps,
             num_episodes,
             run_cfg.num_rebuilds,
-        ])
+        ]
+        if experiment_result is not None:
+            row += _recorded_episodes_and_success_rate(experiment_result.runs[run_cfg.name])
+        table.add_row(row)
     return table
+
+
+def _recorded_episodes_and_success_rate(run_data: ArenaExperimentRunData) -> list[int | str]:
+    """Return a Run's number of recorded episodes and its success rate, formatted for the Run table."""
+    episodes = []
+    for rebuild in run_data["rebuilds"]:
+        episodes.extend(rebuild["episodes"])
+    # As in the evaluation report, episodes recorded without a success value do not count toward the rate.
+    success_values = [episode["success"] for episode in episodes if episode["success"] is not None]
+    if not success_values:
+        return [len(episodes), "n/a"]
+    return [len(episodes), f"{sum(success_values) / len(success_values):.4f}"]

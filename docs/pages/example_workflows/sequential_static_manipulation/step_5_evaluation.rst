@@ -104,7 +104,8 @@ Test the policy in a single environment with visualization via the GUI run:
      --embodiment gr1_joint \
      --object ranch_dressing_hope_robolab
 
-At the end of the evaluation, the console shows the number of finished episodes and the success rate for this sequential task.
+At the end of the evaluation, the policy runner writes the evaluation report, which shows the number of finished
+episodes and the success rate for this sequential task.
 Each episode's subtask completion is recorded in the ``progress`` field of its episode results record.
 You should see similar results. The success rate shall be greater than 0.9, and the number of episodes should be in the range of 3-6.
 
@@ -115,25 +116,12 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
    .. tab-item:: Best Quality
 
-      .. code-block:: text
-
-         +----------+----------+--------------+
-         | Run Name | Episodes | Success Rate |
-         +----------+----------+--------------+
-         |    .     |    5     |    1.0000    |
-         +----------+----------+--------------+
+      5 episodes with a success rate of 1.0.
 
    .. tab-item:: Low Hardware Requirements
 
       Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.
-
-      .. code-block:: text
-
-         +----------+----------+--------------+
-         | Run Name | Episodes | Success Rate |
-         +----------+----------+--------------+
-         |    .     |    4     |    0.7500    |
-         +----------+----------+--------------+
+      4 episodes with a success rate of 0.75.
 
 Step 2: Run Parallel environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -166,17 +154,9 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 
    Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
-At the end of the evaluation, you should see the following output on the console.
+At the end of the evaluation, the evaluation report shows 50 finished episodes with a success rate of 0.98.
 The success rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.
-
-.. code-block:: text
-
-   +----------+----------+--------------+
-   | Run Name | Episodes | Success Rate |
-   +----------+----------+--------------+
-   |    .     |    50    |    0.9800    |
-   +----------+----------+--------------+
 
 .. note::
 
@@ -212,15 +192,7 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
 
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
-At the end of the evaluation, you should see the following output on the console.
-
-.. code-block:: text
-
-   +----------+----------+--------------+
-   | Run Name | Episodes | Success Rate |
-   +----------+----------+--------------+
-   |    .     |    30    |    0.8667    |
-   +----------+----------+--------------+
+At the end of the evaluation, the evaluation report shows 30 finished episodes with a success rate of 0.87.
 
 The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
 when evaluated on structurally similar sauce bottles.
@@ -255,21 +227,12 @@ You should see the following output on the console with the runs and their succe
 
 .. code-block:: text
 
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-   |                        Run Name                        |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-   |          gr1_put_jug_in_fridge_and_close_door          | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |
-   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-
-   ...
-
-   +--------------------------------------------------------+----------+--------------+
-   |                        Run Name                        | Episodes | Success Rate |
-   +--------------------------------------------------------+----------+--------------+
-   |          gr1_put_jug_in_fridge_and_close_door          |    10    |    0.1000    |
-   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door |    10    |    0.9000    |
-   +--------------------------------------------------------+----------+--------------+
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |                        Run Name                        |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |          gr1_put_jug_in_fridge_and_close_door          | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |         10        |    0.1000    |
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |         10        |    0.9000    |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
 
 With the policy trained on using ranch dressing bottle as object of interest,
 the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.1.

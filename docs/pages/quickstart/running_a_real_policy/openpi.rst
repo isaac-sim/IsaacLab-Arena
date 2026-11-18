@@ -121,40 +121,23 @@ If the OpenPI server uses a non-default port, override each OpenPI run's
    Nine closed-loop evaluation Runs of pi05 on the DROID embodiment. Each cell varies the
    pick-up object, background HDR, and destination.
 
-When all Runs finish, you will see a summary table. After the evaluation report is written, the runner
-prints each Run's episode count and success rate:
+When all Runs finish, the runner prints each Run's status, recorded episodes, and success rate:
 
 .. code-block:: text
 
-   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+--------------+
-   |                   Run Name                   |   Status  |                          Policy Type                           | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
-   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+--------------+
-   |      droid_pnp_srl_openpi_billiard_hall      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   | droid_pnp_srl_openpi_rubiks_cube_home_office | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   |    droid_pnp_srl_openpi_alphabet_soup_can    | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   |         droid_pnp_srl_openpi_orange          | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   |          droid_pnp_srl_openpi_lemon          | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   |    droid_pnp_srl_openpi_tomato_sauce_can     | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   |     droid_pnp_srl_openpi_mustard_bottle      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   |        droid_pnp_srl_openpi_sugar_box        | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   |           droid_pnp_srl_openpi_mug           | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
-   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+--------------+
-
-   ...
-
-   +----------------------------------------------+----------+--------------+
-   |                   Run Name                   | Episodes | Success Rate |
-   +----------------------------------------------+----------+--------------+
-   |    droid_pnp_srl_openpi_alphabet_soup_can    |    3     |    1.0000    |
-   |      droid_pnp_srl_openpi_billiard_hall      |    3     |    1.0000    |
-   |          droid_pnp_srl_openpi_lemon          |    3     |    1.0000    |
-   |           droid_pnp_srl_openpi_mug           |    3     |    1.0000    |
-   |     droid_pnp_srl_openpi_mustard_bottle      |    3     |    1.0000    |
-   |         droid_pnp_srl_openpi_orange          |    3     |    1.0000    |
-   | droid_pnp_srl_openpi_rubiks_cube_home_office |    3     |    1.0000    |
-   |        droid_pnp_srl_openpi_sugar_box        |    3     |    0.0000    |
-   |    droid_pnp_srl_openpi_tomato_sauce_can     |    3     |    1.0000    |
-   +----------------------------------------------+----------+--------------+
+   +----------------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |                   Run Name                   |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
+   +----------------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |      droid_pnp_srl_openpi_billiard_hall      | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    1.0000    |
+   | droid_pnp_srl_openpi_rubiks_cube_home_office | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    1.0000    |
+   |    droid_pnp_srl_openpi_alphabet_soup_can    | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    1.0000    |
+   |         droid_pnp_srl_openpi_orange          | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    1.0000    |
+   |          droid_pnp_srl_openpi_lemon          | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    1.0000    |
+   |    droid_pnp_srl_openpi_tomato_sauce_can     | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    1.0000    |
+   |     droid_pnp_srl_openpi_mustard_bottle      | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    1.0000    |
+   |        droid_pnp_srl_openpi_sugar_box        | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    0.0000    |
+   |           droid_pnp_srl_openpi_mug           | completed |  pi0_remote |    1     |    None   |      3       |      1       |         3         |    1.0000    |
+   +----------------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
 
 
 pi05 succeeds on most of these variations zero-shot — eight of the nine Runs hit a 1.0

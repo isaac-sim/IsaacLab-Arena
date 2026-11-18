@@ -114,8 +114,7 @@ fresh environment for every Run.
    Nine closed-loop Runs of GR00T N1.6 on the DROID embodiment. Each cell changes the
    pick-up object, HDR background, and destination.
 
-When all Runs finish, Arena prints a summary table. After writing the evaluation report, it prints
-each Run's episode count and success rate:
+When all Runs finish, Arena prints each Run's status, recorded episodes, and success rate:
 
 .. dropdown:: Example Run summary and success rates
    :animate: fade-in
@@ -124,29 +123,13 @@ each Run's episode count and success rate:
 
    .. code-block:: text
 
-      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-      |               Run Name                |  Status   |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
-      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-      |   droid_pnp_srl_gr00t_billiard_hall   | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      |    droid_pnp_srl_gr00t_blue_block     | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      | droid_pnp_srl_gr00t_alphabet_soup_can | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      |      droid_pnp_srl_gr00t_orange       | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      |       droid_pnp_srl_gr00t_lemon       | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      | droid_pnp_srl_gr00t_tomato_sauce_can  | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      |  droid_pnp_srl_gr00t_mustard_bottle   | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      |     droid_pnp_srl_gr00t_sugar_box     | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      |        droid_pnp_srl_gr00t_mug        | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-
-      ...
-
-      +---------------------------------------+----------+--------------+
-      |                Run Name               | Episodes | Success Rate |
-      +---------------------------------------+----------+--------------+
-      | droid_pnp_srl_gr00t_alphabet_soup_can |    3     |    0.0000    |
-      |   droid_pnp_srl_gr00t_billiard_hall   |    3     |    0.0000    |
-      |     droid_pnp_srl_gr00t_blue_block    |    3     |    0.0000    |
-      |       droid_pnp_srl_gr00t_lemon       |    3     |    0.6667    |
+      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
+      |                Run Name               |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
+      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
+      |   droid_pnp_srl_gr00t_billiard_hall   | completed | gr00t_remote_closedloop |    1     |    None   |      3       |      1       |         3         |    0.0000    |
+      |     droid_pnp_srl_gr00t_blue_block    | completed | gr00t_remote_closedloop |    1     |    None   |      3       |      1       |         3         |    0.0000    |
+      | droid_pnp_srl_gr00t_alphabet_soup_can | completed | gr00t_remote_closedloop |    1     |    None   |      3       |      1       |         3         |    0.0000    |
+      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
       ...
 
 These results show that zero-shot deployment of robotic foundation models remains

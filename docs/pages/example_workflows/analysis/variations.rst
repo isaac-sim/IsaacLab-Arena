@@ -63,17 +63,18 @@ that shifted camera to control the arm through the pick-and-place attempt.
 Review the evaluation report
 ----------------------------
 
-After the final episode, the runner prints the episode count and success rate and the address of the
-evaluation report. The run shown on this page produced:
+After the final episode, the runner prints the Run's recorded episodes and success rate, then the
+address of the evaluation report. The run shown on this page produced:
 
 .. code-block:: text
 
+   +-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |               Run Name              |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
+   +-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   | droid_pnp_camera_sensitivity_openpi | completed |  pi0_remote |    1     |    None   |      10      |      1       |         10        |    1.0000    |
+   +-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   ...
    Wrote evaluation report with 1 task(s), 1 run(s) and 10 episode(s) to: ${CAMERA_SENSITIVITY_OUTPUT_DIR}/index.html (+2 linked page(s))
-   +-------------------------------------+----------+--------------+
-   |               Run Name              | Episodes | Success Rate |
-   +-------------------------------------+----------+--------------+
-   | droid_pnp_camera_sensitivity_openpi |    10    |    1.0000    |
-   +-------------------------------------+----------+--------------+
    Serving evaluation report at http://localhost:8001/index.html (Ctrl+C to stop).
 
 Your results may differ. On the host, open
