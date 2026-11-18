@@ -20,25 +20,25 @@ from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 
 def test_legacy_environment_arguments_keep_cli_order_and_boolean_flags():
     args = legacy_environment_args_to_cli_args({
-        "environment": "test_env",
+        "environment": "env_graph.yaml",
         "object": "box",
         "num_envs": 4,
         "mimic": True,
         "enable_cameras": False,
     })
 
-    assert args[:3] == ["--num_envs", "4", "test_env"]
-    assert args[args.index("--object") + 1] == "box"
-    assert "--mimic" in args
-    assert "--enable_cameras" not in args
+    assert args == ["--num_envs", "4", "--env_spec", "env_graph.yaml", "--object", "box", "--mimic"]
 
 
 def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeypatch):
     graph_path = Path(TestConstants.test_data_dir) / "pick_and_place_maple_table_env_graph.yaml"
     run = ArenaRunCfg(
         name="graph_environment",
-        environment=LegacyGraphEnvironmentCfg(env_spec_path=str(graph_path), per_run_overrides={"num_envs": 2}),
-        environment_builder=ArenaEnvBuilderCfg(num_envs=2, device="cuda:1"),
+        # The YAML loader builds this from a Run's environment section: {type: <graph path>, enable_cameras: true}.
+        environment=LegacyGraphEnvironmentCfg(
+            env_spec_path=str(graph_path), enable_cameras=True, per_run_overrides={"enable_cameras": True}
+        ),
+        environment_builder=ArenaEnvBuilderCfg(num_envs=2, device="cuda:1", env_cfg_override={"episode_length_s": 1.0}),
         policy=ZeroActionPolicyCfg(),
         rollout_limit=RolloutLimitCfg(num_steps=2),
         variations={"light": {"intensity": {"enabled": True}}},
@@ -74,7 +74,6 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     # collection, which would pull Isaac Lab modules in before SimulationApp starts.
     monkeypatch.setattr("isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder", get_builder)
 
-    run.environment_builder.env_cfg_override = {"episode_length_s": 1.0}
     builder = legacy_graph_environment_cli.build_arena_builder_from_legacy_graph(
         run.environment,
         environment_builder=run.environment_builder,
@@ -92,9 +91,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     # The Run's typed builder config crosses the boundary directly, so device and
     # language_instruction never round-trip through the argparse namespace.
     assert captured["builder_cfg"] is run.environment_builder
-    assert captured["builder_cfg"].device == "cuda:1"
     assert captured["arena_env"] is expected_arena_env
     assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
     assert captured["rebuild_index"] == 1
     assert captured["policy_cfg"] is run.policy
-    assert captured["builder_cfg"].env_cfg_override == {"episode_length_s": 1.0}
