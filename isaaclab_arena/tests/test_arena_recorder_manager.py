@@ -5,6 +5,30 @@
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
+# What to remove once test_post_step_hook_recorder_is_still_needed fails. Printed with the failure.
+POST_STEP_HOOK_REMOVAL_STEPS = """
+Isaac Lab now calls RecorderManager.record_post_step() every step, also without recorder terms
+(https://github.com/isaac-sim/IsaacLab/pull/8822). Arena advances task progress and the episode recorder terms from
+ArenaRecorderManager.record_post_step(), and added PostStepHookRecorder, a term that records nothing, only so that
+Isaac Lab would call it. Remove that workaround:
+
+1. isaaclab_arena/recording/arena_recorder_manager.py: delete PostStepHookRecorder and PostStepHookRecorderCfg, and
+   the `if not self.active_terms: return` check at the top of ArenaRecorderManager.record_post_step(). Keep the
+   same check in its other methods.
+2. isaaclab_arena/environments/isaaclab_arena_manager_based_env.py: in load_managers(), delete the block that adds
+   post_step_hook, and delete _has_recorder_terms(), which only that block uses.
+3. isaaclab_arena/recording/episode_recorder_manager.py: delete EpisodeRecorderManager.has_post_step_terms, which only
+   that block uses, and its asserts in test_episode_recorder_manager.py.
+4. test_recorder_dataset_export.py and test_isaaclab_demo_success.py assert that "post_step_hook" is an active term.
+   Drop those asserts, but keep what the tests check: task progress and episode recorder terms still advance every
+   control step, and no dataset file is written when no recorder term records data.
+5. Delete test_post_step_hook_recorder_is_still_needed and this constant.
+
+Then run test_arena_recorder_manager.py, test_recorder_dataset_export.py, test_isaaclab_demo_success.py,
+test_episode_recorder_manager.py, test_episode_recorder.py, test_episode_limit.py, test_tracked_events.py and
+test_task_success_from_progress.py.
+"""
+
 
 def _test_recording_follows_episode_assignments(_simulation_app):
     import torch
@@ -148,7 +172,10 @@ def test_empty_recorder_configuration():
 
 
 def _test_post_step_hook_recorder_is_still_needed(_simulation_app):
-    """Guards PostStepHookRecorder: fails once Isaac Lab calls record_post_step() without recorder terms (#8822)."""
+    """Guards PostStepHookRecorder: fails once Isaac Lab calls record_post_step() without recorder terms.
+
+    On failure, follow POST_STEP_HOOK_REMOVAL_STEPS at the top of this file.
+    """
     import torch
     from unittest.mock import patch
 
@@ -172,13 +199,7 @@ def _test_post_step_hook_recorder_is_still_needed(_simulation_app):
             base_env.recorder_manager, "record_post_step", wraps=base_env.recorder_manager.record_post_step
         ) as record_post_step:
             env.step(action)
-        assert record_post_step.call_count == 0, (
-            "Isaac Lab now calls RecorderManager.record_post_step() every step, also without recorder terms"
-            " (https://github.com/isaac-sim/IsaacLab/pull/8822). Remove the workaround for the old behavior:"
-            " PostStepHookRecorder and its cfg in isaaclab_arena/recording/arena_recorder_manager.py, the code"
-            " that adds it in IsaacLabArenaManagerBasedRLEnv.load_managers(), the active_terms check at the top of"
-            " ArenaRecorderManager.record_post_step(), and this test."
-        )
+        assert record_post_step.call_count == 0, POST_STEP_HOOK_REMOVAL_STEPS
     finally:
         env.close()
     return True
