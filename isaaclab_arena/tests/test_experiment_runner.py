@@ -618,61 +618,74 @@ def test_experiment_runner_enable_cameras(tmp_path):
 
 @pytest.mark.with_subprocess
 def test_experiment_runner_graph_spec_with_variation(tmp_path):
-    """Eval a graph-spec env (built from YAML) with --enable_cameras and a camera variation.
+    """Run a graph-spec environment with a camera variation next to a camera-less Run.
 
-    Mirrors the example-environment camera-variation job but sources the env from a graph spec
-    YAML, exercising that the Experiment Runner builds graph-spec envs and that --enable_cameras reaches
-    the embodiment so the wrist camera (and its variation) resolve.
+    The graph-spec Run checks that enable_cameras reaches the embodiment, so the wrist camera variation resolves.
+    The camera-less Run checks that a Run without cameras works when the app has camera support.
     """
     graph_spec_yaml = f"{TestConstants.test_data_dir}/pick_and_place_maple_table_env_graph.yaml"
     assert os.path.exists(graph_spec_yaml), f"Graph spec YAML not found: {graph_spec_yaml}"
-    jobs = [
-        {
-            "name": "maple_table_graph_spec_camera_variation",
-            "arena_env_args": {
-                "enable_cameras": True,
-                "environment": graph_spec_yaml,
+    experiment_config = {
+        "runs": {
+            "kitchen_pick_and_place_no_cameras": {
+                "environment": {
+                    "type": "kitchen_pick_and_place",
+                    "object": "cracker_box",
+                    "embodiment": "franka_ik",
+                },
+                "policy": {"type": "zero_action"},
+                "rollout_limit": {"num_steps": NUM_STEPS},
             },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-            "variations": {
-                "light": {"hdr_image": {"enabled": True}},
-                "droid_abs_joint_pos": {"camera_extrinsics_wrist_camera": {"enabled": True}},
+            "maple_table_graph_spec_camera_variation": {
+                "environment": {"type": graph_spec_yaml, "enable_cameras": True},
+                "policy": {"type": "zero_action"},
+                "rollout_limit": {"num_steps": NUM_STEPS},
+                "variations": {
+                    "light": {"hdr_image": {"enabled": True}},
+                    "droid_abs_joint_pos": {"camera_extrinsics_wrist_camera": {"enabled": True}},
+                },
             },
-        },
-    ]
+        }
+    }
+    experiment_config_path = tmp_path / "graph_spec_with_variation.yaml"
+    experiment_config_path.write_text(yaml.safe_dump(experiment_config, sort_keys=False), encoding="utf-8")
+    experiment_output_directory = tmp_path / "output"
 
-    temp_config_path = str(tmp_path / "test_experiment_runner_graph_spec_with_variation.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
+    run_experiment_runner(
+        str(experiment_config_path),
+        config_option="--experiment_config",
+        extra_args=["--experiment_output_directory", str(experiment_output_directory)],
+    )
+
+    experiment_result_path = experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
+    experiment_result = json.loads(experiment_result_path.read_text(encoding="utf-8"))
+    run_statuses = {run_name: run_result["status"] for run_name, run_result in experiment_result["runs"].items()}
+    assert run_statuses == {
+        "kitchen_pick_and_place_no_cameras": "completed",
+        "maple_table_graph_spec_camera_variation": "completed",
+    }
 
 
-def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
+def _test_run_variation_lands_in_events_cfg(simulation_app):
     """Enable a wrist camera extrinsics variation and check that it shows up as an event term in the cfg."""
-    from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutLimitCfg
     from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
+    from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
+    from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
     camera_name = "wrist_camera"
     event_name = f"{camera_name}_extrinsics_variation"
 
-    experiment_config = {
-        "jobs": [{
-            "name": "maple_table_camera_extrinsics",
-            "arena_env_args": {
-                "num_envs": 1,
-                "enable_cameras": True,
-                "environment": "pick_and_place_maple_table",
-                "embodiment": "droid_abs_joint_pos",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_config_dict": {},
-            # Enabling wrist camera extrinsics variation.
-            "variations": {"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
-        }]
-    }
-    (run_cfg,) = run_cfgs_from_legacy_eval_config(experiment_config, device="cuda:0")
+    run_cfg = ArenaRunCfg(
+        name="maple_table_camera_extrinsics",
+        environment=PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=True, embodiment="droid_abs_joint_pos"),
+        environment_builder=ArenaEnvBuilderCfg(num_envs=1, device="cuda:0"),
+        policy=ZeroActionPolicyCfg(),
+        rollout_limit=RolloutLimitCfg(num_steps=NUM_STEPS),
+        # Enabling wrist camera extrinsics variation.
+        variations={"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
+    )
     arena_builder = build_arena_builder_from_run_cfg(run_cfg)
     _, env_cfg, env_kwargs = arena_builder.build_registered()
     env = arena_builder.make_registered(env_cfg, env_kwargs)
@@ -692,9 +705,9 @@ def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
 
 
 @pytest.mark.with_cameras
-def test_eval_config_variation_lands_in_events_cfg():
+def test_run_variation_lands_in_events_cfg():
     assert run_function_with_persistent_simulation_app(
-        _test_eval_config_variation_lands_in_events_cfg,
+        _test_run_variation_lands_in_events_cfg,
         headless=HEADLESS,
         enable_cameras=True,
     )
