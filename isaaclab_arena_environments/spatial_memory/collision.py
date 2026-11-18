@@ -82,7 +82,9 @@ def detect_collisions(env, runtime: SpatialMemoryRuntime, active: torch.Tensor) 
                 if label in runtime.part_index:
                     positions_w[env_id] = env.arena_world.get_pose_w(label)[env_id, :3]
                 else:
-                    positions_w[env_id] = runtime.get_robot_body_poses_w(env, [label])[env_id, 0, :3]
+                    # A contact label may name a nested prim; its body is the prim path's last element.
+                    body_name = logic.embodiment.body_prim_paths.get(label, label).split("/")[-1]
+                    positions_w[env_id] = runtime.get_robot_body_poses_w(env, [body_name])[env_id, 0, :3]
         colliding |= any_touching
 
     colliding &= active & logic.collisions_counted(env, runtime)
