@@ -59,7 +59,7 @@ def rollout_policy(
                     policy.reset(env_ids=reset_env_ids)
 
                 if terminated.any() or truncated.any():
-                    if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
+                    if env.unwrapped.cfg.metrics is not None:
                         metrics = env.unwrapped.compute_metrics()
                         tqdm.tqdm.write(
                             f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
@@ -88,6 +88,6 @@ def rollout_policy(
 
         # Only compute metrics if env has non-None metrics.
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
-        if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
+        if env.unwrapped.cfg.metrics is not None:
             return env.unwrapped.compute_metrics()
         return None
