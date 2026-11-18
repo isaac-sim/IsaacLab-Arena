@@ -43,7 +43,7 @@ CUSTOM_KEY = "step_bucket"
 # Field contributed by the progress-tracking recorder.
 PROGRESS_KEY = "progress"
 
-# Output of PickAndPlaceTask's object motion term.
+# Field contributed by the class-based custom term registered in the custom-term test.
 OBJECT_MOTION_KEY = "object_motion"
 
 # Deterministic, single-valued (low == high) sample for the variation test, so each draw is known.
@@ -54,6 +54,32 @@ VARIATION_SAMPLE = [0.25, 0.5]
 def record_step_bucket(env, env_id):
     """Custom recorder term: records the finished episode's length bucketed into tens."""
     return {"bucket": int(env.episode_length_buf[env_id].item()) // 10}
+
+
+def _object_peak_speed_class():
+    """Return the ObjectPeakSpeed term from the episode recording docs page, imported after app start."""
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm
+
+    class ObjectPeakSpeed(EpisodeRecorderTerm):
+        """Records the highest linear speed [m/s] an object reached during the episode."""
+
+        def __init__(self, cfg, env):
+            super().__init__(cfg, env)
+            self._object_name = cfg.params["object_name"]
+            self._peak_speed = torch.zeros(env.num_envs, device=env.device)
+
+        def post_step(self, env):
+            velocity_w = env.arena_world.get_mean_linear_velocity_w(self._object_name)
+            speed = torch.linalg.norm(velocity_w, dim=-1)
+            torch.maximum(self._peak_speed, speed, out=self._peak_speed)
+
+        def reset(self, env_ids=None):
+            self._peak_speed[slice(None) if env_ids is None else env_ids] = 0.0
+
+        def __call__(self, env, env_id, object_name):
+            return {"peak_speed": float(self._peak_speed[env_id])}
+
+    return ObjectPeakSpeed
 
 
 def draw_record_test_variation(env, env_ids, asset_cfg, sampler):  # noqa: ARG001
@@ -175,7 +201,7 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
 
     base_env = env.unwrapped
     object_name = base_env.cfg.events.reset_pick_up_object_pose.params["asset_cfg"].name
-    object_motion_term = base_env.episode_recorder_manager.cfg.object_motion.func
+    object_motion_cfg = getattr(base_env.episode_recorder_manager.cfg, OBJECT_MOTION_KEY, None)
     # Env 1 never receives a lift; its episodes should fail.
     lifted_envs = torch.ones(base_env.num_envs, dtype=torch.bool, device=base_env.device)
     previous_episode = None
@@ -188,9 +214,10 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
             lift_settled_objects_once(base_env, object_name, lifted_envs)
             actions = torch.zeros(env.action_space.shape, device=base_env.device)
             env.step(actions)
-            for env_id in base_env.reset_env_ids.tolist():
-                # post_step ran before the reset, so a new episode must start from zero.
-                assert object_motion_term(base_env, env_id, object_name=object_name)["peak_linear_speed"] == 0.0
+            if object_motion_cfg is not None:
+                for env_id in base_env.reset_env_ids.tolist():
+                    # post_step ran before the reset, so a new episode must start from zero.
+                    assert object_motion_cfg.func(base_env, env_id, object_name=object_name)["peak_speed"] == 0.0
 
     assert output_path.exists(), f"Expected JSONL at {output_path}"
     with open(output_path, encoding="utf-8") as f:
@@ -210,15 +237,11 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
         for record in records:
             # With no variation drawn and no custom term, every record is the core schema plus the
             # progress block contributed by PickAndPlaceTask's progress objectives.
-            expected_keys = CORE_KEYS | {PROGRESS_KEY, OBJECT_MOTION_KEY}
+            expected_keys = CORE_KEYS | {PROGRESS_KEY}
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record["job_name"] == JOB_NAME
             assert record["language_instruction"] == LANGUAGE_INSTRUCTION
             assert isinstance(record["episode_length"], int)
-            object_motion = record[OBJECT_MOTION_KEY]
-            assert object_motion["object"] == "cracker_box"
-            assert math.isfinite(object_motion["peak_linear_speed"])
-            assert object_motion["peak_linear_speed"] >= 0.0
 
             env_id = record["env_id"]
             assert env_id in (0, 1)
@@ -260,7 +283,12 @@ def _test_variations_recorded(simulation_app, output_dir):  # noqa: ARG001
 def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
-    custom_terms = {"step_bucket": EpisodeRecorderTermCfg(func=record_step_bucket)}
+    custom_terms = {
+        CUSTOM_KEY: EpisodeRecorderTermCfg(func=record_step_bucket),
+        OBJECT_MOTION_KEY: EpisodeRecorderTermCfg(
+            func=_object_peak_speed_class(), params={"object_name": "cracker_box"}
+        ),
+    }
     env, output_path = create_recorder_env(output_dir, episode_recorder_terms=custom_terms)
     try:
         records = _roll_out_and_read_episode_record(env, output_path)
@@ -270,6 +298,8 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
             expected_keys = CORE_KEYS | {PROGRESS_KEY, OBJECT_MOTION_KEY, CUSTOM_KEY}
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record[CUSTOM_KEY] == {"bucket": record["episode_length"] // 10}
+            peak_speed = record[OBJECT_MOTION_KEY]["peak_speed"]
+            assert math.isfinite(peak_speed) and peak_speed >= 0.0
     finally:
         env.close()
     return True
