@@ -716,12 +716,9 @@ Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <section id="step-2-run-parallel-environments-evaluation">
 <h2>Step 2: Run Parallel environments Evaluation<a class="headerlink" href="#step-2-run-parallel-environments-evaluation" title="Link to this heading">#</a></h2>
 <p>Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.</p>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-2" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-4">
-Single GPU Evaluation</label><div class="sd-tab-content docutils">
 <p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
@@ -733,27 +730,6 @@ Single GPU Evaluation</label><div class="sd-tab-content docutils">
 <span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab
 </pre></div>
-</div>
-</div>
-<input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-5">
-Distribute Multi-GPU Evaluation</label><div class="sd-tab-content docutils">
-<p>Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--distributed<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab
-</pre></div>
-</div>
-</div>
 </div>
 <p>And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the microwave door is opened),
@@ -782,10 +758,6 @@ GR00T N1.6 policy is trained on upper body joint positions, so we use
 <section id="step-3-multi-object-heterogeneous-evaluation">
 <h2>Step 3: Multi-object Heterogeneous Evaluation<a class="headerlink" href="#step-3-multi-object-heterogeneous-evaluation" title="Link to this heading">#</a></h2>
 <p>This step demonstrates evaluation of the policy in heterogeneous environments with multiple objects.</p>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-6" name="sd-tab-set-3" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-6">
-Single GPU Evaluation</label><div class="sd-tab-content docutils">
 <p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 --viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
@@ -800,27 +772,6 @@ put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</spa
 --embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
 --object_set<span class="w"> </span>ketchup_bottle_hope_robolab<span class="w"> </span>ranch_dressing_hope_robolab<span class="w"> </span>bbq_sauce_bottle_hope_robolab<span class="w"> </span>mayonnaise_bottle_hope_robolab
 </pre></div>
-</div>
-</div>
-<input id="sd-tab-item-7" name="sd-tab-set-3" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-7">
-Distribute Multi-GPU Evaluation</label><div class="sd-tab-content docutils">
-<p>Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--distributed<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object_set<span class="w"> </span>ketchup_bottle_hope_robolab<span class="w"> </span>ranch_dressing_hope_robolab<span class="w"> </span>bbq_sauce_bottle_hope_robolab<span class="w"> </span>mayonnaise_bottle_hope_robolab
-</pre></div>
-</div>
-</div>
 </div>
 <p>Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
