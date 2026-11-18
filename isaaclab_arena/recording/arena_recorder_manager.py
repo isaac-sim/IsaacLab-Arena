@@ -121,6 +121,10 @@ class PostStepHookRecorder(RecorderTerm):
     That call is where ArenaRecorderManager advances task progress and the episode recorder terms.
     """
 
+    # TODO(cvolk, 2026-11-18): Remove this term once Arena's Isaac Lab includes
+    # https://github.com/isaac-sim/IsaacLab/pull/8822, which calls record_post_step() every step without recorder
+    # terms. test_isaac_lab_skips_record_post_step_without_recorder_terms fails when that happens.
+
     def record_post_step(self):
         return None, None
 
