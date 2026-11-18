@@ -37,21 +37,23 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     """Configuration for an episode recorder term."""
 
     func: Callable[..., dict[str, Any] | None] = MISSING
-    """The callable that records this term's output for one finishing episode.
+    """The callable that returns this term's output for one finished episode.
 
-    Invoked as ``func(env, env_id, **params)`` for the env whose episode just finished. It returns a
-    JSON object, which the manager stores in the episode's record under the term's name, or ``None``
-    to leave the term out of that record. It may also be an ``EpisodeRecorderTerm`` subclass, which the
-    manager creates once and steps every control step.
+    Invoked as ``func(env, env_id, **params)`` when an episode ends. Returns a dict of JSON values
+    without NaN or infinity, stored in the episode's record under the term's name, or ``None`` to leave
+    the term out of that record. It may also be an ``EpisodeRecorderTerm`` subclass, which the manager
+    creates once; its ``post_step()`` runs after every control step and its ``reset()`` when an episode
+    starts.
     """
 
 
 class EpisodeRecorderTerm(ManagerTermBase):
-    """Episode recorder term that can follow its episode step by step.
+    """Class-based episode recorder term that keeps per-env state over the steps of an episode.
 
     Subclasses keep one entry of state per env, update it in ``post_step()``, clear it in ``reset()``,
-    and return the finished episode's output from ``__call__``. Update state in place: the env may be
-    stepped inside ``torch.inference_mode()`` and reset outside it.
+    and return the finished episode's output from ``__call__``. Update state tensors in place instead of
+    reassigning them: the env may be stepped inside ``torch.inference_mode()``, and a tensor created there
+    cannot be written in place by a reset that runs outside it.
 
     A subclass declares ``__call__(self, env, env_id, <name>, ...)`` with one named parameter for each
     key in ``cfg.params``. Isaac Lab counts a ``**params`` parameter as a required one, so it must not
@@ -116,7 +118,9 @@ class EpisodeRecorderManager(ManagerBase):
 
     @property
     def has_post_step_terms(self) -> bool:
-        """Whether any term follows its episode step by step."""
+        """Whether any class-based term overrides ``post_step()`` and so needs a call after every control step."""
+        # Only an override counts: the per-step call needs a recorder term that records nothing, and any
+        # active recorder term makes Isaac Lab compute the observations a second time every step.
         return any(
             type(term_cfg.func).post_step is not EpisodeRecorderTerm.post_step for term_cfg in self._class_term_cfgs
         )
@@ -138,11 +142,12 @@ class EpisodeRecorderManager(ManagerBase):
         Args:
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
         """
-        # Without an output path nothing is written, so skip building and validating the records.
+        # A run that writes no episode results file must not fail on a term's output check or pay for
+        # the per-env reads that building a record needs.
         if self._output_path is None:
             return
         for env_id in self._env_ids_to_list(env_ids):
-            record: dict[str, Any] = {"job_name": self._job_name, **self._core_fields(env_id)}
+            record = self._core_fields(env_id)
             for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
                 output = term_cfg.func(self._env, env_id, **term_cfg.params)
                 if output is None:
@@ -158,6 +163,7 @@ class EpisodeRecorderManager(ManagerBase):
         if "success" in env.termination_manager.active_terms:
             success = bool(env.termination_manager.get_term("success")[env_id].item())
         fields = {
+            "job_name": self._job_name,
             "env_id": env_id,
             "episode_in_env": env.get_episode_index(env_id),
             "seed": env.cfg.seed,
@@ -196,8 +202,11 @@ class EpisodeRecorderManager(ManagerBase):
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)
-            if inspect.isclass(term_cfg.func) or isinstance(term_cfg.func, ManagerTermBase):
-                term_class = term_cfg.func if inspect.isclass(term_cfg.func) else type(term_cfg.func)
+            # Isaac Lab replaces a class func with its instance once the simulation plays, so func holds
+            # either the class or its instance here. Keep the cfg: post_step() and reset() then reach the
+            # instance even when Isaac Lab creates it later.
+            term_class = term_cfg.func if inspect.isclass(term_cfg.func) else type(term_cfg.func)
+            if issubclass(term_class, ManagerTermBase):
                 assert issubclass(
                     term_class, EpisodeRecorderTerm
                 ), f"Episode recorder term '{term_name}' is a class; it must derive from EpisodeRecorderTerm."

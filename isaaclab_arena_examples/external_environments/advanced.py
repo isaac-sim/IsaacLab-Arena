@@ -113,13 +113,16 @@ class ObjectPeakSpeed(EpisodeRecorderTerm):
     def post_step(self, env):
         velocity_w = env.arena_world.get_mean_linear_velocity_w(self._object_name)
         speed = torch.linalg.norm(velocity_w, dim=-1)
-        # Update in place: the env may be stepped inside torch.inference_mode() and reset outside it.
+        # Update in place: a tensor created inside torch.inference_mode(), where the env may be stepped,
+        # cannot be written in place by reset() outside it.
         torch.maximum(self._peak_speed, speed, out=self._peak_speed)
 
     def reset(self, env_ids=None):
         self._peak_speed[slice(None) if env_ids is None else env_ids] = 0.0
 
     def __call__(self, env, env_id: int, object_name: str) -> dict[str, float]:
+        # The manager passes every cfg.params entry as a keyword argument, so object_name must be
+        # accepted here even though __init__ already read it.
         return {"peak_speed": float(self._peak_speed[env_id])}
 
 

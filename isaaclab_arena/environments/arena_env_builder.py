@@ -307,7 +307,11 @@ class ArenaEnvBuilder:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
         The built-in placement, variations, and progress terms come first, then the task's terms, then the
-        environment's terms. The manager writes the core fields itself.
+        environment's terms. Each name becomes a top-level key of the episode record, so names must be unique.
+
+        Args:
+            task_terms: The task's episode recorder terms, keyed by term name.
+            environment_terms: The environment's episode recorder terms, keyed by term name.
         """
         terms: dict[str, EpisodeRecorderTermCfg] = {
             "placement": PlacementEpisodeRecorderTermCfg(),

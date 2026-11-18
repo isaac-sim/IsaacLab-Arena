@@ -76,7 +76,7 @@ def test_dataset_file_requires_a_recorder_term(tmp_path, record_actions):
     )
 
 
-def _test_class_term_alone_is_stepped_without_dataset_file(simulation_app, output_dir):
+def _test_episode_recorder_term_alone_is_stepped_without_dataset_file(simulation_app, output_dir):
     import torch
 
     from isaaclab.envs import ManagerBasedRLEnv
@@ -132,7 +132,7 @@ def _test_class_term_alone_is_stepped_without_dataset_file(simulation_app, outpu
     return True
 
 
-def test_class_term_alone_is_stepped_without_dataset_file(tmp_path):
+def test_episode_recorder_term_alone_is_stepped_without_dataset_file(tmp_path):
     assert run_function_with_persistent_simulation_app(
-        partial(_test_class_term_alone_is_stepped_without_dataset_file, output_dir=tmp_path)
+        partial(_test_episode_recorder_term_alone_is_stepped_without_dataset_file, output_dir=tmp_path)
     )
