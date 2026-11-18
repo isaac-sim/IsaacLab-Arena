@@ -66,10 +66,12 @@ def test_experiment_runner_all_environments(tmp_path):
     experiment_output_directory = tmp_path / "output"
     # Loading every environment and compiling both physics backends can exceed
     # the default 15-minute timeout on CI with a cold asset/kernel cache.
+    # --continue_on_error records a failing Run and moves on, so the status check
+    # below names every broken environment instead of only the first one.
     run_experiment_runner(
         str(config_path),
         headless=HEADLESS,
-        extra_args=["--experiment_output_directory", str(experiment_output_directory)],
+        extra_args=["--continue_on_error", "--experiment_output_directory", str(experiment_output_directory)],
         timeout_sec=30 * 60,
     )
 
