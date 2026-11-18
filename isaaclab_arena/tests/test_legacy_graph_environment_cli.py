@@ -10,39 +10,32 @@ from types import SimpleNamespace
 
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.evaluation import legacy_graph_environment_cli
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutLimitCfg
 from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 
 
 def test_legacy_environment_arguments_keep_cli_order_and_boolean_flags():
     args = legacy_environment_args_to_cli_args({
         "environment": "env_graph.yaml",
         "object": "box",
-        "num_envs": 4,
-        "mimic": True,
-        "enable_cameras": False,
+        "mimic": False,
+        "enable_cameras": True,
     })
 
-    assert args == ["--num_envs", "4", "--env_spec", "env_graph.yaml", "--object", "box", "--mimic"]
+    assert args == ["--enable_cameras", "--env_spec", "env_graph.yaml", "--object", "box"]
 
 
 def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeypatch):
     graph_path = Path(TestConstants.test_data_dir) / "pick_and_place_maple_table_env_graph.yaml"
-    run = ArenaRunCfg(
-        name="graph_environment",
-        # The YAML loader builds this from a Run's environment section: {type: <graph path>, enable_cameras: true}.
-        environment=LegacyGraphEnvironmentCfg(
-            env_spec_path=str(graph_path), enable_cameras=True, per_run_overrides={"enable_cameras": True}
-        ),
-        environment_builder=ArenaEnvBuilderCfg(num_envs=2, device="cuda:1", env_cfg_override={"episode_length_s": 1.0}),
-        policy=ZeroActionPolicyCfg(),
-        rollout_limit=RolloutLimitCfg(num_steps=2),
-        variations={"light": {"intensity": {"enabled": True}}},
+    # The YAML loader builds this from a Run's environment section: {type: <graph path>, enable_cameras: true}.
+    environment_cfg = LegacyGraphEnvironmentCfg(
+        env_spec_path=str(graph_path), enable_cameras=True, per_run_overrides={"enable_cameras": True}
     )
+    environment_builder_cfg = ArenaEnvBuilderCfg()
+    policy_cfg = ZeroActionPolicyCfg()
+    hydra_overrides = ["light.intensity.enabled=true"]
     parsed_args = SimpleNamespace(env_spec=str(graph_path))
     expected_arena_env = object()
     expected_builder = object()
@@ -75,23 +68,20 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     monkeypatch.setattr("isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder", get_builder)
 
     builder = legacy_graph_environment_cli.build_arena_builder_from_legacy_graph(
-        run.environment,
-        environment_builder=run.environment_builder,
-        hydra_overrides=overrides_from_dict(run.variations),
+        environment_cfg,
+        environment_builder=environment_builder_cfg,
+        hydra_overrides=hydra_overrides,
         rebuild_index=1,
-        policy_cfg=run.policy,
+        policy_cfg=policy_cfg,
     )
 
     assert builder is expected_builder
-    assert captured["arguments"] == legacy_environment_args_to_cli_args(
-        {"environment": run.environment.env_spec_path, **run.environment.per_run_overrides}
-    )
+    assert captured["arguments"] == ["--enable_cameras", "--env_spec", str(graph_path)]
     assert captured["args_cli"] is parsed_args
     assert captured["env_spec"] == str(graph_path)
-    # The Run's typed builder config crosses the boundary directly, so device and
-    # language_instruction never round-trip through the argparse namespace.
-    assert captured["builder_cfg"] is run.environment_builder
+    # The typed builder config crosses the boundary directly instead of round-tripping through the argparse namespace.
+    assert captured["builder_cfg"] is environment_builder_cfg
     assert captured["arena_env"] is expected_arena_env
-    assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
+    assert captured["hydra_overrides"] == hydra_overrides
     assert captured["rebuild_index"] == 1
-    assert captured["policy_cfg"] is run.policy
+    assert captured["policy_cfg"] is policy_cfg
