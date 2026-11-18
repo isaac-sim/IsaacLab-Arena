@@ -455,7 +455,7 @@ def test_reset_background_physics_handles_mixed_rigids():
 
 
 def _test_background_spawn_deactivates_embedded_physics_scene(_) -> bool:
-    """Spawn a background USD that carries its own physics scene into two environments."""
+    """Spawn a background USD with its own physics scenes into two environments."""
     import tempfile
 
     from isaaclab.sim.utils import create_new_stage
@@ -465,7 +465,12 @@ def _test_background_spawn_deactivates_embedded_physics_scene(_) -> bool:
 
     with tempfile.TemporaryDirectory() as temp_dir:
         background_path = f"{temp_dir}/background.usd"
-        _create_background_usds(background_path, f"{temp_dir}/online_asset.usd", include_joint_network=False)
+        online_asset_path = f"{temp_dir}/online_asset.usd"
+        _create_background_usds(background_path, online_asset_path, include_joint_network=False)
+        # Prop_OnlineVisual references this asset as an instance that is de-instanced on spawn.
+        online_stage = Usd.Stage.Open(online_asset_path)
+        UsdPhysics.Scene.Define(online_stage, "/OnlineAsset/PhysicsScene")
+        online_stage.GetRootLayer().Save()
         source_stage = Usd.Stage.Open(background_path)
         UsdPhysics.Scene.Define(source_stage, "/Background/PhysicsScene")
         source_stage.GetRootLayer().Save()
@@ -477,9 +482,10 @@ def _test_background_spawn_deactivates_embedded_physics_scene(_) -> bool:
         spawn = background.object_cfg.spawn
         spawn.func("/World/env_.*/background", spawn)
         for index in range(2):
-            # The background's own scene is inactive in every environment.
-            physics_scene = stage.GetPrimAtPath(f"/World/env_{index}/background/PhysicsScene")
-            assert physics_scene.IsValid() and not physics_scene.IsActive()
+            # Both scenes are inactive in every environment, including the one in the de-instanced prop.
+            for scene_path in ("PhysicsScene", "Prop_OnlineVisual/PhysicsScene"):
+                physics_scene = stage.GetPrimAtPath(f"/World/env_{index}/background/{scene_path}")
+                assert physics_scene.IsValid() and not physics_scene.IsActive()
     return True
 
 

@@ -39,6 +39,7 @@ class Background(Object):
         **kwargs,
     ):
         self.reset_nested_physics = reset_nested_physics
+        """Whether to de-instance and reset physics nested in the USD, and deactivate the physics scenes authored in it."""
         super().__init__(
             name=name,
             usd_path=usd_path,
@@ -57,12 +58,16 @@ class Background(Object):
         self.object_min_z = object_min_z
 
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
-        """Return a USD spawner that materializes nested instance-proxy physics."""
+        """Return the USD spawner for this background.
+
+        With reset_nested_physics, the spawner de-instances nested physics and deactivates the physics scenes
+        authored in the USD.
+        """
         cfg = super()._get_spawn_cfg(activate_contact_sensors)
         if self.reset_nested_physics:
             assert isinstance(cfg, UsdFileCfg), "Nested background physics requires a USD file spawner"
             cfg = cfg.copy()
-            cfg.func = _spawn_from_usd_with_resettable_nested_physics
+            cfg.func = _spawn_background_from_usd
         return cfg
 
     def get_nested_physics_prim_paths(
@@ -127,8 +132,6 @@ def _deactivate_physics_scenes(prim: Usd.Prim) -> None:
     """Deactivate the physics scenes under the spawned background prim, except those inside instanced subtrees."""
     from pxr import Usd, UsdPhysics
 
-    # A background USD saved with its own scene adds one PhysX scene per environment,
-    # and PhysX stalls in the first simulation step when there are many.
     # Collect before deactivating; editing the stage can invalidate a live traversal.
     physics_scenes = [candidate for candidate in Usd.PrimRange(prim) if candidate.IsA(UsdPhysics.Scene)]
     for physics_scene in physics_scenes:
@@ -136,14 +139,19 @@ def _deactivate_physics_scenes(prim: Usd.Prim) -> None:
 
 
 @clone
-def _spawn_from_usd_with_resettable_nested_physics(
+def _spawn_background_from_usd(
     prim_path: str,
     cfg: UsdFileCfg,
     translation: tuple[float, float, float] | None = None,
     orientation: tuple[float, float, float, float] | None = None,
     **kwargs,
 ) -> Usd.Prim:
-    """Spawn a USD background, de-instance its physics subtrees, and deactivate its own physics scenes."""
+    """Spawn a background USD, de-instance its nested physics, and deactivate its own physics scenes.
+
+    Reset views need the nested rigid bodies and articulations outside instances. A physics scene authored
+    in the USD would add one PhysX scene per environment, and with many environments the first simulation
+    step never returns.
+    """
     prim = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
     # PhysX tensor views cannot bind dynamic instance proxies. Materialize only
     # instanceable subtrees containing physics so reset views can control them.
