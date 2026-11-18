@@ -76,15 +76,15 @@ Run it with the Experiment Runner:
 Policy settings such as ``checkpoint_path`` go under ``policy`` in the Run. Environment settings
 such as ``object`` or ``embodiment`` go under ``environment``.
 
-When the Run finishes, the console shows the number of finished episodes and the success rate:
+When the Run finishes, the runner prints the Run's status, recorded episodes, and success rate:
 
 .. code-block:: text
 
-   +--------------------+----------+--------------+
-   |      Run Name      | Episodes | Success Rate |
-   +--------------------+----------+--------------+
-   | lift_object_rsl_rl |    20    |    1.0000    |
-   +--------------------+----------+--------------+
+   +--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |      Run Name      |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
+   +--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   | lift_object_rsl_rl | completed |    rsl_rl   |    1     |    None   |      20      |      1       |         20        |    1.0000    |
+   +--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
 
 
 Method 2: Parallel Environment Evaluation
@@ -105,11 +105,11 @@ episodes on the command line:
 
 .. code-block:: text
 
-   +--------------------+----------+--------------+
-   |      Run Name      | Episodes | Success Rate |
-   +--------------------+----------+--------------+
-   | lift_object_rsl_rl |   1024   |    1.0000    |
-   +--------------------+----------+--------------+
+   +--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |      Run Name      |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
+   +--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   | lift_object_rsl_rl | completed |    rsl_rl   |    64    |    None   |     1024     |      1       |        1024       |    1.0000    |
+   +--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
 
 .. image:: ../../../images/lift_object_rl_parallel.gif
    :align: center
@@ -151,12 +151,12 @@ The runner evaluates the Runs in YAML order and prints a summary for both:
 
 .. code-block:: text
 
-   +------------------------+----------+--------------+
-   |        Run Name        | Episodes | Success Rate |
-   +------------------------+----------+--------------+
-   | lift_object_model_1000 |   1024   |    0.9697    |
-   | lift_object_model_1999 |   1024   |    1.0000    |
-   +------------------------+----------+--------------+
+   +------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |        Run Name        |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
+   +------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   | lift_object_model_1000 | completed |    rsl_rl   |    64    |    None   |     1024     |      1       |        1024       |    0.9697    |
+   | lift_object_model_1999 | completed |    rsl_rl   |    64    |    None   |     1024     |      1       |        1024       |    1.0000    |
+   +------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
 
 
 Understanding the Results
@@ -164,7 +164,7 @@ Understanding the Results
 
 For the Lift Object task, the table reports:
 
-- ``Episodes``: total number of completed episodes during the evaluation run
+- ``Recorded Episodes``: number of episodes that finished during the Run
 - ``Success Rate``: fraction of episodes where the object reached the target position within tolerance
 
 A well-trained policy should reach a success rate of at least 70%. Results will vary with the target range,

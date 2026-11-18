@@ -186,14 +186,6 @@ Then evaluate four parallel environments for 16 completed episodes:
       A local 16-episode OpenPI ``pi05`` validation run succeeded in 9 episodes (56.25%).
       This small stochastic run validates the workflow.
 
-      .. code-block:: text
-
-         +----------+----------+--------------+
-         | Run Name | Episodes | Success Rate |
-         +----------+----------+--------------+
-         |    .     |    16    |    0.5625    |
-         +----------+----------+--------------+
-
    .. tab-item:: PhysX
 
       .. code-block:: bash
@@ -209,14 +201,6 @@ Then evaluate four parallel environments for 16 completed episodes:
 
       A local 16-episode OpenPI ``pi05`` validation run succeeded in 15 episodes (93.75%).
       This small stochastic run validates the workflow.
-
-      .. code-block:: text
-
-         +----------+----------+--------------+
-         | Run Name | Episodes | Success Rate |
-         +----------+----------+--------------+
-         |    .     |    16    |    0.9375    |
-         +----------+----------+--------------+
 
 The following rollout shows one successful Newton episode from an external camera and the
 robot wrist camera:

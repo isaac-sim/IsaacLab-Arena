@@ -160,9 +160,8 @@ def main():
             continue_on_error=args_cli.continue_on_error,
         )
 
-        print(build_runs_info_table(experiment_cfg.runs.values(), run_results))
-
         experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
+        print(build_runs_info_table(experiment_cfg.runs.values(), run_results, experiment_result))
         variation_table = build_categorical_variation_table(experiment_result)
         if variation_table.rows:
             print(variation_table)
