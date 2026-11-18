@@ -470,7 +470,7 @@ def _test_recording_and_validation(_app):
 
     import pytest
 
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.progress_tracking.tracked_event_cfg import TrackedEventCfg
     from isaaclab_arena.recording.progress_terms import record_progress_results
 
@@ -507,8 +507,7 @@ def _test_recording_and_validation(_app):
     with pytest.raises(AssertionError, match="exactly one"):
         tracker.step(env, env.episode_length_buf)
     assert _events(tracker) == [("observed", 1)]
-    cfg = ProgressTrackingRecorderCfg()
-    cfg.class_type(cfg, env).record_post_step()
+    env.extras["progress_tracking"] = tracker.get_progress_snapshot()
     tracker.reset([0])
     result = json.loads(json.dumps(record_progress_results(env, 0)))
     assert result["tracked_event_names"] == ["observed"]

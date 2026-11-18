@@ -61,7 +61,7 @@ def _test_dataset_file_requires_a_recorder_term(simulation_app, output_dir, reco
     ):
         env.load_managers()
     try:
-        assert "progress_tracking" in env.recorder_manager.active_terms
+        assert "post_step_hook" in env.recorder_manager.active_terms
         expected_dataset_files = [output_dir / "dataset.hdf5"] if record_actions else []
         assert list(output_dir.glob("*.hdf5")) == expected_dataset_files
     finally:

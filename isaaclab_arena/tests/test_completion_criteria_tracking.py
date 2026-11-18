@@ -617,12 +617,12 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
     return True
 
 
-def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bool:
-    """The environment advances progress; the recorder publishes its latest state."""
+def _test_progress_update_publishes_to_extras(simulation_app) -> bool:
+    """Advancing task progress publishes its latest state, at most once per control step."""
 
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.terminations import task_success_from_progress
 
     env = _MockEnv(num_envs=2)
@@ -631,26 +631,21 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
     first_predicate.set([True, False])
     final_predicate.set([True, False])
     criteria_sets = [CompletionCriteria(name="task", predicate_sequence=[first_predicate, final_predicate])]
-    recorder_cfg = ProgressTrackingRecorderCfg()
-    recorder = recorder_cfg.class_type(recorder_cfg, env)
-    assert env.progress_tracker is None
     env._progress_tracker = ProgressTracker(criteria_sets, num_envs=env.num_envs, device=env.device, env=env)
     env.common_step_counter = 0
     env._task_progress_step = 0
     env.update_task_progress = lambda: IsaacLabArenaManagerBasedRLEnv.update_task_progress(env)
 
-    assert recorder.record_post_step() == (None, None)
-    assert len(env.extras["progress_tracking"]["states"]) == 2
-    assert env.extras["progress_tracking"]["events"] == [[], []]
-    for _ in range(2):
-        assert recorder.record_post_step() == (None, None)
-        assert env.extras["progress_tracking"]["states"][0].overall_score == 0.0
+    # No control step has run yet, so there is no progress to publish.
+    env.update_task_progress()
+    assert "progress_tracking" not in env.extras
 
     _advance_step(env)
     env.common_step_counter += 1
     assert task_success_from_progress(env).tolist() == [False, False]
     for _ in range(2):
-        assert recorder.record_post_step() == (None, None)
+        # A second update in the same control step must neither advance nor change the published state.
+        env.update_task_progress()
         progress = env.extras["progress_tracking"]
         assert [state.overall_score for state in progress["states"]] == [0.5, 0.0]
         assert [len(events) for events in progress["events"]] == [1, 0]
@@ -658,16 +653,13 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
     _advance_step(env)
     env.common_step_counter += 1
     assert task_success_from_progress(env).tolist() == [True, False]
-    assert recorder.record_post_step() == (None, None)
     progress = env.extras["progress_tracking"]
     assert [state.all_complete for state in progress["states"]] == [True, False]
     assert [len(events) for events in progress["events"]] == [2, 0]
 
+    # After a reset, the published state still shows the finished episode until the next control step.
     env.progress_tracker.reset([0])
-    assert recorder.record_post_step() == (None, None)
-    progress = env.extras["progress_tracking"]
-    assert [state.overall_score for state in progress["states"]] == [0.0, 0.0]
-    assert progress["events"] == [[], []]
+    assert [state.all_complete for state in env.extras["progress_tracking"]["states"]] == [True, False]
     return True
 
 
@@ -952,10 +944,8 @@ def test_state_machine_reset_clears_state():
     assert run_function_with_persistent_simulation_app(_test_state_machine_reset_clears_state, headless=HEADLESS)
 
 
-def test_recorder_publishes_to_extras_and_records_nothing():
-    assert run_function_with_persistent_simulation_app(
-        _test_recorder_publishes_to_extras_and_records_nothing, headless=HEADLESS
-    )
+def test_progress_update_publishes_to_extras():
+    assert run_function_with_persistent_simulation_app(_test_progress_update_publishes_to_extras, headless=HEADLESS)
 
 
 def test_task_termination_cfg_assigns_flat_criteria_to_subtasks():
@@ -980,7 +970,7 @@ if __name__ == "__main__":
     test_state_machine_logical_all()
     test_state_machine_logical_choose()
     test_state_machine_reset_clears_state()
-    test_recorder_publishes_to_extras_and_records_nothing()
+    test_progress_update_publishes_to_extras()
     test_task_termination_cfg_assigns_flat_criteria_to_subtasks()
     test_flat_subtask_criteria_report_weighted_progress()
     test_tracker_rejects_excluding_every_subtask_from_success()
