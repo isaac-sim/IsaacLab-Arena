@@ -95,6 +95,7 @@ Details below:
 
 - Updated Arena to the Isaac Lab 3.0.0 release, Isaac Sim 6.2, and Newton 1.6.1, with a
   ``uv``-based Docker installation (#1481).
+- Moved PyTorch to its CUDA 13.0 build, which requires NVIDIA driver 580 or newer (#1481).
 - Included cuRobo in every native ``uv`` and Docker install, replacing the separate cuRobo image,
   and upgraded the IK reachability check from cuRobo v1 to v2. The check now runs by default for
   embodiments with a cuRobo config, such as DROID (#1550).
