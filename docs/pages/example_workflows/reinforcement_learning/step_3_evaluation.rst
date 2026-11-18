@@ -27,7 +27,8 @@ or you can download a pre-trained one as described below.
    ``$MODELS_DIR/lift_object_checkpoint/model_1999.pt``
 
    The same folder also contains ``model_1000.pt``. The Experiment YAMLs below read
-   checkpoints from this folder.
+   checkpoints from this folder. If you downloaded them somewhere else, override the checkpoint
+   path as shown for your own checkpoints below.
 
 
 Evaluation Methods
