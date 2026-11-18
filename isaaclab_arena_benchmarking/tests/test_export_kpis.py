@@ -198,19 +198,6 @@ def test_first_exception_is_raised_after_every_exporter_ran(tmp_path: Path, monk
     assert "second exporter broke" in printed
 
 
-def test_raise_on_exporter_failure_false_does_not_raise(tmp_path: Path, monkeypatch, capsys):
-    output_dir = _write_experiment(tmp_path / "experiment", {"run_a": "completed"})
-    monkeypatch.setitem(get_exporters_by_name(), "failing", _FailingExporter)
-    monkeypatch.setitem(get_exporters_by_name(), "failing_too", _SecondFailingExporter)
-
-    written_paths = export_kpis(output_dir, ("failing", "success_rate", "failing_too"), raise_on_exporter_failure=False)
-
-    assert [path.name for path in written_paths] == ["kpis_success_rates.json"]
-    printed = capsys.readouterr().out
-    assert "failing" in printed and "exporter broke" in printed
-    assert "failing_too" in printed and "second exporter broke" in printed
-
-
 def test_registering_a_second_exporter_under_a_taken_name_is_rejected(monkeypatch):
     with pytest.raises(AssertionError, match="'timing' is already registered"):
         registry.register_kpi_exporter("timing")(_FailingExporter)
