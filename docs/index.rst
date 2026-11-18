@@ -1180,6 +1180,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    :caption: Example Workflows
 
    pages/example_workflows/example_environments
+   pages/example_workflows/laptop_cup
    pages/example_workflows/analysis/index
    pages/example_workflows/agentic_authoring/index
    pages/example_workflows/newton/index
