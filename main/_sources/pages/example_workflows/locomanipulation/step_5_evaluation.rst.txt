@@ -68,7 +68,7 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``g1_locomanip_gr00t_closedloop_config.yaml``):
    :animate: fade-in
@@ -77,18 +77,13 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
 
       language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
       action_horizon: 50
-      embodiment_tag: NEW_EMBODIMENT
       video_backend: decord
       modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
-
-      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
 
       action_chunk_length: 50
       pov_cam_name_sim: "robot_head_cam_rgb"
 
-      task_mode_name: g1_locomanipulation
+      gr00t_embodiment_adapter: g1_wbc
 
 Test the policy in a single environment with visualization via the GUI run:
 

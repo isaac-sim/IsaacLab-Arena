@@ -76,15 +76,11 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
 
       language_instruction: "Place the sauce bottle on the top shelf of the fridge, and close the fridge door."
       action_horizon: 16
-      embodiment_tag: GR1
       video_backend: decord
       modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
 
-      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml
       action_chunk_length: 16
-      task_mode_name: gr1_tabletop_manipulation
+      gr00t_embodiment_adapter: gr1_arms
 
       pov_cam_name_sim: "robot_pov_cam_rgb"
 
