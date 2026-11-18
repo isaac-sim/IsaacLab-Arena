@@ -19,16 +19,12 @@ import torch
 def idle_env_ids(env: gym.Env) -> list[int]:
     """Return the envs that finished their last episode and were not assigned a new one.
 
-    Without an episode limit every finished episode is replaced at once, so the list is empty, as it is for
-    an env that does not track episode assignment.
+    Without an episode limit every finished episode is replaced at once, so the list is empty.
 
     Args:
-        env: Environment, optionally gym-wrapped.
+        env: Arena environment, optionally gym-wrapped.
     """
-    active_episode_mask = getattr(env.unwrapped, "active_episode_mask", None)
-    if active_episode_mask is None:
-        return []
-    return (~active_episode_mask).nonzero(as_tuple=True)[0].tolist()
+    return (~env.unwrapped.active_episode_mask).nonzero(as_tuple=True)[0].tolist()
 
 
 def hold_action_from_action_manager(env: gym.Env) -> torch.Tensor:
@@ -38,28 +34,40 @@ def hold_action_from_action_manager(env: gym.Env) -> torch.Tensor:
 
     - absolute joint position terms get the current joint positions, mapped back through the
       term's scale and offset, so the drive target is the current pose;
-    - relative joint position terms and relative inverse-kinematics terms get zero, their
-      "stay in place" command;
-    - every other term, such as a binary gripper or an absolute pose target, repeats the raw
-      action it applied last, which is zero right after a reset.
+    - relative joint position, joint velocity, non-holonomic and relative inverse-kinematics
+      terms get zero, their "stay in place" command;
+    - binary joint terms and absolute inverse-kinematics terms repeat the raw action they
+      applied last, which is zero right after a reset.
+
+    Any other term type is rejected, since repeating its last command would keep the robot moving.
 
     Args:
         env: Environment whose action manager defines the action layout.
     """
-    from isaaclab.envs.mdp.actions.joint_actions import JointPositionAction, RelativeJointPositionAction
+    from isaaclab.envs.mdp.actions.binary_joint_actions import BinaryJointAction
+    from isaaclab.envs.mdp.actions.joint_actions import (
+        JointPositionAction,
+        JointVelocityAction,
+        RelativeJointPositionAction,
+    )
+    from isaaclab.envs.mdp.actions.non_holonomic_actions import NonHolonomicAction
     from isaaclab.envs.mdp.actions.task_space_actions import DifferentialInverseKinematicsAction
 
     action_manager = env.unwrapped.action_manager
     term_hold_actions = []
     for term_name in action_manager.active_terms:
         term = action_manager.get_term(term_name)
-        if isinstance(term, RelativeJointPositionAction):
+        if isinstance(term, (RelativeJointPositionAction, JointVelocityAction, NonHolonomicAction)):
             term_hold_actions.append(torch.zeros_like(term.raw_actions))
         elif isinstance(term, JointPositionAction):
             joint_pos = term._asset.data.joint_pos.torch[:, term._joint_ids]
             term_hold_actions.append((joint_pos - term._offset) / term._scale)
         elif isinstance(term, DifferentialInverseKinematicsAction) and term.cfg.controller.use_relative_mode:
             term_hold_actions.append(torch.zeros_like(term.raw_actions))
-        else:
+        elif isinstance(term, (BinaryJointAction, DifferentialInverseKinematicsAction)):
             term_hold_actions.append(term.raw_actions.clone())
+        else:
+            raise AssertionError(
+                f"no hold action is defined for action term '{term_name}' of type {type(term).__name__}"
+            )
     return torch.cat(term_hold_actions, dim=-1)
