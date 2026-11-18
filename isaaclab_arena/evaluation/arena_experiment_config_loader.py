@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from isaaclab_arena.utils.class_path import import_class_from_path
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
@@ -111,8 +112,7 @@ def resolve_policy_type_from_name_or_class_path(policy_name_or_class_path: str) 
     assert (
         "." in policy_name_or_class_path
     ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
-    module_path, class_name = policy_name_or_class_path.rsplit(".", 1)
-    return getattr(import_module(module_path), class_name)
+    return import_class_from_path(policy_name_or_class_path)
 
 
 def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
