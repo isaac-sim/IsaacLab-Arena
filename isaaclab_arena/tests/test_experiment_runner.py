@@ -138,13 +138,6 @@ def test_experiment_runner_rejects_unknown_non_hydra_arguments():
     assert "Unrecognized arguments: --headles" in result.stderr
 
 
-def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
-    jobs_config = {"jobs": jobs}
-
-    with open(tmp_file_path, "w", encoding="utf-8") as f:
-        json.dump(jobs_config, f, indent=4)
-
-
 def run_experiment_runner(
     experiment_config_path: str,
     headless: bool = HEADLESS,
@@ -401,105 +394,6 @@ runs:
 
 
 @pytest.mark.with_subprocess
-def test_experiment_runner_two_jobs_zero_action(tmp_path):
-    """Test experiment_runner with 2 jobs using zero_action policy on different objects."""
-    jobs = [
-        {
-            "name": "gr1_open_microwave_cracker_box",
-            "arena_env_args": {
-                "environment": "gr1_open_microwave",
-                "object": "cracker_box",
-                "embodiment": "gr1_joint",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "gr1_open_microwave_sugar_box",
-            "arena_env_args": {
-                "environment": "gr1_open_microwave",
-                "object": "sugar_box",
-                "embodiment": "gr1_joint",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_two_jobs_zero_action.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
-
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_multiple_environments(tmp_path):
-    """Test experiment_runner with jobs across different environments."""
-    jobs = [
-        {
-            "name": "kitchen_pick_cracker_box",
-            "arena_env_args": {
-                "environment": "kitchen_pick_and_place",
-                "object": "cracker_box",
-                "embodiment": "gr1_joint",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "kitchen_pick_power_drill",
-            "arena_env_args": {
-                "environment": "put_item_in_fridge_and_close_door",
-                "object": "power_drill",
-                "embodiment": "gr1_pink",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_multiple_environments.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
-
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_different_embodiments(tmp_path):
-    """Test experiment_runner with jobs using different embodiments."""
-    jobs = [
-        {
-            "name": "kitchen_pick_gr1_pink",
-            "arena_env_args": {
-                "environment": "kitchen_pick_and_place",
-                "object": "tomato_soup_can",
-                "embodiment": "gr1_pink",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "kitchen_pick_franka",
-            "arena_env_args": {
-                "environment": "kitchen_pick_and_place",
-                "object": "tomato_soup_can",
-                "embodiment": "franka_ik",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_different_embodiments.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
-
-
-@pytest.mark.with_subprocess
 def test_experiment_runner_runs_default_experiment(tmp_path, monkeypatch):
     """Run experiment_runner.py without --experiment_config, as the installation check does."""
     # The default Experiment path is relative to the repository root, where the documented command runs.
@@ -554,62 +448,6 @@ runs:
 
     run_statuses = read_run_statuses(experiment_output_directory)
     assert run_statuses == {"single_env_joint": "completed", "multi_env_pink": "completed"}
-
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_with_variations(tmp_path):
-    """Test experiment_runner applies a per-job variations block via Hydra overrides."""
-    jobs = [
-        {
-            "name": "maple_table_hdr_variation",
-            "arena_env_args": {
-                "environment": "pick_and_place_maple_table",
-                "embodiment": "droid_abs_joint_pos",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_config_dict": {},
-            "variations": {"light": {"hdr_image": {"enabled": True}}},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_with_variations.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
-
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_enable_cameras(tmp_path):
-    """Test experiment_runner with enable_cameras set to true."""
-    jobs = [
-        {
-            "name": "kitchen_pick_and_place_no_cameras",
-            "arena_env_args": {
-                "environment": "kitchen_pick_and_place",
-                "object": "cracker_box",
-                "embodiment": "franka_ik",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "kitchen_pick_and_place",
-            "arena_env_args": {
-                "enable_cameras": True,
-                "environment": "kitchen_pick_and_place",
-                "object": "cracker_box",
-                "embodiment": "franka_ik",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_enable_cameras.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
