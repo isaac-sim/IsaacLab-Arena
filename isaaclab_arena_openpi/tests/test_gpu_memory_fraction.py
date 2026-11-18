@@ -66,6 +66,27 @@ def test_rejects_values_outside_the_gpu(memory, fake_nvidia_smi_path):
     assert "GPU memory" in result.stderr
 
 
+def test_sizes_convert_when_every_visible_gpu_has_the_same_total(tmp_path):
+    fake = tmp_path / "nvidia-smi"
+    fake.write_text(f"#!/usr/bin/env bash\nprintf '{_FAKE_GPU_TOTAL_MIB}\\n{_FAKE_GPU_TOTAL_MIB}\\n'\n")
+    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    result = _fraction("12GB", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    assert result.returncode == 0, result.stderr
+    assert float(result.stdout) == pytest.approx(12 * 1024 / _FAKE_GPU_TOTAL_MIB, abs=5e-5)
+
+
+def test_rejects_sizes_when_visible_gpus_have_different_totals(tmp_path):
+    fake = tmp_path / "nvidia-smi"
+    fake.write_text(f"#!/usr/bin/env bash\nprintf '{_FAKE_GPU_TOTAL_MIB}\\n24564\\n'\n")
+    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    path = f"{tmp_path}{os.pathsep}{os.environ['PATH']}"
+    result = _fraction("12GB", path)
+    assert result.returncode != 0
+    assert "different totals" in result.stderr
+    fraction = _fraction("0.5", path)
+    assert fraction.returncode == 0 and fraction.stdout.strip() == "0.5"
+
+
 def test_rejects_an_unreadable_gpu_total(tmp_path):
     fake = tmp_path / "nvidia-smi"
     fake.write_text("#!/usr/bin/env bash\necho 'N/A'\n")

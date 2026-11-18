@@ -3,8 +3,9 @@
 #
 # The reservation is either a fraction of the GPU's memory in (0, 1], such as 0.75, or an absolute size
 # such as 12GB, 12GiB, 12G, 6000MB, 6000MiB or 6000M (GB and MB are read as GiB and MiB, the units
-# nvidia-smi reports). An absolute size is divided by the total memory of the first visible GPU, which
-# makes the same 12GB reserve a different fraction on a 24 GB and a 48 GB card.
+# nvidia-smi reports). An absolute size is divided by the total memory of the visible GPUs, which makes
+# the same 12GB reserve a different fraction on a 24 GB and a 48 GB card; it is refused when the visible
+# GPUs have different totals, since the server may land on any of them.
 #
 # Usage:
 #   bash gpu_memory_fraction.sh 12GB      # prints 0.2501 on a 48 GB GPU
@@ -28,9 +29,16 @@ gpu_memory_fraction() {
             G|GB|GiB) mebibytes=$(awk -v a="$amount" 'BEGIN { printf "%.3f", a * 1024 }') ;;
             *) mebibytes="$amount" ;;
         esac
-        total_mebibytes="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n 1 | tr -d '[:space:]')"
+        # The server sees every GPU, so a size only converts unambiguously when they all have the same total.
+        local gpu_totals
+        gpu_totals="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | tr -d ' ' | sort -u)"
+        total_mebibytes="$(echo "$gpu_totals" | head -n 1)"
         if ! [[ "$total_mebibytes" =~ ^[0-9]+$ ]]; then
             echo "could not read the GPU memory total from nvidia-smi (got '$total_mebibytes')" >&2
+            return 1
+        fi
+        if [[ "$(echo "$gpu_totals" | wc -l)" -ne 1 ]]; then
+            echo "GPU memory $memory is ambiguous: the visible GPUs have different totals ($(echo "$gpu_totals" | paste -sd,) MiB); pass a fraction such as 0.5 instead" >&2
             return 1
         fi
         if awk -v m="$mebibytes" -v t="$total_mebibytes" 'BEGIN { exit !(m <= 0 || m > t) }'; then
