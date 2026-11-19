@@ -19,7 +19,7 @@ In the code below we show how to inspect the metrics defined by the ``PickAndPla
 
    task = PickAndPlaceTask(pick_object, destination, kitchen)
    task.get_metrics()
-   # → [SuccessRateMetric(), ObjectPeakSpeedExceededRateMetric(pick_object)]
+   # → [SuccessRateMetric(), ObjectDisplacedRateMetric(pick_object)]
 
 Example: ObjectPeakSpeedExceededRateMetric
 ------------------------------------------
