@@ -620,113 +620,149 @@ or you can download a pre-trained one as described below.</p>
 </div>
 <p class="sd-card-text">After downloading, the checkpoint is at:</p>
 <p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/lift_object_checkpoint/model_1999.pt</span></code></p>
-<p class="sd-card-text">Replace checkpoint paths in the examples below with this path.</p>
+<p class="sd-card-text">The same folder also contains <code class="docutils literal notranslate"><span class="pre">model_1000.pt</span></code>. The Experiment YAMLs below read
+checkpoints from <code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/lift_object_checkpoint</span></code>. When <code class="docutils literal notranslate"><span class="pre">MODELS_DIR</span></code> is not set, they
+use the default folder from the <code class="docutils literal notranslate"><span class="pre">export</span></code> command above.</p>
 </div>
 </details><section id="evaluation-methods">
 <h2>Evaluation Methods<a class="headerlink" href="#evaluation-methods" title="Link to this heading">#</a></h2>
-<p>There are three ways to evaluate a trained policy:</p>
+<p>There are three ways to evaluate a trained policy. Each one runs <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> with an
+Experiment YAML:</p>
 <ol class="arabic simple">
-<li><p><strong>Single environment</strong> (<code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code>): detailed evaluation with metrics</p></li>
-<li><p><strong>Parallel environments</strong> (<code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code>): larger-scale statistical evaluation</p></li>
-<li><p><strong>Batch evaluation</strong> (<code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code>): automated evaluation across multiple checkpoints</p></li>
+<li><p><strong>One environment</strong>: evaluate one checkpoint and print its metrics</p></li>
+<li><p><strong>Parallel environments</strong>: evaluate one checkpoint across many environments for more episodes</p></li>
+<li><p><strong>Several checkpoints</strong>: one Run per checkpoint in the same Experiment, evaluated in sequence</p></li>
 </ol>
 </section>
 <section id="method-1-single-environment-evaluation">
 <h2>Method 1: Single Environment Evaluation<a class="headerlink" href="#method-1-single-environment-evaluation" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<p>This Experiment YAML declares one Run. It evaluates the downloaded <code class="docutils literal notranslate"><span class="pre">model_1999.pt</span></code> checkpoint
+with the <code class="docutils literal notranslate"><span class="pre">rsl_rl</span></code> policy in the <code class="docutils literal notranslate"><span class="pre">lift_object</span></code> environment for 20 episodes:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">lift_object_rsl_rl</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lift_object</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rsl_rl</span>
+<span class="w">      </span><span class="c1"># The tutorial&#39;s download folder: $MODELS_DIR, or its default location when MODELS_DIR is unset.</span>
+<span class="w">      </span><span class="nt">checkpoint_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${oc.env:MODELS_DIR,${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning}/lift_object_checkpoint/model_1999.pt</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+</pre></div>
+</div>
+<p>Run it with the Experiment Runner:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/lift_object_checkpoint/model_1999.pt<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>lift_object
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_experiment.yaml
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>If you train the model yourself, the checkpoint path is typically in the <code class="docutils literal notranslate"><span class="pre">logs/rsl_rl/generic_experiment/</span></code> directory.
-Replace the checkpoint path with the path to your own checkpoint.</p>
+Override the checkpoint path to evaluate your own checkpoint. Replace <code class="docutils literal notranslate"><span class="pre">&lt;timestamp&gt;</span></code> with the
+folder name of your training run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.lift_object_rsl_rl.policy.checkpoint_path<span class="o">=</span>logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1999.pt
+</pre></div>
 </div>
-<p>Policy-specific arguments (<code class="docutils literal notranslate"><span class="pre">--policy_type</span></code>, <code class="docutils literal notranslate"><span class="pre">--checkpoint_path</span></code>, etc.) must come <strong>before</strong> the
-environment name. Environment-specific arguments (<code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, etc.) must come
-<strong>after</strong> it.</p>
-<p>At the end of the run, metrics are printed to the console:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.81, &#39;num_episodes&#39;: 12}
+</div>
+<p>Policy settings such as <code class="docutils literal notranslate"><span class="pre">checkpoint_path</span></code> go under <code class="docutils literal notranslate"><span class="pre">policy</span></code> in the Run. Environment settings
+such as <code class="docutils literal notranslate"><span class="pre">object</span></code> or <code class="docutils literal notranslate"><span class="pre">embodiment</span></code> go under <code class="docutils literal notranslate"><span class="pre">environment</span></code>.</p>
+<p>When the Run finishes, the runner prints a metrics summary:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
+METRICS SUMMARY
+======================================================================
+
+lift_object_rsl_rl:
+  num_episodes                           20
+  success_rate                       1.0000
+======================================================================
 </pre></div>
 </div>
 </section>
 <section id="method-2-parallel-environment-evaluation">
 <h2>Method 2: Parallel Environment Evaluation<a class="headerlink" href="#method-2-parallel-environment-evaluation" title="Link to this heading">#</a></h2>
-<p>For more statistically significant results, run across many environments in parallel:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--env_spacing<span class="w"> </span><span class="m">2</span>.5<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/lift_object_checkpoint/model_1999.pt<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>lift_object
-</pre></div>
-</div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.72, &#39;num_episodes&#39;: 1024}
-</pre></div>
-</div>
-<a class="reference internal image-reference" href="../../../_images/lift_object_rl_parallel.gif"><img alt="../../../_images/lift_object_rl_parallel.gif" class="align-center" src="../../../_images/lift_object_rl_parallel.gif" style="height: 400px;" />
-</a>
-</section>
-<section id="method-3-batch-evaluation">
-<h2>Method 3: Batch Evaluation<a class="headerlink" href="#method-3-batch-evaluation" title="Link to this heading">#</a></h2>
-<p>To evaluate multiple checkpoints in sequence, use <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> with a JSON config.
-Here we evaluate the models you trained yourself.
-The checkpoint path should be replaced with the timestamp of your training run in the <code class="docutils literal notranslate"><span class="pre">logs/rsl_rl/generic_experiment/</span></code> directory.</p>
-<p><strong>1. Create an evaluation config</strong></p>
-<p>Create a file <code class="docutils literal notranslate"><span class="pre">eval_config.json</span></code>:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object_model_1000&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;num_episodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1000.pt&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object_model_1999&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;num_episodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1999.pt&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="w">  </span><span class="p">]</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p><strong>2. Run</strong></p>
+<p>For more statistically significant results, run across many environments in parallel. Use the
+same Experiment YAML and override the number of environments, their spacing, and the number of
+episodes on the command line:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--eval_jobs_config<span class="w"> </span>eval_config.json
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.lift_object_rsl_rl.environment_builder.num_envs<span class="o">=</span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.lift_object_rsl_rl.environment_builder.env_spacing<span class="o">=</span><span class="m">2</span>.5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.lift_object_rsl_rl.rollout_limit.num_episodes<span class="o">=</span><span class="m">1024</span>
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
 METRICS SUMMARY
 ======================================================================
 
+lift_object_rsl_rl:
+  num_episodes                         1024
+  success_rate                       1.0000
+======================================================================
+</pre></div>
+</div>
+<a class="reference internal image-reference" href="../../../_images/lift_object_rl_parallel.gif"><img alt="../../../_images/lift_object_rl_parallel.gif" class="align-center" src="../../../_images/lift_object_rl_parallel.gif" style="height: 400px;" />
+</a>
+</section>
+<section id="method-3-compare-checkpoints">
+<h2>Method 3: Compare Checkpoints<a class="headerlink" href="#method-3-compare-checkpoints" title="Link to this heading">#</a></h2>
+<p>To evaluate multiple checkpoints in sequence, declare one Run per checkpoint in an Experiment YAML.
+This YAML evaluates <code class="docutils literal notranslate"><span class="pre">model_1000.pt</span></code> and <code class="docutils literal notranslate"><span class="pre">model_1999.pt</span></code> from the downloaded folder. Values
+under <code class="docutils literal notranslate"><span class="pre">shared</span></code> apply to both Runs, so each Run only sets its checkpoint:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">shared</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lift_object</span>
+<span class="w">  </span><span class="nt">environment_builder</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">num_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="w">  </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rsl_rl</span>
+<span class="w">  </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">num_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span>
+
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Checkpoints in the tutorial&#39;s download folder: $MODELS_DIR, or its default location when</span>
+<span class="w">  </span><span class="c1"># MODELS_DIR is unset.</span>
+<span class="w">  </span><span class="nt">lift_object_model_1000</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">checkpoint_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${oc.env:MODELS_DIR,${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning}/lift_object_checkpoint/model_1000.pt</span>
+
+<span class="w">  </span><span class="nt">lift_object_model_1999</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">checkpoint_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${oc.env:MODELS_DIR,${oc.env:HOME}/models/isaaclab_arena/reinforcement_learning}/lift_object_checkpoint/model_1999.pt</span>
+</pre></div>
+</div>
+<p>Run both checkpoints with one command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_checkpoints_experiment.yaml
+</pre></div>
+</div>
+<p>To evaluate the models you trained yourself, override the checkpoint path of each Run. Replace
+<code class="docutils literal notranslate"><span class="pre">&lt;timestamp&gt;</span></code> with the folder name of your training run in the <code class="docutils literal notranslate"><span class="pre">logs/rsl_rl/generic_experiment/</span></code>
+directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_checkpoints_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.lift_object_model_1000.policy.checkpoint_path<span class="o">=</span>logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1000.pt<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.lift_object_model_1999.policy.checkpoint_path<span class="o">=</span>logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1999.pt
+</pre></div>
+</div>
+<p>The runner evaluates the Runs in YAML order and prints a summary for both:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
+METRICS SUMMARY
+======================================================================
+
 lift_object_model_1000:
-num_episodes                         1024
-success_rate                       0.6526
+  num_episodes                         1024
+  success_rate                       0.9697
 
 lift_object_model_1999:
-num_episodes                         1024
-success_rate                       0.7408
+  num_episodes                         1024
+  success_rate                       1.0000
 ======================================================================
 </pre></div>
 </div>
@@ -738,13 +774,13 @@ success_rate                       0.7408
 <li><p><code class="docutils literal notranslate"><span class="pre">success_rate</span></code>: fraction of episodes where the object reached the target position within tolerance</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_episodes</span></code>: total number of completed episodes during the evaluation run</p></li>
 </ul>
-<p>A well-trained policy should reach 70–90% success rate. Results will vary with the target range,
+<p>A well-trained policy should reach a success rate of at least 70%. Results will vary with the target range,
 random seed, and hardware.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>For evaluation, omit <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code> (default): success termination stays enabled so
-metrics such as success rate are meaningful. For RSL-RL training, pass <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code> to
-disable success termination.</p>
+<p>For evaluation, leave <code class="docutils literal notranslate"><span class="pre">environment.rl_training_mode</span></code> at its default, <code class="docutils literal notranslate"><span class="pre">false</span></code>: success
+termination stays enabled so metrics such as success rate are meaningful. For RSL-RL training,
+pass <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code> to disable success termination.</p>
 </div>
 </section>
 </section>
@@ -801,7 +837,7 @@ disable success termination.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluation-methods">Evaluation Methods</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#method-1-single-environment-evaluation">Method 1: Single Environment Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#method-2-parallel-environment-evaluation">Method 2: Parallel Environment Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#method-3-batch-evaluation">Method 3: Batch Evaluation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#method-3-compare-checkpoints">Method 3: Compare Checkpoints</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#understanding-the-metrics">Understanding the Metrics</a></li>
 </ul>
   </nav></div>
