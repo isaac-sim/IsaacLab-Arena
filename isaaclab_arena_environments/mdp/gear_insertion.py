@@ -15,9 +15,17 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 
-def _set_gear_insertion_newton_physics(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg | MDP2RLEnvCfg) -> None:
-    """Set the Newton contact dynamics, control rate, and robot friction of gear insertion in place."""
+def gear_insertion_newton_env_cfg_callback(
+    env_cfg: IsaacLabArenaManagerBasedRLEnvCfg | MDP2RLEnvCfg,
+) -> IsaacLabArenaManagerBasedRLEnvCfg | MDP2RLEnvCfg:
+    """Configure Newton contact dynamics, control rate, and robot friction for gear insertion.
+
+    Serves both the manager-based and the MDP2 builds, whose configs share the simulation, decimation, and scene
+    settings set here.
+    """
     from isaaclab_newton.physics import NewtonCfg
+
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
     assert isinstance(env_cfg.sim.physics, NewtonCfg), "gear_insertion requires the Newton physics backend"
 
@@ -42,18 +50,7 @@ def _set_gear_insertion_newton_physics(env_cfg: IsaacLabArenaManagerBasedRLEnvCf
     env_cfg.scene.robot.spawn.physics_material.static_friction = 0.8
     env_cfg.scene.robot.spawn.physics_material.dynamic_friction = 0.8
     env_cfg.scene.robot.spawn.physics_material.torsional_friction = 0.005
-
-
-def gear_insertion_newton_env_cfg_callback(
-    env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
-) -> IsaacLabArenaManagerBasedRLEnvCfg:
-    """Configure Newton contact dynamics for gear insertion."""
-    _set_gear_insertion_newton_physics(env_cfg)
-    env_cfg.events.randomize_franka_joint_state = None
-    return env_cfg
-
-
-def gear_insertion_newton_mdp2_env_cfg_callback(env_cfg: MDP2RLEnvCfg) -> MDP2RLEnvCfg:
-    """Configure Newton contact dynamics for the MDP2 version of gear insertion."""
-    _set_gear_insertion_newton_physics(env_cfg)
+    if isinstance(env_cfg, IsaacLabArenaManagerBasedRLEnvCfg):
+        # The MDP2 build has no such event: its DROID task config resets the joints to their defaults.
+        env_cfg.events.randomize_franka_joint_state = None
     return env_cfg

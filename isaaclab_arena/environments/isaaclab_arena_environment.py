@@ -34,14 +34,16 @@ class IsaacLabArenaEnvironment:
         task: TaskBase | None = None,
         teleop_device: TeleopDeviceBase | None = None,
         env_cfg_callback: (
-            Callable[[IsaacLabArenaManagerBasedRLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg] | None
+            Callable[
+                [IsaacLabArenaManagerBasedRLEnvCfg | MDP2RLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg | MDP2RLEnvCfg
+            ]
+            | None
         ) = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
         default_physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
-        mdp2_env_cfg_callback: Callable[[MDP2RLEnvCfg], MDP2RLEnvCfg] | None = None,
     ):
         """
         Args:
@@ -52,6 +54,7 @@ class IsaacLabArenaEnvironment:
             teleop_device: The teleop device to use in the environment.
             env_cfg_callback: A callback that tunes the environment configuration after the
                 resolved physics backend is materialized. It must not change the backend type.
+                ``ArenaMDP2EnvBuilder`` passes it an ``MDP2RLEnvCfg`` instead of a manager-based config.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.
@@ -65,8 +68,6 @@ class IsaacLabArenaEnvironment:
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
             default_physics_backend: Default physics backend when ``--presets`` is omitted.
-            mdp2_env_cfg_callback: A callback that tunes the MDP2 environment configuration, the
-                counterpart of ``env_cfg_callback`` for environments built with ``ArenaMDP2EnvBuilder``.
         """
         self.name = name
         self.scene = scene
@@ -74,7 +75,6 @@ class IsaacLabArenaEnvironment:
         self.task = task
         self.teleop_device = teleop_device
         self.env_cfg_callback = env_cfg_callback
-        self.mdp2_env_cfg_callback = mdp2_env_cfg_callback
         if (rl_framework_entry_point is None) != (rl_policy_cfg is None):
             raise ValueError("rl_framework_entry_point and rl_policy_cfg must both be set or both be None.")
         self.rl_framework_entry_point = rl_framework_entry_point

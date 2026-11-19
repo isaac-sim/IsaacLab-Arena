@@ -91,10 +91,7 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
         from isaaclab_arena.tasks.gear_insertion_task import GearInsertionTask
         from isaaclab_arena.utils.physics_backend import PhysicsBackend
         from isaaclab_arena.utils.pose import Pose
-        from isaaclab_arena_environments.mdp.gear_insertion import (
-            gear_insertion_newton_env_cfg_callback,
-            gear_insertion_newton_mdp2_env_cfg_callback,
-        )
+        from isaaclab_arena_environments.mdp.gear_insertion import gear_insertion_newton_env_cfg_callback
 
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, MAPLE_TABLE_ALIGNMENT_Z)))
@@ -169,7 +166,6 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
             task=task,
             teleop_device=teleop_device,
             env_cfg_callback=gear_insertion_newton_env_cfg_callback,
-            mdp2_env_cfg_callback=gear_insertion_newton_mdp2_env_cfg_callback,
             default_physics_backend=PhysicsBackend.NEWTON,
             placer_params=ObjectPlacerParams(
                 # Millimetre optimizer steps keep fixed placements accurate for these small parts.

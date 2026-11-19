@@ -43,7 +43,7 @@ class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
             layout_pool_size: Number of relation-solved layouts that reset worlds draw from.
 
         Returns:
-            The environment config, for ``MDP2RLEnv``.
+            The environment config, for ``MDP2RLEnv``, after the environment's ``env_cfg_callback`` tunes it.
         """
         import isaaclab.sim as sim_utils
         from isaaclab_experimental import mdp2
@@ -76,8 +76,8 @@ class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
             # Render again after resets, so that the first images of an episode show its new layout.
             reset_step=[ResetStep.EVENTS, ResetStep.COMMIT, ResetStep.RENDER, ResetStep.OBSERVE],
         )
-        if arena_env.mdp2_env_cfg_callback is not None:
-            env_cfg = arena_env.mdp2_env_cfg_callback(env_cfg)
+        if arena_env.env_cfg_callback is not None:
+            env_cfg = arena_env.env_cfg_callback(env_cfg)
         return env_cfg
 
 
