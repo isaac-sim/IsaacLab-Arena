@@ -40,7 +40,8 @@ class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Newton DROID gear insertion environment."""
 
     embodiment: str = "droid_differential_ik"
-    """DROID differential-IK embodiment: ``droid_differential_ik`` or ``droid_abs_ik``."""
+    """DROID embodiment: ``droid_differential_ik``, ``droid_abs_ik``, or ``droid_abs_joint_pos``. MDP2 builds support
+    ``droid_abs_joint_pos`` only."""
 
     hdr: str | None = "empty_warehouse_robolab"
     """Registered HDR background, or None for uniform dome lighting."""
@@ -63,8 +64,9 @@ class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
         ), "position_randomization_m must be finite and non-negative"
         assert self.embodiment in {
             "droid_abs_ik",
+            "droid_abs_joint_pos",
             "droid_differential_ik",
-        }, "Gear insertion supports the droid_abs_ik and droid_differential_ik embodiments"
+        }, "Gear insertion supports the droid_abs_ik, droid_abs_joint_pos, and droid_differential_ik embodiments"
         for size in (self.camera_width, self.camera_height):
             assert size is None or size > 0, "camera_width and camera_height must be positive"
 
@@ -89,7 +91,10 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
         from isaaclab_arena.tasks.gear_insertion_task import GearInsertionTask
         from isaaclab_arena.utils.physics_backend import PhysicsBackend
         from isaaclab_arena.utils.pose import Pose
-        from isaaclab_arena_environments.mdp.gear_insertion import gear_insertion_newton_env_cfg_callback
+        from isaaclab_arena_environments.mdp.gear_insertion import (
+            gear_insertion_newton_env_cfg_callback,
+            gear_insertion_newton_mdp2_env_cfg_callback,
+        )
 
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, MAPLE_TABLE_ALIGNMENT_Z)))
@@ -164,6 +169,7 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
             task=task,
             teleop_device=teleop_device,
             env_cfg_callback=gear_insertion_newton_env_cfg_callback,
+            mdp2_env_cfg_callback=gear_insertion_newton_mdp2_env_cfg_callback,
             default_physics_backend=PhysicsBackend.NEWTON,
             placer_params=ObjectPlacerParams(
                 # Millimetre optimizer steps keep fixed placements accurate for these small parts.

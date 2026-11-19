@@ -12,6 +12,8 @@ from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
+    from isaaclab_experimental.envs import MDP2RLEnvCfg
+
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
@@ -39,6 +41,7 @@ class IsaacLabArenaEnvironment:
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
         default_physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
+        mdp2_env_cfg_callback: Callable[[MDP2RLEnvCfg], MDP2RLEnvCfg] | None = None,
     ):
         """
         Args:
@@ -62,6 +65,8 @@ class IsaacLabArenaEnvironment:
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
             default_physics_backend: Default physics backend when ``--presets`` is omitted.
+            mdp2_env_cfg_callback: A callback that tunes the MDP2 environment configuration, the
+                counterpart of ``env_cfg_callback`` for environments built with ``ArenaMDP2EnvBuilder``.
         """
         self.name = name
         self.scene = scene
@@ -69,6 +74,7 @@ class IsaacLabArenaEnvironment:
         self.task = task
         self.teleop_device = teleop_device
         self.env_cfg_callback = env_cfg_callback
+        self.mdp2_env_cfg_callback = mdp2_env_cfg_callback
         if (rl_framework_entry_point is None) != (rl_policy_cfg is None):
             raise ValueError("rl_framework_entry_point and rl_policy_cfg must both be set or both be None.")
         self.rl_framework_entry_point = rl_framework_entry_point

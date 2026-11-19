@@ -238,6 +238,89 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     def get_command_body_name(self) -> str:
         return self.action_config.arm_action.body_name
 
+    def get_mdp2_task_cfg(self):
+        """Return DROID's partial MDP2 task config: absolute joint position actions, its policy observations and
+        camera images, and the reset of its joints and joint targets to their defaults.
+
+        Returns:
+            The partial task config.
+        """
+        from isaaclab_experimental import mdp2
+        from isaaclab_experimental.mdp2 import mdp as mdp2_mdp
+
+        from isaaclab_arena.mdp2 import terms
+
+        assert isinstance(
+            self.action_config, DroidAbsoluteJointPositionActionsCfg
+        ), f"MDP2 has no action term for the actions of '{self.name}'; use the droid_abs_joint_pos embodiment"
+        robot = mdp2.Entity("robot")
+        arm_joints = robot.joints("panda_joint.*")
+        gripper_joint = robot.joints("finger_joint")
+        gripper_action = self.action_config.gripper_action
+        open_position = gripper_action.open_command_expr["finger_joint"]
+        close_position = gripper_action.close_command_expr["finger_joint"]
+        gripper_base = robot.bodies("base_link")
+        policy_terms = {
+            "actions": mdp2.Observation(mdp2_mdp.last_action, inputs={"actions": mdp2.last_action}),
+            "robot_joint_pos": mdp2.Observation(
+                mdp2_mdp.joint_pos, inputs={"joint_pos": robot.joint_pos, "joint_ids": robot.joints(".*")}
+            ),
+            "joint_pos": mdp2.Observation(
+                mdp2_mdp.joint_pos, inputs={"joint_pos": robot.joint_pos, "joint_ids": arm_joints}
+            ),
+            "gripper_pos": mdp2.Observation(
+                mdp2_mdp.joint_pos_normalized,
+                inputs={"joint_pos": robot.joint_pos, "joint_ids": gripper_joint},
+                params={"zero": open_position, "one": close_position},
+            ),
+            "eef_pos": mdp2.Observation(
+                terms.end_effector_pos_w,
+                inputs={"body_link_pose_w": robot.body_link_pose_w, "body_ids": gripper_base},
+            ),
+            "eef_quat": mdp2.Observation(
+                terms.end_effector_quat_w,
+                inputs={"body_link_pose_w": robot.body_link_pose_w, "body_ids": gripper_base},
+            ),
+        }
+        observations = {"policy": mdp2.ObservationGroup(terms=policy_terms)}
+        if self.enable_cameras and self.camera_config is not None:
+            camera_terms = {
+                f"{name}_rgb": mdp2.Observation(mdp2_mdp.image_rgb, inputs={"image": mdp2.Entity(name).rgb})
+                for name in self.camera_config.camera_names()
+            }
+            observations["camera_obs"] = mdp2.ObservationGroup(terms=camera_terms)
+        return mdp2.TaskCfg(
+            actions={
+                "arm_action": mdp2.DirectAction(robot.joint_pos_target, subset=arm_joints),
+                "gripper_action": mdp2.Action(
+                    mdp2_mdp.binary_joint_position,
+                    inputs={"joint_ids": gripper_joint},
+                    outputs={"joint_pos_target": robot.joint_pos_target},
+                    params={"open_position": open_position, "close_position": close_position},
+                ),
+            },
+            observations=observations,
+            events={
+                "reset_robot_joints": mdp2.Event(
+                    mdp2_mdp.reset_joints_by_offset,
+                    inputs={
+                        "default_joint_pos": robot.default_joint_pos,
+                        "default_joint_vel": robot.default_joint_vel,
+                        "soft_joint_pos_limits": robot.soft_joint_pos_limits,
+                        "soft_joint_vel_limits": robot.soft_joint_vel_limits,
+                        "joint_ids": robot.joints(".*"),
+                    },
+                    outputs={"joint_pos": robot.joint_pos, "joint_vel": robot.joint_vel},
+                    params={"position_range": (0.0, 0.0), "velocity_range": (0.0, 0.0)},
+                ),
+                "reset_robot_joint_targets": mdp2.Event(
+                    terms.reset_joint_targets,
+                    inputs={"default_joint_pos": robot.default_joint_pos},
+                    outputs={"joint_pos_target": robot.joint_pos_target},
+                ),
+            },
+        )
+
 
 @register_asset
 class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):

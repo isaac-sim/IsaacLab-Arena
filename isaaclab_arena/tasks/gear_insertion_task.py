@@ -127,6 +127,69 @@ class GearInsertionTask(TaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.held_asset)]
 
+    def get_mdp2_task_cfg(self):
+        """Return the partial MDP2 task config of gear insertion: success after the gear sits on its peg for
+        consecutive steps, the dropped-gear failure, the time limit, and the success and object-moved metrics.
+
+        Returns:
+            The partial task config.
+        """
+        from isaaclab_experimental import mdp2
+        from isaaclab_experimental.mdp2 import mdp as mdp2_mdp
+
+        from isaaclab_arena.mdp2 import terms
+
+        criteria = self.success_criteria
+        assert criteria.gear_insertion_offset_xyz == (0.0, 0.0, 0.0), "The MDP2 task seats the gear origin"
+        T_B_T = self.insertion_target.initial_pose_relative_to_parent
+        assert T_B_T.rotation_xyzw == (0.0, 0.0, 0.0, 1.0), "The MDP2 task needs a target aligned with its base"
+        gear = mdp2.Entity(self.held_asset.name)
+        base = mdp2.Entity(self.fixed_asset.name)
+        return mdp2.TaskCfg(
+            quantities={
+                "gear_seated": mdp2.Quantity(
+                    terms.seated_at_target,
+                    inputs={
+                        "subject_pose_w": gear.root_link_pose_w,
+                        "subject_vel_w": gear.root_com_vel_w,
+                        "receiver_pose_w": base.root_link_pose_w,
+                    },
+                    params={
+                        "target_offset": tuple(T_B_T.position_xyz),
+                        "max_lateral": criteria.xy_threshold,
+                        "max_depth_below": criteria.max_depth_below_target_m,
+                        "max_height_above": criteria.max_height_above_target_m,
+                        "max_tilt_rad": math.radians(criteria.upright_axis_threshold_deg),
+                        "max_linear_speed": criteria.linear_velocity_threshold,
+                        "max_angular_speed": criteria.angular_velocity_threshold,
+                    },
+                ),
+                "success": mdp2.Quantity(
+                    terms.held_for,
+                    inputs={"condition": mdp2.quantities.gear_seated},
+                    params={"steps": criteria.consecutive_success_steps},
+                    log=True,
+                    record=True,
+                ),
+                "object_moved": mdp2.Quantity(
+                    terms.moved,
+                    inputs={"root_com_vel_w": gear.root_com_vel_w},
+                    params={"speed": ObjectMovedRateMetric(self.held_asset).object_velocity_threshold},
+                    log=True,
+                    record=True,
+                ),
+            },
+            terminations={
+                "time_out": mdp2.TimeLimit(episode_length_s=self.episode_length_s),
+                "success": mdp2.Termination(mdp2_mdp.is_positive, inputs={"value": mdp2.quantities.success}),
+                "gear_dropped": mdp2.Termination(
+                    mdp2_mdp.root_height_below_minimum,
+                    inputs={"root_link_pose_w": gear.root_link_pose_w},
+                    params={"minimum_height": self.background_scene.object_min_z},
+                ),
+            },
+        )
+
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.45, 1.10, 0.90), lookat=(0.48, 0.02, 0.08))
 
