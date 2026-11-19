@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Timing of DROID gear insertion, which runs on Newton, with zero_action and no cameras.
+kpi_exporters: [timing]
+
+shared:
+  environment:
+    type: gear_insertion
+    embodiment: droid_abs_ik
+    enable_cameras: false
+  environment_builder:
+    num_envs: 16
+    seed: 42
+    placement_seed: 42
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 300
+  num_rebuilds: 1
+
+runs:
+  gear_insertion: {}

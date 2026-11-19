@@ -4,21 +4,99 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Benchmarks used for KPI tracking. KPIs are always aggregated over all Runs of an Experiment.
+# Names spell out what the benchmark runs:
+#   <suite>-<measurement>-<policy>-<number of tasks>-<number of envs>
+# Parts that do not apply are left out.
 benchmarks:
-  # getting_started_experiment.yaml has four Runs; keep baseline only. Video recording is
-  # disabled because the default recording fails on cameraless environments on OSMO.
-  # TODO(dtingdahl) re-visit this list and add more relevant benchmarks
-  - name: smoke-single-run
-    experiment_cfg: isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
+
+  # ==================================================================================================================
+  # POLICY SUCCESS RATE
+  # Five varied tasks per suite, run with pi05. KPIs: success rate and timing.
+  # ==================================================================================================================
+
+  - name: robolab-success-pi05-5tasks-10envs
+    experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/robolab_success_experiment.yaml
     overrides:
-      - experiment_cfg.shared.rollout_limit.num_episodes=2
-      - "~experiment_cfg.runs.swap_objects"
-      - "~experiment_cfg.runs.change_background_hdr"
-      - "~experiment_cfg.runs.parallel_envs"
       - experiment_runner.record_camera_video=false
 
-  # Placement success benchmark
-  - name: placement-subset
+  - name: kitchenbench-success-pi05-5tasks-10envs
+    experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/kitchenbench_success_experiment.yaml
+    overrides:
+      - experiment_runner.record_camera_video=false
+
+  # ==================================================================================================================
+  # PLACEMENT SUCCESS
+  # Object placement success over a subset of scenes. KPIs: placement success and timing.
+  # ==================================================================================================================
+
+  - name: placement-success-zero-action-10tasks-30envs
     experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/placement_subset_experiment.yaml
+    overrides:
+      - experiment_runner.record_camera_video=false
+
+  # ==================================================================================================================
+  # PERFLAB WORKLOADS
+  # 300 zero_action steps, or pi05 where named. KPI: timing.
+  # Each entry is one workload at one env count, so its timing is comparable between launches. Env counts are chosen so
+  # that each entry finishes in about 15 minutes and fits in memory on an L40S: camera runs at 64 envs and above ran
+  # out of GPU memory.
+  # ==================================================================================================================
+
+  # --- Rendering cost: the same task without and with the production camera rig ---------------------------------------
+
+  - name: perf-camera-free-zero-action-256envs
+    experiment_cfg: isaaclab_arena_environments/performance/experiment_configs/camera_free_benchmark_experiment.yaml
+    overrides:
+      - experiment_cfg.shared.environment_builder.num_envs=256
+      - experiment_runner.record_camera_video=false
+
+  - name: perf-production-camera-zero-action-16envs
+    experiment_cfg: isaaclab_arena_environments/performance/experiment_configs/production_camera_benchmark_experiment.yaml
+    overrides:
+      - experiment_cfg.shared.environment_builder.num_envs=16
+      - experiment_runner.record_camera_video=false
+
+  - name: perf-production-camera-pi05-16envs
+    experiment_cfg: isaaclab_arena_environments/performance/experiment_configs/pi05_benchmark_experiment.yaml
+    overrides:
+      - experiment_cfg.shared.environment_builder.num_envs=16
+      - experiment_runner.record_camera_video=false
+
+  # --- Object variety: the pair differs only in the number of object assets ------------------------------------------
+
+  - name: perf-same-object-zero-action-256envs
+    experiment_cfg: isaaclab_arena_environments/performance/experiment_configs/same_object_benchmark_experiment.yaml
+    overrides:
+      - experiment_cfg.shared.environment_builder.num_envs=256
+      - experiment_runner.record_camera_video=false
+
+  - name: perf-mixed-object-zero-action-256envs
+    experiment_cfg: isaaclab_arena_environments/performance/experiment_configs/mixed_object_benchmark_experiment.yaml
+    overrides:
+      - experiment_cfg.shared.environment_builder.num_envs=256
+      - experiment_runner.record_camera_video=false
+
+  # ==================================================================================================================
+  # NEWTON PHYSICS
+  # 300 zero_action steps. KPI: timing.
+  # ==================================================================================================================
+
+  # --- Newton vs PhysX: the pair runs the same task and env count on both backends, so PhysX is the baseline ---------
+
+  - name: perf-newton-deformable-zero-action-16envs
+    experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/newton_deformable_pick_and_place_experiment.yaml
+    overrides:
+      - experiment_runner.record_camera_video=false
+
+  - name: perf-physx-deformable-zero-action-16envs
+    experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/newton_deformable_pick_and_place_experiment.yaml
+    overrides:
+      - experiment_cfg.shared.environment.pick_object=deformable_cube_physx
+      - experiment_runner.record_camera_video=false
+
+  # --- Newton only: gear insertion has no PhysX variant ---------------------------------------------------------------
+
+  - name: perf-newton-gear-insertion-zero-action-16envs
+    experiment_cfg: isaaclab_arena_benchmarking/experiment_configs/newton_gear_insertion_experiment.yaml
     overrides:
       - experiment_runner.record_camera_video=false
