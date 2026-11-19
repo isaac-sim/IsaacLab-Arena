@@ -3,7 +3,7 @@ Physics backend selection
 
 Arena environments can target **PhysX** or **Newton** for physics simulation.
 Each ``IsaacLabArenaEnvironment`` can specify a default physics backend, which can be overridden at runtime.
-In an Experiment Run, set ``environment_builder.presets``. The Environment Runner takes the ``--presets`` command-line argument.
+In an Experiment Run, set ``environment_builder.presets``. The Environment Runner supports only PhysX.
 
 Embodiments are intended to be compatible with both backends, with backend-specific configuration hooks invoked based on the runtime-resolved backend.
 Most USD-backed rigid and articulation assets are loadable with both backends, although the current registered object and background libraries are primarily verified for PhysX.
@@ -14,7 +14,7 @@ Backend selection precedence
 
 When ``ArenaEnvBuilder`` builds the Isaac Lab configuration in ``build_env_cfg``, the selected backend is determined as follows:
 
-1. **Builder override**: ``ArenaEnvBuilderCfg.presets`` takes precedence when set. In an Experiment Run, set ``environment_builder.presets`` to ``PHYSX`` or ``NEWTON``. The Environment Runner takes ``--presets physx`` or ``--presets newton``.
+1. **Builder override**: ``ArenaEnvBuilderCfg.presets`` takes precedence when set. In an Experiment Run, set ``environment_builder.presets`` to ``PHYSX`` or ``NEWTON``. The Environment Runner supports only PhysX (``--presets physx``), because its mouse interaction requires it.
 2. **Environment default**: ``IsaacLabArenaEnvironment.default_physics_backend`` (defaults to PhysX) is used when ``presets`` is not set.
 
 Authoring and CLI inputs:
@@ -97,7 +97,7 @@ Immediately after resolution, ``build_env_cfg`` calls ``embodiment.configure_phy
 - Runs at most once per embodiment instance (reconfiguration raises an assertion).
 - Delegates to ``EmbodimentBase._configure_physics_backend``, which subclasses override for backend-specific spawn, actuators, actions, and observations.
 
-Hooks key off the **resolved** backend (CLI or environment default), not on post-callback edits to ``sim.physics``.
+Hooks key off the **resolved** backend (``presets`` override or environment default), not on post-callback edits to ``sim.physics``.
 Most embodiments use the default no-op hook.
 **DROID** is the shipped example: when the resolved backend is Newton, ``DroidEmbodimentBase`` switches robot spawn to ``spawn_newton_droid``, applies Newton material and gripper actuation, and control-mode subclasses add further Newton tuning (for example differential-IK controller settings).
 PhysX builds keep the default DROID spawn and gripper wiring.
