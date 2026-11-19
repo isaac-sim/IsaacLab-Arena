@@ -248,7 +248,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         from isaaclab_experimental import mdp2
         from isaaclab_experimental.mdp2 import mdp as mdp2_mdp
 
-        from isaaclab_arena.mdp2 import terms
+        from isaaclab_arena.mdp2 import embodiment_terms
 
         assert isinstance(
             self.action_config, DroidAbsoluteJointPositionActionsCfg
@@ -274,11 +274,11 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
                 params={"zero": open_position, "one": close_position},
             ),
             "eef_pos": mdp2.Observation(
-                terms.end_effector_pos_w,
+                embodiment_terms.end_effector_pos_w,
                 inputs={"body_link_pose_w": robot.body_link_pose_w, "body_ids": gripper_base},
             ),
             "eef_quat": mdp2.Observation(
-                terms.end_effector_quat_w,
+                embodiment_terms.end_effector_quat_w,
                 inputs={"body_link_pose_w": robot.body_link_pose_w, "body_ids": gripper_base},
             ),
         }
@@ -320,7 +320,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
                     params={"position_range": (0.0, 0.0), "velocity_range": (0.0, 0.0)},
                 ),
                 "reset_robot_joint_targets": mdp2.Event(
-                    terms.reset_joint_targets,
+                    embodiment_terms.reset_joint_targets,
                     inputs={"default_joint_pos": robot.default_joint_pos},
                     outputs={"joint_pos_target": robot.joint_pos_target},
                 ),

@@ -137,7 +137,7 @@ class GearInsertionTask(TaskBase):
         from isaaclab_experimental import mdp2
         from isaaclab_experimental.mdp2 import mdp as mdp2_mdp
 
-        from isaaclab_arena.mdp2 import terms
+        from isaaclab_arena.mdp2 import task_terms
 
         criteria = self.success_criteria
         assert criteria.gear_insertion_offset_xyz == (0.0, 0.0, 0.0), "The MDP2 task seats the gear origin"
@@ -148,7 +148,7 @@ class GearInsertionTask(TaskBase):
         return mdp2.TaskCfg(
             quantities={
                 "gear_seated": mdp2.Quantity(
-                    terms.seated_at_target,
+                    task_terms.seated_at_target,
                     inputs={
                         "subject_pose_w": gear.root_link_pose_w,
                         "subject_vel_w": gear.root_com_vel_w,
@@ -165,14 +165,14 @@ class GearInsertionTask(TaskBase):
                     },
                 ),
                 "success": mdp2.Quantity(
-                    terms.held_for,
+                    task_terms.held_for,
                     inputs={"condition": mdp2.quantities.gear_seated},
                     params={"steps": criteria.consecutive_success_steps},
                     log=True,
                     record=True,
                 ),
                 "object_moved": mdp2.Quantity(
-                    terms.moved,
+                    task_terms.moved,
                     inputs={"root_com_vel_w": gear.root_com_vel_w},
                     params={"speed": ObjectMovedRateMetric(self.held_asset).object_velocity_threshold},
                     log=True,

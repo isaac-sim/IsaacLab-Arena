@@ -137,7 +137,7 @@ def _test_mdp2_gear_insertion_seated_thresholds(simulation_app) -> bool:
 
     from isaaclab.utils.math import quat_apply, quat_from_euler_xyz, quat_mul
 
-    from isaaclab_arena.mdp2 import terms
+    from isaaclab_arena.mdp2 import task_terms
 
     thresholds = {
         "target_offset": (0.0366185, 0.0, 0.0075),
@@ -156,7 +156,7 @@ def _test_mdp2_gear_insertion_seated_thresholds(simulation_app) -> bool:
         tilt = quat_from_euler_xyz(torch.tensor([math.radians(tilt_deg)]), torch.zeros(1), torch.zeros(1))
         T_W_S = torch.cat([t_W_T + quat_apply(q_W_B, torch.tensor([t_T_S])), quat_mul(q_W_B, tilt)], dim=-1)
         velocity = torch.tensor([[linear_speed, 0.0, 0.0, 0.0, 0.0, angular_speed]])
-        return terms._seated_at_target(T_W_S, velocity, T_W_B, **thresholds).item()
+        return task_terms._seated_at_target(T_W_S, velocity, T_W_B, **thresholds).item()
 
     assert seated() == 1.0
     assert seated(t_T_S=(0.0034, 0.0, 0.0)) == 1.0 and seated(t_T_S=(0.0, 0.0036, 0.0)) == 0.0
@@ -166,7 +166,7 @@ def _test_mdp2_gear_insertion_seated_thresholds(simulation_app) -> bool:
     assert seated(linear_speed=0.04) == 1.0 and seated(linear_speed=0.06) == 0.0
     assert seated(angular_speed=0.4) == 1.0 and seated(angular_speed=0.6) == 0.0
     count = torch.zeros(1)
-    held = [terms._held_for(torch.tensor([c]), count, steps=3).item() for c in (1.0, 1.0, 0.0, 1.0, 1.0, 1.0)]
+    held = [task_terms._held_for(torch.tensor([c]), count, steps=3).item() for c in (1.0, 1.0, 0.0, 1.0, 1.0, 1.0)]
     assert held == [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
     return True
 

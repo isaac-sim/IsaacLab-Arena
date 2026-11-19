@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import torch
 from dataclasses import fields
 from typing import TYPE_CHECKING, Any
 
@@ -15,13 +14,7 @@ from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
-    from isaaclab_experimental import mdp2
     from isaaclab_experimental.envs import MDP2RLEnvCfg
-
-    from isaaclab_arena.relations.runtime.placement_sampler import PlacementSampler
-
-LAYOUT_EVENT_NAME = "relation_placement"
-"""Name of the reset event that draws relation-solved layouts."""
 
 
 class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
@@ -50,6 +43,7 @@ class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
         from isaaclab_experimental.envs import MDP2RLEnvCfg, ResetStep
 
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+        from isaaclab_arena.mdp2.placement import make_layout_task_cfg
 
         assert self.resolved_physics_backend is PhysicsBackend.NEWTON, "MDP2 environments run on Newton"
         arena_env = self.arena_env
@@ -65,7 +59,7 @@ class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
         parts = [part for part in (embodiment.get_mdp2_task_cfg(), task.get_mdp2_task_cfg()) if part is not None]
         if placement_sampler is not None:
             # Last, so that it places the assets after the reset events that set their defaults.
-            parts.append(_make_layout_task_cfg(placement_sampler, layout_pool_size))
+            parts.append(make_layout_task_cfg(placement_sampler, layout_pool_size))
 
         env_cfg = MDP2RLEnvCfg(
             sim=sim_utils.SimulationCfg(dt=1 / 120, render_interval=8, physics=ArenaPhysicsCfg().newton),
@@ -95,37 +89,3 @@ def _set_cameras_to_newton_rendering(scene_cfg: Any, width: int, height: int) ->
         # Cameras on moving links follow them for every render; this is free for fixed ones.
         camera.update_latest_camera_pose = True
         camera.width, camera.height = width, height
-
-
-def _make_layout_task_cfg(placement_sampler: PlacementSampler, pool_size: int) -> mdp2.TaskCfg:
-    """Return a partial task with a reset event that writes relation-solved layouts of the movable assets.
-
-    Args:
-        placement_sampler: The live placement sampler, whose pool holds solved layouts.
-        pool_size: Number of layouts drawn from the sampler's pool to fill the event's pool.
-
-    Returns:
-        A partial task config with the event :data:`LAYOUT_EVENT_NAME`.
-    """
-    from isaaclab_experimental import mdp2
-
-    from isaaclab_arena.mdp2 import terms
-    from isaaclab_arena.relations.runtime.placement_poses import get_scene_root_poses_from_layout
-
-    scene_keys = [key for asset in placement_sampler.write_assets for key in asset.get_scene_root_keys()]
-    rows = []
-    for result in placement_sampler.placement_pool.sample_with_replacement(pool_size):
-        poses_by_asset = get_scene_root_poses_from_layout(placement_sampler.assets, result)
-        poses = {key: pose for root_poses in poses_by_asset.values() for key, pose in root_poses.items()}
-        rows.append([value for key in scene_keys for value in (*poses[key].position_xyz, *poses[key].rotation_xyzw)])
-    outputs = {}
-    for k, key in enumerate(scene_keys):
-        entity = mdp2.Entity(key)
-        outputs[f"pose_{k}"] = entity.root_link_pose_w
-        outputs[f"vel_{k}"] = entity.root_com_vel_w
-    event = mdp2.Event(
-        terms.make_layout_pool_term(torch.tensor(rows, dtype=torch.float32)),
-        inputs={"env_origins": mdp2.Entity("scene").env_origins},
-        outputs=outputs,
-    )
-    return mdp2.TaskCfg(events={LAYOUT_EVENT_NAME: event})
