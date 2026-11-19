@@ -158,7 +158,7 @@ def test_fixed_batch_sizes_pad_every_batch_to_a_listed_shape(monkeypatch, serve_
     monkeypatch.setitem(sys.modules, "openpi.models", types.SimpleNamespace(model=model_module))
     monkeypatch.setitem(sys.modules, "openpi.models.model", model_module)
     inner = _FakeOpenpiPolicy()
-    policy = serve_batched_policy.BatchedPolicy(inner, batch_sizes=[4, 2])
+    policy = serve_batched_policy.BatchedPolicy(inner, max_batch_size=4, batch_sizes=[4, 2])
 
     assert policy.metadata["max_batch_size"] == 4
     assert policy.metadata["batch_sizes"] == [2, 4]

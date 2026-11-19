@@ -211,6 +211,36 @@ def test_call_server_with_retry_reconnects_on_drop(monkeypatch):
     assert policy._next_chunk_steps == [0]
 
 
+def test_get_action_refetches_envs_whose_chunk_a_reconnect_dropped(monkeypatch):
+    """A reconnect during one env's fetch drops the other env's chunk too; that env fetches again in the same step."""
+    call_count = {"n": 0}
+    drop_next_call = {"armed": False}
+
+    def infer_dropping_once(self, request):
+        if drop_next_call["armed"]:
+            drop_next_call["armed"] = False
+            raise websockets.exceptions.ConnectionClosedError(None, None)
+        call_count["n"] += 1
+        return {"actions": _synthetic_chunk()}
+
+    _patch_websocket_client(monkeypatch, infer_impl=infer_dropping_once)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=2)
+    observation = _fake_observation(num_envs=2)
+    policy.get_action(env, observation)
+    assert call_count["n"] == 2
+    # Env 0 has replayed its whole chunk and requests; env 1 is in the middle of its chunk.
+    policy._next_chunk_steps = [15, 5]
+
+    drop_next_call["armed"] = True
+    action = policy.get_action(env, observation)
+
+    assert call_count["n"] == 4, "env 0 refetches after the reconnect, then env 1 fetches the chunk it lost"
+    assert action[:, -1].tolist() == pytest.approx([0.2, 0.2]), "both envs start a fresh chunk"
+    assert policy._next_chunk_steps == [1, 1]
+
+
 def test_call_server_with_retry_gives_up_after_max_attempts(monkeypatch):
     def always_drops(self, request):
         raise websockets.exceptions.ConnectionClosedError(None, None)

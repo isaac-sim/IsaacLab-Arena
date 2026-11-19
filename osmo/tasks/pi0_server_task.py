@@ -27,8 +27,6 @@ BATCHED_SERVER_SCRIPT_PATH = (
 """Arena's batched openpi server script, embedded into the task because the server image holds upstream openpi only."""
 REMOTE_BATCHED_SERVER_SCRIPT_PATH = "/tmp/serve_batched_policy.py"
 """Where OSMO creates the batched server script inside the server container."""
-DEFAULT_MAX_BATCH_SIZE = 32
-"""Observations per model call when the client policy does not set ``max_batch_size``."""
 XLA_PYTHON_CLIENT_MEM_FRACTION = "0.5"
 PI0_POLICY_VARIANTS = frozenset({"pi0", "pi05"})
 PI0_VARIANT_BY_POLICY_CONFIG = {
@@ -59,10 +57,13 @@ class Pi0ServerTaskCfg(TaskCfg):
     policy_dir: str = "gs://openpi-assets-simeval/pi05_droid_jointpos"
     """openpi checkpoint directory."""
 
-    max_batch_size: int | None = DEFAULT_MAX_BATCH_SIZE
-    """Largest number of observations the server runs through the model in one call, serving Arena's batched
-    requests (``isaaclab_arena_openpi/server/serve_batched_policy.py``); None serves upstream's one-observation
-    ``scripts/serve_policy.py`` instead."""
+    serve_batched_requests: bool = True
+    """Serve Arena's batched requests with ``isaaclab_arena_openpi/server/serve_batched_policy.py``; False serves
+    upstream's one-observation ``scripts/serve_policy.py`` instead."""
+
+    max_batch_size: int | None = None
+    """Largest number of observations the batched server runs through the model in one call (``--max-batch-size``),
+    or None for the server script's default."""
 
     batch_sizes: list[int] | None = None
     """Fixed batch shapes the batched server pads requests to (``--batch-sizes``), or None for powers of two up to
@@ -73,8 +74,11 @@ class Pi0ServerTaskCfg(TaskCfg):
             self.max_batch_size is None or self.max_batch_size >= 1
         ), f"pi0 server max_batch_size must be at least 1 or None, got {self.max_batch_size}"
         assert self.batch_sizes is None or (
-            self.max_batch_size is not None and self.batch_sizes and all(size >= 1 for size in self.batch_sizes)
-        ), f"pi0 server batch_sizes needs the batched server and positive sizes, got {self.batch_sizes}"
+            self.batch_sizes and all(size >= 1 for size in self.batch_sizes)
+        ), f"pi0 server batch_sizes must be positive sizes or None, got {self.batch_sizes}"
+        assert self.serve_batched_requests or (
+            self.max_batch_size is None and self.batch_sizes is None
+        ), "pi0 server max_batch_size and batch_sizes need serve_batched_requests"
         assert (
             self.policy_variant in PI0_POLICY_VARIANTS
         ), f"pi0 server policy_variant must be one of {sorted(PI0_POLICY_VARIANTS)}, got {self.policy_variant!r}"
@@ -93,7 +97,7 @@ class Pi0ServerTaskCfg(TaskCfg):
     def for_policy_variant(
         cls,
         policy_variant: str,
-        max_batch_size: int | None = DEFAULT_MAX_BATCH_SIZE,
+        max_batch_size: int | None = None,
         batch_sizes: list[int] | None = None,
     ) -> Pi0ServerTaskCfg:
         """Build the default server deployment for a client ``policy_variant``, batch limit and fixed batch shapes."""
@@ -125,11 +129,8 @@ class Pi0ServerTask(PolicyServerTask):
         not batch simply sends one observation per request.
         """
         assert isinstance(policy_cfg, Pi0RemotePolicyCfg)
-        max_batch_size = policy_cfg.max_batch_size if policy_cfg.max_batch_size is not None else DEFAULT_MAX_BATCH_SIZE
-        if policy_cfg.batch_sizes is not None:
-            max_batch_size = max(policy_cfg.batch_sizes)
         return cls.task_cfg_type.for_policy_variant(
-            policy_cfg.policy_variant, max_batch_size=max_batch_size, batch_sizes=policy_cfg.batch_sizes
+            policy_cfg.policy_variant, max_batch_size=policy_cfg.max_batch_size, batch_sizes=policy_cfg.batch_sizes
         )
 
     def __init__(
@@ -153,20 +154,18 @@ class Pi0ServerTask(PolicyServerTask):
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Also create Arena's batched server script, which the upstream openpi server image does not contain."""
         files = super()._get_files_to_create()
-        if self.task_cfg.max_batch_size is not None:
+        if self.task_cfg.serve_batched_requests:
             script_source = BATCHED_SERVER_SCRIPT_PATH.read_text(encoding="utf-8")
             files.append({"path": REMOTE_BATCHED_SERVER_SCRIPT_PATH, "contents": block_literal_str(script_source)})
         return files
 
     def _get_run_script(self) -> str:
-        if self.task_cfg.max_batch_size is None:
+        if not self.task_cfg.serve_batched_requests:
             serve_script_arguments = ["scripts/serve_policy.py"]
         else:
-            serve_script_arguments = [
-                "python",
-                REMOTE_BATCHED_SERVER_SCRIPT_PATH,
-                f"--max-batch-size={self.task_cfg.max_batch_size}",
-            ]
+            serve_script_arguments = ["python", REMOTE_BATCHED_SERVER_SCRIPT_PATH]
+            if self.task_cfg.max_batch_size is not None:
+                serve_script_arguments.append(f"--max-batch-size={self.task_cfg.max_batch_size}")
             if self.task_cfg.batch_sizes is not None:
                 serve_script_arguments += ["--batch-sizes", *[str(size) for size in self.task_cfg.batch_sizes]]
         serve_command = shlex.join([

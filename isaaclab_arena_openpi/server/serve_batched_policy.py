@@ -112,7 +112,7 @@ class BatchedPolicy:
         batch_sizes: Fixed batch shapes to pad to, or None to pad to the powers of two up to ``max_batch_size``.
     """
 
-    def __init__(self, policy: Any, max_batch_size: int = 32, batch_sizes: Sequence[int] | None = None) -> None:
+    def __init__(self, policy: Any, max_batch_size: int, batch_sizes: Sequence[int] | None = None) -> None:
         import jax
 
         assert not getattr(policy, "_is_pytorch_model", False), "BatchedPolicy supports JAX openpi policies only"

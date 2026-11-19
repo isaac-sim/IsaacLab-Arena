@@ -14,7 +14,7 @@ from typing import Any
 import websockets.exceptions
 from openpi_client import websocket_client_policy
 
-from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.policy.remote_policy_config import RemoteChunkReplayPolicyCfg
 from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 
 MAX_RECONNECT_ATTEMPTS = 3
@@ -64,7 +64,7 @@ class RemoteChunkReplayPolicy:
     Subclasses override this to match the server's wire format.
     """
 
-    def __init__(self, config: PolicyCfg, adapter: EmbodimentAdapter, open_loop_horizon: int) -> None:
+    def __init__(self, config: RemoteChunkReplayPolicyCfg, adapter: EmbodimentAdapter, open_loop_horizon: int) -> None:
         super().__init__(config)  # PolicyBase.__init__ via the concrete class's MRO.
         assert self.server_response_actions_key is not None, (
             f"{type(self).__name__} must set server_response_actions_key to the key under which"
@@ -72,8 +72,8 @@ class RemoteChunkReplayPolicy:
         )
         self._adapter = adapter
         self._open_loop_horizon = open_loop_horizon
-        self._batch_chunk_fetches: bool = getattr(config, "batch_chunk_fetches", True)
-        self._max_batch_size: int | None = getattr(config, "max_batch_size", None)
+        self._batch_chunk_fetches = config.batch_chunk_fetches
+        self._max_batch_size = config.max_batch_size
         assert (
             self._max_batch_size is None or self._max_batch_size >= 1
         ), f"max_batch_size must be at least 1 or None, got {self._max_batch_size}"
@@ -118,12 +118,9 @@ class RemoteChunkReplayPolicy:
         num_envs = env.unwrapped.num_envs
         self._maybe_init_per_env_state(num_envs)
 
-        requesting_env_ids = [
-            env_id
-            for env_id in range(num_envs)
-            if self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
-        ]
-        if requesting_env_ids:
+        # A reconnect during a fetch drops every env's cached chunk, including envs that were not
+        # requesting, so fetch until no env is left without one.
+        while requesting_env_ids := self._env_ids_needing_chunk():
             for env_id, chunk in zip(requesting_env_ids, self._fetch_action_chunks(observation, requesting_env_ids)):
                 self._cached_action_chunks[env_id] = chunk
                 self._next_chunk_steps[env_id] = 0
@@ -188,6 +185,14 @@ class RemoteChunkReplayPolicy:
             f"{type(self).__name__} num_envs changed from {len(self._cached_action_chunks)}"
             f" to {num_envs} mid-rollout; recreate the policy for the new num_envs."
         )
+
+    def _env_ids_needing_chunk(self) -> list[int]:
+        """Return the envs that have no cached chunk or have replayed all of it."""
+        env_ids = []
+        for env_id, chunk in enumerate(self._cached_action_chunks):
+            if chunk is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon:
+                env_ids.append(env_id)
+        return env_ids
 
     def _fetch_action_chunks(self, observation: dict[str, Any], env_ids: list[int]) -> list[np.ndarray]:
         """Fetch the given envs' chunks, in env order.

@@ -24,7 +24,7 @@ IMAGE_TAG="openpi_server"
 VARIANT="pi05"
 PORT="8000"
 FORCE_REBUILD=false
-MAX_BATCH_SIZE="32"
+MAX_BATCH_SIZE=""
 UPSTREAM_SERVER=false
 BATCH_SIZES=""
 SERVER_DIR="$(cd "${SCRIPT_DIR}/../server" && pwd)"
@@ -40,7 +40,8 @@ Options:
   -r              Force rebuilding of the server image.
   -p <port>       Port to serve on. Defaults to 8000.
   -v <variant>    Policy variant to serve: pi05 (default) or pi0.
-  -b <size>       Largest batch of observations per request (default 32). Arena clients send the
+  -b <size>       Largest batch of observations per request (default: serve_batched_policy.py's
+                  --max-batch-size default). Arena clients send the
                   chunk requests of all environments in one batched request; bigger batches need
                   more GPU memory on the server. Batches are padded to the next power of two.
   -s <sizes>      Comma-separated batch shapes to pad every batch to instead, e.g. 8,16; the largest
@@ -104,12 +105,15 @@ if [ "$UPSTREAM_SERVER" = true ]; then
     SERVE_COMMAND=(uv run scripts/serve_policy.py)
     echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT}, upstream server)"
 else
-    SERVE_COMMAND=(uv run python /arena_server/serve_batched_policy.py --max-batch-size="${MAX_BATCH_SIZE}")
+    SERVE_COMMAND=(uv run python /arena_server/serve_batched_policy.py)
+    if [ -n "$MAX_BATCH_SIZE" ]; then
+        SERVE_COMMAND+=(--max-batch-size="${MAX_BATCH_SIZE}")
+    fi
     if [ -n "$BATCH_SIZES" ]; then
         SERVE_COMMAND+=(--batch-sizes ${BATCH_SIZES//,/ })
         echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT}, batch sizes: ${BATCH_SIZES})"
     else
-        echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT}, max batch size: ${MAX_BATCH_SIZE})"
+        echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT}, max batch size: ${MAX_BATCH_SIZE:-server default})"
     fi
 fi
 
