@@ -223,7 +223,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
     def _build_heterogeneous_objects(self, tabletop_reference, object_names=None):
         """Build placeable objects for heterogeneous mode.
 
-        When --objects is provided, each object is placed directly (no per-env variance).
+        When the ``objects`` field is set, each object is placed directly (no per-env variance).
         Otherwise, uses HETERO_FIXED_OBJECTS (pinned fruits) + HETERO_VARIANT_SETS
         (multi-variant sets).
         """
