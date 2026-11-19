@@ -40,5 +40,5 @@ Arena requires the workflow directory to be empty.
 
    variations
    Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>
-   Run an Evaluation with Recorded Variations <recorded_variations>
    Multi-Node Evaluation <../multi_node_evaluation/multi_node_evaluation>
+   Run an Evaluation with Recorded Variations <recorded_variations>
