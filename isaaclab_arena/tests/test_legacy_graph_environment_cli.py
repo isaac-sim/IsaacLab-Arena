@@ -10,28 +10,19 @@ from types import SimpleNamespace
 
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.evaluation import legacy_graph_environment_cli
-from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 
 
-def test_legacy_environment_arguments_keep_cli_order_and_boolean_flags():
-    args = legacy_environment_args_to_cli_args({
-        "environment": "env_graph.yaml",
-        "object": "box",
-        "mimic": False,
-        "enable_cameras": True,
-    })
-
-    assert args == ["--enable_cameras", "--env_spec", "env_graph.yaml", "--object", "box"]
-
-
 def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeypatch):
     graph_path = Path(TestConstants.test_data_dir) / "pick_and_place_maple_table_env_graph.yaml"
-    # The YAML loader builds this from a Run's environment section: {type: <graph path>, enable_cameras: true}.
+    # The YAML loader builds this from a Run's environment section:
+    # {type: <graph path>, enable_cameras: true, object: box, mimic: false}.
     environment_cfg = LegacyGraphEnvironmentCfg(
-        env_spec_path=str(graph_path), enable_cameras=True, per_run_overrides={"enable_cameras": True}
+        env_spec_path=str(graph_path),
+        enable_cameras=True,
+        per_run_overrides={"enable_cameras": True, "object": "box", "mimic": False},
     )
     environment_builder_cfg = ArenaEnvBuilderCfg()
     policy_cfg = ZeroActionPolicyCfg()
@@ -76,7 +67,8 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     )
 
     assert builder is expected_builder
-    assert captured["arguments"] == ["--enable_cameras", "--env_spec", str(graph_path)]
+    # True becomes a bare flag, other values a flag and value, and False is left out.
+    assert captured["arguments"] == ["--env_spec", str(graph_path), "--enable_cameras", "--object", "box"]
     assert captured["args_cli"] is parsed_args
     assert captured["env_spec"] == str(graph_path)
     # The typed builder config crosses the boundary directly instead of round-tripping through the argparse namespace.

@@ -990,7 +990,7 @@ def test_submission_rejects_legacy_json_experiment(tmp_path):
     experiment_path = tmp_path / "legacy.json"
     experiment_path.write_text("{}", encoding="utf-8")
 
-    with pytest.raises(AssertionError, match="requires a typed YAML Experiment Definition"):
+    with pytest.raises(AssertionError, match="must be a YAML file"):
         build_arena_experiment_submission_cfg(experiment_path)
 
 

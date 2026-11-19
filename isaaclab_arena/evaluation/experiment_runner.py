@@ -13,11 +13,6 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     validate_experiment_config_path,
 )
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
-from isaaclab_arena.evaluation.legacy_experiment_runner import (
-    legacy_json_experiment_requires_cameras,
-    load_legacy_json_experiment_config,
-    run_legacy_json_in_chunks,
-)
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
@@ -39,17 +34,6 @@ def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
         print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
-
-
-def _experiment_requires_cameras(
-    experiment_config_path: Path,
-    legacy_experiment_config: dict | None,
-    experiment_overrides: list[str],
-) -> bool:
-    """Return whether an Experiment enables environment cameras, reading it before startup."""
-    if legacy_experiment_config is not None:
-        return legacy_json_experiment_requires_cameras(legacy_experiment_config)
-    return typed_experiment_requires_cameras(experiment_config_path, experiment_overrides)
 
 
 def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_cameras: bool) -> None:
@@ -122,15 +106,9 @@ def _export_selected_kpis(experiment_output_directory: Path, experiment_cfg: Are
 def main():
     args_cli, experiment_overrides = parse_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
-    legacy_experiment_config = load_legacy_json_experiment_config(
-        experiment_config_path,
-        experiment_overrides,
-    )
 
     # AppLauncher must enable camera support before SimulationApp starts. Check if this is required.
-    if args_cli.record_camera_video or _experiment_requires_cameras(
-        experiment_config_path, legacy_experiment_config, experiment_overrides
-    ):
+    if args_cli.record_camera_video or typed_experiment_requires_cameras(experiment_config_path, experiment_overrides):
         args_cli.enable_cameras = True
 
     # Print the variations catalogue for each run's environment and exit.
@@ -144,23 +122,6 @@ def main():
             _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
             list_variations(experiment_cfg)
         return
-
-    # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
-    # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks
-    # each cycle and is only reclaimed when the process exits — in-process teardown can't
-    # release it.
-    if args_cli.chunk_size is not None:
-        assert legacy_experiment_config is not None, "--chunk_size currently supports only legacy JSON Experiments"
-
-        if len(legacy_experiment_config["jobs"]) > args_cli.chunk_size:
-            # TODO(alexmillane): Choose one timestamped Experiment output directory in the parent and pass that
-            # exact path to every legacy chunk worker. Each worker currently creates its own timestamped directory
-            # from --output_base_dir.
-            assert (
-                args_cli.experiment_output_directory is None
-            ), "--experiment_output_directory is not supported when --chunk_size dispatches multiple chunks"
-            run_legacy_json_in_chunks(args_cli, legacy_experiment_config)
-            return
 
     if args_cli.experiment_output_directory is not None:
         experiment_output_directory = args_cli.experiment_output_directory
