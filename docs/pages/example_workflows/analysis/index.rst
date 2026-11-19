@@ -22,9 +22,8 @@ In another terminal on the host, start the OpenPI server from the repository roo
    ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 Leave the server running while you complete the evaluation workflow. You can stop it before
-starting Sensitivity Analysis, which reads the saved episode results directly. Recorded Variations
-does not need the server because its Experiment Definitions use the zero-action policy. For
-installation, model variants, and server options, see
+starting Sensitivity Analysis and Recorded Variations. For installation, model variants, and
+server options, see
 :doc:`../../quickstart/running_a_real_policy/openpi`.
 
 Create the output directory used throughout this walkthrough:
