@@ -5,7 +5,7 @@
 
 from dataclasses import dataclass, field
 
-from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.policy.remote_policy_cfg import RemoteChunkReplayPolicyCfg
 
 DEFAULT_VARIANT = "pi05"
 
@@ -40,36 +40,13 @@ class Pi0ServerCfg:
 # (--policy_config_yaml_path). Decide on one mechanism (likely Hydra) when the
 # planned RemotePolicy base class lands; the config-loading shape belongs there.
 @dataclass
-class Pi0RemotePolicyCfg(PolicyCfg):
+class Pi0RemotePolicyCfg(RemoteChunkReplayPolicyCfg):
     """Connection + runtime config for ``Pi0RemotePolicy``."""
 
     openpi_embodiment_adapter: str = "droid"
     """Adapter used to translate Arena observations and policy actions."""
 
     policy_variant: str = DEFAULT_VARIANT
-    policy_device: str = "cuda"
-    remote_host: str = "localhost"
-    remote_port: int = 8000
-
-    batch_chunk_fetches: bool = True
-    """Send the chunk requests of the environments that request on the same step as one batched request.
-
-    Takes effect when the server advertises ``batch_inference`` in its connect metadata, as the batched
-    openpi server (``isaaclab_arena_openpi/server/serve_batched_policy.py``) does; against any other server
-    requests go out one per environment.
-    """
-
-    max_batch_size: int | None = None
-    """Largest number of environments per batched request, or None to use the server's advertised limit.
-
-    Caps the client's requests only; the server's own limit is ``server.max_batch_size``.
-    """
 
     server: Pi0ServerCfg = field(default_factory=Pi0ServerCfg)
     """Settings for launching the policy server, such as its batch shapes; the client ignores them."""
-
-    ping_interval: float | None = 20.0
-    """Seconds between websocket keepalive pings, or None to disable pings."""
-
-    ping_timeout: float | None = 300.0
-    """Seconds to wait for a keepalive pong before dropping, or None to wait indefinitely."""

@@ -96,7 +96,8 @@ Requests and responses are flat dictionaries of NumPy arrays and strings, packed
    # response: {"action": float32[H, 8]}
 
 The client's configuration holds the connection settings: ``remote_host``, ``remote_port``,
-``ping_interval``, ``ping_timeout``, and ``policy_device``. The RoboLab example below evaluates
+``ping_interval``, ``ping_timeout``, and ``policy_device``. ``RemoteChunkReplayPolicyCfg`` defines
+them, together with the batching settings, for every ``RemoteChunkReplayPolicy`` config. The RoboLab example below evaluates
 π0.5 and Cosmos on the same two tasks:
 
 .. dropdown:: Configuration file (``robolab_2_tasks_pi0_and_cosmos.yaml``)
@@ -121,7 +122,7 @@ which ``cosmos_embodiment_adapter`` or ``openpi_embodiment_adapter`` selects. Th
 does not change.
 
 To add a model whose server speaks the OpenPI protocol, subclass ``RemoteChunkReplayPolicy`` and
-``PolicyBase[YourCfg]``. Set ``name`` and ``server_response_actions_key``, and pass your adapter
+``PolicyBase[YourCfg]``, where ``YourCfg`` subclasses ``RemoteChunkReplayPolicyCfg``. Set ``name`` and ``server_response_actions_key``, and pass your adapter
 and horizon to ``super().__init__``. ``CosmosRemotePolicy`` is the reference: it differs from
 the OpenPI client only in its response key and adapter.
 

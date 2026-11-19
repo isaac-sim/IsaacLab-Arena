@@ -329,3 +329,8 @@ def test_server_without_batch_metadata_gets_one_request_per_env(make_policy):
     policy.get_action(_fake_env(num_envs=3), _fake_observation(num_envs=3))
     assert policy.server_calls == 3
     assert policy.chunk_requests == 3
+
+
+def test_config_rejects_a_max_batch_size_below_one():
+    with pytest.raises(AssertionError, match="max_batch_size must be at least 1"):
+        Pi0RemotePolicyCfg(max_batch_size=0)

@@ -81,3 +81,10 @@ def test_policy_reads_singular_action_response_key(monkeypatch):
     assert action.shape == (1, 8)
     assert action.dtype == torch.float32
     assert action[0, -1].item() == pytest.approx(0.123)
+
+
+def test_config_validates_the_shared_and_cosmos_settings():
+    with pytest.raises(AssertionError, match="max_batch_size must be at least 1"):
+        CosmosRemotePolicyCfg(max_batch_size=0)
+    with pytest.raises(AssertionError, match="open_loop_horizon must be positive"):
+        CosmosRemotePolicyCfg(open_loop_horizon=0)
