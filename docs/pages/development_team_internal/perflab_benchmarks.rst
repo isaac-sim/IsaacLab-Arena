@@ -1,7 +1,7 @@
 PerfLab Benchmarks
 ==================
 
-This guide tells a PerfLab operator how to set up and run seven non-OSMO Arena benchmarks on Arena's
+This guide tells a PerfLab operator how to set up and run these non-OSMO Arena benchmarks on Arena's
 ``main`` branch:
 
 1. ``zero_action`` without cameras.
@@ -11,14 +11,19 @@ This guide tells a PerfLab operator how to set up and run seven non-OSMO Arena b
 5. Ten fruit assets distributed across environments.
 6. Cosmos with the maintained production DROID cameras and a separate Cosmos server.
 7. GR00T N1.6 with the maintained production DROID cameras and a separate GR00T server.
+8. The VLM agent goal and chunk policies, each with one and with four environments, calling a
+   hosted NVIDIA inference endpoint.
 
 Each command starts one fresh Arena Experiment Runner process on one simulator GPU. Pi0.5,
 Cosmos, and GR00T also need separately started policy servers on the same machine. The Pi0.5 and
-Cosmos servers run in their own containers; the GR00T server runs on the host.
+Cosmos servers run in their own containers; the GR00T server runs on the host. The VLM agent
+workloads need no server, but they need an internal API key and network access to the NVIDIA
+internal inference endpoint.
 
-The configurations live in ``isaaclab_arena_environments/performance/``, laid out like RoboLab's:
-``experiment_configs/`` holds the Experiments, ``tasks/`` the fruit tasks, and ``scenes/`` the scene
-they share.
+The configurations for workloads 1 to 7 live in ``isaaclab_arena_environments/performance/``, laid
+out like RoboLab's: ``experiment_configs/`` holds the Experiments, ``tasks/`` the fruit tasks, and
+``scenes/`` the scene they share. The VLM agent Experiments live in
+``isaaclab_arena_benchmarking/experiment_configs/``.
 
 
 What the experiments show
@@ -60,6 +65,14 @@ Rubik's cube in a bowl. The object workloads place fruit in a bowl.
      - GR00T N1.6 remote closed-loop policy; the maintained three-camera DROID rig is on
      - End-to-end production evaluation cost, including camera rendering and calls to the GR00T
        server.
+   * - VLM goal policy
+     - ``VLMGoalPolicy`` on the internal endpoint; DROID cameras on; 1 or 4 environments
+     - How often the goal policy calls the VLM and how long the rollout waits on it, alone and with
+       concurrent requests.
+   * - VLM chunk policy
+     - ``VLMChunkPolicy`` with ``chunk_size: 3`` on the internal endpoint; DROID cameras on; 1 or 4
+       environments
+     - The same for the chunk policy, which requests every three steps.
 
 The first two experiments use the same ``droid_rel_joint_pos`` embodiment, so comparing them
 isolates the cost of enabling the production camera rig. Pi0.5 requires the ``droid_abs_joint_pos``
@@ -133,6 +146,10 @@ the repository root and mount that directory at ``$HOME/eval`` inside the contai
    mkdir -p "${PERFLAB_OUTPUT_HOST}"
 
    ./docker/run_docker.sh -e "${PERFLAB_OUTPUT_HOST}"
+
+For the VLM agent workloads, export ``NV_API_KEY`` in this host shell before running the launcher.
+The launcher forwards the key only when it creates the container; see
+:ref:`perflab-vlm-agent-policies`.
 
 The first invocation builds the Arena image, which also downloads the Isaac Sim base image. Do that
 before timing any trial. The launcher enters the Arena container interactively; leave that terminal
@@ -508,7 +525,122 @@ Use ``1, 16, 64, 128, 256``, then continue doubling while the preceding point su
 GR00T server with Ctrl-C after the sweep finishes.
 
 
-14. Decide whether a trial passed
+.. _perflab-vlm-agent-policies:
+
+14. VLM agent policies
+----------------------
+
+These four Experiments run the VLM agent goal and chunk policies on the Rubik's-cube task with the
+``droid_abs_ik`` embodiment and the DROID cameras. :doc:`../quickstart/running_a_real_policy/vlm_agent`
+explains how the policies work. There is no local policy server: every request goes to the NVIDIA
+internal inference endpoint, ``https://inference-api.nvidia.com``, with the model
+``openai/openai/gpt-6-astra``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 15 20 20
+
+   * - ``VLM_EXPERIMENT``
+     - Environments
+     - Rollout limit
+     - Run name
+   * - ``vlm_goal_policy_benchmark_experiment``
+     - 1
+     - 10 episodes
+     - ``vlm_goal_pnp``
+   * - ``vlm_goal_policy_parallel_envs_benchmark_experiment``
+     - 4
+     - 12 episodes
+     - ``vlm_goal_pnp_parallel_envs``
+   * - ``vlm_chunk_policy_benchmark_experiment``
+     - 1
+     - 10 episodes
+     - ``vlm_chunk_pnp``
+   * - ``vlm_chunk_policy_parallel_envs_benchmark_experiment``
+     - 4
+     - 12 episodes
+     - ``vlm_chunk_pnp_parallel_envs``
+
+These workloads differ from the others in three ways:
+
+- **No sweep.** Each Experiment fixes its environment count. The single-environment runs time each
+  request on its own. The four-environment runs stay below the policy's limit of eight concurrent
+  requests, so when several environments need a response on the same step, all their requests are
+  sent at once. Do not override ``num_envs``.
+- **Episodes, not steps.** Each run stops after a fixed number of episodes, so ``NUM_STEPS`` does not
+  apply and the number of steps differs between trials. An episode ends on success, at the task's
+  70-second time limit (1,050 steps), or earlier if the cube falls off the table. A failed episode
+  keeps requesting until it ends.
+- **The endpoint dominates the time.** The simulation waits while a request is in flight, and each
+  request takes several seconds. Most of the trial time is spent waiting on the hosted model, so
+  the trial time depends on the endpoint's load as well as on the machine. The chunk policy makes
+  many more requests than the goal policy and takes much longer.
+
+Prepare the API key
+~~~~~~~~~~~~~~~~~~~
+
+From the NVIDIA network, generate an internal API key at
+`inference.nvidia.com key management <https://inference.nvidia.com/key-management>`_. The requests
+count against the token usage of the key's owner. Export the key on the host **before** starting
+the Arena container in step 2:
+
+.. code-block:: bash
+
+   export NV_API_KEY="YOUR_INTERNAL_API_KEY"
+
+``./docker/run_docker.sh`` passes ``NV_API_KEY`` into the container only when it creates the
+container. Attaching to a running container does not add it. Inside the Arena container, check that
+the key is set:
+
+.. code-block:: bash
+
+   test -n "${NV_API_KEY}" && echo "NV_API_KEY is set"
+
+If it is not set, exit, stop the container, export the key on the host, and start the container
+again.
+
+Run the workloads
+~~~~~~~~~~~~~~~~~
+
+Set ``VLM_EXPERIMENT`` to one name from the table above, then run this command inside the Arena
+container:
+
+.. code-block:: bash
+
+   VLM_EXPERIMENT=vlm_goal_policy_benchmark_experiment
+
+   env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+     ./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config \
+       "isaaclab_arena_benchmarking/experiment_configs/${VLM_EXPERIMENT}.yaml" \
+     --experiment_output_directory \
+       "${PERFLAB_OUTPUT_ROOT}/vlm/${VLM_EXPERIMENT}" \
+     --viz none \
+     --device cuda:0
+
+Run the four Experiments one after another, not at the same time, so their requests do not compete
+for the endpoint. When the policy starts, it prints the endpoint and model and sends one short check
+request. A missing or wrong key fails at that point, before the rollout starts.
+
+Read the VLM timers
+~~~~~~~~~~~~~~~~~~~
+
+Besides the ``step`` timers, ``<run-name>/arena_run_timings.json`` holds three timers for the VLM:
+
+- ``step/policy_inference/vlm_inference``: the steps that waited on the VLM. Its ``count`` is the
+  number of such steps, and its ``total_ms`` is the rollout's total wait.
+- ``step/policy_inference/vlm_inference/vlm_requests``: the rounds of concurrent requests. A round
+  that returns an invalid command is followed by a correction round, so ``count`` can exceed the
+  number of steps that waited.
+- ``inference_request``: the individual requests, including retries. Its ``count`` is the number of
+  requests, and its latency fields describe one request. It is recorded on the request threads, so
+  it is not nested under ``step``.
+
+The number of requests and tokens is not written to the output. Read token usage from the key's
+Inference Hub usage page if needed.
+
+
+15. Decide whether a trial passed
 ---------------------------------
 
 A successful trial has all of the following:
@@ -543,6 +675,9 @@ Expected Run names are:
      - ``cosmos_evaluation``
    * - GR00T
      - ``gr00t_evaluation``
+   * - VLM agent policies
+     - See the table in :ref:`perflab-vlm-agent-policies`.
 
 In ``<run-name>/arena_run_timings.json``, the ``count`` of the ``step``, ``step/env_step``, and
-``step/policy_inference`` records must equal ``NUM_STEPS``.
+``step/policy_inference`` records must equal ``NUM_STEPS``. The VLM agent runs stop after a number
+of episodes instead, so these three counts must equal each other but have no fixed value.
