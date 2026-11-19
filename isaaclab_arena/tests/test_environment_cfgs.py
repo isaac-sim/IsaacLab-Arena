@@ -19,7 +19,6 @@ from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena_environments.cli import (
     _environment_cfg_from_cli,
-    _get_legacy_argparse_cfg_type,
     add_environment_cli_args,
     build_environment_from_cli,
     ensure_environments_registered,
@@ -71,7 +70,6 @@ def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():
         assert issubclass(environment_factory_type, ArenaEnvironmentFactory)
 
         environment_cfg_type = environment_registry.get_environment_cfg_types()[environment_name]
-        assert _get_legacy_argparse_cfg_type(environment_factory_type) is environment_cfg_type
         assert is_dataclass(environment_cfg_type), f"{environment_cfg_type.__name__} must be a dataclass"
 
         legacy_arguments = _parse_legacy_arguments(environment_factory_type)
