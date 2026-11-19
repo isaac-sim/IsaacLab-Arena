@@ -25,11 +25,14 @@ def add_dataclass_cli_args(
     *,
     excluded_fields: Collection[str] = (),
 ) -> None:
-    """Generate CLI flags for the selected fields of a config dataclass."""
+    """Generate CLI flags for the selected fields of a config dataclass.
+
+    Nested dataclass fields get no flag and keep their defaults.
+    """
     assert is_dataclass(cfg_type), f"{cfg_type.__name__} must be a dataclass"
     resolved_field_types = get_type_hints(cfg_type)
     for config_field in fields(cfg_type):
-        if config_field.name in excluded_fields:
+        if config_field.name in excluded_fields or is_dataclass(resolved_field_types[config_field.name]):
             continue
 
         argument_options = _get_argparse_options(config_field, resolved_field_types[config_field.name])

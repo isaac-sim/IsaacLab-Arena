@@ -26,7 +26,7 @@ from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
-from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
+from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg, Pi0ServerCfg
 from osmo.scripts.build_experiment_output import ARENA_EXPERIMENT_DEFINITION_FILENAME, load_experiment_runner_result
 from osmo.submit_arena_experiment import (
     ArenaExperimentSubmissionCfg,
@@ -51,7 +51,6 @@ from osmo.tasks.experiment_runner_task import (
 from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import (
     BATCHED_SERVER_SCRIPT_PATH,
-    DEFAULT_MAX_BATCH_SIZE,
     REMOTE_BATCHED_SERVER_SCRIPT_PATH,
     Pi0ServerTask,
     Pi0ServerTaskCfg,
@@ -294,7 +293,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
 
     server_command = _task_file(first_tasks[1], "/tmp/entry.sh")["contents"]
     assert (
-        f"python {REMOTE_BATCHED_SERVER_SCRIPT_PATH} --max-batch-size={DEFAULT_MAX_BATCH_SIZE}"
+        f"python {REMOTE_BATCHED_SERVER_SCRIPT_PATH} --max-batch-size={Pi0ServerCfg().max_batch_size}"
         f" --port={POLICY_SERVER_PORT} policy:checkpoint"
         in server_command
     )
@@ -1242,26 +1241,65 @@ def test_dreamzero_timeout_on_runner_submit_hints_to_cancel_server_workflow(monk
     assert "osmo workflow cancel arena-kpi-run-7" in capsys.readouterr().out
 
 
-def test_pi0_server_batch_limit_follows_the_client_max_batch_size():
-    """The server runs the model on at most the client's max_batch_size observations, 32 when the client sets none."""
-    assert Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg()).max_batch_size == DEFAULT_MAX_BATCH_SIZE
-    assert Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(max_batch_size=8)).max_batch_size == 8
-
-
-def test_pi0_server_fixed_batch_sizes_follow_the_client():
-    """The client's batch_sizes become the server's --batch-sizes, and the largest one its batch limit."""
-    task_cfg = Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(batch_sizes=[8, 16]))
-    assert task_cfg.batch_sizes == [8, 16]
-    assert task_cfg.max_batch_size == 16
+def _server_command(task_cfg: Pi0ServerTaskCfg) -> str:
     task = Pi0ServerTask(task_cfg, lead=False, task_name="policy-server-0")
-    server_command = _task_file(task.create_task_dict(), "/tmp/entry.sh")["contents"]
-    assert "--max-batch-size=16 --batch-sizes 8 16 " in server_command
-    assert Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg()).batch_sizes is None
+    return _task_file(task.create_task_dict(), "/tmp/entry.sh")["contents"]
+
+
+def test_pi0_server_batch_limit_follows_the_policy_server_settings():
+    """The server's --max-batch-size comes from the policy's server section, not the client's own max_batch_size."""
+    policy_cfg = Pi0RemotePolicyCfg(max_batch_size=4, server=Pi0ServerCfg(max_batch_size=8))
+    task_cfg = Pi0ServerTask.task_cfg_for_policy(policy_cfg)
+    assert task_cfg.server == Pi0ServerCfg(max_batch_size=8)
+    assert task_cfg.server is not policy_cfg.server
+    assert "--max-batch-size=8 " in _server_command(task_cfg)
+
+
+def test_pi0_server_fixed_batch_sizes_follow_the_policy_server_settings():
+    """The policy's server.batch_sizes become the server's --batch-sizes."""
+    task_cfg = Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(server=Pi0ServerCfg(batch_sizes=[8, 16])))
+    server_command = _server_command(task_cfg)
+    assert f"python {REMOTE_BATCHED_SERVER_SCRIPT_PATH} --batch-sizes 8 16 --port" in server_command
+    assert "--max-batch-size" not in server_command
+
+
+def test_pi0_server_batch_sizes_need_the_batched_server():
+    with pytest.raises(AssertionError, match="batch_sizes needs the batched server"):
+        Pi0ServerCfg(max_batch_size=None, batch_sizes=[8])
+
+
+def test_pi0_server_settings_in_the_experiment_file_reach_the_server_task(tmp_path, capsys):
+    """Server settings set in the Experiment file and by a submission override start the OSMO server."""
+    experiment_path = tmp_path / "experiment.yaml"
+    experiment_path.write_text(
+        """runs:
+  openpi_maple_table:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      server:
+        batch_sizes: [8, 16]
+""",
+        encoding="utf-8",
+    )
+    return_code = _compose_and_submit(
+        ["osmo.dry_run=true", "experiment_cfg.runs.openpi_maple_table.policy.server.batch_sizes=[4,32]"],
+        experiment_path,
+    )
+
+    assert return_code == 0
+    tasks = _workflow_tasks(_rendered_workflow(capsys.readouterr().out))
+    assert "--batch-sizes 4 32 " in _task_file(tasks[1], "/tmp/entry.sh")["contents"]
+    embedded_policy = _embedded_experiment(tasks[0])["runs"]["openpi_maple_table"]["policy"]
+    assert embedded_policy["server"]["batch_sizes"] == [4, 32]
 
 
 def test_pi0_server_without_batch_limit_serves_upstream_script():
-    """max_batch_size None serves openpi's own serve_policy.py and embeds no Arena script."""
-    task = Pi0ServerTask(Pi0ServerTaskCfg(max_batch_size=None), lead=False, task_name="policy-server-0")
+    """server.max_batch_size None serves openpi's own serve_policy.py and embeds no Arena script."""
+    task = Pi0ServerTask(
+        Pi0ServerTaskCfg(server=Pi0ServerCfg(max_batch_size=None)), lead=False, task_name="policy-server-0"
+    )
     task_dict = task.create_task_dict()
     server_command = _task_file(task_dict, "/tmp/entry.sh")["contents"]
     assert f"uv run scripts/serve_policy.py --port={POLICY_SERVER_PORT} policy:checkpoint" in server_command

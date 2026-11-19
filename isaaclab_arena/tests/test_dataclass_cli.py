@@ -64,3 +64,22 @@ def test_generated_arguments_reconstruct_typed_dataclass():
         threshold=1.5,
         shared_value=2,
     )
+
+
+@dataclass
+class _NestedCfg:
+    limit: int = 3
+
+
+@dataclass
+class _ParentCfg:
+    name: str = "parent"
+    nested: _NestedCfg = field(default_factory=_NestedCfg)
+
+
+def test_nested_dataclass_fields_get_no_flag_and_keep_their_defaults():
+    parser = argparse.ArgumentParser(exit_on_error=False)
+    add_dataclass_cli_args(parser, _ParentCfg)
+
+    assert "--nested" not in parser._option_string_actions
+    assert dataclass_from_cli(_ParentCfg, parser.parse_args(["--name", "child"])) == _ParentCfg(name="child")
