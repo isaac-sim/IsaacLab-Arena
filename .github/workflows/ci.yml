@@ -405,7 +405,7 @@ jobs:
 
     services:
       gr00t:
-        image: nvcr.io/nvidian/gr00t1_6_arena_ci:latest
+        image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:gr00t1_6_arena_ci_policy_folder_refactor
         env:
           # Server bootstrap waits until this attempt's GPU check passes.
           ARENA_WORKSPACE: /arena_workspace/.gr00t-ci-${{ github.run_id }}-${{ github.run_attempt }}.workspace
@@ -415,7 +415,7 @@ jobs:
         ports:
           - 5555:5555
         # Mount the runner's workspace into the GR00T container. The baked
-        # entrypoint polls under ARENA_WORKSPACE for ci_gr00t_train_and_serve.sh.
+        # entrypoint polls for isaaclab_arena_policies/isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
         volumes:
           - ${{ github.workspace }}:/arena_workspace
         options: >-
@@ -445,12 +445,8 @@ jobs:
             echo "::notice::${reason}"
           else
             echo "enabled=true" >> "${GITHUB_OUTPUT}"
-            # Allow server bootstrap only on supported runners. The gate exposes the policy
-            # folder, plus the pre-move isaaclab_arena_gr00t/ path that the bootstrap script
-            # baked into older gr00t1_6_arena_ci images still polls for.
-            mkdir "${GR00T_CI_SERVER_WORKSPACE}"
-            ln -s ../isaaclab_arena_policies "${GR00T_CI_SERVER_WORKSPACE}/isaaclab_arena_policies"
-            ln -s ../isaaclab_arena_policies/isaaclab_arena_gr00t "${GR00T_CI_SERVER_WORKSPACE}/isaaclab_arena_gr00t"
+            # Allow server bootstrap only on supported runners.
+            ln -s . "${GR00T_CI_SERVER_WORKSPACE}"
           fi
 
       - name: Git LFS
