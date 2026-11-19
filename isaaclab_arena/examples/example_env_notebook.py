@@ -5,6 +5,11 @@
 
 # %%
 
+import os
+
+# Isaac Sim enables its Jupyter asyncio support only when this is set before the app is imported.
+os.environ.setdefault("ISAAC_JUPYTER_KERNEL", "1")
+
 import torch
 import tqdm
 
