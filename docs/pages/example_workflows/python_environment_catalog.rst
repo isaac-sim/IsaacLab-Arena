@@ -44,7 +44,8 @@ Run the Experiment from the repository root:
 
 To change a field in one Run, add an override such as
 ``runs.kitchen_pick_and_place.environment.object=tomato_soup_can`` to the command. To run another
-environment from this catalog, add a Run with its ``Task ID`` in ``environment.type``.
+environment from this catalog, add a Run to the Experiment YAML file with its ``Task ID`` in
+``environment.type``. A command-line override cannot add a Run.
 
 
 Pick & Place
