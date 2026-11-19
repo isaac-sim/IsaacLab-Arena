@@ -37,12 +37,13 @@ def _make_mdp2_gear_env(episode_budget: int | None = None):
     factory_type = EnvironmentRegistry().get_component_by_name("gear_insertion")
     parser = argparse.ArgumentParser()
     add_environment_cli_args(parser, factory_type)
-    args = parser.parse_args(["--embodiment", "droid_abs_joint_pos"])
+    args = parser.parse_args(["--embodiment", "droid_abs_joint_pos", "--camera_width", "320", "--camera_height", "180"])
     args.enable_cameras = True
     args.hdr = None
     arena = build_environment_from_cli(factory_type, args)
-    builder = ArenaMDP2EnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=NUM_ENVS, seed=42, placement_seed=42))
-    cfg = builder.build_mdp2_env_cfg()
+    # MDP2 captures the physics in CUDA graphs, which Isaac RTX cameras cannot take part in.
+    builder_cfg = ArenaEnvBuilderCfg(num_envs=NUM_ENVS, seed=42, placement_seed=42, camera_renderer="newton_warp")
+    cfg = ArenaMDP2EnvBuilder(arena, builder_cfg).build_mdp2_env_cfg()
     cfg.sim.device = "cuda:0"
     cfg.episode_budget = episode_budget
     return MDP2RLEnv(cfg), arena, args.position_randomization_m

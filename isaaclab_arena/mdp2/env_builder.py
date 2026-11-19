@@ -11,6 +11,7 @@ from dataclasses import fields
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+from isaaclab_arena.utils.camera_renderer import CameraRenderer
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
@@ -25,14 +26,13 @@ class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
     placement becomes a reset event that draws solved layouts from a pool on the GPU.
     """
 
-    def build_mdp2_env_cfg(
-        self, camera_width: int = 320, camera_height: int = 180, layout_pool_size: int = 256
-    ) -> MDP2RLEnvCfg:
+    def build_mdp2_env_cfg(self, layout_pool_size: int = 256) -> MDP2RLEnvCfg:
         """Build the MDP2 environment config of the Arena environment.
 
+        The cameras keep the size and renderer that the environment and ``cfg.camera_renderer`` select, as for a
+        manager-based config.
+
         Args:
-            camera_width: Rendered width of every camera in pixels.
-            camera_height: Rendered height of every camera in pixels.
             layout_pool_size: Number of relation-solved layouts that reset worlds draw from.
 
         Returns:
@@ -52,9 +52,12 @@ class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
 
         placement_sampler = self._prepare_relation_placement(None)
         embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
+        # Fit the cameras and select their renderer before embodiment.get_scene_cfg() reads them.
+        self._apply_camera_resolution_mode()
+        self._apply_camera_renderer()
         task.configure_for_embodiment(embodiment)
         scene_cfg = self._build_scene_cfg(embodiment, task)
-        _set_cameras_to_newton_rendering(scene_cfg, camera_width, camera_height)
+        _assert_cameras_can_be_captured(scene_cfg, self.cfg.camera_renderer)
 
         parts = [part for part in (embodiment.get_mdp2_task_cfg(), task.get_mdp2_task_cfg()) if part is not None]
         if placement_sampler is not None:
@@ -75,17 +78,13 @@ class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
         return env_cfg
 
 
-def _set_cameras_to_newton_rendering(scene_cfg: Any, width: int, height: int) -> None:
-    """Render every camera of the scene with Newton's Warp renderer, once per control step, at the given size."""
+def _assert_cameras_can_be_captured(scene_cfg: Any, camera_renderer: CameraRenderer) -> None:
+    """Assert that the cameras of the scene, if any, render with a renderer that MDP2 can capture."""
     from isaaclab.sensors import CameraCfg
-    from isaaclab_newton.renderers import NewtonWarpRendererCfg
 
-    for field in fields(scene_cfg):
-        camera = getattr(scene_cfg, field.name)
-        if not isinstance(camera, CameraCfg):
-            continue
-        camera.renderer_cfg = NewtonWarpRendererCfg()
-        camera.update_period = 0.0
-        # Cameras on moving links follow them for every render; this is free for fixed ones.
-        camera.update_latest_camera_pose = True
-        camera.width, camera.height = width, height
+    cameras = [field.name for field in fields(scene_cfg) if isinstance(getattr(scene_cfg, field.name), CameraCfg)]
+    assert not cameras or camera_renderer is CameraRenderer.NEWTON_WARP, (
+        "MDP2 captures each step, physics included, in CUDA graphs, but the Isaac RTX renderer of the cameras"
+        f" {cameras} synchronizes the GPU stream on every physics step to update its transforms. Select"
+        " camera_renderer 'newton_warp'."
+    )
