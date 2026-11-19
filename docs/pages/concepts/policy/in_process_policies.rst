@@ -36,8 +36,9 @@ fields of its configuration:
      replay_file_path: demo.hdf5
 
 The ``replay`` policy reports the length of its episode, so a Run that uses it can leave out
-``rollout_limit``. :doc:`../../quickstart/environment_variations` runs ``zero_action`` the same
-way.
+``rollout_limit``. ``zero_action`` has no length, so a Run that uses it must set
+``rollout_limit``. The Experiment in :doc:`../../quickstart/environment_variations` selects
+``zero_action`` and sets ``rollout_limit.num_steps``.
 
 
 Add your own

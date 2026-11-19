@@ -94,8 +94,9 @@ path. The class path also imports the module that registers the policy. The rema
      type: my_package.my_policy.MyPolicy
      device: cuda:0
 
-With ``policy_runner.py``, configuration fields named ``device`` or ``num_envs`` reuse the
-runner's shared flags, so their defaults must match the runner defaults.
+``policy_runner.py`` turns each configuration field into a command-line flag. Fields named
+``device`` or ``num_envs`` use its shared ``--device`` and ``--num_envs`` flags instead, so their
+defaults must match the defaults of those flags.
 
 
 Next steps
