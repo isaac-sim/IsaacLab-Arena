@@ -72,15 +72,19 @@ def build_arena_builder_from_legacy_graph(
 
 
 def _graph_environment_cli_args(cfg: LegacyGraphEnvironmentCfg) -> list[str]:
-    """Return the CLI tokens that select the graph spec and apply the Run's per-run overrides.
+    """Return the command-line arguments that build this graph-spec environment.
 
-    A ``True`` value becomes a bare ``--name`` flag; ``False`` and ``None`` values are left out.
+    For example, per-run overrides ``{"enable_cameras": True, "object": "box", "mimic": False}`` give
+    ``["--env_spec", <env_spec_path>, "--enable_cameras", "--object", "box"]``.
     """
     cli_args = ["--env_spec", cfg.env_spec_path]
     for name, value in cfg.per_run_overrides.items():
-        if isinstance(value, bool):
-            if value:
-                cli_args.append(f"--{name}")
-        elif value is not None:
-            cli_args.extend((f"--{name}", str(value)))
+        if value is None or value is False:
+            # An unset value or a switched-off flag is not passed at all.
+            continue
+        if value is True:
+            # Boolean flags such as --enable_cameras take no value.
+            cli_args.append(f"--{name}")
+        else:
+            cli_args.extend([f"--{name}", str(value)])
     return cli_args
