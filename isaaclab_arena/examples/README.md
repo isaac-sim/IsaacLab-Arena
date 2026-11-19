@@ -11,7 +11,7 @@ Please check the relevant environment files to see which configuration fields ea
 
 Examples are launched as an Arena Experiment with the zero action policy. The Experiment
 [`example_environments_zero_action_experiment.yaml`](../../isaaclab_arena_environments/experiment_configs/examples/example_environments_zero_action_experiment.yaml)
-has one Run per example. Each Run selects an environment by its registered name in
+has two Runs, `kitchen_pick_and_place` and `gr1_open_microwave`. Each Run selects an environment by its registered name in
 `environment.type` and sets some example fields below `environment`:
 
 ```yaml
