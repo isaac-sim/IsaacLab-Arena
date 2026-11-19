@@ -14,7 +14,7 @@ from typing import Any
 import websockets.exceptions
 from openpi_client import websocket_client_policy
 
-from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.policy.remote_policy_cfg import RemoteChunkReplayPolicyCfg
 from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 
 MAX_RECONNECT_ATTEMPTS = 3
@@ -55,7 +55,7 @@ class RemoteChunkReplayPolicy:
 
     Concrete policies inherit (RemoteChunkReplayPolicy, PolicyBase[ConcreteCfg]).
     The PolicyBase[ConcreteCfg] is the concrete config class for the policy, parameterized
-    by a concrete Cfg class.
+    by a concrete Cfg class that subclasses RemoteChunkReplayPolicyCfg.
     """
 
     server_response_actions_key: str | None = None
@@ -64,7 +64,7 @@ class RemoteChunkReplayPolicy:
     Subclasses override this to match the server's wire format.
     """
 
-    def __init__(self, config: PolicyCfg, adapter: EmbodimentAdapter, open_loop_horizon: int) -> None:
+    def __init__(self, config: RemoteChunkReplayPolicyCfg, adapter: EmbodimentAdapter, open_loop_horizon: int) -> None:
         super().__init__(config)  # PolicyBase.__init__ via the concrete class's MRO.
         assert self.server_response_actions_key is not None, (
             f"{type(self).__name__} must set server_response_actions_key to the key under which"
@@ -72,11 +72,8 @@ class RemoteChunkReplayPolicy:
         )
         self._adapter = adapter
         self._open_loop_horizon = open_loop_horizon
-        self._batch_chunk_fetches: bool = getattr(config, "batch_chunk_fetches", True)
-        self._max_batch_size: int | None = getattr(config, "max_batch_size", None)
-        assert (
-            self._max_batch_size is None or self._max_batch_size >= 1
-        ), f"max_batch_size must be at least 1 or None, got {self._max_batch_size}"
+        self._batch_chunk_fetches = config.batch_chunk_fetches
+        self._max_batch_size = config.max_batch_size
         self.device = config.policy_device
 
         self._remote_host = config.remote_host
