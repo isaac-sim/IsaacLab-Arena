@@ -3,16 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Locks both random streams used when building and running an environment.
+# Locks the environment seed and the placement seed.
 runs:
   locked_seeds:
     environment:
       type: pick_and_place_maple_table
     environment_builder:
-      # Simulation randomness after the environment is created, including
-      # run-time variation draws.
+      # Build-time and run-time variation values, and simulation randomness
+      # such as reset noise.
       seed: 42
-      # Relation-solver layouts and random object-set member assignment.
+      # Object layouts from the relation solver.
       placement_seed: 7
     policy:
       type: zero_action
