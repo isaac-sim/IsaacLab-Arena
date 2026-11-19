@@ -185,20 +185,22 @@ plus a check that all four observation variants build and step. `test_spatial_me
 checks the image observation variants, that the visibility model agrees with rendered instance segmentation (tasks 1,
 4 and 7), and that task 10's withheld frames are blank exactly when withheld.
 
-Success rates over 50 seeds (seed 1234) at the default difficulty:
+Success rates over 50 seeds (seed 1234) at the default difficulty. Repeated runs vary by a few episodes, because
+PhysX is not deterministic across processes; fetch-behind, kitting and the high-shelf blind controller sit close to
+their bars:
 
 | # | Task | Oracle | Blind |
 | - | --- | --- | --- |
-| 1 | Put the mug away past the open door | 0.96 | 0.02 |
-| 2 | Fetch the mug from the shelf behind you | 0.98 | 0.24 |
+| 1 | Put the mug away past the open door | 0.92 | 0.00 |
+| 2 | Fetch the mug from the shelf behind you | 0.90 | 0.10 |
 | 3 | Carry the box past the chair and the counter corner (G1) | 0.96 | 0.00 |
 | 4 | Load the dishwasher lower rack | 1.00 | 0.00 |
 | 5 | Take the item from the back of the shelf | 0.98 | 0.00 |
-| 6 | Put the item on the high shelf | 0.96 | 0.16 |
+| 6 | Put the item on the high shelf | 0.96 | 0.30 |
 | 7 | Machine tending through an opening | 1.00 | 0.00 |
 | 8 | Kitting from bins | 0.92 | 0.00 |
-| 9 | Restock into the empty slot | 1.00 | 0.22 |
-| 10 | The cart someone moved | 0.98 | 0.12 |
+| 9 | Restock into the empty slot | 1.00 | 0.26 |
+| 10 | The cart someone moved | 0.94 | 0.26 |
 
 ## A model baseline: pi05 (zero-shot)
 
@@ -215,7 +217,8 @@ python isaaclab_arena/evaluation/policy_runner.py \
     spatial_memory_mug_past_door --robot droid
 ```
 
-pi05 (`pi05_droid_jointpos`, zero-shot, the task description as its prompt), 20 episodes per task:
+pi05 (`pi05_droid_jointpos`, zero-shot, the task description as its prompt), 20 episodes per task, on the layouts
+sampled before the suite moved to Arena's `derive_seed`:
 
 | # | Task | Success | Collision rate |
 | - | --- | --- | --- |
