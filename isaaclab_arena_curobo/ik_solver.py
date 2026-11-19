@@ -168,16 +168,16 @@ class CuroboIKSolver:
     ) -> None:
         """Replace the collision world of every pose of a batched solve with the same cuboids.
 
-        The cuboids are expressed in the robot base frame. Use ``update_world_batch`` to give each pose its own
+        The cuboids are expressed in the robot base frame. Use ``load_collision_worlds`` to give each pose its own
         world.
         """
-        self.update_world_batch(
+        self.load_collision_worlds(
             [cuboids] * self.max_batch_size,
             [robot_base_pos_w] * self.max_batch_size,
             [robot_base_quat_w_xyzw] * self.max_batch_size,
         )
 
-    def update_world_batch(
+    def load_collision_worlds(
         self,
         cuboids_per_problem: list[list[AABBCollisionCuboid]],
         robot_base_pos_w_per_problem: list[tuple[float, float, float]],
@@ -212,6 +212,7 @@ class CuroboIKSolver:
         cuboid_storage.enable[:num_problems] = 0
         cuboid_storage.count[:num_problems] = torch.tensor(counts, dtype=torch.int32, device=self.device)
         if cuboids:
+            # Index of the world and of the slot inside it that each cuboid of the flat list is written to.
             env_idx_list: list[int] = []
             slot_idx_list: list[int] = []
             for problem_idx, num_cuboids in enumerate(counts):
@@ -219,24 +220,26 @@ class CuroboIKSolver:
                 slot_idx_list.extend(range(num_cuboids))
             env_idx = torch.tensor(env_idx_list, dtype=torch.long, device=self.device)
             slot_idx = torch.tensor(slot_idx_list, dtype=torch.long, device=self.device)
+            # Stack the cuboids, and the base pose of the world each belongs to, into one tensor per quantity.
             pos_w = self._to_curobo_device(torch.tensor([c.pose_W_O.position_xyz for c in cuboids]))
             quat_w_xyzw = self._to_curobo_device(torch.tensor([c.pose_W_O.rotation_xyzw for c in cuboids]))
             dims = self._to_curobo_device(torch.tensor([c.dims_xyz for c in cuboids]))
             base_pos_w = self._to_curobo_device(torch.tensor(robot_base_pos_w_per_problem))[env_idx]
             base_quat_w_xyzw = self._to_curobo_device(torch.tensor(robot_base_quat_w_xyzw_per_problem))[env_idx]
 
+            # Express every cuboid pose in its robot base frame R: T_R_O = T_R_W * T_W_O.
             q_R_W_xyzw = math_utils.quat_inv(base_quat_w_xyzw)
             t_R_O = math_utils.quat_apply(q_R_W_xyzw, pos_w - base_pos_w)
             q_R_O_xyzw = math_utils.quat_mul(q_R_W_xyzw, quat_w_xyzw)
             # cuRobo stores each obstacle's inverse pose, as [x, y, z, qw, qx, qy, qz].
             inv_pose = self._make_pose(t_R_O, q_R_O_xyzw).inverse().get_pose_vector()
+            # Write each cuboid into its world's slot and mark the slot as in use.
             cuboid_storage.dims[env_idx, slot_idx, :3] = dims
             cuboid_storage.inv_pose[env_idx, slot_idx, :7] = inv_pose
             cuboid_storage.enable[env_idx, slot_idx] = 1
+        # cuRobo keeps a Python list of cuboid names per world; fill the unused slots with None.
         next_cuboid = 0
         for env, num_cuboids in enumerate(counts):
             names = [cuboid.name for cuboid in cuboids[next_cuboid : next_cuboid + num_cuboids]]
             cuboid_storage.names[env] = names + [None] * (cuboid_storage.max_n - num_cuboids)
             next_cuboid += num_cuboids
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()

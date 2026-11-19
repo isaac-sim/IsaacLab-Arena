@@ -69,7 +69,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
     """Replace the cuRobo solver build and the batched IK solve; return the captured fake solver.
 
     ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility for one batched solve. The fake
-    solver records the worlds passed to ``update_world_batch``, and each solve records the world every grasp
+    solver records the worlds passed to ``load_collision_worlds``, and each solve records the world every grasp
     ran against, so a test can assert which objects were obstacles to which grasp.
     """
     import isaaclab_arena_curobo.ik_reachability_validator as mod
@@ -79,7 +79,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
             self.device = torch.device("cpu")
             self.world_cuboids_per_problem = None
 
-        def update_world_batch(self, cuboids_per_problem, base_pos_per_problem, base_quat_per_problem):
+        def load_collision_worlds(self, cuboids_per_problem, base_pos_per_problem, base_quat_per_problem):
             self.world_cuboids_per_problem = cuboids_per_problem
             captured.setdefault("base_poses_per_world_update", []).extend(
                 (tuple(pos), tuple(quat)) for pos, quat in zip(base_pos_per_problem, base_quat_per_problem)

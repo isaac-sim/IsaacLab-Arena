@@ -99,7 +99,7 @@ def droid_batch_solver():
     return CuroboIKSolver(get_curobo_cfg_by_name("droid"), num_seeds=8, max_batch_size=2)
 
 
-def test_update_world_batch_gives_each_pose_its_own_world(droid_batch_solver):
+def test_load_collision_worlds_gives_each_pose_its_own_world(droid_batch_solver):
     """A cuboid around the end-effector pose blocks the pose of the world holding it, not the other's."""
     from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, solve_ik_feasibility
@@ -109,17 +109,17 @@ def test_update_world_batch_gives_each_pose_its_own_world(droid_batch_solver):
     block = AABBCollisionCuboid(name="block", dims_xyz=(0.4, 0.4, 0.4), pose_W_O=Pose(position_xyz=t_B_E))
     identity_pos, identity_quat = (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)
 
-    droid_batch_solver.update_world_batch([[block], []], [identity_pos] * 2, [identity_quat] * 2)
+    droid_batch_solver.load_collision_worlds([[block], []], [identity_pos] * 2, [identity_quat] * 2)
     result = solve_ik_feasibility(droid_batch_solver, T_B_E.repeat(2, 1, 1), require_collision_free=True)
     assert result.feasible.tolist() == [False, True]
 
     # Swapping the worlds swaps the verdicts: no obstacle is left behind in a slot.
-    droid_batch_solver.update_world_batch([[], [block]], [identity_pos] * 2, [identity_quat] * 2)
+    droid_batch_solver.load_collision_worlds([[], [block]], [identity_pos] * 2, [identity_quat] * 2)
     result = solve_ik_feasibility(droid_batch_solver, T_B_E.repeat(2, 1, 1), require_collision_free=True)
     assert result.feasible.tolist() == [True, False]
 
 
-def test_update_world_batch_expresses_obstacles_in_each_robot_base_frame(droid_batch_solver):
+def test_load_collision_worlds_expresses_obstacles_in_each_robot_base_frame(droid_batch_solver):
     """The same world-frame cuboid blocks the end effector only for the robot base it is expressed relative to."""
     from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, solve_ik_feasibility
@@ -130,6 +130,8 @@ def test_update_world_batch_expresses_obstacles_in_each_robot_base_frame(droid_b
     block = AABBCollisionCuboid(name="block", dims_xyz=(0.4, 0.4, 0.4), pose_W_O=Pose(position_xyz=t_B_E))
     identity_quat = (0.0, 0.0, 0.0, 1.0)
 
-    droid_batch_solver.update_world_batch([[block], [block]], [(0.0, 0.0, 0.0), (3.0, 0.0, 0.0)], [identity_quat] * 2)
+    droid_batch_solver.load_collision_worlds(
+        [[block], [block]], [(0.0, 0.0, 0.0), (3.0, 0.0, 0.0)], [identity_quat] * 2
+    )
     result = solve_ik_feasibility(droid_batch_solver, T_B_E.repeat(2, 1, 1), require_collision_free=True)
     assert result.feasible.tolist() == [False, True]

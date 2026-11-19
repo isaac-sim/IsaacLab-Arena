@@ -145,8 +145,6 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             self._get_candidate_grasps_for_layout(candidate.positions, candidate.orientations)
             for candidate in batch.candidates
         ]
-        # The batched bottleneck: one IK solve over the grasps of every candidate layout. This replaces the
-        # per-layout solves that used to make up nearly all of the validation time.
         ik_per_layout = self._solve_candidate_grasps(candidate_grasps)
         verdict_per_layout = []
         for layout_index_within_batch, (layout_grasps, ik) in enumerate(
@@ -255,7 +253,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         for start in range(0, len(problem_layout_indices), IK_MAX_BATCH_SIZE):
             chunk = slice(start, start + IK_MAX_BATCH_SIZE)
             base_poses = problem_base_poses[chunk]
-            self._solver.update_world_batch(
+            self._solver.load_collision_worlds(
                 problem_obstacles[chunk],
                 [pose.position_xyz for pose in base_poses],
                 [pose.rotation_xyzw for pose in base_poses],
