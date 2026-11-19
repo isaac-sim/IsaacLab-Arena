@@ -154,7 +154,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                 # No movable object is a reachability target, so the layout is trivially reachable.
                 verdict_per_layout.append(True)
                 continue
-            self._log_layout(layout_grasps, ik, layout_index_within_batch)
+            self._visualize_layout(layout_grasps, ik, layout_index_within_batch)
             self._record_failure(rejections, layout_grasps.targets, ik)
             # A layout is reachable only if every target's grasp is.
             verdict_per_layout.append(bool(ik.feasible.all().item()))
@@ -292,7 +292,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             )
         return ik_per_layout
 
-    def _log_layout(
+    def _visualize_layout(
         self, layout_grasps: CandidateLayoutGrasps, ik: IKFeasibility, layout_index_within_batch: int
     ) -> None:
         """Draw one layout's grasps and IK errors in the placement visualizer, when it is on."""
