@@ -70,9 +70,15 @@ term's output under the term's name:
 
    {"env_id": 0, "episode_in_env": 3, "success": true, "object_peak_speed": {"peak_speed": 0.83}}
 
-A term returns a dictionary of JSON values. It is either a function that Arena calls when the episode
-ends, or a class derived from ``EpisodeRecorderTerm`` that also updates its state after every control
-step, like ``ObjectPeakSpeed`` in :doc:`../../arena_in_your_repo/external_tasks_and_embodiments`.
+A term returns a dictionary of JSON values when the episode ends. Write it as:
+
+* **a function**, for a value you can read at the end of the episode, such as an object's final
+  height.
+* **a class derived from** ``EpisodeRecorderTerm``, for a value that builds up during the episode,
+  such as an object's peak speed. Arena calls its ``post_step()`` after every step, so it can track
+  the value as the episode runs. ``ObjectPeakSpeed`` in
+  :doc:`../../arena_in_your_repo/external_tasks_and_embodiments` is an example.
+
 An environment adds terms the same way through ``IsaacLabArenaEnvironment(episode_recorder_terms=...)``,
 and a composite task adds ``_subtask_<i>`` to its subtasks' term names. Rates and averages across
 episodes are computed when the lines are read.
