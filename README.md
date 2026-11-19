@@ -204,7 +204,8 @@ IsaacLab-Arena/
 ├── isaaclab_arena/                    # Core framework (environments, tasks, scenes, embodiments)
 ├── isaaclab_arena_environments/       # Concrete environment definitions
 ├── isaaclab_arena_examples/           # Policy and relation examples
-├── isaaclab_arena_g1/                 # Unitree G1 humanoid embodiment + examples
+├── isaaclab_arena_embodiments/        # Robot-specific embodiment support
+│   └── isaaclab_arena_g1/             # Unitree G1 humanoid embodiment + examples
 ├── isaaclab_arena_policies/           # Third-party policy integrations
 │   ├── isaaclab_arena_cosmos/         # Cosmos policy integration
 │   ├── isaaclab_arena_dreamzero/      # DreamZero policy integration

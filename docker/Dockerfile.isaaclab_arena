@@ -80,7 +80,7 @@ COPY --parents \
     isaaclab_arena \
     isaaclab_arena_benchmarking \
     isaaclab_arena_curobo \
-    isaaclab_arena_g1 \
+    isaaclab_arena_embodiments \
     isaaclab_arena_policies \
     isaaclab_arena_environments \
     isaaclab_arena_examples \

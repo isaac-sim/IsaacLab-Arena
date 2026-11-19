@@ -33,8 +33,10 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 ## Repository layout
 
 - `isaaclab_arena/` — core package: `tasks/`, `policy/`, `evaluation/`, `embodiments/`, `scene/`, `assets/`, `tests/`
-- `isaaclab_arena_environments/`, `isaaclab_arena_examples/`, `isaaclab_arena_g1/` — first-party extension packages
-- `isaaclab_arena_policies/` — policy integration packages (`isaaclab_arena_gr00t`, `isaaclab_arena_openpi`, …); a plain folder, so import names are unchanged
+- `isaaclab_arena_environments/`, `isaaclab_arena_examples/` — first-party extension packages
+- `isaaclab_arena_embodiments/` — robot-specific support packages (`isaaclab_arena_g1`), such as controllers and teleop; embodiment definitions stay in `isaaclab_arena/embodiments/`
+- `isaaclab_arena_policies/` — policy integration packages (`isaaclab_arena_gr00t`, `isaaclab_arena_openpi`, …)
+- `isaaclab_arena_embodiments/` and `isaaclab_arena_policies/` are plain folders, so import names are unchanged
 - `docker/` — container build and run scripts
 - `submodules/` — vendored dependencies (IsaacLab, Isaac-GR00T, …)
 - `osmo/` — OSMO policy-runner workflow
