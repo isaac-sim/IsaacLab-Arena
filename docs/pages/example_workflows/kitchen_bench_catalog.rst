@@ -76,8 +76,10 @@ To run another spec from the table below, override the shared path:
      --experiment_config isaaclab_arena_environments/experiment_configs/examples/kitchen_bench_zero_action_experiment.yaml \
      shared.environment.type=isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_bowl.yaml
 
-The path is declared below ``shared`` so that this override can change it. An override of
-``runs.kitchen_bench.environment.type`` is rejected.
+The path is declared below ``shared`` so that this override can change it. Do not override
+``runs.kitchen_bench.environment.type`` instead. Hydra rejects that override, and the
+``+runs.kitchen_bench.environment.type`` form that Hydra then suggests is ignored, so the Run
+still uses the open-fridge spec.
 
 Each row links to the source YAML and shows a Pi policy execution recorded from
 the maintained DROID external camera. Rows are grouped by task category.
