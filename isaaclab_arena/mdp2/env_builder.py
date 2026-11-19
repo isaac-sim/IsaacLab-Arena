@@ -12,7 +12,6 @@ from dataclasses import fields
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
@@ -60,13 +59,7 @@ class ArenaMDP2EnvBuilder(ArenaEnvBuilder):
         placement_sampler = self._prepare_relation_placement(None)
         embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
         task.configure_for_embodiment(embodiment)
-        scene_cfg = combine_configclass_instances(
-            "SceneCfg",
-            self.interactive_scene_cfg,
-            arena_env.scene.get_scene_cfg(),
-            embodiment.get_scene_cfg(),
-            task.get_scene_cfg(),
-        )
+        scene_cfg = self._build_scene_cfg(embodiment, task)
         _set_cameras_to_newton_rendering(scene_cfg, camera_width, camera_height)
 
         parts = [part for part in (embodiment.get_mdp2_task_cfg(), task.get_mdp2_task_cfg()) if part is not None]

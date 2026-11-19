@@ -77,7 +77,9 @@ from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 if TYPE_CHECKING:
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.policy.policy_base import PolicyCfg
+    from isaaclab_arena.tasks.task_base import TaskBase
 
 
 # TODO: peterd, 2026-09-16: Remove this once Arena migrates off ViewCfg and into KitVisualizerCfg.
@@ -348,6 +350,24 @@ class ArenaEnvBuilder:
             fields.append((name, EpisodeRecorderTermCfg, term_cfg))
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
+    def _build_scene_cfg(self, embodiment: EmbodimentBase, task: TaskBase) -> Any:
+        """Combine the interactive scene settings with the assets and sensors of the scene, embodiment, and task.
+
+        Args:
+            embodiment: The embodiment, already configured for the physics backend.
+            task: The task, already configured for the embodiment.
+
+        Returns:
+            The combined scene config.
+        """
+        return combine_configclass_instances(
+            "SceneCfg",
+            self.interactive_scene_cfg,
+            self.arena_env.scene.get_scene_cfg(),
+            embodiment.get_scene_cfg(),
+            task.get_scene_cfg(),
+        )
+
     def build_env_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
         """Build the environment configuration and constructor arguments without registering it.
 
@@ -400,13 +420,7 @@ class ArenaEnvBuilder:
         self._apply_camera_renderer()
         task = self.arena_env.task or NoTask()
         task.configure_for_embodiment(embodiment)
-        scene_cfg = combine_configclass_instances(
-            "SceneCfg",
-            self.interactive_scene_cfg,
-            self.arena_env.scene.get_scene_cfg(),
-            embodiment.get_scene_cfg(),
-            task.get_scene_cfg(),
-        )
+        scene_cfg = self._build_scene_cfg(embodiment, task)
         observation_cfg = combine_configclass_instances(
             "ObservationCfg",
             self.arena_env.scene.get_observation_cfg(),
