@@ -42,6 +42,36 @@ When an environment resets, or the connection drops and reconnects, the client d
 cached chunk so that it never replays stale actions. ``close()`` disconnects the client but
 leaves the server running.
 
+**Batched requests.** The openpi wire protocol carries one observation per request, so a client
+serving ``N`` environments would send ``N`` requests on every step on which chunks run out, and the
+server would run the model once per request. When the connected server advertises
+``batch_inference`` in the metadata it sends on connect, ``RemoteChunkReplayPolicy`` instead packs
+the requests of every environment that needs a chunk on the same step into one
+``{"batch": [obs, ...]}`` request, and the server runs the model once for the whole batch. Against a
+server without that metadata, such as upstream openpi's ``scripts/serve_policy.py`` or the Cosmos
+server, requests go out one per environment as before.
+
+``isaaclab_arena_openpi/server/serve_batched_policy.py`` is the batching server. It runs inside the
+openpi server image next to upstream's ``scripts/serve_policy.py``, accepts the same arguments plus
+``--max-batch-size`` and ``--batch-sizes``, applies the policy's input transforms per observation,
+samples actions once for the stacked batch and applies the output transforms per observation. JAX
+compiles the model once per batch shape (a few minutes each for pi0.5), so a batch is padded, by
+repeating its last observation, to the next power of two up to ``--max-batch-size`` by default, or to
+the smallest of the fixed shapes given with ``--batch-sizes`` (for example ``--batch-sizes 8 16``
+compiles two shapes and pads every batch to 8 or 16). ``isaaclab_arena_openpi/docker/run_openpi_server.sh``
+serves it by default; ``-b`` sets the batch limit, ``-s 8,16`` sets fixed shapes and ``-u`` serves
+upstream's script instead. On OSMO the pi0 server task embeds the script into the server container, so
+Experiments submitted with ``osmo/submit_arena_experiment.py`` get batched inference without a new
+server image.
+
+On the client, ``batch_chunk_fetches`` (default ``true``) turns the batched requests off, and
+``max_batch_size`` caps the environments per request below the server's advertised limit.
+``batch_sizes`` (for example ``[8, 16]``) makes the OSMO server task start the server with those fixed
+shapes. Fixed shapes pay off only when the number of environments requesting on a typical step, about
+``num_envs`` divided by the chunk length in a desynchronized rollout, is close to the batch size;
+with fewer requests per step the padding costs more than the batching saves. The policy prints, when
+it closes, how many chunk requests it sent in how many server calls.
+
 Requests and responses are flat dictionaries of NumPy arrays and strings, packed with
 ``msgpack_numpy``. For example, the Cosmos DROID adapter sends:
 
