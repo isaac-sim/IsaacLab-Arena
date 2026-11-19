@@ -44,9 +44,10 @@ RUN git-lfs install
 # huggingface-hub[cli] requires typer>=0.16 (for the `suggest_commands` kwarg),
 # but the pytorch base image hard-pins typer==0.15.2 in /etc/pip/constraint.txt
 # which blocks any upgrade. Drop that line first (same pattern used above for
-# dill / scipy), then install the CLI.
+# dill / scipy), then install the CLI. typer 0.26 vendors click, which breaks the hf
+# CLI's exit handling, so stay below it.
 RUN sed -i '/^typer==/d' /etc/pip/constraint.txt
-RUN pip install --upgrade "typer>=0.16" "huggingface-hub[cli]"
+RUN pip install --upgrade "typer>=0.20,<0.26" "huggingface-hub[cli]"
 
 # Download only the base GR00T model. The CI server post-trains a tiny
 # checkpoint from this base model before serving it.
