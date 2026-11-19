@@ -68,7 +68,7 @@ the example Experiment from :ref:`enabling-variations`:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --list_variations \
-     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/maple_table_variations_experiment.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
 The output lists each asset (scene asset or embodiment), the variation name, whether it is
 run-time or build-time, the Hydra path to enable it, and all tunable fields. The printed values
@@ -77,7 +77,7 @@ include the Run's own ``variations`` entries, so a variation that the Run enable
 
 .. code-block:: text
 
-   === Variations for run 'maple_table' ===
+   === Variations for run 'variations_demo' ===
    Variations (Hydra-configurable)
    ================================
 
@@ -108,10 +108,10 @@ Enabling variations
 
 A Run enables variations in its ``variations`` field. The field maps each dotted Hydra path from the
 listing to its value. For example, the entry ``light.hdr_image.enabled: true`` matches the listed
-override ``light.hdr_image.enabled=true``. This Experiment enables the HDR image and camera
-extrinsics variations with default control parameters:
+override ``light.hdr_image.enabled=true``. This Experiment enables the HDR image, light intensity,
+and wrist-camera extrinsics variations with default control parameters:
 
-.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/concepts/maple_table_variations_experiment.yaml
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
    :language: yaml
    :start-after: SPDX-License-Identifier: Apache-2.0
 
@@ -121,7 +121,7 @@ Run it with:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/maple_table_variations_experiment.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
 The same run with tunable variation control parameters spelled out as command-line overrides:
 
@@ -129,10 +129,10 @@ The same run with tunable variation control parameters spelled out as command-li
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/maple_table_variations_experiment.yaml \
-     "+runs.maple_table.variations.light.hdr_image.hdr_names=[home_office_robolab,billiard_hall_robolab,garage_robolab]" \
-     "+runs.maple_table.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.01,-0.01,-0.01]" \
-     "+runs.maple_table.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.01,0.01,0.01]"
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml \
+     "+runs.variations_demo.variations.light.hdr_image.hdr_names=[home_office_robolab,billiard_hall_robolab,garage_robolab]" \
+     "+runs.variations_demo.variations.droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.01,-0.01,-0.01]" \
+     "+runs.variations_demo.variations.droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.01,0.01,0.01]"
 
 Each override starts with ``+`` because it adds an entry that the Run's ``variations`` field does
 not declare yet. The ``hdr_names`` list restricts HDR sampling to the three named maps instead of
@@ -142,9 +142,6 @@ paths and values in its ``variations`` field instead.
 
 To see the available variations and control parameters for a specific environment,
 see :ref:`discovering-available-variations`.
-
-The :doc:`Exploring Environment Variations <../../quickstart/environment_variations>` quickstart
-also sets ``num_rebuilds`` so that one Run draws several build-time values.
 
 With Isaac Lab's ``record_demos.py`` and Arena's ``environment_registration_callback``,
 append variation overrides as ``<path>=<value>`` tokens to the recording command, for example
