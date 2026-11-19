@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from isaaclab_arena.utils.camera_renderer import CameraRenderer
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 
@@ -61,6 +62,13 @@ class ArenaEnvBuilderCfg:
     ``PolicyBase.default_image_size``.
     """
 
+    camera_renderer: CameraRenderer = CameraRenderer.ISAAC_RTX
+    """Which renderer draws the embodiment cameras.
+
+    ``ISAAC_RTX`` renders through Kit. ``NEWTON_WARP`` renders Newton's model of the scene with Newton's Warp ray
+    tracer, so it requires the Newton physics backend and tiled cameras.
+    """
+
     env_cfg_override: dict[str, Any] = field(default_factory=dict)
     """Validated Isaac Lab config overrides applied after the environment's existing callback.
     An empty mapping leaves the environment config unchanged and supports Hydra's dictionary merging."""
@@ -70,3 +78,4 @@ class ArenaEnvBuilderCfg:
         if self.presets is not None:
             self.presets = PhysicsBackend(self.presets)
         self.camera_resolution_mode = CameraResolutionMode(self.camera_resolution_mode)
+        self.camera_renderer = CameraRenderer(self.camera_renderer)
