@@ -26,9 +26,6 @@ and are not source files.
 
 :runtime_setup_tabs:
 
-Run every command on this page in that runtime. The workflow uses the zero-action policy, so it does
-not need the OpenPI server.
-
 
 Record Settled Placement Layouts
 --------------------------------
