@@ -513,7 +513,7 @@ def _apply_joint_setups(env_cfg, joint_setups: tuple[SetupJointCommand, ...]) ->
             joint_names_expr=[re.escape(setup.joint_name)],
             stiffness=setup.drive_stiffness,
             damping=setup.drive_damping,
-            effort_limit_sim=setup.effort_limit,
+            joint_effort_limit=setup.effort_limit,
         )
         asset_cfg.actuators = existing_actuators
 

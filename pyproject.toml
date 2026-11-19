@@ -15,9 +15,9 @@ dependencies = [
     "typing_extensions",
     "onnxruntime",
     "vuer",
-    # Arena imports isaacteleop directly; keep it aligned with Isaac Lab's
-    # supported 1.4 teleoperation stack.
-    "isaacteleop[retargeters,ui,cloudxr]~=1.4.145",
+    # Arena imports isaacteleop directly; keep it aligned with Isaac Lab's teleoperation stack. The MDP2 Isaac Lab
+    # branch in submodules/IsaacLab requires isaaccapture 1.7, which requires isaacteleop 1.6 to 1.8.
+    "isaacteleop[retargeters,ui,cloudxr]>=1!1.6.dev0,<1!1.9",
     "websockets==16.1.1",
     "lightwheel-sdk",
     "pytest",
@@ -147,10 +147,15 @@ index-strategy = "first-index"
 # environment at all, leaving the asset search with no installable runtime.
 override-dependencies = [
     "numpy==2.3.1",
-    "mujoco~=3.12.0",
-    "mujoco-warp~=3.12.0",
-    "newton[sim]==1.6.1",
+    # Match the MDP2 Isaac Lab branch in submodules/IsaacLab (isaac-sim/IsaacLab#9091), which is based on
+    # Isaac Lab main: Newton from git and MuJoCo 3.17.
+    "mujoco~=3.17.0",
+    "mujoco-warp~=3.17.0",
+    "newton[sim] @ git+https://github.com/newton-physics/newton.git@7f0c13af6e4dd75253709c31dc65c0edcaf22b44",
     "newton-usd-schemas>=0.5.0",
+    # The MDP2 Isaac Lab branch's standalone importer requires these converters; Isaac Sim 6.2 pins older releases.
+    "urdf-usd-converter==0.3.4",
+    "mujoco-usd-converter==0.7.0",
     "usd-exchange==3.0.1",
     "usd-optimize~=1.3.1",
     "torch==2.11.0",
@@ -172,8 +177,9 @@ constraint-dependencies = [
     "pin-pink==3.3.0",
     "pyglet<3",
     "tinyobjloader==2.0.0rc13",
-    "mujoco-usd-converter==0.6.1",
     "typer<0.26",
+    # The MDP2 Isaac Lab branch requires hydra-core>=1.4.0rc2, which requires an omegaconf release candidate.
+    "omegaconf>=2.4.1rc1",
 ]
 # Use a uv-managed CPython 3.12 rather than whatever happens to be on PATH.
 python-preference = "only-managed"
