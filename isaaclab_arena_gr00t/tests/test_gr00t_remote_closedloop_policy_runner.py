@@ -11,8 +11,8 @@ against that service. Any runner, env, camera, RPC, observation conversion, or
 action conversion exception should surface as a nonzero subprocess exit.
 """
 
-import json
 import os
+import yaml
 
 import pytest
 
@@ -79,29 +79,29 @@ def _run_policy_runner(remote_host: str, remote_port: int, timeout_sec: int, num
     run_subprocess(args, timeout_sec=timeout_sec)
 
 
-def _write_eval_jobs_config(tmp_path, remote_host: str, remote_port: int) -> str:
-    jobs = [
-        {
-            "name": "g1_locomanip_gr00t_remote_closedloop",
-            "arena_env_args": {
-                "enable_cameras": True,
-                "environment": ENVIRONMENT,
-                "object": OBJECT_NAME,
-                "embodiment": EMBODIMENT,
-            },
-            "num_steps": EXPERIMENT_RUNNER_NUM_STEPS,
-            "policy_type": POLICY_TYPE,
-            "policy_config_dict": {
-                "policy_config_yaml_path": POLICY_CONFIG,
-                "policy_device": "cuda",
-                "remote_host": remote_host,
-                "remote_port": remote_port,
+def _write_experiment_config(tmp_path, remote_host: str, remote_port: int) -> str:
+    experiment_config = {
+        "runs": {
+            "g1_locomanip_gr00t_remote_closedloop": {
+                "environment": {
+                    "type": ENVIRONMENT,
+                    "enable_cameras": True,
+                    "object": OBJECT_NAME,
+                    "embodiment": EMBODIMENT,
+                },
+                "policy": {
+                    "type": POLICY_TYPE,
+                    "policy_config_yaml_path": POLICY_CONFIG,
+                    "policy_device": "cuda",
+                    "remote_host": remote_host,
+                    "remote_port": remote_port,
+                },
+                "rollout_limit": {"num_steps": EXPERIMENT_RUNNER_NUM_STEPS},
             },
         },
-    ]
-    config_path = tmp_path / "test_gr00t_remote_closedloop_experiment_runner.json"
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump({"jobs": jobs}, f, indent=4)
+    }
+    config_path = tmp_path / "test_gr00t_remote_closedloop_experiment_runner.yaml"
+    config_path.write_text(yaml.safe_dump(experiment_config, sort_keys=False), encoding="utf-8")
     return str(config_path)
 
 
@@ -120,12 +120,15 @@ def test_policy_runner_with_gr00t_remote_closedloop_policy_multi_env():
 def test_experiment_runner_with_gr00t_remote_closedloop_policy(tmp_path):
     """Run the Experiment Runner with the GR00T remote closed-loop policy."""
     remote_host, remote_port, timeout_sec = _get_gr00t_remote_server()
-    config_path = _write_eval_jobs_config(tmp_path, remote_host, remote_port)
+    config_path = _write_experiment_config(tmp_path, remote_host, remote_port)
+    experiment_output_directory = tmp_path / "output"
 
     args = [
         TestConstants.python_path,
         f"{TestConstants.evaluation_dir}/experiment_runner.py",
-        "--eval_jobs_config",
+        "--experiment_config",
         config_path,
+        "--experiment_output_directory",
+        str(experiment_output_directory),
     ]
     run_subprocess(args, timeout_sec=timeout_sec)
