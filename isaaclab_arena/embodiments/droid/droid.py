@@ -282,13 +282,13 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
                 inputs={"body_link_pose_w": robot.body_link_pose_w, "body_ids": gripper_base},
             ),
         }
-        observations = {"policy": mdp2.ObservationGroup(terms=policy_terms)}
+        observations = {"policy": mdp2.ObservationGroup(terms=policy_terms, concatenate=False)}
         if self.enable_cameras and self.camera_config is not None:
             camera_terms = {
                 f"{name}_rgb": mdp2.Observation(mdp2_mdp.image_rgb, inputs={"image": mdp2.Entity(name).rgb})
                 for name in self.camera_config.camera_names()
             }
-            observations["camera_obs"] = mdp2.ObservationGroup(terms=camera_terms)
+            observations["camera_obs"] = mdp2.ObservationGroup(terms=camera_terms, concatenate=False)
         return mdp2.TaskCfg(
             actions={
                 "arm_action": mdp2.DirectAction(robot.joint_pos_target, subset=arm_joints),
@@ -296,7 +296,13 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
                     mdp2_mdp.binary_joint_position,
                     inputs={"joint_ids": gripper_joint},
                     outputs={"joint_pos_target": robot.joint_pos_target},
-                    params={"open_position": open_position, "close_position": close_position},
+                    params={
+                        "open_position": open_position,
+                        "close_position": close_position,
+                        # As BinaryJointPositionZeroToOneAction: close above 0.5.
+                        "threshold": 0.5,
+                        "close_above": True,
+                    },
                 ),
             },
             observations=observations,

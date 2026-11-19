@@ -24,12 +24,13 @@ overrides = [
     { name = "mujoco", specifier = "~=3.17.0" },
     { name = "mujoco-usd-converter", specifier = "==0.7.0", index = "https://pypi.org/simple" },
     { name = "mujoco-warp", specifier = "~=3.17.0" },
-    { name = "newton", extras = ["sim"], git = "https://github.com/newton-physics/newton.git?rev=7f0c13af6e4dd75253709c31dc65c0edcaf22b44" },
+    { name = "newton", extras = ["sim"], git = "https://github.com/newton-physics/newton.git?rev=d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff" },
     { name = "newton-usd-schemas", specifier = ">=0.5.0" },
     { name = "numpy", specifier = "==2.3.1" },
     { name = "packaging", specifier = "==26.0" },
     { name = "requests", specifier = "==2.32.3" },
     { name = "s3transfer", specifier = "==0.14.0" },
+    { name = "scipy", specifier = ">=1.18.0" },
     { name = "torch", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", specifier = "==0.26.0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "urdf-usd-converter", specifier = "==0.3.4" },
@@ -1628,7 +1629,7 @@ ui = [
 
 [[package]]
 name = "isaaclab"
-version = "46.0.0"
+version = "47.1.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab" }
 
 [[package]]
@@ -1779,7 +1780,7 @@ openpi = [{ name = "openpi-client", git = "https://github.com/Physical-Intellige
 
 [[package]]
 name = "isaaclab-assets"
-version = "2.1.0"
+version = "2.3.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_assets" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1798,7 +1799,7 @@ requires-dist = [
 
 [[package]]
 name = "isaaclab-contrib"
-version = "7.0.1"
+version = "7.0.3"
 source = { editable = "submodules/IsaacLab/source/isaaclab_contrib" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1964,7 +1965,8 @@ requires-dist = [
     { name = "meshio", specifier = ">=5.3.5" },
     { name = "moviepy", marker = "extra == 'video'", specifier = ">=1.0.3,<2.0.0.dev0" },
     { name = "myst-parser", marker = "extra == 'dev'" },
-    { name = "newton", extras = ["sim"], git = "https://github.com/newton-physics/newton.git?rev=7f0c13af6e4dd75253709c31dc65c0edcaf22b44" },
+    { name = "newton", extras = ["optix"], marker = "extra == 'optix'" },
+    { name = "newton", extras = ["sim"], git = "https://github.com/newton-physics/newton.git?rev=d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff" },
     { name = "newton-usd-schemas", specifier = ">=0.5.0" },
     { name = "numba", specifier = ">=0.63.1" },
     { name = "numpy", specifier = ">=2" },
@@ -2009,7 +2011,7 @@ requires-dist = [
     { name = "robomimic", marker = "sys_platform == 'linux' and extra == 'mimic'", git = "https://github.com/ARISE-Initiative/robomimic.git?rev=v0.4.0" },
     { name = "rsl-rl-lib", specifier = "==5.5.1" },
     { name = "rsl-rl-lib", marker = "extra == 'rsl-rl'", specifier = "==5.5.1" },
-    { name = "scipy", specifier = ">=1.11.0" },
+    { name = "scipy", specifier = ">=1.18.0" },
     { name = "skrl", extras = ["jax"], marker = "extra == 'skrl-jax'", specifier = ">=2.1.1" },
     { name = "skrl", extras = ["torch", "warp"], marker = "extra == 'skrl'", specifier = ">=2.1.1" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=7.0,<9" },
@@ -2043,7 +2045,7 @@ requires-dist = [
     { name = "wandb", marker = "extra == 'wandb'", specifier = ">=0.13.11" },
     { name = "warp-lang", specifier = "==1.17.0" },
 ]
-provides-extras = ["tetrahedralization", "video", "importers", "test", "dev", "sb3", "skrl", "skrl-jax", "rl-games", "wandb", "rsl-rl", "torchrl", "viser", "rerun", "isaacsim", "ov", "ovphysx", "ovrtx", "mimic", "teleop", "rlinf", "leapp", "all"]
+provides-extras = ["tetrahedralization", "video", "optix", "importers", "test", "dev", "sb3", "skrl", "skrl-jax", "rl-games", "wandb", "rsl-rl", "torchrl", "viser", "rerun", "isaacsim", "ov", "ovphysx", "ovrtx", "mimic", "teleop", "rlinf", "leapp", "all"]
 
 [[package]]
 name = "isaaclab-experimental"
@@ -2079,7 +2081,7 @@ requires-dist = [
 
 [[package]]
 name = "isaaclab-newton"
-version = "17.2.0"
+version = "18.0.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_newton" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2090,7 +2092,7 @@ requires-dist = [{ name = "isaaclab", editable = "submodules/IsaacLab/source/isa
 
 [[package]]
 name = "isaaclab-ov"
-version = "9.0.3"
+version = "9.2.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_ov" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2105,7 +2107,7 @@ requires-dist = [
 
 [[package]]
 name = "isaaclab-physx"
-version = "13.0.0"
+version = "13.1.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_physx" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2127,7 +2129,7 @@ requires-dist = [{ name = "isaaclab", editable = "submodules/IsaacLab/source/isa
 
 [[package]]
 name = "isaaclab-rl"
-version = "5.3.1"
+version = "5.4.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_rl" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2144,7 +2146,7 @@ requires-dist = [
 
 [[package]]
 name = "isaaclab-tasks"
-version = "30.2.0"
+version = "30.5.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_tasks" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -3470,7 +3472,7 @@ wheels = [
 [[package]]
 name = "newton"
 version = "1.9.0.dev0"
-source = { git = "https://github.com/newton-physics/newton.git?rev=7f0c13af6e4dd75253709c31dc65c0edcaf22b44#7f0c13af6e4dd75253709c31dc65c0edcaf22b44" }
+source = { git = "https://github.com/newton-physics/newton.git?rev=d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff#d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff" }
 dependencies = [
     { name = "warp-lang", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
@@ -4966,15 +4968,15 @@ wheels = [
 
 [[package]]
 name = "scipy"
-version = "1.17.0"
+version = "1.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/56/3e/9cca699f3486ce6bc12ff46dc2031f1ec8eb9ccc9a320fdaf925f1417426/scipy-1.17.0.tar.gz", hash = "sha256:2591060c8e648d8b96439e111ac41fd8342fdeff1876be2e19dea3fe8930454e", size = 30396830, upload-time = "2026-01-10T21:34:23.009Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/74/66de6258867beb2ef08f35f9f2ac017a52cacd5081714d239ff1a442d458/scipy-1.18.1.tar.gz", hash = "sha256:52c4b7422442aba924d03ad4019852b08a92e64ea187b933135687bfe2747307", size = 30781235, upload-time = "2026-08-21T23:28:50.599Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/fe/66d73b76d378ba8cc2fe605920c0c75092e3a65ae746e1e767d9d020a75a/scipy-1.17.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9eeb9b5f5997f75507814ed9d298ab23f62cf79f5a3ef90031b1ee2506abdb5b", size = 35009148, upload-time = "2026-01-10T21:25:50.591Z" },
-    { url = "https://files.pythonhosted.org/packages/81/61/0470810c8a093cdacd4ba7504b8a218fd49ca070d79eca23a615f5d9a0b0/scipy-1.17.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:0cf46c8013fec9d3694dc572f0b54100c28405d55d3e2cb15e2895b25057996e", size = 37405953, upload-time = "2026-01-10T21:26:07.75Z" },
+    { url = "https://files.pythonhosted.org/packages/df/64/ff35eb9e54894cf471ff4716abd3c81eb0a0626869217ce3e6ba4ccf17d7/scipy-1.18.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f55fa87b6c612ecd6b058f167c53231b1d14e412efe361d3d6e38b3631c73218", size = 35344199, upload-time = "2026-08-21T23:24:07.844Z" },
+    { url = "https://files.pythonhosted.org/packages/91/4c/075e4f66471bac101141ac739e9e135549be1bae584571bd03a530c056e1/scipy-1.18.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:d2924a03db38dc2e848bca2fe9f077dafb891480b91a00a0963a8cf86dfc31c1", size = 37480330, upload-time = "2026-08-21T23:24:19.608Z" },
 ]
 
 [[package]]

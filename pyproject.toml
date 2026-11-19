@@ -151,8 +151,11 @@ override-dependencies = [
     # Isaac Lab main: Newton from git and MuJoCo 3.17.
     "mujoco~=3.17.0",
     "mujoco-warp~=3.17.0",
-    "newton[sim] @ git+https://github.com/newton-physics/newton.git@7f0c13af6e4dd75253709c31dc65c0edcaf22b44",
+    "newton[sim] @ git+https://github.com/newton-physics/newton.git@d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff",
     "newton-usd-schemas>=0.5.0",
+    # As in the MDP2 Isaac Lab branch: Isaac Sim 6.2 pins scipy 1.17.0, whose bundled OpenBLAS crashes when threads
+    # fork concurrently.
+    "scipy>=1.18.0",
     # The MDP2 Isaac Lab branch's standalone importer requires these converters; Isaac Sim 6.2 pins older releases.
     "urdf-usd-converter==0.3.4",
     "mujoco-usd-converter==0.7.0",
