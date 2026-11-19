@@ -63,6 +63,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_multiversion",
     "isaaclab_arena_doc_tools",
+    "relation_docs",
 ]
 
 source_suffix = {
@@ -77,9 +78,11 @@ myst_allow_insecure_html = True
 myst_all_links_external = True
 
 # put type hints inside the description instead of the signature (easier to read)
-# autodoc_typehints = 'description'
+autodoc_typehints = "description"
 # document class *and* __init__ methods
-# autoclass_content = 'both'    #
+autoclass_content = "both"
+add_module_names = False
+napoleon_custom_sections = ["Validation", "Restrictions"]
 
 todo_include_todos = True
 
@@ -172,6 +175,9 @@ isaaclab_arena_docs_config = {
 
 def setup(app):
     """Register the version filter and page-specific landing assets."""
+    # autodoc imports isaaclab_arena from the checkout being documented, ahead of any installed copy.
+    # sphinx-multiversion builds every version with this conf.py, so use the source tree, not this file.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(app.srcdir)))
 
     def register_filters(app):
         app.builder.templates.environment.filters["version_sort"] = version_sort

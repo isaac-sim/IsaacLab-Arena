@@ -1,0 +1,130 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Design proposal
+description: Propose a feature, public API, or significant design change.
+title: "[Design]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for proposing an improvement to IsaacLab-Arena.
+
+        Use this form for new features, public API changes, or significant design changes.
+        Please read the [Community Contributions Guide](https://github.com/isaac-sim/IsaacLab-Arena/blob/main/docs/community-contributions.md) before submitting.
+
+        For smaller proposals, Proof of Concept and Alternatives Considered are optional.
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: |
+        What problem does this solve? Who is affected, and why is the current behavior or API insufficient?
+      placeholder: |
+        Users cannot currently...
+        This matters because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: goals
+    attributes:
+      label: Goals and non-goals
+      description: |
+        List the outcomes this proposal should achieve, followed by work that is explicitly out of scope.
+      placeholder: |
+        Goals:
+        - ...
+
+        Non-goals:
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: api
+    attributes:
+      label: High-level API
+      description: |
+        Show concise example usage or pseudocode for new or changed public APIs.
+      placeholder: |
+        ```python
+        # Example intended usage
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation
+      description: |
+        Describe how the proposed API will be implemented, including the main components and data flow.
+      placeholder: |
+        The implementation adds...
+        The main components are...
+        Data flows from...
+    validations:
+      required: true
+
+  - type: textarea
+    id: gaps
+    attributes:
+      label: Gaps and open questions
+      description: |
+        List known limitations, dependencies, compatibility concerns, risks, or unresolved design decisions.
+      placeholder: |
+        - Compatibility:
+        - Dependencies:
+        - Open questions:
+    validations:
+      required: true
+
+  - type: textarea
+    id: poc
+    attributes:
+      label: Proof of concept (optional)
+      description: |
+        Link a draft pull request, branch, experiment, benchmark, or minimal implementation if available.
+      placeholder: |
+        Draft pull request:
+        Branch:
+        Validation results:
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered (optional)
+      description: |
+        Describe other approaches considered and why this proposal is preferred.
+      placeholder: |
+        Alternative:
+        Why it was not selected:
+    validations:
+      required: false
+
+  - type: textarea
+    id: readiness
+    attributes:
+      label: Implementation readiness
+      description: |
+        Who will implement and maintain this change? If a pull request exists, link it and tick the checks it passes.
+
+        Contributors are responsible for the correctness of all submitted code, including AI-assisted or agent-generated code. A ready-to-merge change must be focused, tested, documented, consistent with project conventions, and pass pre-commit and CI.
+      value: |
+        Implemented and maintained by:
+        Pull request (if any):
+        Completed checks:
+        - [ ] pre-commit (formatting, linting, spelling)
+        - [ ] Tests
+        - [ ] Documentation updates
+        - [ ] CI
+    validations:
+      required: true

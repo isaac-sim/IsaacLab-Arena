@@ -84,7 +84,7 @@ _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyz
 class GR1T2EmbodimentBase(EmbodimentBase):
     """Embodiment for the GR1T2 robot."""
 
-    name = "gr1"
+    registry_name = "gr1"
     default_arm_mode = ArmMode.RIGHT
 
     def __init__(
@@ -123,7 +123,7 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
     By default uses tiled camera for efficient parallel evaluation.
     """
 
-    name = "gr1_joint"
+    registry_name = "gr1_joint"
 
     def __init__(
         self,
@@ -149,7 +149,7 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
 class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
     """Embodiment for the GR1T2 robot with PINK IK end-effector control."""
 
-    name = "gr1_pink"
+    registry_name = "gr1_pink"
     tags = ["embodiment", "default"]
 
     def __init__(

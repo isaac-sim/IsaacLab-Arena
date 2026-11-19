@@ -18,7 +18,6 @@ variations subclass one of two flavors:
 
 from __future__ import annotations
 
-import hashlib
 import torch
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -28,6 +27,7 @@ from typing import Any
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.utils.random import derive_seed
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 
 
@@ -112,18 +112,18 @@ class VariationBase(ABC):
         A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
         """
 
-    def configure_at_build_time(self, seed: int, variation_key: str) -> None:
+    def configure_at_build_time(self, seed: int, variation_key: str, rebuild_index: int = 0) -> None:
         """Seed this variation's draws and apply its build-time effect for one environment build.
 
         Args:
             seed: Environment seed.
             variation_key: This variation's ``<asset_name>.<variation_name>`` key.
+            rebuild_index: Index of this build among the rebuilds of an Experiment Run, the ``rebuild_index``
+                argument of ``ArenaEnvBuilder``.
         """
         # The key gives each variation its own random stream: with the seed alone, equal sampler cfgs draw equal values,
         # and with one shared generator, a variation's values change when others are enabled, disabled or reordered.
-        digest = hashlib.sha256(f"{seed}:{variation_key}".encode()).digest()
-        # Torch generator seeds are 64-bit, so keep the first 8 bytes of the digest.
-        variation_seed = int.from_bytes(digest[:8], "big")
+        variation_seed = derive_seed(seed, variation_key)
         # Keep the generator on CPU: there, torch.rand and torch.randint give the same values however the draws are
         # split across resets, so the k-th episode to start gets the same run-time values for any num_envs.
         self._generator = torch.Generator(device="cpu").manual_seed(variation_seed)
@@ -186,6 +186,10 @@ class BuildTimeVariationBase(VariationBase):
     spawner params baked into a config. Subclasses hold references to the
     asset(s) they mutate and realise the effect in ``_realize_at_build_time``.
     """
+
+    changes_object_geometry: bool = False
+    """Whether this variation changes the geometry of an object. Replaying recorded placement then needs the recorded
+    value, because the recorded poses were solved for that geometry."""
 
     @abstractmethod
     def _realize_at_build_time(self) -> None:

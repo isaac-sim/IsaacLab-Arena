@@ -18,6 +18,10 @@ class Asset:
     Base class for all assets.
     """
 
+    registry_name: str | None = None
+    """Key of this asset's class in its registry, or None for assets not created from a registered class. An asset
+    selection may set it on the object."""
+
     def __init__(self, name: str, tags: list[str] | None = None, **kwargs):
         # NOTE: Cooperative Multiple Inheritance Pattern.
         # Calling super even though this is a base class to support
@@ -53,6 +57,10 @@ class Asset:
     def get_scene_key(self) -> str:
         """Return the Isaac Lab scene key for the asset."""
         return self.name
+
+    def get_spawned_asset(self) -> Asset:
+        """Return the asset this asset spawns in a scene."""
+        return self
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
         """Validate that a resolved simulation configuration supports this asset."""

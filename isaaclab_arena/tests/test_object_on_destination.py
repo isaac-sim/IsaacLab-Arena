@@ -6,6 +6,8 @@
 import math
 from types import SimpleNamespace
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
@@ -330,6 +332,77 @@ def _test_object_on_destination(_simulation_app) -> bool:
 
 def test_object_on_destination():
     assert run_function_with_persistent_simulation_app(_test_object_on_destination)
+
+
+def _test_rotated_destination_footprint(simulation_app, angles_deg):
+    """Check world-vertical placement against a translated, rotated support box.
+
+    For the supplied roll, pitch, and yaw, accept the box center and a point
+    directly above it in world Z. Reject a point below the entire box and a point
+    above but outside its horizontal footprint. The parameterized orientations
+    cover sideways, tilted, inverted, and yaw-only supports, so a destination's
+    local Z axis cannot be used as the meaning of up.
+
+    Args:
+        simulation_app: Running simulation application required by Arena imports.
+        angles_deg: Support roll, pitch, and yaw in degrees.
+
+    Returns:
+        True when all four placement assertions pass.
+    """
+    import torch
+
+    from isaaclab.utils.math import quat_apply, quat_from_euler_xyz
+
+    from isaaclab_arena.tasks.predicates.spatial import object_bounds_center_over_destination
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    angles = torch.deg2rad(torch.tensor(angles_deg))
+    q_W_D = quat_from_euler_xyz(*angles).reshape(1, 4)
+    t_W_D = torch.tensor([[1.0, -2.0, 0.7]])
+    bounds_D = AxisAlignedBoundingBox(min_point=(-0.03, -0.06, 0.0), max_point=(0.03, 0.06, 0.18))
+    center_W = t_W_D + quat_apply(q_W_D, torch.tensor([[0.0, 0.0, 0.09]]))
+    # An upward extrusion of the rotated bounds contains both its center and a point directly above it.
+    # It excludes a point below the entire box and points outside its horizontal projection.
+    above_center_W = torch.tensor([0.0, 0.0, 0.3])
+    at_center_W = torch.tensor([0.0, 0.0, 0.0])
+    below_box_W = torch.tensor([0.0, 0.0, -0.3])
+    beside_box_W = torch.tensor([0.3, 0.0, 0.3])
+    offsets_W = torch.stack([above_center_W, at_center_W, below_box_W, beside_box_W])
+    result = object_bounds_center_over_destination(
+        center_W + offsets_W, torch.cat((t_W_D, q_W_D), dim=-1).expand(4, -1), bounds_D
+    )
+    torch.testing.assert_close(result, torch.tensor([True, True, False, False]))
+    return True
+
+
+@pytest.mark.parametrize(
+    "angles_deg",
+    [(0.0, 90.0, 0.0), (90.0, 0.0, 0.0), (0.0, -90.0, 30.0), (35.0, 25.0, 40.0), (180.0, 0.0, 0.0), (0.0, 0.0, 45.0)],
+    ids=["pitched_sideways", "rolled_sideways", "pitched_and_yawed", "tilted", "inverted", "yaw_only"],
+)
+def test_rotated_destination_footprint(angles_deg):
+    assert run_function_with_persistent_simulation_app(_test_rotated_destination_footprint, angles_deg=angles_deg)
+
+
+def _test_destination_footprint_excludes_world_aabb_corners(simulation_app):
+    """A rotated thin support must not accept empty corners of its enclosing world AABB."""
+    import torch
+
+    from isaaclab_arena.tasks.predicates.spatial import object_bounds_center_over_destination
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    T_W_D = torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, math.sin(math.pi / 8), math.cos(math.pi / 8)]])
+    bounds_D = AxisAlignedBoundingBox(min_point=(-1.0, -0.1, -0.1), max_point=(1.0, 0.1, 0.1))
+    result = object_bounds_center_over_destination(
+        torch.tensor([[0.7, -0.7, 1.0], [0.5, 0.5, 1.0]]), T_W_D.expand(2, -1), bounds_D
+    )
+    torch.testing.assert_close(result, torch.tensor([False, True]))
+    return True
+
+
+def test_destination_footprint_excludes_world_aabb_corners():
+    assert run_function_with_persistent_simulation_app(_test_destination_footprint_excludes_world_aabb_corners)
 
 
 if __name__ == "__main__":

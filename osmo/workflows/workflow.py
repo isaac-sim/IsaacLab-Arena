@@ -19,14 +19,14 @@ import subprocess
 import tempfile
 import yaml
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
-from osmo.workflows.workflow_constants import DATASET_SWIFT_URL
+from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, DEFAULT_WORKFLOW_LABELS
 
 # Seconds per unit of an OSMO duration string such as ``30m`` or ``1d``.
 _OSMO_DURATION_UNIT_SECONDS = {"s": 1, "m": 60, "h": 60 * 60, "d": 24 * 60 * 60}
@@ -44,6 +44,24 @@ def osmo_duration_to_seconds(duration: str) -> int:
     match = re.fullmatch(r"(\d+)([smhd])", duration)
     assert match, f"OSMO duration must have the form <integer><s|m|h|d>; got '{duration}'"
     return int(match.group(1)) * _OSMO_DURATION_UNIT_SECONDS[match.group(2)]
+
+
+def parse_labels(entries: list[str]) -> dict[str, str]:
+    """Convert ``key=value`` label entries to a mapping, asserting that each key appears once.
+
+    Args:
+        entries: Label entries such as ``team=robotics``.
+
+    Returns:
+        The label mapping in the order of ``entries``.
+    """
+    labels: dict[str, str] = {}
+    for entry in entries:
+        key, separator, value = entry.partition("=")
+        assert separator and key, f"A label must have the form key=value; got '{entry}'"
+        assert key not in labels, f"Label '{key}' is given more than once"
+        labels[key] = value
+    return labels
 
 
 class WorkflowPriority(str, Enum):
@@ -88,6 +106,9 @@ class WorkflowCfg:
     queue_timeout: str = "2d"
     """Maximum time the workflow may wait in the queue."""
 
+    labels: list[str] = field(default_factory=lambda: list(DEFAULT_WORKFLOW_LABELS))
+    """OSMO labels attached to the workflow, as ``key=value`` entries."""
+
     dry_run: bool = False
     """Render the workflow YAML and print it instead of submitting to OSMO."""
 
@@ -105,6 +126,9 @@ class WorkflowSubmissionResult:
 
     workflow_id: str | None = None
     """OSMO workflow ID parsed from the submit output; None on a dry-run or parse failure."""
+
+    overview_url: str | None = None
+    """OSMO workflow overview URL parsed from the submit output; None on a dry-run or parse failure."""
 
 
 class SubmittableWorkflow(ABC):
@@ -127,8 +151,17 @@ class SubmittableWorkflow(ABC):
         self.task_cfg = task_cfg
 
     @abstractmethod
-    def submit_workflow(self) -> WorkflowSubmissionResult:
-        """Submit to OSMO (or print the rendered spec on a dry-run) and return the outcome."""
+    def submit_workflow(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        """Submit to OSMO (or print the rendered spec on a dry-run) and return the outcome.
+
+        Args:
+            timeout_s: Wall-clock limit in seconds for each ``osmo workflow submit`` call; None waits
+                indefinitely. When exceeded, the ``subprocess.TimeoutExpired`` from the call propagates.
+                Unrelated to the workflow's own OSMO exec and queue timeouts.
+
+        Returns:
+            The submission outcome.
+        """
 
 
 class Workflow(SubmittableWorkflow):
@@ -181,18 +214,18 @@ class Workflow(SubmittableWorkflow):
 
     def create_workflow_dict(self) -> dict[str, Any]:
         """Build the full OSMO workflow dict."""
-        return {
-            "version": 2,
-            "workflow": {
-                "name": self.workflow_cfg.workflow_name,
-                "groups": self._get_group_dicts(),
-                "resources": self._create_resources_dict(),
-                "timeout": {
-                    "exec_timeout": self.workflow_cfg.exec_timeout,
-                    "queue_timeout": self.workflow_cfg.queue_timeout,
-                },
+        workflow = {
+            "name": self.workflow_cfg.workflow_name,
+            "groups": self._get_group_dicts(),
+            "resources": self._create_resources_dict(),
+            "timeout": {
+                "exec_timeout": self.workflow_cfg.exec_timeout,
+                "queue_timeout": self.workflow_cfg.queue_timeout,
             },
         }
+        if self.workflow_cfg.labels:
+            workflow["labels"] = parse_labels(self.workflow_cfg.labels)
+        return {"version": 2, "workflow": workflow}
 
     def _get_group_dicts(self) -> list[dict[str, Any]]:
         """Create the OSMO groups in this workflow."""
@@ -214,15 +247,25 @@ class Workflow(SubmittableWorkflow):
             default_style="",
         )
 
-    def submit_workflow(self) -> WorkflowSubmissionResult:
-        """Render the workflow and either print it (dry-run) or submit it to OSMO."""
+    def submit_workflow(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        """Render the workflow and either print it (dry-run) or submit it to OSMO.
+
+        Args:
+            timeout_s: Wall-clock limit in seconds for ``osmo workflow submit``; None waits indefinitely.
+                When exceeded, the ``osmo`` process is killed and ``subprocess.TimeoutExpired`` propagates.
+                The workflow may already have been created on the OSMO server by then; the exception's
+                ``stdout`` holds whatever the CLI printed before the timeout and may contain the workflow ID.
+
+        Returns:
+            The submission outcome.
+        """
         rendered = self.render_yaml()
         if self.workflow_cfg.dry_run:
             print("[dry-run] Rendered workflow YAML:\n")
             print(rendered)
             return WorkflowSubmissionResult(returncode=0)
 
-        return self._submit_rendered_workflow(rendered=rendered)
+        return self._submit_rendered_workflow(rendered=rendered, timeout_s=timeout_s)
 
     def _get_tasks(self) -> list[BaseTask]:
         """Instantiate task objects for this workflow."""
@@ -233,7 +276,12 @@ class Workflow(SubmittableWorkflow):
             tasks.append(task_cls(task_name=task_name, task_cfg=self.task_cfg, lead=lead))
         return tasks
 
-    def _submit_rendered_workflow(self, rendered: str) -> WorkflowSubmissionResult:
+    def _submit_rendered_workflow(self, rendered: str, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        """Run ``osmo workflow submit`` on the rendered YAML and return the parsed outcome.
+
+        On ``subprocess.TimeoutExpired`` the ``osmo`` process is killed but the workflow may already exist
+        on the OSMO server; the propagated exception's ``stdout`` may hold the workflow ID.
+        """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", prefix="arena_", delete=False) as f:
             f.write(rendered)
             rendered_path = f.name
@@ -248,21 +296,22 @@ class Workflow(SubmittableWorkflow):
         print(f"  {' '.join(cmd)}\n")
 
         try:
-            # Capture stdout only, to parse the workflow ID; stderr stays inherited so
+            # Capture stdout only, to parse the workflow ID and overview URL; stderr stays inherited so
             # interactive output (login prompts, progress) remains visible live.
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, timeout=timeout_s)
             print(result.stdout, end="")
             return WorkflowSubmissionResult(
                 returncode=result.returncode,
-                workflow_id=self._parse_submitted_workflow_id(result.stdout),
+                workflow_id=self._parse_submit_field(result.stdout, "Workflow ID"),
+                overview_url=self._parse_submit_field(result.stdout, "Workflow Overview"),
             )
         finally:
             Path(rendered_path).unlink(missing_ok=True)
 
     @staticmethod
-    def _parse_submitted_workflow_id(submit_stdout: str) -> str | None:
-        """Extract the workflow ID from ``osmo workflow submit`` output, or None."""
-        match = re.search(r"Workflow ID\s*[-:]\s*(\S+)", submit_stdout)
+    def _parse_submit_field(submit_stdout: str, label: str) -> str | None:
+        """Extract the value printed after ``label`` (e.g. "Workflow ID") in ``osmo workflow submit`` output, or None."""
+        match = re.search(rf"{re.escape(label)}\s*[-:]\s*(\S+)", submit_stdout)
         return match.group(1) if match else None
 
     def _create_resource_dict(self) -> dict[str, Any]:
@@ -288,9 +337,17 @@ class CompositeWorkflow(SubmittableWorkflow):
     the step sequencing, so the base intentionally does not short-circuit it.
     """
 
-    def submit_workflow(self) -> WorkflowSubmissionResult:
-        return self._submit_steps()
+    def submit_workflow(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        return self._submit_steps(timeout_s=timeout_s)
 
     @abstractmethod
-    def _submit_steps(self) -> WorkflowSubmissionResult:
-        """Submit the sub-workflows in order; return the result representing the composite."""
+    def _submit_steps(self, timeout_s: float | None = None) -> WorkflowSubmissionResult:
+        """Submit the sub-workflows in order; return the result representing the composite.
+
+        Args:
+            timeout_s: Wall-clock limit in seconds for each sub-workflow's ``osmo workflow submit``;
+                None waits indefinitely.
+
+        Returns:
+            The result representing the composite.
+        """

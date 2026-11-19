@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.sources.base import UsdSource
 
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
@@ -23,6 +24,9 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     class_usd = getattr(asset_cls, "usd_path", None)
     if isinstance(class_usd, str) and class_usd:
         return class_usd
+    class_source = getattr(asset_cls, "usd_source", None)
+    if isinstance(class_source, UsdSource):
+        return class_source.to_local_usd_path()
 
     # Defer conversion imports until runtime; conversion utilities also import these schema types.
     from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import parse_asset_params
@@ -165,6 +169,14 @@ class ObjectReferenceSpec(BaseModel):
     )
     params: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def _assert_initial_joint_positions_require_articulation(self) -> ObjectReferenceSpec:
+        """Reject joint defaults on references that do not represent articulations."""
+        assert (
+            "initial_joint_positions" not in self.params or self.object_type == ObjectType.ARTICULATION
+        ), "initial_joint_positions requires object_type=articulation"
+        return self
+
 
 class TaskSpec(BaseModel):
     """Atomic registered task leaf referenced by a composite root task."""
@@ -259,10 +271,18 @@ class SpatialRelationSpec(BaseModel):
         description="Optional kind-specific parameters; leave empty by default.",
     )
 
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _reject_yaml_boolean_kind(cls, value: Any) -> Any:
+        """Explain the YAML 1.1 boolean that an unquoted ``on`` becomes."""
+        if isinstance(value, bool):
+            raise ValueError(f"YAML reads an unquoted 'on' as {value}; quote it: kind: 'on'")
+        return value
+
     @field_validator("reference", mode="before")
     @classmethod
     def _none_if_empty_reference(cls, value: Any) -> Any:
-        """Normalize an empty optional reference to None before arity validation."""
+        """Convert a blank reference string to None before arity validation."""
         if isinstance(value, str) and not value.strip():
             return None
         return value
@@ -276,17 +296,19 @@ class SpatialRelationSpec(BaseModel):
             assert self.reference is None, f"Relation kind '{self.kind}' must not define relation.reference"
         else:
             assert self.reference is not None, f"Relation kind '{self.kind}' requires relation.reference"
-        self.params = _normalize_relation_params(self.params)
+        self.params = _convert_relation_pose_params_to_float_tuples(self.params)
         return self
 
 
-def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(params)
-    if "position_xyz" in normalized:
-        normalized["position_xyz"] = _convert_to_float_tuple(normalized["position_xyz"], 3, "position_xyz")
-    if "rotation_xyzw" in normalized:
-        normalized["rotation_xyzw"] = _convert_to_float_tuple(normalized["rotation_xyzw"], 4, "rotation_xyzw")
-    return normalized
+def _convert_relation_pose_params_to_float_tuples(params: dict[str, Any]) -> dict[str, Any]:
+    converted_params = dict(params)
+    if "position_xyz" in converted_params:
+        converted_params["position_xyz"] = _convert_to_float_tuple(converted_params["position_xyz"], 3, "position_xyz")
+    if "rotation_xyzw" in converted_params:
+        converted_params["rotation_xyzw"] = _convert_to_float_tuple(
+            converted_params["rotation_xyzw"], 4, "rotation_xyzw"
+        )
+    return converted_params
 
 
 def _convert_to_float_tuple(value: Any, length: int, field_name: str) -> tuple[float, ...]:

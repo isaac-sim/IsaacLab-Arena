@@ -662,6 +662,46 @@ class ProgressTracker:
         assert self._subtask_runners, "Subtask completion requires criteria sets with subtask indices."
         return torch.stack([self._all_criteria_complete(runners) for runners in self._subtask_runners], dim=1)
 
+    def get_completion_by_subtask(self) -> torch.Tensor:
+        """Return one completion column per subtask, or one task column when there are no subtasks."""
+        if self._subtask_runners:
+            return self.get_subtask_completion()
+        return self.is_complete()[:, None]
+
+    def evaluate_predicates(self, env) -> dict[str, dict[str, list[torch.Tensor]]]:
+        """Evaluate current predicate values without advancing progress-tracker state.
+
+        Args:
+            env: Environment supplying predicate inputs.
+
+        Returns:
+            Boolean tensors grouped by completion-criteria and sequence names.
+        """
+        # TODO(qianl, 2026-11-07): Read cached step results and mark inactive occurrences as not evaluated.
+        # Bypassing temporal counters does not prevent predicate side effects: evaluating an inactive
+        # subtask's objects_settled can record its resting pose before that subtask starts.
+        results: dict[str, dict[str, list[torch.Tensor]]] = {}
+        cached_results: dict[int, torch.Tensor] = {}
+        for runner in self.runners:
+            sequences = {}
+            for sequence_name, chain in runner.predicate_chains.items():
+                sequence_results = []
+                for predicate, _ in chain:
+                    if isinstance(predicate, _TrueForConsecutiveSteps):
+                        predicate = predicate.predicate
+                    predicate_key = id(predicate)
+                    if predicate_key not in cached_results:
+                        result = torch.as_tensor(predicate(env), dtype=torch.bool, device=self.device)
+                        assert result.shape == (self.num_envs,), (
+                            f"Predicate {_predicate_repr(predicate)} returned shape {tuple(result.shape)};"
+                            f" expected ({self.num_envs},)"
+                        )
+                        cached_results[predicate_key] = result
+                    sequence_results.append(cached_results[predicate_key].clone())
+                sequences[sequence_name] = sequence_results
+            results[runner.completion_criteria.name] = sequences
+        return results
+
     def get_predicate(
         self,
         criteria_name: str,

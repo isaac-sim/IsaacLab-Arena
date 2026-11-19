@@ -9,7 +9,7 @@ IMAGE=""
 BUILD_ARGS=()
 
 usage() {
-    echo "Usage: $0 [-t dev|dev-curobo] [-n image:tag] [-R]"
+    echo "Usage: $0 [-t dev] [-n image:tag] [-R]"
     echo "  -t  Docker target (default: dev)"
     echo "  -n  Output image reference (default: isaaclab_arena:<target compatibility tag>)"
     echo "  -R  Build without cache; base image metadata is always refreshed"

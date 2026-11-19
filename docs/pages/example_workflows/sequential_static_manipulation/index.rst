@@ -58,19 +58,17 @@ closed-loop in Isaac Lab Arena.
 Prerequisites
 ^^^^^^^^^^^^^
 
-Start the isaaclab docker container
-
-:docker_run_default:
+:runtime_setup_tabs:
 
 You'll also need to create the folders for the data and models.
 Create the folders for the data and models with:
 
-.. code:: bash
+.. code-block:: bash
 
-    export DATASET_DIR=/datasets/isaaclab_arena/sequential_static_manipulation_tutorial
-    mkdir -p $DATASET_DIR
-    export MODELS_DIR=/models/isaaclab_arena/sequential_static_manipulation_tutorial
-    mkdir -p $MODELS_DIR
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/sequential_static_manipulation_tutorial"
+   mkdir -p $DATASET_DIR
+   export MODELS_DIR="$HOME/models/isaaclab_arena/sequential_static_manipulation_tutorial"
+   mkdir -p $MODELS_DIR
 
 Workflow Steps
 ^^^^^^^^^^^^^^

@@ -14,8 +14,8 @@ from copy import deepcopy
 from functools import partial
 
 from isaaclab.sim import UsdFileCfg, UsdFileWithCompliantContactCfg
-from isaaclab.sim.spawners._utils import fragment_mapping
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
+from isaaclab.sim.spawners.utils import fragment_mapping
 from isaaclab.sim.utils import make_uninstanceable, standardize_xform_ops
 from pxr import Sdf, Usd, UsdGeom, UsdShade
 
@@ -95,6 +95,8 @@ def _assert_settings_do_not_name_asset_prims(spawn_cfg: UsdFileCfg) -> None:
     # Fields that also accept schema fragments keyed by prim path pattern; deformable_props takes only a config.
     property_settings = {
         "mass_props": spawn_cfg.mass_props,
+        "volume_deformable_props": spawn_cfg.volume_deformable_props,
+        "surface_deformable_props": spawn_cfg.surface_deformable_props,
         "rigid_props": spawn_cfg.rigid_props,
         "collision_props": spawn_cfg.collision_props,
         "articulation_props": spawn_cfg.articulation_props,

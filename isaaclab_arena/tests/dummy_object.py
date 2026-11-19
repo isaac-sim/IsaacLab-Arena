@@ -76,7 +76,10 @@ class DummyObject(PlaceableAsset):
 
 def make_candidate_batch(positions, orientations, bboxes):
     """Build test candidates with one layout per environment."""
-    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
+    from isaaclab_arena.relations.optimization.placement_candidate_batch import (
+        PlacementCandidate,
+        PlacementCandidateBatch,
+    )
 
     return PlacementCandidateBatch([
         PlacementCandidate(i, 0, position, orientation, bounds)

@@ -211,6 +211,7 @@ def _test_joint_conditions_require_overlapping_steps(simulation_app):
 def _test_reused_requirement_has_independent_counters(simulation_app):
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     held = _ControlledPredicate([True])
@@ -228,6 +229,16 @@ def _test_reused_requirement_has_independent_counters(simulation_app):
     assert tracker.get_predicate("delayed", predicate_index=1) is held
     assert held.calls == 0
     env = SimpleNamespace(num_envs=1, device="cpu")
+    before = tracker.get_consecutive_step_summary(0)
+    current = tracker.evaluate_predicates(env)
+    assert {
+        name: [value.tolist() for value in sequences[DEFAULT_SEQUENCE_NAME]] for name, sequences in current.items()
+    } == {
+        "twice": [[True], [True]],
+        "delayed": [[False], [True]],
+    }
+    assert tracker.get_consecutive_step_summary(0) == before
+    assert held.calls == 1
     _step(tracker, env, [1])
     enabled.values = [True]
     _step(tracker, env, [2])
@@ -242,7 +253,7 @@ def _test_reused_requirement_has_independent_counters(simulation_app):
         ("twice", 1, 4),
         ("delayed", 1, 4),
     ]
-    assert held.calls == 4
+    assert held.calls == 5
 
     other_criteria = CompletionCriteria(name="other_tracker", predicate_sequence=[requirement])
     other_tracker = ProgressTracker([other_criteria], num_envs=1, device="cpu")

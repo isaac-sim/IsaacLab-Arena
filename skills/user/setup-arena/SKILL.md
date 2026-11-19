@@ -1,7 +1,7 @@
 ---
 name: setup-arena
 description: Sets up and verifies a runnable Isaac Lab-Arena checkout using the supported native uv or Docker route. Use when installing Arena, preparing a fresh checkout to run examples or evaluations, choosing between uv and Docker, starting or attaching to the Arena container, mounting datasets/models/evaluation outputs, enabling cuRobo, or checking whether an installation is ready. Do not use for contributor hooks, forced image rebuilds, pytest regression testing, or experiment configuration.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *) Bash(docker stop isaaclab_arena-*)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id --user --name) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *) Bash(docker stop isaaclab_arena-*)
 ---
 
 # Setup Arena
@@ -21,11 +21,10 @@ supported route:
 
 | Route | Use it when |
 |---|---|
-| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic environment generation. |
-| Docker | Use when requested, when the existing workflow is container-based, or when cuRobo reachability validation is required. |
+| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic authoring. |
+| Docker | Use when requested or when the existing workflow is container-based. |
 
-Do not silently switch routes. Native uv does not provide the optional cuRobo package; use Docker
-with `-c` for `ik_reachable` validation.
+Do not silently switch routes.
 
 ## Preflight and confirmation
 
@@ -79,10 +78,9 @@ Use these options only when the request needs them:
 
 | Flag | Purpose |
 |---|---|
-| `-d <path>` | Mount datasets at `/datasets`. |
-| `-m <path>` | Mount models at `/models`. |
-| `-e <path>` | Mount evaluation outputs at `/eval`. |
-| `-c` | Build/use the cuRobo image for reachability validation. |
+| `-d <path>` | Mount datasets at `$HOME/datasets` in the container. |
+| `-m <path>` | Mount models at `$HOME/models` in the container. |
+| `-e <path>` | Mount evaluation outputs at `$HOME/eval` in the container. |
 | `-s <suffix>` | Override the automatic per-checkout container suffix. |
 
 Confirm that each explicitly requested mount path exists before launching. Mount flags apply only
@@ -93,12 +91,11 @@ mounts and show the complete reconstructed launcher command. Populate this shape
 configuration instead of relying on launcher defaults:
 
 ```bash
-./docker/run_docker.sh [-c] [-s <current-suffix>] -d <new-datasets> \
+./docker/run_docker.sh [-s <current-suffix>] -d <new-datasets> \
   [-m <current-models>] [-e <current-evaluation>]
 ```
 
-Include `-c` for an existing cuRobo image, `-s` for an existing suffix, and each current model or
-evaluation mount. Replace only the mount the user asked to change, and stop the container only after
+Include `-s` for an existing suffix and each current model or evaluation mount. Replace only the mount the user asked to change, and stop the container only after
 the user approves that exact command.
 
 The launcher builds a missing image, starts this checkout's container, and attaches interactively.
@@ -111,16 +108,14 @@ List the containers for this checkout without hardcoding a name:
 docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}\t{{.Image}}'
 ```
 
-Select the exact name matching the chosen image flavor and suffix and assign it to
-`ARENA_CONTAINER`. Do not take an arbitrary first match because regular and cuRobo containers can
-coexist for one checkout.
+Select the exact name matching the chosen suffix and assign it to `ARENA_CONTAINER`. Do not take an
+arbitrary first match because containers with different suffixes can coexist for one checkout.
 
 Verify the editable source mount as the host user:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su $(id -un) -c \
-  "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'"
+docker exec --user "$(id --user --name)" "$ARENA_CONTAINER" \
+  isaaclab.sh -p -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'
 ```
 
 Require a path under `/workspaces/isaaclab_arena/`. Then run the short zero-action validation from
@@ -131,8 +126,9 @@ the installation documentation inside the container, unless the user asks to ski
 Report the selected route and concrete evidence: interpreter or container, import path, and
 zero-action exit status when run. Treat setup readiness separately from policy success.
 
-Use `dev-container` for contributor bootstrap or forced rebuilds and `run-tests` only when the user
-explicitly asks for regression testing. Treat any requested experiment as the next workflow after
+Use `arena-runtime` to run later Arena commands in the ready route, `dev-container` for contributor
+bootstrap or forced rebuilds, and `run-tests` only when the user explicitly asks for regression
+testing. Treat any requested experiment as the next workflow after
 setup; do not absorb its policy, configuration, execution, or artifact checks into this skill.
 
 ## References

@@ -49,7 +49,8 @@ def _test_apple_in_microwave(_simulation_app):
     # fixed geometry frame while Scene manages the microwave's nested physics.
     microwave = Background(
         name="microwave",
-        usd_path=registry.get_asset_by_name("microwave").usd_path,
+        usd_path=None,
+        usd_source=registry.get_asset_by_name("microwave").usd_source,
         object_min_z=-1.0,
         initial_pose=Pose(position_xyz=(2.0, 0.0, 1.0)),
     )
@@ -58,7 +59,8 @@ def _test_apple_in_microwave(_simulation_app):
         name="apple_in_microwave_test",
         scene=Scene(assets=[microwave, apple]),
         embodiment=FrankaJointPosEmbodiment(),
-        task=ObjectInTask(apple, microwave, episode_length_s=30.0),
+        # Sim 6.2 leaves this round apple with a small residual spin after the drop.
+        task=ObjectInTask(apple, microwave, angular_velocity_threshold=0.2, episode_length_s=30.0),
     )
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(solve_relations=False)).make_registered()
     try:

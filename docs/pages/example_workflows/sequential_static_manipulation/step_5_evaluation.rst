@@ -4,17 +4,14 @@ Closed-Loop Policy Inference and Evaluation
 This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in the GR1 Sequential Pick & Place and Close Door Environment.
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:`--group gr00t-client`
 
-:docker_run_default:
+Once the runtime is ready, set the dataset and models directories.
 
-Once inside the container, set the dataset and models directories.
+.. code-block:: bash
 
-.. code:: bash
-
-    export DATASET_DIR=/datasets/isaaclab_arena/sequential_static_manipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/sequential_static_manipulation_tutorial
-
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/sequential_static_manipulation_tutorial"
+   export MODELS_DIR="$HOME/models/isaaclab_arena/sequential_static_manipulation_tutorial"
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
@@ -40,9 +37,8 @@ pre-trained model checkpoint below:
 
 **Prerequisite: launch the GR00T policy server**
 
-The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
-Before running the evaluation, open another terminal **outside the Arena development
-container**.
+The Arena evaluation client runs in the Arena runtime and connects to a GR00T policy server.
+Before running the evaluation, open another terminal, separate from the Arena runtime, for the server.
 The server runs out of
 the `Isaac-GR00T source <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_
 submodule pinned at commit ``e29d8fc``; populate it with
@@ -55,11 +51,6 @@ leave it running:
    Blackwell GPUs with compute capability ``sm_120`` require CUDA 12.8 or newer. The
    `GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_
    specifies CUDA 12.8 and ``pytorch-cu128`` for RTX 5090 systems.
-
-.. note::
-
-   ``$MODELS_DIR`` exists inside the container. On the host, the checkpoint is
-   under the models directory passed to ``./docker/run_docker.sh -m`` (default ``$HOME/models``).
 
 .. code-block:: bash
 
@@ -85,15 +76,11 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
 
       language_instruction: "Place the sauce bottle on the top shelf of the fridge, and close the fridge door."
       action_horizon: 16
-      embodiment_tag: GR1
       video_backend: decord
       modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
 
-      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml
       action_chunk_length: 16
-      task_mode_name: gr1_tabletop_manipulation
+      gr00t_embodiment_adapter: gr1_arms
 
       pov_cam_name_sim: "robot_pov_cam_rgb"
 
@@ -147,44 +134,22 @@ Step 2: Run Parallel environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-.. tab-set::
+Test the policy in 10 parallel environments with visualization via the GUI run:
 
-   .. tab-item:: Single GPU Evaluation
+.. code-block:: bash
 
-      Test the policy in 10 parallel environments with visualization via the GUI run:
-
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-           --remote_host 127.0.0.1 \
-           --remote_port 5555 \
-           --num_steps 2000 \
-           --num_envs 10 \
-           --enable_cameras \
-           put_item_in_fridge_and_close_door \
-           --embodiment gr1_joint \
-           --object ranch_dressing_hope_robolab
-
-   .. tab-item:: Distribute Multi-GPU Evaluation
-
-      Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
-
-      .. code-block:: bash
-
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-           --remote_host 127.0.0.1 \
-           --remote_port 5555 \
-           --num_steps 2000 \
-           --num_envs 10 \
-           --enable_cameras \
-           --distributed \
-           put_item_in_fridge_and_close_door \
-           --embodiment gr1_joint \
-           --object ranch_dressing_hope_robolab
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+     --remote_host 127.0.0.1 \
+     --remote_port 5555 \
+     --num_steps 2000 \
+     --num_envs 10 \
+     --enable_cameras \
+     put_item_in_fridge_and_close_door \
+     --embodiment gr1_joint \
+     --object ranch_dressing_hope_robolab
 
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
@@ -220,45 +185,23 @@ Step 3: Multi-object Heterogeneous Evaluation
 
 This step demonstrates evaluation of the policy in heterogeneous environments with multiple objects.
 
-.. tab-set::
+Test the policy in 10 parallel environments with visualization via the GUI run:
 
-   .. tab-item:: Single GPU Evaluation
+.. code-block:: bash
 
-      Test the policy in 10 parallel environments with visualization via the GUI run:
+   python isaaclab_arena/evaluation/policy_runner.py \
+   --viz kit \
+   --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+   --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+   --remote_host 127.0.0.1 \
+   --remote_port 5555 \
+   --num_steps 2000 \
+   --num_envs 10 \
+   --enable_cameras \
+   put_item_in_fridge_and_close_door \
+   --embodiment gr1_joint \
+   --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-         --viz kit \
-         --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-         --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-         --remote_host 127.0.0.1 \
-         --remote_port 5555 \
-         --num_steps 2000 \
-         --num_envs 10 \
-         --enable_cameras \
-         put_item_in_fridge_and_close_door \
-         --embodiment gr1_joint \
-         --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
-
-   .. tab-item:: Distribute Multi-GPU Evaluation
-
-      Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
-
-      .. code-block:: bash
-
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-           --remote_host 127.0.0.1 \
-           --remote_port 5555 \
-           --num_steps 2000 \
-           --num_envs 10 \
-           --enable_cameras \
-           --distributed \
-           put_item_in_fridge_and_close_door \
-           --embodiment gr1_joint \
-           --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -279,55 +222,15 @@ just over-fitting to a single object mesh.
 Step 4: Sequential Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``experiment_runner.py`` script.
-It minimizes the overhead of reloading system modules and environment classes for each job while keeping the simulation application alive.
-The evaluation batch can be specified in a config file, with examples shown below.
+A sequential batch of runs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``experiment_runner.py`` script.
+It minimizes the overhead of reloading system modules and environment classes for each run while keeping the simulation application alive.
+The batch is defined in an Experiment YAML file. The example below evaluates the policy on an unseen jug and on the ranch dressing bottle.
 
-.. dropdown:: Configuration file (``gr1_sequential_static_manip_eval_jobs_config.json``):
+.. dropdown:: Configuration file (``gr1_sequential_static_manip_gr00t_experiment.yaml``):
    :animate: fade-in
 
-   .. code-block:: json
-
-      {
-      "jobs": [
-         {
-            "name": "gr1_put_ranch_dressing_bottle_in_fridge_and_close_door",
-            "arena_env_args": {
-               "num_envs": 10,
-               "enable_cameras": true,
-               "environment": "put_item_in_fridge_and_close_door",
-               "object": "ranch_dressing_hope_robolab",
-               "embodiment": "gr1_joint"
-            },
-            "num_steps": 500,
-            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
-            "policy_config_dict": {
-            "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
-            "policy_device": "cuda:0",
-            "remote_host": "127.0.0.1",
-            "remote_port": 5555
-            }
-         },
-         {
-            "name": "gr1_put_jug_in_fridge_and_close_door",
-            "arena_env_args": {
-               "num_envs": 10,
-               "enable_cameras": true,
-               "environment": "put_item_in_fridge_and_close_door",
-               "object": "jug",
-               "embodiment": "gr1_joint"
-            },
-            "num_steps": 500,
-            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
-            "policy_config_dict": {
-            "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
-            "policy_device": "cuda:0",
-            "remote_host": "127.0.0.1",
-            "remote_port": 5555
-            }
-         }
-      ]
-      }
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
+      :language: yaml
 
 Run the batch evaluation:
 
@@ -335,39 +238,39 @@ Run the batch evaluation:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
+     --experiment_config isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
-You should see the following output on the console indicating the jobs and metrics.
+You should see the following output on the console indicating the runs and metrics.
 
 .. code-block:: text
 
-   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
-   | Job Name                                                | Status     | Policy Type                                                                | Num Envs | Num Steps | Num Episodes |
-   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
-   || gr1_put_jug_in_fridge_and_close_door                   || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |
-   || gr1_put_ranch_dressing_bottle_in_fridge_and_close_door || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |
-   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   |                        Run Name                        |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   |          gr1_put_jug_in_fridge_and_close_door          | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
 
    ======================================================================
    METRICS SUMMARY
    ======================================================================
 
    gr1_put_jug_in_fridge_and_close_door:
-   num_episodes                           10
-   object_moved_rate_subtask_0        1.0000
-   revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [0.2, 0.2]
-   success_rate                       0.1000
+     num_episodes                           10
+     object_moved_rate_subtask_0        1.0000
+     revolute_joint_moved_rate_subtask_1     1.0000
+     subtask_success_rate           [0.2, 0.2]
+     success_rate                       0.1000
 
    gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
-   num_episodes                           10
-   object_moved_rate_subtask_0        1.0000
-   revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [0.9, 0.9]
-   success_rate                       0.9000
+     num_episodes                           10
+     object_moved_rate_subtask_0        1.0000
+     revolute_joint_moved_rate_subtask_1     1.0000
+     subtask_success_rate           [0.9, 0.9]
+     success_rate                       0.9000
    ======================================================================
 
 With the policy trained on using ranch dressing bottle as object of interest,
-the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
-This is expected as the policy is not trained on the jug, comparing to the success rate of 0.8 for the trained object, ranch dressing bottle.
+the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.1.
+This is expected as the policy is not trained on the jug, comparing to the success rate of 0.9 for the trained object, ranch dressing bottle.

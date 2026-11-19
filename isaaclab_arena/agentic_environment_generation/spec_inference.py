@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from isaaclab_arena.agentic_environment_generation.spec_validation import (
-    collect_agent_ready_validation_trace,
+    collect_catalogue_validation_trace,
     format_validation_error,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -76,7 +76,7 @@ class SpecInference:
             )
             try:
                 spec = ArenaEnvGraphSpec.model_validate(data)
-                validation_traces = collect_agent_ready_validation_trace(
+                validation_traces = collect_catalogue_validation_trace(
                     spec,
                     asset_catalog=asset_catalog,
                     task_catalog=task_catalog,

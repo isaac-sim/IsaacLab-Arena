@@ -15,12 +15,12 @@ import subprocess
 
 import pytest
 
-from isaaclab_arena.relations import placement_visualizer
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer, summarize_layout_verdict
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
+from isaaclab_arena.relations.validation import placement_visualizer
+from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer, summarize_layout_verdict
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose

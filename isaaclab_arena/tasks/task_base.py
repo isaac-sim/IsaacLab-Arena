@@ -34,6 +34,7 @@ class TaskBase(ABC):
 
     @abstractmethod
     def get_scene_cfg(self) -> Any:
+        """Return the scene configuration this task adds, such as contact sensors, or None if it adds none."""
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod

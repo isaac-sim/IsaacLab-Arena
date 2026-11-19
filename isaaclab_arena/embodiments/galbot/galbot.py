@@ -36,7 +36,7 @@ GALBOT_ONE_CHARLIE_HIGH_PD_CFG.spawn.rigid_props.disable_gravity = True
 class GalbotEmbodiment(EmbodimentBase):
     """Embodiment for the Galbot robot with a gripper on the left arm and a suction cup on the right arm."""
 
-    name = "galbot"
+    registry_name = "galbot"
     default_arm_mode = ArmMode.LEFT
 
     def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):

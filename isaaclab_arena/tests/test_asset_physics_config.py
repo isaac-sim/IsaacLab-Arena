@@ -264,7 +264,7 @@ def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
         )
 
     class TestEmbodiment(EmbodimentBase):
-        name = "test_spawn_addons"
+        registry_name = "test_spawn_addons"
         spawn_cfg_addon = {
             "left_robot": {
                 "visible": False,

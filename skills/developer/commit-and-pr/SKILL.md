@@ -23,6 +23,8 @@ Creates commits and PRs that follow Arena's contributor guidelines.
    - Good: `Fix attribute access on wrapped env`
    - Bad: `Fixed the attribute access on the wrapped env.` (past tense, trailing period)
 5. **Body** (when needed): blank line after the subject, wrap at 72 chars, explain *what* and *why* — not *how* (the diff shows that).
+   Keep it short: a few sentences at most. Do not list every change or describe implementation
+   details; readers can see the specifics in the code. Omit the body for small, self-explanatory changes.
 6. **No AI attribution lines.** Do not include `Co-Authored-By: Claude...`, `Generated with Claude Code`, or similar footers. The DCO sign-off is the only required trailer.
 
 Use a heredoc for multi-paragraph messages so quoting stays clean:

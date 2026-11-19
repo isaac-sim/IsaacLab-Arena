@@ -18,7 +18,6 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonMJWarpManager
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
-from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
 from isaaclab_tasks.utils import PresetCfg
 
 from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
@@ -142,7 +141,7 @@ class ArenaPhysicsCfg(PresetCfg):
             cone="elliptic",
             update_data_interval=2,
             iterations=100,
-            ls_iterations=15,
+            ls_iterations=30,
             ls_parallel=False,
             use_mujoco_contacts=False,
             ccd_iterations=15000,
@@ -194,6 +193,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
 def apply_arena_global_settings() -> None:
     """Apply Arena's process-global RTX and physics settings before environment construction."""
+    # The utility imports Kit modules that are unavailable until SimulationApp launches.
+    from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
+
     apply_isaac_rtx_global_settings(
         IsaacRtxRendererGlobalSettingsCfg(
             # Disable RTX's built-in scene ambient so USD light prims fully control illumination.

@@ -51,9 +51,7 @@ Before starting teleoperation, configure the host firewall to allow CloudXR traf
 Step 1: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-#. Start the Arena Docker container:
-
-   :docker_run_default:
+#. :runtime_setup_tabs:
 
 #. Run the recording script. It launches the CloudXR runtime automatically:
 

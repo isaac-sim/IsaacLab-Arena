@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Same task as mixed_object.yaml, but the object set holds a single apple.
+env_name: perflab_same_apple_into_bowl_maple_table
+external_yaml:
+- ../scenes/fruit_bowl_maple_table.yaml
+object_sets:
+- id: fruit
+  members:
+  - apple_01_objaverse_robolab
+  random_choice: false
+task:
+  composition: atomic
+  description: Pick up the fruit from the maple table and place it into the bowl on the table.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: fruit
+      destination_location: bowl
+      background_scene: maple_table

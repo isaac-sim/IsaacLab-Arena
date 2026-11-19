@@ -1,0 +1,537 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+import time
+import torch
+from typing import TYPE_CHECKING, cast
+
+from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
+from isaaclab_arena.relations.geometry.bounding_box_helpers import get_candidate_collision_bboxes
+from isaaclab_arena.relations.optimization.losses.no_overlap_bbox import (
+    compute_no_overlap_loss_bbox,
+    get_on_linked_pairs,
+    prepare_no_overlap_pair_cache,
+)
+from isaaclab_arena.relations.optimization.losses.no_overlap_mesh import (
+    compute_no_overlap_loss_mesh,
+    prepare_mesh_collision_cache,
+)
+from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
+    NoCollisionLossStrategy,
+    RelationLossStrategy,
+    UnaryRelationLossStrategy,
+)
+from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+
+if TYPE_CHECKING:
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.relations.optimization.losses.mesh_pair_cache import MeshPairCache
+    from isaaclab_arena.relations.optimization.losses.no_overlap_bbox import NoOverlapPairCache
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox
+
+
+class RelationSolver:
+    """Differentiable solver for 3D spatial relations of IsaacLab Arena Objects.
+
+    Uses the Strategy pattern for loss computation: each Relation type has a
+    corresponding RelationLossStrategy that handles the actual loss calculation.
+    """
+
+    POSITION_HISTORY_SAVE_INTERVAL = 10
+    """Save position snapshot every N iterations (when save_position_history is enabled)."""
+
+    def __init__(
+        self,
+        params: RelationSolverParams | None = None,
+    ):
+        """
+        Args:
+            params: Solver configuration parameters. If None, uses defaults.
+        """
+        self.params = params or RelationSolverParams()
+        # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
+        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
+        self._last_loss_history: list[float] = []
+        self._last_position_history: list = []
+        self._last_loss_per_env: torch.Tensor | None = None
+        self._last_no_overlap_pair_count: int = 0
+        self._mesh_orientations: list[dict[PlaceableAsset, float]] | None = None
+        self._warned_no_mesh: set[str] = set()
+        self._mesh_manager: WarpMeshAndSphereCache | None = None
+        self._mesh_cache: MeshPairCache | None = None
+        self._mesh_collision_enabled = False
+        self._no_overlap_pair_cache: NoOverlapPairCache | None = None
+        self._collision_cache_state: RelationSolverState | None = None
+
+    def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
+        """Look up the loss strategy for a relation type.
+
+        Args:
+            relation: The relation to find a strategy for.
+        """
+        strategy = self.params.strategies.get(type(relation))
+        if strategy is None:
+            raise ValueError(
+                f"No loss strategy registered for {type(relation).__name__}. "
+                f"Available strategies: {list(self.params.strategies.keys())}"
+            )
+        return strategy
+
+    def _compute_total_loss(
+        self,
+        state: RelationSolverState,
+        debug: bool = False,
+    ) -> torch.Tensor:
+        """Compute total loss from all relations using registered strategies.
+
+        Args:
+            state: Current optimization state with object positions and
+                optional per-env bounding boxes (accessed via state.get_bbox).
+            debug: If True, print detailed loss breakdown.
+
+        Returns:
+            Scalar loss tensor (mean over environments).
+        """
+        batch_size = state.batch_size
+        device = state.device
+        total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
+
+        for obj in state.optimizable_objects:
+            for relation in obj.get_spatial_relations():
+                child_pos = state.get_position(obj)
+                strategy = self._get_strategy(relation)
+                child_bbox = state.get_bbox(obj)
+
+                if isinstance(relation, UnaryRelation):
+                    unary_strategy = cast(UnaryRelationLossStrategy, strategy)
+                    loss = unary_strategy.compute_loss(
+                        relation=relation,
+                        child_pos=child_pos,
+                        child_bbox=child_bbox,
+                    )
+                    if debug:
+                        _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
+                # Binary relation (On, NextTo, etc.)
+                elif isinstance(relation, Relation):
+                    relation_strategy = cast(RelationLossStrategy, strategy)
+                    parent = relation.parent
+                    if parent in state.anchor_objects:
+                        parent_world_bbox = state.get_fixed_obstacle_world_bbox(parent)
+                    else:
+                        parent_pos = state.get_position(parent)
+                        parent_bbox = state.get_bbox(parent)
+                        parent_world_bbox = parent_bbox.translated(parent_pos)
+                    loss = relation_strategy.compute_loss(
+                        relation=relation,
+                        child_pos=child_pos,
+                        child_bbox=child_bbox,
+                        parent_world_bbox=parent_world_bbox,
+                    )
+                    if debug:
+                        parent_pos = state.get_position(parent)
+                        _print_relation_debug(obj, relation, child_pos[0], parent_pos[0], loss.mean())
+                else:
+                    raise ValueError(f"Unknown relation type: {type(relation).__name__}")
+
+                total_loss = total_loss + loss
+
+        # Add built-in no-overlap loss between all object pairs
+        total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
+
+        self._last_loss_per_env = total_loss.detach().clone()
+        return total_loss.mean()
+
+    def _compute_no_overlap_loss(
+        self,
+        state: RelationSolverState,
+        debug: bool = False,
+    ) -> torch.Tensor:
+        """Compute pairwise no-overlap loss, skipping On-linked pairs.
+
+        - Non-anchor vs fixed obstacle (anchor or background): gradient flows to the non-anchor only.
+        - Non-anchor vs non-anchor pairs with two mesh targets are checked in both directions.
+        """
+        if self._collision_cache_state is not state:
+            # States built outside solve() get their pair routing on first use.
+            self._prepare_collision_caches(state)
+        loss, n = compute_no_overlap_loss_bbox(
+            state, self._no_overlap_pair_cache, self._no_collision_strategy, self.params.clearance_m, debug=debug
+        )
+        self._last_no_overlap_pair_count = n
+        if self._mesh_collision_enabled:
+            assert self._mesh_manager is not None, "MESH collision requires a mesh manager."
+            loss = loss + compute_no_overlap_loss_mesh(
+                state,
+                self._mesh_cache,
+                self._mesh_manager,
+                self._mesh_orientations,
+                self.params.clearance_m,
+                self._no_collision_strategy.slope,
+                debug,
+            )
+        return loss
+
+    def _prepare_collision_caches(
+        self,
+        state: RelationSolverState,
+        bboxes_include_yaw: bool = False,
+        orientations: list[dict[PlaceableAsset, float]] | None = None,
+    ) -> None:
+        """Prepare the mesh and box pair routing that no-overlap losses on state use.
+
+        Args:
+            state: Solver state whose losses are computed next.
+            bboxes_include_yaw: Whether the state's env_bboxes already enclose each object's yawed footprint.
+            orientations: Per-env yaw angles (radians about Z) per object, used to orient MESH sphere centers.
+        """
+        on_pairs = get_on_linked_pairs([*state.optimizable_objects, *state.anchor_objects])
+        self._mesh_collision_enabled = self._should_use_mesh_collision(state)
+        if self._mesh_collision_enabled:
+            self._mesh_orientations = orientations
+            device_str = str(state.device)
+            if self._mesh_manager is None or self._mesh_manager.device != device_str:
+                from isaaclab_arena.relations.geometry.warp_mesh_manager import WarpMeshAndSphereCache
+
+                self._mesh_manager = WarpMeshAndSphereCache(num_spheres=self.params.num_spheres, device=device_str)
+            self._mesh_cache = prepare_mesh_collision_cache(
+                state,
+                self._mesh_manager,
+                on_pairs,
+                self._warned_no_mesh,
+                default_collision_mode=self.params.collision_mode,
+                bboxes_include_yaw=bboxes_include_yaw,
+            )
+            self._mesh_manager.reset_sentinel_warning()
+        else:
+            self._mesh_orientations = None
+            self._mesh_cache = None
+        self._no_overlap_pair_cache = prepare_no_overlap_pair_cache(
+            state,
+            on_pairs,
+            self._mesh_manager if self._mesh_collision_enabled else None,
+            self.params.collision_mode,
+        )
+        self._collision_cache_state = state
+
+    def solve_candidates(
+        self,
+        objects: list[PlaceableAsset],
+        batch: PlacementCandidateBatch,
+        collision_objects: list[CollisionObject],
+    ) -> None:
+        """Update candidates in place with solved positions and losses, clearing previous validation."""
+        positions = self.solve(
+            objects,
+            [candidate.positions for candidate in batch.candidates],
+            env_bboxes=batch.stacked_bboxes(),
+            env_bboxes_include_yaw=any(candidate.orientations for candidate in batch.candidates),
+            orientations=[candidate.orientations for candidate in batch.candidates],
+            collision_objects=collision_objects,
+            collision_bboxes=batch.stacked_collision_bboxes(),
+        )
+        assert self.last_loss_per_env is not None
+        for candidate, position, loss in zip(
+            batch.candidates, positions, self.last_loss_per_env.cpu().tolist(), strict=True
+        ):
+            candidate.positions = position
+            candidate.loss = loss
+            candidate.validation = None
+
+    def solve(
+        self,
+        objects: list[PlaceableAsset],
+        initial_positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
+        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
+        env_bboxes_include_yaw: bool = False,
+        orientations: list[dict[PlaceableAsset, float]] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
+        collision_bboxes: dict[PlaceableAsset, BoundingBox] | None = None,
+    ) -> list[dict[PlaceableAsset, tuple[float, float, float]]]:
+        """Solve for optimal positions of all objects.
+
+        Args:
+            objects: Placement assets to solve. Must include at least one asset
+                marked with IsAnchor() which serves as a fixed reference.
+            initial_positions: List of dicts (one per env). Use a single-element list
+                for single-env placement.
+            env_bboxes: Optional per-env bounding boxes keyed by object.
+                ObjectPlacer always supplies these, with each
+                AxisAlignedBoundingBox shaped (batch, 3). Direct solver calls
+                may omit them to use each object's default get_bounding_box().
+            env_bboxes_include_yaw: Whether supplied env_bboxes already enclose each object's
+                yawed footprint and serve as its collision bounds unchanged; otherwise they are rotated
+                by orientations. Direct callers should leave this False unless they expanded the supplied bboxes.
+            orientations: Optional per-env yaw angles (radians about Z) per object.
+                Used to orient collision boxes and MESH sphere centers.
+            collision_objects: Optional fixed background obstacles included in the
+                no-overlap collision term only. They are not optimized and carry no
+                relation constraints.
+            collision_bboxes: Optional collision bounds for box-only pairs, oriented or axis-aligned, relative to
+                movable object origins.
+                Supplied entries take precedence. Omitted entries use env_bboxes or default object
+                bounds, applying orientations only when those bounds do not already enclose rotations.
+                Bounds and orientations are fixed during solving. Mixed MESH fallbacks use env_bboxes;
+                supply enclosing bounds for those pairs.
+
+        Returns:
+            List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
+        """
+        assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        collision_bboxes_with_defaults = _get_collision_bboxes_with_defaults(
+            objects, len(initial_positions), env_bboxes, env_bboxes_include_yaw, orientations, collision_bboxes
+        )
+        state = RelationSolverState(
+            objects,
+            initial_positions,
+            device=device,
+            env_bboxes=env_bboxes,
+            collision_objects=collision_objects,
+            collision_bboxes=collision_bboxes_with_defaults,
+        )
+
+        if self.params.verbose:
+            anchor_names = [obj.name for obj in state.anchor_objects]
+            optimizable_names = [obj.name for obj in state.optimizable_objects]
+            print("=== RelationSolver ===")
+            print(f"Anchors (fixed): {anchor_names}")
+            print(f"Optimizable: {optimizable_names}")
+            if state.collision_objects:
+                print(f"Background collision obstacles: {[obj.name for obj in state.collision_objects]}")
+
+        # Early return if nothing to optimize (all objects are anchors)
+        if len(state.optimizable_objects) == 0:
+            if self.params.verbose:
+                print("No optimizable objects, skipping solver.")
+            self._last_loss_history = [0.0]
+            self._last_loss_per_env = torch.zeros(state.batch_size)
+            self._last_position_history = [state.get_all_positions_snapshot()]
+            return state.get_final_positions()
+
+        if self.params.profile and torch.cuda.is_available():
+            torch.cuda.synchronize()
+        solve_start = time.perf_counter()
+
+        # Precompute collision pair routing (once per solve, before opt loop)
+        self._prepare_collision_caches(state, env_bboxes_include_yaw, orientations)
+
+        # Setup optimizer (only for optimizable positions)
+        optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
+
+        # Compute initial loss so _last_loss_per_env is always populated, even when max_iters=0.
+        with torch.no_grad():
+            final_loss = self._compute_total_loss(state)
+
+        # Optimization loop
+        loss_history = []
+        position_history = []  # Track positions for visualization
+
+        for iter in range(self.params.max_iters):
+            optimizer.zero_grad()
+
+            if self.params.save_position_history and iter % self.POSITION_HISTORY_SAVE_INTERVAL == 0:
+                position_history.append(state.get_all_positions_snapshot())
+
+            loss = self._compute_total_loss(state)
+            loss_history.append(loss.item())
+
+            # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
+            if loss.grad_fn is not None:
+                loss.backward()
+                optimizer.step()
+
+            if self.params.verbose and iter % 100 == 0:
+                print(f"Iter {iter}: loss = {loss.item():.6f}")
+
+            # Check convergence
+            if loss.item() < self.params.convergence_threshold:
+                if self.params.verbose:
+                    print(f"Converged at iteration {iter}")
+                break
+
+        # Recompute ranking losses for the positions returned after the final optimizer step.
+        with torch.no_grad():
+            final_loss = self._compute_total_loss(state)
+
+        if self.params.profile and torch.cuda.is_available():
+            torch.cuda.synchronize()
+        solve_elapsed_ms = (time.perf_counter() - solve_start) * 1e3
+
+        if self.params.save_position_history:
+            position_history.append(state.get_all_positions_snapshot())
+
+        if self.params.verbose and loss_history:
+            print(f"\nFinal loss: {final_loss.item():.6f}")
+            print(f"Total iterations: {len(loss_history)}")
+
+        if self.params.profile and loss_history:
+            iters_run = len(loss_history)
+            print(
+                f"[RelationSolver] solve: {solve_elapsed_ms:.1f} ms"
+                f" | batch={state.batch_size}"
+                f" | objects={len(state.optimizable_objects)} optimizable + {len(state.anchor_objects)} anchors"
+                f" | no-overlap pairs={self._last_no_overlap_pair_count}"
+                f" | iters={iters_run} ({solve_elapsed_ms / iters_run:.2f} ms/iter)"
+            )
+
+        self._last_loss_history = loss_history
+        self._last_position_history = position_history
+        # Free the per-solve pair cache together with the state.
+        self._no_overlap_pair_cache = None
+        self._collision_cache_state = None
+
+        return state.get_final_positions()
+
+    def _should_use_mesh_collision(self, state: RelationSolverState) -> bool:
+        """Return True when the default mode or any object's override resolves to MESH."""
+        if self.params.collision_mode == CollisionMode.MESH:
+            return True
+        objects = [*state.optimizable_objects, *state.anchor_objects, *state.collision_objects]
+        return any(get_object_collision_mode(obj, self.params.collision_mode) == CollisionMode.MESH for obj in objects)
+
+    @property
+    def last_loss_history(self) -> list[float]:
+        """Mean batch losses before optimizer steps in the most recent solve().
+
+        The final returned-pose losses are available in last_loss_per_env.
+        """
+        return self._last_loss_history
+
+    @property
+    def last_loss_per_env(self) -> torch.Tensor | None:
+        """Per-candidate loss tensor of shape (batch_size,) from the last solve() call."""
+        return self._last_loss_per_env
+
+    @property
+    def last_position_history(self) -> list:
+        """Position snapshots from the most recent solve() call."""
+        return self._last_position_history
+
+    def debug_losses(self, objects: list[PlaceableAsset]) -> None:
+        """Print detailed loss breakdown for all relations using final positions.
+
+        Call this after solve() to inspect why objects may not be correctly positioned.
+
+        Args:
+            objects: The same list of objects passed to solve().
+        """
+        print("\n" + "=" * 60)
+        print("DEBUG: Final Loss Breakdown")
+        print("=" * 60)
+
+        final_positions_list = self.last_position_history[-1] if self.last_position_history else None
+        if final_positions_list is None:
+            print("No position history available. Run solve() first.")
+            return
+
+        final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
+
+        state = RelationSolverState(objects, [final_positions])
+        self._compute_total_loss(state, debug=True)
+        print("\n" + "=" * 60)
+
+
+def _get_collision_bboxes_with_defaults(
+    objects: list[PlaceableAsset],
+    num_candidates: int,
+    env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None,
+    env_bboxes_include_yaw: bool,
+    orientations: list[dict[PlaceableAsset, float]] | None,
+    collision_bboxes: dict[PlaceableAsset, BoundingBox] | None,
+) -> dict[PlaceableAsset, BoundingBox]:
+    """Return collision_bboxes extended with oriented env_bboxes or object bounds for omitted movable objects."""
+    collision_bboxes_with_defaults = dict(collision_bboxes or {})
+    base_bounds = {}
+    for obj in objects:
+        # Anchors use their fixed world bounds, so they need no candidate collision bounds.
+        if obj.is_anchor or obj in collision_bboxes_with_defaults:
+            continue
+        if env_bboxes is not None and obj in env_bboxes:
+            if env_bboxes_include_yaw:
+                collision_bboxes_with_defaults[obj] = env_bboxes[obj]
+            else:
+                base_bounds[obj] = env_bboxes[obj]
+        else:
+            base_bounds[obj] = obj.get_bounding_box()
+    if base_bounds:
+        collision_bboxes_with_defaults.update(
+            get_candidate_collision_bboxes(
+                list(base_bounds), base_bounds, orientations or [{} for _ in range(num_candidates)]
+            )
+        )
+    return collision_bboxes_with_defaults
+
+
+def _print_relation_debug(
+    obj: PlaceableAsset,
+    relation: Relation,
+    child_pos: torch.Tensor,
+    parent_pos: torch.Tensor,
+    loss: torch.Tensor,
+) -> None:
+    """Print debug information for a single binary relation."""
+    child_bbox = obj.get_bounding_box()
+    parent_world_bbox = relation.parent.get_world_bounding_box()
+
+    print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
+    print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
+    print(
+        f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"
+        f" size={child_bbox.size[0].tolist()}"
+    )
+    print(f"  Parent pos: ({parent_pos[0].item():.4f}, {parent_pos[1].item():.4f}, {parent_pos[2].item():.4f})")
+    print(
+        f"  Parent world bbox: min={parent_world_bbox.min_point[0].tolist()},"
+        f" max={parent_world_bbox.max_point[0].tolist()}, size={parent_world_bbox.size[0].tolist()}"
+    )
+
+    # Child world extents
+    child_x_range = (
+        child_pos[0].item() + child_bbox.min_point[0, 0].item(),
+        child_pos[0].item() + child_bbox.max_point[0, 0].item(),
+    )
+    child_y_range = (
+        child_pos[1].item() + child_bbox.min_point[0, 1].item(),
+        child_pos[1].item() + child_bbox.max_point[0, 1].item(),
+    )
+
+    print(f"  Child world X: [{child_x_range[0]:.4f}, {child_x_range[1]:.4f}]")
+    print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
+    print(
+        f"  Parent world X: [{parent_world_bbox.min_point[0, 0].item():.4f},"
+        f" {parent_world_bbox.max_point[0, 0].item():.4f}]"
+    )
+    print(
+        f"  Parent world Y: [{parent_world_bbox.min_point[0, 1].item():.4f},"
+        f" {parent_world_bbox.max_point[0, 1].item():.4f}]"
+    )
+    print(f"  Loss: {loss.item():.6f}")
+
+
+def _print_unary_relation_debug(
+    obj: PlaceableAsset,
+    relation: RelationBase,
+    child_pos: torch.Tensor,
+    loss: torch.Tensor,
+) -> None:
+    """Print debug information for a unary relation (no parent)."""
+    child_bbox = obj.get_bounding_box()
+
+    params = {k: v for k, v in relation.__dict__.items() if v is not None and k != "relation_loss_weight"}
+    param_str = ", ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in params.items())
+    print(f"\n=== {obj.name} -> {type(relation).__name__}({param_str}) ===")
+    print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
+    print(
+        f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"
+        f" size={child_bbox.size[0].tolist()}"
+    )
+    print(f"  Loss: {loss.item():.6f}")

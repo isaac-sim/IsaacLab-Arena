@@ -1,0 +1,57 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Setup caches
+description: |
+  Restore the caches that speed up CI test jobs from the GitHub Actions cache: the Isaac
+  Sim kit cache (/isaac-sim/kit/cache: RTX shaders and the PhysX mesh cooking cache in
+  DerivedDataCache) and the Warp kernel cache (~/.cache/warp). Call once before the tests.
+
+  The nightly run on main (and manual dispatches on main) starts without a restored
+  cache and saves one at the end of a successful job, so the saved cache holds only
+  what that run used. Every other run restores the newest saved cache.
+
+inputs:
+  cache-name:
+    description: |
+      Name of the cache. Use one name per job type. The jobs run different tests, so
+      each warms different shaders, meshes and kernels. A restore picks the newest cache
+      with the same name, so jobs sharing a name would restore whichever job saved last.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - id: read_isaac_sim_version
+      name: Read Isaac Sim version
+      shell: bash
+      run: echo "isaac_sim_version=$(cat /isaac-sim/VERSION)" >> "${GITHUB_OUTPUT}"
+
+    # Restore the newest cache with this name.
+    - name: Restore caches
+      if: >-
+        !(github.ref == 'refs/heads/main' &&
+          contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event_name))
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          /isaac-sim/kit/cache
+          ~/.cache/warp
+        key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
+        restore-keys: |
+          ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
+
+    # actions/cache automatically saves the paths in a step at the end of a successful job
+    # when its key was not found. The key is new on every run, so it always saves.
+    - name: Save caches at the end of the job
+      if: >-
+        github.ref == 'refs/heads/main' &&
+        contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event_name)
+      uses: actions/cache@v4
+      with:
+        path: |
+          /isaac-sim/kit/cache
+          ~/.cache/warp
+        key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}

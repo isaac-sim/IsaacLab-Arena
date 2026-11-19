@@ -28,7 +28,7 @@ def _test_kitchen_bench_yaml_env_bringup(simulation_app, *, yaml_path: Path) -> 
     try:
         spec = ArenaEnvGraphSpec.from_yaml(yaml_path)
         arena_env = spec.to_arena_env()
-        args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
+        args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--placement_seed", "0"])
         env = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
         env.reset()
 

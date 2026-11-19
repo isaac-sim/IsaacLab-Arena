@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySearchConfig
+from isaaclab_arena.agentic_environment_generation.simready_search_interface import SimReadySearchConfig
 from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -24,7 +24,7 @@ from isaaclab_arena.inference.backend import (
     OPENAI_ENDPOINT,
     PUBLIC_ENDPOINT,
 )
-from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdArticulationInfo, UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_env_graph_spec,
@@ -172,7 +172,11 @@ class TestMermaidHtml:
 
 class TestPrimTreeView:
     _TREE = [
-        UsdPrimRecord("cab_1_main_group", ObjectType.ARTICULATION, ("right_door_joint",)),
+        UsdPrimRecord(
+            "cab_1_main_group",
+            ObjectType.ARTICULATION,
+            articulation=UsdArticulationInfo(("right_door_joint",)),
+        ),
         UsdPrimRecord("cab_1_main_group/corpus", ObjectType.RIGID),
         UsdPrimRecord("cab_1_main_group/corpus/back", ObjectType.BASE),
     ]
@@ -180,7 +184,7 @@ class TestPrimTreeView:
     def test_build_prim_nodes_nests_by_relative_path(self):
         roots = build_prim_nodes(self._TREE)
         assert len(roots) == 1
-        assert roots[0].text == "cab_1_main_group (articulation right_door_joint)"
+        assert roots[0].text == "cab_1_main_group (articulation joints=[right_door_joint])"
         assert roots[0].children[0].text == "corpus (rigid)"
         assert roots[0].children[0].children[0].text == "back (base)"
 

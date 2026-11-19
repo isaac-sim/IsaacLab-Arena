@@ -37,6 +37,9 @@ Replay follows these rules:
   value.
 * Placement must appear in every row or no rows. When absent, the environment
   uses its configured live or fixed placement behavior.
+* When rows have ``placement`` samples, they must also record every enabled
+  :ref:`asset selection <asset-selection-variation>`, because the recorded
+  poses were solved for the recorded assets.
 
 These rules prevent a component from switching between recorded and live values
 within one rebuild.
@@ -155,6 +158,7 @@ rebuild runs at least one episode. The Run-level
    default is one complete pass over the JSONL in every rebuild. An explicit
    total episode limit is instead split across rebuilds.
 
-All recorded replay requires ``rollout_limit.num_steps`` to be unset and a
-policy without a fixed action-sequence length. When set,
-``rollout_limit.num_episodes`` must be at least ``num_rebuilds``.
+All recorded replay requires ``rollout_limit.num_steps`` and
+``rollout_limit.num_episodes_per_rebuild`` to be unset and a policy without a
+fixed action-sequence length. When set, ``rollout_limit.num_episodes`` must be
+at least ``num_rebuilds``.

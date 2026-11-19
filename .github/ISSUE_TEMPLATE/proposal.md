@@ -1,19 +1,21 @@
 ---
-name: Proposal
-about: Propose changes that are not bug fixes
-title: "[Proposal] Proposal title"
+name: Small enhancement
+about: Suggest a small enhancement. For new features, public API changes, or significant design changes, use the Design proposal form.
+title: "[Enhancement] Enhancement title"
 ---
 
 
-### Proposal
+Use this template for small enhancements to existing functionality. For new features, public API changes, or significant design changes, use the [Design Proposal form](https://github.com/isaac-sim/IsaacLab-Arena/issues/new?template=design-proposal.yml).
 
-A clear and concise description of the proposal. In a few sentences, describe the feature and its core capabilities.
+### Enhancement
+
+A clear and concise description of the enhancement. In a few sentences, describe the existing behavior and the improvement you propose.
 
 ### Motivation
 
 Please outline the motivation for the proposal. Summarize the core use cases and user problems and needs you are trying to solve.
 
-Is your feature request related to a problem? e.g.,"I'm always frustrated when [...]".
+Is your enhancement related to a problem? e.g.,"I'm always frustrated when [...]".
 
 If this is related to another GitHub issue, please link here too.
 
@@ -23,14 +25,14 @@ A clear and concise description of any alternative solutions or features you've 
 
 ### Build Info
 
-Describe the versions where you are observing the missing feature in:
+Describe the versions where you would like this improvement:
 
 <!-- Please complete the following description. -->
 - Arena Release: [e.g. Arena v0.2]
 
 ### Additional context
 
-Add any other context or screenshots about the feature request here.
+Add any other context or screenshots about the enhancement here.
 
 ### Checklist
 

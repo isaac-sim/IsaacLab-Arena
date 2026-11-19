@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents (Claude Code, OpenAI Codex, etc.
 
 ## Project
 
-Isaac Lab-Arena is a composable environment-creation and policy-evaluation library for robotics simulation, built on Isaac Sim 6.0 and Isaac Lab 3.0 Beta. Status: alpha (`v0.2.x`); APIs are unstable. `main` is the active development branch.
+Isaac Lab-Arena is a composable environment-creation and policy-evaluation library for robotics simulation, built on Isaac Sim 6.2 and Isaac Lab 3.0. Status: alpha (`v0.3.x`); APIs are unstable. `main` is the active development branch.
 
 ## Skill library
 
@@ -24,18 +24,9 @@ For creating or changing environments, scenes, tasks, success conditions, or ran
 [author-environment](skills/developer/author-environment/SKILL.md) before implementing.
 Use `run-experiment` when executing an existing evaluation.
 
-## Docker environment
+## Runtime environment
 
-Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the local repo clone's Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
-
-Each clone gets its own container (shared image, per-clone name), so clones run in parallel. **Don't hardcode the container name** — use the `dev-container` skill to build, start, attach to, discover, or exec into the local clone's container.
-
-Run as the host user, not root.
-
-```bash
-docker exec "$ARENA_CONTAINER" su $(id -un) -c \
-  "cd /workspaces/isaaclab_arena && <command>"
-```
+Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run in the checkout's ready runtime: the native uv environment at `.venv/bin/python` or the local clone's Docker container. Either route is sufficient on its own. Before running such a command, use the `arena-runtime` skill to select the route and build the command, and don't use a bare `python`.
 
 Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, isort, pyupgrade, codespell) runs **on the host**.
 
@@ -50,6 +41,8 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 
 ## Coding style
 
+- Name functions and describe behavior using the specific operation, result, or responsibility. Avoid vague uses of "compose", "resolve", "normalize", "materialize", and "plumbing" when a more precise description is available. Preserve established technical meanings, such as quaternion normalization, transform composition, and Hydra configuration composition.
+- For data conversions, name the destination representation, such as `_env_ids_to_list()`. For coordinate transforms, follow [Coordinate-frame naming](#coordinate-frame-naming).
 - Keep comprehensions simple. When they contain nested loops, filtering, or multiple transformations that make them hard to read, use explicit loops and named intermediate variables instead.
 - Keep `__init__.py` files free of eager imports or re-exports
 - Prefer `assert condition, "message"` over `if not condition: raise ValueError("message")` for internal invariant checks. (Formatting, imports, and typing are enforced by `pre-commit` — see `.pre-commit-config.yaml`.)
@@ -85,6 +78,17 @@ Use active target-source notation for Arena-owned poses and transforms:
 - A lowercase API suffix names only the frame in which a quantity is expressed. When both source and target
   frames matter in Arena calculations, bind the value to an explicit transform name, for example
   `T_W_O = object.data.root_pose_w`.
+
+Name Arena-owned spatial quantities after their frames instead of generic names such as `position`, `rotation`, or `axis`:
+- Rotations name both frames, for example `q_W_B` for the rotation from body frame `B` into world frame `W`.
+  Not something generic like `rotation`.
+- Translations, points, and other vectors name the frame they are expressed in, for example `t_W` for a
+  body's translation in world frame `W`, `axis_R`, or `forces_W`. Not something generic like `position`.
+- When a single frame is ambiguous, for example when composing offsets between several frames, name the source,
+  target, and expressed-in frames explicitly: `t_A_B` (`B`'s origin relative to `A`, in `A`) or `t_A_B_in_C`
+  (expressed in `C`). See `isaaclab_arena/variations/camera_extrinsics_variation.py`.
+- Fields of a frame-carrying type such as `Pose` keep their names (`position_xyz`, `rotation_xyzw`); the variable
+  holding the pose names the frames.
 
 ### Wrapped Environment
 

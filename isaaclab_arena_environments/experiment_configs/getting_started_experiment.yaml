@@ -10,6 +10,10 @@
 # - with experiment_runner.py, use shared.<path>=<value>
 # - with osmo/submit_arena_experiment.py, use experiment_cfg.shared.<path>=<value>
 # A value written directly in a Run still takes priority.
+
+# KPI exporters (see isaaclab_arena_benchmarking/benchmarks) that write this Experiment's KPI records.
+kpi_exporters: [success_rate, timing]
+
 shared:
   environment:
     type: pick_and_place_maple_table
@@ -29,8 +33,13 @@ runs:
 
   swap_objects:
     environment:
-      pick_up_object: mustard_bottle_hot3d_robolab
       destination_location: wooden_bowl_hot3d_robolab
+    num_rebuilds: 3
+    rollout_limit:
+      num_episodes: 3
+    variations:
+      pick_up_object.asset_selection.enabled: true
+      pick_up_object.asset_selection.registry_names: [mustard_bottle_hot3d_robolab, orange_01_fruits_veggies_robolab, rubiks_cube_hot3d_robolab]
 
   change_background_hdr:
     environment:

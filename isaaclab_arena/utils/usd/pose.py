@@ -3,17 +3,46 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pxr import Usd, UsdGeom, UsdSkel
+import numpy as np
+from collections.abc import Sequence
+
+from pxr import Gf, Usd, UsdGeom, UsdSkel
 
 from isaaclab_arena.utils.pose import Pose
 
 
-def get_prim_pose_in_default_prim_frame(prim: Usd.Prim, stage: Usd.Stage) -> Pose:
+def get_prim_scale_in_spawned_asset(prim: Usd.Prim, spawn_scale: Sequence[float]) -> np.ndarray:
+    """Return a prim's effective per-axis scale after asset spawning.
+
+    The scale combines the asset's spawn scale with the scale authored between the stage's default prim and the
+    prim. Isaac Lab replaces the default prim's own transform when spawning.
+
+    Args:
+        prim: A prim at or beneath its stage's default prim.
+        spawn_scale: Per-axis scale the asset is spawned with.
+
+    Returns:
+        The prim's scale along each of its own axes.
+    """
+    default_prim = prim.GetStage().GetDefaultPrim()
+    # USD matrices act on row vectors, so T_D_P = T_W_P @ inv(T_W_D).
+    T_W_D = np.array(UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+    T_W_P = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+    T_D_P = T_W_P @ np.linalg.inv(T_W_D)
+    # Each row of the linear block is one of the prim's axes in the default prim frame, where the spawn scale applies.
+    return np.linalg.norm(T_D_P[:3, :3] * np.asarray(tuple(spawn_scale)), axis=1)
+
+
+def get_prim_pose_in_default_prim_frame(
+    prim: Usd.Prim, stage: Usd.Stage, prim_world_delta: np.ndarray | None = None
+) -> Pose:
     """Get the pose of a prim in the default prim's local frame.
 
     Args:
         prim: The prim to get the pose of.
         stage: The stage to get the default prim from.
+        prim_world_delta: Optional row-vector 4x4 motion of the prim in stage world space,
+            as returned by compute_posed_prim_world_deltas.
 
     Returns:
         The pose of the prim in the default prim's local frame.
@@ -28,6 +57,8 @@ def get_prim_pose_in_default_prim_frame(prim: Usd.Prim, stage: Usd.Stage) -> Pos
     xformable_default = UsdGeom.Xformable(default_prim)
 
     prim_T_world = xformable_prim.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    if prim_world_delta is not None:
+        prim_T_world = prim_T_world * Gf.Matrix4d(prim_world_delta.tolist())
     default_T_world = xformable_default.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
 
     # matrix_default_to_world may be singular if default prim is the pseudo-root. Warn user.

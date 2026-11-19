@@ -5,6 +5,7 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+import json
 import yaml
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
+from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import legacy_json_experiment_requires_cameras
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
@@ -25,9 +27,6 @@ from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
-GETTING_STARTED_JSON_PATH = (
-    Path(TestConstants.arena_environments_dir) / "eval_jobs_configs" / "getting_started_jobs_config.json"
-)
 GETTING_STARTED_YAML_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
@@ -38,13 +37,21 @@ CAMERA_SENSITIVITY_YAML_PATH = (
 )
 
 
+@pytest.fixture
+def legacy_json_experiment_path(tmp_path) -> Path:
+    """A legacy JSON Experiment with two entries, so --chunk_size 1 dispatches more than one chunk."""
+    config_path = tmp_path / "legacy_experiment.json"
+    config_path.write_text(json.dumps({"jobs": [{"name": "first_run"}, {"name": "second_run"}]}), encoding="utf-8")
+    return config_path
+
+
 def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
     run_cfg = ArenaRunCfg(
         name="baseline",
         environment=PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=enable_cameras),
         policy=ZeroActionPolicyCfg(),
     )
-    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg}, name="experiment")
 
 
 def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
@@ -77,6 +84,66 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert runs["baseline"].environment.light_intensity == 750.0
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
     assert all(run.environment_builder.device == "cuda:1" for run in runs.values())
+
+
+def _patch_typed_loader_registries(monkeypatch):
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+    )
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+
+
+def test_name_defaults_to_the_yaml_stem(monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
+
+    assert experiment_cfg.name == "getting_started_experiment"
+
+
+def test_name_in_the_file_wins_over_the_stem(tmp_path, monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        yaml.safe_dump({
+            "name": "named-in-file",
+            "runs": {
+                "baseline": {
+                    "environment": {"type": "pick_and_place_maple_table"},
+                    "policy": {"type": "zero_action"},
+                }
+            },
+        }),
+        encoding="utf-8",
+    )
+
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+    assert experiment_cfg.name == "named-in-file"
+
+
+def test_name_override_wins(monkeypatch):
+    _patch_typed_loader_registries(monkeypatch)
+
+    experiment_cfg = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH, device="cuda:0", overrides=["name=my-benchmark"]
+    )
+
+    assert experiment_cfg.name == "my-benchmark"
+
+
+@pytest.mark.parametrize("name", [None, "", "two\nlines"])
+def test_experiment_cfg_requires_a_non_empty_single_line_name(name):
+    run_cfg = _experiment_cfg().runs["baseline"]
+
+    with pytest.raises(AssertionError, match="name"):
+        ArenaExperimentCfg(runs={"baseline": run_cfg}, name=name)
 
 
 def test_load_typed_yaml_experiment_with_graph_spec_environment(tmp_path, monkeypatch):
@@ -118,6 +185,44 @@ runs:
     assert run.environment_builder.device == "cuda:1"
     assert run.environment_builder.language_instruction == "Pick up the banana."
     assert run.rollout_limit.num_episodes == 4
+
+
+def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch):
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+    from isaaclab_arena_examples.external_environments.basic import ExternalFrankaTableEnvironment
+
+    ensure_environments_registered()
+    registry = EnvironmentRegistry()
+    monkeypatch.setattr(registry, "_components", registry._components.copy())
+    registry.register(ExternalFrankaTableEnvironment, "external_without_config")
+
+    experiment = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
+    assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
+
+    with pytest.raises(AssertionError, match="must register a config"):
+        registry.get_environment_cfg_type(ExternalFrankaTableEnvironment)
+    with pytest.raises(AssertionError, match="unknown environment type 'external_without_config'"):
+        load_arena_experiment_from_config_file(
+            GETTING_STARTED_YAML_PATH,
+            device="cuda:0",
+            overrides=["shared.environment.type=external_without_config"],
+        )
+
+    # Typed loading keeps registered aliases after the legacy lookup is removed.
+    factory = registry.get_component_by_name("pick_and_place_maple_table")
+    registry.register(factory, "maple_alias")
+    # Remove this deletion when the registry's cleanup TODO removes the legacy map.
+    monkeypatch.delattr(registry, "_cfg_types_by_factory_type")
+    configured = registry.get_environment_cfg_types()
+    assert configured["maple_alias"] is configured["pick_and_place_maple_table"]
+    assert "external_without_config" not in configured
+    experiment = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH,
+        device="cuda:0",
+        overrides=["shared.environment.type=maple_alias"],
+    )
+    assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
 
 
 def test_graph_spec_environment_serializes_to_reloadable_yaml(tmp_path, monkeypatch):
@@ -170,7 +275,7 @@ def test_typed_graph_camera_run_requires_prelaunch_camera_flag():
         ),
         policy=ZeroActionPolicyCfg(),
     )
-    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg}, name="experiment")
 
     with pytest.raises(AssertionError, match="enable environment cameras"):
         _assert_camera_support_enabled(experiment_cfg, enable_cameras=False)
@@ -184,6 +289,23 @@ def test_policy_config_type_resolves_from_dotted_class_path():
     )
 
     assert policy_cfg_type is ZeroActionPolicyCfg
+
+
+def test_default_experiment_is_a_short_zero_action_smoke_test(monkeypatch):
+    """Running experiment_runner.py without --experiment_config runs one short zero-action Run."""
+    from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironmentCfg
+
+    # The default path is relative to the repository root, where the documented command runs.
+    monkeypatch.chdir(TestConstants.repo_root)
+    args_cli, _ = parse_experiment_runner_args([])
+
+    experiment_cfg = load_arena_experiment_from_config_file(args_cli.experiment_config, device="cuda:0")
+
+    assert list(experiment_cfg.runs) == ["smoke_test"]
+    smoke_test_run = experiment_cfg.runs["smoke_test"]
+    assert isinstance(smoke_test_run.environment, CubeGoalPoseEnvironmentCfg)
+    assert smoke_test_run.policy == ZeroActionPolicyCfg()
+    assert smoke_test_run.rollout_limit.num_steps == 20
 
 
 def test_load_legacy_json_experiment_returns_canonical_cfg(tmp_path, monkeypatch):
@@ -320,13 +442,15 @@ def test_experiment_runner_rejects_yaml_chunking_before_starting_simulation(monk
         experiment_runner.main()
 
 
-def test_experiment_runner_rejects_exact_output_for_multiple_legacy_chunks(monkeypatch, tmp_path):
+def test_experiment_runner_rejects_exact_output_for_multiple_legacy_chunks(
+    monkeypatch, tmp_path, legacy_json_experiment_path
+):
     monkeypatch.setattr(
         "sys.argv",
         [
             "experiment_runner.py",
             "--experiment_config",
-            str(GETTING_STARTED_JSON_PATH),
+            str(legacy_json_experiment_path),
             "--chunk_size",
             "1",
             "--experiment_output_directory",
@@ -357,22 +481,22 @@ def test_experiment_runner_rejects_nonempty_exact_output_before_starting_simulat
         experiment_runner.main()
 
 
-def test_legacy_json_experiment_rejects_hydra_overrides():
+def test_legacy_json_experiment_rejects_hydra_overrides(legacy_json_experiment_path):
     with pytest.raises(AssertionError, match="only for typed YAML"):
         load_arena_experiment_from_config_file(
-            GETTING_STARTED_JSON_PATH,
+            legacy_json_experiment_path,
             device="cuda:0",
             overrides=["runs.baseline.rollout_limit.num_steps=2"],
         )
 
 
-def test_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch):
+def test_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch, legacy_json_experiment_path):
     monkeypatch.setattr(
         "sys.argv",
         [
             "experiment_runner.py",
             "--experiment_config",
-            str(GETTING_STARTED_JSON_PATH),
+            str(legacy_json_experiment_path),
             "runs.baseline.rollout_limit.num_steps=2",
         ],
     )

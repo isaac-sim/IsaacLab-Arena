@@ -27,6 +27,10 @@ if TYPE_CHECKING:
     from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
     from isaaclab_arena.policy.policy_base import PolicyCfg
 
+RUN_FIELDS_REPLACING_SHARED = frozenset({"rollout_limit"})
+"""Run fields that replace the shared value as a whole when a Run declares them, instead of merging into it.
+A rollout limit is one choice among exclusive fields, so merging two limits of different kinds would combine both."""
+
 
 def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
     """Initialize Hydra only when composition has no caller-owned context.
@@ -51,14 +55,16 @@ def load_arena_experiment_from_yaml(
     Each entry in the runs mapping declares one Run using its key as the Run
     name. The environment.type selector chooses from the supplied mapping, or
     names a graph-spec YAML path; policy.type is resolved when its Run is built.
-    Hydra overrides can update shared Run defaults or fields on Runs declared in
-    YAML, but cannot add Runs. Shared defaults are applied before Run overrides.
+    Hydra overrides can update shared Run defaults or fields on Runs declared in YAML, but cannot add Runs.
+    Shared defaults are applied before Run overrides. The Experiment name is the file's top-level ``name`` or,
+    when it has none, the file stem. The optional top-level ``kpi_exporters`` list selects the KPI exporters; an override
+    ``kpi_exporters=[<x>,<y>]`` replaces it, and the default applies when the file has none.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        overrides: Hydra field overrides for shared Run defaults or Runs already declared in YAML.
+        overrides: Hydra field overrides for shared Run defaults, the KPI exporters, or Runs already declared in YAML.
 
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
@@ -70,6 +76,10 @@ def load_arena_experiment_from_yaml(
         yaml_path,
         shared_default_overrides=shared_default_overrides,
     )
+    default_experiment_name = _read_experiment_name_from_yaml_or_stem(yaml_path)
+    yaml_kpi_exporters = _read_kpi_exporters_from_yaml(yaml_path)
+    # A file without kpi_exporters keeps the ArenaExperimentCfg default.
+    kpi_exporters_kwargs = {} if yaml_kpi_exporters is None else {"kpi_exporters": yaml_kpi_exporters}
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_typed_experiment_loader"
@@ -91,7 +101,11 @@ def load_arena_experiment_from_yaml(
             hydra_experiment_config_name = f"{hydra_config_namespace}_root"
             config_store.store(
                 name=hydra_experiment_config_name,
-                node=ArenaExperimentCfg(runs=arena_runs_by_name),
+                node=ArenaExperimentCfg(
+                    runs=arena_runs_by_name,
+                    name=default_experiment_name,
+                    **kpi_exporters_kwargs,
+                ),
             )
             composed_experiment = compose(config_name=hydra_experiment_config_name, overrides=run_overrides)
             experiment_cfg = OmegaConf.to_object(composed_experiment)
@@ -100,6 +114,27 @@ def load_arena_experiment_from_yaml(
 
     assert isinstance(experiment_cfg, ArenaExperimentCfg)
     return experiment_cfg
+
+
+def _read_experiment_name_from_yaml_or_stem(yaml_path: str | Path) -> str:
+    """Return the top-level name of an Arena Experiment YAML file, or the file stem when it has none."""
+    raw_experiment_config = OmegaConf.load(Path(yaml_path))
+    experiment_name = raw_experiment_config.get("name")
+    assert experiment_name is None or isinstance(
+        experiment_name, str
+    ), f"Experiment 'name' must be a string, got {experiment_name!r}"
+    return experiment_name if experiment_name is not None else Path(yaml_path).stem
+
+
+def _read_kpi_exporters_from_yaml(yaml_path: str | Path) -> list[str] | None:
+    """Return the top-level kpi_exporters of an Arena Experiment YAML file, or None when it has none."""
+    raw_experiment_config = OmegaConf.load(Path(yaml_path))
+    if "kpi_exporters" not in raw_experiment_config:
+        return None
+    assert OmegaConf.is_list(
+        raw_experiment_config.kpi_exporters
+    ), f"Experiment 'kpi_exporters' must be a list of names, got {raw_experiment_config.kpi_exporters!r}"
+    return OmegaConf.to_container(raw_experiment_config.kpi_exporters)
 
 
 def _assert_run_name_is_hydra_compatible(run_name: str) -> None:
@@ -155,7 +190,8 @@ def load_experiment_run_definitions_from_yaml(
     """Read an Arena Experiment YAML file and return its Run values by name.
 
     Values below ``shared`` are defaults for every Run. Shared overrides update
-    those defaults before each Run is merged over them. Interpolations remain
+    those defaults before each Run is merged over them. A Run field listed in
+    ``RUN_FIELDS_REPLACING_SHARED`` replaces the shared value instead. Interpolations remain
     unresolved for the environment, policy, or Run composition stage that owns
     them.
 
@@ -176,7 +212,7 @@ def load_experiment_run_definitions_from_yaml(
         raise ValueError(f"Could not load Experiment YAML '{path}': {exc}") from exc
     assert OmegaConf.is_dict(raw_experiment_config), "Experiment config must be a mapping"
 
-    unknown_fields = sorted(set(raw_experiment_config.keys()) - {"runs", "shared"})
+    unknown_fields = sorted(set(raw_experiment_config.keys()) - {"name", "kpi_exporters", "runs", "shared"})
     assert not unknown_fields, f"Unknown Experiment fields: {', '.join(unknown_fields)}"
     if "shared" in raw_experiment_config:
         assert OmegaConf.is_dict(raw_experiment_config.shared), "Experiment 'shared' must be a mapping"
@@ -198,7 +234,9 @@ def load_experiment_run_definitions_from_yaml(
             assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
             _assert_run_name_is_hydra_compatible(run_name)
             assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
-            merged_run_config = OmegaConf.merge(shared_run_defaults, raw_run_config)
+            replaced_fields = RUN_FIELDS_REPLACING_SHARED & set(raw_run_config.keys())
+            run_defaults = {key: value for key, value in shared_run_defaults.items() if key not in replaced_fields}
+            merged_run_config = OmegaConf.merge(run_defaults, raw_run_config)
             run_values = OmegaConf.to_container(merged_run_config, resolve=False)
             assert isinstance(run_values, dict)
             assert "name" not in run_values, f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"

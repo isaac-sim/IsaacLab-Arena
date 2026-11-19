@@ -60,8 +60,8 @@ def _build_two_sphere_env(poses, velocities, num_envs=1):
     from isaaclab_arena.scene.scene import Scene
 
     spheres = []
-    for instance_name, pose, velocity in zip(("sphere_a", "sphere_b"), poses, velocities):
-        sphere = Sphere(instance_name=instance_name, spawner_cfg=_floating_sphere_cfg())
+    for sphere_name, pose, velocity in zip(("sphere_a", "sphere_b"), poses, velocities):
+        sphere = Sphere(name=sphere_name, spawner_cfg=_floating_sphere_cfg())
         sphere.set_initial_pose(pose)
         sphere.set_initial_velocity(velocity)
         spheres.append(sphere)
@@ -164,11 +164,11 @@ def _build_parallel_layout_env(num_envs, expected_settled):
             poses.append(Pose(position_xyz=(x, 0.0, z), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         return PosePerEnv(poses=poses)
 
-    floor = ProceduralTable(instance_name="floor")
+    floor = ProceduralTable(name="floor")
     floor.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-    sphere_a = Sphere(instance_name="sphere_a")
-    sphere_b = Sphere(instance_name="sphere_b")
+    sphere_a = Sphere(name="sphere_a")
+    sphere_b = Sphere(name="sphere_b")
     sphere_a.set_initial_pose(sphere_poses(-0.2))
     sphere_b.set_initial_pose(sphere_poses(0.2))
 
@@ -231,12 +231,12 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.offline_placement.pool_validation import validate_pool_layouts
+    from isaaclab_arena.offline_placement.pool_validation import do_all_layouts_pass_and_settle, validate_pool_layouts
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import EnvLayoutPool
     from isaaclab_arena.relations.relations import IsAnchor, On, get_anchor_objects
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
     from isaaclab_arena.relations.validation.types import PlacementCheck, PlacementValidationResults
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
@@ -244,14 +244,14 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     num_envs = 2
     drop_height = 2.0
 
-    table = OfficeTable(instance_name="table")
+    table = OfficeTable(name="table")
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
     # OfficeTable is a free dynamic rigid body and the env has no ground plane, so without pinning it would
     # fall during stepping and drag the cracker with it (nothing would ever settle). Make the anchor surface
     # kinematic so it holds still, exactly like the kinematic procedural/background tables.
     table.object_cfg.spawn.rigid_props = sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True)
-    cracker = CrackerBox(instance_name="cracker")
+    cracker = CrackerBox(name="cracker")
     cracker.add_relation(On(table, clearance_m=0.01))
 
     scene = Scene(assets=[table, cracker])
@@ -329,6 +329,16 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
             assert (
                 checklist.do_all_required_validation_checks_pass()
             ), f"env {env_id} candidate {candidate_index}: geometric gate should be unaffected by the settle sweep."
+
+        # An unsettled layout fails the run even though every required check passes.
+        assert not do_all_layouts_pass_and_settle(results), "A pool with unsettled layouts should fail validation."
+        settled_results = [result for result in results if result[2].validation_results[PlacementCheck.PHYSICS_SETTLED]]
+        assert do_all_layouts_pass_and_settle(settled_results), "A pool of settled layouts should pass validation."
+        # A required check that never ran must not count as passed.
+        settled_results[0][2].required_checks.add(PlacementCheck.IK_REACHABLE)
+        assert not do_all_layouts_pass_and_settle(
+            settled_results
+        ), "A layout missing a required check result should fail validation."
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

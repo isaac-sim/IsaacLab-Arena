@@ -99,7 +99,7 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False, movable_suppor
             {
                 "kind": "position_limits_box",
                 "subject": "table",
-                "params": {"x_min": -0.3, "x_max": 0.3, "y_min": -0.3, "y_max": 0.3},
+                "params": {"x_limits": [-0.3, 0.3], "y_limits": [-0.3, 0.3]},
             },
         ])
         tray = tmp_path / "tray.usda"
@@ -107,7 +107,7 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False, movable_suppor
         data["objects"].append({
             "id": "tray",
             "registry_name": "simready_usd_object",
-            "params": {"usd_path": str(tray), "instance_name": "tray"},
+            "params": {"usd_path": str(tray), "name": "tray"},
         })
         data["relations"][1]["reference"] = "tray"
         # The central release region must fit the cube's 0.1 m depth.
@@ -136,8 +136,8 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path, backe
     from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.relations import ClutterOn, RequiresReachability, get_relation
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
     from isaaclab_arena.utils.physics_settle import step_physics
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
@@ -228,13 +228,13 @@ def _test_clutter_recording_replays_movable_supports(simulation_app, tmp_path, b
     from isaaclab_arena.offline_placement.post_physics_validation import evaluate_settled_batch
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool
-    from isaaclab_arena.relations.placement_poses import get_pose_from_layout
-    from isaaclab_arena.relations.placement_sampler import (
+    from isaaclab_arena.relations.relations import ClutterOn, On, get_relation
+    from isaaclab_arena.relations.runtime.placement_events import get_placement_pool
+    from isaaclab_arena.relations.runtime.placement_poses import get_pose_from_layout
+    from isaaclab_arena.relations.runtime.placement_sampler import (
         deserialize_placement_samples,
         placement_samples_to_pose_columns,
     )
-    from isaaclab_arena.relations.relations import ClutterOn, On, get_relation
     from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
 
     arena_env = _make_primitive_clutter_scene(tmp_path, movable_supports=True)
@@ -376,12 +376,12 @@ def _test_movable_bowl_recording_and_replay(simulation_app, tmp_path):
     from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
     from isaaclab_arena.offline_placement.post_physics_validation import evaluate_settled_batch
     from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
-    from isaaclab_arena.relations.placement_poses import get_pose_from_layout
-    from isaaclab_arena.relations.placement_sampler import (
+    from isaaclab_arena.relations.relations import On, get_relation
+    from isaaclab_arena.relations.runtime.placement_poses import get_pose_from_layout
+    from isaaclab_arena.relations.runtime.placement_sampler import (
         deserialize_placement_samples,
         placement_samples_to_pose_columns,
     )
-    from isaaclab_arena.relations.relations import On, get_relation
     from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
     from isaaclab_arena.tests.utils.constants import TestConstants
 
@@ -548,7 +548,7 @@ def _test_bowl_collection_uses_local_resting_height(simulation_app, tmp_path):
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
     floor = next(asset for asset in arena_env.get_placement_assets() if asset.name == "floor")
-    bowl = BowlYcbRobolab(instance_name="bowl", initial_pose=Pose((0.3, -0.2, 0.5), (0, 0, 2**-0.5, 2**-0.5)))
+    bowl = BowlYcbRobolab(name="bowl", initial_pose=Pose((0.3, -0.2, 0.5), (0, 0, 2**-0.5, 2**-0.5)))
     bowl.object_cfg.spawn.rigid_props = sim_utils.RigidBodyBaseCfg(kinematic_enabled=True)
     bowl.add_relation(IsAnchor())
     cube = Object(name="cube_body", usd_path=str(tmp_path / "cube.usda"), scale=(0.4, 0.2, 0.2))

@@ -11,20 +11,12 @@ import pytest
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
-from isaaclab_arena.relations.placement_poses import get_pose_from_layout
+from isaaclab_arena.relations.optimization.placement_candidate_generator import PlacementCandidateGenerator
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import (
-    ClutterOn,
-    FaceTo,
-    IsAnchor,
-    On,
-    PositionLimitsBox,
-    RandomAroundSolution,
-    RotateAroundSolution,
-)
+from isaaclab_arena.relations.relations import ClutterOn, FaceTo, IsAnchor, On, PositionLimitsBox, RotateAroundSolution
+from isaaclab_arena.relations.runtime.placement_poses import get_pose_from_layout
 from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -43,7 +35,7 @@ def _make_scene():
         AxisAlignedBoundingBox((-0.2, -0.35, 0), (0.2, 0.35, 0.05)),
         relations=[
             On(table),
-            PositionLimitsBox(x_min=-0.8, x_max=0.8, y_min=-0.8, y_max=0.8),
+            PositionLimitsBox(x_limits=(-0.8, 0.8), y_limits=(-0.8, 0.8)),
             RotateAroundSolution(yaw_rad=math.pi / 2),
         ],
     )
@@ -175,7 +167,7 @@ def test_clutter_collision_can_move_its_support(monkeypatch):
     tray = DummyObject(
         "tray",
         AxisAlignedBoundingBox((-0.12, -0.12, 0), (0.12, 0.12, 0.05)),
-        relations=[On(table, clearance_m=0), PositionLimitsBox(x_min=-0.5, x_max=0.5)],
+        relations=[On(table, clearance_m=0), PositionLimitsBox(x_limits=(-0.5, 0.5))],
     )
     clutter = DummyObject(
         "clutter",
@@ -216,7 +208,7 @@ def test_clutter_validators_receive_complete_original_layouts_and_environment_id
     class OriginalLayoutValidator(PrePhysicsPlacementValidator):
         check = "original_layout"
 
-        def validate_batch(self, batch, collision_objects):
+        def _validate_batch(self, batch, collision_objects, rejections):
             inspected[self.check] = {candidate.env_id for candidate in batch.candidates}
             for candidate in batch.candidates:
                 assert set(candidate.positions) == set(candidate.bboxes) == set(objects)
@@ -230,8 +222,8 @@ def test_clutter_validators_receive_complete_original_layouts_and_environment_id
         check = "per_environment"
         run_after_inexpensive_checks = True
 
-        def validate_batch(self, batch, collision_objects):
-            super().validate_batch(batch, collision_objects)
+        def _validate_batch(self, batch, collision_objects, rejections):
+            super()._validate_batch(batch, collision_objects, rejections)
             return [candidate.env_id == 0 for candidate in batch.candidates]
 
     params = _params()
@@ -243,9 +235,7 @@ def test_clutter_validators_receive_complete_original_layouts_and_environment_id
     assert all(set(layout.positions) == set(objects) for layout in layouts)
 
 
-@pytest.mark.parametrize(
-    "configuration", ["missing_parent", "nested_clutter", "randomization", "face_to", "random_yaw", "rotation"]
-)
+@pytest.mark.parametrize("configuration", ["missing_parent", "nested_clutter", "face_to", "random_yaw", "rotation"])
 def test_clutter_rejects_unsupported_support_configuration(configuration):
     objects = _make_scene()
     table, tray, _ = objects
@@ -256,9 +246,6 @@ def test_clutter_rejects_unsupported_support_configuration(configuration):
     elif configuration == "nested_clutter":
         tray.relations = [ClutterOn(table, random_yaw=False)]
         diagnostic = "(?i)nested|clutter.*support|support.*clutter"
-    elif configuration == "randomization":
-        tray.add_relation(RandomAroundSolution(x_half_m=0.1))
-        diagnostic = "random"
     elif configuration == "face_to":
         tray.relations = [relation for relation in tray.relations if not isinstance(relation, RotateAroundSolution)]
         tray.add_relation(FaceTo(table))

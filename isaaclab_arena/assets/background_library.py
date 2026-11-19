@@ -11,9 +11,10 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel_kitchens
-from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.sources.base import UsdSource
+from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -23,21 +24,23 @@ class LibraryBackground(Background):
     These objects have class attributes (rather than instance attributes).
     """
 
-    name: str
+    registry_name: str
+    """Key of this asset class in the asset registry."""
+
     tags: list[str]
     usd_path: str | None = None
+    usd_source: UsdSource | None = None
     initial_pose: Pose | None = None
     object_min_z: float
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
-        # Check lazy USD paths are set by here
-        assert self.usd_path is not None
         super().__init__(
-            name=self.name,
+            name=self.registry_name,
             tags=self.tags,
             usd_path=self.usd_path,
+            usd_source=self.usd_source,
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
             spawn_cfg_addon=self.spawn_cfg_addon,
@@ -52,7 +55,7 @@ class KitchenBackground(LibraryBackground):
     Encapsulates the background scene for the kitchen.
     """
 
-    name = "kitchen"
+    registry_name = "kitchen"
     tags = ["background"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/background_library/kitchen_background/kitchen_background.usd"
     initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_xyzw=(0, 0, -0.70711, 0.70711))
@@ -65,7 +68,7 @@ class KitchenWithOpenDrawerBackground(LibraryBackground):
     Encapsulates the background scene for the kitchen with an open drawer.
     """
 
-    name = "kitchen_with_open_drawer"
+    registry_name = "kitchen_with_open_drawer"
     tags = ["background"]
     usd_path = (
         f"{ARENA_NUCLEUS_DIR}/Arena/assets/background_library/kitchen_scene_teleop_v3/kitchen_scene_teleop_v3.usd"
@@ -80,7 +83,7 @@ class PackingTableBackground(LibraryBackground):
     Encapsulates the background scene for the packing table.
     """
 
-    name = "packing_table"
+    registry_name = "packing_table"
     tags = ["background"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/background_library/packing_table/packing_table.usd"
     initial_pose = Pose(position_xyz=(0.72193, -0.04727, -0.92512), rotation_xyzw=(0.0, 0.0, -0.70711, 0.70711))
@@ -93,7 +96,7 @@ class GalileoBackground(LibraryBackground):
     Encapsulates the background scene for the galileo room.
     """
 
-    name = "galileo"
+    registry_name = "galileo"
     tags = ["background"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/background_library/galileo_simplified/galileo_simplified.usd"
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
@@ -106,7 +109,7 @@ class GalileoLocomanipBackground(LibraryBackground):
     Encapsulates the background scene for the galileo room for locomanip.
     """
 
-    name = "galileo_locomanip"
+    registry_name = "galileo_locomanip"
     tags = ["background"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/background_library/galileo_locomanip/galileo_locomanip.usd"
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
@@ -123,7 +126,7 @@ class Table(LibraryBackground):
     A table.
     """
 
-    name = "table"
+    registry_name = "table"
     tags = ["background"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd"
     object_min_z = -0.05
@@ -135,7 +138,7 @@ class OfficeTableBackground(LibraryBackground):
     A basic office table.
     """
 
-    name = "office_table_background"
+    registry_name = "office_table_background"
     tags = ["background"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
     object_min_z = -0.05
@@ -154,7 +157,7 @@ class LightwheelKitchenBackground(LibraryBackground):
     Encapsulates the background scene for the Lightwheel Robocasa kitchen.
     """
 
-    name = "lightwheel_robocasa_kitchen"
+    registry_name = "lightwheel_robocasa_kitchen"
     tags = ["background", "lightwheel", "kitchen"]
     usd_path = None
     initial_pose = Pose.identity()
@@ -168,24 +171,16 @@ class LightwheelKitchenBackground(LibraryBackground):
         style_id: int | None = None,
         **kwargs,
     ):
-        from lightwheel_sdk.loader import floorplan_loader
-
         if layout_id is None:
             layout_id = self.layout_id
         if style_id is None:
             style_id = self.style_id
 
-        # Lazily download the USD
-        self.usd_path = str(
-            acquire_lightwheel_asset(
-                floorplan_loader,
-                floorplan_loader.get_usd,
-                description=f"{self.name} background layout={layout_id} style={style_id}",
-                scene="robocasakitchen",
-                layout_id=layout_id,
-                style_id=style_id,
-                backend="robocasa",
-            )[0]
+        self.usd_source = LightwheelFloorplanUsdSource(
+            scene="robocasakitchen",
+            layout_id=layout_id,
+            style_id=style_id,
+            backend="robocasa",
         )
         super().__init__(**kwargs)
 
@@ -200,23 +195,65 @@ register_lightwheel_kitchens(LightwheelKitchenBackground, globals())
 
 
 @register_asset
-class MapleTableRobolab(LibraryBackground):
+class RobolabMapleTable(LibraryBackground):
     """
     A maple table background from the Robolab assets.
     """
 
-    name = "maple_table_robolab"
+    registry_name = "maple_table_robolab"
     tags = ["background", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table.usda"
     object_min_z = -0.05
 
 
+# The table fixture USDs have their origin at floor level, so the table must be lifted into place
+# relative to the env origin. This puts the tabletop at z=0.003.
+ROBOLAB_TABLE_FIXTURE_POSE = Pose(
+    position_xyz=(0.5471954941749573, -5.750182754127309e-05, -0.3470015823841095),
+    rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+)
+
+# The table fixture USDs have a dynamic root body and no ground plane under the default prim,
+# so a dynamic table falls under gravity. Kinematic keeps it at its pose.
+ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON = {
+    "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+}
+
+
 @register_asset
-class TableOakRobolab(LibraryBackground):
-    name = "table_oak_robolab"
+class RobolabOakTable(LibraryBackground):
+    """The oak table fixture from the RoboLab assets."""
+
+    registry_name = "table_oak_robolab"
     tags = ["background", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_oak.usd"
+    initial_pose = ROBOLAB_TABLE_FIXTURE_POSE
     object_min_z = -0.05
+    spawn_cfg_addon = ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON
+
+
+@register_asset
+class RobolabBlackTable(LibraryBackground):
+    """The black table fixture from the RoboLab assets."""
+
+    registry_name = "table_black_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_black.usd"
+    initial_pose = ROBOLAB_TABLE_FIXTURE_POSE
+    object_min_z = -0.05
+    spawn_cfg_addon = ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON
+
+
+@register_asset
+class RobolabBambooTable(LibraryBackground):
+    """The bamboo table fixture from the RoboLab assets."""
+
+    registry_name = "table_bamboo_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_bamboo.usd"
+    initial_pose = ROBOLAB_TABLE_FIXTURE_POSE
+    object_min_z = -0.05
+    spawn_cfg_addon = ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON
 
 
 # -----------------------------------------------------------------------------
@@ -239,7 +276,7 @@ class ReplicatorKitchenBackground(LibraryBackground):
 class ReplicatorKitchenGShape(ReplicatorKitchenBackground):
     """Replicator G-shaped kitchen."""
 
-    name = "replicator_kitchen_g_shape"
+    registry_name = "replicator_kitchen_g_shape"
     usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_g_shape.usda"
 
 
@@ -247,7 +284,7 @@ class ReplicatorKitchenGShape(ReplicatorKitchenBackground):
 class ReplicatorKitchenLIsland(ReplicatorKitchenBackground):
     """Replicator L-shaped kitchen with an island."""
 
-    name = "replicator_kitchen_l_island"
+    registry_name = "replicator_kitchen_l_island"
     usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_l_island.usda"
 
 
@@ -255,7 +292,7 @@ class ReplicatorKitchenLIsland(ReplicatorKitchenBackground):
 class ReplicatorKitchenLShape(ReplicatorKitchenBackground):
     """Replicator L-shaped kitchen."""
 
-    name = "replicator_kitchen_l_shape"
+    registry_name = "replicator_kitchen_l_shape"
     usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_l_shape.usda"
 
 
@@ -263,7 +300,7 @@ class ReplicatorKitchenLShape(ReplicatorKitchenBackground):
 class ReplicatorKitchenPeninsula(ReplicatorKitchenBackground):
     """Replicator kitchen with a peninsula."""
 
-    name = "replicator_kitchen_peninsula"
+    registry_name = "replicator_kitchen_peninsula"
     usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_peninsula.usda"
 
 
@@ -271,5 +308,15 @@ class ReplicatorKitchenPeninsula(ReplicatorKitchenBackground):
 class ReplicatorKitchenUShape(ReplicatorKitchenBackground):
     """Replicator U-shaped kitchen."""
 
-    name = "replicator_kitchen_u_shape"
+    registry_name = "replicator_kitchen_u_shape"
     usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_u_shape.usda"
+
+
+@register_asset
+class SimReadyCentralWorkbench(LibraryBackground):
+    """An articulated workbench from SimReady Central."""
+
+    registry_name = "simready_central_workbench"
+    tags = ["background", "sim-ready", "workbench"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/workbench/workbench.usda"
+    object_min_z = 0.0

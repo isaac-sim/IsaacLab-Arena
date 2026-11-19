@@ -47,7 +47,7 @@ class RobotPrimSpec:
 
 @dataclass(frozen=True)
 class StandPrimSpec:
-    """Stand USD reference and footprint for normalized on-stand compose."""
+    """Stand USD reference, prim paths, and default dimensions."""
 
     stand_usd_path: str
     ref_prim_path: str

@@ -1,7 +1,7 @@
 ---
 name: run-experiment
 description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), direct Policy Runner workflows, or OSMO preview, submission, or management.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id -un) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id --user --name) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *) Bash(xdg-open *)
 ---
 
 # Run Experiment
@@ -27,13 +27,13 @@ path; do not create new legacy configurations or apply Hydra overrides to them.
 ## Preflight the run
 
 1. Confirm the repository root with `git rev-parse --show-toplevel`.
-2. Resolve an explicit Experiment path. Never rely on the runner's legacy default configuration.
+2. Resolve an explicit Experiment path. Never rely on the runner's default configuration, which is
+   only an installation smoke test.
 3. Inspect the Experiment's Runs, policies, rollout limits, rebuild counts, environment counts,
    cameras, variations, and referenced files. Summarize unexpectedly large work before starting it.
-4. Preserve a native or Docker route already selected by the user. If both are ready and the
-   request does not choose one, use the preferred route in the current installation documentation
-   and state the choice. If neither route is ready, use `setup-arena`; do not install dependencies,
-   build an image, create mounts, or recreate a container here.
+4. Use `arena-runtime` to select the checkout's ready native uv or Docker route. If it finds no
+   ready route, stop and suggest installing Arena through `setup-arena`; do not install
+   dependencies, build an image, create mounts, or recreate a container here.
 5. Confirm that referenced configs, datasets, checkpoints, and output locations are available from
    the selected runtime. Identify a policy from each Run's resolved `policy.type`, not the
    Experiment filename.
@@ -51,7 +51,7 @@ path; do not create new legacy configurations or apply Hydra overrides to them.
    local server skill, require an already-running and reachable endpoint. Do not replace a
    deliberately remote endpoint with a local server or submit it to managed compute.
 
-For a built-in smoke evaluation, use
+For a built-in example evaluation, use
 `isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml`. It uses the local
 zero-action policy and requires no model or policy server.
 
@@ -63,7 +63,10 @@ zero-action policy and requires no model or policy server.
 - Preserve the runner's default stop-on-first-error behavior. Add `--continue_on_error` only when
   the user wants the remaining Runs attempted after a failure.
 - Use `--serve_evaluation_report` only when explicitly requested; it binds an HTTP server and keeps
-  the process running until interrupted.
+  the process running until interrupted. Its default port, 8000, is also the default OpenPI server
+  port, so pass a free `--evaluation_report_port` when a local policy server uses port 8000.
+  To view the report on the machine that ran the Experiment, open `index.html` directly instead of
+  serving it.
 - Use `--list_variations` as an inspection operation. It does not run rollouts or create Experiment
   result artifacts.
 - Let the runner create a timestamped directory below `outputs/` unless the user chooses a base or
@@ -77,27 +80,15 @@ zero-action policy and requires no model or policy server.
 Always pass `--experiment_config` explicitly. Keep runner flags separate from trailing Hydra
 overrides.
 
-For native uv, run from the repository root and accept the Isaac Sim EULA non-interactively:
+Replace `<arena-python>` with the launcher for the route selected by `arena-runtime`:
+`env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python` from the repository root for native
+uv, or `docker exec --user <host-user> <container> isaaclab.sh -p` for Docker.
 
 ```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py \
+<arena-python> isaaclab_arena/evaluation/experiment_runner.py \
   --experiment_config <experiment.yaml> \
   --viz none \
   <override>...
-```
-
-For Docker, first use `docker ps` to select the single running container that mounts the absolute
-repository root. Resolve the host username separately with `id -un`, then substitute both literal
-values below rather than hardcoding a container name:
-
-```bash
-docker exec <container> su <host-user> -c \
-  "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-   --experiment_config <experiment.yaml> \
-   --viz none \
-   <override>..."
 ```
 
 Use the local override namespace:
@@ -130,6 +121,9 @@ For an evaluation that reaches finalization:
 3. Read every Run's `status` from `arena_experiment_result.json` and report completed and failed Runs.
 4. Confirm expected `episode_results_rebuild<N>.jsonl` files under each completed Run directory.
 5. Report requested videos and the HTML report path when present.
+6. When the user asks to open the report, run `xdg-open <index.html>` on the host after
+   finalization. For Docker, replace the `/workspaces/isaaclab_arena` prefix of the printed output
+   path with the host repository root. If no browser opens, report the host path instead.
 
 Treat the canonical result statuses, not process exit alone, as the workflow outcome. Keep policy
 task success separate from execution success: zero-action episodes are expected to be semantically
@@ -150,8 +144,8 @@ preserved partial artifacts or failures.
 - Use `setup-arena` for installation, container creation, mounts, or readiness repair.
 - Use `run-tests` for pytest and regression checks.
 - Use the Environment Runner for interactive inspection without a policy.
-- Use the Policy Runner for `torchrun`, external environments, or an explicitly requested direct
-  rollout outside an Experiment Definition.
+- Use the Policy Runner for external environments or an explicitly requested direct rollout
+  outside an Experiment Definition.
 - Use a separate OSMO submission skill for previews, cluster resources, submission, monitoring, or
   remote result download. An unqualified request to "run" an Experiment means local execution.
 - Use `serve-openpi-policy` automatically when a local OpenPI Experiment needs a compatible server.
@@ -162,6 +156,7 @@ preserved partial artifacts or failures.
 ## References
 
 - [Evaluations](evaluations.md)
+- [Arena runtime skill](../arena-runtime/SKILL.md)
 - [OpenPI server skill](../serve-openpi-policy/SKILL.md)
 - [GR00T server skill](../serve-gr00t-policy/SKILL.md)
 - [Arena Experiments](../../../docs/pages/concepts/concept_arena_experiments.rst)

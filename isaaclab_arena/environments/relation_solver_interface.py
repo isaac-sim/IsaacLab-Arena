@@ -10,9 +10,11 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import PlacementSamplerHandle, solve_and_place_objects
-from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_layout
-from isaaclab_arena.relations.placement_sampler import (
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.relations.runtime.placement_events import PlacementSamplerHandle, solve_and_place_objects
+from isaaclab_arena.relations.runtime.placement_poses import get_scene_root_poses_from_layout
+from isaaclab_arena.relations.runtime.placement_sampler import (
     PlacementSample,
     PlacementSampler,
     RecordedPlacementSampler,
@@ -22,8 +24,6 @@ from isaaclab_arena.relations.placement_sampler import (
     validate_root_reset_for_live_placement,
     validate_root_reset_for_placement_replay,
 )
-from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
@@ -79,7 +79,7 @@ def prepare_live_relation_placement(
     placer_params.reachability_config = copy.copy(placer_params.reachability_config)
     if collision_objects is None and scene_assets is not None:
         # Import after SimulationApp starts to avoid preloading USD before Kit.
-        from isaaclab_arena.relations.passive_collision_objects import get_placement_collision_objects
+        from isaaclab_arena.relations.geometry.passive_collision_objects import get_placement_collision_objects
 
         collision_objects = get_placement_collision_objects(
             assets, scene_assets, placer_params.solver_params.collision_mode

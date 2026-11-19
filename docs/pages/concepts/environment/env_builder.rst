@@ -100,7 +100,10 @@ not fix the other.
 
 There is no separate variation seed: each variation draws from its own
 generator, seeded from ``--seed`` and the variation's
-``<asset_name>.<variation_name>`` key. Run-time variations hand out their
+``<asset_name>.<variation_name>`` key. In-order
+:ref:`asset selection <asset-selection-variation>` does not use the seed. It
+takes the name at the rebuild index, which the Experiment Runner passes to
+``ArenaEnvBuilder`` for each rebuild. Run-time variations hand out their
 values in episode-start order, so the k-th episode to start gets the same
 values for any ``num_envs``. Which environment runs it still depends on
 ``num_envs`` and on when environments reset. See

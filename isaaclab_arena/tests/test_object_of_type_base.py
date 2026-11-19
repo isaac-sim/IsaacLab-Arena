@@ -32,7 +32,7 @@ def _test_object_of_type_base(simulation_app):
         Cone without physics.
         """
 
-        name = "cone_no_physics"
+        registry_name = "cone_no_physics"
         tags = ["object"]
         usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Shapes/cone.usd"
         default_prim_path = "{ENV_REGEX_NS}/target_cone_no_physics"

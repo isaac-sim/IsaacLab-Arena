@@ -17,9 +17,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
 
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
+from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose

@@ -92,7 +92,7 @@ def _test_background_physics_discovery_and_reset(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.terms.events import ResetBackgroundPhysics, reset_articulation_pose_and_joints
+    from isaaclab_arena.terms.events import ResetBackgroundPhysics, reset_articulation_joints, set_object_pose
     from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
 
     assert ResetBackgroundPhysics._is_unavailable_backend_error(
@@ -125,11 +125,7 @@ def _test_background_physics_discovery_and_reset(
         assert "Prop_PlacementEnvelope" not in records
         assert not any(path.startswith("articulation/") for path in records)
 
-        background = Background(
-            "background",
-            background_path,
-            object_min_z=0.0,
-        )
+        background = Background(name="background", usd_path=background_path, object_min_z=0.0)
         assert background.reset_nested_physics
         referenced_free_body = ObjectReference(
             name="referenced_free_body",
@@ -143,10 +139,10 @@ def _test_background_physics_discovery_and_reset(
             parent_asset=background,
             object_type=ObjectType.ARTICULATION,
         )
-        assert referenced_free_body.get_event_cfg()[1] is not None
-        referenced_articulation_event = referenced_articulation.get_event_cfg()[1]
-        assert referenced_articulation_event is not None
-        assert referenced_articulation_event.func is reset_articulation_pose_and_joints
+        assert referenced_free_body.get_event_cfgs()
+        referenced_articulation_events = dict(referenced_articulation.get_event_cfgs())
+        assert referenced_articulation_events["referenced_articulation"].func is set_object_pose
+        assert referenced_articulation_events["referenced_articulation_joints"].func is reset_articulation_joints
         physics_paths = background.get_nested_physics_prim_paths({
             "{ENV_REGEX_NS}/background/free_body": ObjectType.RIGID,
             "{ENV_REGEX_NS}/background/referenced_articulation": ObjectType.ARTICULATION,
@@ -456,3 +452,42 @@ def _test_reset_background_physics_handles_mixed_rigids(_) -> bool:
 
 def test_reset_background_physics_handles_mixed_rigids():
     assert run_function_with_persistent_simulation_app(_test_reset_background_physics_handles_mixed_rigids)
+
+
+def _test_background_spawn_deactivates_embedded_physics_scene(_) -> bool:
+    """Spawn a background USD with its own physics scenes into two environments."""
+    import tempfile
+
+    from isaaclab.sim.utils import create_new_stage
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.background import Background
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        background_path = f"{temp_dir}/background.usd"
+        online_asset_path = f"{temp_dir}/online_asset.usd"
+        _create_background_usds(background_path, online_asset_path, include_joint_network=False)
+        # Prop_OnlineVisual references this asset as an instance that is de-instanced on spawn.
+        online_stage = Usd.Stage.Open(online_asset_path)
+        UsdPhysics.Scene.Define(online_stage, "/OnlineAsset/PhysicsScene")
+        online_stage.GetRootLayer().Save()
+        source_stage = Usd.Stage.Open(background_path)
+        UsdPhysics.Scene.Define(source_stage, "/Background/PhysicsScene")
+        source_stage.GetRootLayer().Save()
+
+        stage = create_new_stage()
+        for index in range(2):
+            UsdGeom.Xform.Define(stage, f"/World/env_{index}")
+        background = Background(name="background", usd_path=background_path, object_min_z=0.0)
+        spawn = background.object_cfg.spawn
+        spawn.func("/World/env_.*/background", spawn)
+        for index in range(2):
+            # Both scenes are inactive in every environment, including the one in the de-instanced prop.
+            for scene_path in ("PhysicsScene", "Prop_OnlineVisual/PhysicsScene"):
+                physics_scene = stage.GetPrimAtPath(f"/World/env_{index}/background/{scene_path}")
+                assert physics_scene.IsValid() and not physics_scene.IsActive()
+    return True
+
+
+def test_background_spawn_deactivates_embedded_physics_scene():
+    assert run_function_with_persistent_simulation_app(_test_background_spawn_deactivates_embedded_physics_scene)

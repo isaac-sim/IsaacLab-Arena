@@ -54,7 +54,8 @@ class PrimPathInference:
 
         spec = _enforce_object_reference_types(spec)
         usd_path = spec.background.resolve_usd_path()
-        prim_tree = load_usd_prim_tree(usd_path)
+        # Exclude joint prims for backward compatibility; joint-only parent may remain as base candidates.
+        prim_tree = [record for record in load_usd_prim_tree(usd_path) if record.joint is None]
         data = self._inference_backend.run_json(
             StructuredOutputRequest(
                 schema_name="ResolvedObjectReferences",
@@ -109,35 +110,13 @@ def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
     """Format the background USD prim tree for the user message.
 
     Each line shows a parent-relative path suffix, indented under its nearest
-    retained ancestor, followed by ``object_type`` and optional joint names.
+    retained ancestor, followed by ``object_type`` and available physics metadata.
     Join ancestor suffixes with ``/`` to recover the full ``relative_path`` for
-    ``prim_path``. Example output::
-
-        BACKGROUND PRIM TREE:
-        counter_right_main_group/top_geometry (base)
-        fridge_main_group (articulation fridge_door_joint)
-        cab_1_main_group (articulation right_door_joint)
-          corpus (rigid)
-            top (base)
-            shelf_1 (base)
-          right_door (rigid)
+    ``prim_path``.
     """
-    records = sorted(prim_tree, key=lambda record: record.relative_path)
-    lines = ["BACKGROUND PRIM TREE:"]
-    stack: list[str] = []
-    for record in records:
-        path = record.relative_path
-        while stack and not path.startswith(stack[-1] + "/"):
-            stack.pop()
-        parent = stack[-1] if stack else ""
-        suffix = path[len(parent) + 1 :] if parent else path
-        indent = "  " * len(stack)
-        tag = record.object_type.value
-        if record.joint_names:
-            tag += " " + ",".join(record.joint_names)
-        lines.append(f"{indent}{suffix} ({tag})")
-        stack.append(path)
-    return "\n".join(lines)
+    from isaaclab_arena.utils.usd.prim_tree import format_usd_prim_tree
+
+    return format_usd_prim_tree(prim_tree, heading="BACKGROUND PRIM TREE:")
 
 
 def _object_reference_context(spec: ArenaEnvGraphSpec) -> str:

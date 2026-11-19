@@ -2,6 +2,10 @@
 
 This document describes the rules for contributing to Isaac Lab-Arena
 
+### Community Contributions
+
+For feature proposals, design review, pull-request readiness, and expectations for AI-assisted contributions, read the [Community Contributions Guide](docs/community-contributions.md).
+
 
 ### Coordinate-frame naming
 

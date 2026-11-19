@@ -18,12 +18,12 @@ lists for controlled experiments.
 Example (--viz kit enables the Kit visualizer, --episode_length_s triggers periodic resets):
 
   # Homogeneous (default) — YCB objects
-  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
+  python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
     --num_envs 16 --env_spacing 4.0 --enable_cameras \\
     gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0
 
   # Heterogeneous — robolab objects in RigidObjectSet
-  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
+  python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
     --num_envs 16 --env_spacing 4.0 --enable_cameras \\
     gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0 --mode heterogeneous
 """

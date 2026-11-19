@@ -33,9 +33,9 @@ def _test_droid_teleop_device_commands(simulation_app):
         ("spacemouse", Se3SpaceMouse, DroidSe3SpaceMouse),
     ):
         device = registry.get_device_by_name(name)()
-        droid_cfg = registry.get_teleop_device_cfg(device, SimpleNamespace(name="droid_differential_ik"))
+        droid_cfg = registry.get_teleop_device_cfg(device, SimpleNamespace(registry_name="droid_differential_ik"))
         assert droid_cfg.class_type is droid_class
-        franka_cfg = registry.get_teleop_device_cfg(device, SimpleNamespace(name="franka_ik"))
+        franka_cfg = registry.get_teleop_device_cfg(device, SimpleNamespace(registry_name="franka_ik"))
         assert franka_cfg.class_type is not droid_class
 
         # Exercise the real command generation without opening a GUI or HID device.

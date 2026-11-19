@@ -19,6 +19,44 @@ from pxr import Usd, UsdGeom, UsdPhysics
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
+def _get_clone_source_environment_ids(clone_plan: cloner.ClonePlan, prim_path: str) -> dict[str, tuple[int, ...]]:
+    """Return representative clone source paths mapped to their environment IDs."""
+    asset_templates, prototype_starts, world_ids, world_id_starts = cloner.path.get_world_prototype_asset_templates(
+        clone_plan, include_world_indices=True
+    )
+    source_paths = cloner.path.get_asset_prototype_paths(clone_plan)
+    topology = clone_plan.topology
+    candidates_by_environment: dict[int, tuple[int, str]] = {}
+    for world_group, (prototype_start, prototype_end) in enumerate(
+        zip(prototype_starts[:-1], prototype_starts[1:], strict=True)
+    ):
+        environment_ids = world_ids[world_id_starts[world_group] : world_id_starts[world_group + 1]]
+        for occurrence_index in range(prototype_start, prototype_end):
+            asset_template = asset_templates[occurrence_index]
+            if asset_template.count("{}") != 1:
+                continue
+            template_match = cloner.path.match(prim_path, asset_template)
+            asset_prototype_id = topology.world_prototypes[occurrence_index]
+            source_root = source_paths[asset_prototype_id]
+            if template_match is None or source_root is None:
+                continue
+            source_path = f"{source_root.rstrip('/')}{template_match.suffix}"
+            specificity = len(asset_template)
+            for environment_id in environment_ids:
+                environment_id = int(environment_id)
+                previous = candidates_by_environment.get(environment_id)
+                if previous is None or specificity > previous[0]:
+                    candidates_by_environment[environment_id] = (specificity, source_path)
+
+    environment_ids_by_source_path: dict[str, list[int]] = {}
+    for environment_id, (_specificity, source_path) in candidates_by_environment.items():
+        environment_ids_by_source_path.setdefault(source_path, []).append(environment_id)
+    return {
+        source_path: tuple(sorted(environment_ids))
+        for source_path, environment_ids in environment_ids_by_source_path.items()
+    }
+
+
 def get_representative_geometry_prim_groups(
     scene: InteractiveScene,
     scene_key: str,
@@ -32,13 +70,17 @@ def get_representative_geometry_prim_groups(
     geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
     assert scene.clone_plan is not None, f"Cannot resolve geometry for scene key '{scene_key}' without a clone plan."
 
-    clone_matches = tuple(cloner.query.iter_sources(scene.clone_plan, geometry_prim_path))
-    assert (
-        clone_matches
-    ), f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' does not match the scene clone plan."
+    environment_ids_by_source_path = _get_clone_source_environment_ids(scene.clone_plan, geometry_prim_path)
+    resolved_environment_count = sum(
+        len(environment_ids) for environment_ids in environment_ids_by_source_path.values()
+    )
+    assert resolved_environment_count == scene.num_envs, (
+        f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' must resolve one populated clone source "
+        f"per environment; resolved {resolved_environment_count} of {scene.num_envs}."
+    )
 
     representative_prim_groups = []
-    for _source_root, _destination_template, representative_path, environment_ids in clone_matches:
+    for representative_path, environment_ids in environment_ids_by_source_path.items():
         representative_prim = scene.stage.GetPrimAtPath(representative_path)
         assert (
             representative_prim.IsValid()

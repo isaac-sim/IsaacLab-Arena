@@ -20,7 +20,7 @@ def _test_object_with_cfg_addons(simulation_app):
         Cone with cfg addons.
         """
 
-        name = "cone_with_cfg_addons"
+        registry_name = "cone_with_cfg_addons"
         tags = ["object"]
         usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Shapes/cone.usd"
         default_prim_path = "{ENV_REGEX_NS}/target_cone_with_cfg_addons"

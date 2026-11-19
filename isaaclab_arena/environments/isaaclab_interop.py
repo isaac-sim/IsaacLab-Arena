@@ -6,7 +6,12 @@
 import argparse
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
-from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse
+from isaaclab_arena.cli.isaaclab_arena_cli import (
+    add_external_environments_cli_args,
+    add_isaac_lab_cli_args,
+    add_isaaclab_arena_cli_args,
+    arena_env_builder_cfg_from_argparse,
+)
 from isaaclab_arena_environments.cli import (
     add_environment_cli_args,
     build_environment_from_cli,
@@ -88,16 +93,13 @@ def environment_registration_callback() -> list[str]:
     if not is_simulation_app_running():
         parser = argparse.ArgumentParser()
         AppLauncher.add_app_launcher_args(parser)
+        add_isaac_lab_cli_args(parser)
+        add_isaaclab_arena_cli_args(parser)
         args, _ = parser.parse_known_args()
         AppLauncher(args)
     _purge_leaked_isaaclab_assets_presets()
 
     # Imports after the simulation app is started.
-    from isaaclab_arena.cli.isaaclab_arena_cli import (
-        add_external_environments_cli_args,
-        add_isaac_lab_cli_args,
-        add_isaaclab_arena_cli_args,
-    )
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.variations.variations_hydra import split_variation_overrides
 

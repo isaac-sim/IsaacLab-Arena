@@ -15,10 +15,16 @@ on:
     - cron: '0 6 * * *'
   workflow_dispatch:
 
-# Concurrency control to prevent parallel runs on the same PR
+# Concurrency control differs by how the run was triggered:
+# - PR: a new push cancels the older run of the same PR.
+# - POST-MERGE: a running job is never interrupted. GitHub keeps at most one
+#   pending run per group, so a newer push to main replaces any older pending
+#   run. The pending run starts once the current one finishes and checks out
+#   the newest main, so no merged change is missing from the published image.
+# - NIGHTLY: has its own group, so merges neither cancel nor replace it.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -42,6 +48,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
+    outputs:
+      needs_docker_ci: ${{ steps.needs_docker_ci.outputs.needs_docker_ci }}
 
     container:
       image: python:3.11-slim
@@ -51,6 +59,19 @@ jobs:
       SKIP: check-executables-have-shebangs
 
     steps:
+      # Detect whether a pull request contains only documentation changes.
+      - name: Detect changes requiring Docker CI
+        id: needs_docker_ci
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            needs_docker_ci:
+              - '!docs/**'
+              - '!*.md'
+              - '!skills/**/*.md'
+
       - &install_git_step
         name: Install git (and tools needed by hooks)
         run: |
@@ -112,6 +133,8 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [pre_commit]
+    # Skip this job and its dependents when a PR only contains doc changes.
+    if: github.event_name != 'pull_request' || needs.pre_commit.outputs.needs_docker_ci != 'false'
     container:
       image: ubuntu:24.04
     env:
@@ -167,7 +190,10 @@ jobs:
           file: docker/Dockerfile.isaaclab_arena
           target: ${{ env.ARENA_TARGET }}
           platforms: linux/amd64
-          build-args: WORKDIR=/workspaces/isaaclab_arena
+          build-args: |
+            WORKDIR=/workspaces/isaaclab_arena
+            GIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}
+            GIT_BRANCH=${{ github.head_ref || github.ref_name }}
           pull: true
           push: true
           # Keep candidate images as single-platform manifests for NGC.
@@ -223,24 +249,10 @@ jobs:
           echo "Built ${ARENA_TARGET}: ${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
 
 
-  build_curobo_image:
-    name: Build Arena cuRobo image
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 120
-    needs: [pre_commit]
-    container:
-      image: ubuntu:24.04
-    env:
-      ARENA_TARGET: dev-curobo
-    outputs:
-      image: ${{ steps.image.outputs.ref }}
-    steps: *build_and_push_image_steps
-
-
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 80
+    timeout-minutes: 100
     needs: [build_and_push_image]
     env:
       ARENA_INFERENCE_ENDPOINT: public
@@ -273,12 +285,13 @@ jobs:
         name: Install project and link isaac-sim
         run: |
           # Test the checkout against the dependencies baked into this run's image.
-          /isaac-sim/python.sh -m pip install --no-deps --no-build-isolation -e .
+          uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - &setup_isaac_sim_kit_cache_step
-        name: Setup Isaac Sim kit cache (shader warmup on miss)
-        uses: ./.github/actions/setup-isaac-sim-kit-cache
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        with:
+          cache-name: tests
 
       # Run the tests.
       #
@@ -297,28 +310,36 @@ jobs:
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
       - name: Run in-process Newton tests without cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process Newton tests with cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/ \
+            isaaclab_arena_benchmarking/tests/ \
+            isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/ \
+            isaaclab_arena_vlm_agent/tests/
 
       - name: Run GR00T policy client & data tests (lightweight gr00t deps only)
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_policy \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_policy \
             isaaclab_arena_gr00t/tests/
+
+      - name: Run cuRobo IK reachability tests
+        run: |
+          MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
+            isaaclab_arena_curobo/tests/
 
 
   tests_with_subprocess:
@@ -344,7 +365,10 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
-      - *setup_isaac_sim_kit_cache_step
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        with:
+          cache-name: tests_with_subprocess
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
@@ -352,13 +376,13 @@ jobs:
       - name: Run subprocess-spawning Newton tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_newton and with_subprocess" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
 
@@ -435,12 +459,14 @@ jobs:
       - name: Install project and link isaac-sim
         if: steps.gr00t_cuda.outputs.enabled == 'true'
         run: |
-          /isaac-sim/python.sh -m pip install --no-deps --no-build-isolation -e .
+          uv pip install --no-deps --no-build-isolation --editable .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - name: Setup Isaac Sim kit cache (shader warmup on miss)
+      - name: Setup caches
         if: steps.gr00t_cuda.outputs.enabled == 'true'
-        uses: ./.github/actions/setup-isaac-sim-kit-cache
+        uses: ./.github/actions/setup-caches
+        with:
+          cache-name: gr00t
 
       # The GR00T server post-trains a tiny checkpoint before loading it. Its
       # entrypoint waits for the LFS-backed dataset media fetched above before
@@ -452,7 +478,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          /isaac-sim/python.sh -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
+          isaaclab.sh -p -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
             --host "${GR00T_REMOTE_HOST}" \
             --port "${GR00T_REMOTE_PORT}" \
             --timeout-sec 1200 \
@@ -462,62 +488,71 @@ jobs:
       - name: Run GR00T remote closed-loop policy runner test
         if: steps.gr00t_cuda.outputs.enabled == 'true'
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_remote_e2e \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_remote_e2e \
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
-
-
-  test_curobo_deps:
-    name: cuRobo deps check
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 30
-    needs: [build_curobo_image]
-
-    container:
-      image: ${{ needs.build_curobo_image.outputs.image }}
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-
-    steps:
-      - *nvidia_smi
-      - *lscpu
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_project_step
-
-      - name: Run cuRobo dependency check
-        run: |
-          MPLCONFIGDIR=/tmp/mpl /isaac-sim/python.sh -m pytest -sv --durations=0 -m curobo_deps \
-            isaaclab_arena_curobo/tests/
-
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
-    needs: [pre_commit]
+    needs: [pre_commit, build_and_push_image]
+    # Docs-only PRs skip the image build; their docs build in the latest published main image.
+    if: ${{ !cancelled() && needs.pre_commit.result == 'success' && needs.build_and_push_image.result != 'failure' }}
 
     container:
-      image: python:3.11-slim
+      image: ${{ needs.build_and_push_image.outputs.image || 'nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest' }}
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
 
     steps:
       # Setup.
       - *install_git_step
-      - *mark_repo_safe_step
       - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *install_project_step
 
+      - name: Build docs
+        working-directory: ./docs
+        run: make SPHINXOPTS=-W html
+
+  deploy_docs_post_merge:
+    name: Deploy the docs (post-merge)
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 30
+    needs: [build_and_push_image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    container:
+      image: ${{ needs.build_and_push_image.outputs.image }}
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    steps:
+      - *install_git_step
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
+          fetch-tags: true
+      - *mark_repo_safe_step
 
-      # Build docs for the current branch (validates PR changes)
       - name: Build docs
         working-directory: ./docs
         run: |
-          pip3 install -r requirements.txt
-          make SPHINXOPTS=-W html
+          make SPHINXOPTS=-W multi-docs
+          touch ./_build/.nojekyll
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/_build
 
   build_and_push_image_post_merge:
     name: Publish tested NGC image (post-merge)
@@ -537,24 +572,3 @@ jobs:
         run: |
           docker buildx imagetools create --prefer-index=false \
             --tag "${ARENA_IMAGE}:latest" "$CANDIDATE_IMAGE"
-
-
-  build_and_push_curobo_image_post_merge:
-    name: Publish tested cuRobo NGC image (post-merge)
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 15
-    # A cuRobo failure must not block the base image's publication.
-    needs: [build_curobo_image, test, test_curobo_deps]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    container:
-      image: ubuntu:24.04
-    env:
-      CANDIDATE_IMAGE: ${{ needs.build_curobo_image.outputs.image }}
-
-    steps:
-      - *install_docker_step
-      - *docker_login_ngc_step
-      - name: Publish the tested cuRobo image without rebuilding
-        run: |
-          docker buildx imagetools create --prefer-index=false \
-            --tag "${ARENA_IMAGE}:curobo" "$CANDIDATE_IMAGE"

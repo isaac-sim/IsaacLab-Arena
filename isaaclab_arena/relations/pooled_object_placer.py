@@ -9,15 +9,31 @@ import torch
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+from isaaclab_arena.relations.geometry.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.utils.random import get_rngs
+from isaaclab_arena.utils.random import derive_seed, get_rngs
+from isaaclab_arena.utils.timer import Timer
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
+
+class PlacementPoolFillError(RuntimeError):
+    """A fill of a placement pool ended with too few layouts for some environment."""
+
+    def __init__(self, message: str, diagnostics: PlacementDiagnostics) -> None:
+        """Create the error.
+
+        Args:
+            message: Description of the failure, with a summary of the diagnostics.
+            diagnostics: Diagnostics of the failed fill, with every batch it validated.
+        """
+        super().__init__(message)
+        self.diagnostics = diagnostics
 
 
 @dataclass
@@ -90,9 +106,10 @@ class PooledObjectPlacer:
         self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
         self._pool_size = pool_size
         self._had_fallbacks = False
+        self._last_fill_diagnostics = PlacementDiagnostics(self._num_envs)
         self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks
         self._base_placement_seed = placer_params.placement_seed
-        self._next_seed_offset = 0
+        self._num_seeded_solves = 0
         # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
         # and independent of other envs.
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
@@ -123,12 +140,21 @@ class PooledObjectPlacer:
         for pool in self._env_pools:
             pool.discard_consumed()
 
-    def _prepare_seeded_solve(self, num_candidates: int) -> None:
-        """Avoid replaying the same candidate sequence on seeded refills."""
+    def _prepare_seeded_solve(self) -> None:
+        """Give each seeded refill its own placement seed, so it neither replays this pool nor another seed's pool.
+
+        The first solve keeps the base seed. Later solves derive the seed from (base seed, solve index) rather than
+        offsetting it, which would reuse the first batch of a nearby base seed.
+        """
         if self._base_placement_seed is None:
             return
-        self._placer.params.placement_seed = self._base_placement_seed + self._next_seed_offset
-        self._next_seed_offset += num_candidates
+        if self._num_seeded_solves == 0:
+            self._placer.params.placement_seed = self._base_placement_seed
+        else:
+            self._placer.params.placement_seed = derive_seed(
+                self._base_placement_seed, "pool_refill", self._num_seeded_solves
+            )
+        self._num_seeded_solves += 1
 
     def _solve_and_store(self, num_layouts: int) -> None:
         """Solve and store layouts until every env has target_num_layouts_per_env unread layouts.
@@ -136,6 +162,7 @@ class PooledObjectPlacer:
         Bounded by max_placement_attempts; raises if the target cannot be met.
         """
         self._discard_consumed_layouts()
+        self._last_fill_diagnostics = PlacementDiagnostics(self._num_envs)
         target_num_layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         max_solve_batches = max(1, self._placer.params.max_placement_attempts)
 
@@ -146,7 +173,9 @@ class PooledObjectPlacer:
 
             batch_size = max_missing * self._num_envs
             allow_fallback = self._allow_best_loss_fallbacks and batch_idx == max_solve_batches - 1
-            ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
+            with Timer("placement"):
+                ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
+            self._last_fill_diagnostics.batches.append(self._placer.last_batch_validation_diagnostics)
             self._store_env_matched_results(
                 ranked_results_per_env,
                 layouts_per_env,
@@ -157,9 +186,11 @@ class PooledObjectPlacer:
             if min(self._available_per_env()) >= target_num_layouts_per_env:
                 return
 
-        raise RuntimeError(
+        raise PlacementPoolFillError(
             f"Placement pool could not fill {target_num_layouts_per_env} layouts per env after "
-            f"{max_solve_batches} solve batches. Available per env: {self._available_per_env()}."
+            f"{max_solve_batches} solve batches. Available per env: {self._available_per_env()}.\n"
+            f"{self._last_fill_diagnostics.format_summary()}",
+            self._last_fill_diagnostics,
         )
 
     def _solve_env_ranked_layouts(self, num_layouts: int) -> tuple[list[list[PlacementResult]], int]:
@@ -170,10 +201,7 @@ class PooledObjectPlacer:
         environments.
         """
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
-        # ObjectPlacer seeds each candidate as placement_seed + candidate_idx.
-        # Keep this count aligned with place_ranked_per_env's candidate layout.
-        num_candidates = self._num_envs * layouts_per_env * self._placer.params.max_placement_attempts
-        self._prepare_seeded_solve(num_candidates)
+        self._prepare_seeded_solve()
 
         with torch.inference_mode(False):
             ranked_results_per_env = self._placer.place_ranked_per_env(
@@ -194,28 +222,32 @@ class PooledObjectPlacer:
     ) -> None:
         """Store each env's results into its pool, up to target_num_layouts_per_env unread layouts.
 
-        Valid layouts are preferred; when allow_fallback is set, an env with no
-        valid layout keeps its best-loss results instead of staying empty.
-        An env that has at least one valid layout never falls back to best-loss,
-        even if it has fewer valid layouts than target_num_layouts_per_env.
+        Valid layouts are stored first; when allow_fallback is set, an env that is
+        still short of target_num_layouts_per_env fills its remaining slots with
+        the batch's best-ranked invalid results.
         """
         fallback_envs = []
         for cur_env in range(self._num_envs):
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
             valid_results = [r for r in env_results if r.success]
             missing = target_num_layouts_per_env - self._env_pools[cur_env].available
-            if valid_results:
-                if missing > 0:
-                    self._env_pools[cur_env].extend(valid_results[:missing])
-            elif allow_fallback and missing > 0:
-                fallback = env_results[:missing]
+            if missing > 0:
+                self._env_pools[cur_env].extend(valid_results[:missing])
+            missing_after_valid = missing - len(valid_results)
+            if allow_fallback and missing_after_valid > 0:
+                fallback = [r for r in env_results if not r.success][:missing_after_valid]
                 if fallback:
                     self._env_pools[cur_env].extend(fallback)
                     fallback_envs.append(cur_env)
                     self._had_fallbacks = True
 
+        self._last_fill_diagnostics.fallback_envs.extend(fallback_envs)
+
         if fallback_envs:
-            print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
+            print(
+                f"Falling back to best-loss layouts for envs: {fallback_envs}. Placement diagnostics of this fill:\n"
+                f"{self._last_fill_diagnostics.format_summary()}"
+            )
 
     # ------------------------------------------------------------------
     # Public API
@@ -278,6 +310,11 @@ class PooledObjectPlacer:
     def had_fallbacks(self) -> bool:
         """Whether any pool refill accepted best-loss layouts that failed strict validation."""
         return self._had_fallbacks
+
+    @property
+    def last_fill_diagnostics(self) -> PlacementDiagnostics:
+        """How the most recent fill went: the batches it validated and the environments given best-loss layouts."""
+        return self._last_fill_diagnostics
 
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
         """Pick count layouts at random with replacement (non-consuming).

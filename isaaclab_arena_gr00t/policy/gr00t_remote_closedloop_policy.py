@@ -20,16 +20,16 @@ from typing import Any
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
+from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import (
+    import_gr00t_embodiment_adapter_class,
+)
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyCfg,
-    build_gr00t_action_tensor,
     build_gr00t_policy_observations,
-    compute_action_dim,
-    extract_obs_numpy_from_torch,
-    load_gr00t_joint_configs,
+    extract_rgb_numpy_from_torch,
 )
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
+from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file, to_tensor
 
 
 class ActionSchedulerType(str, Enum):
@@ -81,6 +81,19 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
     name = "gr00t_remote_closedloop"
 
+    @classmethod
+    def default_image_size(cls, config: Gr00tRemoteClosedloopPolicyCfg) -> tuple[int, int]:
+        """Return twice the (height, width) the GR00T policy config pads and resizes camera images to.
+
+        GR00T's preprocessing pads each frame to a square and resizes it to ``target_image_size``, but skips
+        both when the frame already has that size. Fitting cameras into twice the target keeps that step
+        running, so the policy sees the same padded view as with full-resolution cameras at a quarter of
+        the pixels.
+        """
+        policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyCfg)
+        height, width = policy_config.target_image_size[:2]
+        return 2 * int(height), 2 * int(width)
+
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
         super().__init__(config)
 
@@ -93,22 +106,18 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         )
         self.num_envs = config.num_envs
         self.device = config.policy_device
-        self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
-        # Joint configs (for sim from/to policy joint space remapping)
-        (
-            self.policy_joints_config,
-            self.robot_action_joints_config,
-            self.robot_state_joints_config,
-        ) = load_gr00t_joint_configs(self.policy_config)
+        # Embodiment adapter (Arena observations/actions to and from GR00T state/action dicts)
+        adapter_type = import_gr00t_embodiment_adapter_class(self.policy_config.gr00t_embodiment_adapter)
+        self.embodiment_adapter = adapter_type()
 
         self.modality_configs = load_gr00t_modality_config_from_file(
             self.policy_config.modality_config_path,
-            self.policy_config.embodiment_tag,
+            self.embodiment_adapter.embodiment_tag,
         )
 
         # Action / chunk shapes
-        self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
+        self.action_dim = self.embodiment_adapter.action_dim
         self.action_chunk_length = self.policy_config.action_chunk_length
 
         self._chunking_state: ActionScheduler | None = action_scheduler_cls(
@@ -160,15 +169,9 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         )
 
     def _extract_hold_action(self, observation: dict[str, Any]) -> torch.Tensor:
-        """Build the action vector that waiting envs should hold: their current sim joint positions
-        copied into the action slots that share a joint name with the state config."""
-        joint_pos_sim = observation["policy"]["robot_joint_pos"].to(device=self.device, dtype=torch.float)
-        hold_action = torch.zeros((self.num_envs, self.action_dim), dtype=torch.float, device=self.device)
-        for joint_name, action_idx in self.robot_action_joints_config.items():
-            state_idx = self.robot_state_joints_config.get(joint_name)
-            if state_idx is not None:
-                hold_action[:, action_idx] = joint_pos_sim[:, state_idx]
-        return hold_action
+        """Build the (num_envs, action_dim) action that holds waiting envs at their current state."""
+        hold_action = self.embodiment_adapter.build_hold_action(observation)
+        return hold_action.to(device=self.device, dtype=torch.float)
 
     def _get_action_chunk(
         self, observation: dict[str, Any], camera_names: list[str] | str = "robot_head_cam_rgb"
@@ -183,14 +186,13 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         # 1. Reuse the same obs translation as local policy
         assert self.task_description is not None, "Task description is not set"
         assert self._client is not None, "GR00T remote policy has been closed"
-        rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(nested_obs=observation, camera_names=camera_names)
+        rgb_list_np = extract_rgb_numpy_from_torch(nested_obs=observation, camera_names=camera_names)
+        state_np = self.embodiment_adapter.extract_state_np(observation)
         policy_observations = build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
-            joint_pos_sim_np=joint_pos_sim_np,
+            state_np=state_np,
             task_description=self.task_description,
             policy_config=self.policy_config,
-            robot_state_joints_config=self.robot_state_joints_config,
-            policy_joints_config=self.policy_joints_config,
             modality_configs=self.modality_configs,
         )
 
@@ -198,16 +200,13 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         robot_action_policy, _ = self._client.get_action(policy_observations)
 
         # 3. Action translation from policy output to sim action tensor
-        action_tensor = build_gr00t_action_tensor(
-            robot_action_policy=robot_action_policy,
-            task_mode=self.task_mode,
-            policy_joints_config=self.policy_joints_config,
-            robot_action_joints_config=self.robot_action_joints_config,
-            device=self.device,
-            embodiment_tag=self.policy_config.embodiment_tag,
-        )
+        action_tensor = to_tensor(self.embodiment_adapter.build_action_np(robot_action_policy), self.device)
 
         assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.action_chunk_length
+        assert action_tensor.shape[2] == self.action_dim, (
+            f"{type(self.embodiment_adapter).__name__}.build_action_np returned width {action_tensor.shape[2]},"
+            f" expected action_dim {self.action_dim}"
+        )
         return action_tensor
 
     def reset(self, env_ids: torch.Tensor | None = None):

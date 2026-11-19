@@ -6,16 +6,14 @@
 from __future__ import annotations
 
 import math
-import torch
+from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, TypeVar
 
-from isaaclab.utils.math import euler_xyz_from_quat
-
-from isaaclab_arena.assets.register import agent_ready, register_object_relation
+from isaaclab_arena.assets.register import register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.relations.axis import Axis
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -88,6 +86,14 @@ class FaceTo(RelationBase):
 
     This orientation relation does not constrain either object's position. The
     subject's XY position must differ from the target's.
+
+    Validation:
+        The ``face_to`` check rejects a subject at the target's XY position.
+
+    Restrictions:
+        - A subject can have only one ``FaceTo``, cannot be an anchor, and cannot also use
+          ``RotateAroundSolution``.
+        - The target must also be placed by relations.
     """
 
     name = "face_to"
@@ -115,32 +121,65 @@ class FaceTo(RelationBase):
             isinstance(relation, RotateAroundSolution) for relation in subject.get_relations()
         ), f"Object '{subject.name}' cannot combine FaceTo with RotateAroundSolution."
 
-        subject_randomization = next(
-            (relation for relation in subject.get_relations() if isinstance(relation, RandomAroundSolution)), None
-        )
-        if subject_randomization is not None:
-            assert (
-                subject_randomization.x_half_m == 0.0 and subject_randomization.y_half_m == 0.0
-            ), f"Object '{subject.name}' cannot randomize XY while using FaceTo."
 
-        parent_randomization = next(
-            (relation for relation in self.parent.get_relations() if isinstance(relation, RandomAroundSolution)), None
-        )
-        if parent_randomization is not None:
-            assert (
-                parent_randomization.x_half_m == 0.0 and parent_randomization.y_half_m == 0.0
-            ), f"FaceTo parent '{self.parent.name}' cannot randomize XY."
+@register_object_relation
+class AlignWith(Relation):
+    """Align bounding-box centres along one world axis, within a band, leaving other axes unconstrained.
+
+    Validation:
+        The ``align_with`` check rejects a centre error along ``axis`` above ``tolerance_m``.
+
+    Restrictions:
+        - The subject cannot be an anchor, and the reference must be a different asset placed by relations.
+        - With ``FaceTo`` on the subject or reference, X or Y alignment requires that asset's placement-box
+          centre to lie on its yaw axis.
+    """
+
+    name = "align_with"
+
+    def __init__(
+        self,
+        parent: PlaceableAsset,
+        axis: Axis | str,
+        offset_m: float = 0.0,
+        tolerance_m: float = 0.02,
+        relation_loss_weight: float = 1.0,
+    ):
+        """
+        Args:
+            parent: Reference asset participating in placement.
+            axis: World axis to align, one of ``x``, ``y``, or ``z``.
+            offset_m: Signed subject-minus-reference centre displacement along that axis.
+            tolerance_m: Zero-penalty alignment band and maximum error accepted by placement validation.
+            relation_loss_weight: Weight of the alignment objective during solving.
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert math.isfinite(offset_m), "offset_m must be finite"
+        assert math.isfinite(tolerance_m) and tolerance_m >= 0, "tolerance_m must be finite and non-negative"
+        assert math.isfinite(relation_loss_weight) and relation_loss_weight > 0, "Alignment weight must be positive"
+        self.axis = Axis(axis)
+        self.offset_m = offset_m
+        self.tolerance_m = tolerance_m
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Require a movable subject and a distinct reference that participates in placement."""
+        assert self.parent is not subject, "AlignWith requires a different reference asset"
+        assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have an AlignWith relation"
+        assert self.parent in objects, f"AlignWith reference '{self.parent.name}' must participate in placement"
 
 
-@agent_ready
 @register_object_relation
 class NextTo(Relation):
-    """Represents a 'next to' relationship between objects.
+    """Indicates that an object should be placed next to a parent object, on a specified side.
 
     This relation specifies that a child object should be placed adjacent to
-    the parent object on a specified side, at a given distance.
+    the parent object on a specified side, at a given distance. The gap may be anywhere within
+    ``tolerance_m`` of ``distance_m``.
 
-    Note: Loss computation is handled by NextToLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by NextToLossStrategy in optimization/losses/relation_loss_strategies.py.
+
+    Validation:
+        The ``next_to`` check rejects the wrong side or a gap error above ``tolerance_m``.
     """
 
     name = "next_to"
@@ -151,7 +190,7 @@ class NextTo(Relation):
         side: Side | str,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        cross_position_ratio: float = 0.0,
+        cross_position_ratio: float | None = None,
         tolerance_m: float = 1e-2,
     ):
         """
@@ -164,16 +203,17 @@ class NextTo(Relation):
                 (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
                 the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
-                Default: 0.0 (centered).
-            tolerance_m: Slack (meters) for placement validation: the child passes when its side and
-                distance violations are each within this value. Raise it to accept the side but care
-                less about the exact distance. cross_position_ratio is a soft preference, not gated.
+                Default: None (any position within the valid cross-axis range).
+                Set 0.0 explicitly to prefer centering.
+            tolerance_m: Allowed gap error in meters. The solver treats any gap within this value of
+                distance_m as satisfied, and validation passes when the side and distance violations
+                are each within it. cross_position_ratio is a soft preference, not gated.
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
         assert (
-            -1.0 <= cross_position_ratio <= 1.0
-        ), f"cross_position_ratio must be in [-1, 1], got {cross_position_ratio}"
+            cross_position_ratio is None or -1.0 <= cross_position_ratio <= 1.0
+        ), f"cross_position_ratio must be None or in [-1, 1], got {cross_position_ratio}"
         assert tolerance_m >= 0.0, f"tolerance_m must be non-negative, got {tolerance_m}"
         self.distance_m = distance_m
         self.side = Side(side)
@@ -181,10 +221,9 @@ class NextTo(Relation):
         self.tolerance_m = tolerance_m
 
 
-@agent_ready
 @register_object_relation
 class On(Relation):
-    """Represents an 'on top of' relationship between objects.
+    """Indicates that an object should be placed on top of a parent object.
 
     This relation specifies that a child object should be placed on top of
     the parent object, with X/Y bounded within the parent's extent (optionally
@@ -194,7 +233,10 @@ class On(Relation):
 
     Note: Footprint overlap does not guarantee stable support; the child may tip or fall.
 
-    Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by OnLossStrategy in optimization/losses/relation_loss_strategies.py.
+
+    Validation:
+        The ``on_relation`` check rejects a child off the parent's top or outside its footprint.
     """
 
     name = "on"
@@ -233,15 +275,24 @@ class On(Relation):
 
 @register_object_relation
 class ClutterOn(On):
-    """An object above its support, with its footprint inside the release region.
+    """Indicates that an object should be dropped on top of a parent object.
 
     The object's bottom must clear the support surface; contact is not required.
     The support may be an anchor or positioned jointly through its own relations.
+
+    Validation:
+        The ``clutter_on_relation`` check rejects a footprint outside the release region or too little clearance.
+
+    Restrictions:
+        - It must be the object's only spatial relation; ``RotateAroundSolution`` may set its base rotation.
+        - Roll or pitch requires ``collision_mode="bbox"`` on the object; ``mesh`` supports yaw only.
+        - The support must be placed by relations and cannot itself use ``ClutterOn``. It must stay upright, with
+          a fixed yaw that is a multiple of 90 degrees, so a movable support cannot use ``FaceTo`` or
+          ``ObjectPlacerParams.random_yaw_init``.
+        - For recording, other objects with placement relations must be anchors or kinematic rigid bodies.
     """
 
     name = "clutter_on"
-    agent_ready = False
-    """Excluded from agentic generation; overrides On's inherited opt-in."""
 
     def __init__(
         self,
@@ -253,8 +304,7 @@ class ClutterOn(On):
         edge_margin_m: float = 0.0,
         relation_loss_weight: float = 1.0,
     ):
-        """Declare a clutter release.
-
+        """
         Args:
             parent: Support fixed with IsAnchor or positioned through its own relations.
             spread: Fraction of support width and depth available for release, centered on the support.
@@ -301,16 +351,10 @@ class ClutterOn(On):
         assert get_relation(self.parent, ClutterOn) is None, "Nested ClutterOn supports are unsupported"
         assert not subject.is_anchor, "ClutterOn cannot be an anchor"
         assert subject.get_spatial_relations() == [self], "ClutterOn must be the object's only spatial relation"
-        assert not any(
-            isinstance(r, RandomAroundSolution) for r in subject.get_relations()
-        ), "ClutterOn cannot randomize a release after collision validation"
 
         support = self.parent
         if not support.is_anchor:
             assert get_relation(support, FaceTo) is None, f"ClutterOn support '{support.name}' cannot use FaceTo"
-            assert (
-                get_relation(support, RandomAroundSolution) is None
-            ), f"ClutterOn support '{support.name}' cannot randomize after placement validation"
             rotation = get_relation(support, RotateAroundSolution)
             if rotation is not None:
                 # Release regions require axis-aligned support bounds.
@@ -320,7 +364,6 @@ class ClutterOn(On):
                     raise AssertionError(f"ClutterOn support '{support.name}': {error}") from error
 
 
-@agent_ready
 @register_object_relation
 class NotNextTo(Relation):
     """Forbids placing the child next to the parent on the given side.
@@ -330,7 +373,10 @@ class NotNextTo(Relation):
     all of ``+Y`` past the ``+Y`` edge, clipped to the parent's ``X`` extent).
     Anywhere off to either side of that footprint stays free, at any distance.
 
-    Note: Loss computation is handled by NotNextToLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by NotNextToLossStrategy in optimization/losses/relation_loss_strategies.py.
+
+    Validation:
+        The ``not_next_to`` check rejects a child that has not cleared the blocked region.
     """
 
     name = "not_next_to"
@@ -356,24 +402,22 @@ class NotNextTo(Relation):
         self.tolerance_m = tolerance_m
 
 
-@agent_ready
 @register_object_relation
 class IsAnchor(RelationBase):
-    """Marker indicating this object is an anchor for relation solving.
+    """Indicates that this object is an anchor (unmovable) for relation solving.
 
     Anchor objects are fixed references that won't be optimized during
     relation solving. Multiple objects can be marked as anchors.
     Each anchor must have an initial_pose set before calling ObjectPlacer.place().
 
-    Usage:
-        table.set_initial_pose(Pose(position_xyz=(1.0, 0.0, 0.0), ...))
-        table.add_relation(IsAnchor())  # Mark as anchor
+    Validation:
+        None; anchors are not moved.
 
-        chair.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), ...))
-        chair.add_relation(IsAnchor())  # Another anchor
-
-        mug.add_relation(On(table))
-        bin.add_relation(NextTo(chair, side=Side.POSITIVE_X))
+    Restrictions:
+        - The anchor's root rotation must be a multiple of 90 degrees about world Z, with no tilt. For an
+          ``ObjectReference``, this applies to its parent asset's pose.
+        - A background with mesh collision cannot have relations, ``IsAnchor`` included. Anchor an
+          ``ObjectReference`` to its support prim instead.
     """
 
     name = "is_anchor"
@@ -386,12 +430,13 @@ class IsAnchor(RelationBase):
 
 @register_object_relation
 class RequiresReachability(RelationBase):
-    """Indicates the robot shall be able to reach this object.
+    """Indicates that the robot must be able to reach this object.
 
     It does not affect placement geometry during optimization, but rejects unreachable placements.
 
-    Usage:
-        banana.add_relation(RequiresReachability())  # IK-check reachability of the banana
+    Validation:
+        The ``ik_reachable`` check rejects placements the robot cannot reach. It runs only when the
+        embodiment has a cuRobo config.
     """
 
     name = "requires_reachability"
@@ -403,106 +448,8 @@ class RequiresReachability(RelationBase):
 
 
 @register_object_relation
-class RandomAroundSolution(RelationBase):
-    """Marker indicating the solver solution should be used as center of a PoseRange.
-
-    When ObjectPlacer applies positions, objects with this marker will get a PoseRange
-    (enabling randomization at environment reset) instead of a fixed Pose.
-
-    The half extents define a box centered on the solved position. At each environment
-    reset, a random position within this box will be sampled.
-
-    Note: This is NOT a spatial relation - the RelationSolver ignores it. It only
-    affects how ObjectPlacer applies the solved position to the object.
-
-    Usage:
-        box.add_relation(On(desk))
-        box.add_relation(RandomAroundSolution(x_half_m=0.1, y_half_m=0.1))
-        # -> ObjectPlacer sets a PoseRange spanning ±0.1m in X and Y around solved position
-    """
-
-    name = "random_around_solution"
-
-    @staticmethod
-    def is_unary() -> bool:
-        """Return whether the relation constrains a single object."""
-        return True
-
-    def __init__(
-        self,
-        x_half_m: float = 0.0,
-        y_half_m: float = 0.0,
-        z_half_m: float = 0.0,
-        roll_half_rad: float = 0.0,
-        pitch_half_rad: float = 0.0,
-        yaw_half_rad: float = 0.0,
-    ):
-        """
-        Args:
-            x_half_m: Half-extent in X direction (meters). Position will be randomized ±x_half_m.
-            y_half_m: Half-extent in Y direction (meters). Position will be randomized ±y_half_m.
-            z_half_m: Half-extent in Z direction (meters). Position will be randomized ±z_half_m.
-            roll_half_rad: Half-extent for roll (radians). Rotation will be randomized ±roll_half_rad.
-            pitch_half_rad: Half-extent for pitch (radians). Rotation will be randomized ±pitch_half_rad.
-            yaw_half_rad: Half-extent for yaw (radians). Rotation will be randomized ±yaw_half_rad.
-        """
-        self.x_half_m = x_half_m
-        self.y_half_m = y_half_m
-        self.z_half_m = z_half_m
-        self.roll_half_rad = roll_half_rad
-        self.pitch_half_rad = pitch_half_rad
-        self.yaw_half_rad = yaw_half_rad
-
-    def to_pose_range_centered_at(
-        self,
-        position: tuple[float, float, float],
-        rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
-    ) -> PoseRange:
-        """Create a PoseRange centered on the given position and rotation.
-
-        Args:
-            position: Center position (x, y, z) for the range.
-            rotation_xyzw: Center rotation as quaternion (x, y, z, w) for the range.
-                Defaults to identity quaternion.
-
-        Returns:
-            PoseRange spanning ± half-extents around the position and rotation.
-        """
-        # Convert quaternion to euler angles (roll, pitch, yaw)
-        quat_tensor = torch.tensor([rotation_xyzw])
-        roll, pitch, yaw = euler_xyz_from_quat(quat_tensor)
-        center_roll = float(roll[0])
-        center_pitch = float(pitch[0])
-        center_yaw = float(yaw[0])
-
-        return PoseRange(
-            position_xyz_min=(
-                position[0] - self.x_half_m,
-                position[1] - self.y_half_m,
-                position[2] - self.z_half_m,
-            ),
-            position_xyz_max=(
-                position[0] + self.x_half_m,
-                position[1] + self.y_half_m,
-                position[2] + self.z_half_m,
-            ),
-            rpy_min=(
-                center_roll - self.roll_half_rad,
-                center_pitch - self.pitch_half_rad,
-                center_yaw - self.yaw_half_rad,
-            ),
-            rpy_max=(
-                center_roll + self.roll_half_rad,
-                center_pitch + self.pitch_half_rad,
-                center_yaw + self.yaw_half_rad,
-            ),
-        )
-
-
-@agent_ready
-@register_object_relation
 class RotateAroundSolution(RelationBase):
-    """Marker specifying an explicit rotation to apply on top of the solver solution.
+    """Specifies an explicit rotation to apply on top of the solver solution.
 
     When ObjectPlacer applies positions, objects with this marker will have the
     specified rotation applied on top of the solved position to create a fixed Pose.
@@ -510,11 +457,8 @@ class RotateAroundSolution(RelationBase):
     Note: This is NOT a spatial relation - the RelationSolver ignores it. It only
     affects how ObjectPlacer applies the solved position to the object.
 
-    Usage:
-        import math
-        box.add_relation(On(desk))
-        box.add_relation(RotateAroundSolution(yaw_rad=math.pi / 4))
-        # -> ObjectPlacer sets a Pose with solved position and 45° yaw rotation
+    Validation:
+        None.
     """
 
     name = "rotate_around_solution"
@@ -566,12 +510,10 @@ class AtPosition(UnaryRelation):
     unconstrained by this relation (allowing other relations like On to
     control that axis).
 
-    Note: Loss computation is handled by AtPositionLossStrategy in relation_loss_strategies.py.
+    Note: Loss computation is handled by AtPositionLossStrategy in optimization/losses/relation_loss_strategies.py.
 
-    Usage:
-        # Pin object to x=0.5, y=1.0 in world coords (z controlled by On relation)
-        mug.add_relation(On(table))
-        mug.add_relation(AtPosition(x=0.5, y=1.0))
+    Validation:
+        None; a solver objective only.
     """
 
     name = "at_position"
@@ -603,40 +545,39 @@ class AtPosition(UnaryRelation):
 class PositionLimitsBox(UnaryRelation):
     """Constrains an object's position to an axis-aligned box in world coordinates.
 
-    Each axis bound is independently optional (None = unconstrained).
+    Specify each axis as a (minimum, maximum) pair; None leaves that bound
+    unconstrained. Omitted axes are unconstrained.
 
-    Usage:
-        mug.add_relation(PositionLimitsBox(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
-        mug.add_relation(PositionLimitsBox(z_min=0.8))  # only constrain Z
+    Validation:
+        None; a solver objective only.
     """
 
     name = "position_limits_box"
 
     def __init__(
         self,
-        x_min: float | None = None,
-        x_max: float | None = None,
-        y_min: float | None = None,
-        y_max: float | None = None,
-        z_min: float | None = None,
-        z_max: float | None = None,
+        x_limits: Sequence[float | None] = (None, None),
+        y_limits: Sequence[float | None] = (None, None),
+        z_limits: Sequence[float | None] = (None, None),
         relation_loss_weight: float = 1.0,
     ):
+        """
+        Args:
+            x_limits: (minimum, maximum) world x, either None for no bound.
+            y_limits: (minimum, maximum) world y, either None for no bound.
+            z_limits: (minimum, maximum) world z, either None for no bound.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
+        for axis, limits in (("x", x_limits), ("y", y_limits), ("z", z_limits)):
+            assert len(limits) == 2, f"{axis}_limits must contain a minimum and maximum"
+            lower, upper = limits
+            assert lower is None or upper is None or lower < upper, f"{axis}_limits minimum must be less than maximum"
         assert any(
-            bound is not None for bound in (x_min, x_max, y_min, y_max, z_min, z_max)
+            bound is not None for bound in (*x_limits, *y_limits, *z_limits)
         ), "At least one axis bound must be specified for PositionLimitsBox"
-        if x_min is not None and x_max is not None:
-            assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
-        if y_min is not None and y_max is not None:
-            assert y_min < y_max, f"y_min must be less than y_max, got y_min={y_min}, y_max={y_max}"
-        if z_min is not None and z_max is not None:
-            assert z_min < z_max, f"z_min must be less than z_max, got z_min={z_min}, z_max={z_max}"
-        self.x_min = x_min
-        self.x_max = x_max
-        self.y_min = y_min
-        self.y_max = y_max
-        self.z_min = z_min
-        self.z_max = z_max
+        self.x_min, self.x_max = x_limits
+        self.y_min, self.y_max = y_limits
+        self.z_min, self.z_max = z_limits
         self.relation_loss_weight = relation_loss_weight
 
 
@@ -656,8 +597,8 @@ class PositionLimitsCylindrical(UnaryRelation):
     The relation constrains only XY; use ``PositionLimitsBox`` separately for Z
     or axis-aligned XY limits.
 
-    Usage:
-        mug.add_relation(PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=0.5))
+    Validation:
+        None; a solver objective only.
     """
 
     name = "position_limits_cylindrical"
@@ -670,6 +611,14 @@ class PositionLimitsCylindrical(UnaryRelation):
         radius_max: float | None = None,
         relation_loss_weight: float = 1.0,
     ):
+        """
+        Args:
+            center_x: World x of the centre.
+            center_y: World y of the centre.
+            radius_min: Minimum XY distance from the centre, or None for no bound.
+            radius_max: Maximum XY distance from the centre, or None for no bound.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
         assert (
             radius_min is not None or radius_max is not None
         ), "At least one radial bound must be specified for PositionLimitsCylindrical"

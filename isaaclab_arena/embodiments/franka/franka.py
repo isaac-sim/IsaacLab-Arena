@@ -27,9 +27,9 @@ from isaaclab.managers import RewardTermCfg, SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
-from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from isaaclab.utils.configclass import configclass
-from isaaclab_assets.robots.franka import FRANKA_PANDA_CFG, FRANKA_PANDA_HIGH_PD_CFG
+from isaaclab_assets.robots.franka import FRANKA_PANDA_LEGACY_CFG, FRANKA_PANDA_LEGACY_HIGH_PD_CFG
 from isaaclab_tasks.contrib.stack.mdp import franka_stack_events
 from isaaclab_tasks.contrib.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
@@ -50,8 +50,7 @@ if TYPE_CHECKING:
 _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw=(0.0, 0.0, 0.70711, 0.70711))
 
 _FRANKA_ROBOT_PRIM = RobotPrimSpec(
-    # TODO(qianl): use FRANKA_PANDA_CFG spawn path once IsaacSim version updates to use Legacy path by default.
-    robot_usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/Legacy/panda_instanceable.usd",
+    robot_usd_path=FRANKA_PANDA_LEGACY_CFG.spawn.usd_path,
     root_prim_path="/panda",
     robot_base_prim_name="panda_link0",
     stand_prim_name="stand_instanceable",
@@ -130,7 +129,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
 class FrankaIKEmbodiment(FrankaEmbodimentBase):
     """Franka with differential IK (relative) arm control and high-PD defaults."""
 
-    name = "franka_ik"
+    registry_name = "franka_ik"
     tags = ["embodiment", "default"]
 
     def __init__(
@@ -147,7 +146,7 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
         )
-        self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_HIGH_PD_CFG.copy())
+        self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_LEGACY_HIGH_PD_CFG.copy())
         if initial_joint_pose is not None:
             self.set_initial_joint_pose(initial_joint_pose)
         self.action_config = FrankaIKActionCfg()
@@ -181,11 +180,11 @@ class FrankaIKActionCfg:
 class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
     """Franka embodiment using joint-position control, matching IsaacLab's Isaac-Lift-Cube-Franka-v0.
 
-    Uses FRANKA_PANDA_CFG (standard PD gains, gravity enabled) instead of
-    FRANKA_PANDA_HIGH_PD_CFG used by :class:`FrankaIKEmbodiment`.
+    Uses the legacy standard-PD configuration instead of the legacy high-PD configuration used by
+    :class:`FrankaIKEmbodiment`.
     """
 
-    name = "franka_joint_pos"
+    registry_name = "franka_joint_pos"
 
     def __init__(
         self,
@@ -202,7 +201,7 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
             arm_mode=arm_mode,
         )
         self.action_config = FrankaJointPosActionsCfg()
-        self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_CFG.copy())
+        self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_LEGACY_CFG.copy())
         if initial_joint_pose is not None:
             self.set_initial_joint_pose(initial_joint_pose)
 
@@ -224,7 +223,7 @@ class FrankaJointPosActionsCfg:
         use_default_offset=False,
         offset={
             name: value
-            for name, value in FRANKA_PANDA_CFG.init_state.joint_pos.items()
+            for name, value in FRANKA_PANDA_LEGACY_CFG.init_state.joint_pos.items()
             if name.startswith("panda_joint")
         },
     )

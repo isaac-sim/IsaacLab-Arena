@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from isaaclab_arena.visualization.episode_results_files import format_episode_video_filename
-from isaaclab_arena.visualization.report_data import (
+from isaaclab_arena.evaluation.episode_results_files import format_episode_video_filename
+from isaaclab_arena.evaluation.report_data import (
     EpisodeIdentity,
     EpisodeSummary,
     JobSummary,
@@ -18,7 +18,7 @@ from isaaclab_arena.visualization.report_data import (
     _infer_labels_from_explicit_suffixes,
     _infer_task_and_policy_labels_with_source,
     build_experiment_summary,
-    normalize_run_status,
+    run_status_to_lowercase_string,
 )
 
 
@@ -492,11 +492,11 @@ def test_rank_result_files_do_not_overwrite_each_other(tmp_path):
     assert sorted(episode.success for episode in summary.jobs[0].episodes) == [False, True]
 
 
-def test_run_status_normalizes_enum_like_values():
+def test_run_status_converts_enum_like_values_to_lowercase():
     class Status:
         value = "FAILED"
 
-    assert normalize_run_status(Status()) == "failed"
+    assert run_status_to_lowercase_string(Status()) == "failed"
 
 
 def test_temporal_episode_summary_handles_missing_and_malformed_records():

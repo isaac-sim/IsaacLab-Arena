@@ -24,6 +24,7 @@ from isaaclab_arena.variations.recorded_variation_samples import (
     load_rebuild_variation_record,
     validate_recorded_variation_sample_keys,
 )
+from isaaclab_arena.variations.sequential_sampler import SequentialSampler, SequentialSamplerCfg
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import (
     BuildTimeVariationBase,
@@ -194,6 +195,10 @@ def test_replay_samplers_preserve_output_types() -> None:
     choice.set_replay_sampler(lambda _count, _env_ids: ["recorded"])
     assert choice.sample(1, choices=["live", "recorded"]) == ["recorded"]
 
+    sequential = SequentialSampler()
+    sequential.set_replay_sampler(lambda _count, _env_ids: ["recorded"])
+    assert sequential.sample(1, choices=["live", "recorded"], start_index=0) == ["recorded"]
+
     bernoulli = BernoulliSampler(probability=0.0)
     bernoulli.set_replay_sampler(lambda _count, _env_ids: [True, False])
     assert bernoulli.sample(2) == [True, False]
@@ -211,6 +216,22 @@ def test_replay_samplers_preserve_public_preconditions() -> None:
         choice.sample(1, choices=[])
     with pytest.raises(AssertionError, match="must belong"):
         choice.sample(1, choices=["live"])
+
+    sequential = SequentialSampler()
+    sequential.set_replay_sampler(lambda _count, _env_ids: ["recorded"])
+    with pytest.raises(AssertionError, match=r"samples \['recorded'\] must belong to 'choices': \['live'\]"):
+        sequential.sample(1, choices=["live"], start_index=0)
+
+
+def test_sequential_sampler_takes_choices_in_order_from_the_start_index() -> None:
+    sampler = SequentialSamplerCfg().build()
+    choices = ["a", "b", "c"]
+
+    assert sampler.sample(2, choices, start_index=0) == ["a", "b"]
+    # After the last choice, the items start over at the first.
+    assert sampler.sample(2, choices, start_index=2) == ["c", "a"]
+    # Start index 5 of 3 choices wraps around to index 2.
+    assert sampler.sample(1, choices, start_index=5) == ["c"]
 
 
 def test_variation_replay_scheduler_cycles_globally_across_partial_resets() -> None:

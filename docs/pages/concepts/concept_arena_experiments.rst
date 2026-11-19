@@ -46,10 +46,17 @@ The Experiment Definition
 -------------------------
 
 The YAML has a required ``runs`` mapping. A ``shared`` mapping is optional. When present, its
-values are reused by every Run. Each key below ``runs`` is a Run name:
+values are reused by every Run. An optional top-level ``name`` string names the Experiment; if it is not
+given, the name is taken from the YAML file name (without extension). An optional top-level ``kpi_exporters``
+list names the registered KPI exporters (see the `KPI exporter registry
+<https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_benchmarking/benchmarks/registry.py>`_)
+that write the Experiment's KPI records once every Run has completed. An empty list exports no KPIs. KPIs are
+aggregated over all Runs of the Experiment. Each key below ``runs`` is a Run name:
 
 .. code-block:: yaml
 
+   name: my_experiment
+   kpi_exporters: [success_rate, timing]
    shared:
      environment:
        type: pick_and_place_maple_table
@@ -71,8 +78,41 @@ values are reused by every Run. Each key below ``runs`` is a Run name:
 the background. The Run name comes from its key below ``runs``; there is no separate ``name``
 field. Arena uses this name in command-line overrides, output directories, and reports.
 
-Use ``rollout_limit.num_episodes`` instead of ``rollout_limit.num_steps`` to start and finish
-exactly that many episodes per Run, across all rebuilds.
+``rollout_limit`` sets when a Run stops. ``num_rebuilds`` is a Run field next to it that sets how
+many times the Run builds a fresh environment. These settings give:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 55 45
+
+   * - Settings
+     - Result
+   * - ``num_steps: 50``
+     - Each rebuild runs 50 environment steps.
+   * - ``num_episodes: 30``, ``num_rebuilds: 3``
+     - 10 / 10 / 10 episodes. With 31, the first rebuild gets the extra one: 11 / 10 / 10.
+   * - ``num_episodes_per_rebuild: [20, 5, 5]``, ``num_rebuilds: 3``
+     - 20 / 5 / 5 episodes.
+   * - ``num_episodes: 30``, ``num_episodes_per_rebuild: [20, 5, 5]``, ``num_rebuilds: 3``
+     - 20 / 5 / 5 episodes. ``num_episodes`` matches the sum of the list.
+   * - No limit
+     - The policy's own length. Only a policy with a fixed action-sequence length supports this.
+
+These combinations are rejected:
+
+* ``num_steps`` with ``num_episodes`` or ``num_episodes_per_rebuild``.
+* ``num_episodes`` smaller than ``num_rebuilds``.
+* ``num_episodes_per_rebuild`` with a length other than ``num_rebuilds``.
+* ``num_episodes`` that differs from the sum of ``num_episodes_per_rebuild``.
+* ``num_episodes_per_rebuild`` with replay from recorded variation samples.
+
+``num_rebuilds`` sits at the Run level, beside ``rollout_limit``:
+
+.. code-block:: yaml
+
+   num_rebuilds: 3
+   rollout_limit:
+     num_episodes_per_rebuild: [20, 5, 5]   # rebuild 0: 20, rebuild 1: 5, rebuild 2: 5
 
 See :doc:`Record and Replay Experiments <experiment_record_replay>` for variation recording,
 partial and complete replay, and episode scheduling across one or more rebuilds.
@@ -111,6 +151,7 @@ The CLI override root depends on the execution path:
 
       * Use ``shared.<path>=<value>`` to change a shared value.
       * Use ``runs.<name>.<path>=<value>`` to change one Run.
+      * Use ``kpi_exporters=[<name>,<name>,...]`` to change the KPI exporters.
 
       .. code-block:: bash
 
@@ -124,6 +165,7 @@ The CLI override root depends on the execution path:
 
       * Use ``experiment_cfg.shared.<path>=<value>`` to change a shared value.
       * Use ``experiment_cfg.runs.<name>.<path>=<value>`` to change one Run.
+      * Use ``experiment_cfg.kpi_exporters=[<name>,<name>,...]`` to change the KPI exporters.
 
       .. code-block:: bash
 
@@ -155,6 +197,10 @@ Reuse values with ``shared``
 ``shared`` removes repetition. Arena applies these values to every Run, then places each Run's
 own values on top. A Run only needs to declare what is different.
 
+A Run that declares ``rollout_limit`` replaces the shared one as a whole, so a Run can switch from a shared ``num_steps`` to ``num_episodes`` or
+``num_episodes_per_rebuild`` without clearing the shared field. A ``runs.<name>.rollout_limit.*``
+CLI override is applied after this step, so it is still merged with the Run's limit.
+
 Values are applied in this order, from lowest to highest priority:
 
 .. code-block:: text
@@ -170,10 +216,11 @@ Values are applied in this order, from lowest to highest priority:
 .. dropdown:: Configuration rules
    :animate: fade-in
 
-   * The only top-level fields are ``shared`` and ``runs``.
+   * The only top-level fields are ``name``, ``kpi_exporters``, ``shared``, and ``runs``.
    * ``runs`` must contain at least one Run.
    * A Run name starts with a letter or underscore. It can then contain letters, numbers,
      underscores, or hyphens.
+   * Each ``kpi_exporters`` name must be a registered KPI exporter and appear once.
    * An override can change a field on a Run declared in the YAML, but it cannot add another Run.
    * A shared override must point to a field already present below ``shared`` in the Experiment
      YAML. The Hydra operators ``+``, ``++``, and ``~`` are not supported for shared values.
@@ -186,9 +233,8 @@ Choosing a runner
 
    Use the **Experiment Runner** for policy evaluations defined in YAML. Use the **Environment
    Runner** (``isaaclab_arena/scripts/environment_runner.py``) to inspect and physically manipulate
-   an environment without a policy. The **Policy Runner** is currently needed only for ``torchrun``
-   multi-GPU execution or policy evaluation of an external environment loaded with
-   ``--external_environment_class_path``.
+   an environment without a policy. The **Policy Runner** is currently needed only for policy
+   evaluation of an external environment loaded with ``--external_environment_class_path``.
 
 
 Related concepts

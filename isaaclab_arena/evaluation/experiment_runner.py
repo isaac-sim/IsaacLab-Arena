@@ -21,9 +21,11 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
+from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
 if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
     from isaaclab_arena.evaluation.arena_run import ArenaRunResult
 
 
@@ -76,8 +78,8 @@ def _write_arena_experiment_result(
     experiment_cfg: ArenaExperimentCfg,
     run_results: list[ArenaRunResult],
     experiment_output_directory: Path,
-) -> Path:
-    """Combine every Run's metadata and episode results into one Experiment JSON file."""
+) -> ArenaExperimentResult:
+    """Combine every Run's metadata and episode results into one Experiment JSON file and return the result."""
     from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
 
     run_results_by_name = {run_result.run_name: run_result for run_result in run_results}
@@ -85,14 +87,36 @@ def _write_arena_experiment_result(
     assert set(run_results_by_name) == set(
         experiment_cfg.runs
     ), "Experiment results must contain exactly the configured Runs"
+
     run_metadata_by_name = {
         run_name: {
             **build_arena_run_result_metadata(run_cfg),
             "status": run_results_by_name[run_name].status.value,
+            "start_timestamp_ns": run_results_by_name[run_name].start_timestamp_ns,
+            "end_timestamp_ns": run_results_by_name[run_name].end_timestamp_ns,
         }
         for run_name, run_cfg in experiment_cfg.runs.items()
     }
-    return ArenaExperimentResult(experiment_output_directory, run_metadata_by_name).write()
+    experiment_result = ArenaExperimentResult.from_run_outputs(
+        experiment_output_directory, run_metadata_by_name, experiment_name=experiment_cfg.name
+    )
+    experiment_result.write()
+    return experiment_result
+
+
+def _export_selected_kpis(experiment_output_directory: Path, experiment_cfg: ArenaExperimentCfg) -> None:
+    """Write the KPI records for InfluxDB of the Experiment's ``kpi_exporters``, if any are selected.
+
+    No KPI file is written when any of the Runs in the Experiment failed.
+
+    Args:
+        experiment_output_directory: Experiment output root holding the result file.
+        experiment_cfg: Experiment whose ``kpi_exporters`` select the exporters; empty to skip KPI export.
+    """
+    if not experiment_cfg.kpi_exporters:
+        print("[INFO] No KPI exporters selected; KPI export is skipped.")
+        return
+    export_kpis(experiment_output_directory, experiment_cfg.kpi_exporters)
 
 
 def main():
@@ -147,8 +171,10 @@ def main():
 
     with SimulationAppContext(args_cli):
         from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-        from isaaclab_arena.evaluation.arena_run import RunStatus, build_runs_info_table
+        from isaaclab_arena.evaluation.arena_run import build_runs_info_table
         from isaaclab_arena.evaluation.run_execution import execute_experiment
+        from isaaclab_arena.evaluation.run_status import RunStatus
+        from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
         from isaaclab_arena.metrics.metrics_logger import MetricsLogger
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
@@ -181,7 +207,10 @@ def main():
         print(build_runs_info_table(experiment_cfg.runs.values(), run_results))
         metrics_logger.print_metrics()
 
-        _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
+        experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
+        variation_table = build_categorical_variation_table(experiment_result)
+        if variation_table.rows:
+            print(variation_table)
 
         from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 
@@ -193,6 +222,9 @@ def main():
 
         # Write HTML report.
         report_path = build_report(experiment_output_directory)
+
+        _export_selected_kpis(experiment_output_directory, experiment_cfg)
+
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 

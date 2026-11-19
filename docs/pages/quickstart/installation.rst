@@ -4,35 +4,15 @@ Installation
 This page describes how to install Isaac Lab Arena, either natively with ``uv``
 or from source inside a Docker container.
 
-.. list-table:: Supported workflows by installation method
-   :header-rows: 1
-
-   * - Installation method
-     - Evaluation
-     - Imitation learning
-     - Reinforcement learning
-     - Agentic environment generation
-     - cuRobo integration
-   * - Docker
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-   * - uv
-     - ✓
-     - ✓
-     - ✓
-     - ✓
-     - ✗
-
 Supported Systems
 -----------------
 
-Isaac Lab Arena runs on Isaac Sim ``6.0.1`` and Isaac Lab ``3.0.0``.
+Isaac Lab Arena runs on Isaac Sim ``6.2.0`` and Isaac Lab ``3.0.0``.
 The dependencies are installed automatically by either workflow below.
 Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are detailed in
-`Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html>`_.
+`Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/requirements.html>`_.
+
+Isaac Lab Arena requires NVIDIA driver 580 or newer, because it uses PyTorch built for CUDA 13.0.
 
 
 Native uv developer setup
@@ -57,16 +37,7 @@ Sync the environment and activate it:
 ``.python-version``), installs Isaac Lab Arena and Isaac Lab editable from
 ``submodules/IsaacLab``, and pulls the matching Isaac Sim, PyTorch, and Newton
 wheels at the versions pinned by the committed lockfile. The ``dev`` extra
-installs the Streamlit and SimReady search dependencies used by the
-:doc:`agentic environment generation workflow
-</pages/concepts/agentic_environment_generation/index>`.
-
-.. note::
-   Native ``uv`` installs do not include the optional ``isaaclab_arena_curobo``
-   package, so :doc:`cuRobo-based reachability validation
-   </pages/concepts/object_placement/validation>` (the ``ik_reachable`` check)
-   is not available. Use the Docker workflow with ``./docker/run_docker.sh -c``
-   instead.
+installs optional development tools, such as Jupyter, debugpy, and the Rerun SDK.
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -75,20 +46,21 @@ Accept the Isaac Sim EULA so the first launch is non-interactive:
     export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
 
 Launch a short zero-action rollout as a visual validation that things are
-running:
+running. Without ``--experiment_config``, the Experiment Runner runs
+``isaaclab_arena_environments/experiment_configs/smoke_test_experiment.yaml``, which steps the
+``cube_goal_pose`` environment 20 times with the zero-action policy:
 
 .. code-block:: bash
 
-    python isaaclab_arena/evaluation/policy_runner.py \
-      --policy_type zero_action --num_steps 20 cube_goal_pose
+    python isaaclab_arena/evaluation/experiment_runner.py
 
 Optionally, watch the rollout in the GUI visualizer by adding ``--viz kit`` (and
 a few more steps so there is time to see it):
 
 .. code-block:: bash
 
-    python isaaclab_arena/evaluation/policy_runner.py \
-      --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
+    python isaaclab_arena/evaluation/experiment_runner.py \
+      --viz kit runs.smoke_test.rollout_limit.num_steps=200
 
 Optionally verify the installation by running the test phases:
 
@@ -121,21 +93,15 @@ installation options.
 
 The container will build (if needed) and drop you into an interactive shell.
 
-For :doc:`cuRobo-based reachability validation
-</pages/concepts/object_placement/validation>`, launch with the ``-c`` flag
-instead (native ``uv`` installs do not support this check):
-
-:docker_run_curobo:
-
 .. note::
-   The run docker script mounts the following directories from the host machine if they exist:
+   The run docker script mounts the following directories from the host machine into the
+   container user's home directory, creating them on the host if they do not exist:
 
-   - **Datasets**: ``$HOME/datasets`` → ``/datasets``
-   - **Models**: ``$HOME/models`` → ``/models``
-   - **Evaluation**: ``$HOME/eval`` → ``/eval``
+   - **Datasets**: ``$HOME/datasets``
+   - **Models**: ``$HOME/models``
+   - **Evaluation**: ``$HOME/eval``
 
-   When mounted a user avoids re-downloading datasets and models between container restarts,
-   so our suggestion is to create these directories on the host machine before running the container.
+   Mounting them lets a user avoid re-downloading datasets and models between container restarts.
    Note that the path of the mounted directories are configurable — see ``docker/run_docker.sh``
    for the full list of arguments.
 

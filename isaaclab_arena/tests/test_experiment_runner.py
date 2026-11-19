@@ -9,15 +9,19 @@ import os
 import subprocess
 import yaml
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena_benchmarking.tests.utils.influxdb_kpi_records_validation import (
+    assert_influxdb_kpi_records_are_valid,
+)
 
 HEADLESS = True
 NUM_STEPS = 2
@@ -39,6 +43,33 @@ def test_experiment_runner_parses_native_hydra_overrides():
         "runs.baseline.environment.enable_cameras=true",
         "runs.baseline.environment_builder.record_trajectories=true",
     ]
+
+
+def test_experiment_runner_exports_the_kpis_selected_by_the_experiment(monkeypatch, tmp_path):
+    from isaaclab_arena.evaluation import experiment_runner
+
+    exported_selections = []
+    monkeypatch.setattr(
+        experiment_runner,
+        "export_kpis",
+        lambda output_dir, names, **kwargs: exported_selections.append((output_dir, list(names), kwargs)),
+    )
+
+    experiment_runner._export_selected_kpis(tmp_path, SimpleNamespace(kpi_exporters=["success_rate", "timing"]))
+
+    assert exported_selections == [(tmp_path, ["success_rate", "timing"], {})]
+
+
+def test_experiment_runner_skips_kpi_export_when_the_experiment_selects_none(monkeypatch, tmp_path, capsys):
+    from isaaclab_arena.evaluation import experiment_runner
+
+    exported_selections = []
+    monkeypatch.setattr(experiment_runner, "export_kpis", lambda *args, **kwargs: exported_selections.append(args))
+
+    experiment_runner._export_selected_kpis(tmp_path, SimpleNamespace(kpi_exporters=[]))
+
+    assert exported_selections == []
+    assert "KPI export is skipped" in capsys.readouterr().out
 
 
 def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp_path):
@@ -107,31 +138,21 @@ def test_experiment_runner_rejects_unknown_non_hydra_arguments():
     assert "Unrecognized arguments: --headles" in result.stderr
 
 
-def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
-    jobs_config = {"jobs": jobs}
-
-    with open(tmp_file_path, "w", encoding="utf-8") as f:
-        json.dump(jobs_config, f, indent=4)
-
-
 def run_experiment_runner(
     experiment_config_path: str,
     headless: bool = HEADLESS,
-    config_option: str = "--eval_jobs_config",
     extra_args: list[str] | None = None,
     capture_output: bool = False,
     timeout_sec: int | None = None,
 ) -> subprocess.CompletedProcess[str] | None:
     """Run the Experiment Runner as a subprocess with timeout.
 
-    --continue_on_error is NOT passed, so the Experiment Runner re-raises on the
-    first job failure, exiting non-zero.  run_subprocess() detects that and
-    raises CalledProcessError, which surfaces as a test failure.
+    A failed Run makes the Experiment Runner exit non-zero, so run_subprocess() raises CalledProcessError,
+    unless extra_args contains --continue_on_error.
 
     Args:
         experiment_config_path: Path to the Experiment configuration file.
         headless: Whether to run in headless mode.
-        config_option: CLI option used to pass the Experiment path.
         extra_args: Additional Experiment Runner arguments.
         capture_output: Whether to capture and return the subprocess output.
         timeout_sec: Override the default subprocess timeout in seconds.
@@ -140,7 +161,7 @@ def run_experiment_runner(
         The completed subprocess when output is captured, otherwise None.
     """
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/experiment_runner.py"]
-    args.append(config_option)
+    args.append("--experiment_config")
     args.append(experiment_config_path)
     args.extend(extra_args or [])
     if not headless:
@@ -150,12 +171,62 @@ def run_experiment_runner(
     return run_subprocess(args, capture_output=capture_output, timeout_sec=timeout_sec)
 
 
+def read_run_statuses(experiment_output_directory: Path) -> dict[str, str]:
+    """Return each Run's status from an Experiment's result file."""
+    experiment_result = ArenaExperimentResult.from_experiment_output(experiment_output_directory)
+    return {run_name: run_data["status"] for run_name, run_data in experiment_result.runs.items()}
+
+
+def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monkeypatch, tmp_path):
+    from isaaclab_arena.evaluation import arena_experiment_result
+    from isaaclab_arena.evaluation.arena_run import ArenaRunResult
+    from isaaclab_arena.evaluation.experiment_runner import _write_arena_experiment_result
+    from isaaclab_arena.evaluation.run_status import RunStatus
+
+    monkeypatch.setattr(
+        arena_experiment_result,
+        "build_arena_run_result_metadata",
+        lambda run_cfg: {
+            "environment": {"name": "env", "definition": "env"},
+            "policy_variant": "zero_action",
+        },
+    )
+    experiment_cfg = SimpleNamespace(
+        name="pnp_benchmark", runs={"passing": SimpleNamespace(), "failing": SimpleNamespace()}
+    )
+    run_results = [
+        ArenaRunResult(
+            run_name="passing",
+            status=RunStatus.COMPLETED,
+            start_timestamp_ns=1792799000000000000,
+            end_timestamp_ns=1792800000000000000,
+        ),
+        ArenaRunResult(
+            run_name="failing",
+            status=RunStatus.FAILED,
+            start_timestamp_ns=1760313600000000000,
+            end_timestamp_ns=1760313700000000000,
+        ),
+    ]
+    (tmp_path / "passing").mkdir()
+
+    experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, tmp_path)
+
+    assert experiment_result.to_dict()["experiment_name"] == "pnp_benchmark"
+    runs = experiment_result.to_dict()["runs"]
+    assert runs["passing"]["start_timestamp_ns"] == 1792799000000000000
+    assert runs["passing"]["end_timestamp_ns"] == 1792800000000000000
+    assert runs["failing"]["start_timestamp_ns"] == 1760313600000000000
+    assert runs["failing"]["end_timestamp_ns"] == 1760313700000000000
+
+
 @pytest.mark.with_subprocess
 def test_experiment_runner_from_typed_yaml(tmp_path):
     """Execute a typed YAML Experiment through the Experiment Runner CLI."""
     experiment_config_path = tmp_path / "experiment.yaml"
     experiment_config_path.write_text(
         """
+kpi_exporters: [success_rate, timing]
 runs:
   yaml_baseline:
     environment:
@@ -170,7 +241,6 @@ runs:
 
     result = run_experiment_runner(
         str(experiment_config_path),
-        config_option="--experiment_config",
         extra_args=[
             "--experiment_output_directory",
             str(tmp_path / "output"),
@@ -194,7 +264,24 @@ runs:
     }
     assert run_result["policy_variant"] == "zero_action"
     assert run_result["status"] == "completed"
-    assert set(run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+    assert isinstance(run_result["start_timestamp_ns"], int)
+    assert isinstance(run_result["end_timestamp_ns"], int)
+    assert set(run_result) == {
+        "environment",
+        "policy_variant",
+        "status",
+        "start_timestamp_ns",
+        "end_timestamp_ns",
+        "rebuilds",
+    }
+    # The timing file exists only when a timer ran, so it is checked when present.
+    kpis_filenames = {path.name for path in (tmp_path / "output").glob("kpis_*.json")}
+    assert "kpis_success_rates.json" in kpis_filenames
+    assert kpis_filenames <= {"kpis_success_rates.json", "kpis_timing.json"}
+    for kpis_filename in kpis_filenames:
+        experiment_kpis = json.loads((tmp_path / "output" / kpis_filename).read_text(encoding="utf-8"))
+        assert_influxdb_kpi_records_are_valid(experiment_kpis)
+        assert {record["timestamp_ns"] for record in experiment_kpis} == {run_result["end_timestamp_ns"]}
 
 
 @pytest.mark.with_subprocess
@@ -222,13 +309,12 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
 
     run_experiment_runner(
         str(experiment_config_path),
-        config_option="--experiment_config",
         extra_args=["--experiment_output_directory", str(output_dir)],
     )
 
     expected_variation_keys = {
         "light.hdr_image",
-        "rubiks_cube_hot3d_robolab.disappear",
+        "pick_up_object.disappear",
         "droid_rel_joint_pos.camera_extrinsics_wrist_camera",
     }
     for rebuild_index, record_results_path in enumerate(record_results_paths):
@@ -248,7 +334,7 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
 
 @pytest.mark.with_subprocess
 def test_experiment_runner_finishes_episode_budget_across_rebuilds(tmp_path):
-    """Finish each rebuild's exact episode allocation and match its results to trajectories."""
+    """Override the timeout through the CLI and match each rebuild's episode allocation to trajectories."""
     import h5py
 
     experiment_config_path = tmp_path / "finite_episodes.yaml"
@@ -258,7 +344,6 @@ runs:
   finite_episodes:
     environment:
       type: pick_and_place_maple_table
-      episode_length_s: 0.2
     environment_builder:
       num_envs: 2
       record_trajectories: true
@@ -273,8 +358,11 @@ runs:
     output_dir = tmp_path / "output"
     run_experiment_runner(
         str(experiment_config_path),
-        config_option="--experiment_config",
-        extra_args=["--experiment_output_directory", str(output_dir)],
+        extra_args=[
+            "--experiment_output_directory",
+            str(output_dir),
+            "+runs.finite_episodes.environment_builder.env_cfg_override={episode_length_s:0.2}",
+        ],
     )
 
     experiment_result = json.loads((output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8"))
@@ -286,6 +374,8 @@ runs:
         records_path = run_dir / f"episode_results_rebuild{rebuild_index}.jsonl"
         records = [json.loads(line) for line in records_path.read_text(encoding="utf-8").splitlines()]
         assert len(records) == expected_count
+        # At the default 15 Hz control rate, the CLI's 0.2 s timeout is three steps.
+        assert all(record["episode_length"] == 3 for record in records)
         records_by_identity = {(record["env_id"], record["episode_in_env"]): record for record in records}
         assert len(records_by_identity) == expected_count
         dataset_path = run_dir / f"dataset_finite_episodes_rebuild{rebuild_index}.hdf5"
@@ -303,225 +393,119 @@ runs:
 
 
 @pytest.mark.with_subprocess
-def test_experiment_runner_two_jobs_zero_action(tmp_path):
-    """Test experiment_runner with 2 jobs using zero_action policy on different objects."""
-    jobs = [
-        {
-            "name": "gr1_open_microwave_cracker_box",
-            "arena_env_args": {
-                "environment": "gr1_open_microwave",
-                "object": "cracker_box",
-                "embodiment": "gr1_joint",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "gr1_open_microwave_sugar_box",
-            "arena_env_args": {
-                "environment": "gr1_open_microwave",
-                "object": "sugar_box",
-                "embodiment": "gr1_joint",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
+def test_experiment_runner_runs_default_experiment(tmp_path, monkeypatch):
+    """Run experiment_runner.py without --experiment_config, as the installation check does."""
+    # The default Experiment path is relative to the repository root, where the documented command runs.
+    monkeypatch.chdir(TestConstants.repo_root)
+    experiment_output_directory = tmp_path / "output"
 
-    temp_config_path = str(tmp_path / "test_experiment_runner_two_jobs_zero_action.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
+    run_subprocess([
+        TestConstants.python_path,
+        f"{TestConstants.evaluation_dir}/experiment_runner.py",
+        "--experiment_output_directory",
+        str(experiment_output_directory),
+    ])
+
+    run_statuses = read_run_statuses(experiment_output_directory)
+    assert run_statuses == {"smoke_test": "completed"}
 
 
 @pytest.mark.with_subprocess
-def test_experiment_runner_multiple_environments(tmp_path):
-    """Test experiment_runner with jobs across different environments."""
-    jobs = [
-        {
-            "name": "kitchen_pick_cracker_box",
-            "arena_env_args": {
-                "environment": "kitchen_pick_and_place",
-                "object": "cracker_box",
-                "embodiment": "gr1_joint",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "kitchen_pick_power_drill",
-            "arena_env_args": {
-                "environment": "put_item_in_fridge_and_close_door",
-                "object": "power_drill",
-                "embodiment": "gr1_pink",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
+def test_experiment_runner_runs_with_different_env_counts(tmp_path):
+    """Run two Runs with different num_envs in one Experiment Runner process."""
+    experiment_config_path = tmp_path / "experiment.yaml"
+    experiment_config_path.write_text(
+        f"""
+runs:
+  single_env_joint:
+    environment:
+      type: gr1_open_microwave
+      embodiment: gr1_joint
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: {NUM_STEPS}
+  multi_env_pink:
+    environment:
+      type: gr1_open_microwave
+      embodiment: gr1_pink
+    environment_builder:
+      num_envs: 2
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: {NUM_STEPS}
+""",
+        encoding="utf-8",
+    )
+    experiment_output_directory = tmp_path / "output"
 
-    temp_config_path = str(tmp_path / "test_experiment_runner_multiple_environments.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
+    run_experiment_runner(
+        str(experiment_config_path),
+        extra_args=["--experiment_output_directory", str(experiment_output_directory)],
+    )
 
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_different_embodiments(tmp_path):
-    """Test experiment_runner with jobs using different embodiments."""
-    jobs = [
-        {
-            "name": "kitchen_pick_gr1_pink",
-            "arena_env_args": {
-                "environment": "kitchen_pick_and_place",
-                "object": "tomato_soup_can",
-                "embodiment": "gr1_pink",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "kitchen_pick_franka",
-            "arena_env_args": {
-                "environment": "kitchen_pick_and_place",
-                "object": "tomato_soup_can",
-                "embodiment": "franka_ik",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_different_embodiments.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
+    run_statuses = read_run_statuses(experiment_output_directory)
+    assert run_statuses == {"single_env_joint": "completed", "multi_env_pink": "completed"}
 
 
 @pytest.mark.with_subprocess
-def test_experiment_runner_from_existing_config():
-    """Test experiment_runner using the zero_action_jobs_config.json and verify no jobs failed."""
-    config_path = f"{TestConstants.arena_environments_dir}/eval_jobs_configs/zero_action_jobs_config.json"
-    assert os.path.exists(config_path), f"Config file not found: {config_path}"
-    run_experiment_runner(config_path)
+def test_experiment_runner_graph_spec_camera_run_and_camera_less_run(tmp_path):
+    """Run a graph-spec environment with a camera variation next to a camera-less Run.
 
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_with_variations(tmp_path):
-    """Test experiment_runner applies a per-job variations block via Hydra overrides."""
-    jobs = [
-        {
-            "name": "maple_table_hdr_variation",
-            "arena_env_args": {
-                "environment": "pick_and_place_maple_table",
-                "embodiment": "droid_abs_joint_pos",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_config_dict": {},
-            "variations": {"light": {"hdr_image": {"enabled": True}}},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_with_variations.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
-
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_enable_cameras(tmp_path):
-    """Test experiment_runner with enable_cameras set to true."""
-    jobs = [
-        {
-            "name": "kitchen_pick_and_place_no_cameras",
-            "arena_env_args": {
-                "environment": "kitchen_pick_and_place",
-                "object": "cracker_box",
-                "embodiment": "franka_ik",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-        {
-            "name": "kitchen_pick_and_place",
-            "arena_env_args": {
-                "enable_cameras": True,
-                "environment": "kitchen_pick_and_place",
-                "object": "cracker_box",
-                "embodiment": "franka_ik",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-        },
-    ]
-
-    temp_config_path = str(tmp_path / "test_experiment_runner_enable_cameras.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
-
-
-@pytest.mark.with_subprocess
-def test_experiment_runner_graph_spec_with_variation(tmp_path):
-    """Eval a graph-spec env (built from YAML) with --enable_cameras and a camera variation.
-
-    Mirrors the example-environment camera-variation job but sources the env from a graph spec
-    YAML, exercising that the Experiment Runner builds graph-spec envs and that --enable_cameras reaches
-    the embodiment so the wrist camera (and its variation) resolve.
+    The graph-spec Run checks that enable_cameras reaches the embodiment, so the wrist camera variation resolves.
+    The camera-less Run checks that a Run without cameras works when the app has camera support.
     """
     graph_spec_yaml = f"{TestConstants.test_data_dir}/pick_and_place_maple_table_env_graph.yaml"
     assert os.path.exists(graph_spec_yaml), f"Graph spec YAML not found: {graph_spec_yaml}"
-    jobs = [
-        {
-            "name": "maple_table_graph_spec_camera_variation",
-            "arena_env_args": {
-                "enable_cameras": True,
-                "environment": graph_spec_yaml,
+    experiment_config = {
+        "runs": {
+            "kitchen_pick_and_place_no_cameras": {
+                "environment": {
+                    "type": "kitchen_pick_and_place",
+                    "object": "cracker_box",
+                    "embodiment": "franka_ik",
+                },
+                "policy": {"type": "zero_action"},
+                "rollout_limit": {"num_steps": NUM_STEPS},
             },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_args": {},
-            "variations": {
-                "light": {"hdr_image": {"enabled": True}},
-                "droid_abs_joint_pos": {"camera_extrinsics_wrist_camera": {"enabled": True}},
+            "maple_table_graph_spec_camera_variation": {
+                "environment": {"type": graph_spec_yaml, "enable_cameras": True},
+                "policy": {"type": "zero_action"},
+                "rollout_limit": {"num_steps": NUM_STEPS},
+                "variations": {
+                    "light": {"hdr_image": {"enabled": True}},
+                    "droid_abs_joint_pos": {"camera_extrinsics_wrist_camera": {"enabled": True}},
+                },
             },
-        },
-    ]
+        }
+    }
+    experiment_config_path = tmp_path / "graph_spec_camera_and_camera_less_runs.yaml"
+    experiment_config_path.write_text(yaml.safe_dump(experiment_config, sort_keys=False), encoding="utf-8")
+    experiment_output_directory = tmp_path / "output"
 
-    temp_config_path = str(tmp_path / "test_experiment_runner_graph_spec_with_variation.json")
-    write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
+    run_experiment_runner(
+        str(experiment_config_path),
+        extra_args=["--experiment_output_directory", str(experiment_output_directory)],
+    )
 
 
-def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
+def _test_run_variation_lands_in_events_cfg(simulation_app):
     """Enable a wrist camera extrinsics variation and check that it shows up as an event term in the cfg."""
-    from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
     from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
+    from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
+    from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
     camera_name = "wrist_camera"
     event_name = f"{camera_name}_extrinsics_variation"
 
-    experiment_config = {
-        "jobs": [{
-            "name": "maple_table_camera_extrinsics",
-            "arena_env_args": {
-                "num_envs": 1,
-                "enable_cameras": True,
-                "environment": "pick_and_place_maple_table",
-                "embodiment": "droid_abs_joint_pos",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_config_dict": {},
-            # Enabling wrist camera extrinsics variation.
-            "variations": {"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
-        }]
-    }
-    (run_cfg,) = run_cfgs_from_legacy_eval_config(experiment_config, device="cuda:0")
+    run_cfg = ArenaRunCfg(
+        name="maple_table_camera_extrinsics",
+        environment=PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=True, embodiment="droid_abs_joint_pos"),
+        policy=ZeroActionPolicyCfg(),
+        variations={"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
+    )
     arena_builder = build_arena_builder_from_run_cfg(run_cfg)
     _, env_cfg, env_kwargs = arena_builder.build_registered()
     env = arena_builder.make_registered(env_cfg, env_kwargs)
@@ -541,9 +525,9 @@ def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
 
 
 @pytest.mark.with_cameras
-def test_eval_config_variation_lands_in_events_cfg():
+def test_run_variation_lands_in_events_cfg():
     assert run_function_with_persistent_simulation_app(
-        _test_eval_config_variation_lands_in_events_cfg,
+        _test_run_variation_lands_in_events_cfg,
         headless=HEADLESS,
         enable_cameras=True,
     )

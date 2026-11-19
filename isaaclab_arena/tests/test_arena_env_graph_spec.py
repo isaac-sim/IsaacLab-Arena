@@ -62,11 +62,12 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
     assert cube_limits.reference is None
     assert cube_limits.params == {
-        "x_min": 0.55,
-        "x_max": 0.7,
-        "y_min": -0.4,
-        "y_max": -0.1,
+        "x_limits": [0.55, 0.7],
+        "y_limits": [-0.4, -0.1],
     }
+
+    limits = PositionLimitsBox(**cube_limits.params)
+    assert (limits.x_min, limits.x_max, limits.y_min, limits.y_max) == (0.55, 0.7, -0.4, -0.1)
 
     mug_position = spec.relations[5]
     assert mug_position.kind == "at_position"
@@ -91,6 +92,18 @@ def test_graph_spec_parses_default_physics_backend():
 
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.default_physics_backend is PhysicsBackend.NEWTON
+
+
+@pytest.mark.parametrize("object_type", [ObjectType.BASE, ObjectType.RIGID])
+def test_graph_spec_rejects_joint_defaults_on_non_articulation_reference(object_type):
+    data = _minimal_env_graph_data()
+    data["object_references"][0].update({
+        "object_type": object_type.value,
+        "params": {"initial_joint_positions": {"drawer_joint": 0.3}},
+    })
+
+    with pytest.raises(ValidationError, match="initial_joint_positions requires object_type=articulation"):
+        ArenaEnvGraphSpec.from_dict(data)
 
 
 def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
@@ -234,7 +247,7 @@ def test_graph_spec_accepts_legacy_position_limits_box_name():
     data["relations"] = [{
         "kind": "position_limits",
         "subject": "cube",
-        "params": {"x_min": 0.1, "x_max": 0.3},
+        "params": {"x_limits": [0.1, 0.3]},
     }]
 
     (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations
@@ -243,6 +256,16 @@ def test_graph_spec_accepts_legacy_position_limits_box_name():
 
     assert relation_class is PositionLimitsBox
     assert isinstance(relation, PositionLimitsBox)
+
+
+def test_graph_spec_explains_an_unquoted_on_kind():
+    """YAML 1.1 reads an unquoted ``on`` as true, so the error must say to quote it."""
+
+    data = _minimal_env_graph_data()
+    data["relations"] = yaml.safe_load("- kind: on\n  subject: cube\n  reference: table\n")
+
+    with pytest.raises(ValidationError, match="quote it: kind: 'on'"):
+        ArenaEnvGraphSpec.from_dict(data)
 
 
 def test_graph_spec_loads_object_set_yaml():
@@ -379,12 +402,12 @@ def test_validate_rejects_duplicate_cli_override_args():
 
 
 def test_from_yaml_rejects_missing_path_with_clear_message():
-    with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
+    with pytest.raises(FileNotFoundError, match="Env graph spec YAML not found"):
         ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "does_not_exist.yaml")
 
 
 def test_read_cli_override_specs_rejects_missing_path_with_clear_message():
-    with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
+    with pytest.raises(FileNotFoundError, match="Env graph spec YAML not found"):
         ArenaEnvGraphSpec.read_cli_override_specs(TEST_DATA_DIR / "does_not_exist.yaml")
 
 
@@ -415,6 +438,19 @@ def test_graph_spec_rejects_invalid_data():
                 "prim_path": "/World/table",
                 "object_type": "rigid",
             }),
+            "references invalid parent",
+        ),
+        (
+            "object reference parent declared later",
+            lambda data: data["object_references"].insert(
+                0,
+                {
+                    "id": "table_body",
+                    "parent_id": "table",
+                    "prim_path": "body",
+                    "object_type": "base",
+                },
+            ),
             "references invalid parent",
         ),
         (
@@ -474,6 +510,21 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     data["object_references"][0].pop("prim_path", None)
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.object_references[0].prim_path is None
+
+
+def test_graph_spec_accepts_reference_to_earlier_reference():
+    data = _minimal_env_graph_data()
+    data["object_references"][0]["object_type"] = "articulation"
+    data["object_references"].append({
+        "id": "table_body",
+        "parent_id": "table",
+        "prim_path": "body",
+        "object_type": "base",
+    })
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+
+    assert spec.object_references[1].parent_id == "table"
 
 
 @pytest.mark.parametrize("empty_reference", ["", "   "])

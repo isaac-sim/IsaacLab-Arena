@@ -14,8 +14,8 @@ import os
 import torch
 
 import pytest
+import warp as wp
 
-from isaaclab_arena.patches.camera_render_pose import CameraPoseWriter
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
@@ -86,11 +86,17 @@ def _build_env(presets: str | None, disable_fabric: bool = False):
     return ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
 
 
-def _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_ids) -> None:
-    """Write ``nominal + offset`` (parent-frame translation) to the camera via the CameraPoseWriter."""
+def _apply_camera_offset(camera, nominal_translation, offset, device, env_ids) -> None:
+    """Write ``nominal + offset`` as the camera's parent-frame translation."""
     offset_tensor = torch.tensor(offset, device=device).unsqueeze(0).expand(len(env_ids), 3)
     target = nominal_translation[env_ids] + offset_tensor
-    pose_writer.set_local_translations(translations=target, env_ids=env_ids)
+    camera._view.set_local_poses(
+        translations=target,
+        orientations=None,
+        indices=wp.from_torch(env_ids.to(torch.int32)),
+    )
+    # reset required to propagate pose change across various pose-storage sources in the framework
+    camera.reset(env_ids)
 
 
 def _render_wrist_at_offsets(simulation_app, *, presets, disable_fabric, out) -> bool:
@@ -102,7 +108,6 @@ def _render_wrist_at_offsets(simulation_app, *, presets, disable_fabric, out) ->
     device = env.unwrapped.device
     sim = env.unwrapped.sim
     env_ids = torch.arange(env.unwrapped.num_envs, device=device)
-    pose_writer = CameraPoseWriter(camera)
     nominal_translation = camera._view.get_local_poses()[0].torch.detach().clone()
     zero_actions = torch.zeros(env.action_space.shape, device=device)
 
@@ -113,7 +118,7 @@ def _render_wrist_at_offsets(simulation_app, *, presets, disable_fabric, out) ->
             env.step(zero_actions)
 
         for offset in COMPARED_OFFSETS:
-            _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_ids)
+            _apply_camera_offset(camera, nominal_translation, offset, device, env_ids)
             # Render only (no physics advance) so scene motion cannot contaminate the comparison.
             for _ in range(RENDER_ITERS):
                 sim.render()
@@ -136,7 +141,6 @@ def _read_camera_pose_at_offsets(simulation_app, *, presets, out) -> bool:
 
     device = env.unwrapped.device
     env_ids = torch.arange(env.unwrapped.num_envs, device=device)
-    pose_writer = CameraPoseWriter(camera)
     nominal_translation = view.get_local_poses()[0].torch.detach().clone()
     zero_actions = torch.zeros(env.action_space.shape, device=device)
 
@@ -145,9 +149,9 @@ def _read_camera_pose_at_offsets(simulation_app, *, presets, out) -> bool:
             env.step(zero_actions)
 
         for offset in COMPARED_OFFSETS:
-            _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_ids)
-            # camera.data.pos_w is the world pose the renderer consumes; the writer's camera.reset pushes
-            # the FrameView write here, so it should follow the pose.
+            _apply_camera_offset(camera, nominal_translation, offset, device, env_ids)
+            # camera.data.pos_w is the world pose the renderer consumes; camera.reset pushes the
+            # FrameView write here, so it should follow the pose.
             camera_pos_w = camera.data.pos_w.detach().float().cpu().clone()
             # The FrameView's own world pose reflects the write; captured as a positive control.
             view_pos_w = view.get_world_poses()[0].torch.detach().float().cpu().clone()
@@ -217,8 +221,7 @@ def _camera_pose_shift(label: str, presets: str | None) -> tuple[float, float]:
 def test_camera_extrinsics_variation_moves_render(backend, disable_fabric, request):
     """Changing the camera's local pose moves the rendered wrist-camera image.
 
-    Guards the Newton regression: without the USD write the ``NewtonSiteFrameView`` pose never reaches the
-    renderer and the image stays put.
+    Guards the Newton regression where ``NewtonSiteFrameView`` pose writes did not reach the renderer.
     """
     label = f"{backend}-{'fabric_off' if disable_fabric else 'fabric_on'}"
     difference = _mean_render_difference(

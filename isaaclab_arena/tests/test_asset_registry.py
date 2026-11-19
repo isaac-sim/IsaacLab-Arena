@@ -90,7 +90,7 @@ def _test_all_assets_in_registry(simulation_app, physics_backend: PhysicsBackend
     # Add lights
     for asset_cls in asset_registry.get_assets_by_tag("light"):
         # Different dome-light assets share /World/Light by default.
-        asset = asset_cls(prim_path=f"/World/{asset_cls.name}")
+        asset = asset_cls(prim_path=f"/World/{asset_cls.registry_name}")
         objects_in_registry.append(asset)
         objects_in_registry_names.append(asset.name)
     # Add ground plane
@@ -112,7 +112,14 @@ def _test_all_assets_in_registry(simulation_app, physics_backend: PhysicsBackend
     args_cli = args_parser.parse_args(["--presets", str(physics_backend)])
 
     builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
-    env = builder.make_registered()
+    env_cfg, env_kwargs = builder.build_env_cfg()
+    # Registered Newton deformables require VBD instead of the default MJWarp solver.
+    if physics_backend is PhysicsBackend.NEWTON:
+        from isaaclab_newton.physics import NewtonCfg, VBDSolverCfg
+
+        assert isinstance(env_cfg.sim.physics, NewtonCfg)
+        env_cfg.sim.physics = NewtonCfg(solver_cfg=VBDSolverCfg(iterations=1))
+    env = builder.make_registered(env_cfg, env_kwargs)
     env.reset()
 
     # Run

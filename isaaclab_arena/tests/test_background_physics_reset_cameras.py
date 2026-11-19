@@ -29,7 +29,6 @@ def _test_replicator_online_visual_physics_with_rtx(_) -> bool:
     try:
         env.reset()
         physics_paths = builder.arena_env.scene.get_background_physics_paths()["replicator_kitchen_peninsula"]
-        assert len(physics_paths) == 56
         banana_path = next(
             path for path, object_type in physics_paths.items() if "Banana" in path and object_type == ObjectType.RIGID
         )

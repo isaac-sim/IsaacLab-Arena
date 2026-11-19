@@ -6,7 +6,7 @@
 """Tests for :class:`VariationBase` subclassing and Cfg-driven configuration.
 
 These tests stay in plain Python (no ``SimulationApp``) because they only
-exercise the cfg plumbing and sampler wiring, not any Isaac Sim runtime.
+exercise configuration updates and sampler construction without starting Isaac Sim.
 """
 
 import torch
@@ -49,7 +49,7 @@ _CUSTOM_VARIATION_NAME = "test_custom_variation"
 
 
 class _CustomVariation(RunTimeVariationBase):
-    """Minimal run-time variation used to exercise ``VariationBase`` plumbing."""
+    """Runtime variation for testing configuration updates, samplers, and event creation."""
 
     cfg: _CustomVariationCfg
 

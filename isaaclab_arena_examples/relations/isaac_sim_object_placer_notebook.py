@@ -32,7 +32,7 @@ def run_isaac_sim_object_placer_demo(
 
     Args:
         num_steps: Number of simulation steps to run.
-        reset_every_n_steps: Reset the environment every N steps (to see RandomAroundSolution in action).
+        reset_every_n_steps: Reset the environment every N steps (to see the objects re-placed).
     """
     import torch
     import tqdm
@@ -88,7 +88,7 @@ def run_isaac_sim_object_placer_demo(
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             env.step(actions)
 
-        # Reset every N steps to see RandomAroundSolution randomization
+        # Reset every N steps to see the objects re-placed from the layout pool
         if reset_every_n_steps > 0 and (step + 1) % reset_every_n_steps == 0:
             env.reset()
 

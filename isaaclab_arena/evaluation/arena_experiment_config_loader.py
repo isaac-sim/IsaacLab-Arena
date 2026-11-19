@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from isaaclab_arena.utils.class_path import import_class_from_path
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
-    from isaaclab_arena.policy.policy_base import PolicyCfg
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 def validate_experiment_config_path(experiment_config: str | Path) -> Path:
@@ -65,7 +66,7 @@ def load_arena_experiment_from_config_file(
         with path.open(encoding="utf-8") as experiment_config_file:
             legacy_experiment_config = json.load(experiment_config_file)
         run_cfgs = run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
-        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs})
+        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs}, name=path.stem)
 
     experiment_cfg = load_arena_experiment_from_yaml(
         path,
@@ -85,7 +86,7 @@ def load_arena_experiment_from_config_file(
             environment_builder=environment_builder_with_process_device,
         )
         runs_with_process_device[run_name] = run_config_with_process_device
-    return ArenaExperimentCfg(runs=runs_with_process_device)
+    return replace(experiment_cfg, runs=runs_with_process_device)
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
@@ -94,25 +95,29 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     from isaaclab_arena_environments.cli import ensure_environments_registered
 
     ensure_environments_registered()
-    registry = EnvironmentRegistry()
-    environment_cfg_types = {}
-    for name in registry.get_all_keys():
-        environment_factory_type = registry.get_component_by_name(name)
-        environment_cfg_types[name] = registry.get_environment_cfg_type(environment_factory_type)
-    return environment_cfg_types
+    return EnvironmentRegistry().get_environment_cfg_types()
+
+
+def resolve_policy_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyBase]:
+    """Return the policy class for a registered policy name or dotted class path.
+
+    Args:
+        policy_name_or_class_path: Registered policy name, or a ``module_path.ClassName`` path.
+    """
+    from isaaclab_arena.assets.registries import PolicyRegistry
+
+    registry = PolicyRegistry()
+    if registry.is_registered(policy_name_or_class_path):
+        return registry.get_policy(policy_name_or_class_path)
+    assert (
+        "." in policy_name_or_class_path
+    ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
+    return import_class_from_path(policy_name_or_class_path)
 
 
 def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
     """Return the config type for a registered policy name or dotted class path."""
     from isaaclab_arena.assets.registries import PolicyRegistry
 
-    registry = PolicyRegistry()
-    if registry.is_registered(policy_name_or_class_path):
-        policy_type = registry.get_policy(policy_name_or_class_path)
-    else:
-        assert (
-            "." in policy_name_or_class_path
-        ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
-        module_path, class_name = policy_name_or_class_path.rsplit(".", 1)
-        policy_type = getattr(import_module(module_path), class_name)
-    return registry.get_policy_cfg_type(policy_type)
+    policy_type = resolve_policy_type_from_name_or_class_path(policy_name_or_class_path)
+    return PolicyRegistry().get_policy_cfg_type(policy_type)

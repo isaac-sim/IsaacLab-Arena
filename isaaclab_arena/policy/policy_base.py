@@ -10,7 +10,10 @@ import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from gymnasium.spaces.dict import Dict as GymSpacesDict
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
+
+if TYPE_CHECKING:
+    from isaaclab_arena.inference.backend import InferenceUsage
 
 
 @dataclass
@@ -26,6 +29,14 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
 
     def __init__(self, config: PolicyCfgT):
         self.config = config
+
+    @classmethod
+    def default_image_size(cls, config: PolicyCfgT) -> tuple[int, int] | None:
+        """Return the (height, width) of the camera images this policy is designed for, or None if it has none.
+
+        Policies accept images of any size; this is the size that their image preprocessing targets.
+        """
+        return None  # noqa: R501 - subclasses with image inputs return a size
 
     @abstractmethod
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
@@ -50,6 +61,10 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     def close(self) -> None:
         """Release resources held by the policy."""
         pass
+
+    def get_inference_usage(self) -> InferenceUsage | None:
+        """Return the remote inference requests and tokens used since the policy was created, or None if it uses none."""
+        return None  # noqa: R501 - policies that call remote inference return their usage
 
     def set_task_description(self, task_description: str | None) -> str:
         """Set the task description of the task being evaluated."""

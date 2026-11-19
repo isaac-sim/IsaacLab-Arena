@@ -167,7 +167,7 @@ def test_cable_asset_config():
     assert cable_cfg.init_state.pos == initial_pose.position_xyz
     assert cable_cfg.init_state.rot == initial_pose.rotation_xyzw
 
-    event_name, event_cfg = cable.get_event_cfg()
+    [(event_name, event_cfg)] = cable.get_event_cfgs()
     assert event_name == "test_cable"
     assert isinstance(event_cfg, EventTermCfg)
     assert event_cfg.func is reset_cable_to_default

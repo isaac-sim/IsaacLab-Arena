@@ -27,6 +27,20 @@ def test_simulation_app_context():
     assert test_passed, "Tested function returned False"
 
 
+def crash_reporter_disabled(_) -> bool:
+    import carb.settings
+
+    enabled = carb.settings.get_settings().get("/crashreporter/enabled")
+    print(f"/crashreporter/enabled = {enabled}")
+    return enabled is False
+
+
+def test_persistent_simulation_app_disables_crash_reporter():
+    # The crash reporter can deadlock and hang the test process when Kit crashes during startup.
+    test_passed = run_function_with_persistent_simulation_app(crash_reporter_disabled)
+    assert test_passed, "The Kit crash reporter is enabled in the persistent simulation app"
+
+
 def got_argument(_, test_arg: int) -> bool:
     print(f"Got argument: {test_arg}")
     return test_arg == TEST_ARG

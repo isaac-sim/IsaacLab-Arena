@@ -44,7 +44,13 @@ class ArticulationGeometrySpec:
 
 class EmbodimentBase(PlaceableAsset):
 
-    name: str | None = None
+    registry_name: str | None = None
+    """Key of this embodiment class in the asset registry, and the name of each embodiment built from it.
+
+    Unregistered base classes set it too. For example, the cuRobo config lookup matches ``"droid"`` on
+    DroidEmbodimentBase.
+    """
+
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
     gripper: Gripper | None
@@ -61,8 +67,8 @@ class EmbodimentBase(PlaceableAsset):
         collision_mode: CollisionMode | str | None = None,
         spawn_cfg_addon: dict[str, dict[str, Any]] | None = None,
     ):
-        assert self.name is not None, "Embodiment name is required"
-        super().__init__(name=self.name, tags=self.tags, collision_mode=collision_mode)
+        assert self.registry_name is not None, "Embodiment registry_name is required"
+        super().__init__(name=self.registry_name, tags=self.tags, collision_mode=collision_mode)
         if "embodiment" not in self.tags:
             self.tags.append("embodiment")
         self.enable_cameras = enable_cameras

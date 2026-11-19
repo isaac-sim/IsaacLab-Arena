@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1180" height="600" viewBox="0 0 1180 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#8c8c8c"/>
+    </marker>
+    <style>
+      .label { font-family: "NVIDIA Sans", Arial, Helvetica, sans-serif; font-weight: 700; font-size: 18px; }
+      .edge-label { font-family: "NVIDIA Sans", Arial, Helvetica, sans-serif; font-weight: 700; font-size: 15px; fill: #4d4d4d; }
+      .dark-node { fill: #1a1a1a; stroke: #1a1a1a; stroke-width: 2; }
+      .object-node { fill: white; stroke: #76b900; stroke-width: 2; }
+      .robot-node { fill: #76b900; stroke: #76b900; stroke-width: 2; }
+      .edge { fill: none; stroke: #8c8c8c; stroke-width: 2; marker-end: url(#arrow); }
+      .reference-edge { fill: none; stroke: #8c8c8c; stroke-width: 2; stroke-dasharray: 7 5; marker-end: url(#arrow); }
+      .edge-backing { fill: white; opacity: 0.94; }
+    </style>
+  </defs>
+  <rect width="1180" height="600" fill="white"/>
+  <path class="reference-edge" d="M440 144 C470 112, 565 96, 620 76"/>
+  <rect class="edge-backing" x="468" y="96" width="126" height="24" rx="4"/>
+  <text class="edge-label" x="531" y="113" text-anchor="middle">object reference</text>
+  <path class="reference-edge" d="M968 144 C930 112, 840 96, 782 76"/>
+  <rect class="edge-backing" x="826" y="96" width="126" height="24" rx="4"/>
+  <text class="edge-label" x="889" y="113" text-anchor="middle">object reference</text>
+  <path class="reference-edge" d="M968 260 L968 192"/>
+  <rect class="edge-backing" x="982" y="215" width="126" height="24" rx="4"/>
+  <text class="edge-label" x="1045" y="232" text-anchor="middle">object reference</text>
+  <path class="edge" d="M330 350 C336 286, 378 236, 418 192"/>
+  <rect class="edge-backing" x="342" y="262" width="34" height="24" rx="4"/>
+  <text class="edge-label" x="359" y="279" text-anchor="middle">on</text>
+  <path class="edge" d="M572 350 C555 289, 505 235, 472 192"/>
+  <rect class="edge-backing" x="520" y="263" width="34" height="24" rx="4"/>
+  <text class="edge-label" x="537" y="280" text-anchor="middle">on</text>
+  <path class="edge" d="M806 350 C747 274, 610 225, 502 192"/>
+  <rect class="edge-backing" x="667" y="259" width="34" height="24" rx="4"/>
+  <text class="edge-label" x="684" y="276" text-anchor="middle">on</text>
+  <path class="edge" d="M250 382 C218 444, 126 444, 126 398"/>
+  <rect class="edge-backing" x="162" y="418" width="86" height="24" rx="4"/>
+  <text class="edge-label" x="205" y="435" text-anchor="middle">align with</text>
+  <path class="edge" d="M860 520 C932 455, 930 365, 944 308"/>
+  <rect class="edge-backing" x="888" y="423" width="88" height="24" rx="4"/>
+  <text class="edge-label" x="932" y="440" text-anchor="middle">clutter on</text>
+  <path class="edge" d="M1080 520 C1140 444, 1090 350, 1000 308"/>
+  <rect class="edge-backing" x="1066" y="408" width="88" height="24" rx="4"/>
+  <text class="edge-label" x="1110" y="425" text-anchor="middle">clutter on</text>
+  <rect class="dark-node" x="590" y="28" width="220" height="48" rx="12"/>
+  <text class="label" x="700" y="59" text-anchor="middle" fill="white">Workbench</text>
+  <rect class="dark-node" x="330" y="144" width="220" height="48" rx="12"/>
+  <text class="label" x="440" y="175" text-anchor="middle" fill="white">Tabletop</text>
+  <rect class="dark-node" x="850" y="144" width="236" height="48" rx="12"/>
+  <text class="label" x="968" y="175" text-anchor="middle" fill="white">Top drawer</text>
+  <rect class="dark-node" x="858" y="260" width="220" height="48" rx="12"/>
+  <text class="label" x="968" y="291" text-anchor="middle" fill="white">Top drawer body</text>
+  <rect class="robot-node" x="40" y="350" width="172" height="48" rx="12"/>
+  <text class="label" x="126" y="381" text-anchor="middle" fill="#1a1a1a">DROID robot</text>
+  <rect class="object-node" x="250" y="350" width="160" height="48" rx="12"/>
+  <text class="label" x="330" y="381" text-anchor="middle" fill="#1a1a1a">White bin</text>
+  <rect class="object-node" x="460" y="350" width="224" height="48" rx="12"/>
+  <text class="label" x="572" y="381" text-anchor="middle" fill="#1a1a1a">Oscilloscope</text>
+  <rect class="object-node" x="720" y="350" width="172" height="48" rx="12"/>
+  <text class="label" x="806" y="381" text-anchor="middle" fill="#1a1a1a">Socket set</text>
+  <rect class="object-node" x="750" y="520" width="220" height="48" rx="12"/>
+  <text class="label" x="860" y="551" text-anchor="middle" fill="#1a1a1a">Slotted screwdriver</text>
+  <rect class="object-node" x="990" y="520" width="180" height="48" rx="12"/>
+  <text class="label" x="1080" y="551" text-anchor="middle" fill="#1a1a1a">Small wrench</text>
+</svg>

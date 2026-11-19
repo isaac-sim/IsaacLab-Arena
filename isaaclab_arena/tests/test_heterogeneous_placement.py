@@ -13,12 +13,15 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, get_bounding_box_per_env
+from isaaclab_arena.relations.geometry.bounding_box_helpers import (
+    build_per_env_bounding_boxes,
+    get_bounding_box_per_env,
+)
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.optimization.relation_solver import RelationSolver
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
@@ -45,7 +48,7 @@ def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
     lightweight DummyObject subclasses with get_bounding_box_per_env(...).
     Patch modules that bind the heterogeneous check by name at import time.
     """
-    from isaaclab_arena.relations import bounding_box_helpers
+    from isaaclab_arena.relations.geometry import bounding_box_helpers
 
     original_has_het = bounding_box_helpers.has_heterogeneous_objects
     original_bbox_per_env = bounding_box_helpers.get_bounding_box_per_env
@@ -59,13 +62,13 @@ def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
         return original_bbox_per_env(obj, num_envs)
 
     has_het_sites = [
-        "isaaclab_arena.relations.bounding_box_helpers.has_heterogeneous_objects",
+        "isaaclab_arena.relations.geometry.bounding_box_helpers.has_heterogeneous_objects",
         "isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects",
     ]
     for site in has_het_sites:
         monkeypatch.setattr(site, has_het_with_doubles)
     monkeypatch.setattr(
-        "isaaclab_arena.relations.bounding_box_helpers.get_bounding_box_per_env", bbox_per_env_with_doubles
+        "isaaclab_arena.relations.geometry.bounding_box_helpers.get_bounding_box_per_env", bbox_per_env_with_doubles
     )
 
 
@@ -662,6 +665,43 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     assert pool._env_pools[1].layouts[0] is fallback_results[1][0]
 
 
+@pytest.mark.parametrize("allow_fallback", [True, False])
+def test_pooled_placer_env_specific_fallback_fills_remaining_slots(capsys, allow_fallback):
+    """Final-batch fallback should fill the slots that the batch's valid layouts leave empty, after storing them.
+    Without fallback, only the valid layouts are stored."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
+    pool._had_fallbacks = False
+
+    # Env 0 gets one valid and one invalid result, ranked valid first; env 1 gets two valid results.
+    ranked_results = []
+    for cur_env, validity_per_candidate in enumerate(((True, False), (True, True))):
+        env_results = []
+        for candidate_idx, valid in enumerate(validity_per_candidate):
+            env_results.append(
+                PlacementResult(
+                    validation_results=_checklist(valid),
+                    positions={hetero: (float(cur_env), float(candidate_idx), 0.0)},
+                    final_loss=float(candidate_idx),
+                    attempts=1,
+                )
+            )
+        ranked_results.append(env_results)
+
+    pool._store_env_matched_results(
+        ranked_results, layouts_per_env=2, target_num_layouts_per_env=2, allow_fallback=allow_fallback
+    )
+    captured = capsys.readouterr()
+
+    assert pool.had_fallbacks == allow_fallback
+    assert ("envs: [0]" in captured.out) == allow_fallback
+    assert pool._env_pools[0].layouts == (ranked_results[0] if allow_fallback else ranked_results[0][:1])
+    assert pool._env_pools[1].layouts == ranked_results[1]
+
+
 def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
     """Refills should not grow env pools that already met the target."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
@@ -906,7 +946,7 @@ def test_real_rigid_object_set_through_pooled_placer():
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry
-    from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+    from isaaclab_arena.relations.geometry.bounding_box_helpers import has_heterogeneous_objects
 
     desk = _make_desk()
 

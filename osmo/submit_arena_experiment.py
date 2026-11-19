@@ -24,7 +24,7 @@ from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_exp
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow
-from osmo.workflows.workflow import WorkflowCfg
+from osmo.workflows.workflow import WorkflowCfg, WorkflowSubmissionResult
 
 SUBMISSION_CONFIG_NAME = "osmo_arena_experiment_submission"
 
@@ -43,21 +43,47 @@ class ArenaExperimentSubmissionCfg:
     """Configuration for the task that executes ``experiment_runner.py``."""
 
 
-def submit_arena_experiment(submission_cfg: ArenaExperimentSubmissionCfg) -> int:
+def submit_arena_experiment(
+    submission_cfg: ArenaExperimentSubmissionCfg,
+    timeout_s: float | None = None,
+) -> WorkflowSubmissionResult:
     """Build and submit the OSMO workflow described by ``submission_cfg``.
 
     Args:
         submission_cfg: Composed Experiment and OSMO configuration.
+        timeout_s: Wall-clock limit in seconds for ``osmo workflow submit``; None waits indefinitely.
+            When exceeded, the ``subprocess.TimeoutExpired`` from the call propagates.
 
     Returns:
-        The OSMO submission process status.
+        The submission outcome: process status, plus the OSMO workflow ID and overview URL when parsed.
     """
     workflow = ArenaExperimentWorkflow(
         workflow_cfg=submission_cfg.osmo,
         experiment_cfg=submission_cfg.experiment_cfg,
         task_cfg=submission_cfg.experiment_runner,
     )
-    return workflow.submit_workflow().returncode
+    return workflow.submit_workflow(timeout_s=timeout_s)
+
+
+def submit_arena_experiment_from_file(
+    experiment_cfg_path: str | Path,
+    overrides: list[str] | None = None,
+    timeout_s: float | None = None,
+) -> WorkflowSubmissionResult:
+    """Load an Experiment file, apply submission overrides, and submit it to OSMO.
+
+    Args:
+        experiment_cfg_path: Arena Experiment configuration file.
+        overrides: Hydra field overrides rooted at the composed submission, for example
+            ``osmo.workflow_name=my-run`` or ``experiment_runner.image=<image>``.
+        timeout_s: Wall-clock limit in seconds for ``osmo workflow submit``; None waits indefinitely.
+            When exceeded, the ``subprocess.TimeoutExpired`` from the call propagates.
+
+    Returns:
+        The submission outcome: process status, plus the OSMO workflow ID and overview URL when parsed.
+    """
+    submission_cfg = build_arena_experiment_submission_cfg(experiment_cfg_path, overrides)
+    return submit_arena_experiment(submission_cfg, timeout_s=timeout_s)
 
 
 def build_arena_experiment_submission_cfg(
@@ -169,7 +195,7 @@ def main(cli_args: list[str] | None = None) -> int:
     if args.list_overrides:
         print(submission_cfg_to_str(submission_cfg))
         return 0
-    return submit_arena_experiment(submission_cfg)
+    return submit_arena_experiment(submission_cfg).returncode
 
 
 if __name__ == "__main__":

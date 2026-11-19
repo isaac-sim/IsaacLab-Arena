@@ -5,20 +5,18 @@ This workflow covers post-training an example policy using the generated dataset
 here we use `GR00T N1.6 <https://research.nvidia.com/labs/gear/gr00t-n1_6/>`_ as the base model.
 
 
-Use the Arena **Base** container for dataset download and LeRobot conversion. Run GR00T
+Use the Arena runtime for dataset download and LeRobot conversion. Run GR00T
 finetuning from the native Isaac-GR00T ``uv`` environment in ``submodules/Isaac-GR00T``,
-not from the Arena container.
+not from the Arena runtime.
 
-**Docker Container for conversion**: Base (see :doc:`../../quickstart/installation` for more details)
+:runtime_setup_tabs:
 
-:docker_run_default:
+Once the runtime is ready, set the dataset and models directories.
 
-Once inside the container, set the dataset and models directories.
+.. code-block:: bash
 
-.. code:: bash
-
-    export DATASET_DIR=/datasets/isaaclab_arena/sequential_static_manipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/sequential_static_manipulation_tutorial
+   export DATASET_DIR="$HOME/datasets/isaaclab_arena/sequential_static_manipulation_tutorial"
+   export MODELS_DIR="$HOME/models/isaaclab_arena/sequential_static_manipulation_tutorial"
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Data Generation) <step_3_data_generation>` or downloaded the
@@ -76,6 +74,13 @@ Note that this conversion step can be skipped by downloading the pre-converted L
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
 
+The converter calls ``ffprobe``, which the Docker container already provides. On a native host,
+install it first if it is missing:
+
+.. code-block:: bash
+
+   sudo apt-get install -y ffmpeg
+
 Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
@@ -92,7 +97,7 @@ This creates a folder ``$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lero
    .. code-block:: yaml
 
       # Input/Output paths
-      data_root: /datasets/isaaclab_arena/sequential_static_manipulation_tutorial/
+      data_root: ~/datasets/isaaclab_arena/sequential_static_manipulation_tutorial/
       hdf5_name: "ranch_bottle_into_fridge_generated_100.hdf5"
 
       # Task description
@@ -153,12 +158,11 @@ We provide two post-training options:
       - **Global Batch Size:** 96 (adjust based on GPU memory)
       - **Training Steps:** 20,000
 
-      To post-train the policy, open another terminal **outside** the Arena Base Docker container
+      To post-train the policy, open another terminal, separate from the Arena runtime,
       and ``cd`` to ``submodules/Isaac-GR00T``. Set up GR00T's native ``uv`` environment by
       following the `GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_,
-      then run the finetuning command below. The paths assume the default Arena Docker mounts
-      (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with
-      custom mount directories.
+      then run the finetuning command below. The paths assume the default ``$HOME/datasets`` and ``$HOME/models``
+      locations; adjust them if you use other directories.
 
       .. code-block:: bash
 
@@ -194,12 +198,11 @@ We provide two post-training options:
       - **Training Steps:** 30,000
       - **GPUs:** 1 (single-GPU training)
 
-      To post-train the policy, open another terminal **outside** the Arena Base Docker container
+      To post-train the policy, open another terminal, separate from the Arena runtime,
       and ``cd`` to ``submodules/Isaac-GR00T``. Set up GR00T's native ``uv`` environment by
       following the `GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_,
-      then run the finetuning command below. The paths assume the default Arena Docker mounts
-      (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with
-      custom mount directories.
+      then run the finetuning command below. The paths assume the default ``$HOME/datasets`` and ``$HOME/models``
+      locations; adjust them if you use other directories.
 
       .. code-block:: bash
 

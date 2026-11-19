@@ -6,33 +6,14 @@
 """Test conversion from legacy JSON experiments to typed runs."""
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation import legacy_graph_environment_cli
-from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
-
-
-def test_legacy_environment_arguments_keep_cli_order_and_boolean_flags():
-    args = legacy_environment_args_to_cli_args({
-        "environment": "test_env",
-        "object": "box",
-        "num_envs": 4,
-        "mimic": True,
-        "enable_cameras": False,
-    })
-
-    assert args[:3] == ["--num_envs", "4", "test_env"]
-    assert args[args.index("--object") + 1] == "box"
-    assert "--mimic" in args
-    assert "--enable_cameras" not in args
 
 
 def test_legacy_jobs_become_concrete_run_configs():
@@ -92,69 +73,6 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
     assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
     assert run.environment.env_spec_path == str(graph_path)
     assert run.environment.per_run_overrides == {"enable_cameras": True, "object": "dex_cube"}
-
-
-def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeypatch):
-    graph_path = Path(TestConstants.test_data_dir) / "pick_and_place_maple_table_env_graph.yaml"
-    (run,) = run_cfgs_from_legacy_eval_config(
-        {
-            "jobs": [{
-                "name": "graph_environment",
-                "arena_env_args": {"environment": str(graph_path), "num_envs": 2},
-                "policy_type": "zero_action",
-                "num_steps": 2,
-                "variations": {"light": {"intensity": {"enabled": True}}},
-            }]
-        },
-        device="cuda:1",
-    )
-    parsed_args = SimpleNamespace(env_spec=str(graph_path))
-    expected_arena_env = object()
-    expected_builder = object()
-    captured = {}
-
-    class _Parser:
-        def parse_args(self, arguments):
-            captured["arguments"] = arguments
-            return parsed_args
-
-    monkeypatch.setattr(legacy_graph_environment_cli, "get_isaaclab_arena_environments_cli_parser", lambda: _Parser())
-
-    def get_arena_env(env_spec, args_cli):
-        captured["env_spec"] = env_spec
-        captured["args_cli"] = args_cli
-        return expected_arena_env
-
-    monkeypatch.setattr(legacy_graph_environment_cli, "arena_env_from_graph_spec", get_arena_env)
-
-    def get_builder(arena_env, builder_cfg, hydra_overrides):
-        captured["arena_env"] = arena_env
-        captured["builder_cfg"] = builder_cfg
-        captured["hydra_overrides"] = hydra_overrides
-        return expected_builder
-
-    # Patched by name so ArenaEnvBuilder is imported when the test runs rather than at
-    # collection, which would pull Isaac Lab modules in before SimulationApp starts.
-    monkeypatch.setattr("isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder", get_builder)
-
-    builder = legacy_graph_environment_cli.build_arena_builder_from_legacy_graph(
-        run.environment,
-        environment_builder=run.environment_builder,
-        hydra_overrides=overrides_from_dict(run.variations),
-    )
-
-    assert builder is expected_builder
-    assert captured["arguments"] == legacy_environment_args_to_cli_args(
-        {"environment": run.environment.env_spec_path, **run.environment.per_run_overrides}
-    )
-    assert captured["args_cli"] is parsed_args
-    assert captured["env_spec"] == str(graph_path)
-    # The Run's typed builder config crosses the boundary directly, so device and
-    # language_instruction never round-trip through the argparse namespace.
-    assert captured["builder_cfg"] is run.environment_builder
-    assert captured["builder_cfg"].device == "cuda:1"
-    assert captured["arena_env"] is expected_arena_env
-    assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
 
 
 def test_registered_environment_rejects_arguments_missing_from_its_typed_config():

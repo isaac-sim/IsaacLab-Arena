@@ -1,0 +1,270 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+import torch
+from typing import TYPE_CHECKING
+
+from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox
+
+if TYPE_CHECKING:
+    from isaaclab_arena.relations.geometry.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
+
+class RelationSolverState:
+    """Encapsulates position state during optimization.
+
+    This class manages the mapping between objects and their positions,
+    keeping anchor (fixed) and optimizable positions separate internally
+    while providing an interface for position lookups.
+
+    Positions are always stored as (batch_size, num_objects, 3).
+    """
+
+    def __init__(
+        self,
+        objects: list[PlaceableAsset],
+        initial_positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
+        device: torch.device | None = None,
+        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
+        collision_bboxes: dict[PlaceableAsset, BoundingBox] | None = None,
+    ):
+        """Initialize optimization state.
+
+        Args:
+            objects: Placement assets to track. Must include at least one
+                object marked with IsAnchor() which serves as a fixed reference.
+            initial_positions: List of dicts (one per env). Length 1 = single-env,
+                length > 1 = batched.
+            device: Torch device for all tensors. Defaults to CPU.
+            env_bboxes: Optional per-env bounding boxes keyed by object.
+            collision_objects: Optional fixed background obstacles that participate in
+                no-overlap collision only (never in relation constraints). They keep a
+                constant world bounding box and are not optimized. Must be disjoint from objects.
+            collision_bboxes: Collision bounds, oriented or axis-aligned, relative to each movable object origin;
+                omitted entries use the supplied env_bboxes or object bounds, and anchor entries are ignored.
+        """
+        assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
+        anchor_objects = get_anchor_objects(objects)
+        assert len(anchor_objects) > 0, "No anchor object found in objects list."
+
+        self._all_objects = objects
+        self._anchor_objects: set[PlaceableAsset] = set(anchor_objects)
+        self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
+        self._collision_objects: list[CollisionObject] = list(collision_objects) if collision_objects else []
+        assert not (set(self._collision_objects) & set(objects)), (
+            "collision_objects must be disjoint from placed objects; an object cannot be "
+            "both optimized and a fixed collision obstacle."
+        )
+
+        # Build object-to-index mapping
+        self._obj_to_idx: dict[PlaceableAsset, int] = {obj: i for i, obj in enumerate(objects)}
+
+        self._device = device or torch.device("cpu")
+        self._batch_size = len(initial_positions)
+
+        # Validate that every dict contains all objects before building the tensor.
+        for d in initial_positions:
+            for obj in objects:
+                assert obj in d, f"Missing initial position for {obj.name}"
+
+        # Build all positions as a single (N, num_objects, 3) tensor in one call.
+        pos_nested = [[d[obj] for obj in objects] for d in initial_positions]
+        all_positions = torch.tensor(pos_nested, dtype=torch.float32, device=self._device)
+
+        # Separate anchor positions from optimizable positions
+        self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
+        # Anchors must be identical across envs (they are fixed reference points).
+        for idx in self._anchor_indices:
+            for env_idx in range(1, self._batch_size):
+                assert torch.allclose(all_positions[0, idx], all_positions[env_idx, idx]), (
+                    f"Anchor '{objects[idx].name}' has different positions across envs "
+                    f"(env 0: {all_positions[0, idx].tolist()}, env {env_idx}: {all_positions[env_idx, idx].tolist()})"
+                )
+        self._anchor_positions: dict[int, torch.Tensor] = {
+            idx: all_positions[0, idx].clone() for idx in self._anchor_indices
+        }
+
+        # Pre-build anchor positions as (1, num_objects, 3) for fast _reconstruct_all_positions.
+        self._anchor_pos_tensor = torch.zeros(1, len(objects), 3, dtype=torch.float32, device=self._device)
+        for idx, pos in self._anchor_positions.items():
+            self._anchor_pos_tensor[0, idx, :] = pos
+
+        # Build optimizable positions tensor by slicing from the full tensor.
+        self._optimizable_indices = [i for i in range(len(objects)) if i not in self._anchor_indices]
+        self._global_to_opt_idx: dict[int, int] = {
+            global_idx: opt_idx for opt_idx, global_idx in enumerate(self._optimizable_indices)
+        }
+        if self._optimizable_indices:
+            self._opt_idx_tensor = torch.tensor(self._optimizable_indices, dtype=torch.long, device=self._device)
+            self._optimizable_positions = all_positions[:, self._opt_idx_tensor, :].clone()
+            self._optimizable_positions.requires_grad = True
+        else:
+            self._opt_idx_tensor = None
+            self._optimizable_positions = None
+
+        self._env_bboxes = env_bboxes
+
+        # Anchors and background collision objects are fixed, so their world bounding boxes are
+        # constant during the solve. Cache them once instead of recomputing every gradient step.
+        self._fixed_obstacle_world_bboxes: dict[PlaceableAsset | CollisionObject, AxisAlignedBoundingBox] = {
+            obj: obj.get_world_bounding_box().to(self._device)
+            for obj in (*self._anchor_objects, *self._collision_objects)
+        }
+
+        self._build_collision_bboxes(collision_bboxes)
+
+    def _build_collision_bboxes(self, collision_bboxes: dict[PlaceableAsset, BoundingBox] | None) -> None:
+        """Store movable-object collision bounds, defaulting omitted entries to get_bbox, and precompute geometry."""
+        self._collision_bboxes: dict[PlaceableAsset, BoundingBox] = {}
+        """Collision bounds relative to each movable object's origin."""
+        for obj in self._optimizable_objects:
+            bounds = collision_bboxes.get(obj) if collision_bboxes is not None else None
+            self._collision_bboxes[obj] = (bounds if bounds is not None else self.get_bbox(obj)).to(self._device)
+        self._collision_boxes_axis_aligned = all(
+            isinstance(box, AxisAlignedBoundingBox) for box in self._collision_bboxes.values()
+        )
+        self._collision_geometry = {}
+        """Fixed center offsets (B, 3), half-lengths (B, 3), and axes (B, 3, 3), with B = batch size."""
+        if not self.collision_boxes_axis_aligned:
+            for obj in (*self._collision_bboxes, *self._fixed_obstacle_world_bboxes):
+                self.get_collision_geometry(obj)
+
+    @property
+    def collision_boxes_axis_aligned(self) -> bool:
+        """Whether every collision box uses environment-aligned min/max bounds."""
+        return self._collision_boxes_axis_aligned
+
+    def get_collision_bbox(self, obj: PlaceableAsset) -> BoundingBox:
+        """Return collision bounds relative to a movable object's origin."""
+        return self._collision_bboxes[obj]
+
+    def get_collision_center_W(self, obj: PlaceableAsset | CollisionObject) -> torch.Tensor:
+        """Return the collision box centers in W at the current positions, shape (B, 3)."""
+        center, _, _ = self.get_collision_geometry(obj)
+        # Movable geometry stores centers relative to the object origin; fixed geometry stores world centers.
+        if obj in self._collision_bboxes:
+            return center + self.get_position(obj)
+        return center
+
+    def get_collision_geometry(
+        self, obj: PlaceableAsset | CollisionObject
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Return cached center offsets (B, 3), half-lengths (B, 3), and axes (B, 3, 3)."""
+        if obj not in self._collision_geometry:
+            from isaaclab.utils.math import matrix_from_quat
+
+            box = (
+                self._collision_bboxes[obj] if obj in self._collision_bboxes else self._fixed_obstacle_world_bboxes[obj]
+            )
+            if isinstance(box, AxisAlignedBoundingBox):
+                box = box.to_obb()
+            R_W_B = matrix_from_quat(box.rotation_W_B_xyzw)
+            self._collision_geometry[obj] = (
+                box.center_W.expand(self.batch_size, 3),
+                box.half_extents.expand(self.batch_size, 3),
+                R_W_B.expand(self.batch_size, 3, 3),
+            )
+        return self._collision_geometry[obj]
+
+    @property
+    def device(self) -> torch.device:
+        """Torch device for all position tensors."""
+        return self._device
+
+    @property
+    def batch_size(self) -> int:
+        """Number of independent position sets (leading dimension of position tensors)."""
+        return self._batch_size
+
+    @property
+    def optimizable_positions(self) -> torch.Tensor | None:
+        """Tensor of optimizable positions (batch_size, num_optimizable, 3), or None if all objects are anchors.
+
+        This is the tensor that should be passed to the optimizer.
+        """
+        return self._optimizable_positions
+
+    @property
+    def optimizable_objects(self) -> list[PlaceableAsset]:
+        """List of optimizable objects (excludes anchors)."""
+        return self._optimizable_objects
+
+    @property
+    def anchor_objects(self) -> set[PlaceableAsset]:
+        """Set of anchor objects (fixed during optimization)."""
+        return self._anchor_objects
+
+    @property
+    def collision_objects(self) -> list[CollisionObject]:
+        """Copy of the collision-only fixed obstacles (constant world pose, no relation constraints)."""
+        return list(self._collision_objects)
+
+    def get_position(self, obj: PlaceableAsset) -> torch.Tensor:
+        """Get current position for an object.
+
+        Args:
+            obj: The object to get position for.
+
+        Returns:
+            Position tensor of shape (batch_size, 3).
+
+        Raises:
+            KeyError: If object is not tracked by this state.
+            RuntimeError: If requesting position for optimizable object when none exist.
+        """
+        idx = self._obj_to_idx[obj]
+        if idx in self._anchor_indices:
+            return self._anchor_positions[idx].unsqueeze(0).expand(self._batch_size, 3)
+        if self._optimizable_positions is None:
+            raise RuntimeError(f"No optimizable positions available for object '{obj.name}'")
+        opt_idx = self._global_to_opt_idx[idx]
+        return self._optimizable_positions[:, opt_idx, :]
+
+    def get_fixed_obstacle_world_bbox(self, obj: PlaceableAsset | CollisionObject) -> AxisAlignedBoundingBox:
+        """Return the cached constant world bounding box for an anchor or collision object."""
+        assert (
+            obj in self._fixed_obstacle_world_bboxes
+        ), f"'{obj.name}' is not a fixed obstacle (anchor or collision object) tracked by this state."
+        return self._fixed_obstacle_world_bboxes[obj]
+
+    def get_bbox(self, obj: PlaceableAsset) -> AxisAlignedBoundingBox:
+        """Return the local bounding box for obj, moved to the state's device."""
+        if self._env_bboxes is not None and obj in self._env_bboxes:
+            return self._env_bboxes[obj].to(self._device)
+        return obj.get_bounding_box().to(self._device)
+
+    def get_all_positions_snapshot(self) -> list[tuple[float, float, float]]:
+        """Get detached copy of all positions for history tracking.
+
+        Returns:
+            List of (x, y, z) positions for each object (in original order). Uses env 0.
+        """
+        return [tuple(self.get_position(obj)[0].detach().tolist()) for obj in self._all_objects]
+
+    def get_final_positions(self) -> list[dict[PlaceableAsset, tuple[float, float, float]]]:
+        """Get final positions as a list of dicts, one per env.
+
+        Returns:
+            List of dictionaries with object instances as keys and (x, y, z) tuples as values.
+        """
+        # Reconstruct the full (N, num_objects, 3) tensor and transfer to CPU in one call.
+        full = self._reconstruct_all_positions()
+        pos_list = full.detach().cpu().tolist()
+        return [
+            {obj: tuple(pos_list[env_idx][obj_idx]) for obj_idx, obj in enumerate(self._all_objects)}
+            for env_idx in range(self._batch_size)
+        ]
+
+    def _reconstruct_all_positions(self) -> torch.Tensor:
+        """Reconstruct a full (batch_size, num_objects, 3) tensor from anchor and optimizable parts."""
+        full = self._anchor_pos_tensor.expand(self._batch_size, -1, -1).clone()
+        if self._optimizable_positions is not None:
+            full[:, self._opt_idx_tensor, :] = self._optimizable_positions
+        return full

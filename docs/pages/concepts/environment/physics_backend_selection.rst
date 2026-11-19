@@ -22,7 +22,7 @@ Authoring and CLI inputs:
 
    # Environment factory (Python)
    return IsaacLabArenaEnvironment(
-       name="dexsuite_lift",
+       name="gear_insertion",
        scene=scene,
        embodiment=embodiment,
        task=task,
