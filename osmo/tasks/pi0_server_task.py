@@ -59,7 +59,7 @@ class Pi0ServerTaskCfg(TaskCfg):
     """openpi checkpoint directory."""
 
     server: Pi0ServerCfg = field(default_factory=Pi0ServerCfg)
-    """Batching settings of the served openpi server."""
+    """Settings of the served openpi server."""
 
     def __post_init__(self) -> None:
         assert (
@@ -82,7 +82,7 @@ class Pi0ServerTaskCfg(TaskCfg):
 
         Args:
             policy_variant: Client variant whose checkpoint the server serves.
-            server: Batching settings of the server, or None for the defaults.
+            server: Settings of the server, or None for the defaults.
         """
         assert (
             policy_variant in PI0_POLICY_VARIANTS

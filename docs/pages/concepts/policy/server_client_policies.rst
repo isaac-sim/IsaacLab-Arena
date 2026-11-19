@@ -64,20 +64,10 @@ upstream's script instead. On OSMO the pi0 server task embeds the script into th
 Experiments submitted with ``osmo/submit_arena_experiment.py`` get batched inference without a new
 server image.
 
-On the client, setting ``batch_chunk_fetches`` to ``false`` turns the batched requests off, and
-``max_batch_size`` caps the environments per request below the server's advertised limit. Settings for
-the server itself live in the ``server`` section of the pi0 policy config, which the client ignores and
-the OSMO server task starts its server with: ``server.max_batch_size`` (default 32, or ``null`` for
-upstream's script) and ``server.batch_sizes``, for example:
-
-.. code-block:: yaml
-
-   policy:
-     type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-     server:
-       batch_sizes: [8, 16]
-
-Fixed shapes pay off only when the number of environments requesting on a typical step, about
+On the client, ``batch_chunk_fetches`` (default ``true``) turns the batched requests off, and
+``max_batch_size`` caps the environments per request below the server's advertised limit.
+``batch_sizes`` (for example ``[8, 16]``) makes the OSMO server task start the server with those fixed
+shapes. Fixed shapes pay off only when the number of environments requesting on a typical step, about
 ``num_envs`` divided by the chunk length in a desynchronized rollout, is close to the batch size;
 with fewer requests per step the padding costs more than the batching saves. The policy prints, when
 it closes, how many chunk requests it sent in how many server calls.
@@ -97,8 +87,8 @@ Requests and responses are flat dictionaries of NumPy arrays and strings, packed
 
 The client's configuration holds the connection settings: ``remote_host``, ``remote_port``,
 ``ping_interval``, ``ping_timeout``, and ``policy_device``. ``RemoteChunkReplayPolicyCfg`` defines
-them, together with the batching settings, for every ``RemoteChunkReplayPolicy`` config. The RoboLab example below evaluates
-π0.5 and Cosmos on the same two tasks:
+them, together with the batching settings, for every ``RemoteChunkReplayPolicy`` config. The RoboLab
+example below evaluates π0.5 and Cosmos on the same two tasks:
 
 .. dropdown:: Configuration file (``robolab_2_tasks_pi0_and_cosmos.yaml``)
    :animate: fade-in
@@ -122,9 +112,10 @@ which ``cosmos_embodiment_adapter`` or ``openpi_embodiment_adapter`` selects. Th
 does not change.
 
 To add a model whose server speaks the OpenPI protocol, subclass ``RemoteChunkReplayPolicy`` and
-``PolicyBase[YourCfg]``, where ``YourCfg`` subclasses ``RemoteChunkReplayPolicyCfg``. Set ``name`` and ``server_response_actions_key``, and pass your adapter
-and horizon to ``super().__init__``. ``CosmosRemotePolicy`` is the reference: it differs from
-the OpenPI client only in its response key and adapter.
+``PolicyBase[YourCfg]``, where ``YourCfg`` subclasses ``RemoteChunkReplayPolicyCfg``. Set ``name``
+and ``server_response_actions_key``, and pass your adapter and horizon to ``super().__init__``.
+``CosmosRemotePolicy`` is the reference: it differs from the OpenPI client only in its response key
+and adapter.
 
 .. dropdown:: ``cosmos_remote_policy.py``
    :animate: fade-in
