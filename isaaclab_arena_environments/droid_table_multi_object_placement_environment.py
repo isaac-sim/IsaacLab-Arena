@@ -78,7 +78,6 @@ class DroidTableMultiObjectPlacementEnvironment(ArenaEnvironmentFactory[DroidTab
     """Place homogeneous or heterogeneous objects on a Maple table."""
 
     name: str = "droid_table_multi_object_placement"
-    _legacy_argparse_cfg_type = DroidTableMultiObjectPlacementEnvironmentCfg
 
     def build(self, cfg: DroidTableMultiObjectPlacementEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
