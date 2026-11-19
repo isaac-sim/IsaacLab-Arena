@@ -26,17 +26,18 @@ All three live in
 Run an in-process policy
 ------------------------
 
-Select the policy with ``--policy_type``. Each field of its configuration becomes a flag:
+Select the policy with ``policy.type`` in a Run of an Experiment Definition. The other keys set
+fields of its configuration:
 
-.. code-block:: bash
+.. code-block:: yaml
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type replay \
-     --replay_file_path demo.hdf5 \
-     <environment> <environment arguments>
+   policy:
+     type: replay
+     replay_file_path: demo.hdf5
 
-:doc:`../../quickstart/environment_variations` runs ``zero_action`` through the Experiment
-Runner instead.
+The ``replay`` policy reports the length of its episode, so a Run that uses it can leave out
+``rollout_limit``. :doc:`../../quickstart/environment_variations` runs ``zero_action`` the same
+way.
 
 
 Add your own
