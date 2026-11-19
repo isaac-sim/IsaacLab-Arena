@@ -32,6 +32,17 @@ def _setuptools_find_config() -> dict:
     return pyproject["tool"]["setuptools"]["packages"]["find"]
 
 
+def _directories_with_python_files(source_root: pathlib.Path, include: list[str]) -> list[pathlib.Path]:
+    """Return the directories under ``source_root`` that hold ``.py`` files and match an ``include`` pattern."""
+    directories = []
+    for pattern in include:
+        for directory, subdirectories, files in os.walk(source_root / pattern.rstrip("*")):
+            subdirectories[:] = [name for name in subdirectories if name != "__pycache__" and not name.startswith(".")]
+            if any(name.endswith(".py") for name in files):
+                directories.append(pathlib.Path(directory))
+    return directories
+
+
 def _python_directories_not_installed() -> set[str]:
     """Return directories holding ``.py`` files that setuptools does not install.
 
@@ -42,18 +53,13 @@ def _python_directories_not_installed() -> set[str]:
     include = config["include"]
     exclude = config.get("exclude", [])
     not_installed = set()
-    for source_root in (REPO_ROOT / where for where in config["where"]):
+    for where in config["where"]:
+        source_root = REPO_ROOT / where
         installed = set(find_packages(where=str(source_root), include=include, exclude=exclude))
-        for package_root in (pattern.rstrip("*") for pattern in include):
-            for directory, subdirectories, files in os.walk(source_root / package_root):
-                subdirectories[:] = [
-                    name for name in subdirectories if name != "__pycache__" and not name.startswith(".")
-                ]
-                if not any(name.endswith(".py") for name in files):
-                    continue
-                package_name = ".".join(pathlib.Path(directory).relative_to(source_root).parts)
-                if package_name not in installed:
-                    not_installed.add(pathlib.Path(directory).relative_to(REPO_ROOT).as_posix())
+        for directory in _directories_with_python_files(source_root, include):
+            package_name = ".".join(directory.relative_to(source_root).parts)
+            if package_name not in installed:
+                not_installed.add(directory.relative_to(REPO_ROOT).as_posix())
     return not_installed
 
 
