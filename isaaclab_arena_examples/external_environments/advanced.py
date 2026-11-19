@@ -6,7 +6,7 @@
 """Advanced example: externally-defined environment with a custom task and embodiment.
 
 Builds on the basic example by defining a custom task, a custom embodiment
-variant (with modified controller gains), and a custom episode recorder term
+variant (with modified controller gains), and two custom episode recorder terms
 in the same file::
 
     python isaaclab_arena/evaluation/policy_runner.py \\
@@ -98,8 +98,13 @@ class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
 
 
 # ---------------------------------------------------------------------------
-# Custom episode recorder term
+# Custom episode recorder terms
 # ---------------------------------------------------------------------------
+
+
+def record_object_final_height(env, env_id: int, object_name: str) -> dict[str, float]:
+    """Records the height [m] of an object when the episode ends."""
+    return {"final_height": float(env.arena_world.get_pose_w(object_name)[env_id, 2])}
 
 
 class ObjectPeakSpeed(EpisodeRecorderTerm):
@@ -167,9 +172,12 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
             scene=scene,
             task=task,
             episode_recorder_terms={
+                "object_final_height": EpisodeRecorderTermCfg(
+                    func=record_object_final_height, params={"object_name": pick_up_object.name}
+                ),
                 "object_peak_speed": EpisodeRecorderTermCfg(
                     func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
-                )
+                ),
             },
         )
 

@@ -73,11 +73,20 @@ term's output under the term's name:
 A term returns a dictionary of JSON values when the episode ends. Write it as:
 
 * **a function**, for a value you can read at the end of the episode, such as an object's final
-  height.
+  height:
+
+  .. code-block:: python
+
+     def record_object_final_height(env, env_id: int, object_name: str) -> dict[str, float]:
+         """Records the height [m] of an object when the episode ends."""
+         return {"final_height": float(env.arena_world.get_pose_w(object_name)[env_id, 2])}
+
 * **a class derived from** ``EpisodeRecorderTerm``, for a value that builds up during the episode,
   such as an object's peak speed. Arena calls its ``post_step()`` after every step, so it can track
-  the value as the episode runs. ``ObjectPeakSpeed`` in
-  :doc:`../../arena_in_your_repo/external_tasks_and_embodiments` is an example.
+  the value as the episode runs.
+
+:doc:`../../arena_in_your_repo/external_tasks_and_embodiments` defines both ``record_object_final_height``
+and the class ``ObjectPeakSpeed``, and adds them to an environment.
 
 An environment can also add terms through ``IsaacLabArenaEnvironment(episode_recorder_terms=...)``,
 for a value that only that environment needs, without changing its task.

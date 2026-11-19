@@ -79,10 +79,12 @@ the same way as any built-in embodiment (see :ref:`putting_it_all_together` belo
 Recording a Custom Value per Episode
 ------------------------------------
 
-The example also records the highest speed the object reached in each episode. It defines an
-``ObjectPeakSpeed`` episode recorder term (see :ref:`recording-per-episode-values`) and adds it to
-the environment through ``episode_recorder_terms``, as shown below. Each line of the episode results
-then holds the value under the term's name, for example ``"object_peak_speed": {"peak_speed": 0.83}``.
+The example also records two values for each episode: the object's height when the episode ends, and
+the highest speed it reached. It defines an episode recorder term for each (see
+:ref:`recording-per-episode-values`): the function ``record_object_final_height`` and the class
+``ObjectPeakSpeed``. It adds both to the environment through ``episode_recorder_terms``, as shown
+below. Each line of the episode results then holds the values under the terms' names, for example
+``"object_final_height": {"final_height": 0.12}, "object_peak_speed": {"peak_speed": 0.83}``.
 
 .. _putting_it_all_together:
 
@@ -90,7 +92,7 @@ Putting It All Together
 -----------------------
 
 Here we create an example environment, like in :doc:`external_environments`, but this time
-that composes the custom task, the custom embodiment, and the episode recorder term.
+that composes the custom task, the custom embodiment, and the episode recorder terms.
 
 .. code-block:: python
 
@@ -132,9 +134,12 @@ that composes the custom task, the custom embodiment, and the episode recorder t
                scene=scene,
                task=task,
                episode_recorder_terms={
+                   "object_final_height": EpisodeRecorderTermCfg(
+                       func=record_object_final_height, params={"object_name": pick_up_object.name}
+                   ),
                    "object_peak_speed": EpisodeRecorderTermCfg(
                        func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
-                   )
+                   ),
                },
            )
 
