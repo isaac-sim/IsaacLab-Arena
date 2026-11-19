@@ -135,10 +135,13 @@ The same run with tunable variation control parameters spelled out as command-li
      "+runs.variations_demo.variations.droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.01,0.01,0.01]"
 
 Each override starts with ``+`` because it adds an entry that the Run's ``variations`` field does
-not declare yet. The ``hdr_names`` list restricts HDR sampling to the three named maps instead of
-the full registered set. The ``sampler_cfg.low`` / ``sampler_cfg.high`` vectors widen the camera
-extrinsics jitter range to ±10 mm per axis. To keep these values with the Run, write the same
-paths and values in its ``variations`` field instead.
+not have. The ``hdr_names`` list restricts HDR sampling to the three named maps instead of the full
+registered set. The ``sampler_cfg.low`` / ``sampler_cfg.high`` vectors widen the camera extrinsics
+jitter range to ±10 mm per axis.
+
+A command-line override can't change an entry that the YAML writes as a dotted key, such as
+``light.hdr_image.enabled``. To change such an entry, or to keep tuned values with the Run, edit
+its ``variations`` field.
 
 To see the available variations and control parameters for a specific environment,
 see :ref:`discovering-available-variations`.
