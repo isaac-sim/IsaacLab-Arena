@@ -79,9 +79,12 @@ A term returns a dictionary of JSON values when the episode ends. Write it as:
   the value as the episode runs. ``ObjectPeakSpeed`` in
   :doc:`../../arena_in_your_repo/external_tasks_and_embodiments` is an example.
 
-An environment adds terms the same way through ``IsaacLabArenaEnvironment(episode_recorder_terms=...)``,
-and a composite task adds ``_subtask_<i>`` to its subtasks' term names. Rates and averages across
-episodes are computed when the lines are read.
+An environment can also add terms through ``IsaacLabArenaEnvironment(episode_recorder_terms=...)``,
+for a value that only that environment needs, without changing its task.
+
+A composite task collects its subtasks' terms and adds ``_subtask_<i>`` to their names, so two subtasks
+that both record ``object_peak_speed`` keep separate values: ``object_peak_speed_subtask_0`` and
+``object_peak_speed_subtask_1``.
 
 More details
 ------------
