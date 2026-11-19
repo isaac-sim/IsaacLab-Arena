@@ -12,7 +12,7 @@ set -euxo pipefail
 
 CI_GR00T_ENTRYPOINT_MODE="${CI_GR00T_ENTRYPOINT_MODE:-serve}"
 ARENA_WORKSPACE="${ARENA_WORKSPACE:-/arena_workspace}"
-REPO_ENTRYPOINT="${ARENA_WORKSPACE}/isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh"
+REPO_ENTRYPOINT="${ARENA_WORKSPACE}/isaaclab_arena_policies/isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh"
 BOOTSTRAP_TIMEOUT_SECONDS="${BOOTSTRAP_TIMEOUT_SECONDS:-600}"
 
 if [ "${CI_GR00T_ENTRYPOINT_MODE}" = "bootstrap" ]; then
@@ -41,7 +41,7 @@ fi
 
 MODELS_DIR="${MODELS_DIR:-/workspace/pretrained_ckpts}"
 BASE_MODEL_PATH="${BASE_MODEL_PATH:-${MODELS_DIR}/GR00T-N1.6-3B}"
-DATASET_PATH="${DATASET_PATH:-${ARENA_WORKSPACE}/isaaclab_arena_gr00t/tests/test_data/test_g1_locomanip_lerobot}"
+DATASET_PATH="${DATASET_PATH:-${ARENA_WORKSPACE}/isaaclab_arena_policies/isaaclab_arena_gr00t/tests/test_data/test_g1_locomanip_lerobot}"
 MODALITY_CONFIG="${MODALITY_CONFIG:-/workspace/g1_locomanip/g1_sim_wbc_data_config.py}"
 OUTPUT_DIR="${OUTPUT_DIR:-/tmp/ci_finetune}"
 MAX_STEPS="${MAX_STEPS:-10}"

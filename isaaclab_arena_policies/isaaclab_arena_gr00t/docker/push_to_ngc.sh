@@ -71,7 +71,7 @@ docker build \
     --build-arg MODELS_DIR="${MODELS_DIR}" \
     -t "${IMAGE_NAME}" \
     . \
-    -f isaaclab_arena_gr00t/docker/Dockerfile.gr00t_1_6
+    -f isaaclab_arena_policies/isaaclab_arena_gr00t/docker/Dockerfile.gr00t_1_6
 
 # Remove any old containers (exited or running).
 if [ "$(docker ps -a --quiet --filter name="${IMAGE_NAME}")" ]; then

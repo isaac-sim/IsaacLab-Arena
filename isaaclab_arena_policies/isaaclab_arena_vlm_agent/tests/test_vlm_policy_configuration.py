@@ -167,7 +167,7 @@ def test_example_yaml_policy_selectors_and_round_trip(monkeypatch, tmp_path, pol
     class_path = f"isaaclab_arena_vlm_agent.vlm_agent_policy.{policy_type.__name__}"
     for selector in (policy_type.name, class_path):
         assert loader._resolve_policy_cfg_type_from_name_or_class_path(selector) is cfg_type
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]
     run_name = f"droid_pnp_{policy_type.name}"
     overrides = []
     if policy_type is VLMGoalPolicy:
@@ -206,7 +206,7 @@ def test_example_yaml_without_endpoint_fails_to_load(monkeypatch, tmp_path):
         "_registered_environment_cfg_types",
         lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
     )
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]
     config_text = (
         root / "isaaclab_arena_environments/experiment_configs/droid_pnp_vlm_goal_experiment.yaml"
     ).read_text()

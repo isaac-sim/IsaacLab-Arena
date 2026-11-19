@@ -6,7 +6,7 @@
 # This file shows how to configure the Gr00tRemoteClosedloopPolicy class for G1 locomanipulation task
 action_horizon: 50
 video_backend: decord
-modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
+modality_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
 
 action_chunk_length: 50
 gr00t_embodiment_adapter: g1_wbc

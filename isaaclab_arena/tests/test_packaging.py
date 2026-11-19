@@ -63,7 +63,9 @@ def test_native_openpi_client_matches_server_commit():
     pyproject_config = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     openpi_client_source = pyproject_config["tool"]["uv"]["sources"]["openpi-client"]
     openpi_server_commit = (
-        (REPOSITORY_ROOT / "isaaclab_arena_openpi" / "docker" / "OPENPI_COMMIT").read_text(encoding="utf-8").strip()
+        (REPOSITORY_ROOT / "isaaclab_arena_policies" / "isaaclab_arena_openpi" / "docker" / "OPENPI_COMMIT")
+        .read_text(encoding="utf-8")
+        .strip()
     )
 
     assert pyproject_config["dependency-groups"]["openpi"] == ["openpi-client"]
@@ -77,14 +79,16 @@ def _discover_packages_like_setuptools() -> set[str]:
     pyproject_config = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     find_config = pyproject_config["tool"]["setuptools"]["packages"]["find"]
     assert find_config["namespaces"] is False, "Packages without __init__.py are only found with namespaces = true."
-    (where,) = find_config["where"]
-    return set(
-        find_packages(
-            where=str(REPOSITORY_ROOT / where),
-            include=find_config["include"],
-            exclude=find_config.get("exclude", ()),
+    discovered_packages = set()
+    for where in find_config["where"]:
+        discovered_packages.update(
+            find_packages(
+                where=str(REPOSITORY_ROOT / where),
+                include=find_config["include"],
+                exclude=find_config.get("exclude", ()),
+            )
         )
-    )
+    return discovered_packages
 
 
 def test_benchmarking_packages_are_discovered_by_setuptools():

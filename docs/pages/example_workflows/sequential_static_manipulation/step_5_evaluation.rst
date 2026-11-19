@@ -56,7 +56,7 @@ leave it running:
 
    cd submodules/Isaac-GR00T
    uv run python gr00t/eval/run_gr00t_server.py \
-     --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
+     --modality-config-path ../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
      --model-path $HOME/models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000 \
      --embodiment-tag GR1 \
      --device cuda --host 127.0.0.1 --port 5555
@@ -67,7 +67,7 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``):
    :animate: fade-in
@@ -77,7 +77,7 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
       language_instruction: "Place the sauce bottle on the top shelf of the fridge, and close the fridge door."
       action_horizon: 16
       video_backend: decord
-      modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
+      modality_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
 
       action_chunk_length: 16
       gr00t_embodiment_adapter: gr1_arms
@@ -95,7 +95,7 @@ Test the policy in a single environment with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
      --remote_host 127.0.0.1 \
      --remote_port 5555 \
      --num_steps 2000 \
@@ -141,7 +141,7 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
      --remote_host 127.0.0.1 \
      --remote_port 5555 \
      --num_steps 2000 \
@@ -192,7 +192,7 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
    --viz kit \
    --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-   --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+   --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
    --remote_host 127.0.0.1 \
    --remote_port 5555 \
    --num_steps 2000 \
