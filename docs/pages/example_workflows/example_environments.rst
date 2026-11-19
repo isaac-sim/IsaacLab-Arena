@@ -34,7 +34,7 @@ Kitchen benchmark environment graph YAMLs live under
 ``isaaclab_arena_environments/kitchen_bench/``. They define DROID manipulation
 tasks across Lightwheel RoboCasa and Replicator kitchen layouts.
 
-See :doc:`kitchen_bench_catalog` for all 31 environment specs, their Pi
+See :doc:`kitchen_bench_catalog` for all 42 environment specs, their Pi
 policy executions, and an Experiment that runs one of the specs.
 
 Python Environment Catalog
