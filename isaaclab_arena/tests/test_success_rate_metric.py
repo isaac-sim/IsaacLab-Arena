@@ -15,8 +15,8 @@ HEADLESS = True
 # Env 0 lifts and replaces its settled object in the drawer; env 1 drops its object outside.
 # Check success against completed-episode counts because the two trajectories have different durations.
 # Expect every object to move, allowing 5% for an unfinished episode with little movement.
-EXPECTED_OBJECT_MOVED_RATE = 1.0
-ALLOWABLE_OBJECT_MOVED_RATE_ERROR = 0.05
+EXPECTED_OBJECT_PEAK_SPEED_EXCEEDED_RATE = 1.0
+ALLOWABLE_OBJECT_PEAK_SPEED_EXCEEDED_RATE_ERROR = 0.05
 
 
 def _test_success_rate_metric(simulation_app):
@@ -115,13 +115,16 @@ def _test_success_rate_metric(simulation_app):
         metrics: MetricsDataCollection = env.unwrapped.compute_metrics()
         print(f"Metrics: {metrics}")
         assert "success_rate" in metrics.metric_data_entries
-        assert "object_moved_rate" in metrics.metric_data_entries
+        assert "object_peak_speed_exceeded_rate" in metrics.metric_data_entries
         success_rate = metrics.metric_data_entries["success_rate"].metric_value
-        object_moved_rate = metrics.metric_data_entries["object_moved_rate"].metric_value
+        object_peak_speed_exceeded_rate = metrics.metric_data_entries["object_peak_speed_exceeded_rate"].metric_value
         print(f"Success rate: {success_rate}")
-        print(f"Object moved rate: {object_moved_rate}")
+        print(f"Object peak-speed-exceeded rate: {object_peak_speed_exceeded_rate}")
         assert abs(success_rate - expected_success_rate) < 1e-6
-        assert abs(object_moved_rate - EXPECTED_OBJECT_MOVED_RATE) < ALLOWABLE_OBJECT_MOVED_RATE_ERROR
+        assert (
+            abs(object_peak_speed_exceeded_rate - EXPECTED_OBJECT_PEAK_SPEED_EXCEEDED_RATE)
+            < ALLOWABLE_OBJECT_PEAK_SPEED_EXCEEDED_RATE_ERROR
+        )
 
     except Exception as e:
         print(f"Error: {e}")

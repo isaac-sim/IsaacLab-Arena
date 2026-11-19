@@ -119,7 +119,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
       .. code-block:: text
 
-         Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
+         Metrics: Metrics: {'success_rate': 1.0, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
 
    .. tab-item:: Low Hardware Requirements
 
@@ -127,7 +127,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
       .. code-block:: text
 
-         Metrics: Metrics: {'success_rate': 0.75, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
+         Metrics: Metrics: {'success_rate': 0.75, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
 
 Step 2: Run Parallel environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -168,7 +168,7 @@ than the single environment evaluation because of the parallel evaluation.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.98, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
+   Metrics: {'success_rate': 0.98, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
 
 .. note::
 
@@ -210,7 +210,7 @@ and the revolute joint moved rate for the second subtask, and the subtask succes
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.8666666666666667, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
+   Metrics: {'success_rate': 0.8666666666666667, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
 
 The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
 when evaluated on structurally similar sauce bottles.
@@ -258,14 +258,14 @@ You should see the following output on the console indicating the runs and metri
 
    gr1_put_jug_in_fridge_and_close_door:
      num_episodes                           10
-     object_moved_rate_subtask_0        1.0000
+     object_peak_speed_exceeded_rate_subtask_0        1.0000
      revolute_joint_moved_rate_subtask_1     1.0000
      subtask_success_rate           [0.2, 0.2]
      success_rate                       0.1000
 
    gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
      num_episodes                           10
-     object_moved_rate_subtask_0        1.0000
+     object_peak_speed_exceeded_rate_subtask_0        1.0000
      revolute_joint_moved_rate_subtask_1     1.0000
      subtask_success_rate           [0.9, 0.9]
      success_rate                       0.9000

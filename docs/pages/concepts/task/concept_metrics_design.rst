@@ -19,23 +19,24 @@ In the code below we show how to inspect the metrics defined by the ``PickAndPla
 
    task = PickAndPlaceTask(pick_object, destination, kitchen)
    task.get_metrics()
-   # → [SuccessRateMetric(), ObjectMovedRateMetric(pick_object)]
+   # → [SuccessRateMetric(), ObjectPeakSpeedExceededRateMetric(pick_object)]
 
-Example: ObjectMovedRateMetric
-------------------------------
+Example: ObjectPeakSpeedExceededRateMetric
+------------------------------------------
 
-Here we provide an example of how the ``ObjectMovedRateMetric`` is implemented.
-The ``ObjectMovedRateMetric`` implements the recording and computing steps described above
+Here we provide an example of how the ``ObjectPeakSpeedExceededRateMetric`` is implemented.
+The ``ObjectPeakSpeedExceededRateMetric`` implements the recording and computing steps described above
 in the following way:
 
-* **Recording** During simulation ``ObjectMovedRateMetric`` records the
+* **Recording** During simulation ``ObjectPeakSpeedExceededRateMetric`` records the
   object's velocity vector (a 3D vector) at every simulation step.
-* **Computing** After the rollout completes, the ``ObjectMovedRateMetric`` process
+* **Computing** After the rollout completes, the ``ObjectPeakSpeedExceededRateMetric`` process
   the velocity history for each episode. It first computes the magnitude of the velocity
   vector for each step in an episode.
-  Then it checks if the magnitude is greater than a threshold. If it is, the object is
-  considered moved in this episode.
-  Finally, it computes the fraction of episodes in which the object was moved.
+  Then it checks if the magnitude is greater than a threshold. If it is, the episode
+  counts as exceeded.
+  Finally, it computes the fraction of episodes in which the peak speed exceeded the threshold.
+  Note this measures peak speed, not displacement: a slow carry is not counted.
 
 You do not need to manage any of this manually — it is all wired up automatically
 in the Arena Environment Builder when the environment is compiled from the task.
