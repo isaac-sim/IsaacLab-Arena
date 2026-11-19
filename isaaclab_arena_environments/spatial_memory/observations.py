@@ -21,8 +21,12 @@ from typing import Protocol
 
 import isaaclab.utils.math as math_utils
 
-from isaaclab_arena_environments.spatial_memory.geometry import ALL_FACES, sample_box_face_points
-from isaaclab_arena_environments.spatial_memory.runtime import get_runtime
+from isaaclab_arena_environments.spatial_memory.episode_state import get_episode_state
+from isaaclab_arena_environments.spatial_memory.geometry import (
+    ALL_FACES,
+    inverse_transform_points,
+    sample_box_face_points,
+)
 
 DEFAULT_HISTORY_S = 3.0
 """Seconds of frames that ``history_k`` stacks by default."""
@@ -51,58 +55,52 @@ def default_history_length(step_dt: float, history_s: float = DEFAULT_HISTORY_S)
     return int(math.ceil(history_s / step_dt - 1e-9))
 
 
-def _robot_root_pose_w(env) -> torch.Tensor:
-    return env.scene["robot"].data.root_pose_w.torch
-
-
 def instruction(env, logic) -> torch.Tensor:
-    """Task instruction (for example a one-hot colour); zeros until the task reveals it."""
-    runtime = get_runtime(env, logic)
-    if not runtime.params:
+    """Task instruction (for example a one-hot color); zeros until the task reveals it."""
+    episode = get_episode_state(env, logic)
+    if not episode.layout_params:
         # The observation manager evaluates terms once before the first layout is sampled.
         return torch.zeros(env.num_envs, logic.instruction_dim(), device=env.device)
-    return logic.instruction(env, runtime)
+    return logic.instruction(env, episode)
+
+
+_ORACLE_MAP_POINTS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+"""Per environment: the oracle sample points (P, 3), each in the frame of its part, and their part indices (P,)."""
 
 
 def oracle_map_points(env, logic) -> torch.Tensor:
-    """Privileged surface point cloud of every scene part in the robot base frame.
+    """Privileged surface point cloud of every scene part in the robot root frame ``R``.
 
     Returns:
         (N, P, 4) tensor: x, y, z in the robot root frame and the part index (see the task's part list).
     """
-    runtime = get_runtime(env, logic)
-    cache = runtime.task_state
-    if "oracle_points_local" not in cache:
-        local_chunks = []
-        part_chunks = []
+    episode = get_episode_state(env, logic)
+    if env not in _ORACLE_MAP_POINTS:
+        point_chunks = []
+        part_index_chunks = []
         for part_index, spec in enumerate(logic.part_specs()):
-            points = sample_box_face_points(
-                spec.size_xyz, ALL_FACES, spacing_m=ORACLE_MAP_SPACING_M, outward_offset_m=0.0
-            )
-            local_chunks.append(points)
-            part_chunks.append(torch.full((points.shape[0],), part_index))
-        cache["oracle_points_local"] = torch.cat(local_chunks).to(env.device)
-        cache["oracle_points_part"] = torch.cat(part_chunks).to(env.device)
-    points_local = cache["oracle_points_local"]
-    point_part = cache["oracle_points_part"]
-    T_W_parts = runtime.get_part_poses_w(env)[:, point_part]
-    points_W = math_utils.quat_apply(T_W_parts[..., 3:7], points_local.unsqueeze(0)) + T_W_parts[..., :3]
-    T_W_root = _robot_root_pose_w(env)
-    points_root = math_utils.quat_apply_inverse(T_W_root[:, 3:7].unsqueeze(1), points_W - T_W_root[:, None, :3])
-    labels = point_part.to(points_root.dtype).unsqueeze(0).unsqueeze(-1).expand(env.num_envs, -1, 1)
-    return torch.cat([points_root, labels], dim=-1)
+            points_P = sample_box_face_points(spec.size_xyz, ALL_FACES, ORACLE_MAP_SPACING_M, outward_offset_m=0.0)
+            point_chunks.append(points_P)
+            part_index_chunks.append(torch.full((points_P.shape[0],), part_index))
+        _ORACLE_MAP_POINTS[env] = (torch.cat(point_chunks).to(env.device), torch.cat(part_index_chunks).to(env.device))
+    points_P, point_part_index = _ORACLE_MAP_POINTS[env]
+    T_W_point_parts = episode.get_part_poses_w(env)[:, point_part_index]
+    points_W = math_utils.quat_apply(T_W_point_parts[..., 3:7], points_P.unsqueeze(0)) + T_W_point_parts[..., :3]
+    points_R = inverse_transform_points(env.scene["robot"].data.root_pose_w.torch, points_W)
+    part_indices = point_part_index.to(points_R.dtype).unsqueeze(0).unsqueeze(-1).expand(env.num_envs, -1, 1)
+    return torch.cat([points_R, part_indices], dim=-1)
 
 
 def oracle_map_boxes(env, logic) -> torch.Tensor:
-    """Privileged box geometry of every scene part in the robot base frame.
+    """Privileged box geometry of every scene part in the robot root frame ``R``.
 
     Returns:
-        (N, K, 10) tensor: centre (3), orientation x, y, z, w (4) and half extents (3) per part.
+        (N, K, 10) tensor: center (3), orientation x, y, z, w (4) and half extents (3) per part.
     """
-    runtime = get_runtime(env, logic)
-    T_W_parts = runtime.get_part_poses_w(env)
-    T_W_root = _robot_root_pose_w(env).unsqueeze(1).expand_as(T_W_parts)
-    t_root_parts, q_root_parts = math_utils.subtract_frame_transforms(
+    episode = get_episode_state(env, logic)
+    T_W_parts = episode.get_part_poses_w(env)
+    T_W_root = env.scene["robot"].data.root_pose_w.torch.unsqueeze(1).expand_as(T_W_parts)
+    t_R_parts, q_R_parts = math_utils.subtract_frame_transforms(
         T_W_root[..., :3].reshape(-1, 3),
         T_W_root[..., 3:7].reshape(-1, 4),
         T_W_parts[..., :3].reshape(-1, 3),
@@ -110,8 +108,8 @@ def oracle_map_boxes(env, logic) -> torch.Tensor:
     )
     half = torch.tensor([spec.half_extents for spec in logic.part_specs()], device=env.device)
     half = half.unsqueeze(0).expand(env.num_envs, -1, -1)
-    poses = torch.cat([t_root_parts, q_root_parts], dim=-1).reshape(env.num_envs, -1, 7)
-    return torch.cat([poses, half], dim=-1)
+    T_R_parts = torch.cat([t_R_parts, q_R_parts], dim=-1).reshape(env.num_envs, -1, 7)
+    return torch.cat([T_R_parts, half], dim=-1)
 
 
 class OnlineMapProvider(Protocol):
@@ -128,7 +126,7 @@ class EmptyMapProvider:
     """Placeholder provider that returns an empty map (all confidences zero).
 
     TODO(spatial-memory): replace with the nvblox-next surfel map. The provider should integrate the egocentric depth
-    and pose each step, and return the surfel centres in the robot base frame with their confidence. Register it with
+    and pose each step, and return the surfel centers in the robot base frame with their confidence. Register it with
     ``set_online_map_provider(env, provider)`` after the environment is created.
     """
 
@@ -191,8 +189,8 @@ def _make_masked_camera_image_term():
 
         def __call__(self, env, image_func, image_params: dict, logic) -> torch.Tensor:
             image = self._image_term(env, **self._image_params)
-            runtime = get_runtime(env, logic)
-            blocked = logic.camera_blocked(env, runtime)
+            episode = get_episode_state(env, logic)
+            blocked = logic.camera_blocked(env, episode)
             shape = (-1,) + (1,) * (image.dim() - 1)
             return torch.where(blocked.view(shape), torch.zeros_like(image), image)
 

@@ -11,19 +11,24 @@ camera to the point crosses no box: scene parts (fixtures and items) and a box m
 
 from __future__ import annotations
 
-import math
 import torch
 from dataclasses import dataclass
 
 import isaaclab.utils.math as math_utils
 
 from isaaclab_arena_environments.spatial_memory.geometry import (
-    compose_poses,
+    compose_pose_tensors,
     inverse_transform_points,
     points_in_pinhole_frustum,
     sample_box_face_points,
     segments_blocked_by_boxes,
 )
+
+MIN_NEAR_M = 0.02
+"""Points closer to the camera than this never count as visible."""
+
+MAX_FAR_M = 6.0
+"""Points farther from the camera than this never count as visible; every suite scene fits within it."""
 
 
 @dataclass(frozen=True)
@@ -48,21 +53,11 @@ class CameraModel:
     height_px: int
     """Image height in pixels."""
 
-    near_m: float = 0.02
+    near_m: float
     """Near clipping distance."""
 
-    far_m: float = 6.0
+    far_m: float
     """Far clipping distance."""
-
-    @property
-    def horizontal_fov_deg(self) -> float:
-        """Full horizontal field of view."""
-        return math.degrees(2.0 * math.atan(0.5 * self.width_px / self.focal_x_px))
-
-    @property
-    def vertical_fov_deg(self) -> float:
-        """Full vertical field of view."""
-        return math.degrees(2.0 * math.atan(0.5 * self.height_px / self.focal_y_px))
 
 
 def camera_model_from_cfg(camera_cfg, mount_body: str) -> CameraModel:
@@ -90,8 +85,8 @@ def camera_model_from_cfg(camera_cfg, mount_body: str) -> CameraModel:
         focal_y_px=focal_x_px,
         width_px=camera_cfg.width,
         height_px=camera_cfg.height,
-        near_m=max(near_m, 0.02),
-        far_m=min(far_m, 6.0),
+        near_m=max(near_m, MIN_NEAR_M),
+        far_m=min(far_m, MAX_FAR_M),
     )
 
 
@@ -133,9 +128,8 @@ class VisibilityModel:
         camera: Egocentric camera model.
         targets: Surfaces whose visibility is reported.
         part_sizes: Full extents of every scene part, keyed by part name.
-        part_names: Scene parts used as occluders, in the order their poses are passed to ``compute``.
+        part_names: Scene parts used as occluders, in the order their poses are passed to ``count_visible_points``.
         robot_occluders: Boxes attached to robot bodies that also occlude.
-        min_visible_points: Number of unblocked in-frustum points needed to call a target visible.
         device: Torch device.
     """
 
@@ -146,7 +140,6 @@ class VisibilityModel:
         part_sizes: dict[str, tuple[float, float, float]],
         part_names: list[str],
         robot_occluders: list[RobotOccluder],
-        min_visible_points: int = 1,
         device: str = "cpu",
     ):
         self.camera = camera
@@ -154,17 +147,17 @@ class VisibilityModel:
         self.target_names = [target.name for target in targets]
         self.part_names = part_names
         self.robot_occluders = robot_occluders
-        self.min_visible_points = min_visible_points
         self.device = device
         point_chunks = []
         target_index_chunks = []
         part_index_chunks = []
         for target_index, target in enumerate(targets):
-            points = sample_box_face_points(part_sizes[target.part_name], target.faces, spacing_m=target.spacing_m)
-            point_chunks.append(points)
-            target_index_chunks.append(torch.full((points.shape[0],), target_index, dtype=torch.long))
-            part_index_chunks.append(torch.full((points.shape[0],), part_names.index(target.part_name)))
-        self.points_local = torch.cat(point_chunks).to(device) if point_chunks else torch.zeros(0, 3, device=device)
+            points_P = sample_box_face_points(part_sizes[target.part_name], target.faces, spacing_m=target.spacing_m)
+            point_chunks.append(points_P)
+            target_index_chunks.append(torch.full((points_P.shape[0],), target_index, dtype=torch.long))
+            part_index_chunks.append(torch.full((points_P.shape[0],), part_names.index(target.part_name)))
+        self.points_P = torch.cat(point_chunks).to(device) if point_chunks else torch.zeros(0, 3, device=device)
+        """Sample points (P, 3) of every target, each in the frame of its own part."""
         self.point_target_index = (
             torch.cat(target_index_chunks).to(device) if target_index_chunks else torch.zeros(0, dtype=torch.long)
         )
@@ -181,14 +174,10 @@ class VisibilityModel:
 
     def camera_pose_w(self, T_W_mount: torch.Tensor) -> torch.Tensor:
         """Return the camera's ROS optical-frame pose (N, 7) from the mount body pose (N, 7)."""
-        return compose_poses(T_W_mount, self.T_body_cam.expand(T_W_mount.shape[0], 7))
+        return compose_pose_tensors(T_W_mount, self.T_body_cam.expand(T_W_mount.shape[0], 7))
 
-    def compute(
-        self,
-        T_W_mount: torch.Tensor,
-        T_W_parts: torch.Tensor,
-        T_W_occluder_bodies: torch.Tensor,
-        part_enabled: torch.Tensor | None = None,
+    def count_visible_points(
+        self, T_W_mount: torch.Tensor, T_W_parts: torch.Tensor, T_W_occluder_bodies: torch.Tensor
     ) -> torch.Tensor:
         """Return the number of visible sample points per target.
 
@@ -196,7 +185,6 @@ class VisibilityModel:
             T_W_mount: Camera mount body poses (N, 7).
             T_W_parts: Poses of the scene parts (N, K, 7), ordered like ``part_names``.
             T_W_occluder_bodies: Poses of the robot occluder bodies (N, R, 7), ordered like ``robot_occluders``.
-            part_enabled: Optional (N, K) mask of parts that take part in occlusion.
 
         Returns:
             Visible point counts with shape (N, T).
@@ -208,9 +196,8 @@ class VisibilityModel:
         T_W_cam = self.camera_pose_w(T_W_mount)
         # Target points in the world: each point rides on its part's live pose.
         T_W_point_parts = T_W_parts[:, self.point_part_index]
-        points_W = (
-            math_utils.quat_apply(T_W_point_parts[..., 3:7], self.points_local.unsqueeze(0)) + T_W_point_parts[..., :3]
-        )
+        points_W = math_utils.quat_apply(T_W_point_parts[..., 3:7], self.points_P.unsqueeze(0))
+        points_W = points_W + T_W_point_parts[..., :3]
         points_C = inverse_transform_points(T_W_cam, points_W)
         in_frustum = points_in_pinhole_frustum(
             points_C,
@@ -222,14 +209,10 @@ class VisibilityModel:
             self.camera.far_m,
         )
         T_W_boxes = T_W_parts
-        enabled = part_enabled
-        if len(self.robot_occluders) > 0:
-            T_W_robot_boxes = compose_poses(T_W_occluder_bodies, self.T_body_box.unsqueeze(0).expand(num_envs, -1, 7))
-            T_W_boxes = torch.cat([T_W_parts, T_W_robot_boxes], dim=1)
-            if enabled is not None:
-                robot_enabled = torch.ones(num_envs, len(self.robot_occluders), dtype=torch.bool, device=enabled.device)
-                enabled = torch.cat([enabled, robot_enabled], dim=1)
-        blocked = segments_blocked_by_boxes(T_W_cam[:, :3], points_W, T_W_boxes, self.box_half_extents, enabled)
+        if self.robot_occluders:
+            T_body_boxes = self.T_body_box.unsqueeze(0).expand(num_envs, -1, 7)
+            T_W_boxes = torch.cat([T_W_parts, compose_pose_tensors(T_W_occluder_bodies, T_body_boxes)], dim=1)
+        blocked = segments_blocked_by_boxes(T_W_cam[:, :3], points_W, T_W_boxes, self.box_half_extents)
         visible_points = (in_frustum & ~blocked).long()
         counts = torch.zeros(num_envs, num_targets, dtype=torch.long, device=T_W_mount.device)
         counts.index_add_(1, self.point_target_index, visible_points)

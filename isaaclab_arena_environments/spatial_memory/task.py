@@ -18,38 +18,37 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena_environments.spatial_memory.collision import make_contact_sensor_cfgs
+from isaaclab_arena_environments.spatial_memory.episode_state import reset_layout, update_episode_state
 from isaaclab_arena_environments.spatial_memory.metrics import get_suite_metrics
 from isaaclab_arena_environments.spatial_memory.observations import ObservationVariant, make_task_observation_cfg
-from isaaclab_arena_environments.spatial_memory.runtime import NOT_SET, reset_layout, update_runtime
 from isaaclab_arena_environments.spatial_memory.task_logic import SpatialMemoryTaskLogic
 
 
 def collision_failure(env, logic: SpatialMemoryTaskLogic) -> torch.Tensor:
     """Failure term: the robot or a carried item touched scene geometry the task does not need."""
-    runtime = update_runtime(env, logic)
-    return runtime.collided.clone()
+    episode = update_episode_state(env, logic)
+    return episode.collided.clone()
 
 
 def searched_again_failure(env, logic: SpatialMemoryTaskLogic) -> torch.Tensor:
-    """Failure term: the memorised scene was re-observed beyond the allowed glimpse before the first grasp."""
-    runtime = update_runtime(env, logic)
-    return runtime.searched_again.clone()
+    """Failure term: the memorized scene was re-observed beyond the allowed glimpse before the robot committed."""
+    episode = update_episode_state(env, logic)
+    return episode.searched_again.clone()
 
 
 def task_specific_failure(env, logic: SpatialMemoryTaskLogic) -> torch.Tensor:
-    """Failure term: task-specific failures such as a dropped item or a displaced neighbour."""
-    runtime = update_runtime(env, logic)
-    return logic.extra_failures(env, runtime)
+    """Failure term: task-specific failures such as a dropped item or a displaced neighbor."""
+    episode = update_episode_state(env, logic)
+    return logic.extra_failures(env, episode)
 
 
 def task_success(env, logic: SpatialMemoryTaskLogic) -> torch.Tensor:
-    """Success predicate: the task condition holds and the episode has not collided."""
-    runtime = update_runtime(env, logic)
-    success = logic.success(env, runtime) & ~runtime.collided
+    """Success predicate: the task condition holds, the episode has not collided and, where forbidden, not searched
+    again."""
+    episode = update_episode_state(env, logic)
+    success = logic.success(env, episode) & ~episode.collided
     if logic.forbids_searching_again:
-        success &= ~runtime.searched_again
-    first = success & (runtime.success_step == NOT_SET)
-    runtime.success_step[first] = env.episode_length_buf[first]
+        success &= ~episode.searched_again
     return success
 
 

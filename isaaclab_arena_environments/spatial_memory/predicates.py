@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Batched geometric conditions used by the suite's success terms."""
+"""Batched conditions used by the suite's success terms."""
 
 from __future__ import annotations
 
@@ -12,30 +12,18 @@ import torch
 
 import isaaclab.utils.math as math_utils
 
-
-def item_pose_e(env, name: str) -> torch.Tensor:
-    """Return the environment-frame pose (N, 7) of a scene part."""
-    return env.arena_world.get_pose_e(name)
+AT_REST_SPEED_MPS = 0.02
+"""Linear speed below which a part counts as at rest."""
 
 
-def item_upright(env, name: str, max_tilt_deg: float = 15.0) -> torch.Tensor:
+def part_upright(env, name: str, max_tilt_deg: float = 15.0) -> torch.Tensor:
     """Return whether the part's z axis is within ``max_tilt_deg`` of vertical (N,)."""
-    quat = item_pose_e(env, name)[:, 3:7]
-    z_axis = torch.zeros(quat.shape[0], 3, device=quat.device)
+    q_E_part = env.arena_world.get_pose_e(name)[:, 3:7]
+    z_axis = torch.zeros(q_E_part.shape[0], 3, device=q_E_part.device)
     z_axis[:, 2] = 1.0
-    return math_utils.quat_apply(quat, z_axis)[:, 2] > math.cos(math.radians(max_tilt_deg))
-
-
-def item_at_rest(env, name: str, max_speed_mps: float = 0.02) -> torch.Tensor:
-    """Return whether the part's linear speed is below ``max_speed_mps`` (N,)."""
-    return env.arena_world.get_root_linear_velocity_w(name).norm(dim=-1) < max_speed_mps
+    return math_utils.quat_apply(q_E_part, z_axis)[:, 2] > math.cos(math.radians(max_tilt_deg))
 
 
 def tool_position_e(env, logic) -> torch.Tensor:
-    """Return the tool position (N, 3) in the environment frame."""
+    """Return the position (N, 3) of the tool centre point in the environment frame."""
     return logic.tool_pose_w(env)[:, :3] - env.scene.env_origins
-
-
-def gripper_open(env, logic) -> torch.Tensor:
-    """Return whether the gripper is commanded open (N,)."""
-    return ~logic.gripper_closed(env)

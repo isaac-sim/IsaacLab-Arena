@@ -61,12 +61,9 @@ def _resolve_openpi_embodiment_adapter(key: str) -> Pi0EmbodimentAdapter:
     Imports are deferred to call time so adapter modules can ``from pi0_remote_policy import
     Pi0EmbodimentAdapter`` at module top without creating a circular import.
     """
-    if key == "droid":
-        from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
+    from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter, Pi0DroidWristOnlyAdapter
 
-        return Pi0DroidAdapter()
-    if key == "droid_wrist_only":
-        from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidWristOnlyAdapter
-
-        return Pi0DroidWristOnlyAdapter()
-    raise ValueError(f"Unknown openpi_embodiment_adapter {key!r}; expected 'droid' or 'droid_wrist_only'")
+    adapter_types = {"droid": Pi0DroidAdapter, "droid_wrist_only": Pi0DroidWristOnlyAdapter}
+    if key not in adapter_types:
+        raise ValueError(f"Unknown openpi_embodiment_adapter {key!r}; expected one of {sorted(adapter_types)}")
+    return adapter_types[key]()

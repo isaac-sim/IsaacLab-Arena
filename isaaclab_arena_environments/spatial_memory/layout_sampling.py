@@ -15,7 +15,7 @@ from isaaclab_arena_environments.spatial_memory.parts import PartSpec, board
 FLOOR_Z_M = -0.8755
 """Floor height in the environment frame: the Franka base sits on its stand, 0.8755 m above the floor."""
 
-BOARD_T_M = 0.02
+BOARD_THICKNESS_M = 0.02
 """Thickness of fixture boards."""
 
 COUNTER_SIZE_M = (0.80, 1.40, 0.04)
@@ -44,7 +44,7 @@ def pose(x: float, y: float, z: float, yaw_rad: float = 0.0) -> list[float]:
 
 def counter_spec(name: str = "counter", size_xyz: tuple[float, float, float] = COUNTER_SIZE_M) -> PartSpec:
     """Return the counter slab."""
-    return board(name, size_xyz, colour="white")
+    return board(name, size_xyz, color="white")
 
 
 def counter_pose(center_x: float = 0.60, center_y: float = 0.0, size_z: float = COUNTER_SIZE_M[2]) -> list[float]:

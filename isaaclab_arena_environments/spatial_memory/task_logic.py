@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Interface every spatial-memory task implements, plus the shared memory-probe and plan helpers."""
+"""Interface every spatial-memory task implements, plus the shared memory probe."""
 
 from __future__ import annotations
 
@@ -11,15 +11,22 @@ import math
 import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
-from isaaclab_arena_environments.spatial_memory.controller import Waypoint
+from isaaclab_arena_environments.spatial_memory.collision import filtered_sensor_labels
+from isaaclab_arena_environments.spatial_memory.embodiment_adapter import FRANKA_READY_JOINT_POS, EmbodimentAdapter
+from isaaclab_arena_environments.spatial_memory.episode_state import NOT_SET
 from isaaclab_arena_environments.spatial_memory.parts import PARKING_POSE_Z_M, PartKind, PartSpec
 from isaaclab_arena_environments.spatial_memory.visibility import VisibilityModel, VisibilityTarget
 
 if TYPE_CHECKING:
-    from isaaclab_arena_environments.spatial_memory.embodiment_adapter import FrankaAdapter
-    from isaaclab_arena_environments.spatial_memory.runtime import SpatialMemoryRuntime
+    from isaaclab_arena_environments.spatial_memory.episode_state import SpatialMemoryEpisodeState
+
+PARKING_X_M = 3.0
+PARKING_Y_M = -3.0
+PARKING_SPACING_M = 0.3
+"""Unused parts are parked in a row from (``PARKING_X_M``, ``PARKING_Y_M``), away from every robot."""
 
 
 @dataclass
@@ -29,11 +36,11 @@ class LayoutSample:
     part_poses_e: torch.Tensor
     """Environment-frame poses (K, 7) of every part, ordered like ``part_specs()``."""
 
-    params: dict[str, torch.Tensor]
+    layout_params: dict[str, torch.Tensor]
     """Task parameters of the episode, each a tensor with a fixed shape across episodes."""
 
 
-class PlanMode:
+class PlanMode(str, Enum):
     """Which scripted controller a plan is for."""
 
     ORACLE = "oracle"
@@ -47,7 +54,7 @@ class SpatialMemoryTaskLogic(ABC):
     """Scene parts, layout sampling, phases, success and scripted plans of one spatial-memory task.
 
     Instances are copied by Isaac Lab's managers, so they hold configuration only; episode state lives in
-    ``SpatialMemoryRuntime``.
+    ``SpatialMemoryEpisodeState``.
 
     Args:
         difficulty: Value of the task's difficulty knob.
@@ -73,16 +80,26 @@ class SpatialMemoryTaskLogic(ABC):
     """Whether exceeding the re-observation budget fails the episode."""
 
     reobservation_budget_s: float = 1.0
-    """Seconds the memory targets may be seen after the instruction before the first grasp."""
+    """Seconds the memory targets may be seen after the instruction is revealed and before the robot commits (see
+    ``commitment_made``)."""
 
     withholds_camera_frames: bool = False
     """Whether ``camera_blocked`` can withhold egocentric frames (the camera observation is then masked)."""
 
-    reveal_delay_s: float = 3.5
+    instruction_delay_s: float = 3.5
     """Seconds the memory targets must stay out of view before the instruction is revealed (longer than the
     default 3 s frame history)."""
 
-    def __init__(self, difficulty: float | None, embodiment: FrankaAdapter):
+    robot: str = "franka"
+    """Robot the task is built for: ``franka`` (which can also run on DROID) or ``g1``."""
+
+    initial_joint_pose: tuple[float, ...] | None = None
+    """Spawn positions of the Franka's 7 arm joints; None keeps Arena's ready posture."""
+
+    rest_joint_pose: tuple[float, ...] = FRANKA_READY_JOINT_POS
+    """Franka arm posture the scripted controller pulls towards in the inverse-kinematics null space."""
+
+    def __init__(self, difficulty: float | None, embodiment: EmbodimentAdapter):
         self.difficulty = self.default_difficulty if difficulty is None else float(difficulty)
         self.embodiment = embodiment
         self._part_specs: list[PartSpec] | None = None
@@ -103,13 +120,6 @@ class SpatialMemoryTaskLogic(ABC):
     def build_part_specs(self) -> list[PartSpec]:
         """Create the scene parts; called once."""
 
-    def spec(self, name: str) -> PartSpec:
-        """Return the spec of a part by name."""
-        for spec in self.part_specs():
-            if spec.name == name:
-                return spec
-        raise KeyError(name)
-
     def part_names(self) -> list[str]:
         """Return the names of all parts."""
         return [spec.name for spec in self.part_specs()]
@@ -122,19 +132,18 @@ class SpatialMemoryTaskLogic(ABC):
     def sample_layout(self, generator: torch.Generator) -> LayoutSample:
         """Sample the layout of one episode."""
 
-    def new_pose_table(self) -> dict[str, list[float]]:
-        """Return a pose table with every part parked out of the way, to be filled by ``sample_layout``."""
-        table = {}
+    def parked_part_poses(self) -> dict[str, list[float]]:
+        """Return the environment-frame pose of every part, parked out of the way, for ``sample_layout`` to fill."""
+        poses = {}
         for index, spec in enumerate(self.part_specs()):
-            table[spec.name] = [3.0 + 0.3 * index, -3.0, PARKING_POSE_Z_M - spec.size_xyz[2], 0.0, 0.0, 0.0, 1.0]
-            if spec.kind == PartKind.ITEM:
-                # Items rest on the floor far from the robot instead of falling forever.
-                table[spec.name][2] = 0.5 * spec.size_xyz[2] + 0.001
-        return table
+            # Boards are parked below the floor; items rest on the counter level far from the robot.
+            z = 0.5 * spec.size_xyz[2] + 0.001 if spec.kind == PartKind.ITEM else PARKING_POSE_Z_M - spec.size_xyz[2]
+            poses[spec.name] = [PARKING_X_M + PARKING_SPACING_M * index, PARKING_Y_M, z, 0.0, 0.0, 0.0, 1.0]
+        return poses
 
-    def pose_table_to_tensor(self, table: dict[str, list[float]]) -> torch.Tensor:
-        """Convert a pose table filled by ``sample_layout`` into a (K, 7) tensor."""
-        return torch.tensor([table[spec.name] for spec in self.part_specs()], dtype=torch.float32)
+    def part_poses_tensor(self, poses: dict[str, list[float]]) -> torch.Tensor:
+        """Convert part poses keyed by name into a (K, 7) tensor ordered like ``part_specs()``."""
+        return torch.tensor([poses[spec.name] for spec in self.part_specs()], dtype=torch.float32)
 
     # ----------------------------------------------------------------------------------------------------------------
     # Visibility and phases
@@ -146,7 +155,11 @@ class SpatialMemoryTaskLogic(ABC):
 
     @abstractmethod
     def hidden_target_names(self) -> list[str]:
-        """Return the targets that must be out of view during the action phase."""
+        """Return the targets that must be out of view during the hidden phase."""
+
+    def remembered_target_names(self) -> list[str]:
+        """Return the targets the robot must see before the hidden phase: what it is expected to remember."""
+        return self.hidden_target_names()
 
     def memory_target_names(self) -> list[str]:
         """Return the targets whose disappearance from view gates the instruction (empty: no instruction gate)."""
@@ -164,26 +177,27 @@ class SpatialMemoryTaskLogic(ABC):
             device=env.device,
         )
 
-    def adjust_camera_and_occluder_poses(self, env, runtime, T_W_mount, T_W_occluders):
+    def adjust_camera_and_occluder_poses(self, env, episode, T_W_mount, T_W_occluders):
         """Hook to modify the camera mount and occluder poses (default: unchanged)."""
         return T_W_mount, T_W_occluders
 
     @abstractmethod
-    def action_phase(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
-        """Return whether each environment is in the action phase, during which hidden targets must stay hidden."""
+    def hidden_phase(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
+        """Return whether each environment is in the hidden phase, during which hidden targets must stay hidden."""
 
-    def hidden_phase_mask(self, env, runtime: SpatialMemoryRuntime, in_action: torch.Tensor) -> torch.Tensor:
-        """Return (N, T): when each target's visibility is checked against the hidden-geometry claim.
+    def hidden_target_mask(
+        self, env, episode: SpatialMemoryEpisodeState, in_hidden_phase: torch.Tensor
+    ) -> torch.Tensor:
+        """Return which targets (N, T) must be out of view at this step: by default all of them, in the hidden phase.
 
-        The default is the action phase for every target; tasks whose targets are hidden in different phases
-        override it.
+        Tasks whose targets are hidden in different phases override it.
         """
-        return in_action.unsqueeze(-1).expand(-1, len(runtime.target_names))
+        return in_hidden_phase.unsqueeze(-1).expand(-1, len(episode.target_names))
 
-    def static_part_mask(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
+    def static_part_mask(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
         """Return (N, K) parts that must not move while hidden; by default every part except manipulated items."""
         manipulated = set(self.manipulated_item_names())
-        mask = torch.tensor([name not in manipulated for name in runtime.part_names], device=env.device)
+        mask = torch.tensor([name not in manipulated for name in episode.part_names], device=env.device)
         return mask.unsqueeze(0).expand(env.num_envs, -1)
 
     def manipulated_item_names(self) -> list[str]:
@@ -194,51 +208,70 @@ class SpatialMemoryTaskLogic(ABC):
     # Contacts, success and observations
     # ----------------------------------------------------------------------------------------------------------------
 
-    def allowed_contacts(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
-        """Return the (N, S, K) mask of contacts that are part of the task.
+    def allowed_contacts(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
+        """Return the (N, S, K) mask of contacts between sensor bodies and parts that are part of the task.
 
-        Sensors are ordered arm links, gripper bodies, then items (see ``collision.filtered_sensor_labels``). The
-        default allows robot contact with manipulated items, item contact with each other, and every item's contact
-        with the boards named in ``item_support_names``. Any robot contact with a board is a collision.
+        Sensors are ordered robot bodies, hand bodies, then items (see ``collision.filtered_sensor_labels``). Robot
+        bodies may touch the parts in ``robot_touchable_part_mask`` (hand bodies also those in
+        ``hand_touchable_part_names``); items may touch each other and the ``item_support_names`` boards, except the
+        pairs in ``forbidden_item_contacts``. Any other contact is a collision.
         """
-        from isaaclab_arena_environments.spatial_memory.collision import filtered_sensor_labels
-
         labels = filtered_sensor_labels(self)
-        manipulated = set(self.manipulated_item_names())
-        items = set(self.item_names())
-        supports = set(self.item_support_names())
-        allowed = torch.zeros(len(labels), len(runtime.part_names), dtype=torch.bool, device=env.device)
+        hand_bodies = set(self.embodiment.hand_bodies)
+        robot_bodies = set(self.embodiment.collision_bodies) | hand_bodies
+        item_contact_parts = set(self.item_names()) | set(self.item_support_names())
+        forbidden_pairs = {frozenset(pair) for pair in self.forbidden_item_contacts()}
+        hand_touchable_ids = episode.part_ids(self.hand_touchable_part_names())
+        robot_touchable = self.robot_touchable_part_mask(env, episode)
+        allowed = torch.zeros(env.num_envs, len(labels), len(episode.part_names), dtype=torch.bool, device=env.device)
         for sensor_index, label in enumerate(labels):
-            for part_index, part in enumerate(runtime.part_names):
-                if label in self.embodiment.arm_links or label in self.embodiment.gripper_bodies:
-                    allowed[sensor_index, part_index] = part in manipulated
-                else:
-                    allowed[sensor_index, part_index] = part in items or part in supports
-        return allowed.unsqueeze(0).expand(env.num_envs, -1, -1)
+            if label in robot_bodies:
+                allowed[:, sensor_index] = robot_touchable
+                if label in hand_bodies:
+                    allowed[:, sensor_index, hand_touchable_ids] = True
+                continue
+            for part_index, part in enumerate(episode.part_names):
+                if part in item_contact_parts and frozenset((label, part)) not in forbidden_pairs:
+                    allowed[:, sensor_index, part_index] = True
+        return allowed
+
+    def robot_touchable_part_mask(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
+        """Return which parts (N, K) the robot may touch: by default the manipulated items."""
+        manipulated = set(self.manipulated_item_names())
+        mask = torch.tensor([name in manipulated for name in episode.part_names], device=env.device)
+        return mask.unsqueeze(0).expand(env.num_envs, -1).clone()
+
+    def hand_touchable_part_names(self) -> list[str]:
+        """Return parts the hand bodies may also touch, such as a table an item is placed on."""
+        return []
+
+    def forbidden_item_contacts(self) -> list[tuple[str, str]]:
+        """Return pairs of items that must not touch each other."""
+        return []
 
     def item_support_names(self) -> list[str]:
         """Return boards items may rest on or slide against (start and goal supports)."""
         return []
 
-    def collisions_counted(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
+    def collisions_counted(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
         """Return whether collisions count as failures at this step (N,)."""
         return torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
 
     @abstractmethod
-    def success_terms(self, env, runtime: SpatialMemoryRuntime) -> dict[str, torch.Tensor]:
+    def success_terms(self, env, episode: SpatialMemoryEpisodeState) -> dict[str, torch.Tensor]:
         """Return the named conditions (each (N,)) that together make up task success.
 
         Collision and searched-again are handled separately. The final value of each term is recorded per episode.
         """
 
-    def success(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
+    def success(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
         """Return the task-specific success condition (N,): all ``success_terms`` hold."""
         success = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
-        for term in self.success_terms(env, runtime).values():
+        for term in self.success_terms(env, episode).values():
             success &= term
         return success
 
-    def extra_failures(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
+    def extra_failures(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
         """Return additional task-specific failure flags (N,)."""
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
@@ -246,16 +279,16 @@ class SpatialMemoryTaskLogic(ABC):
         """Return the size of the instruction observation (0: no instruction term)."""
         return 0
 
-    def instruction(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
+    def instruction(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
         """Return the instruction observation (N, instruction_dim); zeros until revealed."""
         return torch.zeros(env.num_envs, self.instruction_dim(), device=env.device)
 
-    def camera_blocked(self, env, runtime: SpatialMemoryRuntime) -> torch.Tensor:
+    def camera_blocked(self, env, episode: SpatialMemoryEpisodeState) -> torch.Tensor:
         """Return whether the egocentric image is withheld at this step (N,)."""
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
     def update_frame_withholding(
-        self, env, runtime: SpatialMemoryRuntime, visible: torch.Tensor, active: torch.Tensor
+        self, env, episode: SpatialMemoryEpisodeState, visible: torch.Tensor, active: torch.Tensor
     ) -> None:
         """Hook called once per control step, before ``camera_blocked``, with the unmasked visibility (N, T).
 
@@ -266,54 +299,73 @@ class SpatialMemoryTaskLogic(ABC):
     # Hooks
     # ----------------------------------------------------------------------------------------------------------------
 
-    def on_reset(self, env, runtime: SpatialMemoryRuntime, env_ids: torch.Tensor) -> None:
+    def on_reset(self, env, episode: SpatialMemoryEpisodeState, env_ids: torch.Tensor) -> None:
         """Hook called after a layout is written."""
 
-    def on_step(self, env, runtime: SpatialMemoryRuntime, visible: torch.Tensor, active: torch.Tensor) -> None:
+    def on_step(self, env, episode: SpatialMemoryEpisodeState, visible: torch.Tensor, active: torch.Tensor) -> None:
         """Hook called once per control step after visibility, phases and collisions are updated.
 
         The default implementation runs the memory probe when ``memory_target_names`` is not empty.
         """
         if self.memory_target_names():
-            self.update_memory_probe(env, runtime, visible, active)
+            self.update_memory_probe(env, episode, visible, active)
 
-    def update_memory_probe(self, env, runtime: SpatialMemoryRuntime, visible: torch.Tensor, active: torch.Tensor):
-        """Reveal the instruction once the memory targets were seen and then all stayed hidden for ``reveal_delay_s``.
+    def update_memory_probe(
+        self, env, episode: SpatialMemoryEpisodeState, visible: torch.Tensor, active: torch.Tensor
+    ) -> None:
+        """Reveal the instruction once the memory targets were seen and then stayed out of view for a while.
 
-        After the reveal and before the first gripper close, count the steps in which a memory target is visible;
+        Between the reveal and ``commitment_made``, the steps in which a memory target is visible are counted;
         exceeding ``reobservation_budget_s`` marks the episode as "searched again".
         """
-        indices = [runtime.target_names.index(name) for name in self.memory_target_names()]
+        indices = [episode.target_names.index(name) for name in self.memory_target_names()]
         memory_visible = visible[:, indices].any(dim=-1) & active
-        runtime.memory_seen |= memory_visible
-        runtime.memory_unseen_steps = torch.where(
-            memory_visible, torch.zeros_like(runtime.memory_unseen_steps), runtime.memory_unseen_steps + 1
+        episode.memory_seen |= memory_visible
+        episode.memory_unseen_steps = torch.where(
+            memory_visible, torch.zeros_like(episode.memory_unseen_steps), episode.memory_unseen_steps + 1
         )
-        delay_steps = int(math.ceil(self.reveal_delay_s / runtime.step_dt))
-        newly_revealed = ~runtime.revealed & runtime.memory_seen & (runtime.memory_unseen_steps >= delay_steps) & active
-        runtime.reveal_step[newly_revealed] = env.episode_length_buf[newly_revealed]
-        runtime.revealed |= newly_revealed
-        before_commit = runtime.revealed & ~newly_revealed & (runtime.first_close_step == -1)
-        runtime.reobservation_steps += (before_commit & memory_visible).long()
-        budget_steps = int(math.floor(self.reobservation_budget_s / runtime.step_dt))
-        runtime.searched_again |= runtime.reobservation_steps > budget_steps
+        delay_steps = int(math.ceil(self.instruction_delay_s / episode.step_dt))
+        newly_revealed = episode.memory_seen & (episode.memory_unseen_steps >= delay_steps) & active
+        newly_revealed &= ~episode.instruction_revealed
+        episode.instruction_reveal_step[newly_revealed] = env.episode_length_buf[newly_revealed]
+        episode.instruction_revealed |= newly_revealed
+        before_commitment = episode.instruction_revealed & ~newly_revealed & ~self.commitment_made(env, episode, active)
+        episode.reobservation_steps += (before_commitment & memory_visible).long()
+        budget_steps = int(math.floor(self.reobservation_budget_s / episode.step_dt))
+        episode.searched_again |= episode.reobservation_steps > budget_steps
+
+    def commitment_made(self, env, episode: SpatialMemoryEpisodeState, active: torch.Tensor) -> torch.Tensor:
+        """Return whether the robot has committed to its answer (N,): by default, it has closed the gripper.
+
+        Called once per control step by ``update_memory_probe``.
+        """
+        return episode.first_close_step != NOT_SET
+
+    def released_after_instruction(self, env, episode: SpatialMemoryEpisodeState, active: torch.Tensor) -> torch.Tensor:
+        """Return whether the gripper has opened since the instruction was revealed (N,); call once per control step."""
+        was_closed = episode.task_state_buffer("was_closed", False, torch.bool)
+        released = episode.task_state_buffer("released_after_instruction", False, torch.bool)
+        closed = self.gripper_closed(env) & active
+        released |= was_closed & ~closed & episode.instruction_revealed
+        was_closed[:] = closed
+        return released
 
     # ----------------------------------------------------------------------------------------------------------------
     # Embodiment helpers and scripted plans
     # ----------------------------------------------------------------------------------------------------------------
 
     def tool_pose_w(self, env) -> torch.Tensor:
-        """Return the tool pose (N, 7) in the world frame."""
-        return self.embodiment.tool_pose_w(env)
+        """Return the tool centre point pose (N, 7) in the world frame (the G1's pelvis for the G1)."""
+        return self.embodiment.tracked_pose_w(env)
 
     def gripper_closed(self, env) -> torch.Tensor:
         """Return whether the gripper is commanded closed (N,)."""
         return self.embodiment.gripper_closed(env)
 
     @abstractmethod
-    def plan(self, env, runtime: SpatialMemoryRuntime, env_id: int, mode: str) -> list[Waypoint]:
-        """Return the scripted waypoint plan of one environment for ``PlanMode.ORACLE`` or ``PlanMode.BLIND``."""
+    def plan(self, env, episode: SpatialMemoryEpisodeState, env_id: int, mode: PlanMode) -> list:
+        """Return the scripted plan of one environment: Franka ``Waypoint`` or ``G1Waypoint`` objects."""
 
-    def plan_gates(self, env, runtime: SpatialMemoryRuntime) -> dict[str, torch.Tensor]:
-        """Return the runtime conditions plans may wait on, keyed by gate name."""
-        return {"revealed": runtime.revealed.clone()}
+    def plan_gates(self, env, episode: SpatialMemoryEpisodeState) -> dict[str, torch.Tensor]:
+        """Return the episode conditions plans may wait on, keyed by gate name."""
+        return {"instruction_revealed": episode.instruction_revealed.clone()}

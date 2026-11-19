@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
-from isaaclab_arena_environments.spatial_memory.runtime import get_runtime
+from isaaclab_arena_environments.spatial_memory.episode_state import get_episode_state
 from isaaclab_arena_environments.spatial_memory.task_logic import PlanMode
 
 
@@ -50,15 +50,15 @@ class _SpatialMemoryScriptedPolicy:
 
     def _scripted_action(self, env: gym.Env) -> torch.Tensor:
         base_env = env.unwrapped
-        runtime = get_runtime(base_env)
-        logic = runtime.logic
+        episode = get_episode_state(base_env)
+        logic = episode.logic
         if self._controller is None:
             self._controller = logic.embodiment.make_scripted_controller(base_env)
             self._needs_plan = torch.ones(base_env.num_envs, dtype=torch.bool)
         for env_id in torch.nonzero(self._needs_plan).flatten().tolist():
-            self._controller.set_plan(env_id, logic.plan(base_env, runtime, env_id, self.mode))
+            self._controller.set_plan(env_id, logic.plan(base_env, episode, env_id, self.mode))
         self._needs_plan[:] = False
-        return self._controller.action(base_env, logic, runtime)
+        return self._controller.action(base_env, logic, episode)
 
     def _scripted_reset(self, env_ids: torch.Tensor | None) -> None:
         if self._needs_plan is None:

@@ -46,13 +46,22 @@ PALETTE: dict[str, tuple[float, float, float]] = {
     "pink": (0.95, 0.45, 0.65),
     "white": (0.90, 0.90, 0.88),
     "wood": (0.62, 0.45, 0.28),
-    "grey": (0.55, 0.55, 0.58),
+    "gray": (0.55, 0.55, 0.58),
     "dark": (0.25, 0.25, 0.28),
 }
-"""Named colours. Item colours double as their identity in instructions."""
+"""Named colors. Item colors double as their identity in instructions."""
 
-ITEM_COLOURS = ("red", "green", "blue", "yellow", "purple", "orange", "cyan", "pink")
-"""Distinct colours assigned, in order, to items that are referred to by colour."""
+ITEM_COLORS = ("red", "green", "blue", "yellow", "purple", "orange", "cyan", "pink")
+"""Distinct colors assigned, in order, to items that are referred to by color."""
+
+BOARD_MASS_KG = 10.0
+"""Mass given to kinematic boards; it only matters if a board is ever made dynamic."""
+
+SOLVER_POSITION_ITERATIONS = 16
+"""PhysX position iterations of every part, enough for stable grasps of light items."""
+
+CONTACT_OFFSET_M = 0.005
+"""PhysX contact offset of every part."""
 
 
 @dataclass(frozen=True)
@@ -68,7 +77,7 @@ class PartSpec:
     size_xyz: tuple[float, float, float]
     """Full extents in metres. A cylinder uses ``(diameter, diameter, height)``."""
 
-    colour: str = "grey"
+    color: str = "gray"
     """Key into ``PALETTE``."""
 
     shape: PartShape = PartShape.BOX
@@ -86,30 +95,30 @@ class PartSpec:
         return (0.5 * self.size_xyz[0], 0.5 * self.size_xyz[1], 0.5 * self.size_xyz[2])
 
 
-def board(name: str, size_xyz: tuple[float, float, float], colour: str = "wood") -> PartSpec:
+def board(name: str, size_xyz: tuple[float, float, float], color: str = "wood") -> PartSpec:
     """Return a kinematic box part."""
-    return PartSpec(name=name, kind=PartKind.BOARD, size_xyz=size_xyz, colour=colour)
+    return PartSpec(name=name, kind=PartKind.BOARD, size_xyz=size_xyz, color=color)
 
 
-def box_item(name: str, size_xyz: tuple[float, float, float], colour: str, mass_kg: float = 0.1) -> PartSpec:
+def box_item(name: str, size_xyz: tuple[float, float, float], color: str, mass_kg: float = 0.1) -> PartSpec:
     """Return a dynamic box item."""
-    return PartSpec(name=name, kind=PartKind.ITEM, size_xyz=size_xyz, colour=colour, mass_kg=mass_kg)
+    return PartSpec(name=name, kind=PartKind.ITEM, size_xyz=size_xyz, color=color, mass_kg=mass_kg)
 
 
-def cylinder_item(name: str, diameter_m: float, height_m: float, colour: str, mass_kg: float = 0.1) -> PartSpec:
+def cylinder_item(name: str, diameter_m: float, height_m: float, color: str, mass_kg: float = 0.1) -> PartSpec:
     """Return a dynamic upright cylinder item."""
     return PartSpec(
         name=name,
         kind=PartKind.ITEM,
         size_xyz=(diameter_m, diameter_m, height_m),
-        colour=colour,
+        color=color,
         shape=PartShape.CYLINDER,
         mass_kg=mass_kg,
     )
 
 
-def make_part_object(spec: PartSpec, position_xyz: tuple[float, float, float]) -> Object:
-    """Create the Arena object that spawns ``spec`` at ``position_xyz`` (environment frame).
+def make_part_object(spec: PartSpec, t_E_part: tuple[float, float, float]) -> Object:
+    """Create the Arena object that spawns ``spec`` at ``t_E_part`` (environment frame).
 
     The layout reset event owns the pose of every part, so the object's own pose-reset event is disabled.
     """
@@ -120,32 +129,34 @@ def make_part_object(spec: PartSpec, position_xyz: tuple[float, float, float]) -
     from isaaclab_arena.utils.pose import Pose
 
     is_board = spec.kind == PartKind.BOARD
-    common = dict(
+    spawn_kwargs = dict(
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             kinematic_enabled=is_board,
             disable_gravity=is_board,
-            solver_position_iteration_count=16,
+            solver_position_iteration_count=SOLVER_POSITION_ITERATIONS,
             solver_velocity_iteration_count=1,
             max_depenetration_velocity=1.0,
         ),
-        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
-        mass_props=sim_utils.MassPropertiesCfg(mass=spec.mass_kg if not is_board else 10.0),
+        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=CONTACT_OFFSET_M, rest_offset=0.0),
+        mass_props=sim_utils.MassPropertiesCfg(mass=BOARD_MASS_KG if is_board else spec.mass_kg),
         physics_material=sim_utils.RigidBodyMaterialCfg(
             static_friction=spec.friction, dynamic_friction=spec.friction, restitution=0.0
         ),
-        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=PALETTE[spec.colour]),
+        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=PALETTE[spec.color]),
         activate_contact_sensors=not is_board,
     )
     if spec.shape == PartShape.CYLINDER:
-        spawner_cfg = sim_utils.CylinderCfg(radius=0.5 * spec.size_xyz[0], height=spec.size_xyz[2], axis="Z", **common)
+        spawner_cfg = sim_utils.CylinderCfg(
+            radius=0.5 * spec.size_xyz[0], height=spec.size_xyz[2], axis="Z", **spawn_kwargs
+        )
     else:
-        spawner_cfg = sim_utils.CuboidCfg(size=spec.size_xyz, **common)
+        spawner_cfg = sim_utils.CuboidCfg(size=spec.size_xyz, **spawn_kwargs)
     part = Object(
         name=spec.name,
         prim_path="{ENV_REGEX_NS}/" + spec.name,
         object_type=ObjectType.RIGID,
         spawner_cfg=spawner_cfg,
-        initial_pose=Pose(position_xyz=tuple(float(v) for v in position_xyz)),
+        initial_pose=Pose(position_xyz=tuple(float(v) for v in t_E_part)),
     )
     part.disable_reset_pose()
     return part

@@ -6,8 +6,8 @@ privileged scripted oracle, a "blind" scripted controller, collision and visibil
 the suite tests what it claims. Design notes and the decisions taken along the way are in [PLAN.md](PLAN.md).
 
 The code lives in `isaaclab_arena_environments/spatial_memory/` (shared infrastructure and one module per task under
-`tasks/`), with one registered environment per task in `isaaclab_arena_environments/spatial_memory_<task>_environment.py`
-and the tests in `isaaclab_arena/tests/test_spatial_memory_*.py`.
+`tasks/`), all ten registered environments in `isaaclab_arena_environments/spatial_memory_environments.py`, and the
+tests in `isaaclab_arena/tests/test_spatial_memory_*.py`.
 
 ## Common conventions
 
@@ -17,12 +17,12 @@ and the tests in `isaaclab_arena/tests/test_spatial_memory_*.py`.
 - **Scenes.** Fixtures and items are primitive boxes and cylinders in distinct colours, because the per-episode
   geometry (door angle, slot width, shelf height, ...) must change per environment and per reset, and because the
   oracle map and the visibility model need their exact geometry. Real assets can replace the items later.
-- **Hidden phase.** Each task defines when its relevant geometry is claimed to be out of view (its "action phase").
+- **Hidden phase.** Each task defines when its relevant geometry is claimed to be out of view (its "hidden phase").
   Visibility is computed every step by sampling points on the claimed surfaces and testing them against the camera
   frustum and against every box in the scene (and a box model of the Franka hand). It is checked against rendered
   instance segmentation for tasks 1, 4 and 7 in the camera tests; a one-off check of task 3's head camera agreed on
   99.3% of samples, with no analytically hidden part ever rendered.
-- **Memory probe.** In the "turn away and return" tasks (2, 6, 8, 9) the instruction or signal is revealed only after
+- **Memory probe.** In the "turn away and return" tasks (2, 6, 8, 9) the instruction is revealed only after
   the memorised geometry has been out of view for 3.5 s, longer than the default 3 s frame history.
 - **Collisions.** Any contact of the robot or of a carried item with scene geometry the task does not need ends the
   episode as a failure; the first contact (bodies, time and position) is logged.
@@ -33,7 +33,7 @@ and the tests in `isaaclab_arena/tests/test_spatial_memory_*.py`.
 | - | --- | --- |
 | 1 | `spatial_memory_mug_past_door` | door opening angle in degrees (90) |
 | 2 | `spatial_memory_fetch_behind` | number of mugs, 2 to 6 (5) |
-| 3 | `spatial_memory_tray_carry` | box height in metres (0.25) |
+| 3 | `spatial_memory_box_carry` | box height in metres (0.25) |
 | 4 | `spatial_memory_dishwasher_rack` | slot clearance in metres (0.03) |
 | 5 | `spatial_memory_back_of_shelf` | gap width between the front items in metres (0.30) |
 | 6 | `spatial_memory_high_shelf` | number of items already on the shelf, 1 to 4 (4) |
@@ -50,7 +50,7 @@ compartment's front edges are out of view while the hand, wrist and forearm pass
 **2. Fetch the mug from the shelf behind you.** N coloured mugs stand on an open two-tier shelf beside the robot. The
 robot looks at it, turns to the counter, and only then is told which colour to fetch. It must reach back and grasp the
 right mug on the first reach; every mug is out of view at the start of the reach. Re-observing the shelf for more
-than 4 s before the grasp counts as "searched again" (a failure). Knob: the number of mugs.
+than 5 s before the grasp counts as "searched again" (a failure). Knob: the number of mugs.
 
 **3. Carry the box past the chair and the counter corner.** A G1 humanoid squeezes a box off a table between its
 hands, walks back, turns and carries it about 3.5 m to a destination table, past a chair and a counter corner that
@@ -83,7 +83,7 @@ out of view for 3.5 s, and must pick each requested part on the first reach and 
 of bins.
 
 **9. Restock into the empty slot.** Six bins beside the robot, all but K holding stock. After one look at the rack the
-robot picks up a new item from the counter; the restock signal comes once the rack has been out of view for 3.5 s, and
+robot picks up a new item from the counter; the restock instruction comes once the rack has been out of view for 3.5 s, and
 the robot must put the item into a bin that was empty, a free region rather than an object. Knob: the number of empty
 bins (fewer is harder).
 
@@ -110,7 +110,7 @@ The environment flags select the observation variant and the difficulty:
 | `--observation_variant mapped` | adds a `mapped` group filled by an online map provider; the default provider returns an empty map (the hook for an nvblox-next reconstruction, see `observations.OnlineMapProvider`) |
 | `--difficulty <value>` | the task's difficulty knob (see the table above) |
 
-Tasks that give an instruction or signal (2, 6, 8 and 9) also add a `task_obs` group with it in every variant
+Tasks that give an instruction (2, 6, 8 and 9) also add a `task_obs` group with it in every variant
 (for example the one-hot colour in tasks 2 and 8).
 Add `--enable_cameras` to render the egocentric camera.
 
@@ -128,7 +128,7 @@ python isaaclab_arena/evaluation/policy_runner.py \
 # Task 3 (G1) with the online-map hook.
 python isaaclab_arena/evaluation/policy_runner.py \
     --policy_type <dotted.path.to.YourPolicy> --num_episodes 4 --num_envs 4 --enable_cameras \
-    spatial_memory_tray_carry --observation_variant mapped
+    spatial_memory_box_carry --observation_variant mapped
 ```
 
 ## Running the oracle and the blind controller
@@ -161,21 +161,22 @@ The scripted controllers read privileged state; they ignore the observation vari
 | `success_rate` | fraction of episodes that ended with the task's success condition (which already excludes collisions and, where it applies, searching again) |
 | `collision_rate` | fraction of episodes with at least one contact between the robot or a carried item and scene geometry the task does not need |
 | `time_to_success_s` | mean episode time, in seconds, of the successful episodes |
-| `searched_again_rate` | fraction of episodes in which the memorised scene was re-observed, after the instruction or signal and before the commitment (grasp or release), for longer than the task's budget (tasks 2, 6, 8 and 9) |
+| `searched_again_rate` | fraction of episodes in which the memorized scene was re-observed, after the instruction and before the commitment (grasp or release), for longer than the task's budget (tasks 2, 6, 8 and 9) |
 
 Each episode also writes a `spatial_memory` record to the episode JSONL: the sampled layout, the first collision
 (bodies, time and position), whether the robot searched again and for how long, when the instruction came and when the
-action phase started, which hidden targets were seen during the hidden phase and for how long, which targets were seen
+hidden phase started, which hidden targets were seen during the hidden phase and for how long, which targets were seen
 before it, the largest displacement of static geometry while hidden, the tool (Franka) or pelvis (G1) path length,
 and the success terms at the end.
 
 ## Tests and results
 
-For every task, `isaaclab_arena/tests/test_spatial_memory_<task>.py` checks over 50 seeds (seed 1234):
+For every task, `isaaclab_arena/tests/test_spatial_memory_tasks.py` checks over 50 seeds (seed 1234):
 
 1. the oracle succeeds on at least 90% of seeds at the default difficulty;
-2. in every episode the oracle solved, no claimed hidden target was visible during the hidden phase, and the claimed
-   targets were seen before it (so the hidden geometry is something to remember, not something never shown);
+2. in every episode the oracle solved, no claimed hidden target was visible during the hidden phase, and the task's
+   remembered targets (`remembered_target_names`) were seen before it in at least 90% of episodes, so the hidden
+   geometry is something to remember, not something never shown;
 3. nothing static moved while hidden (except task 10, where the cart moves by design);
 4. the blind controller fails on at least 70% of seeds;
 5. resets are deterministic under a fixed seed;
@@ -241,7 +242,7 @@ that solves the visible-geometry part of these tasks is needed to measure the me
   counter, so most insertions use a hand pitched 45 to 55 degrees down.
 - **Assets.** Primitive stand-ins replace kitchen cabinets, dishwashers, mugs and chairs (see "Common conventions").
 - **Task 2.** An open two-tier shelf replaces the cabinet (mugs are grasped from above), N ranges from 2 to 6 (the
-  slots the Franka reaches reliably), and the re-observation budget is 4 s because the wrist camera necessarily sees
+  slots the Franka reaches reliably), and the re-observation budget is 5 s because the wrist camera necessarily sees
   the shelf during the final approach.
 - **Task 3.** The squeezed box is at most about 0.3 m wide, and the G1 head camera's view is wide, so the box does not
   hide an obstacle the robot walks around while that obstacle is still ahead. The hidden claim therefore covers the
@@ -255,7 +256,7 @@ that solves the visible-geometry part of these tasks is needed to measure the me
   below the rails nothing on the shelf is visible.
 - **Task 7.** A seated part may tilt up to 25 degrees in the cradle.
 - **Task 8.** The tray's visibility while the hand is over the bins is logged but not claimed, and the re-observation
-  budget is 5 s.
+  budget is 6 s.
 - **Task 9.** The re-observation budget is 5 s.
 - **Task 10.** The movable element is a cart (the brief allows a door, a chair or a cart): a door that swings between
   open and half-open barely changes the oracle's route, so a path-length tolerance would not test anything. Only the

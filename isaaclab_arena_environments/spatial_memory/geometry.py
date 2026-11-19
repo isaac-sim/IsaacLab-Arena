@@ -5,7 +5,7 @@
 
 """Batched box geometry for the spatial-memory suite: surface sampling, frustum tests and ray-box occlusion.
 
-Poses are ``(x, y, z, qx, qy, qz, qw)``. All functions are pure torch so they can be tested without a simulator.
+Poses are ``(x, y, z, qx, qy, qz, qw)``. All functions are pure torch, so they run without a simulator.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def sample_box_face_points(
     Args:
         size_xyz: Full box extents in metres.
         faces: Face ids to sample (``FACE_PX`` ... ``FACE_NZ``).
-        spacing_m: Approximate spacing between neighbouring points.
+        spacing_m: Approximate spacing between neighboring points.
         min_points_per_axis: Minimum number of points along each face axis.
         outward_offset_m: Distance to push each point outside its face.
 
@@ -91,7 +91,7 @@ def inverse_transform_points(T_A_B: torch.Tensor, points_A: torch.Tensor) -> tor
     return math_utils.quat_apply_inverse(q_A_B, points_A - t_A_B)
 
 
-def compose_poses(T_A_B: torch.Tensor, T_B_C: torch.Tensor) -> torch.Tensor:
+def compose_pose_tensors(T_A_B: torch.Tensor, T_B_C: torch.Tensor) -> torch.Tensor:
     """Return ``T_A_C = T_A_B * T_B_C`` for poses with shape (..., 7)."""
     t_A_C, q_A_C = math_utils.combine_frame_transforms(
         T_A_B[..., :3].reshape(-1, 3),
@@ -160,38 +160,24 @@ def segments_blocked_by_boxes(
     num_boxes = T_W_boxes.shape[1]
     if half_extents.dim() == 2:
         half_extents = half_extents.unsqueeze(0).expand(num_envs, num_boxes, 3)
-    # Express the origin and each segment direction in every box frame: (N, K, 3) and (N, K, P, 3).
-    q_W_K = T_W_boxes[..., 3:7]
-    origin_K = math_utils.quat_apply_inverse(q_W_K, origins_W.unsqueeze(1) - T_W_boxes[..., :3])
+    # Express the origin and each segment direction in every box frame X: (N, K, 3) and (N, K, P, 3).
+    q_W_X = T_W_boxes[..., 3:7]
+    origins_X = math_utils.quat_apply_inverse(q_W_X, origins_W.unsqueeze(1) - T_W_boxes[..., :3])
     direction_W = points_W - origins_W.unsqueeze(1)
-    q_expanded = q_W_K.unsqueeze(2).expand(num_envs, num_boxes, num_points, 4)
-    direction_K = math_utils.quat_apply_inverse(
+    q_expanded = q_W_X.unsqueeze(2).expand(num_envs, num_boxes, num_points, 4)
+    directions_X = math_utils.quat_apply_inverse(
         q_expanded, direction_W.unsqueeze(1).expand(num_envs, num_boxes, num_points, 3)
     )
-    origin_K = origin_K.unsqueeze(2)
+    origins_X = origins_X.unsqueeze(2)
     half = half_extents.unsqueeze(2)
     # Slab test along the segment parameter t in [0, 1].
-    safe_direction = torch.where(direction_K.abs() < 1e-9, torch.full_like(direction_K, 1e-9), direction_K)
-    t_low = (-half - origin_K) / safe_direction
-    t_high = (half - origin_K) / safe_direction
+    safe_directions = torch.where(directions_X.abs() < 1e-9, torch.full_like(directions_X, 1e-9), directions_X)
+    t_low = (-half - origins_X) / safe_directions
+    t_high = (half - origins_X) / safe_directions
     t_enter = torch.minimum(t_low, t_high).amax(dim=-1)
     t_exit = torch.maximum(t_low, t_high).amin(dim=-1)
-    origin_inside = (origin_K.abs() <= half).all(dim=-1)
+    origin_inside = (origins_X.abs() <= half).all(dim=-1)
     hits = (t_exit >= t_enter) & (t_exit > 0.0) & (t_enter < 1.0 - end_margin) & ~origin_inside
     if box_enabled is not None:
         hits = hits & box_enabled.unsqueeze(-1)
     return hits.any(dim=1)
-
-
-def yaw_quat_xyzw(yaw_rad: torch.Tensor) -> torch.Tensor:
-    """Return quaternions (..., 4) for rotations about +z by ``yaw_rad``."""
-    half = 0.5 * yaw_rad
-    zeros = torch.zeros_like(half)
-    return torch.stack([zeros, zeros, torch.sin(half), torch.cos(half)], dim=-1)
-
-
-def pose_from_position_yaw(position: torch.Tensor, yaw_rad: torch.Tensor | float = 0.0) -> torch.Tensor:
-    """Return poses (..., 7) from positions (..., 3) and yaw angles."""
-    if not isinstance(yaw_rad, torch.Tensor):
-        yaw_rad = torch.full(position.shape[:-1], float(yaw_rad), device=position.device)
-    return torch.cat([position, yaw_quat_xyzw(yaw_rad)], dim=-1)

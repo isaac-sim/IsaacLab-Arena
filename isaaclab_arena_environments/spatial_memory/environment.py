@@ -36,10 +36,31 @@ class SpatialMemoryEnvironmentCfg(ArenaEnvironmentCfg):
     policies; the scripted controllers support only the default robot."""
 
 
+def make_embodiment_adapter(logic_type: type[SpatialMemoryTaskLogic], robot: str):
+    """Return the embodiment adapter for a task: the task's own robot, or DROID when ``robot`` is ``droid``.
+
+    Args:
+        logic_type: Task logic class.
+        robot: ``default`` or ``droid`` (see ``SpatialMemoryEnvironmentCfg.robot``).
+
+    Returns:
+        A ``FrankaAdapter``, ``DroidAdapter`` or ``G1Adapter``.
+    """
+    from isaaclab_arena_environments.spatial_memory.embodiment_adapter import DroidAdapter, FrankaAdapter
+    from isaaclab_arena_environments.spatial_memory.g1_adapter import G1Adapter
+
+    if logic_type.robot == "g1":
+        assert robot == "default", f"{logic_type.name} runs on the G1 only."
+        return G1Adapter()
+    if robot == "droid":
+        return DroidAdapter()
+    return FrankaAdapter(initial_joint_pose=logic_type.initial_joint_pose, rest_joint_pose=logic_type.rest_joint_pose)
+
+
 def build_spatial_memory_environment(
-    name: str, logic: SpatialMemoryTaskLogic, cfg: SpatialMemoryEnvironmentCfg
+    name: str, logic_type: type[SpatialMemoryTaskLogic], cfg: SpatialMemoryEnvironmentCfg
 ) -> IsaacLabArenaEnvironment:
-    """Assemble the Arena environment for ``logic``: primitive parts, ground, light, embodiment and task."""
+    """Assemble the Arena environment of a task: primitive parts, ground, light, embodiment and task."""
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
@@ -50,18 +71,14 @@ def build_spatial_memory_environment(
     from isaaclab_arena_environments.spatial_memory.parts import make_part_object
     from isaaclab_arena_environments.spatial_memory.task import SpatialMemoryTask
 
-    if cfg.robot == "droid":
-        from isaaclab_arena_environments.spatial_memory.embodiment_adapter import DroidAdapter, FrankaAdapter
-
-        assert isinstance(logic.embodiment, FrankaAdapter), f"{name} cannot run on DROID: it is not a Franka task."
-        logic.embodiment = DroidAdapter()
+    logic = logic_type(cfg.difficulty, make_embodiment_adapter(logic_type, cfg.robot))
     variant = ObservationVariant(cfg.observation_variant)
     asset_registry = AssetRegistry()
     # Spawn every part at the layout of a fixed sample so that the first frames are physically sensible; the reset
     # event writes the real per-episode layout.
-    nominal = logic.sample_layout(torch.Generator().manual_seed(0)).part_poses_e
+    T_E_parts = logic.sample_layout(torch.Generator().manual_seed(0)).part_poses_e
     parts = [
-        make_part_object(spec, tuple(nominal[index, :3].tolist())) for index, spec in enumerate(logic.part_specs())
+        make_part_object(spec, tuple(T_E_parts[index, :3].tolist())) for index, spec in enumerate(logic.part_specs())
     ]
     floor_z = logic.embodiment.floor_z_m
     ground = asset_registry.get_asset_by_name("ground_plane")(initial_pose=Pose(position_xyz=(0.0, 0.0, floor_z)))

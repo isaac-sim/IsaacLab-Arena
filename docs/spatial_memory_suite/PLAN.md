@@ -129,7 +129,7 @@ compartments are sized for that approach.
 | 9 | `spatial_memory_restock_slot` | cubby shelf (grid) in front, most cubbies filled; new item on a side counter | Franka, wrist | which cubbies are free once the held item is in front of the camera | empty cubbies | boxes |
 | 5 | `spatial_memory_back_of_shelf` | deep shelf, a front row of tall items with one gap, a short target behind the gap | Franka, wrist | target and gap edges once the hand enters the front row | gap width (m) | boxes |
 | 6 | `spatial_memory_high_shelf` | high shelf with a front lip above the working area, existing items on it, item on the counter | Franka, wrist | shelf surface, lip and existing items once the item is over the shelf | number of existing items | boxes |
-| 3 | `spatial_memory_tray_carry` | floor, counter corner and chair blocks on the route, pick and destination tables, a box load | G1 WBC (`g1_wbc_joint`, 50 Hz), head camera | each obstacle while the robot carries the box past it (see Q3) | box height (m) | box squeezed between the hands |
+| 3 | `spatial_memory_box_carry` | floor, counter corner and chair blocks on the route, pick and destination tables, a box load | G1 WBC (`g1_wbc_joint`, 50 Hz), head camera | each obstacle while the robot carries the box past it (see Q3) | box height (m) | box squeezed between the hands |
 | 10 | `spatial_memory_moved_cart` | task 1 scene plus a cart that may move between the carry lane and aside while the robot grasps | Franka, wrist | the cart's new pose, except for a re-observation window (frames withheld) | re-observation window (s) | a cart instead of a door (see Q4) |
 
 Episode phases, randomisation, success and failure terms per task are defined in the task module

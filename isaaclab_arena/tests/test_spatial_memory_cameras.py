@@ -35,15 +35,15 @@ def _test_visibility_matches_rendering(simulation_app) -> bool:
 def _test_withheld_frames_are_blank(simulation_app) -> bool:
     import torch
 
+    from isaaclab_arena_environments.spatial_memory.episode_state import get_episode_state
     from isaaclab_arena_environments.spatial_memory.evaluation import make_spatial_memory_env
     from isaaclab_arena_environments.spatial_memory.policies import SpatialMemoryOraclePolicy
-    from isaaclab_arena_environments.spatial_memory.runtime import get_runtime
 
     env = make_spatial_memory_env("spatial_memory_moved_cart", num_envs=2, seed=1234, enable_cameras=True)
     try:
         base = env.unwrapped
-        runtime = get_runtime(base)
-        key = runtime.logic.embodiment.camera_obs_key()
+        episode = get_episode_state(base)
+        key = episode.logic.embodiment.camera_obs_key()
         policy = SpatialMemoryOraclePolicy()
         obs, _ = env.reset()
         seen_frame = False
@@ -52,7 +52,7 @@ def _test_withheld_frames_are_blank(simulation_app) -> bool:
             for _ in range(60):
                 obs, _, _, _, _ = env.step(policy.get_action(env, obs))
                 image = obs["camera_obs"][key]
-                blocked = runtime.logic.camera_blocked(base, runtime)
+                blocked = episode.logic.camera_blocked(base, episode)
                 for env_id in range(base.num_envs):
                     is_blank = not bool(image[env_id].any())
                     assert is_blank == bool(blocked[env_id]), "A withheld frame must be blank and only then."

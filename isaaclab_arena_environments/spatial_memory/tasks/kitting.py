@@ -3,22 +3,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Task 8: kitting from bins.
+"""Kitting from bins.
 
-A two-tier rack beside the robot holds N open bins, each with a part of a distinct colour; a kit tray lies on the
+A two-tier rack beside the robot holds N open bins, each with a kit item of a distinct color; a kit tray lies on the
 counter in front of the robot. The robot looks at the rack once, turns to the tray, and then receives M = 2 requests
-one after the other. Each request (a one-hot colour) is revealed only once the rack has been out of view for 3.5 s,
-longer than the 3 s frame history. For each request the robot must reach back, pick the requested part from its bin on
-the first reach, carry it to the tray and place it there.
+one after the other. Each request (a one-hot color) is revealed only once the rack has been out of view for 3.5 s,
+longer than the 3 s frame history. For each request the robot must reach back, pick the requested kit item from its bin
+on the first reach, carry it to the tray and place it there.
 
-Hidden: the rack and its parts at the start of each reach (from the request until the hand is 0.42 m from the rack).
+Hidden: the rack and its kit items at the start of each reach (from the request until the hand is 0.42 m from the rack).
 The tray's visibility while the hand is over the bins is logged but not claimed: the tilted wrist camera can catch it at
 the edge of its view, and the robot sees the tray again whenever it turns back to it, so it is not a memory demand.
-Randomised: which part is in which bin, rack tier heights, the tray position, the requested parts.
+Randomized: which kit item is in which bin, rack tier heights, the tray position, the requested kit items.
 Difficulty knob: number of bins N (2 to 6).
-Success: both requested parts lie in the tray, each was picked on the first reach (first gripper close after its
-request on the requested part), no other part or fixture was touched, and the rack was not re-observed for more than
-5 s between a request and its grasp (else "searched again", a failure).
+Success: both requested kit items lie in the tray, each was picked on the first reach (first gripper close after its
+request on the requested kit item), no other kit item or fixture was touched, and the rack was not re-observed for more than
+6 s between a request and its grasp (else "searched again", a failure).
 """
 
 from __future__ import annotations
@@ -26,158 +26,155 @@ from __future__ import annotations
 import math
 import torch
 
-from isaaclab_arena_environments.spatial_memory.controller import GRIPPER_CLOSE, GRIPPER_OPEN, Waypoint, top_down_quat
+from isaaclab_arena_environments.spatial_memory.episode_state import NOT_SET
+from isaaclab_arena_environments.spatial_memory.franka_controller import (
+    GRIPPER_CLOSE,
+    GRIPPER_OPEN,
+    HOLD_FOREVER_STEPS,
+    Waypoint,
+)
 from isaaclab_arena_environments.spatial_memory.geometry import ALL_FACES, FACE_PZ
-from isaaclab_arena_environments.spatial_memory.layout_utils import (
+from isaaclab_arena_environments.spatial_memory.layout_sampling import (
     counter_pose,
     counter_spec,
     permutation,
     pose,
     uniform,
 )
-from isaaclab_arena_environments.spatial_memory.parts import ITEM_COLOURS, PartSpec, board, cylinder_item
-from isaaclab_arena_environments.spatial_memory.predicates import item_pose_e, tool_position_e
-from isaaclab_arena_environments.spatial_memory.runtime import NOT_SET
+from isaaclab_arena_environments.spatial_memory.parts import ITEM_COLORS, PartSpec, cylinder_item
+from isaaclab_arena_environments.spatial_memory.predicates import tool_position_e
 from isaaclab_arena_environments.spatial_memory.task_logic import LayoutSample, PlanMode, SpatialMemoryTaskLogic
-from isaaclab_arena_environments.spatial_memory.tasks.fetch_behind import (
+from isaaclab_arena_environments.spatial_memory.tasks.side_rack import (
+    BIN_BASE_M,
+    BIN_WALL_HEIGHT_M,
+    COUNTER_WAIT_Z_M,
     LOOK_JOINT_POSE,
-    LOOK_POSITION,
+    LOOK_POSITION_E,
+    RACK_EDGE_Y_M,
     REST_JOINT_POSE,
-    SHELF_CENTER_X,
-    SHELF_EDGE_Y,
-    SLOT_XS,
-    TIER_SIZE_M,
-    TIER_YS,
+    SLOT_XS_M,
+    TIER_YS_M,
+    open_box_names,
+    open_box_part_specs,
+    place_open_box,
+    place_rack,
+    rack_part_specs,
+    rack_slots,
+    top_down_quat_camera_towards_base,
 )
 from isaaclab_arena_environments.spatial_memory.visibility import VisibilityTarget
 
 NUM_REQUESTS = 2
-REACH_START_END_Y = 0.06
-"""The reach-start (action) phase lasts from a request until the tool passes this y, 0.42 m from the low tier."""
-PART_SIZE_M = (0.045, 0.045, 0.08)
-"""Parts are upright cylinders, so a grasp works from any wrist yaw."""
-BIN_BASE_M = (0.105, 0.13, 0.01)
-BIN_WALL_HEIGHT_M = 0.03
-BIN_WALL_T_M = 0.006
+"""Number of kit items requested per episode, one after the other."""
+HIDDEN_PHASE_END_Y_M = 0.06
+"""Environment-frame y of the tool center point at which each request's hidden phase ends, 0.42 m from the low tier."""
+KIT_ITEM_SIZE_M = (0.045, 0.045, 0.08)
+"""Size of each kit item, an upright cylinder, so a grasp works from any wrist yaw."""
 TRAY_BASE_M = (0.22, 0.30, 0.01)
+"""Extents of the kit tray's base."""
 TRAY_WALL_HEIGHT_M = 0.025
-TRAY_SPOT_OFFSETS_Y = (0.075, -0.075)
-"""Where the first and the second part go in the tray, relative to its centre."""
-AT_RACK_Y = 0.44
-"""The hand is at the rack (and the tray must be out of view) beyond this y."""
+"""Height of the kit tray's walls above its base."""
+TRAY_SPOT_OFFSETS_Y_M = (0.075, -0.075)
+"""Lateral offsets from the tray's center of the spots for the first and the second kit item."""
+TRAY_EDGE_MARGIN_M = 0.02
+"""Minimum horizontal distance between a kit item's center and the tray's edge for the item to be inside the tray."""
+AT_RACK_Y_M = 0.44
+"""Environment-frame y of the tool center point beyond which the hand is at the rack (and the tray must be out of
+view)."""
 FIRST_REACH_TOLERANCE_M = 0.04
-COUNTER_WAIT_Z = 0.25
-
-__all__ = ["KittingLogic", "LOOK_JOINT_POSE", "REST_JOINT_POSE"]
+"""Maximum horizontal distance between each request's first gripper close and the requested kit item's start."""
+DROPPED_Z_M = -0.3
+"""Environment-frame height below which a kit item counts as dropped."""
 
 
 class KittingLogic(SpatialMemoryTaskLogic):
-    """Logic of task 8 (see module docstring)."""
+    """Logic of the kitting task (see the module docstring)."""
 
     name = "spatial_memory_kitting"
+    rest_joint_pose = REST_JOINT_POSE
+    initial_joint_pose = LOOK_JOINT_POSE
     difficulty_name = "num_bins"
     default_difficulty = 5
     episode_length_s = 70.0
-    task_description = "Look at the bin rack, then put each requested part into the kit tray."
+    task_description = "Look at the bin rack, then put each requested item into the kit tray."
     forbids_searching_again = True
-    reobservation_budget_s = 5.0
+    reobservation_budget_s = 6.0
 
     @property
     def num_bins(self) -> int:
+        """Return the number of bins on the rack."""
         num = int(round(self.difficulty))
-        assert NUM_REQUESTS <= num <= len(SLOT_XS) * len(TIER_YS), f"num_bins must be between 2 and 6, got {num}"
+        assert NUM_REQUESTS <= num <= len(SLOT_XS_M) * len(TIER_YS_M), f"num_bins must be between 2 and 6, got {num}"
         return num
 
-    def part_names_(self) -> list[str]:
-        return [f"part_{index}" for index in range(self.num_bins)]
+    def kit_item_names(self) -> list[str]:
+        """Return the names of the kit items, one per bin."""
+        return [f"kit_item_{index}" for index in range(self.num_bins)]
 
     def bin_names(self, index: int) -> list[str]:
-        return [f"bin_{index}_{side}" for side in ("base", "front", "back", "left", "right")]
+        """Return the names of the boards of bin ``index``."""
+        return open_box_names(f"bin_{index}")
 
     def tray_names(self) -> list[str]:
-        return [f"tray_{side}" for side in ("base", "front", "back", "left", "right")]
+        """Return the names of the tray's boards."""
+        return open_box_names("tray")
 
     def build_part_specs(self) -> list[PartSpec]:
-        parts = [
-            counter_spec(),
-            board("tier_low", TIER_SIZE_M, colour="wood"),
-            board("tier_high", TIER_SIZE_M, colour="wood"),
-            board("riser", (TIER_SIZE_M[0], TIER_SIZE_M[1], 0.30), colour="dark"),
-        ]
+        parts = [counter_spec(), *rack_part_specs()]
         for index in range(self.num_bins):
-            names = self.bin_names(index)
-            parts.append(board(names[0], BIN_BASE_M, colour="grey"))
-            for name in names[1:3]:
-                parts.append(board(name, (BIN_BASE_M[0], BIN_WALL_T_M, BIN_WALL_HEIGHT_M), colour="grey"))
-            for name in names[3:5]:
-                parts.append(board(name, (BIN_WALL_T_M, BIN_BASE_M[1], BIN_WALL_HEIGHT_M), colour="grey"))
-        tray = self.tray_names()
-        parts.append(board(tray[0], TRAY_BASE_M, colour="white"))
-        for name in tray[1:3]:
-            parts.append(board(name, (TRAY_BASE_M[0], BIN_WALL_T_M, TRAY_WALL_HEIGHT_M), colour="dark"))
-        for name in tray[3:5]:
-            parts.append(board(name, (BIN_WALL_T_M, TRAY_BASE_M[1], TRAY_WALL_HEIGHT_M), colour="dark"))
-        for index, name in enumerate(self.part_names_()):
-            parts.append(cylinder_item(name, PART_SIZE_M[0], PART_SIZE_M[2], colour=ITEM_COLOURS[index], mass_kg=0.08))
+            parts += open_box_part_specs(f"bin_{index}", BIN_BASE_M, BIN_WALL_HEIGHT_M, "gray", "gray")
+        parts += open_box_part_specs("tray", TRAY_BASE_M, TRAY_WALL_HEIGHT_M, "white", "dark")
+        for index, name in enumerate(self.kit_item_names()):
+            parts.append(
+                cylinder_item(name, KIT_ITEM_SIZE_M[0], KIT_ITEM_SIZE_M[2], color=ITEM_COLORS[index], mass_kg=0.08)
+            )
         return parts
 
-    def _place_box_walls(self, table, names, center, base_size, wall_height, base_top_z):
-        cx, cy = center
-        table[names[0]] = pose(cx, cy, base_top_z - 0.5 * base_size[2])
-        wall_z = base_top_z + 0.5 * wall_height
-        half_x = 0.5 * base_size[0] - 0.5 * BIN_WALL_T_M
-        half_y = 0.5 * base_size[1] - 0.5 * BIN_WALL_T_M
-        table[names[1]] = pose(cx, cy + half_y, wall_z)
-        table[names[2]] = pose(cx, cy - half_y, wall_z)
-        table[names[3]] = pose(cx + half_x, cy, wall_z)
-        table[names[4]] = pose(cx - half_x, cy, wall_z)
-
     def sample_layout(self, generator: torch.Generator) -> LayoutSample:
-        table = self.new_pose_table()
+        poses = self.parked_part_poses()
         low_z = uniform(generator, -0.02, 0.04)
         high_z = low_z + uniform(generator, 0.10, 0.15)
-        table["counter"] = counter_pose(center_x=0.60, center_y=-0.30)
-        table["tier_low"] = pose(SHELF_CENTER_X, TIER_YS[0], low_z - 0.5 * TIER_SIZE_M[2])
-        table["tier_high"] = pose(SHELF_CENTER_X, TIER_YS[1], high_z - 0.5 * TIER_SIZE_M[2])
-        table["riser"] = pose(SHELF_CENTER_X, TIER_YS[1], high_z - TIER_SIZE_M[2] - 0.15)
-        slots = [(x, TIER_YS[tier], (low_z, high_z)[tier]) for tier in range(2) for x in SLOT_XS]
+        poses["counter"] = counter_pose(center_x=0.60, center_y=-0.30)
+        place_rack(poses, low_z, high_z)
+        slots = rack_slots(low_z, high_z)
         order = permutation(generator, len(slots))
-        part_xyz = []
-        for index, name in enumerate(self.part_names_()):
+        kit_item_xyz = []
+        for index, name in enumerate(self.kit_item_names()):
             slot_x, slot_y, slot_z = slots[order[index]]
             floor_z = slot_z + BIN_BASE_M[2]
-            self._place_box_walls(
-                table, self.bin_names(index), (slot_x, slot_y), BIN_BASE_M, BIN_WALL_HEIGHT_M, floor_z
-            )
-            table[name] = pose(slot_x, slot_y, floor_z + 0.5 * PART_SIZE_M[2] + 0.001)
-            part_xyz.append([slot_x, slot_y, floor_z])
+            place_open_box(poses, f"bin_{index}", (slot_x, slot_y), BIN_BASE_M, BIN_WALL_HEIGHT_M, floor_z)
+            poses[name] = pose(slot_x, slot_y, floor_z + 0.5 * KIT_ITEM_SIZE_M[2] + 0.001)
+            kit_item_xyz.append([slot_x, slot_y, floor_z])
         tray_x = uniform(generator, 0.40, 0.48)
         tray_y = uniform(generator, -0.30, -0.20)
-        self._place_box_walls(
-            table, self.tray_names(), (tray_x, tray_y), TRAY_BASE_M, TRAY_WALL_HEIGHT_M, TRAY_BASE_M[2]
-        )
+        place_open_box(poses, "tray", (tray_x, tray_y), TRAY_BASE_M, TRAY_WALL_HEIGHT_M, TRAY_BASE_M[2])
         requests = permutation(generator, self.num_bins)[:NUM_REQUESTS]
         params = {
             "requests": torch.tensor(requests),
-            "part_xyz": torch.tensor(part_xyz),
+            "kit_item_xyz": torch.tensor(kit_item_xyz),
             "tier_z": torch.tensor([low_z, high_z]),
             "tray_xy": torch.tensor([tray_x, tray_y]),
         }
-        return LayoutSample(part_poses_e=self.pose_table_to_tensor(table), params=params)
+        return LayoutSample(part_poses_e=self.part_poses_tensor(poses), layout_params=params)
 
     # ----------------------------------------------------------------------------------------------------------------
 
     def rack_target_names(self) -> list[str]:
-        return self.part_names_() + [f"bin_{index}" for index in range(self.num_bins)]
+        """Return the visibility targets on the rack: the kit items and the bins."""
+        return self.kit_item_names() + [f"bin_{index}" for index in range(self.num_bins)]
 
     def visibility_targets(self) -> list[VisibilityTarget]:
-        targets = [VisibilityTarget(name, name, ALL_FACES, spacing_m=0.02) for name in self.part_names_()]
+        targets = [VisibilityTarget(name, name, ALL_FACES, spacing_m=0.02) for name in self.kit_item_names()]
         targets += [VisibilityTarget(f"bin_{index}", f"bin_{index}_base", (FACE_PZ,)) for index in range(self.num_bins)]
         targets.append(VisibilityTarget("tray", "tray_base", (FACE_PZ,)))
         return targets
 
     def hidden_target_names(self) -> list[str]:
         return self.rack_target_names()
+
+    def remembered_target_names(self) -> list[str]:
+        """Return the kit items in the bins."""
+        return self.kit_item_names()
 
     def memory_target_names(self) -> list[str]:
         return self.rack_target_names()
@@ -188,60 +185,50 @@ class KittingLogic(SpatialMemoryTaskLogic):
             names += self.bin_names(index)
         return names
 
-    def _state(self, runtime, key):
-        return runtime.task_state[key]
+    def on_reset(self, env, episode, env_ids: torch.Tensor) -> None:
+        episode.task_state_buffer("request_index", 0, torch.long)
+        episode.task_state_buffer("request_revealed", False, torch.bool)
+        episode.task_state_buffer("unseen_steps", 0, torch.long)
+        episode.task_state_buffer("reobservation_steps", 0, torch.long, (NUM_REQUESTS,))
+        episode.task_state_buffer("close_xy", 0.0, torch.float32, (NUM_REQUESTS, 2))
+        episode.task_state_buffer("closed_for", False, torch.bool, (NUM_REQUESTS,))
+        episode.task_state_buffer("was_closed", False, torch.bool)
+        episode.task_state_buffer("delivered", False, torch.bool, (NUM_REQUESTS,))
 
-    def on_reset(self, env, runtime, env_ids: torch.Tensor) -> None:
-        state = runtime.task_state
-        if "request_index" not in state:
-            num = env.num_envs
-            state["request_index"] = torch.zeros(num, dtype=torch.long, device=env.device)
-            state["request_revealed"] = torch.zeros(num, dtype=torch.bool, device=env.device)
-            state["unseen_steps"] = torch.zeros(num, dtype=torch.long, device=env.device)
-            state["reobs_steps"] = torch.zeros(num, NUM_REQUESTS, dtype=torch.long, device=env.device)
-            state["close_xy"] = torch.zeros(num, NUM_REQUESTS, 2, device=env.device)
-            state["closed_for"] = torch.zeros(num, NUM_REQUESTS, dtype=torch.bool, device=env.device)
-            state["was_closed"] = torch.zeros(num, dtype=torch.bool, device=env.device)
-            state["delivered"] = torch.zeros(num, NUM_REQUESTS, dtype=torch.bool, device=env.device)
-        for key in ("request_index", "unseen_steps", "reobs_steps", "close_xy"):
-            state[key][env_ids] = 0
-        for key in ("request_revealed", "closed_for", "was_closed", "delivered"):
-            state[key][env_ids] = False
-
-    def requested_part(self, runtime) -> torch.Tensor:
-        """Return the index (N,) of the currently requested part."""
-        state = runtime.task_state
+    def requested_kit_item(self, episode) -> torch.Tensor:
+        """Return the index (N,) of the currently requested kit item."""
+        state = episode.task_state
         index = state["request_index"].clamp(max=NUM_REQUESTS - 1)
-        return runtime.params["requests"].long().gather(1, index.unsqueeze(-1)).squeeze(-1)
+        return episode.layout_params["requests"].long().gather(1, index.unsqueeze(-1)).squeeze(-1)
 
-    def _rack_target_mask(self, env, runtime) -> torch.Tensor:
-        """Return (N, T): rack targets, excluding parts already delivered to the tray."""
-        mask = torch.zeros(env.num_envs, len(runtime.target_names), dtype=torch.bool, device=env.device)
+    def _rack_target_mask(self, env, episode) -> torch.Tensor:
+        """Return (N, T): rack targets, excluding kit items already delivered to the tray."""
+        mask = torch.zeros(env.num_envs, len(episode.target_names), dtype=torch.bool, device=env.device)
         for index in range(self.num_bins):
-            mask[:, runtime.target_names.index(f"bin_{index}")] = True
-        part_target_ids = [runtime.target_names.index(name) for name in self.part_names_()]
-        delivered_parts = torch.zeros(env.num_envs, self.num_bins, dtype=torch.bool, device=env.device)
-        delivered_parts.scatter_(1, runtime.params["requests"].long(), runtime.task_state["delivered"])
-        mask[:, part_target_ids] = ~delivered_parts
+            mask[:, episode.target_names.index(f"bin_{index}")] = True
+        kit_item_target_ids = [episode.target_names.index(name) for name in self.kit_item_names()]
+        delivered_kit_items = torch.zeros(env.num_envs, self.num_bins, dtype=torch.bool, device=env.device)
+        delivered_kit_items.scatter_(1, episode.layout_params["requests"].long(), episode.task_state["delivered"])
+        mask[:, kit_item_target_ids] = ~delivered_kit_items
         return mask
 
-    def on_step(self, env, runtime, visible: torch.Tensor, active: torch.Tensor) -> None:
-        state = runtime.task_state
-        rack_visible = (visible & self._rack_target_mask(env, runtime)).any(dim=-1) & active
-        runtime.memory_seen |= rack_visible
+    def on_step(self, env, episode, visible: torch.Tensor, active: torch.Tensor) -> None:
+        state = episode.task_state
+        rack_visible = (visible & self._rack_target_mask(env, episode)).any(dim=-1) & active
+        episode.memory_seen |= rack_visible
         state["unseen_steps"] = torch.where(
             rack_visible, torch.zeros_like(state["unseen_steps"]), state["unseen_steps"] + 1
         )
-        delay_steps = int(math.ceil(self.reveal_delay_s / runtime.step_dt))
+        delay_steps = int(math.ceil(self.instruction_delay_s / episode.step_dt))
         pending = state["request_index"] < NUM_REQUESTS
         # A request is revealed when the previous one was delivered (or none was made) and the rack has been out of
         # view for the reveal delay.
-        ready = pending & ~state["request_revealed"] & runtime.memory_seen & (state["unseen_steps"] >= delay_steps)
+        ready = pending & ~state["request_revealed"] & episode.memory_seen & (state["unseen_steps"] >= delay_steps)
         if ready.any():
             state["request_revealed"] |= ready
-            runtime.revealed |= ready
-            first = ready & (runtime.reveal_step == NOT_SET)
-            runtime.reveal_step[first] = env.episode_length_buf[first]
+            episode.instruction_revealed |= ready
+            first = ready & (episode.instruction_reveal_step == NOT_SET)
+            episode.instruction_reveal_step[first] = env.episode_length_buf[first]
         # Gripper closes after a reveal belong to the current request.
         closed = self.gripper_closed(env) & active
         rising = closed & ~state["was_closed"]
@@ -250,18 +237,18 @@ class KittingLogic(SpatialMemoryTaskLogic):
         current = state["request_index"].clamp(max=NUM_REQUESTS - 1)
         open_request = pending & state["request_revealed"] & ~state["closed_for"][env_index, current]
         counting = open_request & rack_visible
-        state["reobs_steps"][env_index[counting], current[counting]] += 1
-        runtime.reobservation_steps = state["reobs_steps"].amax(dim=-1)
-        budget_steps = int(math.floor(self.reobservation_budget_s / runtime.step_dt))
-        runtime.searched_again |= runtime.reobservation_steps > budget_steps
+        state["reobservation_steps"][env_index[counting], current[counting]] += 1
+        episode.reobservation_steps = state["reobservation_steps"].amax(dim=-1)
+        budget_steps = int(math.floor(self.reobservation_budget_s / episode.step_dt))
+        episode.searched_again |= episode.reobservation_steps > budget_steps
         first_close = rising & open_request
         if first_close.any():
-            tool_xy = tool_position_e(env, self)[:, :2]
-            state["close_xy"][env_index[first_close], current[first_close]] = tool_xy[first_close]
+            t_E_tcp_xy = tool_position_e(env, self)[:, :2]
+            state["close_xy"][env_index[first_close], current[first_close]] = t_E_tcp_xy[first_close]
             state["closed_for"][env_index[first_close], current[first_close]] = True
-        # A request is delivered when its part rests in the tray; the next request then waits for its reveal.
-        in_tray = self._parts_in_tray(env, runtime)
-        requested = runtime.params["requests"].long()
+        # A request is delivered when its kit item rests in the tray; the next request then waits for its reveal.
+        in_tray = self._kit_items_in_tray(env, episode)
+        requested = episode.layout_params["requests"].long()
         delivered_now = in_tray.gather(1, requested) & ~closed.unsqueeze(-1)
         state["delivered"] |= delivered_now & state["closed_for"]
         advance = pending & state["request_revealed"] & state["delivered"][env_index, current]
@@ -269,95 +256,89 @@ class KittingLogic(SpatialMemoryTaskLogic):
             state["request_index"][advance] += 1
             state["request_revealed"][advance] = False
 
-    def _parts_in_tray(self, env, runtime) -> torch.Tensor:
-        """Return (N, B): whether each part rests inside the tray."""
-        tray_xy = runtime.params["tray_xy"]
+    def _kit_items_in_tray(self, env, episode) -> torch.Tensor:
+        """Return (N, B): whether each kit item rests inside the tray."""
+        t_E_tray_xy = episode.layout_params["tray_xy"]
         flags = []
-        for name in self.part_names_():
-            part = item_pose_e(env, name)
-            inside = ((part[:, 0] - tray_xy[:, 0]).abs() < 0.5 * TRAY_BASE_M[0] - 0.02) & (
-                (part[:, 1] - tray_xy[:, 1]).abs() < 0.5 * TRAY_BASE_M[1] - 0.02
+        for name in self.kit_item_names():
+            t_E_item = env.arena_world.get_pose_e(name)[:, :3]
+            inside = ((t_E_item[:, 0] - t_E_tray_xy[:, 0]).abs() < 0.5 * TRAY_BASE_M[0] - TRAY_EDGE_MARGIN_M) & (
+                (t_E_item[:, 1] - t_E_tray_xy[:, 1]).abs() < 0.5 * TRAY_BASE_M[1] - TRAY_EDGE_MARGIN_M
             )
-            low = part[:, 2] < TRAY_BASE_M[2] + PART_SIZE_M[2]
+            low = t_E_item[:, 2] < TRAY_BASE_M[2] + KIT_ITEM_SIZE_M[2]
             flags.append(inside & low)
         return torch.stack(flags, dim=-1)
 
     def instruction_dim(self) -> int:
         return self.num_bins
 
-    def instruction(self, env, runtime) -> torch.Tensor:
-        state = runtime.task_state
-        one_hot = torch.nn.functional.one_hot(self.requested_part(runtime), self.num_bins).float()
+    def instruction(self, env, episode) -> torch.Tensor:
+        state = episode.task_state
+        one_hot = torch.nn.functional.one_hot(self.requested_kit_item(episode), self.num_bins).float()
         shown = state["request_revealed"] & (state["request_index"] < NUM_REQUESTS)
         return one_hot * shown.unsqueeze(-1).float()
 
-    def action_phase(self, env, runtime) -> torch.Tensor:
-        state = runtime.task_state
-        tool_y = tool_position_e(env, self)[:, 1]
+    def hidden_phase(self, env, episode) -> torch.Tensor:
+        state = episode.task_state
+        t_E_tcp_y = tool_position_e(env, self)[:, 1]
         env_index = torch.arange(env.num_envs, device=env.device)
         current = state["request_index"].clamp(max=NUM_REQUESTS - 1)
         before_grasp = state["request_revealed"] & ~state["closed_for"][env_index, current]
-        reaching = before_grasp & (tool_y < REACH_START_END_Y)
-        # Facing the rack: the hand is over the bins and has not yet closed on the requested part.
-        at_rack = before_grasp & (tool_y > AT_RACK_Y)
+        reaching = before_grasp & (t_E_tcp_y < HIDDEN_PHASE_END_Y_M)
+        # Facing the rack: the hand is over the bins and has not yet closed on the requested kit item.
+        at_rack = before_grasp & (t_E_tcp_y > AT_RACK_Y_M)
         return reaching | at_rack
 
-    def hidden_phase_mask(self, env, runtime, in_action: torch.Tensor) -> torch.Tensor:
-        tool_y = tool_position_e(env, self)[:, 1]
-        at_rack = (tool_y > AT_RACK_Y) & in_action
-        reaching = in_action & (tool_y < REACH_START_END_Y)
-        mask = self._rack_target_mask(env, runtime) & reaching.unsqueeze(-1)
-        mask[:, runtime.target_names.index("tray")] = at_rack
+    def hidden_target_mask(self, env, episode, in_hidden_phase: torch.Tensor) -> torch.Tensor:
+        t_E_tcp_y = tool_position_e(env, self)[:, 1]
+        at_rack = (t_E_tcp_y > AT_RACK_Y_M) & in_hidden_phase
+        reaching = in_hidden_phase & (t_E_tcp_y < HIDDEN_PHASE_END_Y_M)
+        mask = self._rack_target_mask(env, episode) & reaching.unsqueeze(-1)
+        mask[:, episode.target_names.index("tray")] = at_rack
         return mask
 
-    def static_part_mask(self, env, runtime) -> torch.Tensor:
-        mask = torch.ones(env.num_envs, len(runtime.part_names), dtype=torch.bool, device=env.device)
-        part_ids = torch.tensor(runtime.part_ids(self.part_names_()), device=env.device)
+    def static_part_mask(self, env, episode) -> torch.Tensor:
+        mask = torch.ones(env.num_envs, len(episode.part_names), dtype=torch.bool, device=env.device)
+        kit_item_ids = torch.tensor(episode.part_ids(self.kit_item_names()), device=env.device)
         requested = torch.zeros(env.num_envs, self.num_bins, dtype=torch.bool, device=env.device)
-        requested.scatter_(1, runtime.params["requests"].long(), True)
-        mask[:, part_ids] = ~requested
+        requested.scatter_(1, episode.layout_params["requests"].long(), True)
+        mask[:, kit_item_ids] = ~requested
         return mask
 
-    def allowed_contacts(self, env, runtime) -> torch.Tensor:
-        """The robot may touch only the requested parts; parts may rest on supports and touch each other."""
-        from isaaclab_arena_environments.spatial_memory.collision import filtered_sensor_labels
-
-        labels = filtered_sensor_labels(self)
-        allowed = torch.zeros(env.num_envs, len(labels), len(runtime.part_names), dtype=torch.bool, device=env.device)
-        part_ids = runtime.part_ids(self.part_names_())
-        support_ids = runtime.part_ids(self.item_support_names())
+    def robot_touchable_part_mask(self, env, episode) -> torch.Tensor:
+        """Return the requested kit items: the robot may touch no other part."""
         requested = torch.zeros(env.num_envs, self.num_bins, dtype=torch.bool, device=env.device)
-        requested.scatter_(1, runtime.params["requests"].long(), True)
-        for sensor_index, label in enumerate(labels):
-            if label in self.embodiment.arm_links or label in self.embodiment.gripper_bodies:
-                allowed[:, sensor_index, part_ids] = requested
-            else:
-                allowed[:, sensor_index, part_ids] = True
-                allowed[:, sensor_index, support_ids] = True
-        return allowed
+        requested.scatter_(1, episode.layout_params["requests"].long(), True)
+        mask = torch.zeros(env.num_envs, len(episode.part_names), dtype=torch.bool, device=env.device)
+        mask[:, episode.part_ids(self.kit_item_names())] = requested
+        return mask
 
-    def _first_reach_ok(self, runtime) -> torch.Tensor:
-        state = runtime.task_state
-        requested = runtime.params["requests"].long()
-        targets = runtime.params["part_xyz"].gather(1, requested.unsqueeze(-1).expand(-1, -1, 3))[..., :2]
-        near = (state["close_xy"] - targets).norm(dim=-1) < FIRST_REACH_TOLERANCE_M
+    def _first_reach_ok(self, episode) -> torch.Tensor:
+        """Return (N, R): whether each request's first gripper close, if any, was at the requested kit item."""
+        state = episode.task_state
+        requested = episode.layout_params["requests"].long()
+        t_E_requested_xyz = episode.layout_params["kit_item_xyz"].gather(1, requested.unsqueeze(-1).expand(-1, -1, 3))
+        near = (state["close_xy"] - t_E_requested_xyz[..., :2]).norm(dim=-1) < FIRST_REACH_TOLERANCE_M
         return near | ~state["closed_for"]
 
-    def success_terms(self, env, runtime) -> dict[str, torch.Tensor]:
-        state = runtime.task_state
-        in_tray = self._parts_in_tray(env, runtime).gather(1, runtime.params["requests"].long())
+    def success_terms(self, env, episode) -> dict[str, torch.Tensor]:
+        state = episode.task_state
+        in_tray = self._kit_items_in_tray(env, episode).gather(1, episode.layout_params["requests"].long())
         return {
             "all_requests_given": state["request_index"] >= NUM_REQUESTS - 1,
-            "requested_parts_in_tray": in_tray.all(dim=-1) & ~self.gripper_closed(env),
-            "each_picked_on_first_reach": self._first_reach_ok(runtime).all(dim=-1) & state["closed_for"].all(dim=-1),
+            "requested_kit_items_in_tray": in_tray.all(dim=-1) & ~self.gripper_closed(env),
+            "each_picked_on_first_reach": self._first_reach_ok(episode).all(dim=-1) & state["closed_for"].all(dim=-1),
         }
 
-    def extra_failures(self, env, runtime) -> torch.Tensor:
-        dropped = torch.stack([item_pose_e(env, name)[:, 2] < -0.3 for name in self.part_names_()], dim=-1).any(dim=-1)
-        return ~self._first_reach_ok(runtime).all(dim=-1) | dropped
+    def extra_failures(self, env, episode) -> torch.Tensor:
+        dropped_flags = []
+        for name in self.kit_item_names():
+            dropped_flags.append(env.arena_world.get_pose_e(name)[:, 2] < DROPPED_Z_M)
+        dropped = torch.stack(dropped_flags, dim=-1).any(dim=-1)
+        return ~self._first_reach_ok(episode).all(dim=-1) | dropped
 
-    def plan_gates(self, env, runtime) -> dict[str, torch.Tensor]:
-        state = runtime.task_state
+    def plan_gates(self, env, episode) -> dict[str, torch.Tensor]:
+        state = episode.task_state
         return {
             "request_0": state["request_revealed"] & (state["request_index"] == 0),
             "request_1": state["request_revealed"] & (state["request_index"] == 1),
@@ -365,56 +346,54 @@ class KittingLogic(SpatialMemoryTaskLogic):
 
     # ----------------------------------------------------------------------------------------------------------------
 
-    def plan(self, env, runtime, env_id: int, mode: str) -> list[Waypoint]:
-        params = {key: value[env_id] for key, value in runtime.params.items()}
+    def plan(self, env, episode, env_id: int, mode: str) -> list[Waypoint]:
+        params = {key: value[env_id] for key, value in episode.layout_params.items()}
         tray_x, tray_y = (float(v) for v in params["tray_xy"])
         low_z = float(params["tier_z"][0])
         high_z = float(params["tier_z"][1])
-
-        def camera_to_base(x: float, y: float) -> tuple[float, float, float, float]:
-            return top_down_quat(math.atan2(-y, -x))
-
+        camera_to_base = top_down_quat_camera_towards_base
         bin_floor_low = low_z + BIN_BASE_M[2]
-        return_z = bin_floor_low + PART_SIZE_M[2] + 0.10
-        look = camera_to_base(LOOK_POSITION[0], LOOK_POSITION[1])
-        plan = [Waypoint(LOOK_POSITION, look, label="look", max_speed_mps=0.3, tolerance_m=0.03, hold_steps=10)]
+        return_z = bin_floor_low + KIT_ITEM_SIZE_M[2] + 0.10
+        look = camera_to_base(LOOK_POSITION_E[0], LOOK_POSITION_E[1])
+        plan = [Waypoint(LOOK_POSITION_E, look, label="look", max_speed_mps=0.3, tolerance_m=0.03, hold_steps=10)]
         wait_xy = (tray_x, tray_y)
         for request in range(NUM_REQUESTS):
             if mode == PlanMode.ORACLE:
-                part = int(params["requests"][request])
-                part_x, part_y, floor_z = (float(v) for v in params["part_xyz"][part])
-                drop_x, drop_y = tray_x, tray_y + TRAY_SPOT_OFFSETS_Y[request]
+                kit_item = int(params["requests"][request])
+                item_x, item_y, floor_z = (float(v) for v in params["kit_item_xyz"][kit_item])
+                drop_x, drop_y = tray_x, tray_y + TRAY_SPOT_OFFSETS_Y_M[request]
             else:
                 # Ignore the remembered layout: reach for a middle bin of the low tier and drop at the nominal tray spot.
-                part_x, part_y, floor_z = SLOT_XS[1], TIER_YS[0], low_z + BIN_BASE_M[2]
-                drop_x, drop_y = 0.44, -0.25 + TRAY_SPOT_OFFSETS_Y[request]
-            grasp_z = floor_z + PART_SIZE_M[2] - 0.02
-            over_z = return_z if part_y < TIER_YS[1] - 0.05 else max(return_z, high_z + BIN_BASE_M[2] + 0.13)
+                item_x, item_y, floor_z = SLOT_XS_M[1], TIER_YS_M[0], low_z + BIN_BASE_M[2]
+                drop_x, drop_y = 0.44, -0.25 + TRAY_SPOT_OFFSETS_Y_M[request]
+            grasp_z = floor_z + KIT_ITEM_SIZE_M[2] - 0.02
+            over_z = return_z if item_y < TIER_YS_M[1] - 0.05 else max(return_z, high_z + BIN_BASE_M[2] + 0.13)
             at_wait = camera_to_base(*wait_xy)
-            at_edge = camera_to_base(part_x, SHELF_EDGE_Y)
-            at_part = camera_to_base(part_x, part_y)
+            at_edge = camera_to_base(item_x, RACK_EDGE_Y_M)
+            at_item = camera_to_base(item_x, item_y)
             at_drop = camera_to_base(drop_x, drop_y)
             plan += [
                 Waypoint(
-                    (*wait_xy, COUNTER_WAIT_Z), at_wait, label=f"wait_{request}", max_speed_mps=0.35, tolerance_m=0.03
+                    (*wait_xy, COUNTER_WAIT_Z_M), at_wait, label=f"wait_{request}", max_speed_mps=0.35, tolerance_m=0.03
                 ),
                 Waypoint(
-                    (*wait_xy, COUNTER_WAIT_Z),
+                    (*wait_xy, COUNTER_WAIT_Z_M),
                     at_wait,
                     label=f"request_{request}",
                     gate=f"request_{request}",
                     tolerance_m=0.03,
                 ),
+                # The rack edge is a pass-through point: settling there would only extend the view of the rack.
                 Waypoint(
-                    (part_x, SHELF_EDGE_Y, return_z), at_edge, label="return", max_speed_mps=0.3, tolerance_m=0.02
+                    (item_x, RACK_EDGE_Y_M, return_z), at_edge, label="return", max_speed_mps=0.3, tolerance_m=0.05
                 ),
-                Waypoint((part_x, part_y, over_z), at_part, label="over_part", max_speed_mps=0.5),
-                Waypoint((part_x, part_y, grasp_z), at_part, label="descend", max_speed_mps=0.25, tolerance_m=0.006),
-                Waypoint((part_x, part_y, grasp_z), at_part, GRIPPER_CLOSE, hold_steps=12, label="close"),
-                Waypoint((part_x, part_y, over_z + 0.04), at_part, GRIPPER_CLOSE, label="lift", max_speed_mps=0.2),
+                Waypoint((item_x, item_y, over_z), at_item, label="over_kit_item", max_speed_mps=0.5),
+                Waypoint((item_x, item_y, grasp_z), at_item, label="descend", max_speed_mps=0.25, tolerance_m=0.006),
+                Waypoint((item_x, item_y, grasp_z), at_item, GRIPPER_CLOSE, hold_steps=12, label="close"),
+                Waypoint((item_x, item_y, over_z + 0.04), at_item, GRIPPER_CLOSE, label="lift", max_speed_mps=0.2),
                 Waypoint((drop_x, drop_y, 0.20), at_drop, GRIPPER_CLOSE, label="to_tray", max_speed_mps=0.35),
                 Waypoint(
-                    (drop_x, drop_y, TRAY_BASE_M[2] + PART_SIZE_M[2] - 0.02 + 0.01),
+                    (drop_x, drop_y, TRAY_BASE_M[2] + KIT_ITEM_SIZE_M[2] - 0.02 + 0.01),
                     at_drop,
                     GRIPPER_CLOSE,
                     label="lower_into_tray",
@@ -422,14 +401,16 @@ class KittingLogic(SpatialMemoryTaskLogic):
                     tolerance_m=0.008,
                 ),
                 Waypoint(
-                    (drop_x, drop_y, TRAY_BASE_M[2] + PART_SIZE_M[2] - 0.02 + 0.01),
+                    (drop_x, drop_y, TRAY_BASE_M[2] + KIT_ITEM_SIZE_M[2] - 0.02 + 0.01),
                     at_drop,
                     GRIPPER_OPEN,
                     hold_steps=8,
                     label="release",
                 ),
-                Waypoint((drop_x, drop_y, COUNTER_WAIT_Z), at_drop, label="up", max_speed_mps=0.2),
+                Waypoint((drop_x, drop_y, COUNTER_WAIT_Z_M), at_drop, label="up", max_speed_mps=0.2),
             ]
             wait_xy = (drop_x, drop_y)
-        plan.append(Waypoint((*wait_xy, COUNTER_WAIT_Z), camera_to_base(*wait_xy), label="done", max_steps=10_000))
+        plan.append(
+            Waypoint((*wait_xy, COUNTER_WAIT_Z_M), camera_to_base(*wait_xy), label="done", max_steps=HOLD_FOREVER_STEPS)
+        )
         return plan
