@@ -14,6 +14,7 @@ from typing import Any
 import websockets.exceptions
 from openpi_client import websocket_client_policy
 
+from isaaclab_arena.policy.idle_envs import hold_action_from_action_manager, idle_env_ids
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 
@@ -43,7 +44,8 @@ class RemoteChunkReplayPolicy:
 
     Action handling is chunk replay: fetch one ``(chunk, action_dim)`` prediction
     per env, keep the first ``open_loop_horizon`` actions, and yield them in order before
-    refetching.
+    refetching. Envs that finished their last episode and got no replacement (see
+    ``idle_env_ids``) fetch nothing and apply the hold action until they are reset.
 
     Concrete policies inherit (RemoteChunkReplayPolicy, PolicyBase[ConcreteCfg]).
     The PolicyBase[ConcreteCfg] is the concrete config class for the policy, parameterized
@@ -88,6 +90,8 @@ class RemoteChunkReplayPolicy:
         # counter per env and loop over them.
         self._cached_action_chunks: list[np.ndarray | None] | None = None
         self._next_chunk_steps: list[int] | None = None
+        self.idle_steps: list[int] | None = None
+        """Steps each env held its pose instead of requesting a chunk after its last episode ended."""
         self.task_description: str | None = None
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
@@ -99,8 +103,18 @@ class RemoteChunkReplayPolicy:
         num_envs = env.unwrapped.num_envs
         self._maybe_init_per_env_state(num_envs)
 
+        # Envs that finished their last episode get no more chunks; their robot holds its pose.
+        idle_ids = set(idle_env_ids(env))
+        hold_action = hold_action_from_action_manager(env).cpu().numpy() if idle_ids else None
+
         actions = []
         for env_id in range(num_envs):
+            if env_id in idle_ids:
+                self._cached_action_chunks[env_id] = None
+                self._next_chunk_steps[env_id] = 0
+                self.idle_steps[env_id] += 1
+                actions.append(hold_action[env_id])
+                continue
             chunk_exhausted = (
                 self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
             )
@@ -129,11 +143,17 @@ class RemoteChunkReplayPolicy:
         """
         _close_websocket_best_effort(self._websocket_client)
         self._websocket_client = None
+        if self.idle_steps is not None and sum(self.idle_steps) > 0:
+            print(
+                f"[{type(self).__name__}] {sum(self.idle_steps)} env-steps held without inference after the"
+                " envs' last episode ended"
+            )
 
     def _maybe_init_per_env_state(self, num_envs: int) -> None:
         if self._cached_action_chunks is None:
             self._cached_action_chunks = [None] * num_envs
             self._next_chunk_steps = [0] * num_envs
+            self.idle_steps = [0] * num_envs
             return
         assert len(self._cached_action_chunks) == num_envs, (
             f"{type(self).__name__} num_envs changed from {len(self._cached_action_chunks)}"
