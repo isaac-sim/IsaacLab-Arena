@@ -22,8 +22,8 @@ In another terminal on the host, start the OpenPI server from the repository roo
    ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 Leave the server running while you complete the evaluation workflow. You can stop it before
-starting Sensitivity Analysis, which reads the saved episode results directly. For installation,
-model variants, and server options, see
+starting Sensitivity Analysis and Recorded Variations. For installation, model variants, and
+server options, see
 :doc:`../../quickstart/running_a_real_policy/openpi`.
 
 Create the output directory used throughout this walkthrough:
@@ -39,6 +39,6 @@ Arena requires the workflow directory to be empty.
    :maxdepth: 1
 
    variations
-   Run an Evaluation with Recorded Variations <recorded_variations>
    Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>
    Multi-Node Evaluation <../multi_node_evaluation/multi_node_evaluation>
+   Run an Evaluation with Recorded Variations <recorded_variations>
