@@ -26,7 +26,6 @@ from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementV
 from isaaclab_arena.relations.validation.registry import register_validator
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
 from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
@@ -47,20 +46,23 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.validation.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
-# Most (layout, target) grasps one cuRobo solve holds; each has its own collision world.
+# Maximum number of grasps a cuRobo solve can hold.
 IK_MAX_BATCH_SIZE = 256
 
 
 @dataclass
-class _LayoutGrasps:
-    """The grasps of one candidate layout and the world they are solved in."""
+class CandidateLayoutGrasps:
+    """The grasps to check in one candidate layout, and the object poses they are checked against.
+
+    A candidate layout is one proposed arrangement of all the objects in one environment.
+    """
 
     targets: list[ObjectBase]
     """Objects whose top-down grasp is checked."""
     grasp_poses: torch.Tensor
     """``(len(targets), 4, 4)`` top-down grasp transforms in the robot base frame."""
     cuboid_per_object: dict[ObjectBase, AABBCollisionCuboid]
-    """Collision cuboid at the layout pose, for every object in the layout but the robot."""
+    """Collision cuboid of every object in the layout but the robot, at its world pose in the layout."""
     robot_base_pose_w: Pose
     """World pose of the robot base."""
 
@@ -104,7 +106,6 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
             max_batch_size=IK_MAX_BATCH_SIZE,
-            multi_env=True,
         )
         self._embodiment = config.embodiment
         # Used only when the robot is not itself relation-placed, in which case it never appears in a layout.
@@ -137,26 +138,35 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
     def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
-        layout_grasps = [
-            self._get_layout_grasps(candidate.positions, candidate.orientations) for candidate in batch.candidates
+        # Batching: instead of one cuRobo call per candidate layout, first collect the grasps of all candidate
+        # layouts, then solve them together (each in its own collision world), and only afterwards split the
+        # results back into one verdict per layout.
+        candidate_grasps = [
+            self._get_candidate_grasps_for_layout(candidate.positions, candidate.orientations)
+            for candidate in batch.candidates
         ]
-        ik_per_layout = self._solve_grasps_of_layouts(layout_grasps)
-        verdicts = []
-        for layout_index_within_batch, (grasps, ik) in enumerate(zip(layout_grasps, ik_per_layout, strict=True)):
-            if grasps is None:
+        # The batched bottleneck: one IK solve over the grasps of every candidate layout. This replaces the
+        # per-layout solves that used to make up nearly all of the validation time.
+        ik_per_layout = self._solve_candidate_grasps(candidate_grasps)
+        verdict_per_layout = []
+        for layout_index_within_batch, (layout_grasps, ik) in enumerate(
+            zip(candidate_grasps, ik_per_layout, strict=True)
+        ):
+            if layout_grasps is None:
                 # No movable object is a reachability target, so the layout is trivially reachable.
-                verdicts.append(True)
+                verdict_per_layout.append(True)
                 continue
-            self._log_layout(grasps, ik, layout_index_within_batch)
-            self._record_failure(rejections, grasps.targets, ik)
-            verdicts.append(bool(ik.feasible.all().item()))
-        return verdicts
+            self._log_layout(layout_grasps, ik, layout_index_within_batch)
+            self._record_failure(rejections, layout_grasps.targets, ik)
+            # A layout is reachable only if every target's grasp is.
+            verdict_per_layout.append(bool(ik.feasible.all().item()))
+        return verdict_per_layout
 
-    def _get_layout_grasps(
+    def _get_candidate_grasps_for_layout(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
-    ) -> _LayoutGrasps | None:
+    ) -> CandidateLayoutGrasps | None:
         """Return the grasps to check in one candidate layout, or None when it has nothing to grasp.
 
         Rebuilds each object's world pose and builds a collision cuboid per object -- what makes them block a
@@ -206,69 +216,75 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             )
             for obj in targets
         ])
-        return _LayoutGrasps(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
+        return CandidateLayoutGrasps(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
 
-    def _solve_grasps_of_layouts(self, layout_grasps: list[_LayoutGrasps | None]) -> list[IKFeasibility | None]:
-        """IK-solve every target grasp of every layout, each against a world holding every object but that target.
+    def _solve_candidate_grasps(
+        self, candidate_grasps: list[CandidateLayoutGrasps | None]
+    ) -> list[IKFeasibility | None]:
+        """IK-solve every target grasp of every candidate layout, each against a world holding every object but that target.
 
         The grasps are solved in chunks of ``IK_MAX_BATCH_SIZE``; each has its own collision world.
 
         Args:
-            layout_grasps: Per layout, its grasps, or None when it has nothing to grasp.
+            candidate_grasps: Per candidate layout, its grasps, or None when it has nothing to grasp.
 
         Returns:
-            Per layout, an ``IKFeasibility`` whose entries are ordered like that layout's targets; None where the
-            layout has nothing to grasp.
+            Per candidate layout, an ``IKFeasibility`` whose entries are ordered like that layout's targets; None
+            where the layout has nothing to grasp.
         """
-        # One IK problem per (layout, target).
+        # Flatten to one IK problem per (layout, target): the target's grasp pose, the robot base pose, and the
+        # obstacles of that layout (every object except the target itself, which the gripper must touch).
         problem_layout_indices: list[int] = []
         problem_obstacles: list[list[AABBCollisionCuboid]] = []
         problem_base_poses: list[Pose] = []
         problem_grasp_poses: list[torch.Tensor] = []
-        for layout_index, grasps in enumerate(layout_grasps):
-            if grasps is None:
+        for layout_index, layout_grasps in enumerate(candidate_grasps):
+            if layout_grasps is None:
                 continue
-            for target_index, target in enumerate(grasps.targets):
+            for target_index, target in enumerate(layout_grasps.targets):
                 problem_layout_indices.append(layout_index)
                 problem_obstacles.append(
-                    [cuboid for obj, cuboid in grasps.cuboid_per_object.items() if obj is not target]
+                    [cuboid for obj, cuboid in layout_grasps.cuboid_per_object.items() if obj is not target]
                 )
-                problem_base_poses.append(grasps.robot_base_pose_w)
-                problem_grasp_poses.append(grasps.grasp_poses[target_index])
+                problem_base_poses.append(layout_grasps.robot_base_pose_w)
+                problem_grasp_poses.append(layout_grasps.grasp_poses[target_index])
 
+        # Solve the problems in chunks that fit one cuRobo solve: load each problem's own collision world, then
+        # solve all the chunk's grasps at once.
         results: list[IKFeasibility] = []
         for start in range(0, len(problem_layout_indices), IK_MAX_BATCH_SIZE):
             chunk = slice(start, start + IK_MAX_BATCH_SIZE)
             base_poses = problem_base_poses[chunk]
-            with Timer("ik_update_world_batch"):
-                self._solver.update_world_batch(
-                    problem_obstacles[chunk],
-                    [pose.position_xyz for pose in base_poses],
-                    [pose.rotation_xyzw for pose in base_poses],
+            self._solver.update_world_batch(
+                problem_obstacles[chunk],
+                [pose.position_xyz for pose in base_poses],
+                [pose.rotation_xyzw for pose in base_poses],
+            )
+            results.append(
+                solve_ik_feasibility(
+                    self._solver,
+                    torch.stack(problem_grasp_poses[chunk]),
+                    position_threshold=self._ik_pos_threshold,
+                    rotation_threshold=self._ik_rot_threshold,
+                    require_collision_free=self._require_collision_free,
                 )
-            with Timer("ik_solve"):
-                results.append(
-                    solve_ik_feasibility(
-                        self._solver,
-                        torch.stack(problem_grasp_poses[chunk]),
-                        position_threshold=self._ik_pos_threshold,
-                        rotation_threshold=self._ik_rot_threshold,
-                        require_collision_free=self._require_collision_free,
-                    )
-                )
+            )
         if not results:
-            return [None] * len(layout_grasps)
+            return [None] * len(candidate_grasps)
+        # Join the per-chunk results into one entry per problem, in the order the problems were flattened.
         feasible = torch.cat([ik.feasible for ik in results])
         position_error = torch.cat([ik.position_error for ik in results])
         rotation_error = torch.cat([ik.rotation_error for ik in results])
         joint_positions = torch.cat([ik.joint_positions for ik in results])
 
-        ik_per_layout: list[IKFeasibility | None] = [None] * len(layout_grasps)
+        # Split the per-problem results back into one IKFeasibility per layout: each layout owns the consecutive
+        # problems of its targets.
+        ik_per_layout: list[IKFeasibility | None] = [None] * len(candidate_grasps)
         next_problem = 0
-        for layout_index, grasps in enumerate(layout_grasps):
-            if grasps is None:
+        for layout_index, layout_grasps in enumerate(candidate_grasps):
+            if layout_grasps is None:
                 continue
-            problems = slice(next_problem, next_problem + len(grasps.targets))
+            problems = slice(next_problem, next_problem + len(layout_grasps.targets))
             next_problem = problems.stop
             ik_per_layout[layout_index] = IKFeasibility(
                 feasible=feasible[problems],
@@ -278,17 +294,19 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             )
         return ik_per_layout
 
-    def _log_layout(self, grasps: _LayoutGrasps, ik: IKFeasibility, layout_index_within_batch: int) -> None:
+    def _log_layout(
+        self, layout_grasps: CandidateLayoutGrasps, ik: IKFeasibility, layout_index_within_batch: int
+    ) -> None:
         """Draw one layout's grasps and IK errors in the placement visualizer, when it is on."""
         if self._rerun_layer is None:
             return
         layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
         self._rerun_layer.log_layout(
             layout_index_across_batch=layout_index_across_batch,
-            robot_base_pos_w=grasps.robot_base_pose_w.position_xyz,
-            robot_base_quat_w_xyzw=grasps.robot_base_pose_w.rotation_xyzw,
-            target_names=[obj.name for obj in grasps.targets],
-            grasp_poses_base_frame=grasps.grasp_poses,
+            robot_base_pos_w=layout_grasps.robot_base_pose_w.position_xyz,
+            robot_base_quat_w_xyzw=layout_grasps.robot_base_pose_w.rotation_xyzw,
+            target_names=[obj.name for obj in layout_grasps.targets],
+            grasp_poses_base_frame=layout_grasps.grasp_poses,
             feasible=ik.feasible,
             position_error=ik.position_error,
             rotation_error=ik.rotation_error,

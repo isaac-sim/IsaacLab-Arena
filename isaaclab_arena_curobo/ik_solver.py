@@ -13,14 +13,13 @@ import torch
 import isaaclab.utils.math as math_utils
 from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
 from curobo.logging import setup_logger
-from curobo.scene import Scene
 from curobo.types import DeviceCfg, GoalToolPose
 from curobo.types import Pose as CuroboPose
 
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
-from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, scene_from_cuboids
+from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
 
 
@@ -45,7 +44,6 @@ class CuroboIKSolver:
     #     robot_cfg: The curobo robot configuration for the solver.
     #     ik_solver: The IK solver for the solver.
     #     hand_link_names: The robot's hand links, muted during a collision-free solve.
-    #     multi_env: Whether each problem of a batched solve has its own collision world.
     #     max_batch_size: Most problems one solve may hold.
     __slots__ = (
         "logger",
@@ -54,7 +52,6 @@ class CuroboIKSolver:
         "robot_cfg",
         "ik_solver",
         "hand_link_names",
-        "multi_env",
         "max_batch_size",
     )
 
@@ -68,7 +65,6 @@ class CuroboIKSolver:
         rotation_threshold: float = 0.1,
         collision_cache_size: dict[str, int] | None = None,
         max_batch_size: int = 1,
-        multi_env: bool = False,
         use_cuda_graph: bool = True,
         debug: bool = False,
     ) -> None:
@@ -86,7 +82,6 @@ class CuroboIKSolver:
             collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": 150}``. A world with more
                 obstacles than its slots fails to load.
             max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
-            multi_env: Give every pose of a batched solve its own collision world, loaded with ``update_world_batch``.
             use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
             debug: Enable cuRobo/planner debug logging.
         """
@@ -101,14 +96,14 @@ class CuroboIKSolver:
 
         self.robot_cfg = load_patched_robot_yaml(curobo_cfg)["robot_cfg"]
         self.hand_link_names = list(curobo_cfg.hand_link_names)
-        self.multi_env = multi_env
         self.max_batch_size = max_batch_size
 
         ik_config = InverseKinematicsCfg.create(
             robot=self.robot_cfg,
             # cuRobo only builds a collision checker when given a scene; update_world() fills it per layout.
-            # A multi-env solver needs one (empty) world per problem up front to allocate their obstacle storage.
-            scene_model=[{} for _ in range(max_batch_size)] if multi_env else Scene(cuboid=[]),
+            # Every problem of a batched solve has its own collision world, so each needs an (empty) world up
+            # front to allocate its obstacle storage.
+            scene_model=[{} for _ in range(max_batch_size)],
             collision_cache=collision_cache_size or {"cuboid": 150},
             device_cfg=self.device_cfg,
             num_seeds=num_seeds,
@@ -116,7 +111,7 @@ class CuroboIKSolver:
             orientation_tolerance=rotation_threshold,
             optimizer_collision_activation_distance=collision_activation_distance,
             max_batch_size=max_batch_size,
-            multi_env=multi_env,
+            multi_env=True,
             use_cuda_graph=use_cuda_graph,
         )
         self.ik_solver = InverseKinematics(ik_config)
@@ -171,16 +166,16 @@ class CuroboIKSolver:
         robot_base_pos_w: tuple[float, float, float],
         robot_base_quat_w_xyzw: tuple[float, float, float, float],
     ) -> None:
-        """Replace the collision world with cuboids derived from a layout's bounding boxes.
+        """Replace the collision world of every pose of a batched solve with the same cuboids.
 
-        cuRobo reloads the collision model rather than only moving obstacle poses, so this handles both
-        moved objects and a changed object set per layout, as long as the obstacle count stays within the
-        collision cache.
+        The cuboids are expressed in the robot base frame. Use ``update_world_batch`` to give each pose its own
+        world.
         """
-        scene = scene_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw, self.device)
-        self.ik_solver.update_world(scene)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
+        self.update_world_batch(
+            [cuboids] * self.max_batch_size,
+            [robot_base_pos_w] * self.max_batch_size,
+            [robot_base_quat_w_xyzw] * self.max_batch_size,
+        )
 
     def update_world_batch(
         self,
@@ -190,15 +185,14 @@ class CuroboIKSolver:
     ) -> None:
         """Load one collision world per pose of the next batched solve; the i-th pose is solved in the i-th world.
 
-        Requires a solver built with ``multi_env=True``. Like ``update_world``, each world is the cuboids
-        expressed in that problem's robot base frame.
+        Each world is the cuboids expressed in that problem's robot base frame. The worlds are loaded by writing
+        the obstacle storage directly, so any set of obstacles fits as long as it stays within the collision cache.
 
         Args:
             cuboids_per_problem: Obstacle cuboids of each problem's world, at most ``max_batch_size`` problems.
             robot_base_pos_w_per_problem: Robot base position of each problem.
             robot_base_quat_w_xyzw_per_problem: Robot base orientation of each problem.
         """
-        assert self.multi_env, "update_world_batch needs a solver built with multi_env=True"
         num_problems = len(cuboids_per_problem)
         assert (
             num_problems <= self.max_batch_size
