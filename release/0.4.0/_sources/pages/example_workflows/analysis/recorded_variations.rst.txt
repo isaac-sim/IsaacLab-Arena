@@ -24,6 +24,8 @@ and are not source files.
       64-row JSONL files, then replays all five conditions in three parallel
       environments and verifies each replay payload against its indexed source row.
 
+:runtime_setup_tabs:
+
 
 Record Settled Placement Layouts
 --------------------------------
@@ -39,7 +41,7 @@ Record Settled Placement Layouts
 
       rm -rf -- outputs/recorded_variations_workflow
 
-From the repository root, record eight layouts that pass the configured
+From the repository root in the Arena runtime, record eight layouts that pass the configured
 post-physics checks:
 
 .. code-block:: bash
