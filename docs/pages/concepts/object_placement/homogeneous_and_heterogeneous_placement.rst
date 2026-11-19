@@ -120,7 +120,7 @@ the same Experiment and switches the Run to heterogeneous mode:
 
 The builder must know ``num_envs`` before assigning object-set members. The Run
 sets this count in ``environment_builder.num_envs``; use a value greater than
-one to observe different members across parallel environments.
+one to see different objects across parallel environments.
 
 .. important::
 

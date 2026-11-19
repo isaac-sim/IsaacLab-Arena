@@ -130,7 +130,7 @@ Run it from the repository root:
      --experiment_config isaaclab_arena_environments/experiment_configs/concepts/maple_table_seeds_experiment.yaml
 
 - Set ``seed`` to fix variation values and simulation draws.
-- Set ``placement_seed`` to fix layouts and random object-set picks.
+- Set ``placement_seed`` to fix object layouts.
 - Leave ``placement_seed`` unset when placement should vary across runs. To
   unlock it in this example without editing the YAML, append
   ``runs.locked_seeds.environment_builder.placement_seed=null`` to the

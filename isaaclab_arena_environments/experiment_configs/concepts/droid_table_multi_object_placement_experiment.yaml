@@ -5,8 +5,8 @@
 
 # Places five objects on a Maple table in four parallel environments.
 # With mode: homogeneous, every environment uses the same objects.
-# With mode: heterogeneous, each environment selects one member of every
-# object set.
+# With mode: heterogeneous, each environment can place a different fruit,
+# bottle, can, tool, and box.
 runs:
   multi_object_placement:
     environment:
