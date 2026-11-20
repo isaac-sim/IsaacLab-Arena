@@ -574,7 +574,10 @@ These workloads differ from the others in three ways:
 - **The endpoint dominates the time.** The simulation waits while a request is in flight, and each
   request takes several seconds. Most of the trial time is spent waiting on the hosted model, so
   the trial time depends on the endpoint's load as well as on the machine. The chunk policy makes
-  many more requests than the goal policy and takes much longer.
+  many more requests than the goal policy and takes much longer. In one validation run, a goal
+  episode made 10 requests and a chunk episode 133, at 10–16 seconds each. At that rate, the
+  single-environment goal run takes about half an hour and the single-environment chunk run
+  several hours.
 
 Prepare the API key
 ~~~~~~~~~~~~~~~~~~~
