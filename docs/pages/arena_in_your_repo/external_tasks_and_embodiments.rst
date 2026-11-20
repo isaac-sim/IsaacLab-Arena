@@ -91,8 +91,8 @@ below. Each line of the episode results then holds the values under the terms' n
 Putting It All Together
 -----------------------
 
-Here we create an example environment, like in :doc:`external_environments`, but this time
-that composes the custom task, the custom embodiment, and the episode recorder terms.
+Here we create an example environment, like in :doc:`external_environments`. This time it passes
+the custom task, the custom embodiment, and the two episode recorder terms to ``IsaacLabArenaEnvironment``.
 
 .. code-block:: python
 
