@@ -169,8 +169,8 @@ The Experiment Runner imports the module, which also registers the custom embodi
     in the built in environments, so must be selected by its class path.
     This is done to demonstrate how this would be done in an external codebase.
 
-    The Run ``franka_table_with_task`` of the example Experiment in :doc:`external_environments`
-    evaluates it:
+    The example Experiment in :doc:`external_environments` evaluates it in its second Run,
+    ``franka_table_with_task``. This command runs both Runs of that Experiment, one after the other:
 
     .. code-block:: bash
 

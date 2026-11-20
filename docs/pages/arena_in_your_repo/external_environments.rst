@@ -121,12 +121,14 @@ class already owns the name, the error names that class.
     in the built in environments, so must be selected by its class path.
     This is done to demonstrate how this would be done in an external codebase.
 
-    The Experiment below evaluates it, together with the environment from
-    :doc:`external_tasks_and_embodiments`:
+    The Experiment below evaluates it in the Run ``franka_table``, and the environment from
+    :doc:`external_tasks_and_embodiments` in the Run ``franka_table_with_task``:
 
     .. literalinclude:: ../../../isaaclab_arena_examples/external_environments/external_environments_experiment.yaml
        :language: yaml
        :lines: 6-
+
+    This command runs both Runs, one after the other:
 
     .. code-block:: bash
 
@@ -134,7 +136,7 @@ class already owns the name, the error names that class.
           --viz kit \
           --experiment_config isaaclab_arena_examples/external_environments/external_environments_experiment.yaml
 
-    which results in an environment like the one below:
+    The first Run, ``franka_table``, shows the environment below:
 
     .. image:: ../../images/externally_defined_environment.png
        :width: 50%
