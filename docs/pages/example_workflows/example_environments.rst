@@ -14,7 +14,7 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
   scene, embodiment, task, objects, and relations declaratively. These are
   passed with ``--env_spec``.
 
-The environments are grouped into three catalogs:
+The environments are grouped into four catalogs:
 
 Robolab-Inspired Benchmark
 --------------------------
@@ -36,6 +36,13 @@ tasks across Lightwheel RoboCasa and Replicator kitchen layouts.
 
 See :doc:`kitchen_bench_catalog` for all 31 environment specs and their Pi
 policy executions.
+
+Room-scale Manipulation
+-----------------------
+
+These environments place task objects and destinations across a room for locomotion and
+manipulation work. See :doc:`room_scale_manipulation/index` for the pepper-to-fridge
+environment and its Object Control validation video.
 
 Python Environment Catalog
 --------------------------
