@@ -179,13 +179,17 @@ runs:
 
 def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch):
     from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
     from isaaclab_arena_environments.cli import ensure_environments_registered
-    from isaaclab_arena_examples.external_environments.basic import ExternalFrankaTableEnvironment
+
+    class EnvironmentWithoutConfig(ArenaEnvironmentFactory[ArenaEnvironmentCfg]):
+        name = "external_without_config"
 
     ensure_environments_registered()
     registry = EnvironmentRegistry()
     monkeypatch.setattr(registry, "_components", registry._components.copy())
-    registry.register(ExternalFrankaTableEnvironment, "external_without_config")
+    # Plain register() records no config, unlike @register_environment.
+    registry.register(EnvironmentWithoutConfig, EnvironmentWithoutConfig.name)
 
     experiment = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
     assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())

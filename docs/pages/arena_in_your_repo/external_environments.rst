@@ -4,24 +4,48 @@ Defining Environments in Your Repository
 This section describes how to write a new environment, within your own repository
 (i.e. not in the Isaac Lab - Arena source tree).
 
-To write your own environment, subclass ``ExampleEnvironmentBase``, set a unique ``name``,
-and implement ``get_env()`` and ``add_cli_args()``.
+An environment in your repository uses the same contract as the built-in environments:
+
+* A configuration dataclass that subclasses ``ArenaEnvironmentCfg``. Its fields are the values a
+  user can set. Each environment needs its own configuration class.
+* A factory class that subclasses ``ArenaEnvironmentFactory[YourCfg]``, sets a unique ``name``,
+  and implements ``build(cfg)``.
+* The ``@register_environment`` decorator, which registers the factory and its configuration
+  with the ``EnvironmentRegistry`` when the module is imported.
+
 Below is an example of a custom environment that places a single object on a table.
 
 .. code-block:: python
 
    # my_package/isaaclab_arena_environments/my_environment.py
 
-   import argparse
+   from __future__ import annotations
 
-   from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+   from dataclasses import dataclass
+   from typing import TYPE_CHECKING
+
+   from isaaclab_arena.assets.register import register_environment
+   from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+
+   if TYPE_CHECKING:
+       from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-   class ExternalFrankaTableEnvironment(ExampleEnvironmentBase):
+   @dataclass
+   class ExternalFrankaTableEnvironmentCfg(ArenaEnvironmentCfg):
+       """Configure the external Franka table environment."""
+
+       object: str = "cracker_box"
+       """Registered name of the object placed on the table."""
+
+
+   @register_environment
+   class ExternalFrankaTableEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableEnvironmentCfg]):
 
        name: str = "franka_table"
 
-       def get_env(self, args_cli: argparse.Namespace):
+       def build(self, cfg: ExternalFrankaTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
+           """Build the environment from its typed configuration."""
            from isaaclab_arena.assets.object_reference import ObjectReference
            from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
            from isaaclab_arena.relations.relations import IsAnchor, On
@@ -31,7 +55,7 @@ Below is an example of a custom environment that places a single object on a tab
            # Grab some assets from the registry.
            background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
            light = self.asset_registry.get_asset_by_name("light")()
-           pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+           pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
            embodiment = self.asset_registry.get_asset_by_name("franka_ik")()
 
            # Position the assets
@@ -55,10 +79,6 @@ Below is an example of a custom environment that places a single object on a tab
            )
            return isaaclab_arena_environment
 
-       @staticmethod
-       def add_cli_args(parser: argparse.ArgumentParser) -> None:
-           parser.add_argument("--object", type=str, default="cracker_box")
-
 External environments can be used in Isaac Lab - Arena workflows by using a particular
 CLI syntax. For example, a zero-action policy can be run with an
 externally-defined environment like this:
@@ -72,10 +92,21 @@ externally-defined environment like this:
      franka_table \
      --object tomato_soup_can
 
-So the flag ``external_environment_class_path`` is used to specify the (fully qualified) path to the
-external environment module and class. The environment name is then specified as the
-first non flag argument to the policy runner, and any additional arguments are passed to the
-environment's ``add_cli_args()`` method.
+The ``--external_environment_class_path`` flag takes the module path and the class name of the
+factory, separated by a colon. The module must be importable, for example because your package is
+installed or on ``PYTHONPATH``. Importing it runs ``@register_environment``, and the runner then
+checks that the decorator registered this class under its ``name``. The environment name is the
+first positional argument, and the flags after it set the fields of the environment's configuration.
+
+The flag works the same way with the Environment Runner
+(``isaaclab_arena/scripts/environment_runner.py``) and with Isaac Lab scripts that register Arena
+environments through
+``--external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback``.
+Isaac Lab scripts take the environment name with ``--task`` instead of as a positional argument.
+
+Use a ``name`` that no other environment uses. If the class is not decorated with
+``@register_environment``, the runner stops with an error that asks for the decorator. If another
+class already owns the name, the error names that class.
 
 .. note::
 
@@ -102,6 +133,91 @@ environment's ``add_cli_args()`` method.
        :width: 50%
        :alt: External environment example
        :align: center
+
+Configuration Fields and Flags
+------------------------------
+
+Each field of the configuration becomes a flag with the field's name, such as ``--object``.
+Flags work for fields of these types:
+
+* ``bool``, ``int``, ``float``, and ``str``. A ``bool`` field that defaults to ``False`` becomes a
+  switch such as ``--rl_training_mode``. Other ``bool`` fields get ``--name`` and ``--no-name``.
+* A ``Literal`` whose values are all ``str`` or all ``int``, such as ``Literal["left", "right"]``.
+* A string-valued enum, such as ``class Mode(str, Enum)``.
+* An optional of these types, such as ``str | None``.
+* A list of ``int``, ``float``, or ``str``, such as ``list[str]``. The flag takes zero or more values.
+
+Other field types are not supported. Some, such as ``tuple[float, float]`` or ``dict[str, float]``,
+stop the runner with an error. Others get a flag that rejects or misreads the value, for example
+``list[bool]`` reads ``False`` as ``True``.
+
+Fields named ``enable_cameras``, ``num_envs``, and ``mimic`` get no flag of their own. They take the
+value of the runner's flag with the same name. A field named ``auto`` gets no flag.
+
+Migrating from ``ExampleEnvironmentBase``
+-----------------------------------------
+
+``ExampleEnvironmentBase`` and its ``get_env(args_cli)`` and ``add_cli_args(parser)`` methods have
+been removed. To migrate an environment defined in your repository:
+
+#. Move each flag declared in ``add_cli_args()`` into a field of a new dataclass that subclasses
+   ``ArenaEnvironmentCfg``. Use the flag's name as the field name, its default as the field
+   default, and a type from the list above.
+#. Replace the ``ExampleEnvironmentBase`` base class with ``ArenaEnvironmentFactory[YourCfg]``, and
+   decorate the class with ``@register_environment``.
+#. Rename ``get_env(self, args_cli)`` to ``build(self, cfg)``, and read values from ``cfg`` instead
+   of ``args_cli``. If ``get_env()`` read ``args_cli.num_envs`` or ``args_cli.mimic``, add a field
+   with that name to the configuration.
+#. Delete ``add_cli_args()``. The flags are now generated from the configuration fields.
+
+Commands that use ``--external_environment_class_path`` then keep working without changes.
+
+Before:
+
+.. code-block:: python
+
+   import argparse
+
+   from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+
+   class ExternalFrankaTableEnvironment(ExampleEnvironmentBase):
+
+       name: str = "franka_table"
+
+       def get_env(self, args_cli: argparse.Namespace):
+           ...
+           pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+           ...
+
+       @staticmethod
+       def add_cli_args(parser: argparse.ArgumentParser) -> None:
+           parser.add_argument("--object", type=str, default="cracker_box")
+
+After:
+
+.. code-block:: python
+
+   from dataclasses import dataclass
+
+   from isaaclab_arena.assets.register import register_environment
+   from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+
+
+   @dataclass
+   class ExternalFrankaTableEnvironmentCfg(ArenaEnvironmentCfg):
+       object: str = "cracker_box"
+
+
+   @register_environment
+   class ExternalFrankaTableEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableEnvironmentCfg]):
+
+       name: str = "franka_table"
+
+       def build(self, cfg: ExternalFrankaTableEnvironmentCfg):
+           ...
+           pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
+           ...
 
 Next Steps
 ----------
