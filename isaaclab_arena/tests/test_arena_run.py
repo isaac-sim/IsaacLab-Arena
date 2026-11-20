@@ -4,14 +4,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
+from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg
+from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, build_runs_info_table
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.utils.git_stamp import GitStamp
 
 
 @dataclass
@@ -160,4 +165,40 @@ def test_run_result_records_outcome_separately():
     assert result.run_name == "test_run"
     assert result.start_timestamp_ns == 1792799000000000000
     assert result.end_timestamp_ns == 1792800000000000000
-    assert result.metrics is None
+
+
+def _run_data(episodes_by_rebuild: list[list[dict]]) -> dict:
+    return {
+        "environment": {"type": "test"},
+        "policy_variant": "test",
+        "status": RunStatus.COMPLETED.value,
+        "start_timestamp_ns": 0,
+        "end_timestamp_ns": 1,
+        "rebuilds": [{"index": index, "episodes": episodes} for index, episodes in enumerate(episodes_by_rebuild)],
+    }
+
+
+def test_runs_info_table_shows_recorded_episodes_once_the_experiment_finished(tmp_path):
+    run_cfgs = [_run(name="scored_run"), _run(name="unscored_run")]
+    run_results = [
+        ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED, start_timestamp_ns=0, end_timestamp_ns=1)
+        for run_cfg in run_cfgs
+    ]
+    experiment_result = ArenaExperimentResult(
+        tmp_path,
+        "test_experiment",
+        GitStamp(git_sha="unknown", git_branch="unknown"),
+        {
+            # An episode without a success value is recorded but not scored.
+            "scored_run": _run_data([[{"success": True}, {"success": False}], [{"success": None}]]),
+            "unscored_run": _run_data([[{"success": None}]]),
+        },
+    )
+
+    with patch.object(PolicyRegistry, "get_policy_type_for_cfg", return_value=SimpleNamespace(name="test_policy")):
+        table_before_runs = build_runs_info_table(run_cfgs, [])
+        table_after_runs = build_runs_info_table(run_cfgs, run_results, experiment_result)
+
+    assert "Success Rate" not in table_before_runs.field_names
+    assert table_after_runs.field_names[-2:] == ["Recorded Episodes", "Success Rate"]
+    assert [row[-2:] for row in table_after_runs.rows] == [[3, "0.5000"], [1, "n/a"]]

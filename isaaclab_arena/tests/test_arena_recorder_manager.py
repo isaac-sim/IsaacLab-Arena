@@ -19,7 +19,6 @@ def _test_recording_follows_episode_assignments(_simulation_app):
     )
     from isaaclab.utils.configclass import configclass
 
-    from isaaclab_arena.metrics.success_rate import SuccessRecorderCfg
     from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager
     from isaaclab_arena.terms.recorders import EpisodeIdentityRecorderCfg
 
@@ -42,7 +41,6 @@ def _test_recording_follows_episode_assignments(_simulation_app):
         export_in_record_pre_reset = False
         reset_callbacks = RecorderTermCfg(class_type=ResetRecorder)
         identity = EpisodeIdentityRecorderCfg()
-        success = SuccessRecorderCfg()
 
     env = SimpleNamespace(
         num_envs=4,
@@ -100,7 +98,6 @@ def _test_recording_follows_episode_assignments(_simulation_app):
         assert env.pre_reset_calls == [[1]]
         finished_episode = recorder.get_episode(1)
         assert finished_episode.success
-        assert finished_episode.data["success"][0].item()
         assert finished_episode.data["episode_id"]["env_id"][0].item() == 1
         assert finished_episode.data["episode_id"]["episode_in_env"][0].item() == 11
 

@@ -15,11 +15,12 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+from isaaclab_arena.evaluation.report_data import success_rate_from_values
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
-    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
+    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, ArenaExperimentRunData
     from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 
 
@@ -77,7 +78,7 @@ class ArenaRunCfg:
     """Step or episode limit for the policy rollout."""
 
     num_rebuilds: int = 1
-    """Number of fresh environment constructions over which metrics are aggregated. When
+    """Number of fresh environment constructions that the Run's episodes are split across. When
     ``rollout_limit.num_episodes_per_rebuild`` is set, this must equal its length."""
 
     recorded_variation_samples_paths: list[str] | None = None
@@ -144,28 +145,29 @@ class ArenaRunResult:
     end_timestamp_ns: int
     """Unix epoch nanoseconds (UTC) at which the run finished or failed."""
 
-    metrics: MetricsDataCollection | None = None
-    """Metrics aggregated over all successful rebuilds, when provided by the task."""
-
     placement_diagnostics: AggregatedPlacementDiagnostics | None = None
     """Diagnostics of the placement pool fills that built the rebuilds' environments. Rebuilds that solve no
     relations, or that replay recorded layouts, are left out, and the field is None when every rebuild is."""
 
 
-def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[ArenaRunResult]) -> PrettyTable:
-    """Build a table containing the configuration and current status of every Run."""
+def build_runs_info_table(
+    run_cfgs: Iterable[ArenaRunCfg],
+    results: Iterable[ArenaRunResult],
+    experiment_result: ArenaExperimentResult | None = None,
+) -> PrettyTable:
+    """Build a table with the configuration and status of every Run.
+
+    Args:
+        run_cfgs: The configured Runs, one row each.
+        results: The Runs' execution results; Runs without one are shown as pending.
+        experiment_result: The finished Experiment's result. When given, the table also shows each Run's recorded
+            episode count and success rate.
+    """
     results_by_name = {result.run_name: result for result in results}
-    table = PrettyTable(
-        field_names=[
-            "Run Name",
-            "Status",
-            "Policy Type",
-            "Num Envs",
-            "Num Steps",
-            "Num Episodes",
-            "Num Rebuilds",
-        ]
-    )
+    field_names = ["Run Name", "Status", "Policy Type", "Num Envs", "Num Steps", "Num Episodes", "Num Rebuilds"]
+    if experiment_result is not None:
+        field_names += ["Recorded Episodes", "Success Rate"]
+    table = PrettyTable(field_names=field_names)
     policy_registry = PolicyRegistry()
     for run_cfg in run_cfgs:
         result = results_by_name.get(run_cfg.name)
@@ -175,7 +177,7 @@ def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[Are
             num_episodes = rollout_limit.num_episodes_per_rebuild
         else:
             num_episodes = rollout_limit.num_episodes
-        table.add_row([
+        row = [
             run_cfg.name,
             result.status.value if result is not None else "pending",
             policy_type.name,
@@ -183,5 +185,17 @@ def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[Are
             rollout_limit.num_steps,
             num_episodes,
             run_cfg.num_rebuilds,
-        ])
+        ]
+        if experiment_result is not None:
+            row += _recorded_episodes_and_success_rate(experiment_result.runs[run_cfg.name])
+        table.add_row(row)
     return table
+
+
+def _recorded_episodes_and_success_rate(run_data: ArenaExperimentRunData) -> list[int | str]:
+    """Return a Run's number of recorded episodes and its success rate, formatted for the Run table."""
+    episodes = []
+    for rebuild in run_data["rebuilds"]:
+        episodes.extend(rebuild["episodes"])
+    run_success_rate = success_rate_from_values(episode["success"] for episode in episodes)
+    return [len(episodes), "n/a" if run_success_rate is None else f"{run_success_rate:.4f}"]

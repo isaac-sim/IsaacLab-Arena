@@ -17,7 +17,6 @@ from isaaclab_arena.evaluation.policy_runner_cli import (
     build_policy_from_cli,
 )
 from isaaclab_arena.evaluation.rollout import rollout_policy
-from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -52,9 +51,9 @@ def main():
     if args_cli.distributed:
         warnings.warn(
             "Multi-GPU evaluation with --distributed and torchrun is deprecated and will be removed together with"
-            " policy_runner.py. Ranks do not merge their metrics, and the report from local rank 0 can miss results"
-            " from other ranks. Evaluate in one process with more environments (--num_envs), or run Experiment Runs"
-            " in parallel on OSMO.",
+            " policy_runner.py. Ranks do not merge their episode results, and the report from local rank 0 can miss"
+            " results from other ranks. Evaluate in one process with more environments (--num_envs), or run"
+            " Experiment Runs in parallel on OSMO.",
             FutureWarning,
         )
 
@@ -145,10 +144,7 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes)
-
-        if metrics is not None:
-            print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")
+        rollout_policy(env, policy, num_steps, num_episodes)
 
         # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
         # Do NOT rely on a __del__ destructor in policy for this, since destructors are
