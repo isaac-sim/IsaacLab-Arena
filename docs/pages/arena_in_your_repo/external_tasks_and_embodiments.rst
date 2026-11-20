@@ -99,11 +99,21 @@ the custom task, the custom embodiment, and the two episode recorder terms to ``
 
    # my_package/isaaclab_arena_environments/my_environment_with_task.py
 
-   class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
+   @dataclass
+   class ExternalFrankaTableWithTaskEnvironmentCfg(ArenaEnvironmentCfg):
+       """Configure the external Franka table environment with a custom task."""
+
+       object: str = "cracker_box"
+       """Registered name of the object placed on the table."""
+
+
+   @register_environment
+   class ExternalFrankaTableWithTaskEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableWithTaskEnvironmentCfg]):
 
        name: str = "franka_table_with_task"
 
-       def get_env(self, args_cli: argparse.Namespace):
+       def build(self, cfg: ExternalFrankaTableWithTaskEnvironmentCfg) -> IsaacLabArenaEnvironment:
+           """Build the environment from its typed configuration."""
            from isaaclab_arena.assets.object_reference import ObjectReference
            from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
            from isaaclab_arena.relations.relations import IsAnchor, On
@@ -111,7 +121,7 @@ the custom task, the custom embodiment, and the two episode recorder terms to ``
 
            background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
            light = self.asset_registry.get_asset_by_name("light")()
-           pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+           pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
            embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")()
 
            table_reference = ObjectReference(
@@ -144,10 +154,6 @@ the custom task, the custom embodiment, and the two episode recorder terms to ``
                },
            )
 
-       @staticmethod
-       def add_cli_args(parser: argparse.ArgumentParser) -> None:
-           parser.add_argument("--object", type=str, default="cracker_box")
-
 External environments can be used in Isaac Lab - Arena workflows by using a particular
 CLI syntax. For example, a zero-action policy can be run with an
 externally-defined environment like this:
@@ -157,14 +163,14 @@ externally-defined environment like this:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_episodes 1 \
-     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableWithTaskEnvironment \
+     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment_with_task:ExternalFrankaTableWithTaskEnvironment \
      franka_table_with_task \
      --object tomato_soup_can
 
-So the flag ``external_environment_class_path`` is used to specify the (fully qualified) path to the
-external environment module and class. The environment name is then specified as the
-first non flag argument to the policy runner, and any additional arguments are passed to the
-environment's ``add_cli_args()`` method.
+As in :doc:`external_environments`, the flag ``--external_environment_class_path`` imports the
+module, the environment name is the first positional argument, and the flags after it set the
+fields of ``ExternalFrankaTableWithTaskEnvironmentCfg``. Importing the module also registers the
+custom embodiment, because ``@register_asset`` runs when the module is imported.
 
 .. note::
 
