@@ -17,6 +17,7 @@ from isaaclab.sim.views import FrameView
 from pxr import Usd, UsdGeom, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.usd.helpers import get_bounds_purpose
 
 
 def _get_clone_source_environment_ids(clone_plan: cloner.ClonePlan, prim_path: str) -> dict[str, tuple[int, ...]]:
@@ -119,18 +120,18 @@ def get_representative_rigid_body_prims(scene: InteractiveScene, scene_key: str)
 
 
 def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
-    """Compute local geometry bounds, including an explicitly referenced collision shape's purpose."""
+    """Compute geometry bounds expressed in the prim's local frame P.
+
+    Geometry is selected by get_bounds_purpose(), so only a prim that is itself a collision Gprim
+    may contribute non-default-purpose geometry.
+    """
     assert prim.IsValid(), "Prim must be valid."
 
     time_code = Usd.TimeCode.Default()
     transform_cache = UsdGeom.XformCache(time_code)
     T_W_P = transform_cache.GetLocalToWorldTransform(prim).RemoveScaleShear()
     T_P_W = T_W_P.GetInverse()
-    # An explicit shelf collider may be authored as guide geometry. Whole-object bounds
-    # still exclude non-default descendants, so guides cannot inflate visual-object bounds.
-    purpose = UsdGeom.Tokens.default_
-    if prim.IsA(UsdGeom.Gprim) and prim.HasAPI(UsdPhysics.CollisionAPI):
-        purpose = UsdGeom.Imageable(prim).ComputePurpose()
+    purpose = get_bounds_purpose(prim)
     bounding_box_cache = UsdGeom.BBoxCache(time_code, includedPurposes=[purpose])
 
     lower_P = np.full(3, np.inf, dtype=np.float64)
@@ -165,7 +166,10 @@ def compute_spawned_geometry_bounds_in_local_frame(
     scene: InteractiveScene,
     scene_key: str,
 ) -> AxisAlignedBoundingBox:
-    """Build local-frame bounds from default-purpose geometry in the cloned prim hierarchy.
+    """Build local-frame bounds from the geometry in the cloned prim hierarchy.
+
+    Default-purpose geometry is included, except when the scene key's prim is itself a collision Gprim,
+    which is bounded by its own purpose (for example, a collider authored as guide geometry).
 
     Args:
         scene: Interactive scene containing the rigid object or scene extra.
@@ -173,9 +177,8 @@ def compute_spawned_geometry_bounds_in_local_frame(
 
     Returns:
         One batched AABB aligned with frame F and measured from its origin.
-        Physics properties do not affect which geometry is included. The bounds remain
-        valid under whole-subtree motion, but not when descendants move relative
-        to frame F.
+        The bounds remain valid under whole-subtree motion, but not when descendants
+        move relative to frame F.
     """
     assert scene_key in scene.rigid_objects or scene_key in scene.deformable_objects or scene_key in scene.extras, (
         "ArenaWorld geometry queries require a scene key registered in InteractiveScene.rigid_objects, "
