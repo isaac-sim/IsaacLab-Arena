@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+from isaaclab_arena.evaluation.report_data import success_rate_from_values
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -196,8 +197,5 @@ def _recorded_episodes_and_success_rate(run_data: ArenaExperimentRunData) -> lis
     episodes = []
     for rebuild in run_data["rebuilds"]:
         episodes.extend(rebuild["episodes"])
-    # As in the evaluation report, episodes recorded without a success value do not count toward the rate.
-    success_values = [episode["success"] for episode in episodes if episode["success"] is not None]
-    if not success_values:
-        return [len(episodes), "n/a"]
-    return [len(episodes), f"{sum(success_values) / len(success_values):.4f}"]
+    run_success_rate = success_rate_from_values(episode["success"] for episode in episodes)
+    return [len(episodes), "n/a" if run_success_rate is None else f"{run_success_rate:.4f}"]

@@ -19,6 +19,7 @@ from isaaclab_arena.evaluation.report_data import (
     _infer_task_and_policy_labels_with_source,
     build_experiment_summary,
     run_status_to_lowercase_string,
+    success_rate_from_values,
 )
 
 
@@ -59,6 +60,12 @@ def _write_run(experiment_dir, run_name: str, records: list[dict], cameras: tupl
             )
             (run_dir / name).write_bytes(b"")
     return run_dir
+
+
+def test_success_rate_counts_only_episodes_with_a_success_value():
+    assert success_rate_from_values([True, False, None, True]) == pytest.approx(2 / 3)
+    assert success_rate_from_values([None, None]) is None
+    assert success_rate_from_values([]) is None
 
 
 def test_progress_fraction_uses_recorded_overall_score():
