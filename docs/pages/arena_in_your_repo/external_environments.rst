@@ -147,17 +147,12 @@ Flags work for fields of these types:
 * An optional of these types, such as ``str | None``.
 * A list of ``int``, ``float``, or ``str``, such as ``list[str]``. The flag takes zero or more values.
 
-Other types are not supported. Generic types such as ``tuple[float, float]``, ``dict[str, float]``,
-or ``int | str`` stop the runner with an error while it builds its parser. Other types can get a flag
-that rejects or misreads the value given on the command line. For example, a plain ``Enum`` rejects
-every value, ``list[bool]`` and ``Literal[True, False]`` read ``False`` as ``True``, and a nested
-dataclass gets the text in its first field.
+Other field types are not supported. Some, such as ``tuple[float, float]`` or ``dict[str, float]``,
+stop the runner with an error. Others get a flag that rejects or misreads the value, for example
+``list[bool]`` reads ``False`` as ``True``.
 
-The ``enable_cameras`` field comes from ``ArenaEnvironmentCfg``. It does not get its own flag and
-takes the value of the runner's ``--enable_cameras`` flag. A field named ``num_envs`` or ``mimic``
-also takes the value of the runner's flag with the same name. A field named ``auto`` gets no flag
-either. It keeps its default unless the calling script defines ``--auto``, as Isaac Lab's
-``annotate_demos.py`` does.
+Fields named ``enable_cameras``, ``num_envs``, and ``mimic`` get no flag of their own. They take the
+value of the runner's flag with the same name. A field named ``auto`` gets no flag.
 
 Migrating from ``ExampleEnvironmentBase``
 -----------------------------------------
