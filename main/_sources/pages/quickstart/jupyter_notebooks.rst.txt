@@ -1,39 +1,52 @@
 Jupyter Notebooks
 =================
 
-Some of the IsaacLab Arena examples can be executed interactively inside Jupyter notebooks.
-For this to work, you need to launch a Jupyter Notebook server inside the Isaac Sim Docker
-container and configure the notebook to use the Isaac Sim Python environment.
+Some IsaacLab Arena examples are notebook-style Python scripts: ``# %%`` markers split each file
+into cells that you run one at a time. Run them on a Jupyter server started from the Arena runtime,
+either the native ``uv`` environment or the Docker container.
 
 
-1. Start the IsaacLab Arena Docker Container
---------------------------------------------
+1. Prepare the Arena Runtime
+----------------------------
 
-.. code-block:: bash
+:runtime_setup_tabs:
 
-   cd ~/isaac_arena
-   ./docker/run_docker.sh
+2. Launch Jupyter
+-----------------
 
-Then, attach your editor to the running container (VS Code / Cursor):
+Start the Jupyter server:
 
-1. Open VS Code or Cursor.
-2. Install the **Dev Containers** extension if not already installed.
-3. Press ``Ctrl+Shift+P`` (or ``Cmd+Shift+P`` on macOS) and select **Dev Containers: Attach to Running Container**.
-4. Select the running IsaacLab Arena container from the list.
+.. tab-set::
 
-A new editor window will open, connected to the container's filesystem.
+   .. tab-item:: Native uv
+      :selected:
 
-2. Launch Jupyter Through the Isaac Lab Environment
-----------------------------------------------------
+      From the repository root, in the shell where you activated the environment:
 
-Inside the container, start the Jupyter server:
+      .. code-block:: bash
 
-.. code-block:: bash
+         ISAAC_JUPYTER_KERNEL=1 jupyter notebook --no-browser
 
-   cd /workspaces/isaaclab_arena
-   isaaclab.sh -p -m jupyter notebook --ip=0.0.0.0 --no-browser
+   .. tab-item:: Docker Container
 
-After startup, the terminal will print the server access information, for example:
+      In the shell that ``./docker/run_docker.sh`` opened:
+
+      .. code-block:: bash
+
+         cd /workspaces/isaaclab_arena
+         ISAAC_JUPYTER_KERNEL=1 isaaclab.sh -p -m jupyter notebook --ip=0.0.0.0 --no-browser
+
+      This shell runs as your user, and running ``./docker/run_docker.sh`` again opens another one in
+      the same container. Shells opened by attaching an editor to the container run as root, and
+      Jupyter refuses to start as root unless you pass ``--allow-root``.
+
+The server and its Python 3 kernel run in Arena's environment, so notebook cells can import Isaac Sim,
+Isaac Lab, and Arena. ``ISAAC_JUPYTER_KERNEL=1`` turns on Isaac Sim's Jupyter support. Without it,
+launching the simulation app in a notebook logs asyncio errors such as
+``Cannot enter into task ... while another task ... is being executed``, and creating an environment
+can hang.
+
+After startup, the terminal prints the server access information, for example:
 
 .. code-block:: text
 
@@ -43,33 +56,35 @@ After startup, the terminal will print the server access information, for exampl
        http://localhost:8888/tree?token=...
        http://127.0.0.1:8888/tree?token=...
 
-We will use the URL in a following step.
+You will use one of these URLs in the next step.
 
-3. Create or Open a Notebook
-----------------------------
+3. Run an Example
+-----------------
 
-- Create a new notebook or run an existing notebook cell.
-- The server and its default Python kernel run through Arena's Isaac Lab virtual environment.
-- Imports from Isaac Sim, Isaac Lab, and Arena are therefore available in notebook cells.
+Run the example from the Jupyter web UI in a browser, or from a VS Code-based editor such as VS Code
+or Cursor.
 
-4. Connect to the Arena Jupyter Server
----------------------------------------
+**Jupyter web UI**
 
-In the top-right corner of the notebook UI:
+1. Open one of the printed URLs in a browser on the host.
+2. In the top-level folder of the file browser (the repository root, ``/workspaces/isaaclab_arena`` in
+   Docker), select **File > New > Notebook** and choose the **Python 3 (ipykernel)** kernel.
+3. Copy each ``# %%`` block of ``isaaclab_arena/examples/example_env_notebook.py`` into its own cell,
+   in order.
+4. Run the cells one at a time. The first cell launches the simulation app; run it only once per kernel.
 
-1. Click the current kernel selector (e.g., ``Python 3 (ipykernel)``).
-2. Select **Select another Kernel**.
-3. Choose **Existing Jupyter Server**.
-4. Enter the URL of the running Jupyter server (printed in the terminal in which it was started):
+**VS Code-based editors**
 
-   .. code-block:: text
-
-      http://localhost:8888/?token=...
-
-5. Optionally set the **Server Display Name** (e.g., ``localhost``).
-6. Under **Select a Kernel from localhost**, choose its Python 3 kernel.
-
-The notebook now uses the same Isaac Lab virtual environment as Arena commands in the container.
+1. Open the repository in the editor. With Docker, attach the editor to the container instead: install
+   the **Dev Containers** extension, press ``Ctrl+Shift+P`` (or ``Cmd+Shift+P`` on macOS), select
+   **Dev Containers: Attach to Running Container**, and select the running IsaacLab Arena container.
+2. Install the **Python** and **Jupyter** extensions, inside the container when using Docker. Then open
+   ``isaaclab_arena/examples/example_env_notebook.py`` and click **Run Cell** above the first ``# %%``
+   marker.
+3. When asked for a kernel, select **Select Another Kernel**, then **Existing Jupyter Server**, and
+   enter the URL that Jupyter printed. Optionally set the **Server Display Name** (e.g., ``localhost``),
+   then choose the server's Python 3 kernel.
+4. Run the remaining cells in order.
 
 Reloading Modules and Recompiling Environments
 ----------------------------------------------
@@ -84,4 +99,4 @@ and allow recompiling environments or reloading modules, you must call:
 
    teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
 
-See ``isaaclab_arena/examples/example_env_notebook.py`` for a complete example.
+The last cell of ``isaaclab_arena/examples/example_env_notebook.py`` shows this call.

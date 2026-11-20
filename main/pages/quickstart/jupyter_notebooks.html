@@ -577,32 +577,63 @@
                   
   <section id="jupyter-notebooks">
 <h1>Jupyter Notebooks<a class="headerlink" href="#jupyter-notebooks" title="Link to this heading">#</a></h1>
-<p>Some of the IsaacLab Arena examples can be executed interactively inside Jupyter notebooks.
-For this to work, you need to launch a Jupyter Notebook server inside the Isaac Sim Docker
-container and configure the notebook to use the Isaac Sim Python environment.</p>
-<section id="start-the-isaaclab-arena-docker-container">
-<h2>1. Start the IsaacLab Arena Docker Container<a class="headerlink" href="#start-the-isaaclab-arena-docker-container" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/isaac_arena
-./docker/run_docker.sh
+<p>Some IsaacLab Arena examples are notebook-style Python scripts: <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">%%</span></code> markers split each file
+into cells that you run one at a time. Run them on a Jupyter server started from the Arena runtime,
+either the native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the Docker container.</p>
+<section id="prepare-the-arena-runtime">
+<h2>1. Prepare the Arena Runtime<a class="headerlink" href="#prepare-the-arena-runtime" title="Link to this heading">#</a></h2>
+<p>Prepare the Arena runtime from the repository root, using either a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the
+base Docker container (see <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
 </pre></div>
 </div>
-<p>Then, attach your editor to the running container (VS Code / Cursor):</p>
-<ol class="arabic simple">
-<li><p>Open VS Code or Cursor.</p></li>
-<li><p>Install the <strong>Dev Containers</strong> extension if not already installed.</p></li>
-<li><p>Press <code class="docutils literal notranslate"><span class="pre">Ctrl+Shift+P</span></code> (or <code class="docutils literal notranslate"><span class="pre">Cmd+Shift+P</span></code> on macOS) and select <strong>Dev Containers: Attach to Running Container</strong>.</p></li>
-<li><p>Select the running IsaacLab Arena container from the list.</p></li>
-</ol>
-<p>A new editor window will open, connected to the container’s filesystem.</p>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Docker Container</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+</div>
+</div>
 </section>
-<section id="launch-jupyter-through-the-isaac-lab-environment">
-<h2>2. Launch Jupyter Through the Isaac Lab Environment<a class="headerlink" href="#launch-jupyter-through-the-isaac-lab-environment" title="Link to this heading">#</a></h2>
-<p>Inside the container, start the Jupyter server:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/workspaces/isaaclab_arena
-isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>-m<span class="w"> </span>jupyter<span class="w"> </span>notebook<span class="w"> </span>--ip<span class="o">=</span><span class="m">0</span>.0.0.0<span class="w"> </span>--no-browser
+<section id="launch-jupyter">
+<h2>2. Launch Jupyter<a class="headerlink" href="#launch-jupyter" title="Link to this heading">#</a></h2>
+<p>Start the Jupyter server:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+Native uv</label><div class="sd-tab-content docutils">
+<p>From the repository root, in the shell where you activated the environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">ISAAC_JUPYTER_KERNEL</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>jupyter<span class="w"> </span>notebook<span class="w"> </span>--no-browser
 </pre></div>
 </div>
-<p>After startup, the terminal will print the server access information, for example:</p>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Docker Container</label><div class="sd-tab-content docutils">
+<p>In the shell that <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span></code> opened:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/workspaces/isaaclab_arena
+<span class="nv">ISAAC_JUPYTER_KERNEL</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>isaaclab.sh<span class="w"> </span>-p<span class="w"> </span>-m<span class="w"> </span>jupyter<span class="w"> </span>notebook<span class="w"> </span>--ip<span class="o">=</span><span class="m">0</span>.0.0.0<span class="w"> </span>--no-browser
+</pre></div>
+</div>
+<p>This shell runs as your user, and running <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span></code> again opens another one in
+the same container. Shells opened by attaching an editor to the container run as root, and
+Jupyter refuses to start as root unless you pass <code class="docutils literal notranslate"><span class="pre">--allow-root</span></code>.</p>
+</div>
+</div>
+<p>The server and its Python 3 kernel run in Arena’s environment, so notebook cells can import Isaac Sim,
+Isaac Lab, and Arena. <code class="docutils literal notranslate"><span class="pre">ISAAC_JUPYTER_KERNEL=1</span></code> turns on Isaac Sim’s Jupyter support. Without it,
+launching the simulation app in a notebook logs asyncio errors such as
+<code class="docutils literal notranslate"><span class="pre">Cannot</span> <span class="pre">enter</span> <span class="pre">into</span> <span class="pre">task</span> <span class="pre">...</span> <span class="pre">while</span> <span class="pre">another</span> <span class="pre">task</span> <span class="pre">...</span> <span class="pre">is</span> <span class="pre">being</span> <span class="pre">executed</span></code>, and creating an environment
+can hang.</p>
+<p>After startup, the terminal prints the server access information, for example:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>To access the server, open this file in a browser:
     file:///home/&lt;username&gt;/.local/share/jupyter/runtime/jpserver-72-open.html
 Or copy and paste one of these URLs:
@@ -610,32 +641,34 @@ Or copy and paste one of these URLs:
     http://127.0.0.1:8888/tree?token=...
 </pre></div>
 </div>
-<p>We will use the URL in a following step.</p>
+<p>You will use one of these URLs in the next step.</p>
 </section>
-<section id="create-or-open-a-notebook">
-<h2>3. Create or Open a Notebook<a class="headerlink" href="#create-or-open-a-notebook" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p>Create a new notebook or run an existing notebook cell.</p></li>
-<li><p>The server and its default Python kernel run through Arena’s Isaac Lab virtual environment.</p></li>
-<li><p>Imports from Isaac Sim, Isaac Lab, and Arena are therefore available in notebook cells.</p></li>
-</ul>
-</section>
-<section id="connect-to-the-arena-jupyter-server">
-<h2>4. Connect to the Arena Jupyter Server<a class="headerlink" href="#connect-to-the-arena-jupyter-server" title="Link to this heading">#</a></h2>
-<p>In the top-right corner of the notebook UI:</p>
-<ol class="arabic">
-<li><p>Click the current kernel selector (e.g., <code class="docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3</span> <span class="pre">(ipykernel)</span></code>).</p></li>
-<li><p>Select <strong>Select another Kernel</strong>.</p></li>
-<li><p>Choose <strong>Existing Jupyter Server</strong>.</p></li>
-<li><p>Enter the URL of the running Jupyter server (printed in the terminal in which it was started):</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>http://localhost:8888/?token=...
-</pre></div>
-</div>
-</li>
-<li><p>Optionally set the <strong>Server Display Name</strong> (e.g., <code class="docutils literal notranslate"><span class="pre">localhost</span></code>).</p></li>
-<li><p>Under <strong>Select a Kernel from localhost</strong>, choose its Python 3 kernel.</p></li>
+<section id="run-an-example">
+<h2>3. Run an Example<a class="headerlink" href="#run-an-example" title="Link to this heading">#</a></h2>
+<p>Run the example from the Jupyter web UI in a browser, or from a VS Code-based editor such as VS Code
+or Cursor.</p>
+<p><strong>Jupyter web UI</strong></p>
+<ol class="arabic simple">
+<li><p>Open one of the printed URLs in a browser on the host.</p></li>
+<li><p>In the top-level folder of the file browser (the repository root, <code class="docutils literal notranslate"><span class="pre">/workspaces/isaaclab_arena</span></code> in
+Docker), select <strong>File &gt; New &gt; Notebook</strong> and choose the <strong>Python 3 (ipykernel)</strong> kernel.</p></li>
+<li><p>Copy each <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">%%</span></code> block of <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/examples/example_env_notebook.py</span></code> into its own cell,
+in order.</p></li>
+<li><p>Run the cells one at a time. The first cell launches the simulation app; run it only once per kernel.</p></li>
 </ol>
-<p>The notebook now uses the same Isaac Lab virtual environment as Arena commands in the container.</p>
+<p><strong>VS Code-based editors</strong></p>
+<ol class="arabic simple">
+<li><p>Open the repository in the editor. With Docker, attach the editor to the container instead: install
+the <strong>Dev Containers</strong> extension, press <code class="docutils literal notranslate"><span class="pre">Ctrl+Shift+P</span></code> (or <code class="docutils literal notranslate"><span class="pre">Cmd+Shift+P</span></code> on macOS), select
+<strong>Dev Containers: Attach to Running Container</strong>, and select the running IsaacLab Arena container.</p></li>
+<li><p>Install the <strong>Python</strong> and <strong>Jupyter</strong> extensions, inside the container when using Docker. Then open
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/examples/example_env_notebook.py</span></code> and click <strong>Run Cell</strong> above the first <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">%%</span></code>
+marker.</p></li>
+<li><p>When asked for a kernel, select <strong>Select Another Kernel</strong>, then <strong>Existing Jupyter Server</strong>, and
+enter the URL that Jupyter printed. Optionally set the <strong>Server Display Name</strong> (e.g., <code class="docutils literal notranslate"><span class="pre">localhost</span></code>),
+then choose the server’s Python 3 kernel.</p></li>
+<li><p>Run the remaining cells in order.</p></li>
+</ol>
 </section>
 <section id="reloading-modules-and-recompiling-environments">
 <h2>Reloading Modules and Recompiling Environments<a class="headerlink" href="#reloading-modules-and-recompiling-environments" title="Link to this heading">#</a></h2>
@@ -647,7 +680,7 @@ and allow recompiling environments or reloading modules, you must call:</p>
 <span class="n">teardown_simulation_app</span><span class="p">(</span><span class="n">suppress_exceptions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">make_new_stage</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>See <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/examples/example_env_notebook.py</span></code> for a complete example.</p>
+<p>The last cell of <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/examples/example_env_notebook.py</span></code> shows this call.</p>
 </section>
 </section>
 
@@ -700,10 +733,9 @@ and allow recompiling environments or reloading modules, you must call:</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-the-isaaclab-arena-docker-container">1. Start the IsaacLab Arena Docker Container</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-jupyter-through-the-isaac-lab-environment">2. Launch Jupyter Through the Isaac Lab Environment</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#create-or-open-a-notebook">3. Create or Open a Notebook</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#connect-to-the-arena-jupyter-server">4. Connect to the Arena Jupyter Server</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prepare-the-arena-runtime">1. Prepare the Arena Runtime</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-jupyter">2. Launch Jupyter</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-an-example">3. Run an Example</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reloading-modules-and-recompiling-environments">Reloading Modules and Recompiling Environments</a></li>
 </ul>
   </nav></div>
