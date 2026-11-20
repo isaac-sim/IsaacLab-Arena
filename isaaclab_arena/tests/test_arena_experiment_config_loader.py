@@ -5,6 +5,7 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+import importlib
 import re
 import sys
 import yaml
@@ -25,7 +26,7 @@ from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_run
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
-from isaaclab_arena.tests.test_environment_cfgs import _write_external_factory_module
+from isaaclab_arena.tests.test_environment_cfgs import _write_external_factory_module, _write_external_module
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.cli import ensure_environments_registered
 from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironmentCfg
@@ -324,13 +325,15 @@ def _assert_selected_run_cannot_resolve_environment_type(config_path: Path, envi
         load_arena_experiment_from_config_file(config_path, device="cuda:0")
 
 
-def test_environment_type_selects_an_external_factory_by_dotted_class_path(
-    tmp_path, monkeypatch, isolated_environment_registry
-):
-    """Import a factory that only the Experiment names, and compose its config from the Run values."""
-    flag_class_path = _write_external_factory_module(
-        tmp_path, monkeypatch, "experiment_selected_environment_module", "experiment_selected_environment"
-    )
+def _write_experiment_selecting_external_factory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module_name: str, environment_name: str
+) -> tuple[Path, str]:
+    """Write an external factory module and an Experiment whose Run 'external' selects it by dotted class path.
+
+    Returns:
+        The Experiment path and the factory's dotted class path.
+    """
+    flag_class_path = _write_external_factory_module(tmp_path, monkeypatch, module_name, environment_name)
     # The flag joins module and class with ":"; Experiments use a dot.
     environment_type = flag_class_path.replace(":", ".")
     config_path = tmp_path / "experiment.yaml"
@@ -344,6 +347,16 @@ def test_environment_type_selects_an_external_factory_by_dotted_class_path(
             }
         }),
         encoding="utf-8",
+    )
+    return config_path, environment_type
+
+
+def test_environment_type_selects_an_external_factory_by_dotted_class_path(
+    tmp_path, monkeypatch, isolated_environment_registry
+):
+    """Import a factory that only the Experiment names, and compose its config from the Run values."""
+    config_path, _ = _write_experiment_selecting_external_factory(
+        tmp_path, monkeypatch, "experiment_selected_environment_module", "experiment_selected_environment"
     )
 
     experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:0")
@@ -407,6 +420,65 @@ def test_environment_type_rejects_a_factory_that_reuses_a_built_in_name(
     built_in_config_path = _write_experiment_selecting_environment_type(tmp_path, "kitchen_pick_and_place")
     experiment_cfg = load_arena_experiment_from_config_file(built_in_config_path, device="cuda:0")
     assert isinstance(experiment_cfg.runs["selected"].environment, KitchenPickAndPlaceEnvironmentCfg)
+
+
+def test_external_environment_serializes_to_its_class_path(tmp_path, monkeypatch, isolated_environment_registry):
+    """Write the class path, which a fresh process can load before anything registers the factory's name."""
+    config_path, environment_type = _write_experiment_selecting_external_factory(
+        tmp_path, monkeypatch, "serialized_external_environment_module", "serialized_external_environment"
+    )
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+    serialized_experiment = serialize_arena_experiment_to_yaml(experiment_cfg)
+
+    serialized_environment = yaml.safe_load(serialized_experiment)["runs"]["external"]["environment"]
+    assert serialized_environment["type"] == environment_type
+    assert serialized_environment["object"] == "mug"
+    serialized_path = tmp_path / "serialized_experiment.yaml"
+    serialized_path.write_text(serialized_experiment, encoding="utf-8")
+    assert load_arena_experiment_from_config_file(serialized_path, device="cuda:0") == experiment_cfg
+
+
+def test_serializer_rejects_a_nested_environment_factory(tmp_path, monkeypatch, isolated_environment_registry):
+    """Stop instead of writing a class path that the loader cannot import."""
+    _write_external_module(
+        tmp_path,
+        monkeypatch,
+        "nested_environment_factory_module",
+        """
+        from dataclasses import dataclass
+
+        from isaaclab_arena.assets.register import register_environment
+        from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+
+
+        @dataclass
+        class NestedEnvironmentCfg(ArenaEnvironmentCfg):
+            pass
+
+
+        class EnvironmentGroup:
+
+            @register_environment
+            class NestedEnvironment(ArenaEnvironmentFactory[NestedEnvironmentCfg]):
+                name = "nested_environment_factory"
+
+                def build(self, cfg):
+                    raise NotImplementedError
+        """,
+    )
+    nested_module = importlib.import_module("nested_environment_factory_module")
+    run_cfg = ArenaRunCfg(name="nested", environment=nested_module.NestedEnvironmentCfg(), policy=ZeroActionPolicyCfg())
+    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg}, name="experiment")
+
+    with pytest.raises(
+        AssertionError,
+        match=(
+            r"nested_environment_factory_module\.EnvironmentGroup\.NestedEnvironment cannot be imported as"
+            r" 'nested_environment_factory_module\.NestedEnvironment'"
+        ),
+    ):
+        serialize_arena_experiment_to_yaml(experiment_cfg)
 
 
 def test_default_experiment_is_a_short_zero_action_smoke_test(monkeypatch):
