@@ -92,18 +92,18 @@ output under the term's name:
 
 .. code-block:: json
 
-   {"env_id": 0, "episode_in_env": 3, "success": true, "object_peak_speed": {"peak_speed": 0.83}}
+   {"env_id": 0, "episode_in_env": 3, "success": true, "object_peak_speed": 0.83}
 
-A term returns a dictionary of JSON values when the episode ends. Write it as:
+A term returns a JSON value, such as a number or a dictionary, when the episode ends. Write it as:
 
 * **a function**, for a value you can read at the end of the episode, such as an object's final
   height:
 
   .. code-block:: python
 
-     def record_object_final_height(env, env_id: int, object_name: str) -> dict[str, float]:
+     def record_object_final_height(env, env_id: int, object_name: str) -> float:
          """Records the height [m] of an object when the episode ends."""
-         return {"final_height": float(env.arena_world.get_pose_w(object_name)[env_id, 2])}
+         return float(env.arena_world.get_pose_w(object_name)[env_id, 2])
 
 * **a class derived from** ``EpisodeRecorderTerm``, for a value that builds up during the episode,
   such as an object's peak speed. Arena calls its ``post_step()`` after every step, so it can track

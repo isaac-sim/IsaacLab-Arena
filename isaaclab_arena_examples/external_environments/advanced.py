@@ -102,9 +102,9 @@ class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
 # ---------------------------------------------------------------------------
 
 
-def record_object_final_height(env, env_id: int, object_name: str) -> dict[str, float]:
+def record_object_final_height(env, env_id: int, object_name: str) -> float:
     """Records the height [m] of an object when the episode ends."""
-    return {"final_height": float(env.arena_world.get_pose_w(object_name)[env_id, 2])}
+    return float(env.arena_world.get_pose_w(object_name)[env_id, 2])
 
 
 class ObjectPeakSpeed(EpisodeRecorderTerm):
@@ -125,10 +125,10 @@ class ObjectPeakSpeed(EpisodeRecorderTerm):
     def reset(self, env_ids=None):
         self._peak_speed[slice(None) if env_ids is None else env_ids] = 0.0
 
-    def __call__(self, env, env_id: int, object_name: str) -> dict[str, float]:
+    def __call__(self, env, env_id: int, object_name: str) -> float:
         # The manager passes every cfg.params entry as a keyword argument, so object_name must be
         # accepted here even though __init__ already read it.
-        return {"peak_speed": float(self._peak_speed[env_id])}
+        return float(self._peak_speed[env_id])
 
 
 # ---------------------------------------------------------------------------
