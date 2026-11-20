@@ -20,14 +20,13 @@ def find_arena_env():
     global _arena_env
     if _arena_env is None:
         import gc
-        import weakref
 
-        from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
-
+        # Match by class name instead of importing the class: Isaac Lab removes its modules from sys.modules while
+        # the app starts, and an import from a request in that window loads a second copy that breaks the env build.
         arena_envs = []
         for candidate in gc.get_objects():
-            # A weakref proxy also passes isinstance(); keep only the env itself.
-            if isinstance(candidate, IsaacLabArenaManagerBasedRLEnv) and not isinstance(candidate, weakref.ProxyTypes):
+            # type() of a weakref proxy is the proxy type, so proxies to the env do not match.
+            if any(cls.__name__ == "IsaacLabArenaManagerBasedRLEnv" for cls in type(candidate).__mro__):
                 arena_envs.append(candidate)
         assert len(arena_envs) == 1, f"Expected one Arena environment in this process, found {len(arena_envs)}."
         _arena_env = arena_envs[0]
@@ -77,14 +76,68 @@ def print_scene_state(env_index=0):
         print(f"{scene_key}: position [{position_text}] m, speed {speed:.3f} m/s")
 
 
+def move_object(scene_key, position, env_index=0):
+    """Teleport a rigid object to position (meters, relative to the env origin), keeping its orientation, at rest."""
+    import torch
+
+    env = find_arena_env()
+    rigid_object = env.scene.rigid_objects[scene_key]
+    T_W_O = env.arena_world.get_pose_w(scene_key)[env_index : env_index + 1].clone()
+    T_W_O[0, :3] = env.scene.env_origins[env_index] + torch.tensor(position, device=T_W_O.device)
+    rigid_object.write_root_pose_to_sim_index(root_pose=T_W_O, env_ids=[env_index])
+    rigid_object.write_root_velocity_to_sim_index(
+        root_velocity=torch.zeros((1, 6), device=T_W_O.device), env_ids=[env_index]
+    )
+
+
 def pause_physics():
-    """Pause the simulation; the server keeps answering, so the frozen state can be captured from several views."""
+    """Pause the simulation; the server keeps answering, so the frozen state can be captured from several views.
+
+    Pausing also stops the episode clock. The pause takes effect after the env step in progress.
+    """
     import omni.timeline
 
     timeline = omni.timeline.get_timeline_interface()
     # Newton runs keep the Kit timeline stopped and step regardless, so pausing it would do nothing.
     assert timeline.is_playing(), "The Kit timeline is not playing; pausing works only in PhysX runs."
     timeline.pause()
+
+
+_pause_observer = None
+
+
+def pause_when(condition):
+    """Pause the simulation on the first Kit update where condition(env) is true.
+
+    For events faster than a request round trip, such as an object falling. The pause takes effect after the env step
+    in progress. PhysX only.
+
+    Args:
+        condition: Function of the Arena env that returns true when to pause, for example
+            ``lambda env: env.arena_world.get_root_linear_velocity_w("dex_cube")[0, 2] < -1.0``.
+    """
+    global _pause_observer
+    import carb.eventdispatcher
+    import omni.kit.app
+    import omni.timeline
+
+    env = find_arena_env()
+    timeline = omni.timeline.get_timeline_interface()
+    assert timeline.is_playing(), "The Kit timeline is not playing; pausing works only in PhysX runs."
+
+    def pause_if_condition_holds(_event):
+        global _pause_observer
+        if _pause_observer is not None and condition(env):
+            timeline.pause()
+            # Dropping the observer handle unsubscribes it, so resume_physics() is not undone.
+            _pause_observer = None
+
+    _pause_observer = carb.eventdispatcher.get_eventdispatcher().observe_event(
+        order=omni.kit.app.POST_UPDATE_ORDER_PYTHON_EXEC,
+        event_name=omni.kit.app.GLOBAL_EVENT_POST_UPDATE,
+        on_event=pause_if_condition_holds,
+        observer_name="sim_helpers.pause_when",
+    )
 
 
 def resume_physics():

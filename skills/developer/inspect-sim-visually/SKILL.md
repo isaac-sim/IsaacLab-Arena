@@ -27,22 +27,24 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
      "env -u DISPLAY setsid nohup isaaclab.sh -p isaaclab_arena/evaluation/policy_runner.py \
         --policy_type zero_action --num_steps 100000 --num_envs 1 --output_base_dir /tmp/<run>/outputs \
         --kit_args '--enable isaacsim.code_editor.python_server --/exts/isaacsim.code_editor.python_server/port=<port>' \
-        --viz kit <environment> [environment args] > /tmp/<run>/run.log 2>&1 < /dev/null &"
+        --viz kit <environment> [environment args] > /tmp/<run>/run.log 2>&1 < /dev/null & echo \$!"
    ```
+
+   It prints the run's session id; keep it for step 4.
 
    - `--viz kit` with `DISPLAY` unset starts the viewer without a window. The viewer then updates Kit every step,
      which the server needs to answer. Do not set `HEADLESS=1` here.
    - Without a policy, `isaaclab_arena/scripts/environment_runner.py --viz kit --device cpu --kit_args '...'
      <environment>` also works (PhysX, one env).
-   - Add `--enable_cameras` only when the run needs camera observations. On Newton, `--viz kit --enable_cameras`
-     failed to build `yam_cable_routing`; launch camera runs there with `--enable_cameras` and no `--viz kit`, and add
-     `--/rtx/scenePartitioning/showAllPartitionsByDefault=true` inside `--kit_args`.
+   - Add `--enable_cameras` when the run needs camera observations.
    - `/tmp` is shared with the container and the container uses host networking, so the host client and `Read` work
      on the same paths.
 
 2. **Wait for the environment and load the helpers.** The server answers during app start, then pauses while the
    environment builds (40-50 s after launch when warm; the first launch in a new container can stay silent for about
-   8 minutes).
+   8 minutes). Until the environment exists, send only the helpers and `find_arena_env()`: Isaac Lab removes its
+   modules from `sys.modules` while the app starts, and a request that imports an Isaac Lab or Arena module then
+   breaks the run.
 
    ```bash
    C=skills/developer/inspect-sim-visually/scripts
@@ -66,14 +68,21 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    | `capture_viewer(path, width=640, height=360)` | Writes the viewer image about 0.5 s later; pass `--wait_for_file path` |
    | `set_camera(eye, target, env_index=None)` | Points the viewer camera; meters, relative to env `env_index`'s origin, else world frame |
    | `print_scene_state(env_index=0)` | Position relative to the env origin and speed of every rigid object and articulation |
-   | `pause_physics()` / `resume_physics()` | Freezes the simulation for several looks at one state (PhysX only) |
+   | `pause_physics()` / `resume_physics()` | Freezes the simulation, including the episode clock, for several looks at one state (PhysX only) |
+   | `pause_when(condition)` | Pauses on the first update where `condition(env)` is true, for events faster than a request, e.g. `pause_when(lambda env: env.arena_world.get_root_linear_velocity_w("dex_cube")[0, 2] < -1.0)` (PhysX only) |
+   | `move_object(scene_key, position, env_index=0)` | Teleports a rigid object to `position` relative to the env origin, at rest |
    | `find_arena_env()` | The unwrapped Arena env, for anything else, e.g. `find_arena_env().scene["dex_cube"]` |
 
    Requests run inside Kit's update loop. Never call `app.update()`, `sim.step()`, `sim.render()` or
-   `render_rgb_array()` in a request. Variables a request defines stay available to later requests.
+   `render_rgb_array()` in a request. Variables a request defines stay available to later requests. A pause takes
+   effect after the env step in progress, so the frozen state is one step past the trigger.
 
-4. **Stop** the run when done (the server runs any code sent to its port):
-   `docker exec <container> pkill -TERM -f 'python_server/port=<port>'`, then confirm with `ps` that it is gone.
+4. **Stop** the run when done; the server runs any code sent to its port. Stop the whole session, because Kit's
+   telemetry process outlives the main process:
+
+   ```bash
+   docker exec <container> bash -c 'pkill -TERM -s <sid>; sleep 5; pkill -KILL -s <sid>; pgrep -s <sid> || echo stopped'
+   ```
 
 ## Stills from a script
 
@@ -122,6 +131,8 @@ takes every 5th frame of the video; change the 5 to spread the panels over the c
 | Camera move has no effect in a headless script | `sim.set_camera_view()` and the viewer's `set_camera_view()` do not reach the headless capture | `set_kit_renderer_camera_view(...)` as above |
 | Capture shows only the ground plane | Launched without `--viz kit`; scene partitioning hides the envs | Add `--/rtx/scenePartitioning/showAllPartitionsByDefault=true` to `--kit_args` |
 | `NameError: name 'capture_viewer' is not defined` | New simulation process | Send `sim_helpers.py` again |
+| `TypeError: SimulationCfg.physics must be a concrete PhysicsCfg` while the env builds | A request imported an Isaac Lab or Arena module while the app was starting | Relaunch; send only the helpers and `find_arena_env()` until the env exists |
+| Red, green and blue arrows in the image | Isaac Lab debug markers for frames such as the goal and the end effector | Not scene objects |
 | `AssertionError: The Kit timeline is not playing` | Newton run; pausing does not apply | Capture while it steps |
 | `ModuleNotFoundError: No module named 'omni.replicator'` | Script launched without a rendering experience | Add `--experience isaaclab.python.headless.rendering.kit` or `--enable_cameras` |
 | `--record_viewport_video` writes no video | Isaac Lab no longer renders `render_mode="rgb_array"`; `env.render()` returns `None` | Use this skill's captures |
@@ -130,5 +141,6 @@ takes every 5th frame of the video; change the 5 to spread the panels over the c
 | Faint copy of an object at its old place | Renderer temporal accumulation after a jump | Capture again |
 
 Verified on 2026-11-20 in the Docker route (Isaac Sim 6.2.0-rc.14, Isaac Lab `e3f7d9ff1`) with `lift_object` (PhysX;
-`policy_runner` and `environment_runner`; 1 and 4 envs) and `yam_cable_routing` (Newton). The native uv route is not
-verified; check that the `isaacsim.code_editor.python_server` extension loads there.
+`policy_runner` and `environment_runner`; 1 and 4 envs) and `yam_cable_routing` (Newton, with and without
+`--enable_cameras`). The native uv route is not verified; check that the `isaacsim.code_editor.python_server`
+extension loads there.
