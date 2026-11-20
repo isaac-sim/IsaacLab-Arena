@@ -109,5 +109,8 @@ A term returns a JSON value, such as a number or a dictionary, when the episode 
   such as an object's peak speed. Arena calls its ``post_step()`` after every step, so it can track
   the value as the episode runs.
 
+If a value is NaN or infinite, for example because the simulation became unstable, Arena writes ``null``
+and prints a warning that names the term.
+
 :doc:`../../arena_in_your_repo/external_tasks_and_embodiments` defines both ``record_object_final_height``
 and the class ``ObjectPeakSpeed``, and adds them to an environment.
