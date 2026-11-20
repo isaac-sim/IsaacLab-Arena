@@ -13,22 +13,28 @@ in the same file::
         --policy_type zero_action --num_steps 100 \\
         --external_environment_class_path \\
         isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \\
-        franka_table_with_task
+        franka_table_with_task --object cracker_box
 """
 
-import argparse
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from isaaclab.envs.common import ViewerCfg
 
-from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.register import register_asset, register_environment
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.terms.episode_recorders import ObjectPeakSpeed
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 # ---------------------------------------------------------------------------
 # Custom task
@@ -112,11 +118,21 @@ def record_object_final_height(env, env_id: int, object_name: str) -> float:
 # ---------------------------------------------------------------------------
 
 
-class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
+@dataclass
+class ExternalFrankaTableWithTaskEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the external Franka table environment with a custom task."""
+
+    object: str = "cracker_box"
+    """Registered name of the object placed on the table."""
+
+
+@register_environment
+class ExternalFrankaTableWithTaskEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableWithTaskEnvironmentCfg]):
 
     name: str = "franka_table_with_task"
 
-    def get_env(self, args_cli: argparse.Namespace):
+    def build(self, cfg: ExternalFrankaTableWithTaskEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On
@@ -124,7 +140,7 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
 
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         light = self.asset_registry.get_asset_by_name("light")()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
         embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")()
 
         table_reference = ObjectReference(
@@ -156,7 +172,3 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
                 ),
             },
         )
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="cracker_box")
