@@ -268,6 +268,17 @@ def compute_local_bounding_box_from_stage(
     return bbox
 
 
+def get_bounds_purpose(prim: Usd.Prim) -> str:
+    """Return the USD purpose whose geometry defines the prim's bounds.
+
+    A prim that is itself a collision Gprim is bounded by its own purpose, so a collider authored as
+    guide geometry still has an extent. Any other prim is bounded by its default-purpose geometry.
+    """
+    if prim.IsA(UsdGeom.Gprim) and prim.HasAPI(UsdPhysics.CollisionAPI):
+        return UsdGeom.Imageable(prim).ComputePurpose()
+    return UsdGeom.Tokens.default_
+
+
 def compute_world_aligned_bounding_box_relative_to_prim_origin(
     stage: Usd.Stage,
     prim_path: str,
@@ -276,6 +287,7 @@ def compute_world_aligned_bounding_box_relative_to_prim_origin(
 
     The returned coordinates use the USD world axes, but their origin is shifted
     to the prim's world position. The prim's rotation remains in the extents.
+    Geometry is selected by get_bounds_purpose().
 
     Args:
         stage: The USD stage containing the prim.
@@ -289,9 +301,11 @@ def compute_world_aligned_bounding_box_relative_to_prim_origin(
         raise ValueError(f"No prim found at path {prim_path}")
 
     # Compute the world-space bounding box of the prim
-    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
+    purpose = get_bounds_purpose(prim)
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[purpose])
     bbox = bbox_cache.ComputeWorldBound(prim)
     bbox_range = bbox.ComputeAlignedBox()
+    assert not bbox_range.IsEmpty(), f"Prim '{prim_path}' has no {purpose}-purpose geometry."
 
     # Get world-space min/max
     world_min = bbox_range.GetMin()
