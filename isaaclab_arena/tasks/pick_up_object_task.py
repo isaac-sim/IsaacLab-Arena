@@ -35,7 +35,7 @@ class PickUpObjectTask(TaskBase):
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
-        """Configure a pickup milestone relative to the episode's first rest pose.
+        """Configure a pickup task relative to the episode's first rest pose.
 
         Args:
             pick_up_object: Object to lift.
