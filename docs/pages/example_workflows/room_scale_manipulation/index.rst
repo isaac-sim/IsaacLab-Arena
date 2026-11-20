@@ -1,12 +1,12 @@
 Room-scale Manipulation Environments
-===================================
+====================================
 
 These environments place manipulation targets far enough apart to require travel between work
 areas. The catalog currently contains one environment, validated with
 :doc:`Object Control <../../agentic_tools/object_control>` without a robot policy.
 
 Put a Pepper in the Fridge
--------------------------
+--------------------------
 
 Pick up a red bell pepper from the counter beside the toaster oven in the Lightwheel L-shaped
 Scandinavian kitchen, carry it across the kitchen, open the fridge, and place it on the lower
@@ -37,7 +37,7 @@ Source Files
 * :download:`Object Control recipe <../../../../isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_put_pepper_in_fridge_l_shaped_scandinavian_object_control.jsonl>`
 
 Reproduce the Validation
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Run these commands from the repository root in a ready Arena runtime. In Docker, use
 ``isaaclab.sh -p`` in place of ``python``.
