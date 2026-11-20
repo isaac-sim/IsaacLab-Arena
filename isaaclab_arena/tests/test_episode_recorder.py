@@ -56,32 +56,6 @@ def record_step_bucket(env, env_id):
     return {"bucket": int(env.episode_length_buf[env_id].item()) // 10}
 
 
-def _object_peak_speed_class():
-    """Return the ObjectPeakSpeed term from the episode recording docs page, imported after app start."""
-    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm
-
-    class ObjectPeakSpeed(EpisodeRecorderTerm):
-        """Records the highest linear speed [m/s] an object reached during the episode."""
-
-        def __init__(self, cfg, env):
-            super().__init__(cfg, env)
-            self._object_name = cfg.params["object_name"]
-            self._peak_speed = torch.zeros(env.num_envs, device=env.device)
-
-        def post_step(self, env):
-            velocity_w = env.arena_world.get_mean_linear_velocity_w(self._object_name)
-            speed = torch.linalg.norm(velocity_w, dim=-1)
-            torch.maximum(self._peak_speed, speed, out=self._peak_speed)
-
-        def reset(self, env_ids=None):
-            self._peak_speed[slice(None) if env_ids is None else env_ids] = 0.0
-
-        def __call__(self, env, env_id, object_name):
-            return {"peak_speed": float(self._peak_speed[env_id])}
-
-    return ObjectPeakSpeed
-
-
 def draw_record_test_variation(env, env_ids, asset_cfg, sampler):  # noqa: ARG001
     """Reset event that only draws a sample, so the variation recorder attributes it to the episode."""
     sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
@@ -286,12 +260,11 @@ def _test_variations_recorded(simulation_app, output_dir):  # noqa: ARG001
 
 def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+    from isaaclab_arena_examples.external_environments.advanced import ObjectPeakSpeed
 
     custom_terms = {
         CUSTOM_KEY: EpisodeRecorderTermCfg(func=record_step_bucket),
-        OBJECT_PEAK_SPEED_KEY: EpisodeRecorderTermCfg(
-            func=_object_peak_speed_class(), params={"object_name": "cracker_box"}
-        ),
+        OBJECT_PEAK_SPEED_KEY: EpisodeRecorderTermCfg(func=ObjectPeakSpeed, params={"object_name": "cracker_box"}),
     }
     env, output_path = create_recorder_env(output_dir, episode_recorder_terms=custom_terms)
     try:
