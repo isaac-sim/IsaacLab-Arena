@@ -64,13 +64,6 @@ You will use one of these URLs in the next step.
 Run the example from the Jupyter web UI in a browser, or from a VS Code-based editor such as VS Code
 or Cursor.
 
-.. warning::
-
-   Do not save notebooks directly inside the ``isaaclab_arena/`` package folder. The kernel puts the
-   notebook's folder first on the import path, so Arena's ``isaaclab_arena/hydra/`` package shadows
-   the ``hydra`` library and building an environment fails with
-   ``ModuleNotFoundError: No module named 'hydra.core'``.
-
 **Jupyter web UI**
 
 1. Open one of the printed URLs in a browser on the host.
@@ -85,10 +78,11 @@ or Cursor.
 1. Open the repository in the editor. With Docker, attach the editor to the container instead: install
    the **Dev Containers** extension, press ``Ctrl+Shift+P`` (or ``Cmd+Shift+P`` on macOS), select
    **Dev Containers: Attach to Running Container**, and select the running IsaacLab Arena container.
-2. Open ``isaaclab_arena/examples/example_env_notebook.py`` and click **Run Cell** above the first
-   ``# %%`` marker.
+2. Install the **Python** and **Jupyter** extensions, inside the container when using Docker. Then open
+   ``isaaclab_arena/examples/example_env_notebook.py`` and click **Run Cell** above the first ``# %%``
+   marker.
 3. When asked for a kernel, select **Select Another Kernel**, then **Existing Jupyter Server**, and
-   enter the URL printed in step 2. Optionally set the **Server Display Name** (e.g., ``localhost``),
+   enter the URL that Jupyter printed. Optionally set the **Server Display Name** (e.g., ``localhost``),
    then choose the server's Python 3 kernel.
 4. Run the remaining cells in order.
 
