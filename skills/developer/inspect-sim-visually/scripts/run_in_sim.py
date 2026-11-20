@@ -24,8 +24,8 @@ from pathlib import Path
 
 NO_REPLY_HINT = (
     "The server answers only while the simulation updates Kit every step: launch with --viz kit and DISPLAY unset "
-    "(not HEADLESS=1), or with camera sensors enabled. Requests also wait while the runner is blocked, for example "
-    "on a policy server."
+    "(not HEADLESS=1), or with camera sensors enabled. It also pauses while the environment is being built and while "
+    "the runner is blocked, for example on a policy server. The request may still run once the server resumes."
 )
 
 
@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if reply.get("output"):
             print(reply["output"])
-        if "result" in reply:
+        if reply.get("result") is not None:
             print(json.dumps(reply["result"]))
     if reply.get("status") != "ok":
         print(f"{reply.get('ename')}: {reply.get('evalue')}", file=sys.stderr)

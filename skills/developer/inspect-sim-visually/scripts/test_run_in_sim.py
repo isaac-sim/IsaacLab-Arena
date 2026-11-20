@@ -93,6 +93,12 @@ class RunInSimTest(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(json.loads(stdout.strip()), {"a": 1})
 
+    def test_none_result_prints_nothing(self):
+        server = self.start_server({"status": "ok", "output": "", "result": None})
+        exit_code, stdout, _ = run_client(["--port", str(server.port), "--code", "set_camera([1, 1, 1], [0, 0, 0])"])
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout, "")
+
     def test_error_reply_exits_1_with_traceback(self):
         server = self.start_server({
             "status": "error",
