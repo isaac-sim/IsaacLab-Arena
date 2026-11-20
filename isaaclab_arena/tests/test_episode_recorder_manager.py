@@ -240,32 +240,45 @@ def test_class_term_is_stepped_and_reset_per_env(tmp_path):
     )
 
 
-def _test_terms_without_post_step_need_no_per_step_hook(simulation_app, output_dir):
-    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm, EpisodeRecorderTermCfg
-
-    class EndOfEpisodeValue(EpisodeRecorderTerm):
-        """Records a value when the episode ends, without following the episode step by step."""
-
-        def __call__(self, env, env_id):
-            return {"value": 1}
+def _test_function_terms_need_no_per_step_hook(simulation_app, output_dir):
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
     manager = _make_manager(
-        {
-            "bucket": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1}),
-            "end_value": EpisodeRecorderTermCfg(func=EndOfEpisodeValue),
-        },
-        output_dir / "r.jsonl",
+        {"bucket": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1})}, output_dir / "r.jsonl"
     )
     assert not manager.has_post_step_terms
-    # Stepping and resetting stay safe no-ops for terms without their own post_step() and reset().
+    # Stepping and resetting stay safe no-ops for function terms.
     manager.post_step()
     assert manager.reset(None) == {}
     return True
 
 
-def test_terms_without_post_step_need_no_per_step_hook(tmp_path):
+def test_function_terms_need_no_per_step_hook(tmp_path):
     assert run_function_with_persistent_simulation_app(
-        partial(_test_terms_without_post_step_need_no_per_step_hook, output_dir=tmp_path)
+        partial(_test_function_terms_need_no_per_step_hook, output_dir=tmp_path)
+    )
+
+
+def _test_class_term_without_post_step_fails_when_built(simulation_app, output_dir):
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm, EpisodeRecorderTermCfg
+
+    class MisspelledStepCount(EpisodeRecorderTerm):
+        """Misspells post_step, so the manager would never step it."""
+
+        def post_stpe(self, env):
+            pass
+
+        def __call__(self, env, env_id):
+            return {"steps": 0}
+
+    with pytest.raises(TypeError, match="abstract method 'post_step'"):
+        _make_manager({"step_count": EpisodeRecorderTermCfg(func=MisspelledStepCount)}, output_dir / "r.jsonl")
+    return True
+
+
+def test_class_term_without_post_step_fails_when_built(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        partial(_test_class_term_without_post_step_fails_when_built, output_dir=tmp_path)
     )
 
 
