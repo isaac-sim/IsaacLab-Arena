@@ -38,7 +38,7 @@ Scandinavian kitchen, carry it across the kitchen, open the fridge, and place it
 shelf above the produce drawer. The starting counter and the destination are approximately
 4.3 metres apart in the recorded layout.
 
-The task requires these milestones in order:
+The task requires these subtasks in order:
 
 1. Lift the pepper at least 15 cm above its initial resting height.
 2. Open the fridge to at least 80% of its joint range.
@@ -64,7 +64,7 @@ In Docker, use ``isaaclab.sh -p`` in place of ``python``.
      --output outputs/object_control/pepper_in_fridge \
      --placement_seed 0 --visualizer kit
 
-The recorded run completed all three milestones. All five stored starting layouts passed
+The recorded run completed all three subtasks. All five stored starting layouts passed
 placement validation and physically settled. The Object Control output includes
 ``validation.json`` and an annotated ``demo.mp4``. Use ``--no_record --visualizer none``
 instead of ``--visualizer kit`` to validate without recording.

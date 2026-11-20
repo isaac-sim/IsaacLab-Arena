@@ -79,7 +79,7 @@ task:
       placement_consecutive_steps: 10
 env_cfg_override:
   task_progress:
-    # Pickup is a milestone; the door must stay open and the pepper must stay on the shelf.
+    # Pickup only needs to succeed once; the door must stay open and the pepper must stay on the shelf.
     desired_subtask_success_state: [null, true, true]
   viewer:
     eye: [0.1, -2.1, 3.2]
