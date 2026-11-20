@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import shlex
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from isaaclab_arena.policy.policy_base import PolicyCfg
@@ -17,16 +16,9 @@ from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
 from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.policy_server_task import PolicyServerTask
 from osmo.workflows.server_task_registry import register_server_task
-from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 OPENPI_APP_DIR = "/app"
-BATCHED_SERVER_SCRIPT_PATH = (
-    Path(__file__).resolve().parents[2] / "isaaclab_arena_openpi" / "server" / "serve_batched_policy.py"
-)
-"""Arena's batched openpi server script, embedded into the task because the server image holds upstream openpi only."""
-REMOTE_BATCHED_SERVER_SCRIPT_PATH = "/tmp/serve_batched_policy.py"
-"""Where OSMO creates the batched server script inside the server container."""
 XLA_PYTHON_CLIENT_MEM_FRACTION = "0.5"
 PI0_POLICY_VARIANTS = frozenset({"pi0", "pi05"})
 PI0_VARIANT_BY_POLICY_CONFIG = {
@@ -151,19 +143,12 @@ class Pi0ServerTask(PolicyServerTask):
     def _get_outputs(self) -> list[dict[str, Any]]:
         return []
 
-    def _get_files_to_create(self) -> list[dict[str, Any]]:
-        """Also create Arena's batched server script, which the upstream openpi server image does not contain."""
-        files = super()._get_files_to_create()
-        if self.task_cfg.serve_batched_requests:
-            script_source = BATCHED_SERVER_SCRIPT_PATH.read_text(encoding="utf-8")
-            files.append({"path": REMOTE_BATCHED_SERVER_SCRIPT_PATH, "contents": block_literal_str(script_source)})
-        return files
-
     def _get_run_script(self) -> str:
         if not self.task_cfg.serve_batched_requests:
             serve_script_arguments = ["scripts/serve_policy.py"]
         else:
-            serve_script_arguments = ["python", REMOTE_BATCHED_SERVER_SCRIPT_PATH]
+            # Arena's batched server, which build_server_image.sh bakes into the image next to upstream's scripts.
+            serve_script_arguments = ["python", "arena_server/serve_batched_policy.py"]
             if self.task_cfg.max_batch_size is not None:
                 serve_script_arguments.append(f"--max-batch-size={self.task_cfg.max_batch_size}")
             if self.task_cfg.batch_sizes is not None:

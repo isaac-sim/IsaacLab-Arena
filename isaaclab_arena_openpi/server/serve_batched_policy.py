@@ -5,9 +5,9 @@
 
 """Serve an openpi policy over websocket with batched inference.
 
-Runs inside the openpi server image (see ``isaaclab_arena_openpi/docker/run_openpi_server.sh``), next to
-openpi's own ``scripts/serve_policy.py`` whose arguments it accepts unchanged plus ``--max-batch-size`` and
-``--batch-sizes``.
+Ships inside the openpi server image at ``/app/arena_server`` (``build_server_image.sh`` copies it in;
+``run_openpi_server.sh`` mounts the working copy over it), next to openpi's own ``scripts/serve_policy.py``
+whose arguments it accepts unchanged plus ``--max-batch-size`` and ``--batch-sizes``.
 
 The wire format stays openpi's: a request that is one observation dict gets one response dict. A request of
 the form ``{"batch": [obs_0, obs_1, ...]}`` runs the model once for all observations and returns

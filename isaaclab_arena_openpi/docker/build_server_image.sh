@@ -49,6 +49,10 @@ echo "Cloning openpi at ${PINNED_COMMIT} ..."
 GIT_LFS_SKIP_SMUDGE=1 git clone --quiet --filter=blob:none "$OPENPI_REPO" "$OPENPI_DIR"
 (cd "$OPENPI_DIR" && git checkout "$PINNED_COMMIT")
 
+# Arena's batched server script ships inside the image next to upstream's scripts.
+mkdir -p "$OPENPI_DIR/arena_server"
+cp "${SCRIPT_DIR}/../server/serve_batched_policy.py" "$OPENPI_DIR/arena_server/"
+
 # Upstream's Dockerfile installs deps but expects source to be volume-mounted.
 # Append a COPY step so the image is self-contained.
 cat "$OPENPI_DIR/scripts/docker/serve_policy.Dockerfile" > "$TMPDIR/Dockerfile"

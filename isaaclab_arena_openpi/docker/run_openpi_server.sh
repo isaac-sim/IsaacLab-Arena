@@ -105,7 +105,7 @@ if [ "$UPSTREAM_SERVER" = true ]; then
     SERVE_COMMAND=(uv run scripts/serve_policy.py)
     echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT}, upstream server)"
 else
-    SERVE_COMMAND=(uv run python /arena_server/serve_batched_policy.py)
+    SERVE_COMMAND=(uv run python arena_server/serve_batched_policy.py)
     if [ -n "$MAX_BATCH_SIZE" ]; then
         SERVE_COMMAND+=(--max-batch-size="${MAX_BATCH_SIZE}")
     fi
@@ -124,7 +124,7 @@ docker run --rm -it --gpus all --network=host \
     -e OPENPI_DATA_HOME=/cache/openpi \
     -e XLA_PYTHON_CLIENT_MEM_FRACTION=0.5 \
     -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
-    -v "${SERVER_DIR}:/arena_server:ro" \
+    -v "${SERVER_DIR}:/app/arena_server:ro" \
     "${IMAGE_NAME}:${IMAGE_TAG}" \
     "${SERVE_COMMAND[@]}" --port="${PORT}" policy:checkpoint \
         --policy.config="${POLICY_CONFIG}" \
