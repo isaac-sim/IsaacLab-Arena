@@ -35,25 +35,22 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
 
 
 class EpisodeRecorderTerm(ManagerTermBase):
-    """Base class for an episode recorder term that follows the episode step by step.
+    """Base class for an episode recorder term that tracks a value during the episode, such as an object's peak speed.
 
-    A function term only runs when the episode ends. Derive from this class to record a value that builds up
-    during the episode, such as an object's peak speed: the manager calls ``post_step()`` after every control
-    step, ``reset()`` when an env starts a new episode, and ``__call__`` when the episode ends.
+    A function term only runs when the episode ends. In a subclass, ``post_step()`` also runs after every
+    control step and ``reset(env_ids)`` runs when an env starts a new episode.
     """
 
     def post_step(self, env) -> None:
-        """Update the values the subclass stores for each env after a control step. Does nothing by default.
+        """Update the tracked values after every control step. Does nothing by default.
 
-        Update tensors in place instead of assigning new ones: the env may step inside ``torch.inference_mode()``,
-        and a tensor created there cannot be changed in place by ``reset()`` outside it.
+        Change stored tensors in place instead of replacing them, or ``reset()`` may fail.
         """
 
     def __call__(self, env, env_id: int) -> dict[str, Any] | None:
-        """Return the output for env_id's finished episode, or None to leave it out of the record.
+        """Return a dict of JSON values for env_id's finished episode, or None to leave this term out of the record.
 
-        Each ``cfg.params`` entry is passed as a keyword argument, so declare it as a named parameter.
-        Isaac Lab's parameter check rejects ``**kwargs``.
+        Declare a parameter for each ``cfg.params`` entry.
         """
         raise NotImplementedError
 
