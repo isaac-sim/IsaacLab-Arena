@@ -13,9 +13,9 @@ class _TestConstants:
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
         # The root directory of the repo
-        self.repo_root = os.path.realpath(os.path.join(script_dir, *([".."] * 3)))
+        self.repo_root = os.path.realpath(os.path.join(script_dir, *([".."] * 4)))
 
-        self.test_dir = f"{self.repo_root}/isaaclab_arena_gr00t/tests"
+        self.test_dir = f"{self.repo_root}/isaaclab_arena_policies/isaaclab_arena_gr00t/tests"
 
         self.test_data_dir = f"{self.test_dir}/test_data"
 

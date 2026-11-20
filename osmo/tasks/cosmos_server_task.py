@@ -23,7 +23,7 @@ class CosmosServerTaskCfg(TaskCfg):
     """Config for the Cosmos inference-server task."""
 
     image: str = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cosmos_server"
-    """Cosmos server image (built by isaaclab_arena_cosmos/docker/build_server_image.sh)."""
+    """Cosmos server image (built by isaaclab_arena_policies/isaaclab_arena_cosmos/docker/build_server_image.sh)."""
 
     checkpoint: str = "/workspace/baked_checkpoint"
     """Checkpoint the server serves. Baked into the image at build time (see build_server_image.sh)."""

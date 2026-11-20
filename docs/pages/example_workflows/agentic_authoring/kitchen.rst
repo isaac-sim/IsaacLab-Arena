@@ -308,7 +308,7 @@ the agent through the evaluation. Expect it to:
    environment and uses ``Pi0RemotePolicy`` with the ``pi05`` variant and the
    DROID adapter.
 2. **Start pi0.5:** reuse a running OpenPI server for that variant and port, or
-   start one with ``./isaaclab_arena_openpi/docker/run_openpi_server.sh``. The
+   start one with ``./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh``. The
    first start builds the ``isaaclab_arena:openpi_server`` image (~3 min,
    ~19 GB) and downloads the ~11 GB checkpoint, so the agent should ask before
    starting it.

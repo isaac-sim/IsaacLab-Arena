@@ -89,7 +89,7 @@ To support a new robot, write an embodiment preset with ``make_chunk_action_adap
 ``make_goal_action_adapter``, and ``get_system_prompt``. The included absolute action adapters
 work unchanged when every action term is absolute pose IK, joint position, or a binary gripper
 (see
-`command_indices.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_vlm_agent/command_indices.py>`__).
+`command_indices.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_policies/isaaclab_arena_vlm_agent/command_indices.py>`__).
 Add the preset name to the ``vlm_embodiment_adapter`` check in ``VLMPolicyCfg`` and to
 ``_get_vlm_embodiment_adapter``, and then select it in YAML:
 

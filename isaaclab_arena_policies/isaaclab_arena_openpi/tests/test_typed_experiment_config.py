@@ -12,7 +12,7 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 
 OPENPI_EXPERIMENT_PATH = (
-    Path(__file__).parents[2]
+    Path(__file__).parents[3]
     / "isaaclab_arena_environments"
     / "experiment_configs"
     / "droid_pnp_srl_openpi_experiment.yaml"

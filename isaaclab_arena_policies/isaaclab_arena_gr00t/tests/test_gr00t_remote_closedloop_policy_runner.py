@@ -31,7 +31,7 @@ TIMEOUT_ENV = "GR00T_REMOTE_E2E_TIMEOUT"
 DEFAULT_TIMEOUT_SEC = 900
 
 POLICY_TYPE = "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy"
-POLICY_CONFIG = "isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml"
+POLICY_CONFIG = "isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml"
 ENVIRONMENT = "galileo_g1_locomanip_pick_and_place"
 OBJECT_NAME = "brown_box"
 EMBODIMENT = "g1_wbc_joint"
