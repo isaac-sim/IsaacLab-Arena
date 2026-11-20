@@ -17,9 +17,7 @@ background:
     collision_mode: mesh
 objects:
 - id: apple
-  registry_name: simready_usd_object
-  params:
-    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/food_produce_apple_m01/simready_usd/sm_food_produce_apple_m01_01.usd
+  registry_name: apple_01_objaverse_robolab
 - id: left_bowl
   registry_name: simready_usd_object
   params:
