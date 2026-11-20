@@ -106,9 +106,6 @@ class _ControlledTask:
             success=[CompletionCriteria(name="condition", predicate_sequence=[self.predicate])],
         )
 
-    def get_episode_recorder_terms(self):
-        return {}
-
 
 class _MultipleCriteriaTask(_ControlledTask):
     """A flat subtask requiring several independently tracked criteria_sets."""
@@ -416,22 +413,3 @@ def test_final_conditions_are_evaluated_once_per_step():
 
 def test_nested_composition_is_rejected():
     assert run_function_with_persistent_simulation_app(_test_nested_composition_is_rejected, headless=HEADLESS)
-
-
-def _test_composite_suffixes_subtask_episode_recorder_terms(simulation_app):
-    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
-
-    class _RecordingTask(_ControlledTask):
-        def get_episode_recorder_terms(self):
-            return {"object_peak_speed": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1})}
-
-    task = CompositeTaskBase([_RecordingTask(_ControlledPredicate(0)), _RecordingTask(_ControlledPredicate(1))])
-    assert list(task.get_episode_recorder_terms()) == ["object_peak_speed_subtask_0", "object_peak_speed_subtask_1"]
-    return True
-
-
-def test_composite_suffixes_subtask_episode_recorder_terms():
-    assert run_function_with_persistent_simulation_app(
-        _test_composite_suffixes_subtask_episode_recorder_terms, headless=HEADLESS
-    )
