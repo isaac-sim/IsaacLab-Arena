@@ -295,6 +295,7 @@ class TestGetTimerStatsJson:
             "p10_ms",
             "p50_ms",
             "p90_ms",
+            "samples_ms",
         }
 
 
@@ -373,6 +374,17 @@ class TestMergeTimerStatsJson:
         assert merged[0]["p50_ms"] == 1.0
         assert merged[0]["p90_ms"] == 1.0
 
+    def test_samples_can_be_removed_from_the_input_records(self) -> None:
+        """Verify the flag deletes "samples_ms" from the input records and leaves them alone by default."""
+        record = {**self._record("step", count=1, total_ms=1.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0]}
+
+        merge_timer_stats_json([record])
+        assert record["samples_ms"] == [1.0]
+
+        merged = merge_timer_stats_json([record], remove_samples_from_input_records=True)
+        assert "samples_ms" not in record
+        assert merged[0]["p50_ms"] == 1.0
+
     def test_percentiles_are_left_out_when_one_record_has_no_samples(self) -> None:
         """Verify a record without samples makes the pooled percentiles unavailable for its name."""
         with_samples = {**self._record("step", count=1, total_ms=1.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0]}
@@ -410,7 +422,7 @@ class TestWriteTimerStatsJson:
 
         output_path = write_timer_stats_json(tmp_path / "timings.json", app_name="test_app")
         written_records = json.loads(output_path.read_text(encoding="utf-8"))
-        assert written_records == get_timer_stats_json(app_name="test_app", include_samples=True)
+        assert written_records == get_timer_stats_json(app_name="test_app")
         assert written_records[0]["name"] == "op_a"
         assert len(written_records[0]["samples_ms"]) == 1
 

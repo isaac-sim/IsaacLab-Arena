@@ -31,7 +31,7 @@ import random
 import re
 import threading
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, MutableMapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -195,33 +195,36 @@ def get_timer_stats() -> dict[str, TimerStats]:
         }
 
 
-SAMPLES_MS_KEY = "samples_ms"
-"""Key of the reservoir sample in a timer record that carries one."""
-
 SAMPLE_DECIMALS = 3
 """Decimals kept when a sample is written, i.e. microsecond resolution for a value in milliseconds."""
 
-PERCENTILES_MS = {"p10_ms": 10, "p50_ms": 50, "p90_ms": 90}
-"""Percentile fields of a timer record, mapped to their percentile."""
+P10_MS_KEY = "p10_ms"
+"""Key of the approximate 10th percentile in a timer record."""
+
+P50_MS_KEY = "p50_ms"
+"""Key of the approximate median in a timer record."""
+
+P90_MS_KEY = "p90_ms"
+"""Key of the approximate 90th percentile in a timer record."""
+
+PERCENTILE_BY_KEY = {P10_MS_KEY: 10, P50_MS_KEY: 50, P90_MS_KEY: 90}
+"""Percentile keys of a timer record, mapped to their percentile."""
 
 
-def get_timer_stats_json(app_name: str, include_samples: bool = False) -> list[dict]:
+def get_timer_stats_json(app_name: str) -> list[dict]:
     """Return the timer statistics as a list of JSON-serializable dictionaries.
 
     Args:
         app_name: Identifier for the application that produced these results (for example
             "experiment_runner"). Included in every returned dictionary so that results from
             different apps can be distinguished when stored together.
-        include_samples: Whether to add each timer's reservoir sample of measurements, rounded to
-            microseconds, as "samples_ms". merge_timer_stats_json needs it to estimate percentiles
-            over several records.
 
     Returns:
-        One dictionary per recorded timer name.
+        One dictionary per recorded timer name. Each holds the timer's reservoir sample of measurements,
+        rounded to microseconds, as "samples_ms", which merge_timer_stats_json uses to estimate percentiles.
     """
-    records = []
-    for name, timer_stats in get_timer_stats().items():
-        record = {
+    return [
+        {
             "type": "timing",
             "name": name,
             "app_name": app_name,
@@ -230,14 +233,13 @@ def get_timer_stats_json(app_name: str, include_samples: bool = False) -> list[d
             "total_ms": timer_stats.total_ms,
             "min_ms": timer_stats.min_ms,
             "max_ms": timer_stats.max_ms,
-            "p10_ms": timer_stats.percentile(10),
-            "p50_ms": timer_stats.percentile(50),
-            "p90_ms": timer_stats.percentile(90),
+            P10_MS_KEY: timer_stats.percentile(10),
+            P50_MS_KEY: timer_stats.percentile(50),
+            P90_MS_KEY: timer_stats.percentile(90),
+            "samples_ms": [round(sample, SAMPLE_DECIMALS) for sample in timer_stats.samples_ms],
         }
-        if include_samples:
-            record[SAMPLES_MS_KEY] = [round(sample, SAMPLE_DECIMALS) for sample in timer_stats.samples_ms]
-        records.append(record)
-    return records
+        for name, timer_stats in get_timer_stats().items()
+    ]
 
 
 def _weighted_percentile(weighted_samples: list[tuple[float, float]], p: float) -> float:
@@ -252,7 +254,9 @@ def _weighted_percentile(weighted_samples: list[tuple[float, float]], p: float) 
     return ordered[-1][0]
 
 
-def merge_timer_stats_json(records: Iterable[Mapping[str, Any]]) -> list[dict]:
+def merge_timer_stats_json(
+    records: Iterable[MutableMapping[str, Any]], remove_samples_from_input_records: bool = False
+) -> list[dict]:
     """Combine timer records that share a name into one total per name, sorted by name.
 
     Use this to summarize records produced by several processes, such as one Experiment Runner per Run.
@@ -262,6 +266,8 @@ def merge_timer_stats_json(records: Iterable[Mapping[str, Any]]) -> list[dict]:
 
     Args:
         records: Timer records as produced by get_timer_stats_json.
+        remove_samples_from_input_records: Whether to delete "samples_ms" from each input record once it is
+            read, for callers that keep the records and do not want the samples in them.
 
     Returns:
         One record per distinct timer name, holding the combined count, total, mean, min, and max, plus the
@@ -271,8 +277,12 @@ def merge_timer_stats_json(records: Iterable[Mapping[str, Any]]) -> list[dict]:
     weighted_samples_by_name: dict[str, list[tuple[float, float]] | None] = {}
     for record in records:
         name = record["name"]
-        samples = record.get(SAMPLES_MS_KEY)
+        if remove_samples_from_input_records:
+            samples = record.pop("samples_ms", None)
+        else:
+            samples = record.get("samples_ms")
         merged = merged_by_name.get(name)
+        # Add the record's count, total, min and max to the running totals of its timer name.
         if merged is None:
             merged_by_name[name] = {
                 "name": name,
@@ -288,6 +298,8 @@ def merge_timer_stats_json(records: Iterable[Mapping[str, Any]]) -> list[dict]:
             merged["min_ms"] = min(merged["min_ms"], record["min_ms"])
             merged["max_ms"] = max(merged["max_ms"], record["max_ms"])
 
+        # Collect the record's samples, each weighted by the measurements it stands for. A record without
+        # samples makes the percentiles of its timer name unavailable.
         if samples is None:
             weighted_samples_by_name[name] = None
         elif weighted_samples_by_name[name] is not None and samples:
@@ -299,7 +311,7 @@ def merge_timer_stats_json(records: Iterable[Mapping[str, Any]]) -> list[dict]:
         result = {**merged, "mean_ms": merged["total_ms"] / merged["count"] if merged["count"] else 0.0}
         weighted_samples = weighted_samples_by_name[name]
         if weighted_samples:
-            for key, percentile in PERCENTILES_MS.items():
+            for key, percentile in PERCENTILE_BY_KEY.items():
                 result[key] = _weighted_percentile(weighted_samples, percentile)
         results.append(result)
     return results
@@ -318,7 +330,7 @@ def write_timer_stats_json(output_path: str | Path, app_name: str) -> Path:
         The path that was written.
     """
     output_path = Path(output_path)
-    text = json.dumps(get_timer_stats_json(app_name, include_samples=True), allow_nan=False, indent=2)
+    text = json.dumps(get_timer_stats_json(app_name), allow_nan=False, indent=2)
     output_path.write_text(_put_samples_on_one_line(text) + "\n", encoding="utf-8")
     return output_path
 
@@ -326,7 +338,7 @@ def write_timer_stats_json(output_path: str | Path, app_name: str) -> Path:
 def _put_samples_on_one_line(indented_json: str) -> str:
     """Collapse each indented "samples_ms" list in JSON text onto a single line."""
     return re.sub(
-        rf'("{SAMPLES_MS_KEY}": )\[([^\]]*)\]',
+        r'("samples_ms": )\[([^\]]*)\]',
         lambda match: f"{match.group(1)}[{', '.join(part.strip() for part in match.group(2).split(','))}]",
         indented_json,
     )

@@ -48,13 +48,13 @@ class TimingRecord(InfluxdbKpiRecord):
     """Longest duration in milliseconds."""
 
     p10_ms: float | None = None
-    """Approximate 10th percentile duration in milliseconds; left out when the timings carry no percentiles."""
+    """Approximate 10th percentile duration in milliseconds."""
 
     p50_ms: float | None = None
-    """Approximate median duration in milliseconds; left out when the timings carry no percentiles."""
+    """Approximate median duration in milliseconds."""
 
     p90_ms: float | None = None
-    """Approximate 90th percentile duration in milliseconds; left out when the timings carry no percentiles."""
+    """Approximate 90th percentile duration in milliseconds."""
 
     count: int
     """Number of timed intervals."""

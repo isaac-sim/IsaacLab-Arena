@@ -15,7 +15,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
-from isaaclab_arena.utils.timer import SAMPLES_MS_KEY, merge_timer_stats_json, write_timer_stats_json
+from isaaclab_arena.utils.timer import merge_timer_stats_json, write_timer_stats_json
 
 EXPERIMENT_RUNNER_APP_NAME = "experiment_runner"
 """Identifier recorded in every timing entry the Experiment Runner writes."""
@@ -53,9 +53,7 @@ def aggregate_experiment_timings(experiment_output_directory: Path, run_names: I
         )
 
     # The samples only feed the totals' percentiles; each Run's own record keeps its percentiles.
-    totals = merge_timer_stats_json(run_records)
-    for record in run_records:
-        record.pop(SAMPLES_MS_KEY, None)
+    totals = merge_timer_stats_json(run_records, remove_samples_from_input_records=True)
 
     experiment_timings_path = experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME
     experiment_timings_path.write_text(
