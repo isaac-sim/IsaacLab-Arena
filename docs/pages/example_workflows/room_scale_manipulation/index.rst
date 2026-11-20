@@ -20,7 +20,8 @@ shelf above the produce drawer. The starting counter and the destination are app
    :muted:
    :playsinline:
 
-The environment spawns no robot or robot stand. It provides a layout for future humanoid
+The YAML omits ``embodiment``, so the environment spawns no robot or robot stand.
+It provides a layout for future humanoid
 locomotion and manipulation work; humanoid walking, grasping, and policy execution have not
 been validated. Object Control drives the pepper and fridge door with bounded forces.
 

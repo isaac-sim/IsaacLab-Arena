@@ -5,9 +5,6 @@
 
 # No robot is spawned. The source counter is over four metres from the fridge.
 env_name: kitchen_bench_lightwheel_put_pepper_in_fridge_l_shaped_scandinavian
-embodiment:
-  id: no_robot
-  registry_name: no_embodiment
 background:
   id: kitchen
   registry_name: lightwheel_kitchen_l_shaped_scandinavian

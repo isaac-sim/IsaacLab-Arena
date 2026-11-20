@@ -14,10 +14,10 @@ _MERMAID_ID_SAFE = re.compile(r"[^A-Za-z0-9_]")
 
 def _mermaid_nodes(spec: ArenaEnvGraphSpec) -> list[tuple[str, str]]:
     """Return ``(node_id, role)`` pairs for every asset entry in the spec."""
-    nodes = [
-        (spec.embodiment.id, "embodiment"),
-        (spec.background.id, "background"),
-    ]
+    nodes = []
+    if spec.embodiment is not None:
+        nodes.append((spec.embodiment.id, "embodiment"))
+    nodes.append((spec.background.id, "background"))
     nodes.extend((obj.id, "object") for obj in spec.objects)
     nodes.extend((object_set.id, "object_set") for object_set in (spec.object_sets or []))
     nodes.extend((ref.id, "object_reference") for ref in (spec.object_references or []))

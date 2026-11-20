@@ -33,7 +33,9 @@ class ArenaEnvGraphSpec(BaseModel):
     """Environment graph spec — the single source of truth for scene layout and tasks."""
 
     env_name: str = Field(min_length=1, description="Short snake_case label summarizing the scene and tasks.")
-    embodiment: AssetSpec = Field(description="The robot that performs the tasks.")
+    embodiment: AssetSpec | None = Field(
+        default=None, description="The robot that performs the tasks; omit for no robot."
+    )
     background: AssetSpec = Field(description="The static scene the robot and objects sit in.")
     objects: list[AssetSpec] = Field(default_factory=list, description="Movable scene objects, including distractors.")
     object_sets: list[ObjectSetSpec] | None = Field(
@@ -113,13 +115,15 @@ class ArenaEnvGraphSpec(BaseModel):
         """Ensure every asset and object-reference id in this spec is unique, returning the id set."""
         seen: set[str] = set()
         duplicates: set[str] = set()
-        for asset_id in (
-            self.embodiment.id,
+        asset_ids = [
             self.background.id,
             *(obj.id for obj in self.objects),
             *(object_set.id for object_set in (self.object_sets or [])),
             *(ref.id for ref in (self.object_references or [])),
-        ):
+        ]
+        if self.embodiment is not None:
+            asset_ids.append(self.embodiment.id)
+        for asset_id in asset_ids:
             if asset_id in seen:
                 duplicates.add(asset_id)
             seen.add(asset_id)
@@ -176,10 +180,11 @@ class ArenaEnvGraphSpec(BaseModel):
         """Check each CLI override uses a unique flag and points to a swappable asset."""
         cli_override_specs = self.cli_override_specs or []
         swappable_ids = {
-            self.embodiment.id,
             self.background.id,
             *(obj.id for obj in self.objects),
         }
+        if self.embodiment is not None:
+            swappable_ids.add(self.embodiment.id)
         seen_args: set[str] = set()
         for override in cli_override_specs:
             assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
@@ -189,7 +194,7 @@ class ArenaEnvGraphSpec(BaseModel):
             ), f"CLI override '--{override.arg}' targets unknown or non-swappable asset '{override.target_node_id}'"
 
     def _asset_by_id(self, asset_id: str) -> AssetSpec:
-        if self.embodiment.id == asset_id:
+        if self.embodiment is not None and self.embodiment.id == asset_id:
             return self.embodiment
         if self.background.id == asset_id:
             return self.background
