@@ -127,19 +127,34 @@ def test_term_named_like_a_core_field_fails_when_recorded(tmp_path):
     )
 
 
-def _test_nan_output_is_rejected(simulation_app, output_dir):
+def _test_nan_output_is_written_as_null(simulation_app, output_dir):
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
+    output_path = output_dir / "records.jsonl"
     manager = _make_manager(
-        {"speed": EpisodeRecorderTermCfg(func=lambda env, env_id: {"peak": float("nan")})}, output_dir / "r.jsonl"
+        {
+            "speed": EpisodeRecorderTermCfg(func=lambda env, env_id: {"peak": float("nan"), "count": 2}),
+            "height": EpisodeRecorderTermCfg(func=lambda env, env_id: float("inf")),
+        },
+        output_path,
     )
-    with pytest.raises(ValueError, match="'speed'"):
+    with pytest.warns(UserWarning, match="returned NaN or infinity for env 0") as caught_warnings:
         manager.record_pre_reset([0])
+    warning_messages = [str(caught_warning.message) for caught_warning in caught_warnings]
+    assert any("'speed'" in message for message in warning_messages)
+    assert any("'height'" in message for message in warning_messages)
+
+    # The episode is still recorded, and only the non-finite values become null.
+    record = _read_records(output_path)[0]
+    assert record["speed"] == {"peak": None, "count": 2}
+    assert record["height"] is None
     return True
 
 
-def test_nan_output_is_rejected(tmp_path):
-    assert run_function_with_persistent_simulation_app(partial(_test_nan_output_is_rejected, output_dir=tmp_path))
+def test_nan_output_is_written_as_null(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        partial(_test_nan_output_is_written_as_null, output_dir=tmp_path)
+    )
 
 
 def _test_non_json_output_is_rejected(simulation_app, output_dir):
