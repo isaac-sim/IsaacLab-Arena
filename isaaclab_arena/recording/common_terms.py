@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import datetime
 import torch
 from collections.abc import Callable
 from typing import Any
@@ -15,31 +14,11 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
 
-def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
-    """Record the core per-episode fields for ``env_id``."""
-    success = None
-    if "success" in env.termination_manager.active_terms:
-        success = bool(env.termination_manager.get_term("success")[env_id].item())
-    payload = {
-        "env_id": env_id,
-        "episode_in_env": env.get_episode_index(env_id),
-        "seed": env.cfg.seed,
-        "success": success,
-        "episode_length": int(env.episode_length_buf[env_id].item()),
-        "language_instruction": env.get_language_instruction(),
-        "timestamp": datetime.datetime.now().isoformat(),
-    }
-    scheduler = env.variation_replay_scheduler
-    if scheduler is not None:
-        payload["replay_source_record_index"] = scheduler.source_record_index_for_env(env_id)
-    return payload
-
-
-def record_variation_samples(env, env_id: int) -> dict[str, Any]:
-    """Record the variation value drawn for ``env_id``'s finished episode under ``variations``."""
+def record_variation_samples(env, env_id: int) -> dict[str, Any] | None:
+    """Return the variation values drawn for env_id's finished episode, or None if there are none."""
     recorder = env.variation_recorder
     if recorder is None or not recorder.records:
-        return {}
+        return None
     episode_idx = env.get_episode_index(env_id)
     samples: dict[str, Any] = {}
     for key, record in recorder.records.items():
@@ -47,34 +26,26 @@ def record_variation_samples(env, env_id: int) -> dict[str, Any]:
         if value is None:
             continue
         samples[key] = value.tolist() if isinstance(value, torch.Tensor) else value
-    return {"variations": samples} if samples else {}
+    return samples or None
 
 
-def record_placement_sample(env, env_id: int) -> dict[str, Any]:
-    """Record the relation placement drawn for ``env_id``'s finished episode."""
+def record_placement_sample(env, env_id: int) -> dict[str, Any] | None:
+    """Return the relation placement drawn for env_id's finished episode, or None if there is none."""
     recorder = env.variation_recorder
     if recorder is None or recorder.placement_record is None:
-        return {}
-    value = recorder.placement_record.sample_for_episode(env_id, env.get_episode_index(env_id))
-    return {"placement": value} if value is not None else {}
-
-
-@configclass
-class CoreEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
-    """Term recording the core per-episode metadata (env id, indices, success, seed, timing)."""
-
-    func: Callable[..., dict[str, Any]] = record_core_episode_results
+        return None
+    return recorder.placement_record.sample_for_episode(env_id, env.get_episode_index(env_id))
 
 
 @configclass
 class VariationEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
     """Term recording each variation's per-env sampled value for the episode."""
 
-    func: Callable[..., dict[str, Any]] = record_variation_samples
+    func: Callable[..., dict[str, Any] | None] = record_variation_samples
 
 
 @configclass
 class PlacementEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
     """Term recording the relation placement sampled for the episode."""
 
-    func: Callable[..., dict[str, Any]] = record_placement_sample
+    func: Callable[..., dict[str, Any] | None] = record_placement_sample

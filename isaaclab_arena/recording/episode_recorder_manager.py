@@ -5,15 +5,20 @@
 
 from __future__ import annotations
 
+import datetime
+import inspect
 import json
+import math
 import torch
+import warnings
+from abc import abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import MISSING
 from pathlib import Path
 from prettytable import PrettyTable
 from typing import Any
 
-from isaaclab.managers import ManagerBase, ManagerTermBaseCfg
+from isaaclab.managers import ManagerBase, ManagerTermBase, ManagerTermBaseCfg
 from isaaclab.utils.configclass import configclass
 
 
@@ -21,13 +26,37 @@ from isaaclab.utils.configclass import configclass
 class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     """Configuration for an episode recorder term."""
 
-    func: Callable[..., dict[str, Any]] = MISSING
-    """The callable that records this term's fields for one finishing episode.
+    func: Callable[..., Any] = MISSING
+    """The callable that returns this term's output for one finished episode.
 
-    Invoked as ``func(env, env_id, **params)`` for the env whose episode just finished, and must
-    return a flat, JSON-serializable dict that is merged into the episode's record. It may be a plain
-    function or a callable class inheriting from ManagerTermBase (built once by the manager).
+    Invoked as ``func(env, env_id, **params)`` when an episode ends. Returns a JSON value, such as a number
+    or a dict. It is stored in the episode's record under the term's name; ``None`` leaves the term out of
+    that record. A NaN or infinite float is written as null, with a warning. It may also be an
+    ``EpisodeRecorderTerm`` subclass, which the manager creates once; its ``post_step()`` runs after every
+    control step and its ``reset()`` when an episode starts.
     """
+
+
+class EpisodeRecorderTerm(ManagerTermBase):
+    """Base class for an episode recorder term that tracks a value during the episode, such as an object's peak speed.
+
+    A function term only runs when the episode ends. A subclass's ``post_step()`` also runs after every
+    control step, and ``reset(env_ids)`` runs when an env starts a new episode.
+    """
+
+    @abstractmethod
+    def post_step(self) -> None:
+        """Update the tracked values after every control step.
+
+        Change stored tensors in place instead of replacing them, or ``reset()`` may fail.
+        """
+
+    @abstractmethod
+    def __call__(self, env, env_id: int) -> Any:
+        """Return a JSON value for env_id's finished episode, or None to leave this term out of the record.
+
+        Declare a parameter for each ``cfg.params`` entry.
+        """
 
 
 class EpisodeRecorderManager(ManagerBase):
@@ -42,6 +71,7 @@ class EpisodeRecorderManager(ManagerBase):
         """
         self._term_names: list[str] = []
         self._term_cfgs: list[EpisodeRecorderTermCfg] = []
+        self._class_term_cfgs: list[EpisodeRecorderTermCfg] = []
         self._job_name: str = "default"
         self._output_path: Path | None = None
         super().__init__(cfg, env)
@@ -77,37 +107,83 @@ class EpisodeRecorderManager(ManagerBase):
         path.write_text("", encoding="utf-8")
         self._output_path = path
 
-    def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
-        """Record one record per finished episode.
+    @property
+    def has_post_step_terms(self) -> bool:
+        """Whether any term derives from ``EpisodeRecorderTerm`` and so needs a call after every control step."""
+        return bool(self._class_term_cfgs)
 
-        This function fires each recording terms' function and merges the results into a single record.
+    def post_step(self) -> None:
+        """Let every class-based term update its tracked values after a control step."""
+        for term_cfg in self._class_term_cfgs:
+            term_cfg.func.post_step()
+
+    def reset(self, env_ids: Sequence[int] | torch.Tensor | None = None) -> dict[str, float]:
+        """Clear the state of every class-based term for the envs that start a new episode."""
+        for term_cfg in self._class_term_cfgs:
+            term_cfg.func.reset(env_ids=env_ids)
+        return {}
+
+    def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
+        """Write one record for each finished episode in env_ids, if an output path is set.
 
         Args:
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
         """
-        for env_id in self._env_ids_to_list(env_ids):
-            # The manager stamps the job name; terms add the per-episode fields.
-            record: dict[str, Any] = {
-                "job_name": self._job_name,
-            }
-            # Fire each recording term's function.
-            for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
-                fields = term_cfg.func(self._env, env_id, **term_cfg.params)
-                collisions = record.keys() & fields.keys()
-                assert not collisions, (
-                    f"Episode recorder term '{term_name}' redefines fields {collisions} already set"
-                    " by the manager or an earlier term."
-                )
-                self._assert_json_serializable(term_name, fields)
-                record.update(fields)
-            self._append_record(record)
-
-    def _append_record(self, record: dict[str, Any]) -> None:
-        """Append one record to the output JSONL (one object per line); no-op if no path was set."""
+        # A run that writes no episode results file must not fail on a term's output check or pay for
+        # the per-env reads that building a record needs.
         if self._output_path is None:
             return
+        for env_id in self._env_ids_to_list(env_ids):
+            record = self._core_fields(env_id)
+            for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
+                # Term outputs are stored next to the core fields in the same record, so a term named like a
+                # core field (for example "success") would overwrite it.
+                assert term_name not in record, (
+                    f"Episode recorder term '{term_name}' would overwrite the core record field of the same name;"
+                    " choose another name."
+                )
+                output = term_cfg.func(self._env, env_id, **term_cfg.params)
+                if output is None:
+                    continue
+                self._assert_json_value(term_name, output)
+                try:
+                    json.dumps(output, allow_nan=False)
+                except ValueError:
+                    # An unstable simulation can produce NaN or infinity. That is data about this episode, not a
+                    # bug in the term, so record the episode instead of failing the Run.
+                    warnings.warn(
+                        f"Episode recorder term '{term_name}' returned NaN or infinity for env {env_id}, episode"
+                        f" {record['episode_in_env']}; writing it as null: {output!r}"
+                    )
+                    output = _non_finite_floats_to_none(output)
+                record[term_name] = output
+            self._append_record(record)
+
+    def _core_fields(self, env_id: int) -> dict[str, Any]:
+        """Return the core fields of env_id's finished episode."""
+        env = self._env
+        success = None
+        if "success" in env.termination_manager.active_terms:
+            success = bool(env.termination_manager.get_term("success")[env_id].item())
+        fields = {
+            "job_name": self._job_name,
+            "env_id": env_id,
+            "episode_in_env": env.get_episode_index(env_id),
+            "seed": env.cfg.seed,
+            "success": success,
+            "episode_length": int(env.episode_length_buf[env_id].item()),
+            "language_instruction": env.get_language_instruction(),
+            "timestamp": datetime.datetime.now().isoformat(),
+        }
+        scheduler = env.variation_replay_scheduler
+        if scheduler is not None:
+            fields["replay_source_record_index"] = scheduler.source_record_index_for_env(env_id)
+        return fields
+
+    def _append_record(self, record: dict[str, Any]) -> None:
+        """Append one record to the output JSONL, one object per line."""
         with open(self._output_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record) + "\n")
+            f.write(json.dumps(record, allow_nan=False) + "\n")
 
     def _env_ids_to_list(self, env_ids: Sequence[int] | torch.Tensor | None) -> list[int]:
         """Return environment IDs as a list of ints; ``None`` selects all environments."""
@@ -126,17 +202,37 @@ class EpisodeRecorderManager(ManagerBase):
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)
+            # Isaac Lab replaces a class func with its instance once the simulation plays, so func holds
+            # either the class or its instance here. Keep the cfg: post_step() and reset() then reach the
+            # instance even when Isaac Lab creates it later.
+            term_class = term_cfg.func if inspect.isclass(term_cfg.func) else type(term_cfg.func)
+            if issubclass(term_class, ManagerTermBase):
+                assert issubclass(
+                    term_class, EpisodeRecorderTerm
+                ), f"Episode recorder term '{term_name}' is a class; it must derive from EpisodeRecorderTerm."
+                self._class_term_cfgs.append(term_cfg)
 
     @staticmethod
-    def _assert_json_serializable(term_name: str, fields: dict[str, Any]) -> None:
-        """Check ``term_name``'s recorded ``fields`` are JSON-serializable, failing fast if not.
+    def _assert_json_value(term_name: str, output: Any) -> None:
+        """Check that ``term_name`` returned a JSON value, naming the term if not.
 
-        This points at the offending term rather than surfacing a cryptic error later at write() time when
-        the whole record is serialized.
+        This points at the offending term rather than surfacing a cryptic error later, when the record
+        or the experiment result is written.
         """
         try:
-            json.dumps(fields)
+            json.dumps(output)
         except TypeError as e:
             raise TypeError(
-                f"Episode recorder term '{term_name}' returned non-JSON-serializable fields ({fields!r}): {e}"
+                f"Episode recorder term '{term_name}' returned non-JSON-serializable output ({output!r}): {e}"
             ) from e
+
+
+def _non_finite_floats_to_none(value: Any) -> Any:
+    """Return value with each NaN or infinite float replaced by None, which JSON writes as null."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _non_finite_floats_to_none(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_non_finite_floats_to_none(item) for item in value]
+    return value

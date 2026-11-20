@@ -5,8 +5,9 @@
 
 """Advanced example: externally-defined environment with a custom task and embodiment.
 
-Builds on the basic example by defining a custom task and a custom embodiment
-variant (with modified controller gains) in the same file::
+Builds on the basic example by defining a custom task, a custom embodiment
+variant (with modified controller gains), and two custom episode recorder terms
+in the same file::
 
     python isaaclab_arena/evaluation/policy_runner.py \\
         --policy_type zero_action --num_steps 100 \\
@@ -16,6 +17,7 @@ variant (with modified controller gains) in the same file::
 """
 
 import argparse
+import torch
 
 from isaaclab.envs.common import ViewerCfg
 
@@ -23,6 +25,7 @@ from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm, EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
@@ -95,6 +98,40 @@ class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
 
 
 # ---------------------------------------------------------------------------
+# Custom episode recorder terms
+# ---------------------------------------------------------------------------
+
+
+def record_object_final_height(env, env_id: int, object_name: str) -> float:
+    """Records the height [m] of an object when the episode ends."""
+    return float(env.arena_world.get_pose_w(object_name)[env_id, 2])
+
+
+class ObjectPeakSpeed(EpisodeRecorderTerm):
+    """Records the highest linear speed [m/s] an object reached during the episode."""
+
+    def __init__(self, cfg: EpisodeRecorderTermCfg, env):
+        super().__init__(cfg, env)
+        self._object_name = cfg.params["object_name"]
+        self._peak_speed = torch.zeros(env.num_envs, device=env.device)
+
+    def post_step(self):
+        velocity_w = self._env.arena_world.get_mean_linear_velocity_w(self._object_name)
+        speed = torch.linalg.norm(velocity_w, dim=-1)
+        # Update in place: a tensor created inside torch.inference_mode(), where the env may be stepped,
+        # cannot be written in place by reset() outside it.
+        torch.maximum(self._peak_speed, speed, out=self._peak_speed)
+
+    def reset(self, env_ids=None):
+        self._peak_speed[slice(None) if env_ids is None else env_ids] = 0.0
+
+    def __call__(self, env, env_id: int, object_name: str) -> float:
+        # The manager passes every cfg.params entry as a keyword argument, so object_name must be
+        # accepted here even though __init__ already read it.
+        return float(self._peak_speed[env_id])
+
+
+# ---------------------------------------------------------------------------
 # External environment
 # ---------------------------------------------------------------------------
 
@@ -134,6 +171,14 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
             embodiment=embodiment,
             scene=scene,
             task=task,
+            episode_recorder_terms={
+                "object_final_height": EpisodeRecorderTermCfg(
+                    func=record_object_final_height, params={"object_name": pick_up_object.name}
+                ),
+                "object_peak_speed": EpisodeRecorderTermCfg(
+                    func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
+                ),
+            },
         )
 
     @staticmethod

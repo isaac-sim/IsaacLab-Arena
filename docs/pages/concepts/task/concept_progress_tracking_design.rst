@@ -337,7 +337,7 @@ There are no additional reports for parent criteria sets. See
 Reading subtask progress tracking at runtime
 --------------------------------------------
 
-``ProgressTrackingRecorder`` puts progress results in the environment's ``extras`` dictionary.
+After every control step, the environment puts progress results in its ``extras`` dictionary.
 Read each environment's state and completed-predicate events as follows:
 
 .. code-block:: python

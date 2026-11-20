@@ -24,7 +24,7 @@ HEADLESS = True
 JOB_NAME = "unit_test"
 LANGUAGE_INSTRUCTION = "put the box in the drawer"
 
-# Fields stamped by the manager (metadata) plus those from the default core term.
+# Top-level fields the manager writes for every record.
 CORE_KEYS = {
     "job_name",
     "episode_in_env",
@@ -39,8 +39,11 @@ CORE_KEYS = {
 # Field contributed by the custom term registered in the custom-term test.
 CUSTOM_KEY = "step_bucket"
 
-# Field contributed by the progress-tracking recorder.
+# Field contributed by the built-in progress episode recorder term.
 PROGRESS_KEY = "progress"
+
+# Field contributed by the class-based custom term registered in the custom-term test.
+OBJECT_PEAK_SPEED_KEY = "object_peak_speed"
 
 # Deterministic, single-valued (low == high) sample for the variation test, so each draw is known.
 VARIATION_NAME = "record_test_variation"
@@ -49,7 +52,7 @@ VARIATION_SAMPLE = [0.25, 0.5]
 
 def record_step_bucket(env, env_id):
     """Custom recorder term: records the finished episode's length bucketed into tens."""
-    return {CUSTOM_KEY: int(env.episode_length_buf[env_id].item()) // 10}
+    return {"bucket": int(env.episode_length_buf[env_id].item()) // 10}
 
 
 def draw_record_test_variation(env, env_ids, asset_cfg, sampler):  # noqa: ARG001
@@ -171,6 +174,7 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
 
     base_env = env.unwrapped
     object_name = base_env.cfg.events.reset_pick_up_object_pose.params["asset_cfg"].name
+    object_peak_speed_cfg = getattr(base_env.episode_recorder_manager.cfg, OBJECT_PEAK_SPEED_KEY, None)
     # Env 1 never receives a lift; its episodes should fail.
     lifted_envs = torch.ones(base_env.num_envs, dtype=torch.bool, device=base_env.device)
     previous_episode = None
@@ -183,6 +187,10 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
             lift_settled_objects_once(base_env, object_name, lifted_envs)
             actions = torch.zeros(env.action_space.shape, device=base_env.device)
             env.step(actions)
+            if object_peak_speed_cfg is not None:
+                for env_id in base_env.reset_env_ids.tolist():
+                    # post_step ran before the reset, so a new episode must start from zero.
+                    assert object_peak_speed_cfg.func(base_env, env_id, object_name=object_name) == 0.0
 
     assert output_path.exists(), f"Expected JSONL at {output_path}"
     with open(output_path, encoding="utf-8") as f:
@@ -247,17 +255,24 @@ def _test_variations_recorded(simulation_app, output_dir):  # noqa: ARG001
 
 def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+    from isaaclab_arena_examples.external_environments.advanced import ObjectPeakSpeed
 
-    custom_terms = {"step_bucket": EpisodeRecorderTermCfg(func=record_step_bucket)}
+    custom_terms = {
+        CUSTOM_KEY: EpisodeRecorderTermCfg(func=record_step_bucket),
+        OBJECT_PEAK_SPEED_KEY: EpisodeRecorderTermCfg(func=ObjectPeakSpeed, params={"object_name": "cracker_box"}),
+    }
     env, output_path = create_recorder_env(output_dir, episode_recorder_terms=custom_terms)
     try:
         records = _roll_out_and_read_episode_record(env, output_path)
 
         # The custom term's field is present and derived from the same intact episode-length buffer.
         for record in records:
-            expected_keys = CORE_KEYS | {PROGRESS_KEY, CUSTOM_KEY}
+            expected_keys = CORE_KEYS | {PROGRESS_KEY, OBJECT_PEAK_SPEED_KEY, CUSTOM_KEY}
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
-            assert record[CUSTOM_KEY] == record["episode_length"] // 10
+            assert record[CUSTOM_KEY] == {"bucket": record["episode_length"] // 10}
+            # Each reset places the box 0.2 m up and lets it fall, so a term that follows the episode sees it move.
+            peak_speed = record[OBJECT_PEAK_SPEED_KEY]
+            assert peak_speed > 0.0, f"Env {record['env_id']} episode {record['episode_in_env']} recorded no motion."
     finally:
         env.close()
     return True
