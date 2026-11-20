@@ -20,6 +20,7 @@ def test_slow_carry_counts_as_displaced():
     slow_velocity_w = np.zeros((num_steps, 3))
     slow_velocity_w[:, 0] = 0.01
     assert compute_object_peak_speed_exceeded_rate([slow_velocity_w], object_velocity_threshold=0.5) == 0.0
+    assert compute_object_peak_speed_exceeded_rate([slow_velocity_w * 100.0], object_velocity_threshold=0.5) == 1.0
 
 
 def test_stationary_and_jitter_are_not_displaced():
@@ -37,4 +38,10 @@ def test_rate_is_fraction_of_episodes():
     moved_w = np.zeros((10, 3))
     moved_w[-1, 2] = 0.1
     assert compute_object_displaced_rate([still_w, moved_w], displacement_threshold_m=0.02) == 0.5
+
+    # Lifted 10 cm and put back: the final position equals the start, but the episode still counts.
+    lifted_and_returned_w = np.zeros((10, 3))
+    lifted_and_returned_w[3:6, 2] = 0.1
+    assert compute_object_displaced_rate([still_w, lifted_and_returned_w], displacement_threshold_m=0.02) == 0.5
+
     assert compute_object_displaced_rate([], displacement_threshold_m=0.02) == 0.0
