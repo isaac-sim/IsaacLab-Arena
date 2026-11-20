@@ -168,8 +168,9 @@ def compute_spawned_geometry_bounds_in_local_frame(
 ) -> AxisAlignedBoundingBox:
     """Build local-frame bounds from the geometry in the cloned prim hierarchy.
 
-    Default-purpose geometry is included, except when the scene key's prim is itself a collision Gprim,
-    which is bounded by its own purpose (for example, a collider authored as guide geometry).
+    Bounds include only default-purpose geometry. The exception is a scene key that points directly at a
+    collision shape, which is bounded by its own geometry whatever its purpose, so a collider authored as
+    guide geometry still has bounds.
 
     Args:
         scene: Interactive scene containing the rigid object or scene extra.
