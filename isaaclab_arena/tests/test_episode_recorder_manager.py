@@ -247,3 +247,41 @@ def test_terms_without_post_step_need_no_per_step_hook(tmp_path):
     assert run_function_with_persistent_simulation_app(
         partial(_test_terms_without_post_step_need_no_per_step_hook, output_dir=tmp_path)
     )
+
+
+def _test_post_step_term_is_found_before_the_simulation_plays(simulation_app):
+    from types import SimpleNamespace
+
+    from isaaclab_arena.recording.episode_recorder_manager import (
+        EpisodeRecorderManager,
+        EpisodeRecorderTerm,
+        EpisodeRecorderTermCfg,
+    )
+    from isaaclab_arena.utils.configclass import make_configclass
+
+    class StepCount(EpisodeRecorderTerm):
+        """Follows the episode step by step."""
+
+        def post_step(self, env):
+            pass
+
+        def __call__(self, env, env_id):
+            return {"steps": 0}
+
+    env = _make_env()
+    # Before the simulation plays, Isaac Lab keeps the class in func and creates the term when the simulation starts.
+    callback_handle = SimpleNamespace(deregister=lambda: None)
+    env.sim = SimpleNamespace(
+        is_playing=lambda: False,
+        physics_manager=SimpleNamespace(register_callback=lambda *args, **kwargs: callback_handle),
+    )
+    term_fields = [("step_count", EpisodeRecorderTermCfg, EpisodeRecorderTermCfg(func=StepCount))]
+    manager = EpisodeRecorderManager(make_configclass("TestEpisodeRecordersCfg", term_fields)(), env)
+
+    assert manager.cfg.step_count.func is StepCount
+    assert manager.has_post_step_terms
+    return True
+
+
+def test_post_step_term_is_found_before_the_simulation_plays():
+    assert run_function_with_persistent_simulation_app(_test_post_step_term_is_found_before_the_simulation_plays)

@@ -81,6 +81,7 @@ class EpisodeRecorderManager(ManagerBase):
         self._term_names: list[str] = []
         self._term_cfgs: list[EpisodeRecorderTermCfg] = []
         self._class_term_cfgs: list[EpisodeRecorderTermCfg] = []
+        self._post_step_term_cfgs: list[EpisodeRecorderTermCfg] = []
         self._job_name: str = "default"
         self._output_path: Path | None = None
         super().__init__(cfg, env)
@@ -119,15 +120,11 @@ class EpisodeRecorderManager(ManagerBase):
     @property
     def has_post_step_terms(self) -> bool:
         """Whether any class-based term overrides ``post_step()`` and so needs a call after every control step."""
-        # Only an override counts: the per-step call needs a recorder term that records nothing, and any
-        # active recorder term makes Isaac Lab compute the observations a second time every step.
-        return any(
-            type(term_cfg.func).post_step is not EpisodeRecorderTerm.post_step for term_cfg in self._class_term_cfgs
-        )
+        return bool(self._post_step_term_cfgs)
 
     def post_step(self) -> None:
-        """Let every class-based term update its state after a control step."""
-        for term_cfg in self._class_term_cfgs:
+        """Let every class-based term that overrides ``post_step()`` update its state after a control step."""
+        for term_cfg in self._post_step_term_cfgs:
             term_cfg.func.post_step(self._env)
 
     def reset(self, env_ids: Sequence[int] | torch.Tensor | None = None) -> dict[str, float]:
@@ -211,6 +208,10 @@ class EpisodeRecorderManager(ManagerBase):
                     term_class, EpisodeRecorderTerm
                 ), f"Episode recorder term '{term_name}' is a class; it must derive from EpisodeRecorderTerm."
                 self._class_term_cfgs.append(term_cfg)
+                # Only an override counts: the per-step call needs a recorder term that records nothing, and
+                # any active recorder term makes Isaac Lab compute the observations a second time every step.
+                if term_class.post_step is not EpisodeRecorderTerm.post_step:
+                    self._post_step_term_cfgs.append(term_cfg)
 
     @staticmethod
     def _assert_json_object(term_name: str, output: Any) -> None:
