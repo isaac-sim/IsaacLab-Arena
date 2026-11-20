@@ -190,7 +190,7 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
             if object_peak_speed_cfg is not None:
                 for env_id in base_env.reset_env_ids.tolist():
                     # post_step ran before the reset, so a new episode must start from zero.
-                    assert object_peak_speed_cfg.func(base_env, env_id, object_name=object_name)["peak_speed"] == 0.0
+                    assert object_peak_speed_cfg.func(base_env, env_id, object_name=object_name) == 0.0
 
     assert output_path.exists(), f"Expected JSONL at {output_path}"
     with open(output_path, encoding="utf-8") as f:
@@ -271,7 +271,7 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record[CUSTOM_KEY] == {"bucket": record["episode_length"] // 10}
             # Each reset places the box 0.2 m up and lets it fall, so a term that follows the episode sees it move.
-            peak_speed = record[OBJECT_PEAK_SPEED_KEY]["peak_speed"]
+            peak_speed = record[OBJECT_PEAK_SPEED_KEY]
             assert peak_speed > 0.0, f"Env {record['env_id']} episode {record['episode_in_env']} recorded no motion."
     finally:
         env.close()

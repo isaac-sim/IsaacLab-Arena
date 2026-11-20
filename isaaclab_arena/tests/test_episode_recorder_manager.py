@@ -57,6 +57,7 @@ def _test_term_output_is_stored_under_term_name(simulation_app, output_dir):
     manager = _make_manager(
         {
             "bucket": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": env_id * 10}),
+            "number": EpisodeRecorderTermCfg(func=lambda env, env_id: 3),
             "nothing": EpisodeRecorderTermCfg(func=lambda env, env_id: None),
         },
         output_path,
@@ -65,6 +66,7 @@ def _test_term_output_is_stored_under_term_name(simulation_app, output_dir):
 
     records = _read_records(output_path)
     assert [record["bucket"] for record in records] == [{"value": 0}, {"value": 10}]
+    assert [record["number"] for record in records] == [3, 3]
     assert all("nothing" not in record for record in records)
     assert records[0]["success"] is True
     assert records[1]["success"] is False
@@ -79,6 +81,7 @@ def _test_term_output_is_stored_under_term_name(simulation_app, output_dir):
         "language_instruction",
         "timestamp",
         "bucket",
+        "number",
     }
     return True
 
@@ -121,21 +124,6 @@ def _test_term_named_like_a_core_field_fails_when_recorded(simulation_app, outpu
 def test_term_named_like_a_core_field_fails_when_recorded(tmp_path):
     assert run_function_with_persistent_simulation_app(
         partial(_test_term_named_like_a_core_field_fails_when_recorded, output_dir=tmp_path)
-    )
-
-
-def _test_term_must_return_a_json_object(simulation_app, output_dir):
-    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-
-    manager = _make_manager({"number": EpisodeRecorderTermCfg(func=lambda env, env_id: 3)}, output_dir / "r.jsonl")
-    with pytest.raises(AssertionError, match="'number' must return a dict or None"):
-        manager.record_pre_reset([0])
-    return True
-
-
-def test_term_must_return_a_json_object(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        partial(_test_term_must_return_a_json_object, output_dir=tmp_path)
     )
 
 
