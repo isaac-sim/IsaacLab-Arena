@@ -29,8 +29,8 @@ Query: "The cube falls through the table in my environment. Look at it from the 
 
 Expected behavior:
 
-- Uses the running-sim mode, polls `print_scene_state()` to find when the object's height drops, and calls
-  `pause_physics()` near that moment.
+- Uses the running-sim mode and `pause_when` with a condition on the object's height or speed; polling with separate
+  requests is too slow for a fall.
 - Captures the frozen state from at least two camera poses with `set_camera(..., env_index=0)`, then
   `resume_physics()`.
 
@@ -66,8 +66,7 @@ Query: "While this camera policy runs, show me the viewer every few hundred step
 
 Expected behavior:
 
-- Keeps the viewer updating every step: `--viz kit` with `DISPLAY` unset plus `--enable_cameras` on PhysX, or
-  `--enable_cameras` without `--viz kit` plus `--/rtx/scenePartitioning/showAllPartitionsByDefault=true` on Newton.
+- Keeps the viewer updating every step: `--viz kit` with `DISPLAY` unset plus `--enable_cameras`.
 - Captures through the Python server.
 
 Known failure modes:
