@@ -81,9 +81,22 @@ Recording a Custom Value per Episode
 
 The example also records two values for each episode: the object's height when the episode ends, and
 the highest speed it reached. It defines an episode recorder term for each (see
-:ref:`recording-per-episode-values`): the function ``record_object_final_height`` and the class
-``ObjectPeakSpeed``. It adds both to the environment through ``episode_recorder_terms``, as shown
-below. Each line of the episode results then holds the values under the terms' names, for example
+:ref:`recording-per-episode-values`). The height is read once, when the episode ends, so a function
+is enough:
+
+.. literalinclude:: ../../../isaaclab_arena_examples/external_environments/advanced.py
+   :language: python
+   :pyobject: record_object_final_height
+
+The peak speed builds up during the episode, so ``ObjectPeakSpeed`` derives from ``EpisodeRecorderTerm``.
+Arena calls its ``post_step()`` after every step and its ``reset()`` when a new episode starts:
+
+.. literalinclude:: ../../../isaaclab_arena_examples/external_environments/advanced.py
+   :language: python
+   :pyobject: ObjectPeakSpeed
+
+The environment adds both through ``episode_recorder_terms``, as shown below. Each line of the episode
+results then holds the values under the terms' names, for example
 ``"object_final_height": {"final_height": 0.12}, "object_peak_speed": {"peak_speed": 0.83}``.
 
 .. _putting_it_all_together:
