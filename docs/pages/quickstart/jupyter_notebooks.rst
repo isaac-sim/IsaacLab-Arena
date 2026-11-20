@@ -5,16 +5,6 @@ Some IsaacLab Arena examples are notebook-style Python scripts: ``# %%`` markers
 into cells that you run one at a time. Run them on a Jupyter server started from the Arena runtime,
 either the native ``uv`` environment or the Docker container.
 
-The notebook examples are:
-
-- ``isaaclab_arena/examples/example_env_notebook.py``: builds the ``gr1_open_microwave`` environment and
-  steps it with zero actions.
-- ``isaaclab_arena/examples/compile_env_notebook.py``: builds a Franka kitchen scene from assets and
-  relations, then steps it with zero actions.
-- ``dummy_object_placer_notebook.py``, ``relation_solver_visualization_notebook.py``,
-  ``isaac_sim_object_placer_notebook.py``, and ``isaac_sim_no_collision_notebook.py`` in
-  ``isaaclab_arena_examples/relations/``: object placement and relation solver demos.
-
 
 1. Prepare the Arena Runtime
 ----------------------------
@@ -71,7 +61,8 @@ You will use one of these URLs in the next step.
 3. Run an Example
 -----------------
 
-Run the example from the Jupyter web UI in a browser, or from VS Code or Cursor.
+Run the example from the Jupyter web UI in a browser, or from a VS Code-based editor such as VS Code
+or Cursor.
 
 .. warning::
 
@@ -89,7 +80,7 @@ Run the example from the Jupyter web UI in a browser, or from VS Code or Cursor.
    in order.
 4. Run the cells one at a time. The first cell launches the simulation app; run it only once per kernel.
 
-**VS Code or Cursor**
+**VS Code-based editors**
 
 1. Open the repository in the editor. With Docker, attach the editor to the container instead: install
    the **Dev Containers** extension, press ``Ctrl+Shift+P`` (or ``Cmd+Shift+P`` on macOS), select
