@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pickup milestones follow per-environment rest poses and sequential reset state."""
+"""PickUpObjectTask follows per-environment rest poses and sequential reset state."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
