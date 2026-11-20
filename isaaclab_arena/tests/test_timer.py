@@ -338,6 +338,19 @@ class TestMergeTimerStatsJson:
 
         assert [record["name"] for record in merged] == ["a_op", "b_op"]
 
+    def test_single_record_percentiles_match_the_timer_percentiles(self) -> None:
+        """Verify merging one record gives the percentiles the timer reported for it."""
+        timer_stats = TimerStats()
+        for elapsed_ms in (1.0, 2.0, 100.0):
+            timer_stats.update(elapsed_ms)
+        with patch("isaaclab_arena.utils.timer.get_timer_stats", return_value={"step": timer_stats}):
+            records = get_timer_stats_json(app_name="test_app")
+
+        merged = merge_timer_stats_json(records)
+
+        for key, percentile in (("p10_ms", 10), ("p50_ms", 50), ("p90_ms", 90)):
+            assert merged[0][key] == records[0][key] == timer_stats.percentile(percentile)
+
     def test_percentiles_are_left_out_without_samples(self) -> None:
         """Verify percentile fields are not carried into a merged record whose inputs have no samples."""
         merged = merge_timer_stats_json([self._record("step", count=1, total_ms=5.0, min_ms=5.0, max_ms=5.0)])
@@ -361,16 +374,17 @@ class TestMergeTimerStatsJson:
 
     def test_samples_are_weighted_by_the_measurements_they_stand_for(self) -> None:
         """Verify a record that sampled few of its many measurements counts for all of them."""
-        # 1000 measurements around 1 ms, sampled by two values, against 2 measurements at 100 ms.
-        many = {**self._record("step", count=1000, total_ms=1000.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0, 1.0]}
+        # 1000 measurements at 1 ms, sampled by two values, against 50 measurements at 100 ms, sampled by 50 values.
+        many = {**self._record("step", count=1000, total_ms=1000.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0] * 2}
         few = {
-            **self._record("step", count=2, total_ms=200.0, min_ms=100.0, max_ms=100.0),
-            "samples_ms": [100.0, 100.0],
+            **self._record("step", count=50, total_ms=5000.0, min_ms=100.0, max_ms=100.0),
+            "samples_ms": [100.0] * 50,
         }
 
         merged = merge_timer_stats_json([many, few])
 
-        # An unweighted pool would put the median at the 100 ms values' boundary and p90 at 100.
+        # 1 ms is 95% of the measurements. An unweighted pool, or one weighting each sample by its record's
+        # full count, would put both the median and p90 at 100 ms.
         assert merged[0]["p50_ms"] == 1.0
         assert merged[0]["p90_ms"] == 1.0
 
@@ -390,10 +404,12 @@ class TestMergeTimerStatsJson:
         with_samples = {**self._record("step", count=1, total_ms=1.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0]}
         without_samples = self._record("step", count=1, total_ms=2.0, min_ms=2.0, max_ms=2.0)
 
-        merged = merge_timer_stats_json([with_samples, without_samples])
+        # The order matters: a record without samples may come before or after the ones that have them.
+        for records in ([with_samples, without_samples], [without_samples, with_samples]):
+            merged = merge_timer_stats_json(records)
 
-        assert "p50_ms" not in merged[0]
-        assert merged[0]["count"] == 2
+            assert "p50_ms" not in merged[0]
+            assert merged[0]["count"] == 2
 
     def test_merges_recorded_stats(self) -> None:
         """Verify merging one process's own records reproduces its totals."""

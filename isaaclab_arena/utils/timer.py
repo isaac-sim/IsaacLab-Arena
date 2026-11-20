@@ -111,9 +111,7 @@ class TimerStats:
         """
         if not self._reservoir:
             return None
-        sorted_buf = sorted(self._reservoir)
-        idx = int(p / 100.0 * (len(sorted_buf) - 1))
-        return sorted_buf[idx]
+        return _weighted_percentile([(sample, 1.0) for sample in self._reservoir], p)
 
 
 def _update_stats(name: str, elapsed_ms: float) -> None:
