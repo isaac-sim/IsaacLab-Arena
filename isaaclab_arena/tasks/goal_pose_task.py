@@ -13,7 +13,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
+from isaaclab_arena.metrics.object_peak_speed_exceeded import ObjectPeakSpeedExceededRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -92,7 +92,7 @@ class GoalPoseTask(TaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return [
             SuccessRateMetric(),
-            ObjectMovedRateMetric(self.object),
+            ObjectPeakSpeedExceededRateMetric(self.object),
         ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
