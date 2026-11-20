@@ -49,6 +49,13 @@ def _check_geometry_bounds_in_prim_frame(scene_access_module) -> None:
     torch.testing.assert_close(shelf_bounds.min_point[0], torch.tensor([-10.0, -1.5, -0.02]))
     torch.testing.assert_close(shelf_bounds.max_point[0], torch.tensor([10.0, 1.5, 0.02]))
 
+    # Build-time bounds select the same guide geometry. Rotation about z leaves the vertical extent unchanged.
+    from isaaclab_arena.utils.usd.helpers import compute_world_aligned_bounding_box_relative_to_prim_origin
+
+    shelf_build_time_bounds = compute_world_aligned_bounding_box_relative_to_prim_origin(stage, str(shelf.GetPath()))
+    assert shelf_build_time_bounds.min_point[0, 2].item() == pytest.approx(-0.02)
+    assert shelf_build_time_bounds.max_point[0, 2].item() == pytest.approx(0.02)
+
 
 def _check_rigid_object_reads_and_local_aabb_cache(
     arena_world_module,
