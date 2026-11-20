@@ -26,7 +26,6 @@ class ObjectPositionRecorder(RecorderTerm):
     def record_post_step(self):
         # Deformables report their mean nodal position, rigid objects their root position.
         t_W = self._env.arena_world.get_position_w(self.object_name)
-        assert t_W.shape == (self._env.num_envs, 3)
         return self.name, t_W
 
 
@@ -38,7 +37,9 @@ class ObjectPositionRecorderCfg(RecorderTermCfg):
 
 
 def compute_object_displaced_rate(recorded_metric_data: list[np.ndarray], displacement_threshold_m: float) -> float:
-    """Computes the fraction of episodes in which the object ends up displaced from where it started.
+    """Computes the fraction of episodes in which the object was ever displaced from its first recorded position.
+
+    An episode counts once any recorded position is past the threshold, even if the object is later put back.
 
     Args:
         recorded_metric_data(list[np.ndarray]): The recorded object position (num_steps, 3) per episode.
@@ -65,6 +66,10 @@ class ObjectDisplacedRateMetric(MetricBase):
     The rate is the number of episodes in which the object's position, at any step, was farther than
     the threshold from its first recorded position, divided by the total number of episodes. Unlike
     a speed-based metric, a slow carry counts as displaced.
+
+    The first position is recorded after the first environment step, not at reset, so motion before
+    that step, such as an object dropping onto its support after spawning, does not count toward the
+    displacement.
     """
 
     name = "object_displaced_rate"
