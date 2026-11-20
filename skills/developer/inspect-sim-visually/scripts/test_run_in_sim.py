@@ -151,6 +151,20 @@ class RunInSimTest(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertTrue(str(image_path) in stdout, stdout)
 
+    def test_wait_for_file_ignores_previous_capture(self):
+        server = self.start_server({"status": "ok", "output": ""})
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_path = Path(temp_dir) / "view.png"
+            image_path.write_bytes(b"previous capture")
+            writer = threading.Timer(0.5, image_path.write_bytes, args=(b"new capture",))
+            writer.start()
+            self.addCleanup(writer.cancel)
+            exit_code, _, _ = run_client(
+                ["--port", str(server.port), "--code", "pass", "--wait_for_file", str(image_path)]
+            )
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(image_path.read_bytes(), b"new capture")
+
     def test_wait_for_file_times_out_exits_3(self):
         server = self.start_server({"status": "ok", "output": ""})
         with tempfile.TemporaryDirectory() as temp_dir:

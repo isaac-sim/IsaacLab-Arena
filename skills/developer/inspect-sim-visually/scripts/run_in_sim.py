@@ -67,7 +67,9 @@ def main(argv: list[str] | None = None) -> int:
     code_source.add_argument("--file", type=Path, help="File whose Python code to run.")
     parser.add_argument("--timeout", type=float, default=30.0, help="Seconds to wait for the reply.")
     parser.add_argument(
-        "--wait_for_file", type=Path, help="After a successful reply, wait for this file to be written."
+        "--wait_for_file",
+        type=Path,
+        help="Delete this file, send the code, then wait for the code to write the file again.",
     )
     parser.add_argument("--wait_timeout", type=float, default=15.0, help="Seconds to wait for --wait_for_file.")
     parser.add_argument("--raw", action="store_true", help="Print the server's JSON reply as is.")
@@ -80,6 +82,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         code = sys.stdin.read()
 
+    if args.wait_for_file is not None:
+        # Without this, an earlier capture at the same path would pass the check before the new one is written.
+        args.wait_for_file.unlink(missing_ok=True)
     try:
         reply = send_request(args.host, args.port, code, args.timeout)
     except ConnectionRefusedError:
