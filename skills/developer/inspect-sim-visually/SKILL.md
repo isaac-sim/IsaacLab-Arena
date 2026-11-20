@@ -46,15 +46,20 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    modules from `sys.modules` while the app starts, and a request that imports an Isaac Lab or Arena module then
    breaks the run.
 
+   From the repository root:
+
    ```bash
    C=skills/developer/inspect-sim-visually/scripts
    for attempt in $(seq 60); do
      python3 -I $C/run_in_sim.py --port <port> --file $C/sim_helpers.py --timeout 10 > /dev/null 2>&1 &&
-       python3 -I $C/run_in_sim.py --port <port> --code 'find_arena_env().common_step_counter' --timeout 10 && break
-     grep -q "Command failed" /tmp/<run>/run.log && { tail -30 /tmp/<run>/run.log; break; }
+       python3 -I $C/run_in_sim.py --port <port> --code 'find_arena_env().common_step_counter' --timeout 10 2> /dev/null && break
+     grep -q "Command failed" /tmp/<run>/run.log && { tr '\r' '\n' < /tmp/<run>/run.log | tail -30; break; }
      sleep 5
    done
    ```
+
+   The loop prints the current step once the environment is ready. If it ends without one, run the last call by hand
+   to see the error.
 
 3. **Look.** Send one call per request and `Read` each PNG:
 
@@ -69,13 +74,18 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    | `set_camera(eye, target, env_index=None)` | Points the viewer camera; meters, relative to env `env_index`'s origin, else world frame |
    | `print_scene_state(env_index=0)` | Position relative to the env origin and speed of every rigid object and articulation |
    | `pause_physics()` / `resume_physics()` | Freezes the simulation, including the episode clock, for several looks at one state (PhysX only) |
-   | `pause_when(condition)` | Pauses on the first update where `condition(env)` is true, for events faster than a request, e.g. `pause_when(lambda env: env.arena_world.get_root_linear_velocity_w("dex_cube")[0, 2] < -1.0)` (PhysX only) |
+   | `pause_when(condition)` | Pauses on the first update where `condition(env)` is true, for events faster than a request, e.g. when an episode is 3 steps old: `pause_when(lambda env: int(env.episode_length_buf[0]) == 3)` (PhysX only) |
    | `move_object(scene_key, position, env_index=0)` | Teleports a rigid object to `position` relative to the env origin, at rest |
    | `find_arena_env()` | The unwrapped Arena env, for anything else, e.g. `find_arena_env().scene["dex_cube"]` |
 
    Requests run inside Kit's update loop. Never call `app.update()`, `sim.step()`, `sim.render()` or
-   `render_rgb_array()` in a request. Variables a request defines stay available to later requests. A pause takes
-   effect after the env step in progress, so the frozen state is one step past the trigger.
+   `render_rgb_array()` in a request. Variables a request defines stay available to later requests. The reply shows
+   a value only when the code is a single expression; use `print()` in longer code.
+
+   A pause takes effect after the env step in progress, so the frozen state is one step past the trigger. For a
+   moment inside an event, combine conditions, such as an object below a height and moving down. Episodes reset when
+   they time out or succeed, which undoes a staged event; check `env.max_episode_length - env.episode_length_buf[0]`
+   first.
 
 4. **Stop** the run when done; the server runs any code sent to its port. Stop the whole session, because Kit's
    telemetry process outlives the main process:
@@ -132,7 +142,7 @@ takes every 5th frame of the video; change the 5 to spread the panels over the c
 | Capture shows only the ground plane | Launched without `--viz kit`; scene partitioning hides the envs | Add `--/rtx/scenePartitioning/showAllPartitionsByDefault=true` to `--kit_args` |
 | `NameError: name 'capture_viewer' is not defined` | New simulation process | Send `sim_helpers.py` again |
 | `TypeError: SimulationCfg.physics must be a concrete PhysicsCfg` while the env builds | A request imported an Isaac Lab or Arena module while the app was starting | Relaunch; send only the helpers and `find_arena_env()` until the env exists |
-| Red, green and blue arrows in the image | Isaac Lab debug markers for frames such as the goal and the end effector | Not scene objects |
+| Red, green and blue arrows in the image | Isaac Lab debug markers for frames such as the goal and the end effector | Hide with `find_arena_env().command_manager.set_debug_vis(False)` and `set_debug_vis(False)` on frame sensors, e.g. `find_arena_env().scene["ee_frame"]` |
 | `AssertionError: The Kit timeline is not playing` | Newton run; pausing does not apply | Capture while it steps |
 | `ModuleNotFoundError: No module named 'omni.replicator'` | Script launched without a rendering experience | Add `--experience isaaclab.python.headless.rendering.kit` or `--enable_cameras` |
 | `--record_viewport_video` writes no video | Isaac Lab no longer renders `render_mode="rgb_array"`; `env.render()` returns `None` | Use this skill's captures |
