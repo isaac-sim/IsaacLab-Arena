@@ -20,6 +20,10 @@ Cosmos servers run in their own containers; the GR00T server runs on the host. T
 workloads need no server, but they need an internal API key and network access to the NVIDIA
 internal inference endpoint.
 
+Every workload needs the setup in steps 1 to 3. After that, each workload's section stands on its
+own. For example, to run only the VLM agent workloads, get the API key described in step 14 first,
+follow steps 1 to 3, then the rest of step 14, and check each trial with step 15.
+
 The configurations for workloads 1 to 7 live in ``isaaclab_arena_environments/performance/``, laid
 out like RoboLab's: ``experiment_configs/`` holds the Experiments, ``tasks/`` the fruit tasks, and
 ``scenes/`` the scene they share. The VLM agent Experiments live in
@@ -120,7 +124,8 @@ Clone Arena's ``main`` branch on the host:
      https://github.com/isaac-sim/IsaacLab-Arena.git
    cd IsaacLab-Arena
 
-To benchmark a release instead, replace ``main`` with the release tag.
+The submodules are cloned over SSH, so the host needs a GitHub SSH key even though the clone URL
+above uses HTTPS. To benchmark a release instead, replace ``main`` with the release tag.
 
 Check that the checkout is clean and record the Arena and submodule revisions:
 
@@ -137,23 +142,34 @@ with ``-``, ``+``, or ``U``.
 2. Start the Arena container
 ----------------------------
 
-Choose an absolute host directory that PerfLab will retain after the job. Start the container from
-the repository root and mount that directory at ``$HOME/eval`` inside the container:
+First, check whether an Arena container is already running, and stop it if it is. The launcher
+attaches to a running container of the same name instead of creating a new one, so a new mount or
+API key would not apply. For a clone in a directory named ``IsaacLab-Arena``, the container is
+``isaaclab_arena-latest``:
+
+.. code-block:: bash
+
+   docker ps --filter "name=^isaaclab_arena-latest$"
+   docker stop isaaclab_arena-latest   # only if the previous command lists it
+
+Choose an absolute host directory that PerfLab will retain after the job. For the VLM agent
+workloads, also export ``NV_API_KEY`` in this host shell first: the launcher forwards the key only
+when it creates the container. See :ref:`perflab-vlm-agent-policies`. Then start the container from
+the repository root and mount the output directory at ``$HOME/eval`` inside the container:
 
 .. code-block:: bash
 
    PERFLAB_OUTPUT_HOST=/absolute/path/to/perflab-output
    mkdir -p "${PERFLAB_OUTPUT_HOST}"
 
-   ./docker/run_docker.sh -e "${PERFLAB_OUTPUT_HOST}"
+   ./docker/run_docker.sh -r -e "${PERFLAB_OUTPUT_HOST}"
 
-For the VLM agent workloads, export ``NV_API_KEY`` in this host shell before running the launcher.
-The launcher forwards the key only when it creates the container; see
-:ref:`perflab-vlm-agent-policies`.
-
-The first invocation builds the Arena image, which also downloads the Isaac Sim base image. Do that
-before timing any trial. The launcher enters the Arena container interactively; leave that terminal
-open.
+``-r`` rebuilds the Arena image from the checkout. Rebuild whenever the checkout changes: the image
+records where each Arena package lives when it is built, so an image built from an older checkout
+cannot find packages that have moved since. For example, an image built before the policy packages
+moved to ``isaaclab_arena_policies/`` cannot import the VLM agent policy. The first build also
+downloads the Isaac Sim base image. Do that before timing any trial. The launcher enters the Arena
+container interactively; leave that terminal open.
 
 The launcher runs ``xhost`` only when ``DISPLAY`` is set. These commands do not open a simulator
 window, so leave ``DISPLAY`` unset on a headless worker. If the launcher stops at ``xhost``, treat
@@ -175,9 +191,14 @@ status zero. The ``-e`` mount is applied only when the launcher creates the cont
 an older container does not change its mounts.
 
 Every Python command in this guide runs ``./submodules/IsaacLab/isaaclab.sh -p`` from
-``/workspaces/isaaclab_arena``. This works in the launcher's shell and in shells attached later
-with ``docker exec``, where ``isaaclab.sh`` is not on ``PATH``. ``isaaclab.sh`` prints a
-deprecation warning on every call; it does not affect the run.
+``/workspaces/isaaclab_arena``. ``isaaclab.sh`` prints a deprecation warning on every call; it does
+not affect the run.
+
+To open another shell in the container, run ``./docker/run_docker.sh`` again from the repository
+root on the host, without ``-r``. It attaches to the running container as your user. Do not use a
+plain ``docker exec``: it opens a root shell whose ``$HOME/eval`` is not the mounted output
+directory, so anything written there is lost when the container stops. Set shell variables such as
+``PERFLAB_OUTPUT_ROOT`` again in each new shell.
 
 Create only the common output root. Do not create a trial's exact output directory before its
 command runs:
@@ -214,8 +235,11 @@ Each timing record names one timer and gives its ``count``, ``mean_ms``, ``total
 step; ``step/policy_inference`` and ``step/env_step`` split it into the policy call and the
 environment step. ``arena_run_timings.json`` is a list of these records.
 ``arena_experiment_timings.json`` lists them under ``runs``, with the Run name added to each
-record, and sums them per timer under ``totals``. The timers cover the rollout only. Isaac Sim
-startup and scene construction are part of the trial wall-clock but have no timer of their own.
+record, and sums them per timer under ``totals``, without percentiles. The ``step`` timers cover
+the rollout only. Isaac Sim startup and most of scene construction are part of the trial wall-clock
+but have no timer. The exception is object placement during scene construction, recorded under
+``placement``, ``placement/optimize``, and ``placement/validate``; use the ``step`` records for the
+rollout cost.
 
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
 trial wall-clock immediately before ``isaaclab.sh`` and stop it when that process exits. Container
