@@ -76,7 +76,8 @@ def render_thumbnails_with_app(
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
     assets_by_node_id = instantiate_assets_from_spec(spec, AssetRegistry())
     # Exclude embodiment from thumbnail rendering.
-    assets_by_node_id.pop(spec.embodiment.id)
+    if spec.embodiment is not None:
+        assets_by_node_id.pop(spec.embodiment.id)
     asset_node_ids = [spec.background.id, *(obj.id for obj in spec.objects)]
     asset_paths = resolve_node_usd_paths(assets_by_node_id, asset_node_ids)
     # Object sets have no usd_path of their own, so snapshot every member's USD separately.
