@@ -57,7 +57,7 @@ task:
     kitchen to the fridge, open the fridge door, and place the pepper on the lower shelf above the produce
     drawer.
   subtasks:
-  - kind: PickUpObjectTask
+  - kind: PickUpTask
     params:
       pick_up_object: pepper
       background_scene: kitchen
