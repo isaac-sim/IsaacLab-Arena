@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import math
 import tempfile
 import torch
 import tqdm
@@ -275,8 +274,9 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
             expected_keys = CORE_KEYS | {PROGRESS_KEY, OBJECT_PEAK_SPEED_KEY, CUSTOM_KEY}
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record[CUSTOM_KEY] == {"bucket": record["episode_length"] // 10}
+            # Each reset places the box 0.2 m up and lets it fall, so a term that follows the episode sees it move.
             peak_speed = record[OBJECT_PEAK_SPEED_KEY]["peak_speed"]
-            assert math.isfinite(peak_speed) and peak_speed >= 0.0
+            assert peak_speed > 0.0, f"Env {record['env_id']} episode {record['episode_in_env']} recorded no motion."
     finally:
         env.close()
     return True
