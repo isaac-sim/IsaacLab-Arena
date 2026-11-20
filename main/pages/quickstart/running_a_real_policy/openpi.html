@@ -592,7 +592,7 @@ observations and actions over WebSocket).</p>
 <p><strong>Build and run</strong></p>
 <p>Arena ships a wrapper script that builds a self-contained Docker image (cloning
 upstream openpi at a pinned commit on first run) and starts the inference server:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_openpi/docker/run_openpi_server.sh
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh
 </pre></div>
 </div>
 <p>The first invocation builds <code class="docutils literal notranslate"><span class="pre">isaaclab_arena:openpi_server</span></code> (~3 min,
@@ -602,7 +602,7 @@ subsequent invocations reuse the cached image. Pass <code class="docutils litera
 the server to a non-default port.</p>
 <p>By default, the wrapper binds to port <code class="docutils literal notranslate"><span class="pre">8000</span></code>. If OpenPI reports that the
 address is already in use, stop the existing process or choose another port:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_openpi/docker/run_openpi_server.sh<span class="w"> </span>-p<span class="w"> </span><span class="m">8001</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh<span class="w"> </span>-p<span class="w"> </span><span class="m">8001</span>
 </pre></div>
 </div>
 <p>When you see:</p>
@@ -818,7 +818,7 @@ supports two OpenPI checkpoint variants on DROID:</p>
 </table>
 </div>
 <p>To add a new embodiment, subclass <code class="docutils literal notranslate"><span class="pre">Pi0EmbodimentAdapter</span></code> in
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_openpi/policy/pi0_remote_policy.py</span></code> and register the adapter in
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_policies/isaaclab_arena_openpi/policy/pi0_remote_policy.py</span></code> and register the adapter in
 <code class="docutils literal notranslate"><span class="pre">_resolve_openpi_embodiment_adapter</span></code>.</p>
 </section>
 </section>

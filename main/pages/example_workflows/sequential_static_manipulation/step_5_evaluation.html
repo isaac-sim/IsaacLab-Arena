@@ -646,7 +646,7 @@ specifies CUDA 12.8 and <code class="docutils literal notranslate"><span class="
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--model-path<span class="w"> </span><span class="nv">$HOME</span>/models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment-tag<span class="w"> </span>GR1<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
@@ -655,14 +655,14 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 <section id="step-1-run-single-environment-evaluation">
 <h2>Step 1: Run Single Environment Evaluation<a class="headerlink" href="#step-1-run-single-environment-evaluation" title="Link to this heading">#</a></h2>
 <p>We first run the policy in a single environment with visualization via the GUI.</p>
-<p>The Arena GR00T evaluation client is configured by a config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml</span></code>.</p>
+<p>The Arena GR00T evaluation client is configured by a config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml</span></code>.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Place</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">sauce</span><span class="nv"> </span><span class="s">bottle</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">top</span><span class="nv"> </span><span class="s">shelf</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">fridge,</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">close</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">fridge</span><span class="nv"> </span><span class="s">door.&quot;</span>
 <span class="nt">action_horizon</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
 <span class="nt">video_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decord</span>
-<span class="nt">modality_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py</span>
+<span class="nt">modality_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py</span>
 
 <span class="nt">action_chunk_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
 <span class="nt">gr00t_embodiment_adapter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1_arms</span>
@@ -678,7 +678,7 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
@@ -720,7 +720,7 @@ Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
@@ -762,7 +762,7 @@ GR00T N1.6 policy is trained on upper body joint positions, so we use
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 --viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 --policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
---policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 --remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
 --remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
 --num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
@@ -811,7 +811,7 @@ The batch is defined in an Experiment YAML file. The example below evaluates the
 <span class="w">    </span><span class="nt">num_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">  </span><span class="nt">policy</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy</span>
-<span class="w">    </span><span class="nt">policy_config_yaml_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml</span>
+<span class="w">    </span><span class="nt">policy_config_yaml_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml</span>
 <span class="w">    </span><span class="nt">policy_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cuda:0</span>
 <span class="w">    </span><span class="nt">remote_host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">127.0.0.1</span>
 <span class="w">    </span><span class="nt">remote_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5555</span>

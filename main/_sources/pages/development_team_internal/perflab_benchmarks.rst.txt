@@ -325,7 +325,7 @@ Before running Pi0.5, start OpenPI in a second terminal on the host, from the re
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh -v pi05 -p 8000
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh -v pi05 -p 8000
 
 The script gives the server container access to every GPU on the machine and has no option to
 restrict it to one. Record the GPU memory the server uses, as shown by ``nvidia-smi`` once the
@@ -398,7 +398,7 @@ second terminal on the host:
 
 .. code-block:: bash
 
-   ./isaaclab_arena_cosmos/docker/run_cosmos_server.sh -p 8000
+   ./isaaclab_arena_policies/isaaclab_arena_cosmos/docker/run_cosmos_server.sh -p 8000
 
 Like the OpenPI script, this script gives the server container access to every GPU on the machine.
 The local client still uses ``127.0.0.1:8000``.
@@ -466,7 +466,7 @@ requests:
 
 .. code-block:: bash
 
-   uv run python ../../isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
+   uv run python ../../isaaclab_arena_policies/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
      --host 127.0.0.1 --port 5555 \
      --timeout-sec 60 --poll-interval-sec 5 --request-timeout-ms 5000
 

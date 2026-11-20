@@ -853,7 +853,7 @@ the preceding point succeeds.</p>
 <section id="prepare-the-pi0-5-policy-server">
 <h2>8. Prepare the Pi0.5 policy server<a class="headerlink" href="#prepare-the-pi0-5-policy-server" title="Link to this heading">#</a></h2>
 <p>Before running Pi0.5, start OpenPI in a second terminal on the host, from the repository root:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_openpi/docker/run_openpi_server.sh<span class="w"> </span>-v<span class="w"> </span>pi05<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh<span class="w"> </span>-v<span class="w"> </span>pi05<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span>
 </pre></div>
 </div>
 <p>The script gives the server container access to every GPU on the machine and has no option to
@@ -909,7 +909,7 @@ started the wrapper so the wrapper can clean up correctly.</p>
 <h2>10. Prepare the Cosmos policy server<a class="headerlink" href="#prepare-the-cosmos-policy-server" title="Link to this heading">#</a></h2>
 <p>Stop the Pi0.5 server first because both servers use port <code class="docutils literal notranslate"><span class="pre">8000</span></code>. Then start Cosmos in the
 second terminal on the host:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_cosmos/docker/run_cosmos_server.sh<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_policies/isaaclab_arena_cosmos/docker/run_cosmos_server.sh<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span>
 </pre></div>
 </div>
 <p>Like the OpenPI script, this script gives the server container access to every GPU on the machine.
@@ -963,7 +963,7 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 <a class="reference internal" href="../quickstart/running_a_real_policy/gr00t.html"><span class="doc">GR00T</span></a> for hardware requirements.</p>
 <p>The server prints its configuration when it starts. Before the sweep, confirm that it answers
 requests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>../../isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>../../isaaclab_arena_policies/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--timeout-sec<span class="w"> </span><span class="m">60</span><span class="w"> </span>--poll-interval-sec<span class="w"> </span><span class="m">5</span><span class="w"> </span>--request-timeout-ms<span class="w"> </span><span class="m">5000</span>
 </pre></div>

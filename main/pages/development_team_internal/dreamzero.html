@@ -598,7 +598,7 @@ and actions with the server).</p>
 <p><strong>Start the prebuilt server on OSMO</strong></p>
 <p>Arena provides a prebuilt server image with the DreamZero code and public
 <code class="docutils literal notranslate"><span class="pre">GEAR-Dreams/DreamZero-DROID</span></code> checkpoint. Submit the server workflow to the H100 pool:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>osmo<span class="w"> </span>workflow<span class="w"> </span>submit<span class="w"> </span>isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>osmo<span class="w"> </span>workflow<span class="w"> </span>submit<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--pool<span class="w"> </span>isaac-dev-h100-01<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--set<span class="w"> </span><span class="nv">port</span><span class="o">=</span><span class="m">5000</span>
 </pre></div>

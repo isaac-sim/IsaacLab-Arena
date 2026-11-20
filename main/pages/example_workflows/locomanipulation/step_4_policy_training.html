@@ -657,13 +657,13 @@ install it first if it is missing:</p>
 </pre></div>
 </div>
 <p>Convert the HDF5 dataset to LeRobot format for policy post-training:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--yaml_file<span class="w"> </span>isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--yaml_file<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml
 </pre></div>
 </div>
 <p>This creates a folder <code class="docutils literal notranslate"><span class="pre">$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot</span></code> containing parquet files with states/actions,
 MP4 camera recordings, and dataset metadata.</p>
-<p>The converter is controlled by a config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml</span></code>.</p>
+<p>The converter is controlled by a config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_policies/isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml</span></code>.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">g1_locomanip_config.yaml</span></code>)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
@@ -728,7 +728,7 @@ then run the finetuning command below. The paths assume the default <code class=
 <span class="w">  </span>gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset-path<span class="w"> </span>~/datasets/isaaclab_arena/locomanipulation_tutorial/arena_g1_loco_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output-dir<span class="w"> </span>~/models/isaaclab_arena/locomanipulation_tutorial<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--global-batch-size<span class="w"> </span><span class="m">96</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--max-steps<span class="w"> </span><span class="m">20000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num-gpus<span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
