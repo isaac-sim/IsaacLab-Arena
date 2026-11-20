@@ -14,7 +14,9 @@ for managed execution.
    A Run can reuse either form of :doc:`Environment Definition
    <environment/environment_definition>`:
 
-   * a registered Python environment, selected by name in ``environment.type``; or
+   * a Python environment, selected in ``environment.type`` by its registered name or by the dotted
+     class path of its factory, ``module_path.ClassName``. Use the class path for an environment
+     defined in your own repository (see :doc:`../arena_in_your_repo/external_environments`); or
    * an existing ``ArenaEnvGraphSpec`` YAML file, selected by its path in ``environment.type``.
 
    Different Runs in the same Experiment can use different forms.
@@ -233,8 +235,7 @@ Choosing a runner
 
    Use the **Experiment Runner** for policy evaluations defined in YAML. Use the **Environment
    Runner** (``isaaclab_arena/scripts/environment_runner.py``) to inspect and physically manipulate
-   an environment without a policy. The **Policy Runner** is currently needed only for policy
-   evaluation of an external environment loaded with ``--external_environment_class_path``.
+   an environment without a policy.
 
 
 Related concepts

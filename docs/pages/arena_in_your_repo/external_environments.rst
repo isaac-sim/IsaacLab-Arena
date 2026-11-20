@@ -79,53 +79,60 @@ Below is an example of a custom environment that places a single object on a tab
            )
            return isaaclab_arena_environment
 
-External environments can be used in Isaac Lab - Arena workflows by using a particular
-CLI syntax. For example, a zero-action policy can be run with an
-externally-defined environment like this:
+Evaluating the Environment in an Experiment
+-------------------------------------------
+
+An :doc:`Arena Experiment <../concepts/concept_arena_experiments>` selects an environment from your
+repository by the dotted class path of its factory, ``module_path.ClassName``, in
+``environment.type``. The other values under ``environment`` set the fields of the environment's
+configuration.
+
+.. code-block:: yaml
+
+   # my_experiment.yaml
+   runs:
+     franka_table:
+       environment:
+         type: my_package.isaaclab_arena_environments.my_environment.ExternalFrankaTableEnvironment
+         object: tomato_soup_can
+       policy:
+         type: zero_action
+       rollout_limit:
+         num_steps: 50
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type zero_action \
-     --num_steps 50 \
-     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment \
-     franka_table \
-     --object tomato_soup_can
+   python isaaclab_arena/evaluation/experiment_runner.py --experiment_config my_experiment.yaml
 
-The ``--external_environment_class_path`` flag takes the module path and the class name of the
-factory, separated by a colon. The module must be importable, for example because your package is
-installed or on ``PYTHONPATH``. Importing it runs ``@register_environment``, and the runner then
-checks that the decorator registered this class under its ``name``. The environment name is the
-first positional argument, and the flags after it set the fields of the environment's configuration.
-
-The flag works the same way with the Environment Runner
-(``isaaclab_arena/scripts/environment_runner.py``) and with Isaac Lab scripts that register Arena
-environments through
-``--external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback``.
-Isaac Lab scripts take the environment name with ``--task`` instead of as a positional argument.
+The module must be importable, for example because your package is installed or on
+``PYTHONPATH``. The Experiment Runner imports it, which runs ``@register_environment``, and then
+checks that the decorator registered this class under its ``name``. You can override the
+environment values on the command line like any other Run value, for example
+``runs.franka_table.environment.object=mustard_bottle``.
 
 Use a ``name`` that no other environment uses. If the class is not decorated with
-``@register_environment``, the runner stops with an error that asks for the decorator. If another
+``@register_environment``, loading stops with an error that asks for the decorator. If another
 class already owns the name, the error names that class.
 
 .. note::
 
     The environment above is actually located in ``isaaclab_arena_examples/external_environments/basic.py``.
     So this environment is located in the Isaac Lab - Arena source-tree, but isn't included
-    in the built in environments, so must be called through the external environment syntax.
+    in the built in environments, so must be selected by its class path.
     This is done to demonstrate how this would be done in an external codebase.
 
-    The environment can be run with:
+    The Experiment below evaluates it, together with the environment from
+    :doc:`external_tasks_and_embodiments`:
+
+    .. literalinclude:: ../../../isaaclab_arena_examples/external_environments/external_environments_experiment.yaml
+       :language: yaml
+       :lines: 6-
 
     .. code-block:: bash
 
-        python isaaclab_arena/evaluation/policy_runner.py \
+        python isaaclab_arena/evaluation/experiment_runner.py \
           --viz kit \
-          --policy_type zero_action \
-          --num_steps 50 \
-          --external_environment_class_path isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment \
-          franka_table \
-          --object tomato_soup_can
+          --experiment_config isaaclab_arena_examples/external_environments/external_environments_experiment.yaml
 
     which results in an environment like the one below:
 
@@ -133,6 +140,29 @@ class already owns the name, the error names that class.
        :width: 50%
        :alt: External environment example
        :align: center
+
+Using the Environment with Command-Line Scripts
+-----------------------------------------------
+
+The Environment Runner (``isaaclab_arena/scripts/environment_runner.py``) and Isaac Lab scripts
+that register Arena environments through
+``--external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback``
+select the environment on the command line. They import the factory with the
+``--external_environment_class_path`` flag:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/environment_runner.py \
+     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment \
+     franka_table \
+     --object tomato_soup_can
+
+The flag takes the module path and the class name separated by a colon, ``module_path:ClassName``.
+An Experiment uses the dotted form ``module_path.ClassName`` instead. The environment name is the
+first positional argument, and the flags after it set the fields of the environment's
+configuration. Isaac Lab scripts take the environment name with ``--task`` instead of as a
+positional argument. The flag imports the module and checks the name in the same way as an
+Experiment.
 
 Configuration Fields and Flags
 ------------------------------
@@ -152,7 +182,9 @@ stop the runner with an error. Others get a flag that rejects or misreads the va
 ``list[bool]`` reads ``False`` as ``True``.
 
 Fields named ``enable_cameras``, ``num_envs``, and ``mimic`` get no flag of their own. They take the
-value of the runner's flag with the same name. A field named ``auto`` gets no flag.
+value of the runner's flag with the same name. A field named ``auto`` gets no flag. In an
+Experiment, set these fields under ``environment``. A ``num_envs`` field is not filled from
+``environment_builder.num_envs``.
 
 Migrating from ``ExampleEnvironmentBase``
 -----------------------------------------
@@ -170,7 +202,9 @@ been removed. To migrate an environment defined in your repository:
    with that name to the configuration.
 #. Delete ``add_cli_args()``. The flags are now generated from the configuration fields.
 
-Commands that use ``--external_environment_class_path`` then keep working without changes.
+Commands that use ``--external_environment_class_path`` then keep working without changes. To
+evaluate the environment with a policy, select it in an Experiment as shown in
+`Evaluating the Environment in an Experiment`_.
 
 Before:
 
