@@ -16,6 +16,7 @@ import math
 import pathlib
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -258,8 +259,7 @@ class JobSummary:
 
     @property
     def success_rate(self) -> float | None:
-        scored = self.num_scored_episodes
-        return None if scored == 0 else self.num_successes / scored
+        return success_rate_from_values(episode.success for episode in self.episodes)
 
     @property
     def progress_fractions(self) -> list[float]:
@@ -578,6 +578,21 @@ def _events_by_criteria_and_index(record: dict[str, Any]) -> dict[str, dict[int,
         if criteria_name is not None and index is not None:
             result.setdefault(criteria_name, {})[index] = event
     return result
+
+
+def success_rate_from_values(success_values: Iterable[bool | None]) -> float | None:
+    """Return the fraction of successful episodes among those recorded with a success value.
+
+    Args:
+        success_values: Each episode's success value; None means the episode was recorded without one.
+
+    Returns:
+        The success rate, or None when no episode has a success value.
+    """
+    scored_success_values = [success for success in success_values if success is not None]
+    if not scored_success_values:
+        return None
+    return sum(success is True for success in scored_success_values) / len(scored_success_values)
 
 
 def _mean(values: list[float]) -> float | None:
