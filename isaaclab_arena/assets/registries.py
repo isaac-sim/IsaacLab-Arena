@@ -273,7 +273,6 @@ class EnvironmentRegistry(Registry):
 
     def __init__(self):
         super().__init__()
-        self._cfg_types_by_factory_type: dict[type["ArenaEnvironmentFactory"], type["ArenaEnvironmentCfg"]] = {}
         self._factory_types_by_cfg_type: dict[type["ArenaEnvironmentCfg"], type["ArenaEnvironmentFactory"]] = {}
 
     def register_environment(
@@ -286,7 +285,6 @@ class EnvironmentRegistry(Registry):
             cfg_type not in self._factory_types_by_cfg_type
         ), f"Environment config {cfg_type.__name__} already registered"
         self.register(factory_type, factory_type.name)
-        self._cfg_types_by_factory_type[factory_type] = cfg_type
         self._factory_types_by_cfg_type[cfg_type] = factory_type
 
     def get_environment_cfg_types(self) -> dict[str, type["ArenaEnvironmentCfg"]]:
@@ -300,20 +298,6 @@ class EnvironmentRegistry(Registry):
             for name, factory_type in self._components.items()
             if factory_type in cfg_types_by_factory_type
         }
-
-    # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove this factory-to-config
-    # lookup and _cfg_types_by_factory_type when the legacy JSON adapter no longer
-    # resolves an environment name into its config type.
-    def get_environment_cfg_type(
-        self,
-        factory_type: type["ArenaEnvironmentFactory"],
-    ) -> type["ArenaEnvironmentCfg"]:
-        """Get the config type needed to translate a legacy named environment."""
-        ensure_assets_registered()
-        assert (
-            factory_type in self._cfg_types_by_factory_type
-        ), f"Environment {factory_type.__name__} must register a config"
-        return self._cfg_types_by_factory_type[factory_type]
 
     # NOTE(cvolk, 2026-07-07): [typed-config-migration] This reverse lookup belongs
     # to typed run execution and remains after the legacy adapters are removed.

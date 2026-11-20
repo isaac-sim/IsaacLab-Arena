@@ -3,41 +3,31 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load Arena Experiments from JSON or YAML configuration files."""
+"""Load Arena Experiments from YAML configuration files."""
 
 from __future__ import annotations
 
-import json
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.utils.class_path import import_class_from_path
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 def validate_experiment_config_path(experiment_config: str | Path) -> Path:
-    """Return an existing Experiment configuration path with a supported suffix."""
+    """Return an existing Experiment configuration path with a YAML suffix."""
     experiment_config_path = Path(experiment_config)
     assert experiment_config_path.is_file(), f"Experiment config does not exist: '{experiment_config_path}'"
-    assert experiment_config_path.suffix.lower() in {
-        ".json",
-        ".yaml",
-        ".yml",
-    }, f"Experiment config must use .json, .yaml, or .yml, got '{experiment_config_path}'"
+    assert experiment_config_path.suffix.lower() in {".yaml", ".yml"}, (
+        f"Experiment config must be a YAML file (.yaml or .yml), got '{experiment_config_path}'. "
+        "JSON Experiment configs are no longer supported; write their jobs as Runs in a YAML Experiment."
+    )
     return experiment_config_path
-
-
-def run_cfgs_from_legacy_eval_config(config: dict[str, Any], device: str) -> list[ArenaRunCfg]:
-    """Convert a legacy Experiment without importing its runtime dependencies eagerly."""
-    from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-
-    return run_cfgs_from_legacy_eval_config(config, device)
 
 
 def load_arena_experiment_from_config_file(
@@ -46,28 +36,19 @@ def load_arena_experiment_from_config_file(
     device: str,
     overrides: list[str] | None = None,
 ) -> ArenaExperimentCfg:
-    """Load a JSON or YAML Arena Experiment and apply its process device.
+    """Load a YAML Arena Experiment and apply its process device.
 
     Args:
-        experiment_config_path: Path to a legacy JSON or typed YAML Experiment.
+        experiment_config_path: Path to a typed YAML Experiment.
         device: Process-wide simulation device applied to every Run.
-        overrides: Hydra overrides applied to typed YAML Experiments.
+        overrides: Hydra overrides applied to the Experiment.
 
     Returns:
         The loaded, typed Experiment configuration with the process device applied.
     """
-    from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
 
     path = validate_experiment_config_path(experiment_config_path)
-
-    if path.suffix.lower() == ".json":
-        assert not overrides, "Experiment overrides are supported only for typed YAML Experiments"
-        with path.open(encoding="utf-8") as experiment_config_file:
-            legacy_experiment_config = json.load(experiment_config_file)
-        run_cfgs = run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
-        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs}, name=path.stem)
-
     experiment_cfg = load_arena_experiment_from_yaml(
         path,
         environment_cfg_types=_registered_environment_cfg_types(),
