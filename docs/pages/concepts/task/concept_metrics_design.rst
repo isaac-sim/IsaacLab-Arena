@@ -19,24 +19,28 @@ In the code below we show how to inspect the metrics defined by the ``PickAndPla
 
    task = PickAndPlaceTask(pick_object, destination, kitchen)
    task.get_metrics()
-   # → [SuccessRateMetric(), ObjectPeakSpeedExceededRateMetric(pick_object)]
+   # → [SuccessRateMetric(), ObjectDisplacedRateMetric(pick_object)]
 
-Example: ObjectPeakSpeedExceededRateMetric
-------------------------------------------
+Example: ObjectDisplacedRateMetric
+----------------------------------
 
-Here we provide an example of how the ``ObjectPeakSpeedExceededRateMetric`` is implemented.
-The ``ObjectPeakSpeedExceededRateMetric`` implements the recording and computing steps described above
+Here we provide an example of how the ``ObjectDisplacedRateMetric`` is implemented.
+The ``ObjectDisplacedRateMetric`` implements the recording and computing steps described above
 in the following way:
 
-* **Recording** During simulation ``ObjectPeakSpeedExceededRateMetric`` records the
-  object's velocity vector (a 3D vector) at every simulation step.
-* **Computing** After the rollout completes, the ``ObjectPeakSpeedExceededRateMetric`` process
-  the velocity history for each episode. It first computes the magnitude of the velocity
-  vector for each step in an episode.
-  Then it checks if the magnitude is greater than a threshold. If it is, the episode
-  counts as exceeded.
-  Finally, it computes the fraction of episodes in which the peak speed exceeded the threshold.
-  Note this measures peak speed, not displacement: a slow carry is not counted.
+* **Recording** During simulation ``ObjectDisplacedRateMetric`` records the
+  object's world-frame position (a 3D vector) after every environment step.
+  Deformable objects report their mean nodal position.
+* **Computing** After the rollout completes, the ``ObjectDisplacedRateMetric`` processes
+  the position history for each episode. It first computes the distance of each recorded
+  position from the first recorded position.
+  Then it checks if any distance is greater than a threshold (2 cm by default). If it is, the
+  episode counts as displaced, even if the object is later put back.
+  Finally, it computes the fraction of episodes in which the object was displaced.
+  Note this does not depend on speed: a slow carry is counted.
+
+Other tasks, such as ``GoalPoseTask``, report ``ObjectPeakSpeedExceededRateMetric`` instead, which
+counts an episode when the object's linear speed exceeds a threshold at any step.
 
 You do not need to manage any of this manually — it is all wired up automatically
 in the Arena Environment Builder when the environment is compiled from the task.
