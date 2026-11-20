@@ -119,14 +119,19 @@ def get_representative_rigid_body_prims(scene: InteractiveScene, scene_key: str)
 
 
 def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
-    """Compute descendant geometry bounds expressed in the prim's local frame P."""
+    """Compute local geometry bounds, including an explicitly referenced collision shape's purpose."""
     assert prim.IsValid(), "Prim must be valid."
 
     time_code = Usd.TimeCode.Default()
     transform_cache = UsdGeom.XformCache(time_code)
     T_W_P = transform_cache.GetLocalToWorldTransform(prim).RemoveScaleShear()
     T_P_W = T_W_P.GetInverse()
-    bounding_box_cache = UsdGeom.BBoxCache(time_code, includedPurposes=[UsdGeom.Tokens.default_])
+    # An explicit shelf collider may be authored as guide geometry. Whole-object bounds
+    # still exclude non-default descendants, so guides cannot inflate visual-object bounds.
+    purpose = UsdGeom.Tokens.default_
+    if prim.IsA(UsdGeom.Gprim) and prim.HasAPI(UsdPhysics.CollisionAPI):
+        purpose = UsdGeom.Imageable(prim).ComputePurpose()
+    bounding_box_cache = UsdGeom.BBoxCache(time_code, includedPurposes=[purpose])
 
     lower_P = np.full(3, np.inf, dtype=np.float64)
     upper_P = np.full(3, -np.inf, dtype=np.float64)
@@ -134,7 +139,7 @@ def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundin
     for geometry_prim in Usd.PrimRange(prim, Usd.TraverseInstanceProxies()):
         if not geometry_prim.IsA(UsdGeom.Gprim):
             continue
-        if UsdGeom.Imageable(geometry_prim).ComputePurpose() != UsdGeom.Tokens.default_:
+        if UsdGeom.Imageable(geometry_prim).ComputePurpose() != purpose:
             continue
 
         geometry_bounds = bounding_box_cache.ComputeWorldBound(geometry_prim)
@@ -149,7 +154,7 @@ def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundin
         found_geometry = True
 
     prim_path = prim.GetPath()
-    assert found_geometry, f"Prim '{prim_path}' has no default-purpose geometry."
+    assert found_geometry, f"Prim '{prim_path}' has no {purpose}-purpose geometry."
     return AxisAlignedBoundingBox(
         min_point=tuple(float(value) for value in lower_P),
         max_point=tuple(float(value) for value in upper_P),
