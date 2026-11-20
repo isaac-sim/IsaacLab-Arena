@@ -115,8 +115,8 @@ class ObjectPeakSpeed(EpisodeRecorderTerm):
         self._object_name = cfg.params["object_name"]
         self._peak_speed = torch.zeros(env.num_envs, device=env.device)
 
-    def post_step(self, env):
-        velocity_w = env.arena_world.get_mean_linear_velocity_w(self._object_name)
+    def post_step(self):
+        velocity_w = self._env.arena_world.get_mean_linear_velocity_w(self._object_name)
         speed = torch.linalg.norm(velocity_w, dim=-1)
         # Update in place: a tensor created inside torch.inference_mode(), where the env may be stepped,
         # cannot be written in place by reset() outside it.

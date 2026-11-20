@@ -204,7 +204,7 @@ def _test_class_term_is_stepped_and_reset_per_env(simulation_app, output_dir):
             super().__init__(cfg, env)
             self._steps = torch.zeros(env.num_envs, dtype=torch.long)
 
-        def post_step(self, env):
+        def post_step(self):
             self._steps += 1
 
         def reset(self, env_ids=None):
@@ -265,7 +265,7 @@ def _test_class_term_without_post_step_fails_when_built(simulation_app, output_d
     class MisspelledStepCount(EpisodeRecorderTerm):
         """Misspells post_step, so the manager would never step it."""
 
-        def post_stpe(self, env):
+        def post_stpe(self):
             pass
 
         def __call__(self, env, env_id):
@@ -295,7 +295,7 @@ def _test_post_step_term_is_found_before_the_simulation_plays(simulation_app):
     class StepCount(EpisodeRecorderTerm):
         """Follows the episode step by step."""
 
-        def post_step(self, env):
+        def post_step(self):
             pass
 
         def __call__(self, env, env_id):

@@ -43,7 +43,7 @@ class EpisodeRecorderTerm(ManagerTermBase):
     """
 
     @abstractmethod
-    def post_step(self, env) -> None:
+    def post_step(self) -> None:
         """Update the tracked values after every control step.
 
         Change stored tensors in place instead of replacing them, or ``reset()`` may fail.
@@ -113,7 +113,7 @@ class EpisodeRecorderManager(ManagerBase):
     def post_step(self) -> None:
         """Let every class-based term update its tracked values after a control step."""
         for term_cfg in self._class_term_cfgs:
-            term_cfg.func.post_step(self._env)
+            term_cfg.func.post_step()
 
     def reset(self, env_ids: Sequence[int] | torch.Tensor | None = None) -> dict[str, float]:
         """Clear the state of every class-based term for the envs that start a new episode."""
