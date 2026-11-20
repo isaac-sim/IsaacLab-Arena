@@ -97,7 +97,7 @@ Arena calls its ``post_step()`` after every step and its ``reset()`` when a new 
 
 The environment adds both through ``episode_recorder_terms``, as shown below. Each line of the episode
 results then holds the values under the terms' names, for example
-``"object_final_height": {"final_height": 0.12}, "object_peak_speed": {"peak_speed": 0.83}``.
+``"object_final_height": 0.12, "object_peak_speed": 0.83``.
 
 .. _putting_it_all_together:
 

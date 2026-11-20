@@ -24,12 +24,12 @@ from isaaclab.utils.configclass import configclass
 class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     """Configuration for an episode recorder term."""
 
-    func: Callable[..., dict[str, Any] | None] = MISSING
+    func: Callable[..., Any] = MISSING
     """The callable that returns this term's output for one finished episode.
 
-    Invoked as ``func(env, env_id, **params)`` when an episode ends. Returns a dict of JSON values
-    without NaN or infinity, stored in the episode's record under the term's name, or ``None`` to leave
-    the term out of that record. It may also be an ``EpisodeRecorderTerm`` subclass, which the manager
+    Invoked as ``func(env, env_id, **params)`` when an episode ends. Returns a JSON value, such as a number
+    or a dict, without NaN or infinity. It is stored in the episode's record under the term's name; ``None``
+    leaves the term out of that record. It may also be an ``EpisodeRecorderTerm`` subclass, which the manager
     creates once; its ``post_step()`` runs after every control step and its ``reset()`` when an episode
     starts.
     """
@@ -50,8 +50,8 @@ class EpisodeRecorderTerm(ManagerTermBase):
         """
 
     @abstractmethod
-    def __call__(self, env, env_id: int) -> dict[str, Any] | None:
-        """Return a dict of JSON values for env_id's finished episode, or None to leave this term out of the record.
+    def __call__(self, env, env_id: int) -> Any:
+        """Return a JSON value for env_id's finished episode, or None to leave this term out of the record.
 
         Declare a parameter for each ``cfg.params`` entry.
         """
@@ -143,7 +143,7 @@ class EpisodeRecorderManager(ManagerBase):
                 output = term_cfg.func(self._env, env_id, **term_cfg.params)
                 if output is None:
                     continue
-                self._assert_json_object(term_name, output)
+                self._assert_json_value(term_name, output)
                 record[term_name] = output
             self._append_record(record)
 
@@ -201,15 +201,12 @@ class EpisodeRecorderManager(ManagerBase):
                 self._class_term_cfgs.append(term_cfg)
 
     @staticmethod
-    def _assert_json_object(term_name: str, output: Any) -> None:
-        """Check that ``term_name`` returned a JSON object without NaN or infinity, naming the term if not.
+    def _assert_json_value(term_name: str, output: Any) -> None:
+        """Check that ``term_name`` returned a JSON value without NaN or infinity, naming the term if not.
 
         This points at the offending term rather than surfacing a cryptic error later, when the record
         or the experiment result is written.
         """
-        assert isinstance(
-            output, dict
-        ), f"Episode recorder term '{term_name}' must return a dict or None, got {type(output).__name__}."
         try:
             json.dumps(output, allow_nan=False)
         except TypeError as e:
