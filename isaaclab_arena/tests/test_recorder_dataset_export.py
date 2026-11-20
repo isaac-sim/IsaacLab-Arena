@@ -91,7 +91,7 @@ def _test_episode_recorder_term_alone_is_stepped_without_dataset_file(simulation
             super().__init__(cfg, env)
             self.steps = torch.zeros(env.num_envs, dtype=torch.long)
 
-        def post_step(self, env):
+        def post_step(self):
             self.steps += 1
 
         def __call__(self, env, env_id):

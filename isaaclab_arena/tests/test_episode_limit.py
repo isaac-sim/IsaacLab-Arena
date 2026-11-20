@@ -114,7 +114,7 @@ def _create_episode_limit_env(
             super().__init__(cfg, env)
             self._steps = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
 
-        def post_step(self, env):
+        def post_step(self):
             self._steps += 1
 
         def reset(self, env_ids=None):
