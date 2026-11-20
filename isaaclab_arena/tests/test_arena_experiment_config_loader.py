@@ -5,11 +5,14 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+import re
+import sys
 import yaml
 from pathlib import Path
 
 import pytest
 
+from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.evaluation import arena_experiment_config_loader, experiment_runner
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
@@ -22,7 +25,10 @@ from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_run
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
+from isaaclab_arena.tests.test_environment_cfgs import _write_external_factory_module
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena_environments.cli import ensure_environments_registered
+from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironmentCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
 GETTING_STARTED_YAML_PATH = (
@@ -194,7 +200,7 @@ def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch)
     experiment = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
     assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
 
-    with pytest.raises(AssertionError, match="unknown environment type 'external_without_config'"):
+    with pytest.raises(ValueError, match="Run 'baseline' could not resolve environment type 'external_without_config'"):
         load_arena_experiment_from_config_file(
             GETTING_STARTED_YAML_PATH,
             device="cuda:0",
@@ -279,6 +285,128 @@ def test_policy_config_type_resolves_from_dotted_class_path():
     )
 
     assert policy_cfg_type is ZeroActionPolicyCfg
+
+
+@pytest.fixture
+def isolated_environment_registry(monkeypatch):
+    """Remove the environments that modules imported during a test register once the test ends."""
+    ensure_environments_registered()
+    environment_registry = EnvironmentRegistry()
+    monkeypatch.setattr(environment_registry, "_components", environment_registry._components.copy())
+    monkeypatch.setattr(
+        environment_registry,
+        "_factory_types_by_cfg_type",
+        environment_registry._factory_types_by_cfg_type.copy(),
+    )
+
+
+def _write_experiment_selecting_environment_type(tmp_path: Path, environment_type: str) -> Path:
+    """Write an Experiment whose Run 'valid' selects a built-in environment and Run 'selected' environment_type."""
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        yaml.safe_dump({
+            "runs": {
+                "valid": {"environment": {"type": "pick_and_place_maple_table"}, "policy": {"type": "zero_action"}},
+                "selected": {"environment": {"type": environment_type}, "policy": {"type": "zero_action"}},
+            }
+        }),
+        encoding="utf-8",
+    )
+    return config_path
+
+
+def _assert_selected_run_cannot_resolve_environment_type(config_path: Path, environment_type: str, error: str):
+    """Check that loading fails with an error naming Run 'selected', its environment type, and the cause."""
+    expected_message = (
+        f"Run 'selected' could not resolve environment type '{re.escape(environment_type)}': .*{re.escape(error)}"
+    )
+    with pytest.raises(ValueError, match=expected_message):
+        load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+
+def test_environment_type_selects_an_external_factory_by_dotted_class_path(
+    tmp_path, monkeypatch, isolated_environment_registry
+):
+    """Import a factory that only the Experiment names, and compose its config from the Run values."""
+    flag_class_path = _write_external_factory_module(
+        tmp_path, monkeypatch, "experiment_selected_environment_module", "experiment_selected_environment"
+    )
+    # The flag joins module and class with ":"; Experiments use a dot.
+    environment_type = flag_class_path.replace(":", ".")
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        yaml.safe_dump({
+            "runs": {
+                "external": {
+                    "environment": {"type": environment_type, "object": "mug"},
+                    "policy": {"type": "zero_action"},
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+    external_module = sys.modules["experiment_selected_environment_module"]
+    assert experiment_cfg.runs["external"].environment == external_module.ExternalEnvironmentCfg(object="mug")
+    assert EnvironmentRegistry().get_component_by_name("experiment_selected_environment") is (
+        external_module.ExternalEnvironment
+    )
+
+
+@pytest.mark.parametrize(
+    ("environment_type", "error"),
+    [
+        ("missing_environment", "is not a registered environment name or a dotted class path"),
+        ("missing_package.environments.MissingEnvironment", "No module named 'missing_package'"),
+        (
+            "isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment",
+            "uses the command-line form 'module_path:ClassName'. Experiments use the dotted form",
+        ),
+    ],
+)
+def test_unresolvable_environment_type_names_the_run(tmp_path, environment_type, error):
+    config_path = _write_experiment_selecting_environment_type(tmp_path, environment_type)
+
+    _assert_selected_run_cannot_resolve_environment_type(config_path, environment_type, error)
+
+
+def test_environment_type_rejects_an_unregistered_factory(tmp_path, monkeypatch, isolated_environment_registry):
+    flag_class_path = _write_external_factory_module(
+        tmp_path,
+        monkeypatch,
+        "experiment_unregistered_environment_module",
+        "experiment_unregistered_environment",
+        decorate=False,
+    )
+    environment_type = flag_class_path.replace(":", ".")
+    config_path = _write_experiment_selecting_environment_type(tmp_path, environment_type)
+
+    _assert_selected_run_cannot_resolve_environment_type(
+        config_path, environment_type, "is not registered. Decorate it with @register_environment."
+    )
+
+
+def test_environment_type_rejects_a_factory_that_reuses_a_built_in_name(
+    tmp_path, monkeypatch, isolated_environment_registry
+):
+    flag_class_path = _write_external_factory_module(
+        tmp_path, monkeypatch, "experiment_taken_name_environment_module", "kitchen_pick_and_place"
+    )
+    environment_type = flag_class_path.replace(":", ".")
+    config_path = _write_experiment_selecting_environment_type(tmp_path, environment_type)
+
+    _assert_selected_run_cannot_resolve_environment_type(
+        config_path,
+        environment_type,
+        "uses the name 'kitchen_pick_and_place', which is taken by"
+        " isaaclab_arena_environments.kitchen_pick_and_place_environment.KitchenPickAndPlaceEnvironment",
+    )
+    # The built-in environment keeps its name.
+    built_in_config_path = _write_experiment_selecting_environment_type(tmp_path, "kitchen_pick_and_place")
+    experiment_cfg = load_arena_experiment_from_config_file(built_in_config_path, device="cuda:0")
+    assert isinstance(experiment_cfg.runs["selected"].environment, KitchenPickAndPlaceEnvironmentCfg)
 
 
 def test_default_experiment_is_a_short_zero_action_smoke_test(monkeypatch):

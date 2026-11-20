@@ -31,6 +31,43 @@ def ensure_environments_registered():
     import isaaclab_arena_environments  # noqa: F401
 
 
+def import_external_environment_factory(
+    environment_class_path: str,
+    separator: str = ":",
+) -> type[ArenaEnvironmentFactory]:
+    """Import an environment factory named by a class path and check its registration.
+
+    Importing the module runs the factory's ``@register_environment`` decorator. Built-in
+    environments are registered first, so a factory that reuses a built-in name is rejected.
+    Repeated calls return the same class.
+
+    Args:
+        environment_class_path: Module path and class name of the factory, joined by ``separator``.
+        separator: Text between the module path and the class name.
+
+    Returns:
+        The environment factory registered under its ``name``.
+    """
+    ensure_environments_registered()
+    environment_factory_type = import_class_from_path(environment_class_path, separator=separator)
+    assert issubclass(
+        environment_factory_type, ArenaEnvironmentFactory
+    ), f"{environment_class_path!r} is not an ArenaEnvironmentFactory subclass"
+    environment_name = environment_factory_type.name
+    assert environment_name is not None, f"{environment_class_path!r} must set a name"
+
+    environment_registry = EnvironmentRegistry()
+    assert environment_registry.is_registered(
+        environment_name
+    ), f"{environment_class_path!r} is not registered. Decorate it with @register_environment."
+    registered_factory_type = environment_registry.get_component_by_name(environment_name)
+    assert registered_factory_type is environment_factory_type, (
+        f"{environment_class_path!r} uses the name {environment_name!r}, which is taken by"
+        f" {registered_factory_type.__module__}.{registered_factory_type.__qualname__}. Choose another name."
+    )
+    return environment_factory_type
+
+
 # Legacy argparse compatibility
 #
 # Typed factories expose only build(cfg). Until the argparse frontend is retired, this
@@ -87,39 +124,6 @@ def build_environment_from_cli(
     """Build an environment from the config reconstructed from legacy CLI values."""
     environment_factory = environment_factory_type()
     return environment_factory.build(_environment_cfg_from_cli(environment_factory_type, args_cli))
-
-
-def import_external_environment_factory(environment_class_path: str) -> type[ArenaEnvironmentFactory]:
-    """Import an environment factory named by a ``module_path:ClassName`` path and check its registration.
-
-    Importing the module runs the factory's ``@register_environment`` decorator. Built-in
-    environments are registered first, so a factory that reuses a built-in name is rejected.
-    Repeated calls return the same class.
-
-    Args:
-        environment_class_path: Module path and class name of the factory, joined by ``:``.
-
-    Returns:
-        The environment factory registered under its ``name``.
-    """
-    ensure_environments_registered()
-    environment_factory_type = import_class_from_path(environment_class_path, separator=":")
-    assert issubclass(
-        environment_factory_type, ArenaEnvironmentFactory
-    ), f"{environment_class_path!r} is not an ArenaEnvironmentFactory subclass"
-    environment_name = environment_factory_type.name
-    assert environment_name is not None, f"{environment_class_path!r} must set a name"
-
-    environment_registry = EnvironmentRegistry()
-    assert environment_registry.is_registered(
-        environment_name
-    ), f"{environment_class_path!r} is not registered. Decorate it with @register_environment."
-    registered_factory_type = environment_registry.get_component_by_name(environment_name)
-    assert registered_factory_type is environment_factory_type, (
-        f"{environment_class_path!r} uses the name {environment_name!r}, which is taken by"
-        f" {registered_factory_type.__module__}.{registered_factory_type.__qualname__}. Choose another name."
-    )
-    return environment_factory_type
 
 
 def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[CliOverrideSpec]) -> None:
