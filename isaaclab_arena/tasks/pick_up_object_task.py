@@ -25,7 +25,11 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 @register_task
 class PickUpObjectTask(TaskBase):
-    """Require an object to rest, then rise above its recorded resting height."""
+    """Require an object to rest, then rise above its recorded resting height.
+
+    The resting height is the object's first rest pose in the episode, not where it rests when
+    this task starts within a sequence.
+    """
 
     def __init__(
         self,
