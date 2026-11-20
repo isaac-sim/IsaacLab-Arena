@@ -8,7 +8,9 @@ from __future__ import annotations
 import datetime
 import inspect
 import json
+import math
 import torch
+import warnings
 from abc import abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import MISSING
@@ -28,10 +30,10 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     """The callable that returns this term's output for one finished episode.
 
     Invoked as ``func(env, env_id, **params)`` when an episode ends. Returns a JSON value, such as a number
-    or a dict, without NaN or infinity. It is stored in the episode's record under the term's name; ``None``
-    leaves the term out of that record. It may also be an ``EpisodeRecorderTerm`` subclass, which the manager
-    creates once; its ``post_step()`` runs after every control step and its ``reset()`` when an episode
-    starts.
+    or a dict. It is stored in the episode's record under the term's name; ``None`` leaves the term out of
+    that record. A NaN or infinite float is written as null, with a warning. It may also be an
+    ``EpisodeRecorderTerm`` subclass, which the manager creates once; its ``post_step()`` runs after every
+    control step and its ``reset()`` when an episode starts.
     """
 
 
@@ -144,6 +146,16 @@ class EpisodeRecorderManager(ManagerBase):
                 if output is None:
                     continue
                 self._assert_json_value(term_name, output)
+                try:
+                    json.dumps(output, allow_nan=False)
+                except ValueError:
+                    # An unstable simulation can produce NaN or infinity. That is data about this episode, not a
+                    # bug in the term, so record the episode instead of failing the Run.
+                    warnings.warn(
+                        f"Episode recorder term '{term_name}' returned NaN or infinity for env {env_id}, episode"
+                        f" {record['episode_in_env']}; writing it as null: {output!r}"
+                    )
+                    output = _non_finite_floats_to_none(output)
                 record[term_name] = output
             self._append_record(record)
 
@@ -202,16 +214,25 @@ class EpisodeRecorderManager(ManagerBase):
 
     @staticmethod
     def _assert_json_value(term_name: str, output: Any) -> None:
-        """Check that ``term_name`` returned a JSON value without NaN or infinity, naming the term if not.
+        """Check that ``term_name`` returned a JSON value, naming the term if not.
 
         This points at the offending term rather than surfacing a cryptic error later, when the record
         or the experiment result is written.
         """
         try:
-            json.dumps(output, allow_nan=False)
+            json.dumps(output)
         except TypeError as e:
             raise TypeError(
                 f"Episode recorder term '{term_name}' returned non-JSON-serializable output ({output!r}): {e}"
             ) from e
-        except ValueError as e:
-            raise ValueError(f"Episode recorder term '{term_name}' returned NaN or infinity ({output!r}): {e}") from e
+
+
+def _non_finite_floats_to_none(value: Any) -> Any:
+    """Return value with each NaN or infinite float replaced by None, which JSON writes as null."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _non_finite_floats_to_none(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_non_finite_floats_to_none(item) for item in value]
+    return value
