@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # No robot is spawned. The source counter is over four metres from the fridge.
-env_name: kitchen_bench_lightwheel_put_pepper_in_fridge_l_shaped_scandinavian
+env_name: lightwheel_put_pepper_in_fridge_l_shaped_scandinavian
 background:
   id: kitchen
   registry_name: lightwheel_kitchen_l_shaped_scandinavian
@@ -14,7 +14,7 @@ objects:
 - id: pepper
   registry_name: red_bell_pepper_objaverse_robolab
 object_references:
-- id: source_bench
+- id: source_counter
   parent_id: kitchen
   prim_path: counter_main_main_group/top_geometry_left
   object_type: base
@@ -31,22 +31,22 @@ object_references:
   object_type: base
 relations:
 - kind: is_anchor
-  subject: source_bench
+  subject: source_counter
 - kind: is_anchor
   subject: fridge
 - kind: 'on'
   subject: pepper
-  reference: source_bench
+  reference: source_counter
 - kind: align_with
   subject: pepper
-  reference: source_bench
+  reference: source_counter
   params:
     axis: x
     offset_m: 0.27
     tolerance_m: 0.12
 - kind: align_with
   subject: pepper
-  reference: source_bench
+  reference: source_counter
   params:
     axis: y
     offset_m: -0.12
