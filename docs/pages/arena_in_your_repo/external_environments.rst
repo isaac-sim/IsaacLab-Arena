@@ -142,18 +142,22 @@ Flags work for fields of these types:
 
 * ``bool``, ``int``, ``float``, and ``str``. A ``bool`` field that defaults to ``False`` becomes a
   switch such as ``--rl_training_mode``. Other ``bool`` fields get ``--name`` and ``--no-name``.
-* A ``Literal`` whose values have one type, such as ``Literal["left", "right"]``.
+* A ``Literal`` whose values are all ``str`` or all ``int``, such as ``Literal["left", "right"]``.
 * A string-valued enum, such as ``class Mode(str, Enum)``.
 * An optional of these types, such as ``str | None``.
 * A list of ``int``, ``float``, or ``str``, such as ``list[str]``. The flag takes zero or more values.
 
-Fields of other types fail. Types such as ``tuple[float, float]`` or ``dict[str, float]`` stop the
-runner with an error while it builds its parser. Types such as a plain ``Enum`` or ``list[bool]``
-reject or misread the value given on the command line.
+Other types are not supported. Generic types such as ``tuple[float, float]``, ``dict[str, float]``,
+or ``int | str`` stop the runner with an error while it builds its parser. Other types can get a flag
+that rejects or misreads the value given on the command line. For example, a plain ``Enum`` rejects
+every value, ``list[bool]`` and ``Literal[True, False]`` read ``False`` as ``True``, and a nested
+dataclass gets the text in its first field.
 
 The ``enable_cameras`` field comes from ``ArenaEnvironmentCfg``. It does not get its own flag and
 takes the value of the runner's ``--enable_cameras`` flag. A field named ``num_envs`` or ``mimic``
-also takes the value of the runner's flag with the same name.
+also takes the value of the runner's flag with the same name. A field named ``auto`` gets no flag
+either. It keeps its default unless the calling script defines ``--auto``, as Isaac Lab's
+``annotate_demos.py`` does.
 
 Migrating from ``ExampleEnvironmentBase``
 -----------------------------------------
