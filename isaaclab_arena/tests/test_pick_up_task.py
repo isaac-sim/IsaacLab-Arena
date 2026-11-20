@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""PickUpObjectTask follows per-environment rest poses and sequential reset state."""
+"""PickUpTask follows per-environment rest poses and sequential reset state."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -15,7 +15,7 @@ def _test_pickup_rest_height_order_and_partial_reset(_simulation_app):
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.pick_up_object_task import PickUpObjectTask
+    from isaaclab_arena.tasks.pick_up_task import PickUpTask
     from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 
     class World:
@@ -43,7 +43,7 @@ def _test_pickup_rest_height_order_and_partial_reset(_simulation_app):
         object_initial_rest_pose_recorder=recorder,
         door_open=torch.ones(2, dtype=torch.bool),
     )
-    task = PickUpObjectTask(SimpleNamespace(name="can"), SimpleNamespace(object_min_z=-0.2), minimum_lift_m=0.15)
+    task = PickUpTask(SimpleNamespace(name="can"), SimpleNamespace(object_min_z=-0.2), minimum_lift_m=0.15)
     pickup = replace(task.get_termination_cfg().success[0], parent_subtask_idx=0)
     door = CompletionCriteria(name="door", predicate_sequence=[lambda env: env.door_open], parent_subtask_idx=1)
     tracker = ProgressTracker([pickup, door], num_envs=2, device="cpu", subtasks_are_sequential=True)
