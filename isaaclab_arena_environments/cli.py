@@ -46,7 +46,7 @@ def import_external_environment_factory(
         separator: Text between the module path and the class name.
 
     Returns:
-        The environment factory registered under its ``name``.
+        The environment factory registered with its config under its ``name``.
     """
     ensure_environments_registered()
     environment_factory_type = import_class_from_path(environment_class_path, separator=separator)
@@ -65,6 +65,10 @@ def import_external_environment_factory(
         f"{environment_class_path!r} uses the name {environment_name!r}, which is taken by"
         f" {registered_factory_type.__module__}.{registered_factory_type.__qualname__}. Choose another name."
     )
+    # A plain EnvironmentRegistry().register() call records the factory without its config.
+    assert (
+        environment_name in environment_registry.get_environment_cfg_types()
+    ), f"{environment_class_path!r} is registered without its config. Register it with @register_environment instead."
     return environment_factory_type
 
 

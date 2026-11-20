@@ -412,6 +412,34 @@ def test_environment_type_names_the_run_when_its_module_fails_to_import(tmp_path
     )
 
 
+def test_environment_type_rejects_a_factory_registered_without_its_config(
+    tmp_path, monkeypatch, isolated_environment_registry
+):
+    _write_external_module(
+        tmp_path,
+        monkeypatch,
+        "environment_registered_without_config_module",
+        """
+        from isaaclab_arena.assets.registries import EnvironmentRegistry
+        from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+
+
+        class EnvironmentWithoutConfig(ArenaEnvironmentFactory[ArenaEnvironmentCfg]):
+            name = "environment_registered_without_config"
+
+
+        # Plain register() records no config, unlike @register_environment.
+        EnvironmentRegistry().register(EnvironmentWithoutConfig, EnvironmentWithoutConfig.name)
+        """,
+    )
+    environment_type = "environment_registered_without_config_module.EnvironmentWithoutConfig"
+    config_path = _write_experiment_selecting_environment_type(tmp_path, environment_type)
+
+    _assert_selected_run_cannot_resolve_environment_type(
+        config_path, environment_type, "is registered without its config. Register it with @register_environment"
+    )
+
+
 def test_environment_type_rejects_a_factory_that_reuses_a_built_in_name(
     tmp_path, monkeypatch, isolated_environment_registry
 ):
