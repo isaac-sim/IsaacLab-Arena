@@ -46,15 +46,15 @@ def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
 def load_arena_experiment_from_yaml(
     yaml_path: str | Path,
     *,
-    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+    environment_cfg_type_resolver: Callable[[str], type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
     overrides: list[str] | None = None,
 ) -> ArenaExperimentCfg:
     """Load a YAML Arena Experiment Definition as a typed named-Run mapping.
 
     Each entry in the runs mapping declares one Run using its key as the Run
-    name. The environment.type selector chooses from the supplied mapping, or
-    names a graph-spec YAML path; policy.type is resolved when its Run is built.
+    name. An environment.type that names a graph-spec YAML path selects that file;
+    any other environment.type, and every policy.type, is resolved when its Run is built.
     Hydra overrides can update shared Run defaults or fields on Runs declared in YAML, but cannot add Runs.
     Shared defaults are applied before Run overrides. The Experiment name is the file's top-level ``name`` or,
     when it has none, the file stem. The optional top-level ``kpi_exporters`` list selects the KPI exporters; an override
@@ -62,7 +62,8 @@ def load_arena_experiment_from_yaml(
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
-        environment_cfg_types: Environment selector names mapped to typed configuration classes.
+        environment_cfg_type_resolver: Function returning the ArenaEnvironmentCfg subclass for an
+            environment.type value that is not a graph-spec YAML path.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
         overrides: Hydra field overrides for shared Run defaults, the KPI exporters, or Runs already declared in YAML.
 
@@ -93,7 +94,7 @@ def load_arena_experiment_from_yaml(
                     index,
                     run_name,
                     run_values,
-                    environment_cfg_types,
+                    environment_cfg_type_resolver,
                     policy_cfg_type_resolver,
                 )
                 for index, (run_name, run_values) in enumerate(run_values_by_name.items())
@@ -252,7 +253,7 @@ def _build_arena_run_cfg_from_yaml_values(
     index: int,
     run_name: str,
     run_values: dict[str, Any],
-    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+    environment_cfg_type_resolver: Callable[[str], type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
 ) -> ArenaRunCfg:
     """Build one typed Arena Run from its unresolved YAML values.
@@ -263,7 +264,8 @@ def _build_arena_run_cfg_from_yaml_values(
         index: Position of the Run in YAML declaration order.
         run_name: Name declared by the Run's YAML mapping key.
         run_values: Values declared for the Run after applying shared defaults.
-        environment_cfg_types: Environment selectors mapped to typed configuration classes.
+        environment_cfg_type_resolver: Function returning the ArenaEnvironmentCfg subclass for an
+            environment.type value.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
 
     Returns:
@@ -284,20 +286,15 @@ def _build_arena_run_cfg_from_yaml_values(
         hydra_environment_config_name,
         run_name,
         environment_values,
-        environment_cfg_types,
+        environment_cfg_type_resolver,
     )
-    policy_cfg_types: dict[str, type[PolicyCfg]] = {}
-    if isinstance(policy_values, dict):
-        policy_selector = policy_values.get("type")
-        if isinstance(policy_selector, str) and policy_selector:
-            policy_cfg_types[policy_selector] = policy_cfg_type_resolver(policy_selector)
     policy = _compose_typed_config_from_yaml_selector(
         config_store,
         hydra_policy_config_name,
         run_name,
         "policy",
         policy_values,
-        policy_cfg_types,
+        policy_cfg_type_resolver,
         PolicyCfg,
     )
 
@@ -317,12 +314,12 @@ def _build_environment_cfg_from_yaml_values(
     hydra_environment_config_name: str,
     run_name: str,
     environment_values: dict[str, Any],
-    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+    environment_cfg_type_resolver: Callable[[str], type[ArenaEnvironmentCfg]],
 ) -> ArenaEnvironmentCfg:
     """Build a Run's environment from a graph-spec YAML path or a typed selector.
 
     When environment.type names a graph-spec YAML file it is built on the temporary
-    argparse compatibility path; otherwise the type selects a registered typed config.
+    argparse compatibility path; otherwise environment_cfg_type_resolver returns its typed config.
     """
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 
@@ -339,7 +336,7 @@ def _build_environment_cfg_from_yaml_values(
             run_name,
             "environment",
             environment_values,
-            environment_cfg_types,
+            environment_cfg_type_resolver,
             ArenaEnvironmentCfg,
         )
 
@@ -387,12 +384,12 @@ def _compose_typed_config_from_yaml_selector(
     run_name: str,
     section_name: str,
     section_values_with_selector: dict[str, Any],
-    cfg_types: dict[str, type[Any]],
+    cfg_type_resolver: Callable[[str], type[Any]],
     expected_base_type: type[Any],
 ) -> Any:
     """Resolve one YAML type selector into a concrete typed configuration.
 
-    The value under type selects a class from cfg_types. All remaining
+    cfg_type_resolver returns the class for the value under type. All remaining
     values are composed and validated against that class by Hydra.
 
     Args:
@@ -401,7 +398,7 @@ def _compose_typed_config_from_yaml_selector(
         run_name: Run containing the selected environment or policy.
         section_name: YAML section being composed, such as environment or policy.
         section_values_with_selector: YAML field values for the section, including its type selector.
-        cfg_types: Available selector names mapped to typed configuration classes.
+        cfg_type_resolver: Function returning the configuration class for the type selector.
         expected_base_type: Base class that the selected configuration must inherit.
 
     Returns:
@@ -411,12 +408,14 @@ def _compose_typed_config_from_yaml_selector(
     values = section_values_with_selector.copy()
     selector = values.pop("type", None)
     assert isinstance(selector, str) and selector, f"Run '{run_name}' is missing '{section_name}.type'"
-    available = ", ".join(sorted(cfg_types)) or "(none)"
-    assert (
-        selector in cfg_types
-    ), f"Run '{run_name}' selects unknown {section_name} type '{selector}'. Available types: {available}"
+    try:
+        cfg_type = cfg_type_resolver(selector)
+    except Exception as exc:
+        # The resolver does not know which Run selected the type. Name it so a failure in a multi-Run
+        # Experiment points at the Run to fix. A class path imports the user's module, which can raise
+        # any exception, so every failure is reported this way. The chained cause keeps its traceback.
+        raise ValueError(f"Run '{run_name}' could not resolve {section_name} type '{selector}': {exc}") from exc
 
-    cfg_type = cfg_types[selector]
     assert isinstance(cfg_type, type) and issubclass(cfg_type, expected_base_type), (
         f"Configuration type registered for {section_name} selector '{selector}' "
         f"must inherit from {expected_base_type.__name__}"

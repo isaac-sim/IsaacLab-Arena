@@ -7,14 +7,12 @@
 
 This demonstrates how to define an environment outside Isaac Lab Arena. Like the
 built-in environments, it is a config dataclass plus a factory with ``build(cfg)``,
-registered with ``@register_environment``. Load it with the
-``--external_environment_class_path`` CLI flag; the config fields become flags
-after the environment name::
+registered with ``@register_environment``. An Arena Experiment selects it by the
+dotted class path of its factory, and the Run's environment values set the config
+fields. ``external_environments_experiment.yaml`` in this directory evaluates it::
 
-    python isaaclab_arena/evaluation/policy_runner.py \\
-        --policy_type zero_action --num_steps 10 \\
-        --external_environment_class_path isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment \\
-        franka_table --object cracker_box
+    python isaaclab_arena/evaluation/experiment_runner.py \\
+        --experiment_config isaaclab_arena_examples/external_environments/external_environments_experiment.yaml
 """
 
 from __future__ import annotations

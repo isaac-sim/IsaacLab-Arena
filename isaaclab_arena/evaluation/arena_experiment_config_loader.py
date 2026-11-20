@@ -51,7 +51,7 @@ def load_arena_experiment_from_config_file(
     path = validate_experiment_config_path(experiment_config_path)
     experiment_cfg = load_arena_experiment_from_yaml(
         path,
-        environment_cfg_types=_registered_environment_cfg_types(),
+        environment_cfg_type_resolver=_resolve_environment_cfg_type_from_name_or_class_path,
         policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
         overrides=overrides,
     )
@@ -77,6 +77,34 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
 
     ensure_environments_registered()
     return EnvironmentRegistry().get_environment_cfg_types()
+
+
+def _resolve_environment_cfg_type_from_name_or_class_path(
+    environment_name_or_class_path: str,
+) -> type[ArenaEnvironmentCfg]:
+    """Return the config type for a registered environment name or an environment factory's dotted class path.
+
+    A registered name is looked up first. A class path imports the factory's module, whose
+    ``@register_environment`` decorator registers the factory and its config.
+
+    Args:
+        environment_name_or_class_path: Registered environment name, or a ``module_path.ClassName`` path.
+    """
+    from isaaclab_arena_environments.cli import import_external_environment_factory
+
+    environment_cfg_types = _registered_environment_cfg_types()
+    if environment_name_or_class_path in environment_cfg_types:
+        return environment_cfg_types[environment_name_or_class_path]
+    assert ":" not in environment_name_or_class_path, (
+        f"Environment type {environment_name_or_class_path!r} uses the command-line form 'module_path:ClassName'."
+        " Experiments use the dotted form 'module_path.ClassName'."
+    )
+    assert "." in environment_name_or_class_path, (
+        f"Environment type {environment_name_or_class_path!r} is not a registered environment name or a dotted"
+        f" class path 'module_path.ClassName'. Registered names: {', '.join(sorted(environment_cfg_types))}"
+    )
+    environment_factory_type = import_external_environment_factory(environment_name_or_class_path, separator=".")
+    return _registered_environment_cfg_types()[environment_factory_type.name]
 
 
 def resolve_policy_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyBase]:

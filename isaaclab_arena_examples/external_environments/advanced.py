@@ -6,13 +6,12 @@
 """Advanced example: externally-defined environment with a custom task and embodiment.
 
 Builds on the basic example by defining a custom task and a custom embodiment
-variant (with modified controller gains) in the same file::
+variant (with modified controller gains) in the same file.
+``external_environments_experiment.yaml`` in this directory selects it by the dotted
+class path of its factory and evaluates it::
 
-    python isaaclab_arena/evaluation/policy_runner.py \\
-        --policy_type zero_action --num_steps 100 \\
-        --external_environment_class_path \\
-        isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \\
-        franka_table_with_task --object cracker_box
+    python isaaclab_arena/evaluation/experiment_runner.py \\
+        --experiment_config isaaclab_arena_examples/external_environments/external_environments_experiment.yaml
 """
 
 from __future__ import annotations

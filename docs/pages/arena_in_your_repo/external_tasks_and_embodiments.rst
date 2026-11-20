@@ -138,39 +138,42 @@ that composes the custom task and custom embodiment.
                task=task,
            )
 
-External environments can be used in Isaac Lab - Arena workflows by using a particular
-CLI syntax. For example, a zero-action policy can be run with an
-externally-defined environment like this:
+As in :doc:`external_environments`, an Experiment selects the environment by the dotted class path
+of its factory, and the other values under ``environment`` set the fields of
+``ExternalFrankaTableWithTaskEnvironmentCfg``:
+
+.. code-block:: yaml
+
+   # my_experiment.yaml
+   runs:
+     franka_table_with_task:
+       environment:
+         type: my_package.isaaclab_arena_environments.my_environment_with_task.ExternalFrankaTableWithTaskEnvironment
+         object: tomato_soup_can
+       policy:
+         type: zero_action
+       rollout_limit:
+         num_episodes: 1
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type zero_action \
-     --num_episodes 1 \
-     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment_with_task:ExternalFrankaTableWithTaskEnvironment \
-     franka_table_with_task \
-     --object tomato_soup_can
+   python isaaclab_arena/evaluation/experiment_runner.py --experiment_config my_experiment.yaml
 
-As in :doc:`external_environments`, the flag ``--external_environment_class_path`` imports the
-module, the environment name is the first positional argument, and the flags after it set the
-fields of ``ExternalFrankaTableWithTaskEnvironmentCfg``. Importing the module also registers the
-custom embodiment, because ``@register_asset`` runs when the module is imported.
+The Experiment Runner imports the module, which also registers the custom embodiment through
+``@register_asset``.
 
 .. note::
 
     The environment above is actually located in ``isaaclab_arena_examples/external_environments/advanced.py``.
     So this environment is located in the Isaac Lab - Arena source-tree, but isn't included
-    in the built in environments, so must be called through the external environment syntax.
+    in the built in environments, so must be selected by its class path.
     This is done to demonstrate how this would be done in an external codebase.
 
-    The environment can be run with:
+    The example Experiment in :doc:`external_environments` evaluates it in its second Run,
+    ``franka_table_with_task``. This command runs both Runs of that Experiment, one after the other:
 
     .. code-block:: bash
 
-        python isaaclab_arena/evaluation/policy_runner.py \
+        python isaaclab_arena/evaluation/experiment_runner.py \
           --viz kit \
-          --policy_type zero_action \
-          --num_episodes 1 \
-          --external_environment_class_path isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \
-          franka_table_with_task \
-          --object tomato_soup_can
+          --experiment_config isaaclab_arena_examples/external_environments/external_environments_experiment.yaml

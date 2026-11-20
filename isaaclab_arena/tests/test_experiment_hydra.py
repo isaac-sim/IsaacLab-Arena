@@ -39,10 +39,15 @@ def _policy_cfg_type_for_name_or_class_path(policy_name_or_class_path: str) -> t
     return {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path]
 
 
+def _environment_cfg_type_for_name(environment_name: str) -> type[PickAndPlaceMapleTableEnvironmentCfg]:
+    assert environment_name == "pick_and_place_maple_table", f"No environment named {environment_name!r}"
+    return PickAndPlaceMapleTableEnvironmentCfg
+
+
 def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
     return load_arena_experiment_from_yaml(
         config_path,
-        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        environment_cfg_type_resolver=_environment_cfg_type_for_name,
         policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
         overrides=overrides,
     )
@@ -691,8 +696,8 @@ runs:
     policy:
       type: zero_action
 """,
-            AssertionError,
-            "unknown environment type 'missing_environment'",
+            ValueError,
+            "Run 'invalid' could not resolve environment type 'missing_environment': No environment named",
         ),
         (
             """

@@ -7,6 +7,7 @@
 
 import yaml
 from enum import Enum
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +49,7 @@ def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> st
         policy_type = policy_registry.get_policy_type_for_cfg(run_cfg.policy)
         policy_selector = policy_type.name
         if not policy_type.__module__.startswith("isaaclab_arena.policy."):
-            policy_selector = f"{policy_type.__module__}.{policy_type.__qualname__}"
+            policy_selector = _importable_class_path(policy_type)
         run_values["policy"] = {"type": policy_selector, **run_values["policy"]}
         run_values_by_name[run_name] = _to_yaml_values(run_values)
     experiment_values: dict[str, Any] = {
@@ -67,9 +68,28 @@ def _environment_yaml_values(
     """Return one Run's environment section."""
     if isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
         return {"type": run_cfg.environment.env_spec_path, **run_cfg.environment.per_run_overrides}
+    environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
+    # A process that loads the saved Experiment registers only the environments in isaaclab_arena_environments
+    # by name. Other factories are registered when their class path is imported.
+    if environment_type.__module__.startswith("isaaclab_arena_environments."):
+        environment_selector = environment_type.name
     else:
-        environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
-        return {"type": environment_type.name, **dumped_environment_values}
+        environment_selector = _importable_class_path(environment_type)
+    return {"type": environment_selector, **dumped_environment_values}
+
+
+def _importable_class_path(class_type: type) -> str:
+    """Return the ``module_path.ClassName`` path that imports class_type when an Experiment selects it.
+
+    A class nested in another class or defined in a function has no such path.
+    """
+    class_path = f"{class_type.__module__}.{class_type.__name__}"
+    module_attribute = getattr(import_module(class_type.__module__), class_type.__name__, None)
+    assert module_attribute is class_type, (
+        f"{class_type.__module__}.{class_type.__qualname__} cannot be imported as {class_path!r}. Define it at the"
+        " top level of its module so a saved Experiment can select it by class path."
+    )
+    return class_path
 
 
 def _to_yaml_values(value: Any) -> Any:
