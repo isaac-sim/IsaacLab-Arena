@@ -145,11 +145,15 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             )
             self._task_progress_step = self.common_step_counter
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
-        # Isaac Lab calls record_post_step only while a recorder term is active, so add a term that
-        # records nothing whenever task progress or an episode recorder term needs per-step updates.
+        # Isaac Lab calls record_post_step only while a recorder term is active, so add a term that records
+        # nothing. Class-based episode recorder terms always need it. Task progress needs it only when the success
+        # term does not advance progress every step, as in Isaac Lab's replay_demos.py, which disables all
+        # terminations. While this term is the only active one, Isaac Lab computes the observations a second time
+        # every step.
         # TODO(cvolk, 2026-11-18): Remove this block with PostStepHookRecorder once Arena's Isaac Lab includes
-        # https://github.com/isaac-sim/IsaacLab/pull/8822. Covered by test_post_step_hook_recorder_is_still_needed
-        # in test_arena_recorder_manager.py, which fails once that is the case and lists what to remove.
+        # https://github.com/isaac-sim/IsaacLab/pull/8822, which is on Isaac Lab main but not on the release/3.0.0
+        # branch Arena pins. Covered by test_post_step_hook_recorder_is_still_needed in
+        # test_arena_recorder_manager.py, which fails once that is the case and lists what to remove.
         if self.cfg.task_progress is not None or self.episode_recorder_manager.has_post_step_terms:
             if not recorder_cfg or isinstance(recorder_cfg, dict):
                 recorder_terms = recorder_cfg or {}
