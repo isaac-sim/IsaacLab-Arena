@@ -26,20 +26,12 @@ def serve_batched_policy():
     return module
 
 
-def test_padded_batch_size_rounds_up_to_a_power_of_two_below_the_cap(serve_batched_policy):
-    assert serve_batched_policy.padded_batch_size(1, 32) == 1
-    assert serve_batched_policy.padded_batch_size(3, 32) == 4
-    assert serve_batched_policy.padded_batch_size(16, 32) == 16
-    assert serve_batched_policy.padded_batch_size(17, 32) == 32
-    assert serve_batched_policy.padded_batch_size(20, 24) == 24
-
-
-def test_padded_batch_size_from_sizes_picks_the_smallest_fitting_fixed_size(serve_batched_policy):
-    assert serve_batched_policy.padded_batch_size_from_sizes(1, [8, 16]) == 8
-    assert serve_batched_policy.padded_batch_size_from_sizes(8, [16, 8]) == 8
-    assert serve_batched_policy.padded_batch_size_from_sizes(9, [8, 16]) == 16
+def test_padded_batch_size_picks_the_smallest_fitting_size(serve_batched_policy):
+    assert serve_batched_policy.padded_batch_size(1, [8, 16]) == 8
+    assert serve_batched_policy.padded_batch_size(8, [16, 8]) == 8
+    assert serve_batched_policy.padded_batch_size(9, [8, 16]) == 16
     with pytest.raises(AssertionError):
-        serve_batched_policy.padded_batch_size_from_sizes(17, [8, 16])
+        serve_batched_policy.padded_batch_size(17, [8, 16])
 
 
 def test_stack_and_unstack_round_trip_with_padding(serve_batched_policy):
@@ -113,7 +105,7 @@ def batched_policy(monkeypatch, serve_batched_policy):
     monkeypatch.setitem(sys.modules, "openpi.models", types.SimpleNamespace(model=model_module))
     monkeypatch.setitem(sys.modules, "openpi.models.model", model_module)
     inner = _FakeOpenpiPolicy()
-    return serve_batched_policy.BatchedPolicy(inner, max_batch_size=4), inner
+    return serve_batched_policy.BatchedPolicy(inner, batch_sizes=[4]), inner
 
 
 def test_single_observation_requests_pass_through(batched_policy):
@@ -142,27 +134,27 @@ def test_batches_above_the_limit_are_split(batched_policy):
     policy, inner = batched_policy
     observations = [{"observation/state": np.full(3, i, dtype=np.float32)} for i in range(6)]
     response = policy.infer({"batch": observations})
-    assert inner.sample_batch_sizes == [4, 2]
+    assert inner.sample_batch_sizes == [4, 4], "the remaining 2 observations pad to the only shape, 4"
     assert [int(o["actions"][0, 0]) for o in response["batch"]] == [2 * i + 1 for i in range(6)]
 
 
 def test_metadata_advertises_batching(batched_policy):
     policy, _ = batched_policy
-    assert policy.metadata == {"model": "fake", "batch_inference": True, "max_batch_size": 4, "batch_sizes": None}
+    assert policy.metadata == {"model": "fake", "batch_inference": True, "max_batch_size": 4, "batch_sizes": [4]}
 
 
-def test_fixed_batch_sizes_pad_every_batch_to_a_listed_shape(monkeypatch, serve_batched_policy):
+def test_several_batch_sizes_pad_every_batch_to_the_smallest_fitting_shape(monkeypatch, serve_batched_policy):
     monkeypatch.setitem(sys.modules, "jax", _FakeJax())
     model_module = types.SimpleNamespace(Observation=types.SimpleNamespace(from_dict=lambda d: d))
     monkeypatch.setitem(sys.modules, "openpi", types.SimpleNamespace(models=types.SimpleNamespace(model=model_module)))
     monkeypatch.setitem(sys.modules, "openpi.models", types.SimpleNamespace(model=model_module))
     monkeypatch.setitem(sys.modules, "openpi.models.model", model_module)
     inner = _FakeOpenpiPolicy()
-    policy = serve_batched_policy.BatchedPolicy(inner, max_batch_size=4, batch_sizes=[4, 2])
+    policy = serve_batched_policy.BatchedPolicy(inner, batch_sizes=[4, 2])
 
-    assert policy.metadata["max_batch_size"] == 4
+    assert policy.metadata["max_batch_size"] == 4, "the largest shape is the batch limit"
     assert policy.metadata["batch_sizes"] == [2, 4]
-    observations = [{"observation/state": np.full(3, i, dtype=np.float32)} for i in range(7)]
+    observations = [{"observation/state": np.full(3, i, dtype=np.float32)} for i in range(6)]
     response = policy.infer({"batch": observations})
-    assert inner.sample_batch_sizes == [4, 4], "4 observations fill a batch of 4; the remaining 3 pad to 4"
-    assert [int(o["actions"][0, 0]) for o in response["batch"]] == [2 * i + 1 for i in range(7)]
+    assert inner.sample_batch_sizes == [4, 2], "4 observations fill a batch of 4; the remaining 2 fit the shape of 2"
+    assert [int(o["actions"][0, 0]) for o in response["batch"]] == [2 * i + 1 for i in range(6)]

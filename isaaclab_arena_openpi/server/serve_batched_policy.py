@@ -7,7 +7,7 @@
 
 Ships inside the openpi server image at ``/app/arena_server`` (``build_server_image.sh`` copies it in;
 ``run_openpi_server.sh`` mounts the working copy over it), next to openpi's own ``scripts/serve_policy.py``
-whose arguments it accepts unchanged plus ``--max-batch-size`` and ``--batch-sizes``.
+whose arguments it accepts unchanged plus ``--batch-sizes``.
 
 The wire format stays openpi's: a request that is one observation dict gets one response dict. A request of
 the form ``{"batch": [obs_0, obs_1, ...]}`` runs the model once for all observations and returns
@@ -15,9 +15,10 @@ the form ``{"batch": [obs_0, obs_1, ...]}`` runs the model once for all observat
 ``batch_inference`` and ``max_batch_size`` in the metadata it sends on connect, which is how clients
 discover the batched form.
 
-The JAX model is compiled once per batch shape, so a batch is padded (by repeating its last observation)
-to one of a few sizes: the powers of two up to ``--max-batch-size`` by default, or exactly the sizes given
-with ``--batch-sizes`` (for example ``--batch-sizes 8 16``), each compiled on its first use.
+The JAX model is compiled once per batch shape, which takes minutes, so a batch is padded (by repeating
+its last observation) to the smallest of the ``--batch-sizes`` that holds it, each shape compiled on its
+first use. The default is a single shape of 8; ``--batch-sizes 8 16`` compiles two. Requests with more
+observations than the largest size are split.
 """
 
 from __future__ import annotations
@@ -34,21 +35,8 @@ from typing import Any
 BATCH_KEY = "batch"
 
 
-def padded_batch_size(num_samples: int, max_batch_size: int) -> int:
-    """Return the batch size a group of ``num_samples`` observations is padded to.
-
-    The JAX model is compiled once per batch shape, so batches are padded to the next power of two
-    (capped at ``max_batch_size``) to keep the number of compilations small.
-    """
-    assert 0 < num_samples <= max_batch_size, f"expected 0 < {num_samples} <= {max_batch_size}"
-    size = 1
-    while size < num_samples:
-        size *= 2
-    return min(size, max_batch_size)
-
-
-def padded_batch_size_from_sizes(num_samples: int, batch_sizes: Sequence[int]) -> int:
-    """Return the smallest of the fixed ``batch_sizes`` that holds ``num_samples`` observations.
+def padded_batch_size(num_samples: int, batch_sizes: Sequence[int]) -> int:
+    """Return the smallest of the ``batch_sizes`` that holds ``num_samples`` observations.
 
     Args:
         num_samples: Observations in the group; at most ``max(batch_sizes)``.
@@ -107,22 +95,18 @@ class BatchedPolicy:
 
     Args:
         policy: The openpi policy to wrap.
-        max_batch_size: Most observations per model call; bigger requests are split. Ignored when
-            ``batch_sizes`` is given, which sets it to the largest listed size.
-        batch_sizes: Fixed batch shapes to pad to, or None to pad to the powers of two up to ``max_batch_size``.
+        batch_sizes: Batch shapes to pad every model call to; the largest is the most observations per model
+            call, and bigger requests are split.
     """
 
-    def __init__(self, policy: Any, max_batch_size: int, batch_sizes: Sequence[int] | None = None) -> None:
+    def __init__(self, policy: Any, batch_sizes: Sequence[int]) -> None:
         import jax
 
         assert not getattr(policy, "_is_pytorch_model", False), "BatchedPolicy supports JAX openpi policies only"
-        if batch_sizes is not None:
-            assert batch_sizes and all(size > 0 for size in batch_sizes), f"batch sizes must be positive: {batch_sizes}"
-            max_batch_size = max(batch_sizes)
-        assert max_batch_size > 0, "max_batch_size must be positive"
+        assert batch_sizes and all(size > 0 for size in batch_sizes), f"batch sizes must be positive: {batch_sizes}"
         self._policy = policy
-        self._max_batch_size = max_batch_size
-        self._batch_sizes: list[int] | None = sorted(set(batch_sizes)) if batch_sizes is not None else None
+        self._batch_sizes: list[int] = sorted(set(batch_sizes))
+        self._max_batch_size = self._batch_sizes[-1]
         self._jax = jax
         self._compiled_batch_sizes: set[int] = set()
 
@@ -137,9 +121,7 @@ class BatchedPolicy:
 
     def padded_batch_size(self, num_samples: int) -> int:
         """Return the batch shape a group of ``num_samples`` observations is padded to."""
-        if self._batch_sizes is not None:
-            return padded_batch_size_from_sizes(num_samples, self._batch_sizes)
-        return padded_batch_size(num_samples, self._max_batch_size)
+        return padded_batch_size(num_samples, self._batch_sizes)
 
     def infer(self, obs: dict[str, Any]) -> dict[str, Any]:
         if BATCH_KEY not in obs:
@@ -206,26 +188,16 @@ def main() -> None:
 
     @dataclasses.dataclass
     class Args(serve_policy.Args):
-        """serve_policy.py arguments plus the batching limit."""
+        """serve_policy.py arguments plus the batch shapes."""
 
-        max_batch_size: int = 32
-        """Largest number of observations run through the model in one call; bigger requests are split.
-        Batches are padded to the next power of two. Ignored when ``batch_sizes`` is given."""
-
-        batch_sizes: tuple[int, ...] | None = None
-        """Fixed batch shapes to pad every batch to, for example ``--batch-sizes 8 16``; the largest is the
-        batch limit. Each shape compiles once, on first use."""
+        batch_sizes: tuple[int, ...] = (8,)
+        """Batch shapes every batch is padded to, for example ``--batch-sizes 8 16``; the largest is the most
+        observations per model call, and bigger requests are split. Each shape compiles once, on first use,
+        which takes minutes."""
 
     args = tyro.cli(Args)
-    policy = BatchedPolicy(
-        serve_policy.create_policy(args), max_batch_size=args.max_batch_size, batch_sizes=args.batch_sizes
-    )
-    logging.info(
-        "Serving batched policy on port %d (max batch size %d, batch sizes %s)",
-        args.port,
-        policy.metadata["max_batch_size"],
-        policy.metadata["batch_sizes"] or "powers of two",
-    )
+    policy = BatchedPolicy(serve_policy.create_policy(args), batch_sizes=args.batch_sizes)
+    logging.info("Serving batched policy on port %d (batch sizes %s)", args.port, policy.metadata["batch_sizes"])
     server = websocket_policy_server.WebsocketPolicyServer(
         policy=policy, host="0.0.0.0", port=args.port, metadata=policy.metadata
     )

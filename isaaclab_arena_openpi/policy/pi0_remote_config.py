@@ -24,8 +24,11 @@ class Pi0RemotePolicyCfg(RemoteChunkReplayPolicyCfg):
     policy_variant: str = DEFAULT_VARIANT
 
     batch_sizes: list[int] | None = None
-    """Batch shapes the server pads every batched request to, for example ``[8, 16]``, or None for powers of two.
+    """Batch shapes the server pads every batched request to, for example ``[8, 16]``, or None for the server
+    default of a single shape of 8.
 
-    Read by the OSMO pi0 server task, which starts the server with ``--batch-sizes``; the largest size is the
-    batch limit. A locally started server takes the same shapes through ``run_openpi_server.sh -s``.
+    Each shape costs one JAX compile of a few minutes, and padding wastes GPU time, so a shape near the number
+    of environments that request on the same step works best. Read by the OSMO pi0 server task, which starts
+    the server with ``--batch-sizes``; the largest size is the batch limit. A locally started server takes the
+    same shapes through ``run_openpi_server.sh -b``.
     """

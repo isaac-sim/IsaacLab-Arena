@@ -1232,24 +1232,20 @@ def test_dreamzero_timeout_on_runner_submit_hints_to_cancel_server_workflow(monk
     assert "osmo workflow cancel arena-kpi-run-7" in capsys.readouterr().out
 
 
-def test_pi0_server_batch_limit_follows_the_client_max_batch_size():
-    """The server gets the client's max_batch_size, and keeps its own default when the client sets none."""
-    assert Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg()).max_batch_size is None
-    task_cfg = Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(max_batch_size=8))
-    assert task_cfg.max_batch_size == 8
-    task = Pi0ServerTask(task_cfg, lead=False, task_name="policy-server-0")
-    server_command = _task_file(task.create_task_dict(), "/tmp/entry.sh")["contents"]
-    assert "python arena_server/serve_batched_policy.py --max-batch-size=8 --port=" in server_command
-
-
-def test_pi0_server_fixed_batch_sizes_follow_the_client():
-    """The client's batch_sizes become the server's --batch-sizes, and the largest one its batch limit."""
+def test_pi0_server_batch_sizes_follow_the_client():
+    """The client's batch_sizes become the server's --batch-sizes; the server keeps its default when none are set."""
     task_cfg = Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(batch_sizes=[8, 16]))
     assert task_cfg.batch_sizes == [8, 16]
     task = Pi0ServerTask(task_cfg, lead=False, task_name="policy-server-0")
     server_command = _task_file(task.create_task_dict(), "/tmp/entry.sh")["contents"]
     assert "python arena_server/serve_batched_policy.py --batch-sizes 8 16 --port=" in server_command
-    assert Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg()).batch_sizes is None
+
+    default_task_cfg = Pi0ServerTask.task_cfg_for_policy(Pi0RemotePolicyCfg(max_batch_size=4))
+    assert default_task_cfg.batch_sizes is None, "the client's own request cap does not reach the server"
+    task = Pi0ServerTask(default_task_cfg, lead=False, task_name="policy-server-0")
+    server_command = _task_file(task.create_task_dict(), "/tmp/entry.sh")["contents"]
+    assert "python arena_server/serve_batched_policy.py --port=" in server_command
+    assert "--batch-sizes" not in server_command
 
 
 def test_pi0_server_without_batched_requests_serves_upstream_script():
@@ -1258,5 +1254,5 @@ def test_pi0_server_without_batched_requests_serves_upstream_script():
     task_dict = task.create_task_dict()
     server_command = _task_file(task_dict, "/tmp/entry.sh")["contents"]
     assert f"uv run scripts/serve_policy.py --port={POLICY_SERVER_PORT} policy:checkpoint" in server_command
-    assert "--max-batch-size" not in server_command
+    assert "--batch-sizes" not in server_command
     assert [file["path"] for file in task_dict["files"]] == ["/tmp/entry.sh"]
