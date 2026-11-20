@@ -198,14 +198,18 @@ def get_timer_stats() -> dict[str, TimerStats]:
 SAMPLE_DECIMALS = 3
 """Decimals kept when a sample is written, i.e. microsecond resolution for a value in milliseconds."""
 
+TYPE_KEY = "type"
+NAME_KEY = "name"
+APP_NAME_KEY = "app_name"
+COUNT_KEY = "count"
+MEAN_MS_KEY = "mean_ms"
+TOTAL_MS_KEY = "total_ms"
+MIN_MS_KEY = "min_ms"
+MAX_MS_KEY = "max_ms"
 P10_MS_KEY = "p10_ms"
-"""Key of the approximate 10th percentile in a timer record."""
-
 P50_MS_KEY = "p50_ms"
-"""Key of the approximate median in a timer record."""
-
 P90_MS_KEY = "p90_ms"
-"""Key of the approximate 90th percentile in a timer record."""
+SAMPLES_MS_KEY = "samples_ms"
 
 PERCENTILE_BY_KEY = {P10_MS_KEY: 10, P50_MS_KEY: 50, P90_MS_KEY: 90}
 """Percentile keys of a timer record, mapped to their percentile."""
@@ -225,18 +229,18 @@ def get_timer_stats_json(app_name: str) -> list[dict]:
     """
     return [
         {
-            "type": "timing",
-            "name": name,
-            "app_name": app_name,
-            "count": timer_stats.count,
-            "mean_ms": timer_stats.mean_ms,
-            "total_ms": timer_stats.total_ms,
-            "min_ms": timer_stats.min_ms,
-            "max_ms": timer_stats.max_ms,
+            TYPE_KEY: "timing",
+            NAME_KEY: name,
+            APP_NAME_KEY: app_name,
+            COUNT_KEY: timer_stats.count,
+            MEAN_MS_KEY: timer_stats.mean_ms,
+            TOTAL_MS_KEY: timer_stats.total_ms,
+            MIN_MS_KEY: timer_stats.min_ms,
+            MAX_MS_KEY: timer_stats.max_ms,
             P10_MS_KEY: timer_stats.percentile(10),
             P50_MS_KEY: timer_stats.percentile(50),
             P90_MS_KEY: timer_stats.percentile(90),
-            "samples_ms": [round(sample, SAMPLE_DECIMALS) for sample in timer_stats.samples_ms],
+            SAMPLES_MS_KEY: [round(sample, SAMPLE_DECIMALS) for sample in timer_stats.samples_ms],
         }
         for name, timer_stats in get_timer_stats().items()
     ]
@@ -276,39 +280,39 @@ def merge_timer_stats_json(
     merged_by_name: dict[str, dict] = {}
     weighted_samples_by_name: dict[str, list[tuple[float, float]] | None] = {}
     for record in records:
-        name = record["name"]
+        name = record[NAME_KEY]
         if remove_samples_from_input_records:
-            samples = record.pop("samples_ms", None)
+            samples = record.pop(SAMPLES_MS_KEY, None)
         else:
-            samples = record.get("samples_ms")
+            samples = record.get(SAMPLES_MS_KEY)
         merged = merged_by_name.get(name)
         # Add the record's count, total, min and max to the running totals of its timer name.
         if merged is None:
             merged_by_name[name] = {
-                "name": name,
-                "count": record["count"],
-                "total_ms": record["total_ms"],
-                "min_ms": record["min_ms"],
-                "max_ms": record["max_ms"],
+                NAME_KEY: name,
+                COUNT_KEY: record[COUNT_KEY],
+                TOTAL_MS_KEY: record[TOTAL_MS_KEY],
+                MIN_MS_KEY: record[MIN_MS_KEY],
+                MAX_MS_KEY: record[MAX_MS_KEY],
             }
             weighted_samples_by_name[name] = []
         else:
-            merged["count"] += record["count"]
-            merged["total_ms"] += record["total_ms"]
-            merged["min_ms"] = min(merged["min_ms"], record["min_ms"])
-            merged["max_ms"] = max(merged["max_ms"], record["max_ms"])
+            merged[COUNT_KEY] += record[COUNT_KEY]
+            merged[TOTAL_MS_KEY] += record[TOTAL_MS_KEY]
+            merged[MIN_MS_KEY] = min(merged[MIN_MS_KEY], record[MIN_MS_KEY])
+            merged[MAX_MS_KEY] = max(merged[MAX_MS_KEY], record[MAX_MS_KEY])
 
         # Collect the record's samples, each weighted by the measurements it stands for. A record without
         # samples makes the percentiles of its timer name unavailable.
         if samples is None:
             weighted_samples_by_name[name] = None
         elif weighted_samples_by_name[name] is not None and samples:
-            weight = record["count"] / len(samples)
+            weight = record[COUNT_KEY] / len(samples)
             weighted_samples_by_name[name].extend((sample, weight) for sample in samples)
 
     results = []
     for name, merged in sorted(merged_by_name.items()):
-        result = {**merged, "mean_ms": merged["total_ms"] / merged["count"] if merged["count"] else 0.0}
+        result = {**merged, MEAN_MS_KEY: merged[TOTAL_MS_KEY] / merged[COUNT_KEY] if merged[COUNT_KEY] else 0.0}
         weighted_samples = weighted_samples_by_name[name]
         if weighted_samples:
             for key, percentile in PERCENTILE_BY_KEY.items():
@@ -338,7 +342,7 @@ def write_timer_stats_json(output_path: str | Path, app_name: str) -> Path:
 def _put_samples_on_one_line(indented_json: str) -> str:
     """Collapse each indented "samples_ms" list in JSON text onto a single line."""
     return re.sub(
-        r'("samples_ms": )\[([^\]]*)\]',
+        rf'("{SAMPLES_MS_KEY}": )\[([^\]]*)\]',
         lambda match: f"{match.group(1)}[{', '.join(part.strip() for part in match.group(2).split(','))}]",
         indented_json,
     )
