@@ -35,23 +35,26 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
 
 
 class EpisodeRecorderTerm(ManagerTermBase):
-    """Class-based episode recorder term that keeps per-env state over the steps of an episode.
+    """Base class for an episode recorder term that follows the episode step by step.
 
-    Subclasses keep one entry of state per env, update it in ``post_step()``, clear it in ``reset()``,
-    and return the finished episode's output from ``__call__``. Update state tensors in place instead of
-    reassigning them: the env may be stepped inside ``torch.inference_mode()``, and a tensor created there
-    cannot be written in place by a reset that runs outside it.
-
-    A subclass declares ``__call__(self, env, env_id, <name>, ...)`` with one named parameter for each
-    key in ``cfg.params``. Isaac Lab counts a ``**params`` parameter as a required one, so it must not
-    be declared.
+    A function term only runs when the episode ends. Derive from this class to record a value that builds up
+    during the episode, such as an object's peak speed: the manager calls ``post_step()`` after every control
+    step, ``reset()`` when an env starts a new episode, and ``__call__`` when the episode ends.
     """
 
     def post_step(self, env) -> None:
-        """Update the per-env state after a control step. Does nothing by default."""
+        """Update the values the subclass stores for each env after a control step. Does nothing by default.
+
+        Update tensors in place instead of assigning new ones: the env may step inside ``torch.inference_mode()``,
+        and a tensor created there cannot be changed in place by ``reset()`` outside it.
+        """
 
     def __call__(self, env, env_id: int) -> dict[str, Any] | None:
-        """Return the output for env_id's finished episode, or None to leave it out of the record."""
+        """Return the output for env_id's finished episode, or None to leave it out of the record.
+
+        Each ``cfg.params`` entry is passed as a keyword argument, so declare it as a named parameter.
+        Isaac Lab's parameter check rejects ``**kwargs``.
+        """
         raise NotImplementedError
 
 
