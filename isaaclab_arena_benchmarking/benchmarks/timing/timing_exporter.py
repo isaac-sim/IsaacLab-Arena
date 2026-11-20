@@ -47,6 +47,15 @@ class TimingRecord(InfluxdbKpiRecord):
     max_ms: float
     """Longest duration in milliseconds."""
 
+    p10_ms: float | None = None
+    """Approximate 10th percentile duration in milliseconds; left out when the timings carry no percentiles."""
+
+    p50_ms: float | None = None
+    """Approximate median duration in milliseconds; left out when the timings carry no percentiles."""
+
+    p90_ms: float | None = None
+    """Approximate 90th percentile duration in milliseconds; left out when the timings carry no percentiles."""
+
     count: int
     """Number of timed intervals."""
 
@@ -57,7 +66,8 @@ def build_timing_record(
     """Return the record of one Experiment timings total; the entry must have a nonzero count.
 
     Args:
-        timing: Timer statistics with ``name``, ``count``, ``total_ms``, ``min_ms`` and ``max_ms``.
+        timing: Timer statistics with ``name``, ``count``, ``total_ms``, ``min_ms`` and ``max_ms``, and optionally
+            ``p10_ms``, ``p50_ms`` and ``p90_ms``.
         timestamp_ns: Point time in Unix epoch nanoseconds (UTC).
         git_stamp: Arena git commit and branch the Experiment ran with.
         benchmark_id: Benchmark the Experiment belongs to.
@@ -77,6 +87,9 @@ def build_timing_record(
         total_ms=total_ms,
         min_ms=float(timing["min_ms"]),
         max_ms=float(timing["max_ms"]),
+        p10_ms=timing.get("p10_ms"),
+        p50_ms=timing.get("p50_ms"),
+        p90_ms=timing.get("p90_ms"),
         count=count,
     )
 

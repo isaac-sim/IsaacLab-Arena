@@ -8,6 +8,7 @@
 import json
 import random
 import threading
+from unittest.mock import patch
 
 import pytest
 
@@ -336,11 +337,51 @@ class TestMergeTimerStatsJson:
 
         assert [record["name"] for record in merged] == ["a_op", "b_op"]
 
-    def test_percentiles_are_dropped(self) -> None:
-        """Verify percentile fields are not carried into the merged record."""
+    def test_percentiles_are_left_out_without_samples(self) -> None:
+        """Verify percentile fields are not carried into a merged record whose inputs have no samples."""
         merged = merge_timer_stats_json([self._record("step", count=1, total_ms=5.0, min_ms=5.0, max_ms=5.0)])
 
         assert set(merged[0]) == {"name", "count", "total_ms", "min_ms", "max_ms", "mean_ms"}
+
+    def test_percentiles_come_from_pooled_samples(self) -> None:
+        """Verify merged percentiles are estimated from the samples of every record, without carrying the samples."""
+        first = {**self._record("step", count=5, total_ms=15.0, min_ms=1.0, max_ms=5.0), "samples_ms": [1, 2, 3, 4, 5]}
+        second = {
+            **self._record("step", count=5, total_ms=40.0, min_ms=6.0, max_ms=10.0),
+            "samples_ms": [6, 7, 8, 9, 10],
+        }
+
+        merged = merge_timer_stats_json([first, second])
+
+        assert merged[0]["p10_ms"] == 1
+        assert merged[0]["p50_ms"] == 5
+        assert merged[0]["p90_ms"] == 9
+        assert "samples_ms" not in merged[0]
+
+    def test_samples_are_weighted_by_the_measurements_they_stand_for(self) -> None:
+        """Verify a record that sampled few of its many measurements counts for all of them."""
+        # 1000 measurements around 1 ms, sampled by two values, against 2 measurements at 100 ms.
+        many = {**self._record("step", count=1000, total_ms=1000.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0, 1.0]}
+        few = {
+            **self._record("step", count=2, total_ms=200.0, min_ms=100.0, max_ms=100.0),
+            "samples_ms": [100.0, 100.0],
+        }
+
+        merged = merge_timer_stats_json([many, few])
+
+        # An unweighted pool would put the median at the 100 ms values' boundary and p90 at 100.
+        assert merged[0]["p50_ms"] == 1.0
+        assert merged[0]["p90_ms"] == 1.0
+
+    def test_percentiles_are_left_out_when_one_record_has_no_samples(self) -> None:
+        """Verify a record without samples makes the pooled percentiles unavailable for its name."""
+        with_samples = {**self._record("step", count=1, total_ms=1.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0]}
+        without_samples = self._record("step", count=1, total_ms=2.0, min_ms=2.0, max_ms=2.0)
+
+        merged = merge_timer_stats_json([with_samples, without_samples])
+
+        assert "p50_ms" not in merged[0]
+        assert merged[0]["count"] == 2
 
     def test_merges_recorded_stats(self) -> None:
         """Verify merging one process's own records reproduces its totals."""
@@ -363,14 +404,39 @@ class TestWriteTimerStatsJson:
         reset_timer_stats()
 
     def test_written_file_round_trips(self, tmp_path) -> None:
-        """Verify the written file parses back to the in-memory records."""
+        """Verify the written file parses back to the in-memory records, samples included."""
         with Timer("op_a"):
             pass
 
         output_path = write_timer_stats_json(tmp_path / "timings.json", app_name="test_app")
         written_records = json.loads(output_path.read_text(encoding="utf-8"))
-        assert written_records == get_timer_stats_json(app_name="test_app")
+        assert written_records == get_timer_stats_json(app_name="test_app", include_samples=True)
         assert written_records[0]["name"] == "op_a"
+        assert len(written_records[0]["samples_ms"]) == 1
+
+    def test_samples_are_rounded_and_on_one_line(self, tmp_path) -> None:
+        """Verify each samples list is one line of values rounded to microseconds."""
+        timer_stats = TimerStats()
+        for elapsed_ms in (1.23456789, 2.0, 3.5):
+            timer_stats.update(elapsed_ms)
+
+        with patch("isaaclab_arena.utils.timer.get_timer_stats", return_value={"op_a": timer_stats}):
+            output_path = write_timer_stats_json(tmp_path / "timings.json", app_name="test_app")
+
+        text = output_path.read_text(encoding="utf-8")
+        assert '"samples_ms": [1.235, 2.0, 3.5]' in text
+        assert json.loads(text)[0]["samples_ms"] == [1.235, 2.0, 3.5]
+
+    def test_written_file_merges_to_percentiles(self, tmp_path) -> None:
+        """Verify records read back from the written file merge into percentiles."""
+        for elapsed_ms in range(1, 11):
+            timer_module._update_stats("op_a", float(elapsed_ms))
+
+        output_path = write_timer_stats_json(tmp_path / "timings.json", app_name="test_app")
+        merged = merge_timer_stats_json(json.loads(output_path.read_text(encoding="utf-8")))
+
+        assert merged[0]["p50_ms"] == 5.0
+        assert merged[0]["p90_ms"] == 9.0
 
     def test_empty_registry_writes_empty_list(self, tmp_path) -> None:
         """Verify a file is still written when no timers were recorded."""
