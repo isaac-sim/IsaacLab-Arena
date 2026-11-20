@@ -19,18 +19,25 @@ user: it captures their whole screen, and it needs a visible window.
 The simulation runs Isaac Sim's `isaacsim.code_editor.python_server`. From the host, `run_in_sim.py` sends it Python
 code, and `sim_helpers.py` adds one-line helpers. One launch serves any number of looks.
 
-1. **Launch** with a free port in 18200-18299 and outputs outside the repository. Take the runtime prefix from
-   `arena-runtime`; the Docker form is:
+1. **Launch.** The server runs any Python sent to its port, without authentication, and listens on the host's
+   loopback (the container uses host networking). While the run lives, any user or process on this machine can run
+   code as you through it. On a host shared with other users, ask the user before launching.
+
+   Pick a port in 18200-18299 that nothing listens on: `ss -Hltn 'sport = :<port>'` must print nothing. The server
+   binds with `SO_REUSEPORT`, so a second run on a busy port starts without an error and receives some of the
+   requests. Take the runtime prefix from `arena-runtime`; the Docker form is:
 
    ```bash
+   mkdir -p /tmp/<run>
    docker exec -e OPENBLAS_NUM_THREADS=1 -w /workspaces/isaaclab_arena --user "$(id --user --name)" <container> bash -c \
      "env -u DISPLAY setsid nohup isaaclab.sh -p isaaclab_arena/evaluation/policy_runner.py \
-        --policy_type zero_action --num_steps 100000 --num_envs 1 --output_base_dir /tmp/<run>/outputs \
+        --policy_type zero_action --num_steps 20000 --num_envs 1 --output_base_dir /tmp/<run>/outputs \
         --kit_args '--enable isaacsim.code_editor.python_server --/exts/isaacsim.code_editor.python_server/port=<port>' \
         --viz kit <environment> [environment args] > /tmp/<run>/run.log 2>&1 < /dev/null & echo \$!"
    ```
 
-   It prints the run's session id; keep it for step 4.
+   It prints the run's session id; keep it for step 4. `--num_steps 20000` ends a forgotten run after roughly
+   20-40 minutes; launch again if you need longer.
 
    - `--viz kit` with `DISPLAY` unset starts the viewer without a window. The viewer then updates Kit every step,
      which the server needs to answer. Do not set `HEADLESS=1` here.
@@ -64,8 +71,10 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
 3. **Look.** Send one call per request and `Read` each PNG:
 
    ```bash
-   python3 -I $C/run_in_sim.py --port <port> --code 'set_camera(eye=[0.5, -0.7, 0.2], target=[0.45, 0.0, 0.05], env_index=0)'
-   python3 -I $C/run_in_sim.py --port <port> --code 'capture_viewer("/tmp/<run>/side.png")' --wait_for_file /tmp/<run>/side.png
+   python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> \
+     --code 'set_camera(eye=[0.5, -0.7, 0.2], target=[0.45, 0.0, 0.05], env_index=0)'
+   python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> \
+     --code 'capture_viewer("/tmp/<run>/side.png")' --wait_for_file /tmp/<run>/side.png
    ```
 
    | Call | Effect |
@@ -84,7 +93,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
 
    A pause takes effect after the env step in progress, so the frozen state is one step past the trigger. For a
    moment inside an event, combine conditions, such as an object below a height and moving down. Episodes reset when
-   they time out or succeed, which undoes a staged event; check `env.max_episode_length - env.episode_length_buf[0]`
+   they time out or succeed, which undoes a staged event; check `find_arena_env().max_episode_length - find_arena_env().episode_length_buf[0]`
    first.
 
 4. **Stop** the run when done; the server runs any code sent to its port. Stop the whole session, because Kit's
@@ -140,7 +149,7 @@ takes every 5th frame of the video; change the 5 to spread the panels over the c
 | Capture shows the previous view | Camera move and capture in one request | Send them as separate requests |
 | Camera move has no effect in a headless script | `sim.set_camera_view()` and the viewer's `set_camera_view()` do not reach the headless capture | `set_kit_renderer_camera_view(...)` as above |
 | Capture shows only the ground plane | Launched without `--viz kit`; scene partitioning hides the envs | Add `--/rtx/scenePartitioning/showAllPartitionsByDefault=true` to `--kit_args` |
-| `NameError: name 'capture_viewer' is not defined` | New simulation process | Send `sim_helpers.py` again |
+| `NameError: name 'capture_viewer' is not defined` | New simulation process, or another run shares the port | Send `sim_helpers.py` again; if it keeps returning, check the port with `ss` and stop the other run |
 | `TypeError: SimulationCfg.physics must be a concrete PhysicsCfg` while the env builds | A request imported an Isaac Lab or Arena module while the app was starting | Relaunch; send only the helpers and `find_arena_env()` until the env exists |
 | Red, green and blue arrows in the image | Isaac Lab debug markers for frames such as the goal and the end effector | Hide with `find_arena_env().command_manager.set_debug_vis(False)` and `set_debug_vis(False)` on frame sensors, e.g. `find_arena_env().scene["ee_frame"]` |
 | `AssertionError: The Kit timeline is not playing` | Newton run; pausing does not apply | Capture while it steps |

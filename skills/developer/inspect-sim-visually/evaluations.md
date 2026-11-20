@@ -12,11 +12,14 @@ Expected behavior:
   `--viz kit`, `DISPLAY` unset, and `--output_base_dir` under `/tmp`.
 - Waits with the skill's loop, sends `sim_helpers.py`, captures the default view, then moves the camera and captures
   again in a separate request; reads both PNGs.
-- Stops the run with `pkill -f 'python_server/port=<port>'`.
+- Stops the run by the session id printed at launch (`pkill -s <sid>`) and confirms with `pgrep -s <sid>` that
+  nothing is left.
 
 Known failure modes:
 
 - Takes a desktop or X11 screenshot.
+- Stops only the main process, for example with `pkill -f 'python_server/port=<port>'`, and leaves Kit's
+  telemetry process running.
 - Passes `--headless`, or sets `HEADLESS=1` together with the Python server, so requests never return.
 - Relaunches the simulation for every camera angle.
 - Moves the camera with `sim.set_camera_view()` or adds a camera sensor to get a side view.
