@@ -690,8 +690,8 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 </div>
 <p>The evaluation should produce the following output on the console at the end of the evaluation.
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+You can see that the success rate for this sequential task, <code class="docutils literal notranslate"><span class="pre">object_peak_speed_exceeded_rate</span></code> for the first subtask,
+and the <code class="docutils literal notranslate"><span class="pre">revolute_joint_moved_rate</span></code> for the second subtask, and the subtask success rate for each subtask.
 You should see similar metrics. All of them shall be greater than 0.9, and the number of episodes should be in the range of 3-6.</p>
 <p>Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
@@ -699,7 +699,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 <input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-2">
 Best Quality</label><div class="sd-tab-content docutils">
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 5}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_peak_speed_exceeded_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 5}
 </pre></div>
 </div>
 </div>
@@ -707,7 +707,7 @@ Best Quality</label><div class="sd-tab-content docutils">
 <label class="sd-tab-label" for="sd-tab-item-3">
 Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <p>Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 0.75, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [0.75, 0.75], &#39;num_episodes&#39;: 4}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 0.75, &#39;object_peak_speed_exceeded_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [0.75, 0.75], &#39;num_episodes&#39;: 4}
 </pre></div>
 </div>
 </div>
@@ -738,11 +738,11 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 </pre></div>
 </div>
 <p>At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+You can see that the success rate for this sequential task, <code class="docutils literal notranslate"><span class="pre">object_peak_speed_exceeded_rate</span></code> for the first subtask,
+and the <code class="docutils literal notranslate"><span class="pre">revolute_joint_moved_rate</span></code> for the second subtask, and the subtask success rate for each subtask.
 All of them might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.98, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [0.98, 1.0], &#39;num_episodes&#39;: 50}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.98, &#39;object_peak_speed_exceeded_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [0.98, 1.0], &#39;num_episodes&#39;: 50}
 </pre></div>
 </div>
 <div class="admonition note">
@@ -775,9 +775,9 @@ put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</spa
 </div>
 <p>Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.8666666666666667, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 30}
+You can see that the success rate for this sequential task, <code class="docutils literal notranslate"><span class="pre">object_peak_speed_exceeded_rate</span></code> for the first subtask,
+and the <code class="docutils literal notranslate"><span class="pre">revolute_joint_moved_rate</span></code> for the second subtask, and the subtask success rate for each subtask.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.8666666666666667, &#39;object_peak_speed_exceeded_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 30}
 </pre></div>
 </div>
 <p>The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
@@ -850,14 +850,14 @@ METRICS SUMMARY
 
 gr1_put_jug_in_fridge_and_close_door:
   num_episodes                           10
-  object_moved_rate_subtask_0        1.0000
+  object_peak_speed_exceeded_rate_subtask_0     1.0000
   revolute_joint_moved_rate_subtask_1     1.0000
   subtask_success_rate           [0.2, 0.2]
   success_rate                       0.1000
 
 gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
   num_episodes                           10
-  object_moved_rate_subtask_0        1.0000
+  object_peak_speed_exceeded_rate_subtask_0     1.0000
   revolute_joint_moved_rate_subtask_1     1.0000
   subtask_success_rate           [0.9, 0.9]
   success_rate                       0.9000

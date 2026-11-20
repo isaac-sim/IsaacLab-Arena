@@ -594,23 +594,24 @@ they are automatically applied to every environment that uses that task.</p>
 <p>In the code below we show how to inspect the metrics defined by the <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
 <span class="n">task</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">()</span>
-<span class="c1"># → [SuccessRateMetric(), ObjectMovedRateMetric(pick_object)]</span>
+<span class="c1"># → [SuccessRateMetric(), ObjectPeakSpeedExceededRateMetric(pick_object)]</span>
 </pre></div>
 </div>
-<section id="example-objectmovedratemetric">
-<h2>Example: ObjectMovedRateMetric<a class="headerlink" href="#example-objectmovedratemetric" title="Link to this heading">#</a></h2>
-<p>Here we provide an example of how the <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> is implemented.
-The <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> implements the recording and computing steps described above
+<section id="example-objectpeakspeedexceededratemetric">
+<h2>Example: ObjectPeakSpeedExceededRateMetric<a class="headerlink" href="#example-objectpeakspeedexceededratemetric" title="Link to this heading">#</a></h2>
+<p>Here we provide an example of how the <code class="docutils literal notranslate"><span class="pre">ObjectPeakSpeedExceededRateMetric</span></code> is implemented.
+The <code class="docutils literal notranslate"><span class="pre">ObjectPeakSpeedExceededRateMetric</span></code> implements the recording and computing steps described above
 in the following way:</p>
 <ul class="simple">
-<li><p><strong>Recording</strong> During simulation <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> records the
+<li><p><strong>Recording</strong> During simulation <code class="docutils literal notranslate"><span class="pre">ObjectPeakSpeedExceededRateMetric</span></code> records the
 object’s velocity vector (a 3D vector) at every simulation step.</p></li>
-<li><p><strong>Computing</strong> After the rollout completes, the <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> process
+<li><p><strong>Computing</strong> After the rollout completes, the <code class="docutils literal notranslate"><span class="pre">ObjectPeakSpeedExceededRateMetric</span></code> process
 the velocity history for each episode. It first computes the magnitude of the velocity
 vector for each step in an episode.
-Then it checks if the magnitude is greater than a threshold. If it is, the object is
-considered moved in this episode.
-Finally, it computes the fraction of episodes in which the object was moved.</p></li>
+Then it checks if the magnitude is greater than a threshold. If it is, the episode
+counts as exceeded.
+Finally, it computes the fraction of episodes in which the peak speed exceeded the threshold.
+Note this measures peak speed, not displacement: a slow carry is not counted.</p></li>
 </ul>
 <p>You do not need to manage any of this manually — it is all wired up automatically
 in the Arena Environment Builder when the environment is compiled from the task.</p>
@@ -666,7 +667,7 @@ in the Arena Environment Builder when the environment is compiled from the task.
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-objectmovedratemetric">Example: ObjectMovedRateMetric</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-objectpeakspeedexceededratemetric">Example: ObjectPeakSpeedExceededRateMetric</a></li>
 </ul>
   </nav></div>
 

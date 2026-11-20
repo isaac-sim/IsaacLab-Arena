@@ -74,7 +74,7 @@ report. The run shown on this page produced:
 
    droid_pnp_camera_sensitivity_openpi:
      num_episodes                           10
-     object_moved_rate                  0.9000
+     object_peak_speed_exceeded_rate    0.9000
      success_rate                       1.0000
    ======================================================================
 
