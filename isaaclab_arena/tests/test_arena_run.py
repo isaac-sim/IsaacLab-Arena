@@ -4,14 +4,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
+from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg
+from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, build_runs_info_table
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.utils.git_stamp import GitStamp
 
 
 @dataclass
@@ -174,14 +179,6 @@ def _run_data(episodes_by_rebuild: list[list[dict]]) -> dict:
 
 
 def test_runs_info_table_shows_recorded_episodes_once_the_experiment_finished(tmp_path):
-    from types import SimpleNamespace
-    from unittest.mock import patch
-
-    from isaaclab_arena.assets.registries import PolicyRegistry
-    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-    from isaaclab_arena.evaluation.arena_run import build_runs_info_table
-    from isaaclab_arena.utils.git_stamp import GitStamp
-
     run_cfgs = [_run(name="scored_run"), _run(name="unscored_run")]
     run_results = [
         ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED, start_timestamp_ns=0, end_timestamp_ns=1)
