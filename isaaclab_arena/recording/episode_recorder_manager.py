@@ -9,6 +9,7 @@ import datetime
 import inspect
 import json
 import torch
+from abc import abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import MISSING
 from pathlib import Path
@@ -37,22 +38,23 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
 class EpisodeRecorderTerm(ManagerTermBase):
     """Base class for an episode recorder term that tracks a value during the episode, such as an object's peak speed.
 
-    A function term only runs when the episode ends. In a subclass, ``post_step()`` also runs after every
-    control step and ``reset(env_ids)`` runs when an env starts a new episode.
+    A function term only runs when the episode ends. A subclass's ``post_step()`` also runs after every
+    control step, and ``reset(env_ids)`` runs when an env starts a new episode.
     """
 
+    @abstractmethod
     def post_step(self, env) -> None:
-        """Update the tracked values after every control step. Does nothing by default.
+        """Update the tracked values after every control step.
 
         Change stored tensors in place instead of replacing them, or ``reset()`` may fail.
         """
 
+    @abstractmethod
     def __call__(self, env, env_id: int) -> dict[str, Any] | None:
         """Return a dict of JSON values for env_id's finished episode, or None to leave this term out of the record.
 
         Declare a parameter for each ``cfg.params`` entry.
         """
-        raise NotImplementedError
 
 
 class EpisodeRecorderManager(ManagerBase):
@@ -68,7 +70,6 @@ class EpisodeRecorderManager(ManagerBase):
         self._term_names: list[str] = []
         self._term_cfgs: list[EpisodeRecorderTermCfg] = []
         self._class_term_cfgs: list[EpisodeRecorderTermCfg] = []
-        self._post_step_term_cfgs: list[EpisodeRecorderTermCfg] = []
         self._job_name: str = "default"
         self._output_path: Path | None = None
         super().__init__(cfg, env)
@@ -106,12 +107,12 @@ class EpisodeRecorderManager(ManagerBase):
 
     @property
     def has_post_step_terms(self) -> bool:
-        """Whether any class-based term overrides ``post_step()`` and so needs a call after every control step."""
-        return bool(self._post_step_term_cfgs)
+        """Whether any term derives from ``EpisodeRecorderTerm`` and so needs a call after every control step."""
+        return bool(self._class_term_cfgs)
 
     def post_step(self) -> None:
-        """Let every class-based term that overrides ``post_step()`` update its state after a control step."""
-        for term_cfg in self._post_step_term_cfgs:
+        """Let every class-based term update its tracked values after a control step."""
+        for term_cfg in self._class_term_cfgs:
             term_cfg.func.post_step(self._env)
 
     def reset(self, env_ids: Sequence[int] | torch.Tensor | None = None) -> dict[str, float]:
@@ -198,10 +199,6 @@ class EpisodeRecorderManager(ManagerBase):
                     term_class, EpisodeRecorderTerm
                 ), f"Episode recorder term '{term_name}' is a class; it must derive from EpisodeRecorderTerm."
                 self._class_term_cfgs.append(term_cfg)
-                # Only an override counts: the per-step call needs a recorder term that records nothing, and
-                # any active recorder term makes Isaac Lab compute the observations a second time every step.
-                if term_class.post_step is not EpisodeRecorderTerm.post_step:
-                    self._post_step_term_cfgs.append(term_cfg)
 
     @staticmethod
     def _assert_json_object(term_name: str, output: Any) -> None:
