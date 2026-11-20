@@ -123,8 +123,9 @@ class PostStepHookRecorder(RecorderTerm):
 
     # TODO(cvolk, 2026-11-18): Remove this term once Arena's Isaac Lab includes
     # https://github.com/isaac-sim/IsaacLab/pull/8822, which calls record_post_step() every step without recorder
-    # terms. Covered by test_post_step_hook_recorder_is_still_needed in test_arena_recorder_manager.py, which fails
-    # once that is the case and lists what to remove.
+    # terms. It is on Isaac Lab main but not on the release/3.0.0 branch Arena pins. Covered by
+    # test_post_step_hook_recorder_is_still_needed in test_arena_recorder_manager.py, which fails once that is the
+    # case and lists what to remove.
 
     def record_post_step(self):
         return None, None
