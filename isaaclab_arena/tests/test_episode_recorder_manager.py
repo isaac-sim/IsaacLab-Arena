@@ -13,7 +13,7 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _make_env():
+def _make_env(variation_replay_scheduler=None):
     """Return a two-env stand-in with the attributes the manager reads for the core fields."""
     import torch
     from types import SimpleNamespace
@@ -29,17 +29,18 @@ def _make_env():
         episode_length_buf=torch.tensor([5, 9]),
         get_episode_index=lambda env_id: 0,
         get_language_instruction=lambda: "do the task",
-        variation_replay_scheduler=None,
+        variation_replay_scheduler=variation_replay_scheduler,
     )
 
 
-def _make_manager(terms: dict, output_path):
+def _make_manager(terms: dict, output_path, variation_replay_scheduler=None):
     """Build an EpisodeRecorderManager for the given terms that writes to output_path (no file if None)."""
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager, EpisodeRecorderTermCfg
     from isaaclab_arena.utils.configclass import make_configclass
 
     fields = [(name, EpisodeRecorderTermCfg, term_cfg) for name, term_cfg in terms.items()]
-    manager = EpisodeRecorderManager(make_configclass("TestEpisodeRecordersCfg", fields)(), _make_env())
+    env = _make_env(variation_replay_scheduler)
+    manager = EpisodeRecorderManager(make_configclass("TestEpisodeRecordersCfg", fields)(), env)
     if output_path is not None:
         manager.set_output_path(output_path)
     return manager
@@ -88,19 +89,38 @@ def test_term_output_is_stored_under_term_name(tmp_path):
     )
 
 
-def _test_term_name_must_not_be_a_core_field(simulation_app, output_dir):
-    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+def _test_replay_run_records_the_source_record_index(simulation_app, output_dir):
+    from types import SimpleNamespace
 
-    with pytest.raises(AssertionError, match="core record field"):
-        _make_manager(
-            {"success": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1})}, output_dir / "r.jsonl"
-        )
+    output_path = output_dir / "records.jsonl"
+    replay_scheduler = SimpleNamespace(source_record_index_for_env=lambda env_id: 3 + env_id)
+    manager = _make_manager({}, output_path, variation_replay_scheduler=replay_scheduler)
+    manager.record_pre_reset([0, 1])
+
+    records = _read_records(output_path)
+    assert [record["replay_source_record_index"] for record in records] == [3, 4]
     return True
 
 
-def test_term_name_must_not_be_a_core_field(tmp_path):
+def test_replay_run_records_the_source_record_index(tmp_path):
     assert run_function_with_persistent_simulation_app(
-        partial(_test_term_name_must_not_be_a_core_field, output_dir=tmp_path)
+        partial(_test_replay_run_records_the_source_record_index, output_dir=tmp_path)
+    )
+
+
+def _test_term_named_like_a_core_field_fails_when_recorded(simulation_app, output_dir):
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+
+    # The term returns None, so the check must not depend on the term writing an output.
+    manager = _make_manager({"success": EpisodeRecorderTermCfg(func=lambda env, env_id: None)}, output_dir / "r.jsonl")
+    with pytest.raises(AssertionError, match="'success' would overwrite the core record field"):
+        manager.record_pre_reset([0])
+    return True
+
+
+def test_term_named_like_a_core_field_fails_when_recorded(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        partial(_test_term_named_like_a_core_field_fails_when_recorded, output_dir=tmp_path)
     )
 
 

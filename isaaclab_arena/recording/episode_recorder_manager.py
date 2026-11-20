@@ -18,19 +18,6 @@ from typing import Any
 from isaaclab.managers import ManagerBase, ManagerTermBase, ManagerTermBaseCfg
 from isaaclab.utils.configclass import configclass
 
-CORE_FIELD_NAMES = frozenset({
-    "job_name",
-    "env_id",
-    "episode_in_env",
-    "seed",
-    "success",
-    "episode_length",
-    "language_instruction",
-    "timestamp",
-    "replay_source_record_index",
-})
-"""Top-level record fields written by the manager. Term names must not use them."""
-
 
 @configclass
 class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
@@ -146,6 +133,12 @@ class EpisodeRecorderManager(ManagerBase):
         for env_id in self._env_ids_to_list(env_ids):
             record = self._core_fields(env_id)
             for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
+                # Term outputs are stored next to the core fields in the same record, so a term named like a
+                # core field (for example "success") would overwrite it.
+                assert term_name not in record, (
+                    f"Episode recorder term '{term_name}' would overwrite the core record field of the same name;"
+                    " choose another name."
+                )
                 output = term_cfg.func(self._env, env_id, **term_cfg.params)
                 if output is None:
                     continue
@@ -192,9 +185,6 @@ class EpisodeRecorderManager(ManagerBase):
         for term_name, term_cfg in self.cfg.__dict__.items():
             if term_cfg is None:
                 continue
-            assert (
-                term_name not in CORE_FIELD_NAMES
-            ), f"Episode recorder term name '{term_name}' is a core record field; choose another name."
             # Validate the term's func/params.
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
             self._term_names.append(term_name)
