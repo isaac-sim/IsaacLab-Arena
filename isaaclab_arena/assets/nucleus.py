@@ -5,6 +5,8 @@
 
 """Public S3 and internal Storage API asset roots for Arena-hosted assets."""
 
+from pathlib import Path
+
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 ARENA_STAGING_STORAGE_DIR: str = "ovstorage://isaac/Isaac/IsaacLab"
@@ -14,3 +16,7 @@ ARENA_STAGING_STORAGE_DIR: str = "ovstorage://isaac/Isaac/IsaacLab"
 ARENA_NUCLEUS_DIR: str = ISAACLAB_NUCLEUS_DIR.replace("omniverse-content-production", "omniverse-content-staging")
 # TODO(2026.08.12, Fill request to sync Replicator kitchens to the production bucket once Sim 6.1 is released)
 ISAAC_STAGING_NUCLEUS_DIR: str = ISAAC_NUCLEUS_DIR.replace("omniverse-content-production", "omniverse-content-staging")
+
+# TODO(2026.11.17, Upload the cable_routing folder to the Arena staging bucket and point this constant there)
+CABLE_ROUTING_ASSET_DIR: str = str(Path(__file__).resolve().parent / "cable_routing")
+"""Cable-routing asset root, temporarily a copy committed next to this module."""
