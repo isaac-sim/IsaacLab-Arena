@@ -14,57 +14,12 @@ Environment Description
 .. dropdown:: The Lift Object RL Environment
    :animate: fade-in
 
-   .. code-block:: python
+   .. literalinclude:: ../../../../isaaclab_arena_environments/lift_object_environment.py
+      :language: python
+      :start-at: @dataclass
+      :end-at: return isaaclab_arena_environment
 
-      class LiftObjectEnvironment(ExampleEnvironmentBase):
-
-          name: str = "lift_object"
-
-          def get_env(self, args_cli: argparse.Namespace):
-              from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-              from isaaclab_arena.scene.scene import Scene
-              from isaaclab_arena.tasks.lift_object_task import LiftObjectTaskRL
-              from isaaclab_arena.utils.pose import Pose
-
-              background = self.asset_registry.get_asset_by_name("table")()
-              pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-
-              # Add ground plane and light to the scene
-              ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
-              light = self.asset_registry.get_asset_by_name("light")()
-
-              assets = [background, pick_up_object, ground_plane, light]
-
-              embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-                  concatenate_observation_terms=True
-              )
-
-              # Set all positions
-              background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_xyzw=(0, 0, 0.707, 0.707)))
-              pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_xyzw=(0, 0, 0, 1)))
-              ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
-
-              # Compose the scene
-              scene = Scene(assets=assets)
-
-              task = LiftObjectTaskRL(
-                  pick_up_object,
-                  background,
-                  embodiment,
-                  minimum_height_to_lift=0.04,
-                  episode_length_s=5.0,
-                  rl_training_mode=args_cli.rl_training_mode,
-              )
-
-              isaaclab_arena_environment = IsaacLabArenaEnvironment(
-                  name=self.name,
-                  embodiment=embodiment,
-                  scene=scene,
-                  task=task,
-                  teleop_device=None,
-              )
-
-              return isaaclab_arena_environment
+See the `complete source <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/lift_object_environment.py>`_.
 
 
 Step-by-Step Breakdown
@@ -72,16 +27,11 @@ Step-by-Step Breakdown
 
 **1. Interact with the Asset Registry**
 
-.. code-block:: python
-
-   background = self.asset_registry.get_asset_by_name("table")()
-   pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-   ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
-   light = self.asset_registry.get_asset_by_name("light")()
-
-   embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-       concatenate_observation_terms=True
-   )
+.. literalinclude:: ../../../../isaaclab_arena_environments/lift_object_environment.py
+   :language: python
+   :start-at: background = self.asset_registry.get_asset_by_name("table")()
+   :end-before: # Set all positions
+   :dedent: 8
 
 Here, we're selecting the components needed for our RL task: a table as our support surface,
 an object to lift (configurable via CLI, default is ``dex_cube``), a ground plane for physics,
@@ -90,11 +40,11 @@ to provide a flat observation vector suitable for RL training.
 
 **2. Position the Objects**
 
-.. code-block:: python
-
-   background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_xyzw=(0, 0, 0.707, 0.707)))
-   pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_xyzw=(0, 0, 0, 1)))
-   ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
+.. literalinclude:: ../../../../isaaclab_arena_environments/lift_object_environment.py
+   :language: python
+   :start-at: background.set_initial_pose(
+   :end-at: ground_plane.set_initial_pose(
+   :dedent: 8
 
 Before we create the scene, we need to place our objects in the right locations. The table is positioned
 at (0.5, 0, 0), the object is placed on top of the table at a height of 0.055m, and the ground plane
@@ -102,25 +52,22 @@ is positioned below to provide physical support.
 
 **3. Compose the Scene**
 
-.. code-block:: python
-
-    scene = Scene(assets=assets)
+.. literalinclude:: ../../../../isaaclab_arena_environments/lift_object_environment.py
+   :language: python
+   :start-at: scene = Scene(
+   :end-at: scene = Scene(
+   :dedent: 8
 
 Now we bring everything together into an IsaacLab-Arena scene.
 See :doc:`../../concepts/scene/index` for scene composition details.
 
 **4. Create the Lift Object RL Task**
 
-.. code-block:: python
-
-    task = LiftObjectTaskRL(
-        pick_up_object,
-        background,
-        embodiment,
-        minimum_height_to_lift=0.04,
-        episode_length_s=5.0,
-        rl_training_mode=args_cli.rl_training_mode,
-    )
+.. literalinclude:: ../../../../isaaclab_arena_environments/lift_object_environment.py
+   :language: python
+   :start-at: task = LiftObjectTaskRL(
+   :end-before: isaaclab_arena_environment = IsaacLabArenaEnvironment(
+   :dedent: 8
 
 The ``LiftObjectTaskRL`` encapsulates the RL training objective: lift the object to commanded target positions.
 The task includes:
@@ -135,18 +82,15 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 
-.. code-block:: python
-
-   isaaclab_arena_environment = IsaacLabArenaEnvironment(
-       name=self.name,
-       embodiment=embodiment,
-       scene=scene,
-       task=task,
-       teleop_device=None,
-   )
+.. literalinclude:: ../../../../isaaclab_arena_environments/lift_object_environment.py
+   :language: python
+   :start-at: isaaclab_arena_environment = IsaacLabArenaEnvironment(
+   :end-before: return isaaclab_arena_environment
+   :dedent: 8
 
 Finally, we assemble all the pieces into a complete, runnable RL environment. The ``IsaacLabArenaEnvironment``
 connects the embodiment (the robot), the scene (the world), and the task (the objective and rewards).
+It also names the RSL-RL policy config used for training and sets the control rate to 50 Hz.
 See :doc:`../../concepts/environment/index` for environment composition details.
 
 
