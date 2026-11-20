@@ -71,7 +71,7 @@ Read only the references relevant to the requested behavior:
   Reuse existing tasks and preserve their sensors and failure conditions.
 - **Per-episode values:** success, task progress, variations and placement are recorded for every
   episode already. To record a value of your own, such as how fast an object moved, add an episode
-  recorder term in Python, following "Recording your own values" in the [task concepts](../../../docs/pages/concepts/task/index.rst)
+  recorder term in Python, following "Recording your own values" in the [environment concepts](../../../docs/pages/concepts/environment/index.rst)
   and the [external environment example](../../../isaaclab_arena_examples/external_environments/advanced.py).
   Graph YAML has no field for these terms.
 - **Variations:** read the [variation concepts](../../../docs/pages/concepts/variations/variations.rst)

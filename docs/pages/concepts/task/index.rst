@@ -46,55 +46,6 @@ Individual tasks can be combined into order-independent or sequential composite 
 returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``, declaring its ``success`` criteria,
 named ``failures``, and ``timeout_s`` time limit.
 
-.. _recording-per-episode-values:
-
-Recording your own values
--------------------------
-
-For every finished episode, Arena writes one line to the episode results, with its success, task
-progress, and the variations drawn for it. A task adds a value of its own by returning an
-**episode recorder term** from ``get_episode_recorder_terms()``. Each episode's line then holds the
-term's output under the term's name:
-
-.. code-block:: python
-
-   class MyPickAndPlaceTask(PickAndPlaceTask):
-       def get_episode_recorder_terms(self):
-           return {
-               "object_peak_speed": EpisodeRecorderTermCfg(
-                   func=ObjectPeakSpeed, params={"object_name": self.pick_up_object.name}
-               )
-           }
-
-.. code-block:: json
-
-   {"env_id": 0, "episode_in_env": 3, "success": true, "object_peak_speed": {"peak_speed": 0.83}}
-
-A term returns a dictionary of JSON values when the episode ends. Write it as:
-
-* **a function**, for a value you can read at the end of the episode, such as an object's final
-  height:
-
-  .. code-block:: python
-
-     def record_object_final_height(env, env_id: int, object_name: str) -> dict[str, float]:
-         """Records the height [m] of an object when the episode ends."""
-         return {"final_height": float(env.arena_world.get_pose_w(object_name)[env_id, 2])}
-
-* **a class derived from** ``EpisodeRecorderTerm``, for a value that builds up during the episode,
-  such as an object's peak speed. Arena calls its ``post_step()`` after every step, so it can track
-  the value as the episode runs.
-
-:doc:`../../arena_in_your_repo/external_tasks_and_embodiments` defines both ``record_object_final_height``
-and the class ``ObjectPeakSpeed``, and adds them to an environment.
-
-An environment can also add terms through ``IsaacLabArenaEnvironment(episode_recorder_terms=...)``,
-for a value that only that environment needs, without changing its task.
-
-A composite task collects its subtasks' terms and adds ``_subtask_<i>`` to their names, so two subtasks
-that both record ``object_peak_speed`` keep separate values: ``object_peak_speed_subtask_0`` and
-``object_peak_speed_subtask_1``.
-
 More details
 ------------
 
