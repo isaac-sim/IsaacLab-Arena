@@ -401,6 +401,17 @@ def test_environment_type_rejects_an_unregistered_factory(tmp_path, monkeypatch,
     )
 
 
+def test_environment_type_names_the_run_when_its_module_fails_to_import(tmp_path, monkeypatch):
+    """Name the Run when the factory module exists but raises an error that is not an ImportError."""
+    _write_external_module(tmp_path, monkeypatch, "environment_module_failing_at_import", "undefined_helper()\n")
+    environment_type = "environment_module_failing_at_import.ExternalEnvironment"
+    config_path = _write_experiment_selecting_environment_type(tmp_path, environment_type)
+
+    _assert_selected_run_cannot_resolve_environment_type(
+        config_path, environment_type, "name 'undefined_helper' is not defined"
+    )
+
+
 def test_environment_type_rejects_a_factory_that_reuses_a_built_in_name(
     tmp_path, monkeypatch, isolated_environment_registry
 ):

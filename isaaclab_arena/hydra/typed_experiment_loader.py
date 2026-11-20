@@ -410,9 +410,10 @@ def _compose_typed_config_from_yaml_selector(
     assert isinstance(selector, str) and selector, f"Run '{run_name}' is missing '{section_name}.type'"
     try:
         cfg_type = cfg_type_resolver(selector)
-    except (AssertionError, ImportError) as exc:
+    except Exception as exc:
         # The resolver does not know which Run selected the type. Name it so a failure in a multi-Run
-        # Experiment points at the Run to fix.
+        # Experiment points at the Run to fix. A class path imports the user's module, which can raise
+        # any exception, so every failure is reported this way. The chained cause keeps its traceback.
         raise ValueError(f"Run '{run_name}' could not resolve {section_name} type '{selector}': {exc}") from exc
 
     assert isinstance(cfg_type, type) and issubclass(cfg_type, expected_base_type), (
