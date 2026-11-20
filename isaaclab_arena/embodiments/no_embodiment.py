@@ -5,6 +5,7 @@
 
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 
@@ -15,11 +16,12 @@ class EmptyActionsCfg:
     pass
 
 
+@register_asset
 class NoEmbodiment(EmbodimentBase):
     """Null object for environments without an embodiment."""
 
     registry_name = "no_embodiment"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, enable_cameras: bool = False):
+        super().__init__(enable_cameras=enable_cameras)
         self.action_config = EmptyActionsCfg()
