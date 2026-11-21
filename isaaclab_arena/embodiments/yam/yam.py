@@ -16,8 +16,10 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils.configclass import configclass
+from pxr import Usd, UsdPhysics
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
+from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
@@ -42,6 +44,38 @@ GRIPPER_OPEN_POSITION = 0.037524
 GRIPPER_CLOSED_POSITION = 0.0
 
 _DEFAULT_ARM_JOINT_POSITIONS = (0.0, 0.85, 0.60, 0.0, 0.0, 0.0)
+_ETL_PHYSX_ARM_DRIVES = {
+    "arm_joints_1_3": (40.0, 2.5, 28.0),
+    "arm_joint_4": (20.0, 0.5, 10.0),
+    "arm_joints_5_6": (10.0, 1.0, 10.0),
+}
+"""ETL's PhysX arm drives per actuator group: stiffness (N m/rad), damping (N m s/rad) and effort limit (N m)."""
+_ETL_PHYSX_GRIPPER_EFFORT_LIMIT = 40.0
+"""ETL's PhysX force limit on the driven finger, in newtons."""
+_USD_BASE_JOINT_PATH = "Geometry/arm/PhysicsFixedJoint"
+"""The USD's fixed joint from its static root Xform to the robot base, relative to the asset root."""
+
+
+@configclass
+class YamPhysxFixedBaseCfg(UsdPrimSpawnPhysicsCfg):
+    """Replace the USD's base joint to its static root Xform with Isaac Lab's world-fixed root joint.
+
+    PhysX anchors the USD's joint where the robot spawns, so root pose writes such as placement resets leave the base
+    in place. Isaac Lab's fixed root joint follows them. This is ETL's PhysX fixed-base setup.
+    """
+
+    def validate_target(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        joint = UsdPhysics.FixedJoint(prim)
+        assert joint and joint.GetBody0Rel().GetTargets() == [root.GetPath()], "Expected the USD's YAM base joint"
+
+    def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        from isaaclab.sim.schemas import apply_articulation_root_properties
+
+        # Disable the USD's joint first, or Isaac Lab would take it as the existing world joint and keep it.
+        UsdPhysics.FixedJoint(prim).GetJointEnabledAttr().Set(False)
+        (base_path,) = UsdPhysics.FixedJoint(prim).GetBody1Rel().GetTargets()
+        fixed = apply_articulation_root_properties(str(base_path), (), stage=root.GetStage(), fix_root_link=True)
+        assert fixed, "Isaac Lab could not fix the YAM base to the world."
 
 
 def make_yam_articulation_cfg(prim_path: str, usd_path: str = YAM_USD_PATH) -> ArticulationCfg:
@@ -127,12 +161,13 @@ class YamEmbodiment(EmbodimentBase):
     """One fixed-base YAM arm with absolute joint-position control.
 
     PhysX and Newton (MJWarp) both spawn AUTOLab's MuJoCo model, ``YAM_USD_PATH``. Newton uses the USD as authored;
-    PhysX also disables gravity on the robot links, because it ignores the USD's MuJoCo gravity compensation.
+    PhysX applies ETL's PhysX setup on top of it.
     """
 
     registry_name = "yam"
     tags = ["embodiment", "yam"]
     default_arm_mode = ArmMode.SINGLE_ARM
+    """SINGLE_ARM fits this class because it spawns one articulation; a bimanual YAM rig needs its own embodiment."""
 
     def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, usd_path: str = YAM_USD_PATH):
         """Initialize the embodiment; ``enable_cameras`` adds the wrist and top-down cameras."""
@@ -144,11 +179,25 @@ class YamEmbodiment(EmbodimentBase):
         self.add_camera_variations(self.camera_config)
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
-        """Disable gravity on the robot links under PhysX, which ignores the USD's MuJoCo gravity compensation."""
+        """Apply ETL's PhysX setup to a PhysX spawn; Newton uses the USD as authored.
+
+        ETL's setup is a world-fixed base that follows root pose writes, no gravity on the robot links (PhysX ignores
+        the USD's MuJoCo gravity compensation), and ETL's arm drives and finger force limit.
+        """
         if backend is PhysicsBackend.PHYSX:
             from isaaclab_physx.sim.schemas import PhysxRigidBodyCfg
 
-            self.scene_config.robot.spawn.rigid_props = PhysxRigidBodyCfg(disable_gravity=True)
+            prim_physics = self.spawn_cfg_addon.setdefault("robot", {}).setdefault("prim_physics", {})
+            prim_physics[_USD_BASE_JOINT_PATH] = YamPhysxFixedBaseCfg()
+            robot = self.scene_config.robot
+            robot.spawn.rigid_props = PhysxRigidBodyCfg(disable_gravity=True)
+            for group, (stiffness, damping, effort_limit) in _ETL_PHYSX_ARM_DRIVES.items():
+                robot.actuators[group] = robot.actuators[group].replace(
+                    stiffness=stiffness, damping=damping, joint_effort_limit=effort_limit
+                )
+            robot.actuators["gripper"] = robot.actuators["gripper"].replace(
+                joint_effort_limit=_ETL_PHYSX_GRIPPER_EFFORT_LIMIT
+            )
 
     def get_command_body_name(self) -> str:
         return END_EFFECTOR_BODY_NAME

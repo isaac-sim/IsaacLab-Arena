@@ -28,14 +28,22 @@ _BASE_PRIM_SUFFIX = "/Geometry/arm"
 _LINK_SIX_PRIM_SUFFIX = f"{_BASE_PRIM_SUFFIX}/link_1/link_2/link_3/link_4/link_5/link_6"
 
 
-def _d405_camera(
+def make_d405_camera_cfg(
     prim_path: str,
     position: tuple[float, float, float],
     rotation_xyzw: tuple[float, float, float, float],
+    vertical_fov_deg: float = 58.0,
+    vertical_aperture: float = 4.8,
 ) -> CameraCfg:
-    """Build a 1280x720 RealSense D405 RGB and depth camera mounted at the given offset from its parent prim."""
-    vertical_aperture = 4.8
-    vertical_fov_deg = 58.0
+    """Build a 1280x720 RealSense D405 RGB and depth camera mounted at the given offset from its parent prim.
+
+    Args:
+        prim_path: Camera prim path, under the prim it is mounted on.
+        position: Camera position in its parent prim's frame, in meters.
+        rotation_xyzw: Camera rotation in its parent prim's frame, in the ROS optical convention.
+        vertical_fov_deg: Vertical field of view in degrees, which sets the focal length.
+        vertical_aperture: Vertical film aperture in millimeters.
+    """
     focal_length = vertical_aperture / (2.0 * math.tan(math.radians(vertical_fov_deg / 2.0)))
     return CameraCfg(
         prim_path=prim_path,
@@ -56,12 +64,12 @@ def _d405_camera(
 class YamCameraCfg(ArenaCameraCfg):
     """One wrist camera on the end-effector link and one top-down camera above the robot base."""
 
-    wrist_camera: CameraCfg = _d405_camera(
+    wrist_camera: CameraCfg = make_d405_camera_cfg(
         f"{{ENV_REGEX_NS}}/Robot{_LINK_SIX_PRIM_SUFFIX}/wrist_camera",
         _D405_MOUNT_POSITION,
         _D405_MOUNT_ROTATION_XYZW,
     )
-    top_camera: CameraCfg = _d405_camera(
+    top_camera: CameraCfg = make_d405_camera_cfg(
         f"{{ENV_REGEX_NS}}/Robot{_BASE_PRIM_SUFFIX}/top_camera",
         _TOP_CAMERA_OFFSET_FROM_BASE,
         _TOP_CAMERA_ROTATION_XYZW,

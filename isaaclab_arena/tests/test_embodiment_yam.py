@@ -18,6 +18,10 @@ if TYPE_CHECKING:
 SETTLE_STEPS = 30
 ARM_HOLD_TOLERANCE_RAD = 0.02
 FINGER_TOLERANCE_M = 0.002
+ROBOT_POSITION = (0.2, -0.1, 0.05)
+"""Env-local robot base position, away from the origin so placement is observable."""
+ROOT_POSITION_TOLERANCE_M = 0.001
+ROOT_WRITE_SHIFT_X_M = 0.1
 
 
 def _test_yam_embodiment_backends(simulation_app) -> bool:
@@ -47,9 +51,12 @@ def _test_yam_embodiment_backends(simulation_app) -> bool:
 
     physx_embodiment = YamEmbodiment()
     physx_embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
-    physx_spawn = physx_embodiment.get_scene_cfg().robot.spawn
-    assert physx_spawn.usd_path == YAM_USD_PATH
-    assert physx_spawn.rigid_props.disable_gravity is True
+    physx_robot = physx_embodiment.get_scene_cfg().robot
+    assert physx_robot.spawn.usd_path == YAM_USD_PATH
+    assert physx_robot.spawn.rigid_props.disable_gravity is True
+    shoulder = physx_robot.actuators["arm_joints_1_3"]
+    assert (shoulder.stiffness, shoulder.damping, shoulder.joint_effort_limit) == (40.0, 2.5, 28.0)
+    assert physx_robot.actuators["gripper"].joint_effort_limit == 40.0
     return True
 
 
@@ -59,7 +66,7 @@ def test_yam_embodiment_backends():
 
 @contextmanager
 def _yam_env(env_name: str, backend_name: str):
-    """Yield a single-env scene holding only the YAM, simulated on the named physics backend."""
+    """Yield a single-env scene holding only the YAM at ``ROBOT_POSITION``, simulated on the named physics backend."""
     import gymnasium as gym
 
     from isaaclab_arena.embodiments.yam.yam import YamEmbodiment
@@ -68,8 +75,10 @@ def _yam_env(env_name: str, backend_name: str):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
+    from isaaclab_arena.utils.pose import Pose
 
-    arena_env = IsaacLabArenaEnvironment(name=env_name, embodiment=YamEmbodiment(), scene=Scene())
+    embodiment = YamEmbodiment(initial_pose=Pose(position_xyz=ROBOT_POSITION))
+    arena_env = IsaacLabArenaEnvironment(name=env_name, embodiment=embodiment, scene=Scene())
     if env_name in gym.registry:
         del gym.registry[env_name]
     builder_cfg = ArenaEnvBuilderCfg(num_envs=1, presets=PhysicsBackend(backend_name))
@@ -102,7 +111,7 @@ def _hold_default_arm_pose(env, gripper_command: float) -> torch.Tensor:
 
 
 def _test_yam_holds_arm_and_mirrors_fingers(simulation_app, backend_name: str) -> bool:
-    """The arm should hold its default pose and the passive finger should mirror every gripper command."""
+    """The robot should stay at its placed pose, hold the default arm pose and mirror every gripper command."""
     import torch
 
     import warp as wp
@@ -139,6 +148,21 @@ def _test_yam_holds_arm_and_mirrors_fingers(simulation_app, backend_name: str) -
                 assert (
                     abs(passive_pos + driven_pos) < FINGER_TOLERANCE_M
                 ), "The passive finger must mirror the driven one."
+                t_E_R = wp.to_torch(robot.data.root_pos_w)[0] - env.unwrapped.scene.env_origins[0]
+                root_error = torch.norm(t_E_R - torch.tensor(ROBOT_POSITION, device=t_E_R.device)).item()
+                print(f"[{backend_name}] root position {t_E_R.tolist()}, error {root_error:.4f} m")
+                assert root_error < ROOT_POSITION_TOLERANCE_M, f"Robot base is {root_error:.4f} m from its placed pose."
+
+            # Placement resets write the root pose; the fixed base must follow it.
+            T_W_R = wp.to_torch(robot.data.root_pose_w).clone()
+            T_W_R[:, 0] += ROOT_WRITE_SHIFT_X_M
+            robot.write_root_pose_to_sim_index(root_pose=T_W_R)
+            _hold_default_arm_pose(env, 0.0)
+            shift_x = (wp.to_torch(robot.data.root_pos_w)[0, 0] - T_W_R[0, 0] + ROOT_WRITE_SHIFT_X_M).item()
+            print(f"[{backend_name}] root moved {shift_x:.4f} m after a {ROOT_WRITE_SHIFT_X_M} m root write")
+            assert (
+                abs(shift_x - ROOT_WRITE_SHIFT_X_M) < ROOT_POSITION_TOLERANCE_M
+            ), "The base ignored a root pose write."
     return True
 
 
