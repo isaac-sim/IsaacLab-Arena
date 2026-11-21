@@ -10,16 +10,16 @@ from __future__ import annotations
 import logging
 import torch
 
+import isaaclab.utils.math as math_utils
 from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
 from curobo.logging import setup_logger
-from curobo.scene import Scene
 from curobo.types import DeviceCfg, GoalToolPose
 from curobo.types import Pose as CuroboPose
 
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
-from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, scene_from_cuboids
+from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
 
 
@@ -44,7 +44,16 @@ class CuroboIKSolver:
     #     robot_cfg: The curobo robot configuration for the solver.
     #     ik_solver: The IK solver for the solver.
     #     hand_link_names: The robot's hand links, muted during a collision-free solve.
-    __slots__ = ("logger", "device", "device_cfg", "robot_cfg", "ik_solver", "hand_link_names")
+    #     max_batch_size: Most problems one solve may hold.
+    __slots__ = (
+        "logger",
+        "device",
+        "device_cfg",
+        "robot_cfg",
+        "ik_solver",
+        "hand_link_names",
+        "max_batch_size",
+    )
 
     def __init__(
         self,
@@ -87,11 +96,14 @@ class CuroboIKSolver:
 
         self.robot_cfg = load_patched_robot_yaml(curobo_cfg)["robot_cfg"]
         self.hand_link_names = list(curobo_cfg.hand_link_names)
+        self.max_batch_size = max_batch_size
 
         ik_config = InverseKinematicsCfg.create(
             robot=self.robot_cfg,
             # cuRobo only builds a collision checker when given a scene; update_world() fills it per layout.
-            scene_model=Scene(cuboid=[]),
+            # Every problem of a batched solve has its own collision world, so each needs an (empty) world up
+            # front to allocate its obstacle storage.
+            scene_model=[{} for _ in range(max_batch_size)],
             collision_cache=collision_cache_size or {"cuboid": 150},
             device_cfg=self.device_cfg,
             num_seeds=num_seeds,
@@ -99,6 +111,7 @@ class CuroboIKSolver:
             orientation_tolerance=rotation_threshold,
             optimizer_collision_activation_distance=collision_activation_distance,
             max_batch_size=max_batch_size,
+            multi_env=True,
             use_cuda_graph=use_cuda_graph,
         )
         self.ik_solver = InverseKinematics(ik_config)
@@ -153,13 +166,80 @@ class CuroboIKSolver:
         robot_base_pos_w: tuple[float, float, float],
         robot_base_quat_w_xyzw: tuple[float, float, float, float],
     ) -> None:
-        """Replace the collision world with cuboids derived from a layout's bounding boxes.
+        """Replace the collision world of every pose of a batched solve with the same cuboids.
 
-        cuRobo reloads the collision model rather than only moving obstacle poses, so this handles both
-        moved objects and a changed object set per layout, as long as the obstacle count stays within the
-        collision cache.
+        The cuboids are expressed in the robot base frame. Use ``load_collision_worlds`` to give each pose its own
+        world.
         """
-        scene = scene_from_cuboids(cuboids, robot_base_pos_w, robot_base_quat_w_xyzw, self.device)
-        self.ik_solver.update_world(scene)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
+        self.load_collision_worlds(
+            [cuboids] * self.max_batch_size,
+            [robot_base_pos_w] * self.max_batch_size,
+            [robot_base_quat_w_xyzw] * self.max_batch_size,
+        )
+
+    def load_collision_worlds(
+        self,
+        cuboids_per_problem: list[list[AABBCollisionCuboid]],
+        robot_base_pos_w_per_problem: list[tuple[float, float, float]],
+        robot_base_quat_w_xyzw_per_problem: list[tuple[float, float, float, float]],
+    ) -> None:
+        """Load one collision world per pose of the next batched solve; the i-th pose is solved in the i-th world.
+
+        Each world is the cuboids expressed in that problem's robot base frame. The worlds are loaded by writing
+        the obstacle storage directly, so any set of obstacles fits as long as it stays within the collision cache.
+
+        Args:
+            cuboids_per_problem: Obstacle cuboids of each problem's world, at most ``max_batch_size`` problems.
+            robot_base_pos_w_per_problem: Robot base position of each problem.
+            robot_base_quat_w_xyzw_per_problem: Robot base orientation of each problem.
+        """
+        num_problems = len(cuboids_per_problem)
+        assert (
+            num_problems <= self.max_batch_size
+        ), f"{num_problems} problems exceed max_batch_size={self.max_batch_size}"
+        assert (
+            len(robot_base_pos_w_per_problem) == num_problems
+            and len(robot_base_quat_w_xyzw_per_problem) == num_problems
+        )
+        cuboid_storage = self.ik_solver.scene_collision_checker.data.cuboids
+        counts = [len(cuboids) for cuboids in cuboids_per_problem]
+        assert (
+            max(counts, default=0) <= cuboid_storage.max_n
+        ), f"a world has {max(counts)} cuboids, more than the {cuboid_storage.max_n} obstacle slots"
+        # Express every obstacle of every world in its robot base frame with one batched computation, then
+        # write them all into the solver's obstacle storage at once.
+        cuboids = [cuboid for world in cuboids_per_problem for cuboid in world]
+        cuboid_storage.enable[:num_problems] = 0
+        cuboid_storage.count[:num_problems] = torch.tensor(counts, dtype=torch.int32, device=self.device)
+        if cuboids:
+            # Index of the world and of the slot inside it that each cuboid of the flat list is written to.
+            env_idx_list: list[int] = []
+            slot_idx_list: list[int] = []
+            for problem_idx, num_cuboids in enumerate(counts):
+                env_idx_list.extend([problem_idx] * num_cuboids)
+                slot_idx_list.extend(range(num_cuboids))
+            env_idx = torch.tensor(env_idx_list, dtype=torch.long, device=self.device)
+            slot_idx = torch.tensor(slot_idx_list, dtype=torch.long, device=self.device)
+            # Stack the cuboids, and the base pose of the world each belongs to, into one tensor per quantity.
+            pos_w = self._to_curobo_device(torch.tensor([c.pose_W_O.position_xyz for c in cuboids]))
+            quat_w_xyzw = self._to_curobo_device(torch.tensor([c.pose_W_O.rotation_xyzw for c in cuboids]))
+            dims = self._to_curobo_device(torch.tensor([c.dims_xyz for c in cuboids]))
+            base_pos_w = self._to_curobo_device(torch.tensor(robot_base_pos_w_per_problem))[env_idx]
+            base_quat_w_xyzw = self._to_curobo_device(torch.tensor(robot_base_quat_w_xyzw_per_problem))[env_idx]
+
+            # Express every cuboid pose in its robot base frame R: T_R_O = T_R_W * T_W_O.
+            q_R_W_xyzw = math_utils.quat_inv(base_quat_w_xyzw)
+            t_R_O = math_utils.quat_apply(q_R_W_xyzw, pos_w - base_pos_w)
+            q_R_O_xyzw = math_utils.quat_mul(q_R_W_xyzw, quat_w_xyzw)
+            # cuRobo stores each obstacle's inverse pose, as [x, y, z, qw, qx, qy, qz].
+            inv_pose = self._make_pose(t_R_O, q_R_O_xyzw).inverse().get_pose_vector()
+            # Write each cuboid into its world's slot and mark the slot as in use.
+            cuboid_storage.dims[env_idx, slot_idx, :3] = dims
+            cuboid_storage.inv_pose[env_idx, slot_idx, :7] = inv_pose
+            cuboid_storage.enable[env_idx, slot_idx] = 1
+        # cuRobo keeps a Python list of cuboid names per world; fill the unused slots with None.
+        next_cuboid = 0
+        for env, num_cuboids in enumerate(counts):
+            names = [cuboid.name for cuboid in cuboids[next_cuboid : next_cuboid + num_cuboids]]
+            cuboid_storage.names[env] = names + [None] * (cuboid_storage.max_n - num_cuboids)
+            next_cuboid += num_cuboids
