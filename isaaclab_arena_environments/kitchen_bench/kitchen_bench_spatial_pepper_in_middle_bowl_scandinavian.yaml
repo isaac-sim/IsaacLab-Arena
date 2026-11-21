@@ -102,18 +102,18 @@ relations:
     tolerance_m: 0.06
 - kind: align_with
   subject: pepper
-  reference: middle_bowl
+  reference: right_bowl
   params:
     axis: y
     offset_m: -0.26
     tolerance_m: 0.06
 - kind: align_with
   subject: pepper
-  reference: middle_bowl
+  reference: right_bowl
   params:
     axis: x
     offset_m: 0
-    tolerance_m: 0.12
+    tolerance_m: 0.08
 - kind: align_with
   subject: droid
   reference: counter_top
@@ -133,8 +133,8 @@ relations:
   reference: middle_bowl
   params:
     axis: x
-    offset_m: 0
-    tolerance_m: 0.12
+    offset_m: 0.15
+    tolerance_m: 0.06
 task:
   composition: atomic
   description: Pick up the red bell pepper and place it in the middle bowl.

@@ -111,19 +111,33 @@ relations:
     offset_m: 0
     tolerance_m: 0.08
 - kind: align_with
+  subject: apple
+  reference: far_bowl
+  params:
+    axis: y
+    offset_m: -0.22
+    tolerance_m: 0.04
+- kind: align_with
+  subject: apple
+  reference: far_bowl
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.06
+- kind: align_with
   subject: sweet_potato
-  reference: target_bowl
+  reference: far_bowl
   params:
     axis: x
     offset_m: -0.23
     tolerance_m: 0.05
 - kind: align_with
   subject: sweet_potato
-  reference: target_bowl
+  reference: far_bowl
   params:
     axis: y
-    offset_m: -0.12
-    tolerance_m: 0.08
+    offset_m: 0
+    tolerance_m: 0.06
 - kind: align_with
   subject: droid
   reference: island
@@ -143,8 +157,8 @@ relations:
   reference: target_bowl
   params:
     axis: y
-    offset_m: -0.1
-    tolerance_m: 0.12
+    offset_m: -0.37
+    tolerance_m: 0.06
 task:
   composition: atomic
   description: Pick up the sweet potato and put it in the bowl closest to the red bell pepper.

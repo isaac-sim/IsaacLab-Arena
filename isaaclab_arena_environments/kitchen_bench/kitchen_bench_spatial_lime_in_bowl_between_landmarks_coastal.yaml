@@ -107,18 +107,18 @@ relations:
     tolerance_m: 0.09
 - kind: align_with
   subject: lime
-  reference: target_bowl
+  reference: other_bowl
   params:
     axis: y
     offset_m: -0.24
     tolerance_m: 0.05
 - kind: align_with
   subject: lime
-  reference: target_bowl
+  reference: other_bowl
   params:
     axis: x
     offset_m: 0
-    tolerance_m: 0.12
+    tolerance_m: 0.08
 - kind: align_with
   subject: droid
   reference: right_counter_top
@@ -135,11 +135,11 @@ relations:
     tolerance_m: 0.1
 - kind: align_with
   subject: droid
-  reference: target_bowl
+  reference: mustard
   params:
     axis: x
     offset_m: 0
-    tolerance_m: 0.12
+    tolerance_m: 0.08
 task:
   composition: atomic
   description: Pick up the lime and put it in the bowl between the mug and the mustard bottle.
