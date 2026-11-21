@@ -74,7 +74,6 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
     """Build the DROID task for inserting a medium gear onto its matching peg."""
 
     name = "gear_insertion"
-    _legacy_argparse_cfg_type = GearInsertionEnvironmentCfg
 
     def build(self, cfg: GearInsertionEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from registered Arena components."""

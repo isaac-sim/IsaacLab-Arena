@@ -28,7 +28,6 @@ class PressButtonEnvironmentCfg(ArenaEnvironmentCfg):
 class PressButtonEnvironment(ArenaEnvironmentFactory[PressButtonEnvironmentCfg]):
 
     name: str = "press_button"
-    _legacy_argparse_cfg_type = PressButtonEnvironmentCfg
 
     def build(self, cfg: PressButtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
