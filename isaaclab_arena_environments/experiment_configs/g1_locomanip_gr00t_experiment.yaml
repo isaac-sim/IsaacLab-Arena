@@ -17,7 +17,7 @@ runs:
       object: brown_box
     policy:
       type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
-      policy_config_yaml_path: isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml
+      gr00t_embodiment_adapter: g1_wbc
       policy_device: cuda:0
       remote_host: 127.0.0.1
       remote_port: 5555

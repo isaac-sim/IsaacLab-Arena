@@ -12,7 +12,7 @@ import pytest
 from isaaclab_arena.tests.utils.constants import TestConstants
 from osmo.submit_evaluation_workflow import main
 from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
-from osmo.tasks.gr00t_policy_runner_task import DEFAULT_POLICY_CONFIG, Gr00tPolicyRunnerTaskCfg
+from osmo.tasks.gr00t_policy_runner_task import DEFAULT_GR00T_EMBODIMENT_ADAPTER, Gr00tPolicyRunnerTaskCfg
 from osmo.tasks.gr00t_server_task import Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.tasks.policy_runner_task import PolicyRunnerTaskCfg
@@ -89,7 +89,7 @@ def test_gr00t_workflow_renders_policy_runner_and_server():
         "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy"
         in policy_runner_command
     )
-    assert f"--policy_config_yaml_path {DEFAULT_POLICY_CONFIG}" in policy_runner_command
+    assert f"--gr00t_embodiment_adapter {DEFAULT_GR00T_EMBODIMENT_ADAPTER}" in policy_runner_command
     assert "--remote_host {{host:gr00t_server}}" in policy_runner_command
     assert f"--remote_port {POLICY_SERVER_PORT}" in policy_runner_command
     assert "gr00t/eval/run_gr00t_server.py" in server_command

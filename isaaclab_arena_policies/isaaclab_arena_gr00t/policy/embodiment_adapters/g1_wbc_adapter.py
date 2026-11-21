@@ -25,7 +25,7 @@ from isaaclab_arena_gr00t.utils.joints_conversion import (
     sim_joint_pos_to_hold_action,
 )
 
-_G1_JOINTS_DIR = Path(__file__).resolve().parents[2] / "embodiments" / "g1"
+_G1_EMBODIMENT_DIR = Path(__file__).resolve().parents[2] / "embodiments" / "g1"
 
 
 class Gr00tG1WbcAdapter(Gr00tEmbodimentAdapter):
@@ -37,10 +37,16 @@ class Gr00tG1WbcAdapter(Gr00tEmbodimentAdapter):
 
     embodiment_tag = "NEW_EMBODIMENT"
 
-    policy_joints_config_path = _G1_JOINTS_DIR / "gr00t_43dof_joint_space.yaml"
+    modality_config_path = _G1_EMBODIMENT_DIR / "g1_sim_wbc_data_config.py"
+
+    camera_names = ("robot_head_cam_rgb",)
+
+    target_image_size = (480, 640, 3)
+
+    policy_joints_config_path = _G1_EMBODIMENT_DIR / "gr00t_43dof_joint_space.yaml"
     """GR00T joint groups, each listing its sim joint names in GR00T order."""
 
-    sim_joints_config_path = _G1_JOINTS_DIR / "43dof_joint_space.yaml"
+    sim_joints_config_path = _G1_EMBODIMENT_DIR / "43dof_joint_space.yaml"
     """Sim joint order shared by the ``robot_joint_pos`` observation and the joint part of the env action."""
 
     def __init__(self):

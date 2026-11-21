@@ -11,6 +11,7 @@ import inspect
 import numpy as np
 import torch
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 from isaaclab_arena.utils.class_path import import_class_from_path
@@ -19,12 +20,21 @@ from isaaclab_arena.utils.class_path import import_class_from_path
 class Gr00tEmbodimentAdapter(ABC):
     """Translates one embodiment's Arena observations and actions to and from GR00T's state and action dicts.
 
-    The adapter owns the embodiment's state units and action layout. Cameras, language, and the request
-    format stay in the shared GR00T pipeline.
+    The adapter owns the embodiment's cameras, state units, and action layout, and the modality config and
+    image size of the checkpoints it serves. Language and the request format stay in the shared GR00T pipeline.
     """
 
     embodiment_tag: str
     """GR00T embodiment tag of the checkpoints this adapter serves; it selects the GR00T modality config."""
+
+    modality_config_path: Path | None = None
+    """Module that registers the modality config for embodiment_tag, or None when GR00T ships that config."""
+
+    camera_names: tuple[str, ...]
+    """Cameras in the ``camera_obs`` observation group, in the order of the modality config's video keys."""
+
+    target_image_size: tuple[int, int, int]
+    """(height, width, channels) that camera images are padded and resized to before they are sent."""
 
     action_dim: int
     """Width of one env action produced by build_action_np."""

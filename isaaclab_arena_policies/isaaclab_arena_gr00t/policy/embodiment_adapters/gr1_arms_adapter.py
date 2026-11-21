@@ -20,7 +20,7 @@ from isaaclab_arena_gr00t.utils.joints_conversion import (
     sim_joint_pos_to_hold_action,
 )
 
-_GR1_JOINTS_DIR = Path(__file__).resolve().parents[2] / "embodiments" / "gr1"
+_GR1_EMBODIMENT_DIR = Path(__file__).resolve().parents[2] / "embodiments" / "gr1"
 
 
 class Gr00tGr1ArmsAdapter(Gr00tEmbodimentAdapter):
@@ -31,13 +31,19 @@ class Gr00tGr1ArmsAdapter(Gr00tEmbodimentAdapter):
 
     embodiment_tag = "GR1"
 
-    policy_joints_config_path = _GR1_JOINTS_DIR / "gr00t_26dof_joint_space.yaml"
+    modality_config_path = _GR1_EMBODIMENT_DIR / "gr1_arms_only_data_config.py"
+
+    camera_names = ("robot_pov_cam_rgb",)
+
+    target_image_size = (512, 512, 3)
+
+    policy_joints_config_path = _GR1_EMBODIMENT_DIR / "gr00t_26dof_joint_space.yaml"
     """GR00T joint groups, each listing its sim joint names in GR00T order."""
 
-    state_joints_config_path = _GR1_JOINTS_DIR / "54dof_joint_space.yaml"
+    state_joints_config_path = _GR1_EMBODIMENT_DIR / "54dof_joint_space.yaml"
     """Sim joint order of the ``robot_joint_pos`` observation."""
 
-    action_joints_config_path = _GR1_JOINTS_DIR / "36dof_joint_space.yaml"
+    action_joints_config_path = _GR1_EMBODIMENT_DIR / "36dof_joint_space.yaml"
     """Sim joint order of the env action."""
 
     def __init__(self):

@@ -16,7 +16,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from isaaclab_arena.policy.policy_base import PolicyCfg
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg
+from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import (
+    import_gr00t_embodiment_adapter_class,
+)
 from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
 from isaaclab_arena_gr00t.utils.io_utils import to_numpy
 
@@ -32,11 +34,15 @@ class Gr00tBasePolicyCfg(PolicyCfg):
     Subclasses (e.g. for local vs remote) may add fields such as ``num_envs``.
     """
 
-    policy_config_yaml_path: str
-    """Path to the GR00T closed-loop policy YAML configuration."""
+    gr00t_embodiment_adapter: str
+    """Adapter for the robot and checkpoint: a built-in name (droid, gr1_arms, g1_wbc) or a dotted class path."""
 
     policy_device: str = "cuda"
     """Device used for Arena-side policy operations."""
+
+    def __post_init__(self):
+        # Import the adapter class now so a bad name fails at config load, before any env is built.
+        import_gr00t_embodiment_adapter_class(self.gr00t_embodiment_adapter)
 
 
 # --------------------------------------------------------------------------- #
@@ -102,7 +108,7 @@ def build_gr00t_policy_observations(
     rgb_list_np: list[np.ndarray],
     state_np: dict[str, np.ndarray],
     task_description: str,
-    policy_config: Gr00tClosedloopPolicyCfg,
+    target_image_size: tuple[int, int, int],
     modality_configs: dict[str, Any],
 ) -> dict[str, Any]:
     """Build GR00T policy observation dict from numpy env observations.
@@ -116,16 +122,14 @@ def build_gr00t_policy_observations(
         state_np: GR00T state key -> (N, dim) array. It must contain every state modality key;
             other keys are not sent.
         task_description: Language instruction for the policy.
-        policy_config: Closed-loop config (target_image_size, etc.).
+        target_image_size: (H, W, C) that each RGB frame is padded and resized to.
         modality_configs: Dict with "language", "video", "state" modality configs.
 
     Returns:
         Nested dict "language" / "video" / "state" with keys from modality
         config and arrays shaped for GR00T (e.g. video: N, 1, H, W, C).
     """
-    target_image_size = getattr(policy_config, "target_image_size", None)
-    if target_image_size is not None:
-        rgb_list_np = resize_rgb_for_policy(rgb_list_np=rgb_list_np, target_image_size=target_image_size)
+    rgb_list_np = resize_rgb_for_policy(rgb_list_np=rgb_list_np, target_image_size=target_image_size)
     num_envs = rgb_list_np[0].shape[0]
 
     language_keys = modality_configs["language"].modality_keys

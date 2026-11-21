@@ -20,7 +20,6 @@ from typing import Any
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg
 from isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter import (
     import_gr00t_embodiment_adapter_class,
 )
@@ -29,7 +28,7 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     build_gr00t_policy_observations,
     extract_rgb_numpy_from_torch,
 )
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file, to_tensor
+from isaaclab_arena_gr00t.utils.io_utils import load_gr00t_modality_config_from_file, to_tensor
 
 
 class ActionSchedulerType(str, Enum):
@@ -51,8 +50,8 @@ class ActionSchedulerType(str, Enum):
 class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     """Configuration for Gr00tRemoteClosedloopPolicy.
 
-    Inherits policy_config_yaml_path and policy_device from Gr00tBasePolicyCfg,
-    and adds remote server connection parameters and num_envs.
+    Inherits gr00t_embodiment_adapter and policy_device from Gr00tBasePolicyCfg,
+    and adds remote server connection parameters, num_envs, and action chunking.
     """
 
     num_envs: int = 1
@@ -70,6 +69,9 @@ class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     scheduler: ActionSchedulerType = ActionSchedulerType.CHUNK
     """Action scheduler used to consume inference chunks."""
 
+    action_chunk_length: int | None = None
+    """Actions executed from each inference chunk, or None for the checkpoint's full action horizon."""
+
 
 @register_policy
 class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
@@ -83,47 +85,47 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
     @classmethod
     def default_image_size(cls, config: Gr00tRemoteClosedloopPolicyCfg) -> tuple[int, int]:
-        """Return twice the (height, width) the GR00T policy config pads and resizes camera images to.
+        """Return twice the (height, width) the selected embodiment adapter pads and resizes camera images to.
 
         GR00T's preprocessing pads each frame to a square and resizes it to ``target_image_size``, but skips
         both when the frame already has that size. Fitting cameras into twice the target keeps that step
         running, so the policy sees the same padded view as with full-resolution cameras at a quarter of
         the pixels.
         """
-        policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyCfg)
-        height, width = policy_config.target_image_size[:2]
-        return 2 * int(height), 2 * int(width)
+        adapter_type = import_gr00t_embodiment_adapter_class(config.gr00t_embodiment_adapter)
+        height, width = adapter_type.target_image_size[:2]
+        return 2 * height, 2 * width
 
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
         super().__init__(config)
 
         action_scheduler_cls = ActionSchedulerType(config.scheduler).get_scheduler_cls()
 
-        # Policy config (for obs/action translation — no model loading)
-        # TODO(xinjieyao, 2026-04-27): to be refactored
-        self.policy_config: Gr00tClosedloopPolicyCfg = create_config_from_yaml(
-            config.policy_config_yaml_path, Gr00tClosedloopPolicyCfg
-        )
         self.num_envs = config.num_envs
         self.device = config.policy_device
 
         # Embodiment adapter (Arena observations/actions to and from GR00T state/action dicts)
-        adapter_type = import_gr00t_embodiment_adapter_class(self.policy_config.gr00t_embodiment_adapter)
+        adapter_type = import_gr00t_embodiment_adapter_class(config.gr00t_embodiment_adapter)
         self.embodiment_adapter = adapter_type()
 
         self.modality_configs = load_gr00t_modality_config_from_file(
-            self.policy_config.modality_config_path,
+            self.embodiment_adapter.modality_config_path,
             self.embodiment_adapter.embodiment_tag,
         )
 
         # Action / chunk shapes
         self.action_dim = self.embodiment_adapter.action_dim
-        self.action_chunk_length = self.policy_config.action_chunk_length
+        action_horizon = len(self.modality_configs["action"].delta_indices)
+        self.action_chunk_length = action_horizon if config.action_chunk_length is None else config.action_chunk_length
+        assert 0 < self.action_chunk_length <= action_horizon, (
+            f"action_chunk_length must be between 1 and the checkpoint's action horizon {action_horizon},"
+            f" got {self.action_chunk_length}"
+        )
 
         self._chunking_state: ActionScheduler | None = action_scheduler_cls(
             num_envs=self.num_envs,
             action_chunk_length=self.action_chunk_length,
-            action_horizon=self.policy_config.action_horizon,
+            action_horizon=action_horizon,
             action_dim=self.action_dim,
             device=self.device,
             dtype=torch.float,
@@ -147,12 +149,10 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     # ---------------------- Policy interface -------------------
 
     def set_task_description(self, task_description: str | None) -> str:
-        if task_description is None:
-            task_description = self.policy_config.language_instruction
         if not task_description:
             raise ValueError(
-                "No language instruction provided. Set 'language_instruction' in the job config, "
-                "pass --language_instruction on the CLI, or define 'task_description' on the task class."
+                "No language instruction provided. Set 'environment_builder.language_instruction' in the"
+                " Experiment, pass --language_instruction on the CLI, or define 'task_description' on the task class."
             )
         self.task_description = task_description
         return self.task_description
@@ -161,7 +161,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         assert self._chunking_state is not None, "GR00T remote policy has been closed"
 
         def fetch_chunk() -> torch.Tensor:
-            return self._get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
+            return self._get_action_chunk(observation)
 
         return self._chunking_state.get_action(
             fetch_chunk,
@@ -173,26 +173,23 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         hold_action = self.embodiment_adapter.build_hold_action(observation)
         return hold_action.to(device=self.device, dtype=torch.float)
 
-    def _get_action_chunk(
-        self, observation: dict[str, Any], camera_names: list[str] | str = "robot_head_cam_rgb"
-    ) -> torch.Tensor:
+    def _get_action_chunk(self, observation: dict[str, Any]) -> torch.Tensor:
         """Get an action chunk from the remote GR00T server.
 
         Calls GR00T's PolicyClient to get the action chunk.
         """
-        if isinstance(camera_names, str):
-            camera_names = [camera_names]
-
         # 1. Reuse the same obs translation as local policy
         assert self.task_description is not None, "Task description is not set"
         assert self._client is not None, "GR00T remote policy has been closed"
-        rgb_list_np = extract_rgb_numpy_from_torch(nested_obs=observation, camera_names=camera_names)
+        rgb_list_np = extract_rgb_numpy_from_torch(
+            nested_obs=observation, camera_names=list(self.embodiment_adapter.camera_names)
+        )
         state_np = self.embodiment_adapter.extract_state_np(observation)
         policy_observations = build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
             state_np=state_np,
             task_description=self.task_description,
-            policy_config=self.policy_config,
+            target_image_size=self.embodiment_adapter.target_image_size,
             modality_configs=self.modality_configs,
         )
 

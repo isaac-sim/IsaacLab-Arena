@@ -26,7 +26,7 @@ class Gr00tServerTaskCfg(TaskCfg):
     """Droid checkpoint baked into the GR00T server image."""
 
     embodiment_tag: str = "OXE_DROID"
-    """Embodiment tag for the droid manipulation config (see droid_manip_gr00t_closedloop_config.yaml)."""
+    """Embodiment tag of the droid checkpoint (see Gr00tDroidAdapter.embodiment_tag)."""
 
 
 @register_server_task

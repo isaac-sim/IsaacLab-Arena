@@ -73,9 +73,7 @@ FAKE_OSMO_SUBMIT_STDOUT = """Workflow submit successful.
     Workflow Overview  - https://osmo.example.com/workflows/arena-kpi-run-7
 """
 EXPERIMENT_NAME = "pnp_benchmark"
-GR00T_CONFIG_YAML_PATH = (
-    "isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
-)
+GR00T_EMBODIMENT_ADAPTER = "droid"
 
 
 def _pi0_experiment_cfg(first_variant: str = "pi05") -> ArenaExperimentCfg:
@@ -117,7 +115,7 @@ def _mixed_experiment_cfg() -> ArenaExperimentCfg:
             "gr00t_run": ArenaRunCfg(
                 name="gr00t_run",
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
-                policy=Gr00tRemoteClosedloopPolicyCfg(policy_config_yaml_path=GR00T_CONFIG_YAML_PATH),
+                policy=Gr00tRemoteClosedloopPolicyCfg(gr00t_embodiment_adapter=GR00T_EMBODIMENT_ADAPTER),
             ),
             "local": ArenaRunCfg(
                 name="local",
@@ -470,7 +468,7 @@ def test_gr00t_cli_dry_run_renders_workflow(tmp_path, capsys):
       type: pick_and_place_maple_table
     policy:
       type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
-      policy_config_yaml_path: {GR00T_CONFIG_YAML_PATH}
+      gr00t_embodiment_adapter: {GR00T_EMBODIMENT_ADAPTER}
 """,
         encoding="utf-8",
     )

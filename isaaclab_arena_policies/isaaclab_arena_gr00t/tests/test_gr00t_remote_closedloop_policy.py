@@ -37,7 +37,6 @@ from isaaclab_arena_gr00t.policy import gr00t_remote_closedloop_policy as gr00t_
 from isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter import Gr00tDroidAdapter
 from isaaclab_arena_gr00t.policy.embodiment_adapters.g1_wbc_adapter import Gr00tG1WbcAdapter
 from isaaclab_arena_gr00t.policy.embodiment_adapters.gr1_arms_adapter import Gr00tGr1ArmsAdapter
-from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 pytestmark = pytest.mark.gr00t_policy
 
@@ -46,14 +45,11 @@ ORIGINAL_HEIGHT = 480
 ORIGINAL_WIDTH = 640
 NUM_CHANNELS = 3
 NUM_SIM_JOINTS = 43  # G1 43-DoF
-ACTION_HORIZON = 50
-ACTION_CHUNK_LENGTH = 50
+ACTION_HORIZON = 50  # action delta_indices in g1_sim_wbc_data_config.py
 EXPECTED_ACTION_DIM = 50  # 43 joints + 3 nav + 1 base height + 3 torso rpy
 
-DROID_CONFIG_YAML = str(Path(gr00t_policy.__file__).parent / "config" / "droid_manip_gr00t_closedloop_config.yaml")
-GR1_CONFIG_YAML = str(Path(gr00t_policy.__file__).parent / "config" / "gr1_manip_gr00t_closedloop_config.yaml")
 DROID_CAMERA_SHAPE = (NUM_ENVS, 360, 640, NUM_CHANNELS)
-DROID_ACTION_HORIZON = 32  # action_horizon in droid_manip_gr00t_closedloop_config.yaml
+DROID_ACTION_HORIZON = 32  # action delta_indices in GR00T's OXE_DROID modality config
 DROID_NUM_ARM_JOINTS = 7
 DROID_ACTION_DIM = 8  # 7 arm joint targets + 1 gripper command
 
@@ -70,14 +66,6 @@ POLICY_GROUP_SIZES = {
 
 
 # ----------------------------- fixtures ------------------------------ #
-
-
-@pytest.fixture
-def policy_config_yaml():
-    """Return the g1 locomanip test config used for Arena-side obs/action translation."""
-    return (
-        Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
-    )
 
 
 @pytest.fixture
@@ -177,15 +165,16 @@ def fake_client_factory(monkeypatch):
     return factory
 
 
-def _build_policy(policy_config_yaml: str, scheduler: str = "chunk"):
+def _build_policy(gr00t_embodiment_adapter: str = "g1_wbc", scheduler: str = "chunk", **cfg_fields):
     cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
-        policy_config_yaml_path=policy_config_yaml,
+        gr00t_embodiment_adapter=gr00t_embodiment_adapter,
         policy_device="cpu",  # keep the test portable; remote policy does no GPU compute
         num_envs=NUM_ENVS,
         remote_host="unused",
         remote_port=0,
         remote_api_token=None,
         scheduler=scheduler,
+        **cfg_fields,
     )
     return gr00t_policy.Gr00tRemoteClosedloopPolicy(cfg)
 
@@ -201,16 +190,14 @@ def test_gr00t_client_imports():
     assert PolicyClient is not None
 
 
-def test_observation_sent_to_server_has_expected_structure(
-    policy_config_yaml, synthetic_observation, fake_client_factory
-):
+def test_observation_sent_to_server_has_expected_structure(synthetic_observation, fake_client_factory):
     """The dict passed to ``PolicyClient.get_action`` matches GR00T's expected
     language/video/state layout for the g1 sim WBC modality config."""
     clients = fake_client_factory(ping_ok=True)
-    policy = _build_policy(policy_config_yaml)
+    policy = _build_policy()
     policy.set_task_description("pick up the brown box")
 
-    policy._get_action_chunk(synthetic_observation, ["robot_head_cam_rgb"])
+    policy._get_action_chunk(synthetic_observation)
 
     assert len(clients) == 1
     sent = clients[0].last_observation
@@ -238,15 +225,13 @@ def test_observation_sent_to_server_has_expected_structure(
         assert arr.shape[2] == POLICY_GROUP_SIZES[key]
 
 
-def test_action_response_is_translated_to_correct_tensor_shape(
-    policy_config_yaml, synthetic_observation, fake_client_factory
-):
+def test_action_response_is_translated_to_correct_tensor_shape(synthetic_observation, fake_client_factory):
     """Server's grouped joint dict is reassembled into a (N, chunk, action_dim) tensor."""
     fake_client_factory(ping_ok=True)
-    policy = _build_policy(policy_config_yaml)
+    policy = _build_policy()
     policy.set_task_description("pick up the brown box")
 
-    action = policy._get_action_chunk(synthetic_observation, ["robot_head_cam_rgb"])
+    action = policy._get_action_chunk(synthetic_observation)
 
     assert isinstance(action, torch.Tensor)
     # _get_action_chunk asserts action_tensor.shape[1] >= action_chunk_length, but
@@ -255,21 +240,21 @@ def test_action_response_is_translated_to_correct_tensor_shape(
     assert action.device.type == "cpu"
 
 
-def test_reset_propagates_to_client(policy_config_yaml, fake_client_factory):
+def test_reset_propagates_to_client(fake_client_factory):
     clients = fake_client_factory(ping_ok=True)
-    policy = _build_policy(policy_config_yaml)
+    policy = _build_policy()
     assert clients[0].reset_called is False
     policy.reset()
     assert clients[0].reset_called is True
 
 
-def test_construction_fails_when_server_unreachable(policy_config_yaml, fake_client_factory):
+def test_construction_fails_when_server_unreachable(fake_client_factory):
     fake_client_factory(ping_ok=False)
     with pytest.raises(ConnectionError):
-        _build_policy(policy_config_yaml)
+        _build_policy()
 
 
-def test_registration_builds_typed_config_and_scheduler(policy_config_yaml, fake_client_factory):
+def test_registration_builds_typed_config_and_scheduler(fake_client_factory):
     """The registered typed config retains scheduler selection."""
     fake_client_factory(ping_ok=True)
     assert (
@@ -278,7 +263,7 @@ def test_registration_builds_typed_config_and_scheduler(policy_config_yaml, fake
     )
     policy = gr00t_policy.Gr00tRemoteClosedloopPolicy(
         gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
-            policy_config_yaml_path=policy_config_yaml,
+            gr00t_embodiment_adapter="g1_wbc",
             policy_device="cpu",
             num_envs=NUM_ENVS,
             remote_host="unused",
@@ -296,7 +281,7 @@ def test_registration_builds_typed_config_and_scheduler(policy_config_yaml, fake
 
 @pytest.mark.parametrize("scheduler_cls_name", ["ActionChunkScheduler", "SyncedBatchActionScheduler"])
 def test_get_action_returns_correct_shape_for_each_scheduler(
-    policy_config_yaml, synthetic_observation, fake_client_factory, scheduler_cls_name
+    synthetic_observation, fake_client_factory, scheduler_cls_name
 ):
     """Both ActionChunkScheduler and SyncedBatchActionScheduler should drive the policy
     end-to-end and produce one (num_envs, action_dim) action per get_action call."""
@@ -304,7 +289,7 @@ def test_get_action_returns_correct_shape_for_each_scheduler(
     scheduler = "synced_batch" if scheduler_cls_name == "SyncedBatchActionScheduler" else "chunk"
 
     fake_client_factory(ping_ok=True)
-    policy = _build_policy(policy_config_yaml, scheduler=scheduler)
+    policy = _build_policy(scheduler=scheduler)
     assert isinstance(policy._chunking_state, scheduler_cls)
     policy.set_task_description("pick up the brown box")
 
@@ -315,13 +300,11 @@ def test_get_action_returns_correct_shape_for_each_scheduler(
     assert action.device.type == "cpu"
 
 
-def test_synced_batch_holds_joint_position_for_env_after_partial_reset(
-    policy_config_yaml, synthetic_observation, fake_client_factory
-):
+def test_synced_batch_holds_joint_position_for_env_after_partial_reset(synthetic_observation, fake_client_factory):
     """After resetting a single env, SyncedBatchActionScheduler should hold that env on
     the joint-position-derived hold_action while the others continue stepping their chunk."""
     clients = fake_client_factory(ping_ok=True)
-    policy = _build_policy(policy_config_yaml, scheduler="synced_batch")
+    policy = _build_policy(scheduler="synced_batch")
     policy.set_task_description("pick up the brown box")
 
     # Step 1: every env needs a chunk → exactly one fetch.
@@ -344,7 +327,7 @@ def test_default_image_size_keeps_gr00t_padding_in_the_loop():
     from isaaclab_arena_gr00t.policy.gr00t_core import resize_rgb_for_policy
 
     cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
-        policy_config_yaml_path=DROID_CONFIG_YAML, remote_host="unused", remote_port=0, remote_api_token=None
+        gr00t_embodiment_adapter="droid", remote_host="unused", remote_port=0, remote_api_token=None
     )
 
     image_size = gr00t_policy.Gr00tRemoteClosedloopPolicy.default_image_size(cfg)
@@ -364,28 +347,38 @@ def test_default_image_size_keeps_gr00t_padding_in_the_loop():
 # ---------------- embodiment adapter tests ---------------- #
 
 
-def test_config_selects_embodiment_adapter(tmp_path, policy_config_yaml, fake_client_factory):
-    """gr00t_embodiment_adapter in the policy YAML selects the adapter by built-in name or by class path."""
+def test_config_selects_embodiment_adapter(fake_client_factory):
+    """gr00t_embodiment_adapter selects the adapter by built-in name or by class path."""
     fake_client_factory(ping_ok=True)
 
-    assert isinstance(_build_policy(DROID_CONFIG_YAML).embodiment_adapter, Gr00tDroidAdapter)
-    gr1_adapter = _build_policy(GR1_CONFIG_YAML).embodiment_adapter
+    assert isinstance(_build_policy("droid").embodiment_adapter, Gr00tDroidAdapter)
+    gr1_adapter = _build_policy("gr1_arms").embodiment_adapter
     assert isinstance(gr1_adapter, Gr00tGr1ArmsAdapter)
     assert gr1_adapter.action_dim == 36  # 14 arm joints and 22 hand joints
-    assert isinstance(_build_policy(policy_config_yaml).embodiment_adapter, Gr00tG1WbcAdapter)
+    assert isinstance(_build_policy("g1_wbc").embodiment_adapter, Gr00tG1WbcAdapter)
 
     class_path = f"{Gr00tDroidAdapter.__module__}.{Gr00tDroidAdapter.__qualname__}"
-    policy = _build_policy(_write_policy_yaml(tmp_path, DROID_CONFIG_YAML, gr00t_embodiment_adapter=class_path))
-    assert isinstance(policy.embodiment_adapter, Gr00tDroidAdapter)
+    assert isinstance(_build_policy(class_path).embodiment_adapter, Gr00tDroidAdapter)
+
+
+def test_action_chunk_length_defaults_to_checkpoint_action_horizon(fake_client_factory):
+    """Without action_chunk_length, each chunk runs the modality config's full action horizon."""
+    fake_client_factory(ping_ok=True)
+
+    assert _build_policy("g1_wbc").action_chunk_length == ACTION_HORIZON
+    assert _build_policy("droid").action_chunk_length == DROID_ACTION_HORIZON
+    assert _build_policy("g1_wbc", action_chunk_length=10).action_chunk_length == 10
+    with pytest.raises(AssertionError, match="action_chunk_length must be between 1 and"):
+        _build_policy("g1_wbc", action_chunk_length=ACTION_HORIZON + 1)
 
 
 def test_droid_state_sent_to_server_uses_gripper_closure_fraction(droid_observation, fake_client_factory):
     """DROID state comes from the embodiment's arm joints and gripper closure fraction, not the raw finger angle."""
     clients = fake_client_factory(ping_ok=True, action_response_factory=_make_droid_action_response)
-    policy = _build_policy(DROID_CONFIG_YAML)
+    policy = _build_policy("droid")
     policy.set_task_description("put the lemon in the bowl")
 
-    policy._get_action_chunk(droid_observation, policy.policy_config.pov_cam_name_sim)
+    policy._get_action_chunk(droid_observation)
 
     sent = clients[0].last_observation
     assert set(sent["video"]) == {"exterior_image_1_left", "wrist_image_left"}
@@ -403,10 +396,10 @@ def test_droid_state_sent_to_server_uses_gripper_closure_fraction(droid_observat
 def test_droid_action_is_arm_targets_then_gripper_command(droid_observation, fake_client_factory):
     """GR00T's joint_position and gripper_position actions fill the 7 arm slots and the gripper slot in order."""
     clients = fake_client_factory(ping_ok=True, action_response_factory=_make_droid_action_response)
-    policy = _build_policy(DROID_CONFIG_YAML)
+    policy = _build_policy("droid")
     policy.set_task_description("put the lemon in the bowl")
 
-    action = policy._get_action_chunk(droid_observation, policy.policy_config.pov_cam_name_sim)
+    action = policy._get_action_chunk(droid_observation)
 
     response = clients[0].last_action_response
     assert action.shape == (NUM_ENVS, DROID_ACTION_HORIZON, DROID_ACTION_DIM)
@@ -417,7 +410,7 @@ def test_droid_action_is_arm_targets_then_gripper_command(droid_observation, fak
 def test_droid_synced_batch_holds_arm_joints_and_last_gripper_command(droid_observation, fake_client_factory):
     """A waiting DROID env holds its measured arm joints and its last 0-to-1 gripper command."""
     clients = fake_client_factory(ping_ok=True, action_response_factory=_make_droid_action_response)
-    policy = _build_policy(DROID_CONFIG_YAML, scheduler="synced_batch")
+    policy = _build_policy("droid", scheduler="synced_batch")
     policy.set_task_description("put the lemon in the bowl")
 
     policy.get_action(env=None, observation=droid_observation)
@@ -430,48 +423,30 @@ def test_droid_synced_batch_holds_arm_joints_and_last_gripper_command(droid_obse
     torch.testing.assert_close(action[1], expected_hold)
 
 
-def _write_policy_yaml(tmp_path: Path, source_yaml: str, **changes) -> str:
-    """Copy a policy YAML with keys changed, or removed when the new value is None."""
-    config = yaml.safe_load(Path(source_yaml).read_text())
-    for key, value in changes.items():
-        if value is None:
-            config.pop(key, None)
-        else:
-            config[key] = value
-    config_path = tmp_path / "policy.yaml"
-    config_path.write_text(yaml.safe_dump(config))
-    return str(config_path)
-
-
 @pytest.mark.parametrize(
-    "changes, message",
+    "gr00t_embodiment_adapter, message",
     [
-        ({"gr00t_embodiment_adapter": None}, "gr00t_embodiment_adapter is required"),
         (
-            {"gr00t_embodiment_adapter": "droid_arm"},
+            "droid_arm",
             r"must be one of \['droid', 'g1_wbc', 'gr1_arms'\] or a dotted class path, got 'droid_arm'",
         ),
-        ({"gr00t_embodiment_adapter": "pathlib.Path"}, "is not a Gr00tEmbodimentAdapter subclass"),
+        ("pathlib.Path", "is not a Gr00tEmbodimentAdapter subclass"),
         (
-            {"gr00t_embodiment_adapter": "isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter.Gr00tDroid"},
+            "isaaclab_arena_gr00t.policy.embodiment_adapters.droid_adapter.Gr00tDroid",
             "droid_adapter has no Gr00tDroid",
         ),
         (
-            {
-                "gr00t_embodiment_adapter": (
-                    "isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter.Gr00tEmbodimentAdapter"
-                )
-            },
+            "isaaclab_arena_gr00t.policy.embodiment_adapters.gr00t_embodiment_adapter.Gr00tEmbodimentAdapter",
             r"does not implement \['build_action_np', 'build_hold_action', 'extract_state_np'\]",
         ),
     ],
 )
-def test_embodiment_adapter_config_errors(tmp_path, fake_client_factory, changes, message):
-    """A missing or invalid adapter name or class path fails before connecting."""
+def test_embodiment_adapter_config_errors(fake_client_factory, gr00t_embodiment_adapter, message):
+    """An invalid adapter name or class path fails when the config is built, before connecting."""
     clients = fake_client_factory(ping_ok=True)
 
     with pytest.raises(AssertionError, match=message):
-        _build_policy(_write_policy_yaml(tmp_path, DROID_CONFIG_YAML, **changes))
+        _build_policy(gr00t_embodiment_adapter)
     assert not clients
 
 
@@ -521,16 +496,3 @@ def test_gr1_adapter_maps_joints_by_name():
     for name, column in action_columns.items():
         expected_value = float(state_columns.get(name, 0.0))
         torch.testing.assert_close(hold[:, column], torch.full((NUM_ENVS,), expected_value))
-
-
-def test_default_image_size_rejects_unknown_adapter(tmp_path):
-    """The adapter is checked when the policy YAML loads, before any env is built."""
-    cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
-        policy_config_yaml_path=_write_policy_yaml(tmp_path, DROID_CONFIG_YAML, gr00t_embodiment_adapter="droid_arm"),
-        remote_host="unused",
-        remote_port=0,
-        remote_api_token=None,
-    )
-
-    with pytest.raises(AssertionError, match="or a dotted class path, got 'droid_arm'"):
-        gr00t_policy.Gr00tRemoteClosedloopPolicy.default_image_size(cfg)

@@ -10,17 +10,15 @@ from dataclasses import dataclass
 from osmo.tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
-DEFAULT_POLICY_CONFIG = (
-    "isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
-)
+DEFAULT_GR00T_EMBODIMENT_ADAPTER = "droid"
 
 
 @dataclass
 class Gr00tPolicyRunnerTaskCfg(PolicyRunnerTaskCfg):
     """Config for the GR00T policy-runner task."""
 
-    policy_config_yaml_path: str = DEFAULT_POLICY_CONFIG
-    """GR00T closed-loop config YAML."""
+    gr00t_embodiment_adapter: str = DEFAULT_GR00T_EMBODIMENT_ADAPTER
+    """GR00T embodiment adapter for the robot and checkpoint."""
 
 
 class Gr00tPolicyRunnerTask(PolicyRunnerTask):
@@ -42,8 +40,8 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
         return [
             "--policy_type",
             "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
-            "--policy_config_yaml_path",
-            self.task_cfg.policy_config_yaml_path,
+            "--gr00t_embodiment_adapter",
+            self.task_cfg.gr00t_embodiment_adapter,
             "--remote_host",
             self.remote_host,
             "--remote_port",

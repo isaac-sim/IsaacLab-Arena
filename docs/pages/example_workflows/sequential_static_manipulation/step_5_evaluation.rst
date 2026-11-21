@@ -67,30 +67,11 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``.
-
-.. dropdown:: Configuration file (``gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``):
-   :animate: fade-in
-
-   .. code-block:: yaml
-
-      language_instruction: "Place the sauce bottle on the top shelf of the fridge, and close the fridge door."
-      action_horizon: 16
-      video_backend: decord
-      modality_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
-
-      action_chunk_length: 16
-      gr00t_embodiment_adapter: gr1_arms
-
-      pov_cam_name_sim: "robot_pov_cam_rgb"
-
-      original_image_size: [512, 512, 3]
-      target_image_size: [512, 512, 3]
-
-
-The evaluation itself is an :doc:`Arena Experiment <../../concepts/concept_arena_experiments>` with
-one Run. It selects the environment, the ``gr1_joint`` embodiment and the ranch dressing bottle, loads
-the GR00T client config above, connects the client to the server, and stops after 2000 steps.
+The evaluation is an :doc:`Arena Experiment <../../concepts/concept_arena_experiments>` with
+one Run. It selects the environment, the ``gr1_joint`` embodiment and the ranch dressing bottle, sets
+the language instruction the policy was trained with, connects the GR00T client to the server, and
+stops after 2000 steps. The ``gr1_arms`` embodiment adapter maps the robot's camera and joints to the
+checkpoint's inputs and outputs.
 
 .. dropdown:: Experiment file (``gr1_put_ranch_bottle_in_fridge_gr00t_experiment.yaml``):
    :animate: fade-in

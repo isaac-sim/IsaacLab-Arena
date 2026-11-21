@@ -68,27 +68,11 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml``.
-
-.. dropdown:: Configuration file (``g1_locomanip_gr00t_closedloop_config.yaml``):
-   :animate: fade-in
-
-   .. code-block:: yaml
-
-      language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
-      action_horizon: 50
-      video_backend: decord
-      modality_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
-
-      action_chunk_length: 50
-      pov_cam_name_sim: "robot_head_cam_rgb"
-
-      gr00t_embodiment_adapter: g1_wbc
-
-The evaluation itself is an :doc:`Arena Experiment <../../concepts/concept_arena_experiments>` with
-one Run. It selects the environment, the ``g1_wbc_joint`` embodiment and the brown box, loads the
-GR00T client config above, connects the client to the server, and stops after 1500 steps. An episode
-times out after 30 seconds, which is 1500 steps.
+The evaluation is an :doc:`Arena Experiment <../../concepts/concept_arena_experiments>` with
+one Run. It selects the environment, the ``g1_wbc_joint`` embodiment and the brown box, connects the
+GR00T client to the server, and stops after 1500 steps. An episode times out after 30 seconds, which
+is 1500 steps. The ``g1_wbc`` embodiment adapter maps the robot's camera and joints to the
+checkpoint's inputs and outputs.
 
 .. dropdown:: Experiment file (``g1_locomanip_gr00t_experiment.yaml``):
    :animate: fade-in

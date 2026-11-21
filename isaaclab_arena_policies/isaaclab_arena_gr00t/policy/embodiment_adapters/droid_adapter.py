@@ -25,6 +25,10 @@ class Gr00tDroidAdapter(Gr00tEmbodimentAdapter):
 
     embodiment_tag = "OXE_DROID"
 
+    camera_names = ("external_camera_rgb", "wrist_camera_rgb")
+
+    target_image_size = (180, 320, 3)
+
     num_arm_joints = 7
     """Franka arm joints in GR00T's ``joint_position`` state and action."""
 

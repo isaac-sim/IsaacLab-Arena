@@ -10,10 +10,6 @@ from isaaclab_arena.policy.policy_base import PolicyCfg
 DEFAULT_VARIANT = "pi05"
 
 
-# TODO(cvolk, 2026-05-18): unify the remote-policy config story across arena.
-# Today openpi uses a Python dataclass (this file) and gr00t uses a YAML config
-# (--policy_config_yaml_path). Decide on one mechanism (likely Hydra) when the
-# planned RemotePolicy base class lands; the config-loading shape belongs there.
 @dataclass
 class Pi0RemotePolicyCfg(PolicyCfg):
     """Connection + runtime config for ``Pi0RemotePolicy``."""

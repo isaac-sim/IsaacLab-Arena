@@ -31,7 +31,7 @@ TIMEOUT_ENV = "GR00T_REMOTE_E2E_TIMEOUT"
 DEFAULT_TIMEOUT_SEC = 900
 
 POLICY_TYPE = "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy"
-POLICY_CONFIG = "isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml"
+GR00T_EMBODIMENT_ADAPTER = "g1_wbc"
 ENVIRONMENT = "galileo_g1_locomanip_pick_and_place"
 OBJECT_NAME = "brown_box"
 EMBODIMENT = "g1_wbc_joint"
@@ -58,8 +58,8 @@ def _run_policy_runner(remote_host: str, remote_port: int, timeout_sec: int, num
         f"{TestConstants.evaluation_dir}/policy_runner.py",
         "--policy_type",
         POLICY_TYPE,
-        "--policy_config_yaml_path",
-        POLICY_CONFIG,
+        "--gr00t_embodiment_adapter",
+        GR00T_EMBODIMENT_ADAPTER,
         "--remote_host",
         remote_host,
         "--remote_port",
@@ -91,7 +91,7 @@ def _write_experiment_config(tmp_path, remote_host: str, remote_port: int) -> st
                 },
                 "policy": {
                     "type": POLICY_TYPE,
-                    "policy_config_yaml_path": POLICY_CONFIG,
+                    "gr00t_embodiment_adapter": GR00T_EMBODIMENT_ADAPTER,
                     "policy_device": "cuda",
                     "remote_host": remote_host,
                     "remote_port": remote_port,
