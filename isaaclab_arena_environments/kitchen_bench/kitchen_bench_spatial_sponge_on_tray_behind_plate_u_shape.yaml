@@ -1,0 +1,142 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_u_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: sponge
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/cleaning_sponge_b01/simready_usd/sm_cleaning_sponge_b01_01.usd
+- id: rear_tray
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/69a87329036cec0440403351c12230970c4e67d8/D00720/simready_usd/D00720.usd
+    scale: [0.7, 0.7, 1]
+- id: side_tray
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/69a87329036cec0440403351c12230970c4e67d8/D00720/simready_usd/D00720.usd
+    scale: [0.7, 0.7, 1]
+- id: plate
+  registry_name: plate_small_vomp_robolab
+  params:
+    scale: [0.7, 0.7, 1]
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+- id: counter_top
+  parent_id: kitchen
+  prim_path: CapSurface_03
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: counter_top
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 0.0
+- kind: 'on'
+  subject: sponge
+  reference: counter_top
+- kind: 'on'
+  subject: rear_tray
+  reference: counter_top
+- kind: 'on'
+  subject: side_tray
+  reference: counter_top
+- kind: 'on'
+  subject: plate
+  reference: counter_top
+- kind: align_with
+  subject: plate
+  reference: rear_tray
+  params:
+    axis: x
+    offset_m: -0.26
+    tolerance_m: 0.04
+- kind: align_with
+  subject: plate
+  reference: rear_tray
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.06
+- kind: align_with
+  subject: side_tray
+  reference: rear_tray
+  params:
+    axis: y
+    offset_m: -0.34
+    tolerance_m: 0.05
+- kind: align_with
+  subject: side_tray
+  reference: rear_tray
+  params:
+    axis: x
+    offset_m: -0.12
+    tolerance_m: 0.08
+- kind: align_with
+  subject: sponge
+  reference: plate
+  params:
+    axis: y
+    offset_m: 0.24
+    tolerance_m: 0.05
+- kind: align_with
+  subject: sponge
+  reference: plate
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.08
+- kind: align_with
+  subject: droid
+  reference: counter_top
+  params:
+    axis: x
+    offset_m: -0.9
+    tolerance_m: 0.06
+- kind: align_with
+  subject: rear_tray
+  reference: counter_top
+  params:
+    axis: x
+    offset_m: 0.12
+    tolerance_m: 0.05
+- kind: align_with
+  subject: droid
+  reference: rear_tray
+  params:
+    axis: y
+    offset_m: 0
+    tolerance_m: 0.12
+task:
+  composition: atomic
+  description: Pick up the sponge and place it on the tray behind the plate.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: sponge
+      destination_location: rear_tray
+      destination_object: rear_tray
+      background_scene: kitchen
