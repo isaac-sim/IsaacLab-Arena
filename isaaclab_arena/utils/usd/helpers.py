@@ -271,8 +271,9 @@ def compute_local_bounding_box_from_stage(
 def get_bounds_purpose(prim: Usd.Prim) -> str:
     """Return the USD purpose whose geometry defines the prim's bounds.
 
-    A prim that is itself a collision Gprim is bounded by its own purpose, so a collider authored as
-    guide geometry still has an extent. Any other prim is bounded by its default-purpose geometry.
+    A prim that is itself a collision shape is bounded by its own purpose, so a collider authored with the
+    guide purpose (hidden helper geometry that physics still uses) still has bounds. Any other prim is
+    bounded by its default-purpose geometry.
     """
     if prim.IsA(UsdGeom.Gprim) and prim.HasAPI(UsdPhysics.CollisionAPI):
         return UsdGeom.Imageable(prim).ComputePurpose()
