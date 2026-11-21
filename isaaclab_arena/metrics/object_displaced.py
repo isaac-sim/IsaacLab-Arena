@@ -16,7 +16,7 @@ from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 
 
 class ObjectPositionRecorder(RecorderTerm):
-    """Records the world-frame position of an object for each simulation step."""
+    """Records the world-frame position of an object after each environment step."""
 
     def __init__(self, cfg: RecorderTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
@@ -67,9 +67,9 @@ class ObjectDisplacedRateMetric(MetricBase):
     the threshold from its first recorded position, divided by the total number of episodes. Unlike
     a speed-based metric, a slow carry counts as displaced.
 
-    The first position is recorded after the first environment step, not at reset, so motion before
-    that step, such as an object dropping onto its support after spawning, does not count toward the
-    displacement.
+    The first position is recorded after the first environment step, not at reset, so motion during
+    that step does not count toward the displacement. A drop onto the support that outlasts that step,
+    as at 50 Hz control, is partly counted.
     """
 
     name = "object_displaced_rate"
