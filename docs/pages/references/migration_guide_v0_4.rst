@@ -400,12 +400,15 @@ No compatibility aliases were left at the old paths.
      - ``isaaclab_arena.evaluation.episode_results_files``
    * - ``isaaclab_arena.visualization.report_data``
      - ``isaaclab_arena.evaluation.report_data``
+   * - ``isaaclab_arena.metrics.object_moved``
+     - ``isaaclab_arena.metrics.object_peak_speed_exceeded``
 
 Modules you construct objects from keep their paths, for example ``relations.relations``,
 ``object_placer``, ``pooled_object_placer``, ``object_placer_params`` and ``placement_result``.
 Solver, geometry, validation and run-time modules moved into the ``optimization``, ``geometry``,
 ``validation`` and ``runtime`` subpackages (#1534). The USD helper moves are from v0.3.1, and the
-evaluation moves from #1604.
+evaluation moves from #1604. The metric module move is from #1717, which also renamed
+``ObjectMovedRateMetric`` to ``ObjectPeakSpeedExceededRateMetric``.
 
 Removed
 ^^^^^^^
@@ -548,7 +551,10 @@ Evaluation outputs
 ------------------
 
 The Experiment output layout is unchanged: one timestamped directory, with one subdirectory per Run.
-Metric names, such as ``success_rate``, are unchanged.
+Metric names are unchanged except ``object_moved_rate``. ``PickAndPlaceTask`` now reports
+``object_displaced_rate``, and ``GoalPoseTask``, ``AssemblyTask``, ``GearInsertionTask`` and
+``PlaceUprightTask`` report ``object_peak_speed_exceeded_rate`` (#1717, #1731). Sequential tasks
+add the ``_subtask_<i>`` suffix to these names, as before.
 
 Combined result file
 ^^^^^^^^^^^^^^^^^^^^
@@ -610,6 +616,12 @@ Metric values
 
 ``success_rate`` no longer skips the first reset, and Runs finish exactly the requested number of
 episodes. Success rates can therefore differ slightly from v0.3 for the same policy (#1371).
+
+v0.3's ``object_moved_rate`` counted an episode only if the object's speed exceeded 0.5 m/s at some
+step, so a slow carry was not counted. ``object_peak_speed_exceeded_rate`` keeps that behavior.
+``object_displaced_rate`` counts an episode once the object gets more than 2 cm from its first
+recorded position, at any speed, so pick-and-place results can differ from v0.3's
+``object_moved_rate`` (#1717, #1731).
 
 OSMO
 ^^^^
