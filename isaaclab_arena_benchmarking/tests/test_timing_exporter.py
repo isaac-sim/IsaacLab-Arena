@@ -24,8 +24,8 @@ GIT_STAMP = {"git_sha": "1a2b3c4", "git_branch": "main"}
 EXPERIMENT_NAME = "pnp_benchmark"
 
 
-def _timing(name: str, count: int, total_ms: float, run_name: str | None = None) -> dict:
-    timing = {"name": name, "count": count, "total_ms": total_ms, "min_ms": 5.0, "max_ms": 15.0}
+def _timing(name: str, count: int, total_ms: float, run_name: str | None = None, **percentiles: float) -> dict:
+    timing = {"name": name, "count": count, "total_ms": total_ms, "min_ms": 5.0, "max_ms": 15.0, **percentiles}
     if run_name is not None:
         timing["run_name"] = run_name
     return timing
@@ -74,3 +74,17 @@ def test_timing_exporter_writes_totals_only(tmp_path: Path):
 def test_timing_exporter_writes_nothing_without_timings_file(tmp_path: Path):
     _write_result(tmp_path)
     assert TimingKpiExporter().build_records_from_output_dir(tmp_path) == []
+
+
+def test_timing_exporter_writes_percentiles_when_the_timings_have_them(tmp_path: Path):
+    _write_result(tmp_path)
+    timings = {
+        "totals": [_timing("rollout/step", 4, 40.0, p10_ms=6.0, p50_ms=10.0, p90_ms=14.0)],
+        "runs": [],
+    }
+    (tmp_path / ARENA_AGGREGATED_TIMINGS_FILENAME).write_text(json.dumps(timings), encoding="utf-8")
+
+    records_path = TimingKpiExporter().export_to_json(tmp_path)
+
+    (record,) = json.loads(records_path.read_text(encoding="utf-8"))
+    assert (record["p10_ms"], record["p50_ms"], record["p90_ms"]) == (6.0, 10.0, 14.0)
