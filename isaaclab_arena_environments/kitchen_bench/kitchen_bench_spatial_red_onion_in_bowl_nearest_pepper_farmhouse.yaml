@@ -95,7 +95,7 @@ relations:
   params:
     axis: x
     offset_m: 0
-    tolerance_m: 0.08
+    tolerance_m: 0.04
 - kind: align_with
   subject: far_bowl
   reference: target_bowl
@@ -109,7 +109,7 @@ relations:
   params:
     axis: x
     offset_m: 0
-    tolerance_m: 0.08
+    tolerance_m: 0.04
 - kind: align_with
   subject: apple
   reference: far_bowl
@@ -126,11 +126,11 @@ relations:
     tolerance_m: 0.06
 - kind: align_with
   subject: red_onion
-  reference: far_bowl
+  reference: island
   params:
     axis: x
-    offset_m: -0.23
-    tolerance_m: 0.05
+    offset_m: -0.11
+    tolerance_m: 0.03
 - kind: align_with
   subject: red_onion
   reference: far_bowl
@@ -144,14 +144,14 @@ relations:
   params:
     axis: x
     offset_m: -0.99
-    tolerance_m: 0.06
+    tolerance_m: 0.03
 - kind: align_with
   subject: target_bowl
   reference: island
   params:
     axis: x
-    offset_m: -0.05
-    tolerance_m: 0.12
+    offset_m: 0.07
+    tolerance_m: 0.03
 - kind: align_with
   subject: droid
   reference: target_bowl
