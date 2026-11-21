@@ -56,8 +56,8 @@ def collect_catalogue_validation_trace(
         "BACKGROUNDS": {entry["name"] for entry in asset_catalog.backgrounds},
         "OBJECTS": {entry["name"] for entry in asset_catalog.objects},
     }
-    # Embodiment and background are required singles; flag any name outside the catalogue.
-    if spec.embodiment.registry_name not in asset_names["EMBODIMENTS"]:
+    # Flag any selected embodiment or background outside the catalogue.
+    if spec.embodiment is not None and spec.embodiment.registry_name not in asset_names["EMBODIMENTS"]:
         traces.append(f"Embodiment registry_name {spec.embodiment.registry_name!r} is not in the EMBODIMENTS catalog")
     if spec.background.registry_name not in asset_names["BACKGROUNDS"]:
         traces.append(f"Background registry_name {spec.background.registry_name!r} is not in the BACKGROUNDS catalog")

@@ -152,6 +152,8 @@ GUIDANCE:
   If multiple reasonable matches are found, return the closest match or the one with the most specific name.
 - For embodiment, if the prompt only mention the robot family (driod/franka) and there are multiple
   variance of that family in EMBODIMENTS, pick the one with the default tag.
+- When the prompt requests an environment without a robot, omit ``embodiment`` or set it to null.
+  Do not add relations or references to an absent robot.
 - For multiple instances of the same registry asset, use semantic (left/right) or numerical (1/2/3)
   suffixes in ``id``.
 - Use ``object_sets`` only when one object varies across environments; list its variants as ``members``.
