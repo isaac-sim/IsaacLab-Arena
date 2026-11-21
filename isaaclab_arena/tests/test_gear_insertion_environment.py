@@ -18,7 +18,7 @@ CAMERA_NAMES = ("external_camera", "external_camera_2", "wrist_camera")
 
 
 @contextmanager
-def _gear_environment(*, position_randomization_m=None, enable_cameras=False):
+def _gear_environment(*, position_randomization_m=None, enable_cameras=False, camera_renderer="isaac_rtx"):
     """Build the registered environment with its real assets and deterministic placement seed."""
     import argparse
     import gymnasium as gym
@@ -41,7 +41,9 @@ def _gear_environment(*, position_randomization_m=None, enable_cameras=False):
     args.enable_cameras = enable_cameras
     args.hdr = None
     arena = build_environment_from_cli(factory_type, args)
-    builder = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=2, seed=42, placement_seed=42))
+    builder = ArenaEnvBuilder(
+        arena, ArenaEnvBuilderCfg(num_envs=2, seed=42, placement_seed=42, camera_renderer=camera_renderer)
+    )
     name, cfg, _ = builder.build_registered()
     # No dataset export; the environment still installs its progress-tracking recorder.
     cfg.recorders = {}
@@ -249,4 +251,47 @@ def _test_gear_insertion_cameras_survive_episode_reset(simulation_app):
 def test_gear_insertion_cameras_survive_episode_reset():
     assert run_function_with_persistent_simulation_app(
         _test_gear_insertion_cameras_survive_episode_reset, enable_cameras=True
+    )
+
+
+def _test_gear_insertion_newton_warp_cameras_follow_the_arm(simulation_app):
+    import torch
+
+    from isaaclab_newton.renderers import NewtonWarpRendererCfg
+
+    with _gear_environment(enable_cameras=True, camera_renderer="newton_warp") as (env, _, _):
+        base = env.unwrapped
+        robot, wrist_camera = base.scene["robot"], base.scene["wrist_camera"]
+        # The wrist camera is mounted on the gripper's base link.
+        gripper_ids, _ = robot.find_bodies("base_link")
+        hold = torch.zeros(env.action_space.shape, device=base.device)
+        with torch.inference_mode():
+            env.reset()
+            env.step(hold)
+            for name in CAMERA_NAMES:
+                camera = base.scene[name]
+                assert isinstance(camera.cfg.renderer_cfg, NewtonWarpRendererCfg)
+                for frame in camera.data.output["rgb"].torch:
+                    assert frame[..., :3].max() > frame[..., :3].min(), f"Camera {name} returned a blank frame."
+
+            gripper_start = robot.data.body_link_pos_w.torch[:, gripper_ids[0]].clone()
+            wrist_start = wrist_camera.data.pos_w.torch.clone()
+            lift = hold.clone()
+            lift[:, 2] = 0.02  # Raise the end effector; the arm action leads with its position delta.
+            for _ in range(45):
+                env.step(lift)
+            gripper_motion = robot.data.body_link_pos_w.torch[:, gripper_ids[0]] - gripper_start
+            wrist_motion = wrist_camera.data.pos_w.torch - wrist_start
+    assert (gripper_motion.norm(dim=-1) > 0.04).all(), f"The arm did not move: {gripper_motion}"
+    # Newton Warp renders from the camera poses in the camera data, so they must follow the gripper; a camera left at
+    # its initial pose would be off by the whole motion.
+    assert torch.allclose(wrist_motion, gripper_motion, atol=0.01), f"{wrist_motion} != {gripper_motion}"
+    return True
+
+
+@pytest.mark.with_newton
+@pytest.mark.with_cameras
+def test_gear_insertion_newton_warp_cameras_follow_the_arm():
+    assert run_function_with_persistent_simulation_app(
+        _test_gear_insertion_newton_warp_cameras_follow_the_arm, enable_cameras=True
     )

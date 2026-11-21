@@ -88,6 +88,22 @@ Isaac Lab and could lead to errors when running with ``num_envs > 1``.
 
 ``env_cfg_callback`` can modify ``replicate_physics`` to False to disable replication for a specific environment.
 
+Camera renderer
+---------------
+
+The embodiment cameras render with Isaac RTX by default, with either backend.
+``--camera_renderer newton_warp`` / ``ArenaEnvBuilderCfg.camera_renderer`` selects Newton's Warp ray tracer instead,
+which renders Newton's model of the scene on the GPU and therefore requires the Newton backend:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py --enable_cameras --presets newton \
+       --camera_renderer newton_warp ...
+
+``build_env_cfg`` passes the choice to the embodiment's camera rig before it reads the camera configuration.
+Newton Warp renders tiled cameras only; untiled cameras, such as those of the camera intrinsics variation, need
+Isaac RTX.
+
 Embodiment backend hooks
 ------------------------
 

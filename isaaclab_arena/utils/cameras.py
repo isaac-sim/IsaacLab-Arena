@@ -19,6 +19,7 @@ from isaaclab.sensors import CameraCfg
 from isaaclab.utils.images import is_depth_like, is_normals_like, is_rgb_like
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.utils.camera_renderer import CameraRenderer
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
@@ -27,12 +28,14 @@ class ArenaCameraCfg:
     """Parent class for camera configs in Arena.
 
     CameraCfg configclasses subclass this and declare camera fields (as per usual). The get_cfg
-    then returns a copy using tiled cameras by default. Setting ``use_tiled_camera=False``
-    selects the untiled renderer.
+    then returns a copy using tiled Isaac RTX cameras by default. Setting ``use_tiled_camera=False``
+    selects the untiled renderer, and :meth:`set_renderer` selects the renderer.
     """
 
     # Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it.
     _use_tiled_camera: ClassVar[bool] = True
+    # Backing renderer; Isaac RTX by default. A ClassVar for the same reason.
+    _renderer: ClassVar[CameraRenderer] = CameraRenderer.ISAAC_RTX
 
     @property
     def use_tiled_camera(self) -> bool:
@@ -46,6 +49,19 @@ class ArenaCameraCfg:
     def set_use_tiled_camera(self, use_tiled_camera: bool) -> None:
         """Select whether get_cfg returns tiled cameras."""
         self._use_tiled_camera = use_tiled_camera
+
+    @property
+    def renderer(self) -> CameraRenderer:
+        """The renderer of every camera that get_cfg returns."""
+        return self._renderer
+
+    @renderer.setter
+    def renderer(self, renderer: CameraRenderer | str) -> None:
+        self._renderer = CameraRenderer(renderer)
+
+    def set_renderer(self, renderer: CameraRenderer | str) -> None:
+        """Select the renderer of every camera that get_cfg returns."""
+        self._renderer = CameraRenderer(renderer)
 
     def camera_names(self) -> list[str]:
         """Return the field name of every camera in this rig."""
@@ -68,10 +84,10 @@ class ArenaCameraCfg:
             )
 
     def get_cfg(self) -> Any:
-        """Return a copy of this rig, tiled or untiled depending on use_tiled_camera.
+        """Return a copy of this rig, with the selected renderer, tiled or untiled depending on use_tiled_camera.
 
         A copy is returned so callers may freely combine or mutate it without affecting this instance.
-        Select tiling on the source rig before calling this method.
+        Select tiling and the renderer on the source rig before calling this method.
         """
         from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import (
             UnTiledIsaacRtxRenderer,
@@ -87,7 +103,18 @@ class ArenaCameraCfg:
                 "get_cfg() expects a source camera rig; change use_tiled_camera on the source rig, "
                 "not on the returned configuration"
             )
-            if not self._use_tiled_camera:
+            if self._renderer is CameraRenderer.NEWTON_WARP:
+                from isaaclab_newton.renderers import NewtonWarpRendererCfg
+
+                assert self._use_tiled_camera, (
+                    f"Camera '{name}' is untiled, which needs the Isaac RTX renderer; Newton Warp renders tiled"
+                    " cameras only"
+                )
+                camera_cfg.renderer_cfg = NewtonWarpRendererCfg()
+                # Newton Warp renders from the camera poses in the camera data, which keep their initial values
+                # unless updated, so a camera on a moving link would not follow it.
+                camera_cfg.update_latest_camera_pose = True
+            elif not self._use_tiled_camera:
                 assert_camera_cfg_compatible_with_independent_rendering(camera_cfg)
                 camera_cfg.renderer_cfg.class_type = UnTiledIsaacRtxRenderer
         return rig
