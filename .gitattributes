@@ -6,3 +6,4 @@
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 docs/images/ filter=lfs diff=lfs merge=lfs -text
 *.webp filter=lfs diff=lfs merge=lfs -text
+isaaclab_arena/assets/cable_routing/**/*.usdc filter=lfs diff=lfs merge=lfs -text

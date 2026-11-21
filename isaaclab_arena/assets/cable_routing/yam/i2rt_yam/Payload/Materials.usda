@@ -1,0 +1,177 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "MuJoCo USD Converter v0.2.0"
+    }
+    defaultPrim = "i2rt_yam"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "i2rt_yam"
+{
+    def Scope "Materials"
+    {
+        def Material "black" (
+            prepend references = @./MaterialsLibrary.usdc@</Materials/black>
+        )
+        {
+        }
+
+        def Material "white" (
+            prepend references = @./MaterialsLibrary.usdc@</Materials/white>
+        )
+        {
+        }
+    }
+
+    over "Geometry"
+    {
+        over "arm"
+        {
+            over "model2" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                rel material:binding = </i2rt_yam/Materials/black>
+            }
+
+            over "link_1"
+            {
+                over "model2__2" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </i2rt_yam/Materials/black>
+                }
+
+                over "link_2"
+                {
+                    over "model2__3" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding = </i2rt_yam/Materials/black>
+                    }
+
+                    over "model2__4" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding = </i2rt_yam/Materials/black>
+                    }
+
+                    over "model2__5" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding = </i2rt_yam/Materials/white>
+                    }
+
+                    over "link_3"
+                    {
+                        over "model2__6" (
+                            prepend apiSchemas = ["MaterialBindingAPI"]
+                        )
+                        {
+                            rel material:binding = </i2rt_yam/Materials/black>
+                        }
+
+                        over "model2__7" (
+                            prepend apiSchemas = ["MaterialBindingAPI"]
+                        )
+                        {
+                            rel material:binding = </i2rt_yam/Materials/black>
+                        }
+
+                        over "model2__8" (
+                            prepend apiSchemas = ["MaterialBindingAPI"]
+                        )
+                        {
+                            rel material:binding = </i2rt_yam/Materials/white>
+                        }
+
+                        over "model2__9" (
+                            prepend apiSchemas = ["MaterialBindingAPI"]
+                        )
+                        {
+                            rel material:binding = </i2rt_yam/Materials/black>
+                        }
+
+                        over "link_4"
+                        {
+                            over "model2__10" (
+                                prepend apiSchemas = ["MaterialBindingAPI"]
+                            )
+                            {
+                                rel material:binding = </i2rt_yam/Materials/black>
+                            }
+
+                            over "link_5"
+                            {
+                                over "model2__11" (
+                                    prepend apiSchemas = ["MaterialBindingAPI"]
+                                )
+                                {
+                                    rel material:binding = </i2rt_yam/Materials/black>
+                                }
+
+                                over "link_6"
+                                {
+                                    over "model2__12" (
+                                        prepend apiSchemas = ["MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding = </i2rt_yam/Materials/black>
+                                    }
+
+                                    over "model2__13" (
+                                        prepend apiSchemas = ["MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding = </i2rt_yam/Materials/black>
+                                    }
+
+                                    over "link_left_finger"
+                                    {
+                                        over "model2__14" (
+                                            prepend apiSchemas = ["MaterialBindingAPI"]
+                                        )
+                                        {
+                                            rel material:binding = </i2rt_yam/Materials/black>
+                                        }
+
+                                        over "model2__15" (
+                                            prepend apiSchemas = ["MaterialBindingAPI"]
+                                        )
+                                        {
+                                            rel material:binding = </i2rt_yam/Materials/black>
+                                        }
+                                    }
+
+                                    over "link_right_finger"
+                                    {
+                                        over "model2__16" (
+                                            prepend apiSchemas = ["MaterialBindingAPI"]
+                                        )
+                                        {
+                                            rel material:binding = </i2rt_yam/Materials/black>
+                                        }
+
+                                        over "model2__17" (
+                                            prepend apiSchemas = ["MaterialBindingAPI"]
+                                        )
+                                        {
+                                            rel material:binding = </i2rt_yam/Materials/black>
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

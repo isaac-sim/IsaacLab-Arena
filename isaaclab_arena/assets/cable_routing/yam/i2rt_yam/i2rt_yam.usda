@@ -1,0 +1,185 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "MuJoCo USD Converter v0.2.0"
+    }
+    defaultPrim = "i2rt_yam"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "i2rt_yam" (
+    prepend apiSchemas = ["GeomModelAPI"]
+    assetInfo = {
+        string name = "i2rt_yam"
+    }
+    kind = "component"
+    prepend payload = @./Payload/Contents.usda@
+)
+{
+    float3[] extentsHint = [(-0.27549183, -0.1, -0.01), (0.25714266, 0.1, 0.2564998), (3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (-0.278, -0.05797501, -0.017), (0.2568, 0.05802499, 0.269)]
+
+    over "Geometry"
+    {
+        over "arm"
+        {
+            over "link_1"
+            {
+                over "joint1"
+                {
+                    custom double newton:angular:limitDamping = 1.7453292519943295
+                    custom double newton:angular:limitStiffness = 43.63323129985824
+                }
+
+                over "link_2"
+                {
+                    over "joint2"
+                    {
+                        custom double newton:angular:limitDamping = 1.7453292519943295
+                        custom double newton:angular:limitStiffness = 43.63323129985824
+                    }
+
+                    over "link_3"
+                    {
+                        over "joint3"
+                        {
+                            custom double newton:angular:limitDamping = 1.7453292519943295
+                            custom double newton:angular:limitStiffness = 43.63323129985824
+                        }
+
+                        over "link_4"
+                        {
+                            over "joint4"
+                            {
+                                custom double newton:angular:limitDamping = 1.7453292519943295
+                                custom double newton:angular:limitStiffness = 43.63323129985824
+                            }
+
+                            over "link_5"
+                            {
+                                over "joint5"
+                                {
+                                    custom double newton:angular:limitDamping = 1.7453292519943295
+                                    custom double newton:angular:limitStiffness = 43.63323129985824
+                                }
+
+                                over "link_6"
+                                {
+                                    over "joint6"
+                                    {
+                                        custom double newton:angular:limitDamping = 1.7453292519943295
+                                        custom double newton:angular:limitStiffness = 43.63323129985824
+                                    }
+
+                                    over "link_left_finger"
+                                    {
+                                        over "left_finger"
+                                        {
+                                            custom double newton:linear:limitDamping = 100
+                                            custom double newton:linear:limitStiffness = 2500
+                                        }
+                                    }
+
+                                    over "link_right_finger"
+                                    {
+                                        over "right_finger"
+                                        {
+                                            custom double newton:linear:limitDamping = 100
+                                            custom double newton:linear:limitStiffness = 2500
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    over "Physics"
+    {
+        over "joint1"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 3.05433
+            uniform double mjc:ctrlRange:min = -2.61799
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint2"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 3.66519
+            uniform double mjc:ctrlRange:min = 0
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint3"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 3.66519
+            uniform double mjc:ctrlRange:min = 0
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint4"
+        {
+            uniform double[] mjc:biasPrm = [0, -20, -0.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 1.5708
+            uniform double mjc:ctrlRange:min = -1.5708
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [20, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint5"
+        {
+            uniform double[] mjc:biasPrm = [0, -10, -1, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 1.5708
+            uniform double mjc:ctrlRange:min = -1.5708
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint6"
+        {
+            uniform double[] mjc:biasPrm = [0, -10, -1, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 2.0944
+            uniform double mjc:ctrlRange:min = -2.0944
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "left_finger"
+        {
+            uniform double[] mjc:biasPrm = [0, -100, -10, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 0.041
+            uniform double mjc:ctrlRange:min = 0
+            uniform double[] mjc:gainPrm = [100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+    }
+}
