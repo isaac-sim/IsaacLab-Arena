@@ -5,27 +5,28 @@
 
 """
 Table + multi-object no-overlap environment with a robot (e.g. GR1).
-No task -- suitable for policy_runner with zero_action or any policy.
+No task -- suitable for an Experiment with zero_action or any policy.
 
-Supports two placement modes via ``--mode``:
+Supports two placement modes, selected by the ``mode`` field:
 
 * **homogeneous** (default): each object is a regular Object — same in all envs.
 * **heterogeneous**: objects are wrapped in ``RigidObjectSet`` for per-env variance.
 
-Both modes use the office table by default. Use ``--objects`` to override object
-lists for controlled experiments.
+Both modes use the office table by default. Set the ``objects`` field to override
+the object list for controlled experiments.
 
-Example (--viz kit enables the Kit visualizer, --episode_length_s triggers periodic resets):
+Example Experiment, run with the Kit visualizer (--viz kit). Its episode_length_s triggers periodic resets.
+The config's num_envs selects tiled cameras. Keep it equal to environment_builder.num_envs and change
+both together:
 
   # Homogeneous (default) — YCB objects
-  python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
-    --num_envs 16 --env_spacing 4.0 --enable_cameras \\
-    gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0
+  python isaaclab_arena/evaluation/experiment_runner.py --viz kit \\
+    --experiment_config isaaclab_arena_environments/experiment_configs/examples/gr1_table_multi_object_no_collision_experiment.yaml
 
   # Heterogeneous — robolab objects in RigidObjectSet
-  python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
-    --num_envs 16 --env_spacing 4.0 --enable_cameras \\
-    gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0 --mode heterogeneous
+  python isaaclab_arena/evaluation/experiment_runner.py --viz kit \\
+    --experiment_config isaaclab_arena_environments/experiment_configs/examples/gr1_table_multi_object_no_collision_experiment.yaml \\
+    runs.multi_object_table.environment.mode=heterogeneous
 """
 
 from __future__ import annotations
@@ -110,8 +111,8 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
     Table-based scene with multiple objects (On(table) + built-in no-overlap) and a robot.
     Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
 
-    Supports ``--mode homogeneous`` (default) and ``--mode heterogeneous`` for
-    inter-environment object variance via ``RigidObjectSet``.
+    The ``mode`` field selects ``homogeneous`` (default) or ``heterogeneous``
+    placement, which can vary the objects between environments.
     """
 
     name: str = "gr1_table_multi_object_no_collision"
@@ -222,7 +223,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
     def _build_heterogeneous_objects(self, tabletop_reference, object_names=None):
         """Build placeable objects for heterogeneous mode.
 
-        When --objects is provided, each object is placed directly (no per-env variance).
+        When the ``objects`` field is set, each object is placed directly (no per-env variance).
         Otherwise, uses HETERO_FIXED_OBJECTS (pinned fruits) + HETERO_VARIANT_SETS
         (multi-variant sets).
         """
