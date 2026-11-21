@@ -778,6 +778,19 @@ class SweetPotato(LibraryObject):
 
 
 @register_asset
+class Sponge(LibraryObject):
+    """
+    Kitchen sponge with a scouring pad
+    """
+
+    registry_name = "sponge"
+    tags = ["object", "graspable"]
+    usd_source = LightwheelUsdSource(
+        registry_type="objects", registry_name=["sponge"], file_name="Sponge012", file_type="USD"
+    )
+
+
+@register_asset
 class Jug(LibraryObject):
     """
     Jug
