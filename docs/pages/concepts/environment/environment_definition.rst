@@ -18,11 +18,6 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
   ``from_yaml()`` validates on load; ``to_arena_env()`` returns the same
   ``IsaacLabArenaEnvironment``.
 
-For an environment without a robot, omit the YAML ``embodiment`` field or set
-``embodiment: null``. This corresponds to ``embodiment=None`` in Python; the builder
-uses its existing empty embodiment internally. Scene objects, tasks, and placement
-relations work normally, but relations and CLI overrides cannot reference an absent robot.
-
 
 Fixed poses in YAML
 -------------------
