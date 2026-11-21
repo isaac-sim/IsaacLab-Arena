@@ -122,8 +122,9 @@ def get_representative_rigid_body_prims(scene: InteractiveScene, scene_key: str)
 def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
     """Compute geometry bounds expressed in the prim's local frame P.
 
-    Geometry is selected by get_bounds_purpose(), so only a prim that is itself a collision Gprim
-    may contribute non-default-purpose geometry.
+    Bounds include only default-purpose geometry, unless the prim is itself a collision shape. A collision
+    shape is bounded by its own geometry whatever its purpose, so a collider authored with the ``guide``
+    purpose (hidden helper geometry that physics still uses) still has bounds.
     """
     assert prim.IsValid(), "Prim must be valid."
 
