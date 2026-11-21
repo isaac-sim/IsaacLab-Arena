@@ -17,7 +17,7 @@ def _check_geometry_bounds_in_prim_frame(scene_access_module) -> None:
     """Check that runtime bounds remove pose but retain spawned scale."""
     import torch
 
-    from pxr import Gf, Usd, UsdGeom
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
     stage = Usd.Stage.CreateInMemory()
     wrapper = UsdGeom.Xform.Define(stage, "/World/Wrapper")
@@ -34,9 +34,27 @@ def _check_geometry_bounds_in_prim_frame(scene_access_module) -> None:
     ignored_cube.GetSizeAttr().Set(100.0)
     ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
 
+    shelf = UsdGeom.Cube.Define(stage, "/World/Wrapper/Reference/ShelfCollider")
+    shelf.GetSizeAttr().Set(1.0)
+    shelf.AddScaleOp().Set(Gf.Vec3f(10.0, 1.0, 0.01))
+    shelf.GetPurposeAttr().Set(UsdGeom.Tokens.guide)
+    UsdPhysics.CollisionAPI.Apply(shelf.GetPrim())
+
     geometry_bounds_P = scene_access_module._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
     torch.testing.assert_close(geometry_bounds_P.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
     torch.testing.assert_close(geometry_bounds_P.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
+
+    # Explicitly selecting a collider must yield its physical extent even when it is a guide.
+    shelf_bounds = scene_access_module._compute_geometry_bounds_in_prim_frame(shelf.GetPrim())
+    torch.testing.assert_close(shelf_bounds.min_point[0], torch.tensor([-10.0, -1.5, -0.02]))
+    torch.testing.assert_close(shelf_bounds.max_point[0], torch.tensor([10.0, 1.5, 0.02]))
+
+    # Build-time bounds select the same guide geometry. Rotation about z leaves the vertical extent unchanged.
+    from isaaclab_arena.utils.usd.helpers import compute_world_aligned_bounding_box_relative_to_prim_origin
+
+    shelf_build_time_bounds = compute_world_aligned_bounding_box_relative_to_prim_origin(stage, str(shelf.GetPath()))
+    assert shelf_build_time_bounds.min_point[0, 2].item() == pytest.approx(-0.02)
+    assert shelf_build_time_bounds.max_point[0, 2].item() == pytest.approx(0.02)
 
 
 def _check_rigid_object_reads_and_local_aabb_cache(
