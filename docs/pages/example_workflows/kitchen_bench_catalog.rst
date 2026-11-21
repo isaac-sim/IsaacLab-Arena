@@ -379,7 +379,7 @@ the maintained DROID external camera. Rows are grouped by task category.
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_sweet_potato_in_bowl_nearest_pepper_farmhouse.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sweet_potato_in_bowl_nearest_pepper_farmhouse.yaml>`_
+     - `kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml>`_
      - 8.0%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_sweet_potato_in_bowl_nearest_pepper_farmhouse_pi05.gif
           :alt: Pi0.5 placing a sweet potato in the bowl nearest the pepper in the farmhouse kitchen

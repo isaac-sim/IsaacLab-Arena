@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_spatial_sweet_potato_in_bowl_nearest_pepper_farmhouse
+env_name: kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -17,8 +17,8 @@ background:
   params:
     collision_mode: mesh
 objects:
-- id: sweet_potato
-  registry_name: sweet_potato
+- id: red_onion
+  registry_name: red_onion_fruits_veggies_robolab
 - id: target_bowl
   registry_name: bowl_ycb_robolab
 - id: middle_bowl
@@ -51,7 +51,7 @@ relations:
   params:
     yaw_rad: 0.0
 - kind: 'on'
-  subject: sweet_potato
+  subject: red_onion
   reference: island
 - kind: 'on'
   subject: target_bowl
@@ -125,14 +125,14 @@ relations:
     offset_m: 0
     tolerance_m: 0.06
 - kind: align_with
-  subject: sweet_potato
+  subject: red_onion
   reference: far_bowl
   params:
     axis: x
     offset_m: -0.23
     tolerance_m: 0.05
 - kind: align_with
-  subject: sweet_potato
+  subject: red_onion
   reference: far_bowl
   params:
     axis: y
@@ -161,11 +161,11 @@ relations:
     tolerance_m: 0.06
 task:
   composition: atomic
-  description: Pick up the sweet potato and put it in the bowl closest to the red bell pepper.
+  description: Pick up the red onion and put it in the bowl closest to the red bell pepper.
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: sweet_potato
+      pick_up_object: red_onion
       destination_location: target_bowl
       destination_object: target_bowl
       background_scene: kitchen
