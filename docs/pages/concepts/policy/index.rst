@@ -83,9 +83,10 @@ To add a policy, define a typed configuration, subclass ``PolicyBase`` with it, 
        def get_action(self, env, observation) -> torch.Tensor:
            return torch.zeros(env.action_space.shape, device=env.unwrapped.device)
 
-Registration makes the policy available to both runners. ``policy_runner.py --policy_type
-my_policy`` generates command-line flags from ``MyPolicyCfg``. An Experiment Definition selects
-the policy by its import path and fills the same configuration from YAML:
+Registration makes the policy available under its ``name``. In an Experiment Definition, a Run
+selects the policy with ``policy.type``, which takes a registered policy name or a dotted class
+path. The class path also imports the module that registers the policy. The remaining keys fill
+``MyPolicyCfg``:
 
 .. code-block:: yaml
 
@@ -93,8 +94,9 @@ the policy by its import path and fills the same configuration from YAML:
      type: my_package.my_policy.MyPolicy
      device: cuda:0
 
-Configuration fields named ``device`` or ``num_envs`` reuse the runner's shared flags, so their
-defaults must match the runner defaults.
+``policy_runner.py`` turns each configuration field into a command-line flag. Fields named
+``device`` or ``num_envs`` use its shared ``--device`` and ``--num_envs`` flags instead, so their
+defaults must match the defaults of those flags.
 
 
 Next steps
