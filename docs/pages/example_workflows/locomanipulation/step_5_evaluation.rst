@@ -85,73 +85,92 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
 
       gr00t_embodiment_adapter: g1_wbc
 
+The evaluation itself is an :doc:`Arena Experiment <../../concepts/concept_arena_experiments>` with
+one Run. It selects the environment, the ``g1_wbc_joint`` embodiment and the brown box, loads the
+GR00T client config above, connects the client to the server, and stops after 1500 steps. An episode
+times out after 30 seconds, which is 1500 steps.
+
+.. dropdown:: Experiment file (``g1_locomanip_gr00t_experiment.yaml``):
+   :animate: fade-in
+
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/g1_locomanip_gr00t_experiment.yaml
+      :language: yaml
+      :lines: 6-
+
 Test the policy in a single environment with visualization via the GUI run:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-     --remote_host 127.0.0.1 \
-     --remote_port 5555 \
-     --num_steps 1500 \
-     --enable_cameras \
-     galileo_g1_locomanip_pick_and_place \
-     --object brown_box \
-     --embodiment g1_wbc_joint
+     --experiment_config isaaclab_arena_environments/experiment_configs/g1_locomanip_gr00t_experiment.yaml
 
-The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.
-
-Note that all these metrics are computed over the entire evaluation process, and are affected
-by the quality of post-trained policy, the quality of the dataset, and number of steps in the evaluation.
+At the end of the evaluation, the console shows the Run status and its metrics: the success rate,
+``object_peak_speed_exceeded_rate`` and the number of episodes. With the pre-trained checkpoint, the
+output looks like this:
 
 .. code-block:: text
 
-   Metrics: {success_rate: 1.0, num_episodes: 1}
+   +-----------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   |           Run Name          |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
+   +-----------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   | g1_pick_and_place_brown_box | completed | gr00t_remote_closedloop |    1     |    1500   |     None     |      1       |
+   +-----------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
+
+   g1_pick_and_place_brown_box:
+     num_episodes                            1
+     object_peak_speed_exceeded_rate     1.0000
+     success_rate                       1.0000
+   ======================================================================
+
+The metrics cover all episodes that finish within the 1500 steps. They depend on the quality of the
+post-trained policy, the quality of the dataset, and the number of steps in the evaluation, and they
+vary between evaluations, especially with few episodes.
 
 Step 2: Run Parallel Environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
+The same Experiment can evaluate the policy in several parallel environments. Set the number of
+environments on the command line instead of editing the file: ``runs.<Run name>.<field>=<value>``
+changes one field of that Run.
 
 Test the policy in 5 parallel environments with visualization via the GUI run:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-     --remote_host 127.0.0.1 \
-     --remote_port 5555 \
-     --num_steps 1200 \
-     --num_envs 5 \
-     --enable_cameras \
-     --device cuda \
-     --policy_device cuda  \
-     galileo_g1_locomanip_pick_and_place \
-     --object brown_box \
-     --embodiment g1_wbc_joint
+     --experiment_config isaaclab_arena_environments/experiment_configs/g1_locomanip_gr00t_experiment.yaml \
+     runs.g1_pick_and_place_brown_box.environment_builder.num_envs=5
 
 
-And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin,
-or the episode length is exceeded by 30 seconds),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
+During the evaluation, the console shows which environments reset because their episode ended,
+for example because the brown box was placed in the blue bin or the episode ran out of time:
 
 .. code-block:: text
 
-   Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+   Resetting policy state for env_ids: tensor([3], device='cuda:0')
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
-and the number of episodes is more than the single environment evaluation because of the parallelization.
+At the end of the evaluation, the console shows the metrics. An episode ends after 1500 steps at
+the latest, so every environment finishes at least one episode and the success rate also counts the
+attempts that time out. Environments that finish early start a new episode, which counts only if it
+also ends within the 1500 steps.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 1.0, 'num_episodes': 4}
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
+
+   g1_pick_and_place_brown_box:
+     num_episodes                            6
+     object_peak_speed_exceeded_rate     1.0000
+     success_rate                       0.5000
+   ======================================================================
 
 .. note::
 
@@ -164,5 +183,5 @@ and the number of episodes is more than the single environment evaluation becaus
 
 .. note::
 
-   The policy was trained on datasets generated using CPU-based physics, therefore the evaluation uses ``--device cpu`` to ensure physics reproducibility.
-   If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the ``--device cuda`` flag.
+   The training dataset was generated with CPU physics, while the commands above run physics on the GPU,
+   the default device. To evaluate with CPU physics instead, add ``--device cpu``.

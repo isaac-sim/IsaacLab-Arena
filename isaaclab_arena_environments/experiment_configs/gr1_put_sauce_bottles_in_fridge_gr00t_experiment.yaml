@@ -1,0 +1,31 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Evaluate the GR00T policy from the sequential static manipulation workflow on four sauce bottles.
+# Asset selection builds the scene once per bottle, in list order, with the same bottle in all
+# 10 parallel environments. Each build runs 10 of the 40 episodes. The variation belongs to the
+# object named ranch_dressing_hope_robolab after environment.object and replaces its asset.
+runs:
+  gr1_put_sauce_bottles_in_fridge_and_close_door:
+    environment:
+      type: put_item_in_fridge_and_close_door
+      enable_cameras: true
+      embodiment: gr1_joint
+      object: ranch_dressing_hope_robolab
+    environment_builder:
+      num_envs: 10
+    policy:
+      type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+      policy_config_yaml_path: isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 5555
+    num_rebuilds: 4
+    rollout_limit:
+      num_episodes: 40
+    variations:
+      ranch_dressing_hope_robolab.asset_selection.enabled: true
+      ranch_dressing_hope_robolab.asset_selection.registry_names:
+        [ketchup_bottle_hope_robolab, ranch_dressing_hope_robolab, bbq_sauce_bottle_hope_robolab, mayonnaise_bottle_hope_robolab]

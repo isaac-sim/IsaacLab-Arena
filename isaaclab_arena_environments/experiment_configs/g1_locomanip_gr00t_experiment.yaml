@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Evaluate the GR00T policy from the locomanipulation workflow on picking up the brown box and placing
+# it in the bin, in one environment for 1500 steps. An episode times out after 30 s, which is
+# 1500 steps, so every environment finishes at least one episode.
+# To evaluate 5 parallel environments, add this override to the experiment_runner.py command:
+#   runs.g1_pick_and_place_brown_box.environment_builder.num_envs=5
+runs:
+  g1_pick_and_place_brown_box:
+    environment:
+      type: galileo_g1_locomanip_pick_and_place
+      enable_cameras: true
+      embodiment: g1_wbc_joint
+      object: brown_box
+    policy:
+      type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+      policy_config_yaml_path: isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 5555
+    rollout_limit:
+      num_steps: 1500

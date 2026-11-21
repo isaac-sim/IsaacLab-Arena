@@ -88,87 +88,98 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
       target_image_size: [512, 512, 3]
 
 
+The evaluation itself is an :doc:`Arena Experiment <../../concepts/concept_arena_experiments>` with
+one Run. It selects the environment, the ``gr1_joint`` embodiment and the ranch dressing bottle, loads
+the GR00T client config above, connects the client to the server, and stops after 2000 steps.
+
+.. dropdown:: Experiment file (``gr1_put_ranch_bottle_in_fridge_gr00t_experiment.yaml``):
+   :animate: fade-in
+
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/gr1_put_ranch_bottle_in_fridge_gr00t_experiment.yaml
+      :language: yaml
+      :lines: 6-
+
 Test the policy in a single environment with visualization via the GUI run:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-     --remote_host 127.0.0.1 \
-     --remote_port 5555 \
-     --num_steps 2000 \
-     --enable_cameras \
-     put_item_in_fridge_and_close_door \
-     --embodiment gr1_joint \
-     --object ranch_dressing_hope_robolab
+     --experiment_config isaaclab_arena_environments/experiment_configs/gr1_put_ranch_bottle_in_fridge_gr00t_experiment.yaml
 
-The evaluation should produce the following output on the console at the end of the evaluation.
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
-and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
-You should see similar metrics. All of them shall be greater than 0.9, and the number of episodes should be in the range of 3-6.
+At the end of the evaluation, the console shows the Run status and its metrics: the success rate
+for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
+``revolute_joint_moved_rate`` for the second subtask, and the success rate of each subtask.
+With the pre-trained checkpoint, the output looks like this:
 
-Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
-post-trained policy, the quality of the dataset, and number of steps in the evaluation.
+.. code-block:: text
 
-.. tab-set::
+   +-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   |                    Run Name                   |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
+   +-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   | gr1_put_ranch_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    1     |    2000   |     None     |      1       |
+   +-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
 
-   .. tab-item:: Best Quality
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
 
-      .. code-block:: text
+   gr1_put_ranch_bottle_in_fridge_and_close_door:
+     num_episodes                            5
+     object_peak_speed_exceeded_rate_subtask_0     1.0000
+     revolute_joint_moved_rate_subtask_1     1.0000
+     subtask_success_rate           [0.8, 0.8]
+     success_rate                       0.8000
+   ======================================================================
 
-         Metrics: Metrics: {'success_rate': 1.0, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
+The metrics cover all episodes that finish within the 2000 steps. They depend on the quality of the
+post-trained policy, the quality of the dataset, and the number of steps in the evaluation, and they
+vary between evaluations, especially with few episodes.
 
-   .. tab-item:: Low Hardware Requirements
-
-      Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.
-
-      .. code-block:: text
-
-         Metrics: Metrics: {'success_rate': 0.75, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
+If you trained with the Low Hardware Requirements option in :doc:`step_4_policy_training`, the final
+checkpoint is ``checkpoint-30000``. Pass that directory to ``--model-path`` when you start the server.
 
 Step 2: Run Parallel environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
+The same Experiment can evaluate the policy in several parallel environments. Set the number of
+environments on the command line instead of editing the file: ``runs.<Run name>.<field>=<value>``
+changes one field of that Run.
 
 Test the policy in 10 parallel environments with visualization via the GUI run:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-     --remote_host 127.0.0.1 \
-     --remote_port 5555 \
-     --num_steps 2000 \
-     --num_envs 10 \
-     --enable_cameras \
-     put_item_in_fridge_and_close_door \
-     --embodiment gr1_joint \
-     --object ranch_dressing_hope_robolab
+     --experiment_config isaaclab_arena_environments/experiment_configs/gr1_put_ranch_bottle_in_fridge_gr00t_experiment.yaml \
+     runs.gr1_put_ranch_bottle_in_fridge_and_close_door.environment_builder.num_envs=10
 
 
-And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the microwave door is opened),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
+During the evaluation, the console shows which environments reset because their episode ended,
+for example because the task finished or the episode ran out of time:
 
 .. code-block:: text
 
-   Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+   Resetting policy state for env_ids: tensor([5], device='cuda:0')
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
-and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
-All of them might not be 1.0 as more trials are being evaluated, and the number of episodes is more
-than the single environment evaluation because of the parallel evaluation.
+At the end of the evaluation, the console shows the metrics. With 10 environments, the same number of
+steps covers about ten times as many episodes as the single environment evaluation, so the success
+rate is a more reliable estimate.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.98, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
+
+   gr1_put_ranch_bottle_in_fridge_and_close_door:
+     num_episodes                           46
+     object_peak_speed_exceeded_rate_subtask_0     1.0000
+     revolute_joint_moved_rate_subtask_1     1.0000
+     subtask_success_rate           [0.8260869565217391, 0.8260869565217391]
+     success_rate                       0.8261
+   ======================================================================
 
 .. note::
 
@@ -180,57 +191,77 @@ than the single environment evaluation because of the parallel evaluation.
    ``gr1_joint`` for closed-loop policy inference.
 
 
-Step 3: Multi-object Heterogeneous Evaluation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 3: Evaluate on Several Sauce Bottles
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This step demonstrates evaluation of the policy in heterogeneous environments with multiple objects.
+This step evaluates the same policy on four sauce bottles: ketchup, ranch dressing, barbecue sauce and
+mayonnaise. The :ref:`asset selection <asset-selection-variation>` variation makes the Run build the
+scene once per bottle, in list order. All 10 parallel environments of a build use the same bottle,
+and each build runs 10 of the 40 episodes.
+
+The variation belongs to the object that the robot puts in the fridge. That object keeps the name
+``ranch_dressing_hope_robolab`` from ``environment.object``, while the variation replaces its asset
+with each listed bottle in turn.
+
+.. dropdown:: Experiment file (``gr1_put_sauce_bottles_in_fridge_gr00t_experiment.yaml``):
+   :animate: fade-in
+
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/gr1_put_sauce_bottles_in_fridge_gr00t_experiment.yaml
+      :language: yaml
+      :lines: 6-
 
 Test the policy in 10 parallel environments with visualization via the GUI run:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-   --viz kit \
-   --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-   --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
-   --remote_host 127.0.0.1 \
-   --remote_port 5555 \
-   --num_steps 2000 \
-   --num_envs 10 \
-   --enable_cameras \
-   put_item_in_fridge_and_close_door \
-   --embodiment gr1_joint \
-   --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --experiment_config isaaclab_arena_environments/experiment_configs/gr1_put_sauce_bottles_in_fridge_gr00t_experiment.yaml
 
-
-Each environment has a different object spawned from the object set. The same policy is used for all those environments.
-At then end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
-and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
+At the end of the evaluation, the console shows the metrics over all 40 episodes, followed by the
+success rate for each bottle:
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.8666666666666667, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
 
-The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
-when evaluated on structurally similar sauce bottles.
-While this represents a slight performance regression compared to the training object,
-it indicates that the model has successfully learned geometric features common to the category rather than
-just over-fitting to a single object mesh.
+   gr1_put_sauce_bottles_in_fridge_and_close_door:
+     num_episodes                           40
+     object_peak_speed_exceeded_rate_subtask_0     1.0000
+     revolute_joint_moved_rate_subtask_1     1.0000
+     subtask_success_rate           [0.7, 0.7]
+     success_rate                       0.6000
+   ======================================================================
+
+   +------------------------------------------------+---------------------------------------------+----------------------------------+----------+-----------+---------+--------------+
+   |                      Run                       |                  Variation                  |              Value               | Episodes | Successes | Unknown | Success Rate |
+   +------------------------------------------------+---------------------------------------------+----------------------------------+----------+-----------+---------+--------------+
+   | gr1_put_sauce_bottles_in_fridge_and_close_door | ranch_dressing_hope_robolab.asset_selection | "bbq_sauce_bottle_hope_robolab"  |    10    |     5     |    0    |    50.0%     |
+   | gr1_put_sauce_bottles_in_fridge_and_close_door | ranch_dressing_hope_robolab.asset_selection |  "ketchup_bottle_hope_robolab"   |    10    |     6     |    0    |    60.0%     |
+   | gr1_put_sauce_bottles_in_fridge_and_close_door | ranch_dressing_hope_robolab.asset_selection | "mayonnaise_bottle_hope_robolab" |    10    |     5     |    0    |    50.0%     |
+   | gr1_put_sauce_bottles_in_fridge_and_close_door | ranch_dressing_hope_robolab.asset_selection |  "ranch_dressing_hope_robolab"   |    10    |     8     |    0    |    80.0%     |
+   +------------------------------------------------+---------------------------------------------+----------------------------------+----------+-----------+---------+--------------+
+
+The policy was trained only on the ranch dressing bottle and succeeds with it in 8 of 10 episodes.
+On each of the other three bottles it succeeds in 5 or 6 of 10 episodes, so it partly transfers to
+bottles it has not seen.
 
 
 Step 4: Sequential Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A sequential batch of runs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``experiment_runner.py`` script.
-It minimizes the overhead of reloading system modules and environment classes for each run while keeping the simulation application alive.
-The batch is defined in an Experiment YAML file. The example below evaluates the policy on an unseen jug and on the ranch dressing bottle.
+An Experiment can also hold several Runs. ``experiment_runner.py`` evaluates them one after another
+in the same simulation application, and each Run reports its own metrics.
+The Experiment below evaluates the policy on an unseen jug and on the ranch dressing bottle as two Runs.
 
-.. dropdown:: Configuration file (``gr1_sequential_static_manip_gr00t_experiment.yaml``):
+.. dropdown:: Experiment file (``gr1_sequential_static_manip_gr00t_experiment.yaml``):
    :animate: fade-in
 
    .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
       :language: yaml
+      :lines: 6-
 
 Run the batch evaluation:
 
