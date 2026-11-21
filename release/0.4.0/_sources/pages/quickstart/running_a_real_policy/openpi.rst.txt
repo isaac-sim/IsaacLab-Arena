@@ -145,22 +145,18 @@ When all Runs finish, you will see a summary table followed by a metrics report:
 
    droid_pnp_srl_openpi_alphabet_soup_can:
      num_episodes                            3
-     object_moved_rate                  0.6667
      success_rate                       1.0000
 
    droid_pnp_srl_openpi_billiard_hall:
      num_episodes                            3
-     object_moved_rate                  1.0000
      success_rate                       1.0000
 
    droid_pnp_srl_openpi_rubiks_cube_home_office:
      num_episodes                            3
-     object_moved_rate                  1.0000
      success_rate                       1.0000
 
    droid_pnp_srl_openpi_sugar_box:
      num_episodes                            3
-     object_moved_rate                  1.0000
      success_rate                       0.0000
 
    ...

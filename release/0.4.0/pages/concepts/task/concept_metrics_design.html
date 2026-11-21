@@ -594,24 +594,28 @@ they are automatically applied to every environment that uses that task.</p>
 <p>In the code below we show how to inspect the metrics defined by the <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
 <span class="n">task</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">()</span>
-<span class="c1"># → [SuccessRateMetric(), ObjectMovedRateMetric(pick_object)]</span>
+<span class="c1"># → [SuccessRateMetric(), ObjectDisplacedRateMetric(pick_object)]</span>
 </pre></div>
 </div>
-<section id="example-objectmovedratemetric">
-<h2>Example: ObjectMovedRateMetric<a class="headerlink" href="#example-objectmovedratemetric" title="Link to this heading">#</a></h2>
-<p>Here we provide an example of how the <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> is implemented.
-The <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> implements the recording and computing steps described above
+<section id="example-objectdisplacedratemetric">
+<h2>Example: ObjectDisplacedRateMetric<a class="headerlink" href="#example-objectdisplacedratemetric" title="Link to this heading">#</a></h2>
+<p>Here we provide an example of how the <code class="docutils literal notranslate"><span class="pre">ObjectDisplacedRateMetric</span></code> is implemented.
+The <code class="docutils literal notranslate"><span class="pre">ObjectDisplacedRateMetric</span></code> implements the recording and computing steps described above
 in the following way:</p>
 <ul class="simple">
-<li><p><strong>Recording</strong> During simulation <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> records the
-object’s velocity vector (a 3D vector) at every simulation step.</p></li>
-<li><p><strong>Computing</strong> After the rollout completes, the <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> process
-the velocity history for each episode. It first computes the magnitude of the velocity
-vector for each step in an episode.
-Then it checks if the magnitude is greater than a threshold. If it is, the object is
-considered moved in this episode.
-Finally, it computes the fraction of episodes in which the object was moved.</p></li>
+<li><p><strong>Recording</strong> During simulation <code class="docutils literal notranslate"><span class="pre">ObjectDisplacedRateMetric</span></code> records the
+object’s world-frame position (a 3D vector) after every environment step.
+Deformable objects report their mean nodal position.</p></li>
+<li><p><strong>Computing</strong> After the rollout completes, the <code class="docutils literal notranslate"><span class="pre">ObjectDisplacedRateMetric</span></code> processes
+the position history for each episode. It first computes the distance of each recorded
+position from the first recorded position.
+Then it checks if any distance is greater than a threshold (2 cm by default). If it is, the
+episode counts as displaced, even if the object is later put back.
+Finally, it computes the fraction of episodes in which the object was displaced.
+Note this does not depend on speed: a slow carry is counted.</p></li>
 </ul>
+<p>Other tasks, such as <code class="docutils literal notranslate"><span class="pre">GoalPoseTask</span></code>, report <code class="docutils literal notranslate"><span class="pre">ObjectPeakSpeedExceededRateMetric</span></code> instead, which
+counts an episode when the object’s linear speed exceeds a threshold at any step.</p>
 <p>You do not need to manage any of this manually — it is all wired up automatically
 in the Arena Environment Builder when the environment is compiled from the task.</p>
 </section>
@@ -666,7 +670,7 @@ in the Arena Environment Builder when the environment is compiled from the task.
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-objectmovedratemetric">Example: ObjectMovedRateMetric</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-objectdisplacedratemetric">Example: ObjectDisplacedRateMetric</a></li>
 </ul>
   </nav></div>
 

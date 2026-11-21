@@ -961,6 +961,9 @@ same seed gives the same values (#1467).</p>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.visualization.report_data</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.evaluation.report_data</span></code></p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.metrics.object_moved</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena.metrics.object_peak_speed_exceeded</span></code></p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -968,7 +971,8 @@ same seed gives the same values (#1467).</p>
 <code class="docutils literal notranslate"><span class="pre">object_placer</span></code>, <code class="docutils literal notranslate"><span class="pre">pooled_object_placer</span></code>, <code class="docutils literal notranslate"><span class="pre">object_placer_params</span></code> and <code class="docutils literal notranslate"><span class="pre">placement_result</span></code>.
 Solver, geometry, validation and run-time modules moved into the <code class="docutils literal notranslate"><span class="pre">optimization</span></code>, <code class="docutils literal notranslate"><span class="pre">geometry</span></code>,
 <code class="docutils literal notranslate"><span class="pre">validation</span></code> and <code class="docutils literal notranslate"><span class="pre">runtime</span></code> subpackages (#1534). The USD helper moves are from v0.3.1, and the
-evaluation moves from #1604.</p>
+evaluation moves from #1604. The metric module move is from #1717, which also renamed
+<code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code> to <code class="docutils literal notranslate"><span class="pre">ObjectPeakSpeedExceededRateMetric</span></code>.</p>
 </section>
 <section id="removed">
 <h3>Removed<a class="headerlink" href="#removed" title="Link to this heading">#</a></h3>
@@ -1099,7 +1103,10 @@ produced (#1467).</p></li>
 <section id="evaluation-outputs">
 <h2>Evaluation outputs<a class="headerlink" href="#evaluation-outputs" title="Link to this heading">#</a></h2>
 <p>The Experiment output layout is unchanged: one timestamped directory, with one subdirectory per Run.
-Metric names, such as <code class="docutils literal notranslate"><span class="pre">success_rate</span></code>, are unchanged.</p>
+Metric names are unchanged except <code class="docutils literal notranslate"><span class="pre">object_moved_rate</span></code>. <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> now reports
+<code class="docutils literal notranslate"><span class="pre">object_displaced_rate</span></code>, and <code class="docutils literal notranslate"><span class="pre">GoalPoseTask</span></code>, <code class="docutils literal notranslate"><span class="pre">AssemblyTask</span></code>, <code class="docutils literal notranslate"><span class="pre">GearInsertionTask</span></code> and
+<code class="docutils literal notranslate"><span class="pre">PlaceUprightTask</span></code> report <code class="docutils literal notranslate"><span class="pre">object_peak_speed_exceeded_rate</span></code> (#1717, #1731). Sequential tasks
+add the <code class="docutils literal notranslate"><span class="pre">_subtask_&lt;i&gt;</span></code> suffix to these names, as before.</p>
 <section id="combined-result-file">
 <h3>Combined result file<a class="headerlink" href="#combined-result-file" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">arena_experiment_result.json</span></code> gains top-level <code class="docutils literal notranslate"><span class="pre">git_stamp</span></code> (<code class="docutils literal notranslate"><span class="pre">git_sha</span></code>, <code class="docutils literal notranslate"><span class="pre">git_branch</span></code>) and
@@ -1169,6 +1176,11 @@ file, so with <code class="docutils literal notranslate"><span class="pre">num_r
 <h3>Metric values<a class="headerlink" href="#metric-values" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">success_rate</span></code> no longer skips the first reset, and Runs finish exactly the requested number of
 episodes. Success rates can therefore differ slightly from v0.3 for the same policy (#1371).</p>
+<p>v0.3’s <code class="docutils literal notranslate"><span class="pre">object_moved_rate</span></code> counted an episode only if the object’s speed exceeded 0.5 m/s at some
+step, so a slow carry was not counted. <code class="docutils literal notranslate"><span class="pre">object_peak_speed_exceeded_rate</span></code> keeps that behavior.
+<code class="docutils literal notranslate"><span class="pre">object_displaced_rate</span></code> counts an episode once the object gets more than 2 cm from its first
+recorded position, at any speed, so pick-and-place results can differ from v0.3’s
+<code class="docutils literal notranslate"><span class="pre">object_moved_rate</span></code> (#1717, #1731).</p>
 </section>
 <section id="osmo">
 <h3>OSMO<a class="headerlink" href="#osmo" title="Link to this heading">#</a></h3>

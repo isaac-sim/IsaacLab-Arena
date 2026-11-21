@@ -143,22 +143,18 @@ When all Runs finish, Arena prints a summary table followed by a metrics report:
 
       droid_pnp_srl_gr00t_alphabet_soup_can:
         num_episodes                            3
-        object_moved_rate                  0.0000
         success_rate                       0.0000
 
       droid_pnp_srl_gr00t_billiard_hall:
         num_episodes                            3
-        object_moved_rate                  0.3333
         success_rate                       0.0000
 
       droid_pnp_srl_gr00t_blue_block:
         num_episodes                            3
-        object_moved_rate                  0.0000
         success_rate                       0.0000
 
       droid_pnp_srl_gr00t_lemon:
         num_episodes                            3
-        object_moved_rate                  1.0000
         success_rate                       0.6667
 
       ...
