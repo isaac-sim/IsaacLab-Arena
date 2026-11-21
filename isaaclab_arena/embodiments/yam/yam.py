@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Fixed-base I2RT YAM embodiment for the Newton physics backend (MJWarp solver)."""
+"""Fixed-base I2RT YAM embodiment, spawned from AUTOLab's MuJoCo model under both PhysX and Newton (MJWarp)."""
 
 from __future__ import annotations
 
@@ -26,18 +26,20 @@ from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
 
 YAM_USD_PATH = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/yam/i2rt_yam_default.usda"
-"""Newton/MJWarp YAM: MuJoCo-converted USD with Newton contact and MuJoCo joint properties."""
+"""AUTOLab's MuJoCo YAM model converted to USD, with its contact, joint and gravity-compensation settings.
+
+Both PhysX and Newton (MJWarp) spawn this USD. Isaac Sim's ``Robots_Multiphysics/I2RT/yam`` asset is not used:
+it has no colliders.
+"""
 
 ARM_JOINT_NAMES = [f"joint{index}" for index in range(1, 7)]
 GRIPPER_JOINT_NAME = "left_finger"
 """Driven finger joint."""
 PASSIVE_GRIPPER_JOINT_NAME = "right_finger"
-"""Finger joint the USD's Newton mimic couples to the driven finger with a -1 gain."""
+"""Finger joint the USD's mimic joint couples to the driven finger with a -1 gain."""
 END_EFFECTOR_BODY_NAME = "link_6"
 GRIPPER_OPEN_POSITION = 0.037524
 GRIPPER_CLOSED_POSITION = 0.0
-NEWTON_CONTACT_GAP = 0.001
-"""Newton collision contact gap in meters."""
 
 _DEFAULT_ARM_JOINT_POSITIONS = (0.0, 0.85, 0.60, 0.0, 0.0, 0.0)
 
@@ -69,7 +71,7 @@ def make_yam_articulation_cfg(prim_path: str, usd_path: str = YAM_USD_PATH) -> A
                 joint_names_expr=["joint[5-6]"], stiffness=30.0, damping=2.0, joint_effort_limit=10.0
             ),
             "gripper": ImplicitActuatorCfg(joint_names_expr=[GRIPPER_JOINT_NAME], stiffness=1000.0, damping=100.0),
-            # The Newton mimic joint drives this finger from the driven one, so it carries no drive of its own.
+            # The USD's mimic joint moves this finger with the driven one, so it carries no drive of its own.
             "gripper_passive": ImplicitActuatorCfg(
                 joint_names_expr=[PASSIVE_GRIPPER_JOINT_NAME], stiffness=0.0, damping=0.0
             ),
@@ -122,7 +124,11 @@ class YamObservationsCfg:
 
 @register_asset
 class YamEmbodiment(EmbodimentBase):
-    """One fixed-base YAM arm with absolute joint-position control. Implemented for Newton (MJWarp solver) only."""
+    """One fixed-base YAM arm with absolute joint-position control.
+
+    PhysX and Newton (MJWarp) both spawn AUTOLab's MuJoCo model, ``YAM_USD_PATH``. Newton uses the USD as authored;
+    PhysX also disables gravity on the robot links, because it ignores the USD's MuJoCo gravity compensation.
+    """
 
     registry_name = "yam"
     tags = ["embodiment", "yam"]
@@ -138,26 +144,11 @@ class YamEmbodiment(EmbodimentBase):
         self.add_camera_variations(self.camera_config)
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
-        """Apply the Newton spawn overrides; PhysX is not implemented."""
-        if backend is PhysicsBackend.NEWTON:
-            self._configure_newton_spawn()
-        else:
-            raise NotImplementedError(f"{self.registry_name} does not implement the {backend} physics backend.")
+        """Disable gravity on the robot links under PhysX, which ignores the USD's MuJoCo gravity compensation."""
+        if backend is PhysicsBackend.PHYSX:
+            from isaaclab_physx.sim.schemas import PhysxRigidBodyCfg
 
-    def _configure_newton_spawn(self) -> None:
-        """Spawn the YAM with gravity compensation, no self-collision and a small contact gap."""
-        from isaaclab.sim.schemas.schemas_cfg import JointDriveBaseCfg
-        from isaaclab_newton.sim.schemas import (
-            MujocoRigidBodyPropertiesCfg,
-            NewtonArticulationRootPropertiesCfg,
-            NewtonCollisionPropertiesCfg,
-        )
-
-        spawn = self.scene_config.robot.spawn
-        spawn.rigid_props = MujocoRigidBodyPropertiesCfg(gravcomp=1.0)
-        spawn.articulation_props = NewtonArticulationRootPropertiesCfg(self_collision_enabled=False)
-        spawn.collision_props = NewtonCollisionPropertiesCfg(contact_margin=0.0, contact_gap=NEWTON_CONTACT_GAP)
-        spawn.joint_drive_props = JointDriveBaseCfg(ensure_drives_exist=True)
+            self.scene_config.robot.spawn.rigid_props = PhysxRigidBodyCfg(disable_gravity=True)
 
     def get_command_body_name(self) -> str:
         return END_EFFECTOR_BODY_NAME
