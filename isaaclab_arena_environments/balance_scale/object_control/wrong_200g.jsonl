@@ -1,0 +1,20 @@
+{"action":"wait","seconds":3.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Place 200 g (wrong total) against the apple"}
+{"action":"lift","name":"weight_100g_a","height":0.3,"seconds":1.5}
+{"action":"move","name":"weight_100g_a","goal":[0.515,-0.175,0.3],"seconds":2.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"weight_100g_a","goal":[0.515,-0.175,0.162],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"weight_100g_a"}
+{"action":"wait","seconds":1.0}
+{"action":"lift","name":"weight_100g_b","height":0.3,"seconds":1.5}
+{"action":"move","name":"weight_100g_b","goal":[0.555,-0.175,0.3],"seconds":2.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"weight_100g_b","goal":[0.555,-0.175,0.162],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"weight_100g_b"}
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"wait_final","timeout_steps":7200}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"end","title":"Place 200 g (wrong total) against the apple"}
+{"action":"finish"}

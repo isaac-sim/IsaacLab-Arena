@@ -1,0 +1,26 @@
+{"action":"wait","seconds":3.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Balance a 170 g apple with 100 g + 50 g + 20 g"}
+{"action":"lift","name":"weight_100g_a","height":0.3,"seconds":1.5}
+{"action":"move","name":"weight_100g_a","goal":[0.515,-0.175,0.3],"seconds":2.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"weight_100g_a","goal":[0.515,-0.175,0.162],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"weight_100g_a"}
+{"action":"wait","seconds":1.0}
+{"action":"lift","name":"weight_50g","height":0.3,"seconds":1.5}
+{"action":"move","name":"weight_50g","goal":[0.555,-0.175,0.3],"seconds":2.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"weight_50g","goal":[0.555,-0.175,0.159],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"weight_50g"}
+{"action":"wait","seconds":1.0}
+{"action":"lift","name":"weight_20g_a","height":0.3,"seconds":1.5}
+{"action":"move","name":"weight_20g_a","goal":[0.515,-0.125,0.3],"seconds":2.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"weight_20g_a","goal":[0.515,-0.125,0.156],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"weight_20g_a"}
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"wait_final","timeout_steps":7200}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"end","title":"Balance a 170 g apple with 100 g + 50 g + 20 g"}
+{"action":"finish"}
