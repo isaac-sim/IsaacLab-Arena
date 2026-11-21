@@ -28,7 +28,7 @@ objects:
 - id: pepper
   registry_name: red_bell_pepper_objaverse_robolab
 - id: apple
-  registry_name: apple_01_objaverse_robolab
+  registry_name: green_apple
 object_references:
 - id: floor
   parent_id: kitchen
