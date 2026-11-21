@@ -15,7 +15,7 @@ from isaaclab.utils.configclass import configclass
 
 # Import from the package root so this resolves whether MJWarpSolverCfg lives in
 # newton_manager_cfg (older isaaclab_newton) or mjwarp_manager_cfg (Isaac Lab Beta 2).
-from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonMJWarpManager
+from isaaclab_newton.physics import MJWarpSolver, MJWarpSolverCfg, NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
 from isaaclab_tasks.utils import PresetCfg
@@ -24,100 +24,95 @@ from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
 from isaaclab_arena.utils.newton_buffer_monitor import NewtonBufferMonitor
 
 if TYPE_CHECKING:
+    import warp as wp
     from isaaclab_newton.assets.articulation.articulation import Articulation
-    from isaaclab_newton.physics.mjwarp_tendon_control import MjWarpTendonControl
     from newton import Contacts, Control, Model, State
+    from newton.solvers import SolverMuJoCo
 
 
 # TODO: Remove the buffer overflow checks once https://github.com/newton-physics/newton/pull/4086 is
 # available in the Newton version used by Isaac Lab.
-class NewtonArenaMJWarpManager(NewtonMJWarpManager):
-    """Customize Isaac Lab's Newton/MuJoCo-Warp solver lifecycle for Arena.
+class NewtonArenaMJWarpSolver(MJWarpSolver):
+    """Customize Isaac Lab's MuJoCo-Warp solver adapter for Arena.
 
-    This manager delegates solver construction and stepping to Isaac Lab, adding checks that abort
+    The adapter delegates solver construction and stepping to Isaac Lab, adding checks that abort
     on buffer exhaustion and MuJoCo-Warp overflow flags. These failures may
     otherwise silently discard physics data while a run continues.
-
-    The manager also handles models without MuJoCo actuators when creating fixed-tendon controls.
-
+    The adapter also handles models without MuJoCo actuators when creating fixed-tendon controls.
     Existing solver exceptions propagate normally.
     """
 
     _buffer_monitor: NewtonBufferMonitor | None = None
     """Buffer usage and failure status retained for the current solver's lifetime."""
 
-    @classmethod
-    def _build_solver(cls, model: Model, solver_cfg: MJWarpSolverCfg) -> None:
+    def build(self, model: Model, mode: wp.DeterministicMode, env_template: str | None) -> SolverMuJoCo:
         """Construct the solver through Isaac Lab and monitor its allocated buffers.
 
         Args:
             model: Finalized Newton model used to construct the solver.
-            solver_cfg: MuJoCo-Warp solver configuration, including buffer capacities.
-        """
-        super()._build_solver(model, solver_cfg)
-        data = cls._solver.mjw_data
-        assert data is not None, "Newton MuJoCo-Warp solver data is not initialized"
-        cls._buffer_monitor = NewtonBufferMonitor(data)
+            mode: Warp determinism mode the solver must honor.
+            env_template: Prim path template of the environments, if any.
 
-    @classmethod
-    def _step_solver(
-        cls, state_0: State, state_1: State, control: Control, contacts: Contacts | None, substep_dt: float
+        Returns:
+            The constructed MuJoCo-Warp solver.
+        """
+        solver = super().build(model, mode, env_template)
+        data = solver.mjw_data
+        assert data is not None, "Newton MuJoCo-Warp solver data is not initialized"
+        self._buffer_monitor = NewtonBufferMonitor(data)
+        return solver
+
+    def step(
+        self,
+        state_in: State,
+        state_out: State,
+        control: Control,
+        contacts: Contacts | None,
+        dt: float,
+        *,
+        observables=None,
     ) -> None:
         """Advance one solver substep while retaining buffer usage and overflow flags.
 
         Raw Newton contacts are recorded before transfer can silently clamp their
         count; constraint usage and solver flags are recorded after stepping. Both
         recordings run on the device and participate in CUDA graph capture.
-
-        Args:
-            state_0: Input Newton state.
-            state_1: Output Newton state.
-            control: Actuation inputs for this substep.
-            contacts: Newton collision contacts, or None for internal MuJoCo contacts.
-            substep_dt: Duration of the solver substep in seconds.
         """
-        assert cls._buffer_monitor is not None, "Newton buffer monitor is not initialized"
-        if cls._needs_collision_pipeline:
+        assert self._buffer_monitor is not None, "Newton buffer monitor is not initialized"
+        if self.uses_collision_pipeline():
             assert contacts is not None, "Newton collision contacts are not initialized"
-            cls._buffer_monitor.record_newton_contacts(contacts)
-        super()._step_solver(state_0, state_1, control, contacts, substep_dt)
-        cls._buffer_monitor.record_solver_status()
+            self._buffer_monitor.record_newton_contacts(contacts)
+        super().step(state_in, state_out, control, contacts, dt, observables=observables)
+        self._buffer_monitor.record_solver_status()
 
-    @classmethod
-    def _check_solver_status(cls) -> None:
-        """Abort on recorded buffer failures after each physics-manager step.
+    def check_step(self, captured: bool, debug: bool) -> None:
+        """Abort on recorded buffer failures after each physics step, outside CUDA graph capture.
 
-        Isaac Lab invokes this hook outside CUDA graph capture, after stepping or
-        replay. The monitor synchronizes a small status array to the host and
-        asserts with capacity guidance if any monitored substep overflowed.
+        The monitor synchronizes a small status array to the host and asserts with capacity
+        guidance if any monitored substep overflowed.
         """
-        super()._check_solver_status()
-        assert cls._buffer_monitor is not None, "Newton buffer monitor is not initialized"
-        cls._buffer_monitor.check()
+        super().check_step(captured, debug)
+        assert self._buffer_monitor is not None, "Newton buffer monitor is not initialized"
+        self._buffer_monitor.check()
 
     @classmethod
-    def _solver_specific_clear(cls) -> None:
-        """Release the monitor during teardown so a rebuilt solver starts with fresh status."""
-        cls._buffer_monitor = None
-        super()._solver_specific_clear()
-
-    @classmethod
-    def create_fixed_tendon_control(cls, articulation: Articulation) -> MjWarpTendonControl | None:
+    def fixed_tendon_control(cls, cfg: MJWarpSolverCfg, articulation: Articulation, model: Model):
         """Create a tendon adapter only when the model has MuJoCo actuator metadata.
 
         Newton-native actuators and passive tendons do not create the optional
         ``model.mujoco.actuator_world`` array assumed by Isaac Lab's tendon adapter.
 
         Args:
+            cfg: MuJoCo-Warp solver configuration.
             articulation: Newton articulation whose fixed tendons should be controlled.
+            model: Finalized Newton model.
 
         Returns:
             Isaac Lab's tendon adapter, or None when no applicable MuJoCo actuators exist.
         """
-        model = cls.get_model()
         if not hasattr(model.mujoco, "actuator_world"):
             return None
-        return super().create_fixed_tendon_control(articulation)
+        return super().fixed_tendon_control(cfg, articulation, model)
 
 
 @configclass
@@ -132,7 +127,7 @@ class ArenaPhysicsCfg(PresetCfg):
     physx = PhysxCfg()
     newton = NewtonCfg(
         solver_cfg=MJWarpSolverCfg(
-            class_type=NewtonArenaMJWarpManager,
+            class_type=NewtonArenaMJWarpSolver,
             solver="newton",
             integrator="implicitfast",
             njmax=8192,

@@ -14,14 +14,13 @@ HEADLESS = True
 
 def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     from types import SimpleNamespace
-    from unittest.mock import patch
 
     from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
     from isaaclab_physx.physics import PhysxCfg
 
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
         ArenaPhysicsCfg,
-        NewtonArenaMJWarpManager,
+        NewtonArenaMJWarpSolver,
     )
 
     cfg = ArenaPhysicsCfg()
@@ -32,12 +31,13 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     with pytest.raises(AttributeError):
         getattr(cfg, "unknown_backend")
     assert cfg.newton.solver_cfg.solver == "newton"
-    assert cfg.newton.solver_cfg.class_type is NewtonArenaMJWarpManager
-    assert cfg.newton.class_type is NewtonArenaMJWarpManager
-    assert NewtonArenaMJWarpManager.__name__.lower().startswith("newton")
+    assert cfg.newton.solver_cfg.class_type is NewtonArenaMJWarpSolver
+    assert NewtonArenaMJWarpSolver.__name__.lower().startswith("newton")
     model_without_mujoco_actuators = SimpleNamespace(mujoco=SimpleNamespace())
-    with patch.object(NewtonArenaMJWarpManager, "get_model", return_value=model_without_mujoco_actuators):
-        assert NewtonArenaMJWarpManager.create_fixed_tendon_control(object()) is None
+    tendon_control = NewtonArenaMJWarpSolver.fixed_tendon_control(
+        cfg.newton.solver_cfg, object(), model_without_mujoco_actuators
+    )
+    assert tendon_control is None
     return True
 
 

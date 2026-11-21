@@ -40,7 +40,8 @@ class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Newton DROID gear insertion environment."""
 
     embodiment: str = "droid_differential_ik"
-    """DROID differential-IK embodiment: ``droid_differential_ik`` or ``droid_abs_ik``."""
+    """DROID embodiment: ``droid_differential_ik``, ``droid_abs_ik``, or ``droid_abs_joint_pos``. MDP2 builds support
+    ``droid_abs_joint_pos`` only."""
 
     hdr: str | None = "empty_warehouse_robolab"
     """Registered HDR background, or None for uniform dome lighting."""
@@ -63,8 +64,9 @@ class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
         ), "position_randomization_m must be finite and non-negative"
         assert self.embodiment in {
             "droid_abs_ik",
+            "droid_abs_joint_pos",
             "droid_differential_ik",
-        }, "Gear insertion supports the droid_abs_ik and droid_differential_ik embodiments"
+        }, "Gear insertion supports the droid_abs_ik, droid_abs_joint_pos, and droid_differential_ik embodiments"
         for size in (self.camera_width, self.camera_height):
             assert size is None or size > 0, "camera_width and camera_height must be positive"
 

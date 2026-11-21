@@ -276,13 +276,13 @@ G1_CFG = ArticulationCfg(
                 ".*_hip_pitch_joint",
                 ".*_knee_joint",
             ],
-            effort_limit={
+            actuator_effort_limit={
                 ".*_hip_yaw_joint": 88.0,
                 ".*_hip_roll_joint": 88.0,
                 ".*_hip_pitch_joint": 88.0,
                 ".*_knee_joint": 139.0,
             },
-            velocity_limit={
+            actuator_velocity_limit={
                 ".*_hip_yaw_joint": 32.0,
                 ".*_hip_roll_joint": 32.0,
                 ".*_hip_pitch_joint": 32.0,
@@ -315,11 +315,11 @@ G1_CFG = ArticulationCfg(
                 ".*_ankle_pitch_joint": 2,
                 ".*_ankle_roll_joint": 2,
             },
-            effort_limit={
+            actuator_effort_limit={
                 ".*_ankle_pitch_joint": 50.0,
                 ".*_ankle_roll_joint": 50.0,
             },
-            velocity_limit={
+            actuator_velocity_limit={
                 ".*_ankle_pitch_joint": 37.0,
                 ".*_ankle_roll_joint": 37.0,
             },
@@ -330,12 +330,12 @@ G1_CFG = ArticulationCfg(
             joint_names_expr=[
                 "waist_.*_joint",
             ],
-            effort_limit={
+            actuator_effort_limit={
                 "waist_yaw_joint": 88.0,
                 "waist_roll_joint": 50.0,
                 "waist_pitch_joint": 50.0,
             },
-            velocity_limit={
+            actuator_velocity_limit={
                 "waist_yaw_joint": 32.0,
                 "waist_roll_joint": 37.0,
                 "waist_pitch_joint": 37.0,
@@ -361,7 +361,7 @@ G1_CFG = ArticulationCfg(
                 ".*_elbow_joint",
                 ".*_wrist_.*_joint",
             ],
-            effort_limit={
+            actuator_effort_limit={
                 ".*_shoulder_pitch_joint": 25.0,
                 ".*_shoulder_roll_joint": 25.0,
                 ".*_shoulder_yaw_joint": 25.0,
@@ -370,7 +370,7 @@ G1_CFG = ArticulationCfg(
                 ".*_wrist_pitch_joint": 5.0,
                 ".*_wrist_yaw_joint": 5.0,
             },
-            velocity_limit={
+            actuator_velocity_limit={
                 ".*_shoulder_pitch_joint": 37.0,
                 ".*_shoulder_roll_joint": 37.0,
                 ".*_shoulder_yaw_joint": 37.0,
@@ -401,8 +401,8 @@ G1_CFG = ArticulationCfg(
             joint_names_expr=[
                 ".*_hand_.*",
             ],
-            effort_limit=5.0,
-            velocity_limit=10.0,
+            actuator_effort_limit=5.0,
+            actuator_velocity_limit=10.0,
             stiffness=4.0,
             damping=0.5,
             armature=0.03,
