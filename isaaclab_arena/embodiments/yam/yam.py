@@ -36,6 +36,8 @@ PASSIVE_GRIPPER_JOINT_NAME = "right_finger"
 END_EFFECTOR_BODY_NAME = "link_6"
 GRIPPER_OPEN_POSITION = 0.037524
 GRIPPER_CLOSED_POSITION = 0.0
+NEWTON_CONTACT_GAP = 0.001
+"""Newton collision contact gap in meters."""
 
 _DEFAULT_ARM_JOINT_POSITIONS = (0.0, 0.85, 0.60, 0.0, 0.0, 0.0)
 
@@ -120,7 +122,7 @@ class YamObservationsCfg:
 
 @register_asset
 class YamEmbodiment(EmbodimentBase):
-    """One fixed-base YAM arm with absolute joint-position control, for Newton with the MJWarp solver."""
+    """One fixed-base YAM arm with absolute joint-position control. Implemented for Newton (MJWarp solver) only."""
 
     registry_name = "yam"
     tags = ["embodiment", "yam"]
@@ -136,8 +138,26 @@ class YamEmbodiment(EmbodimentBase):
         self.add_camera_variations(self.camera_config)
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
-        """Reject backends other than Newton, which reads the USD's Newton and MuJoCo properties."""
-        assert backend is PhysicsBackend.NEWTON, f"{self.registry_name} requires the Newton physics backend."
+        """Apply the Newton spawn overrides; PhysX is not implemented."""
+        if backend is PhysicsBackend.NEWTON:
+            self._configure_newton_spawn()
+        else:
+            raise NotImplementedError(f"{self.registry_name} does not implement the {backend} physics backend.")
+
+    def _configure_newton_spawn(self) -> None:
+        """Spawn the YAM with gravity compensation, no self-collision and a small contact gap."""
+        from isaaclab.sim.schemas.schemas_cfg import JointDriveBaseCfg
+        from isaaclab_newton.sim.schemas import (
+            MujocoRigidBodyPropertiesCfg,
+            NewtonArticulationRootPropertiesCfg,
+            NewtonCollisionPropertiesCfg,
+        )
+
+        spawn = self.scene_config.robot.spawn
+        spawn.rigid_props = MujocoRigidBodyPropertiesCfg(gravcomp=1.0)
+        spawn.articulation_props = NewtonArticulationRootPropertiesCfg(self_collision_enabled=False)
+        spawn.collision_props = NewtonCollisionPropertiesCfg(contact_margin=0.0, contact_gap=NEWTON_CONTACT_GAP)
+        spawn.joint_drive_props = JointDriveBaseCfg(ensure_drives_exist=True)
 
     def get_command_body_name(self) -> str:
         return END_EFFECTOR_BODY_NAME

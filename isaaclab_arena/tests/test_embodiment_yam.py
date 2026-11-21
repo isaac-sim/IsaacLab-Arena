@@ -6,11 +6,11 @@
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _test_yam_embodiment_is_newton_only(simulation_app) -> bool:
-    """Check the YAM embodiment spawns the robot_library USD, accepts Newton, rejects PhysX and exposes its cameras."""
+def _test_yam_embodiment_backends(simulation_app) -> bool:
+    """Check the YAM embodiment spawns the robot_library USD, applies Newton spawn overrides, leaves PhysX unimplemented and exposes its cameras."""
 
     from isaaclab_arena.assets.registries import AssetRegistry, ensure_assets_registered
-    from isaaclab_arena.embodiments.yam.yam import YAM_USD_PATH, YamEmbodiment
+    from isaaclab_arena.embodiments.yam.yam import NEWTON_CONTACT_GAP, YAM_USD_PATH, YamEmbodiment
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
     ensure_assets_registered()
@@ -30,14 +30,20 @@ def _test_yam_embodiment_is_newton_only(simulation_app) -> bool:
     assert camera_rig.top_camera.prim_path.endswith("/Robot/Geometry/arm/top_camera")
 
     embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
+    spawn = embodiment.scene_config.robot.spawn
+    assert spawn.rigid_props.gravcomp == 1.0
+    assert spawn.articulation_props.self_collision_enabled is False
+    assert spawn.collision_props.contact_gap == NEWTON_CONTACT_GAP
+    assert spawn.joint_drive_props.ensure_drives_exist
+
     try:
         YamEmbodiment().configure_physics_backend(PhysicsBackend.PHYSX)
-    except AssertionError as error:
-        assert "requires the Newton physics backend" in str(error)
+    except NotImplementedError as error:
+        assert "does not implement the physx physics backend" in str(error)
     else:
-        raise AssertionError("YAM must reject the PhysX backend")
+        raise AssertionError("YAM must not implement the PhysX backend")
     return True
 
 
-def test_yam_embodiment_is_newton_only():
-    assert run_function_with_persistent_simulation_app(_test_yam_embodiment_is_newton_only)
+def test_yam_embodiment_backends():
+    assert run_function_with_persistent_simulation_app(_test_yam_embodiment_backends)
