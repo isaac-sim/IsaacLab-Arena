@@ -2349,4 +2349,5 @@ class CalibratedWeight(Object):
         )
 
 
+import isaaclab_arena.assets.sliding_front_cabinet_assets  # noqa: E402, F401
 import isaaclab_arena.assets.spring_platform_ballast_match_assets  # noqa: E402, F401
