@@ -29,14 +29,14 @@ def _test_yam_embodiment_backends(simulation_app) -> bool:
     import math
 
     from isaaclab_arena.assets.registries import AssetRegistry, ensure_assets_registered
-    from isaaclab_arena.embodiments.yam.yam import YAM_USD_PATH, YamEmbodiment
+    from isaaclab_arena.embodiments.yam.yam import YAM_USD_PATH, YamAbsoluteJointPositionEmbodiment
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
     ensure_assets_registered()
-    assert AssetRegistry().get_component_by_name("yam") is YamEmbodiment
+    assert AssetRegistry().get_component_by_name("yam_abs_joint_pos") is YamAbsoluteJointPositionEmbodiment
     assert YAM_USD_PATH.endswith("/Arena/assets/robot_library/yam/i2rt_yam_default.usda")
 
-    camera_rig = YamEmbodiment(enable_cameras=True).get_camera_cfg()
+    camera_rig = YamAbsoluteJointPositionEmbodiment(enable_cameras=True).get_camera_cfg()
     assert camera_rig.camera_names() == ["wrist_camera", "top_camera"]
     assert camera_rig.wrist_camera.prim_path.endswith(
         "/Robot/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/wrist_camera"
@@ -48,14 +48,14 @@ def _test_yam_embodiment_backends(simulation_app) -> bool:
         vertical_fov_deg = math.degrees(2.0 * math.atan(lens.vertical_aperture / (2.0 * lens.focal_length)))
         assert vertical_fov_deg == pytest.approx(58.0)
 
-    newton_embodiment = YamEmbodiment()
+    newton_embodiment = YamAbsoluteJointPositionEmbodiment()
     newton_embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
     newton_spawn = newton_embodiment.get_scene_cfg().robot.spawn
     assert newton_spawn.usd_path == YAM_USD_PATH
     assert newton_spawn.rigid_props is None
     assert newton_embodiment.get_command_body_name() == "link_6"
 
-    physx_embodiment = YamEmbodiment()
+    physx_embodiment = YamAbsoluteJointPositionEmbodiment()
     physx_embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
     physx_robot = physx_embodiment.get_scene_cfg().robot
     assert physx_robot.spawn.usd_path == YAM_USD_PATH
@@ -75,7 +75,7 @@ def _yam_env(env_name: str, backend_name: str):
     """Yield a single-env scene holding only the YAM at ``ROBOT_POSITION``, simulated on the named physics backend."""
     import gymnasium as gym
 
-    from isaaclab_arena.embodiments.yam.yam import YamEmbodiment
+    from isaaclab_arena.embodiments.yam.yam import YamAbsoluteJointPositionEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -83,7 +83,7 @@ def _yam_env(env_name: str, backend_name: str):
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
     from isaaclab_arena.utils.pose import Pose
 
-    embodiment = YamEmbodiment(initial_pose=Pose(position_xyz=ROBOT_POSITION))
+    embodiment = YamAbsoluteJointPositionEmbodiment(initial_pose=Pose(position_xyz=ROBOT_POSITION))
     arena_env = IsaacLabArenaEnvironment(name=env_name, embodiment=embodiment, scene=Scene())
     if env_name in gym.registry:
         del gym.registry[env_name]

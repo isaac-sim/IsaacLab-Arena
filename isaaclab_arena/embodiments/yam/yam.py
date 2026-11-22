@@ -125,7 +125,7 @@ class YamSceneCfg:
 
 
 @configclass
-class YamActionsCfg:
+class YamAbsoluteJointPositionActionsCfg:
     """Absolute arm joint targets and a gripper command in [0, 1] (0 open, 1 closed)."""
 
     arm_action: JointPositionActionCfg = JointPositionActionCfg(
@@ -161,7 +161,7 @@ class YamObservationsCfg:
 
 
 @register_asset
-class YamEmbodiment(EmbodimentBase):
+class YamAbsoluteJointPositionEmbodiment(EmbodimentBase):
     """One fixed-base YAM arm with absolute joint-position control.
 
     PhysX and Newton (MJWarp) both spawn AUTOLab's MuJoCo model, ``YAM_USD_PATH``. Newton uses the USD as authored;
@@ -176,7 +176,7 @@ class YamEmbodiment(EmbodimentBase):
         drives.
     """
 
-    registry_name = "yam"
+    registry_name = "yam_abs_joint_pos"
     tags = ["embodiment", "yam"]
     default_arm_mode = ArmMode.SINGLE_ARM
     """SINGLE_ARM fits this class because it spawns one articulation; a bimanual YAM rig needs its own embodiment."""
@@ -185,7 +185,7 @@ class YamEmbodiment(EmbodimentBase):
         """Initialize the embodiment; ``enable_cameras`` adds the wrist and top-down cameras."""
         super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose, concatenate_observation_terms=True)
         self.scene_config = YamSceneCfg(robot=make_yam_articulation_cfg("{ENV_REGEX_NS}/Robot", usd_path))
-        self.action_config = YamActionsCfg()
+        self.action_config = YamAbsoluteJointPositionActionsCfg()
         self.observation_config = YamObservationsCfg()
         self.camera_config = YamCameraCfg()
         self.add_camera_variations(self.camera_config)
