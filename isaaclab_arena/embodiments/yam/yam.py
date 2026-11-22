@@ -167,13 +167,11 @@ class YamAbsoluteJointPositionEmbodiment(EmbodimentBase):
     PhysX and Newton (MJWarp) both spawn AUTOLab's MuJoCo model, ``YAM_USD_PATH``. Newton uses the USD as authored;
     PhysX adds the overrides in ``_configure_physics_backend``.
 
-    Note:
-        Right finger: the USD's mimic joint makes it mirror the driven left finger under both backends, so it has no
-        drive (see ``PASSIVE_GRIPPER_JOINT_NAME``).
+    NOTE(xinjieyao, 2026-11-21): The right finger has no drive. The USD's mimic joint makes it mirror the driven left
+    finger under both backends (see ``PASSIVE_GRIPPER_JOINT_NAME``).
 
-        Gravity compensation: the USD sets MuJoCo's ``gravcomp`` to 1 on every robot link, which MJWarp applies and
-        PhysX ignores. Under PhysX the robot links have gravity disabled instead; without it the arm sags under its
-        drives.
+    NOTE(xinjieyao, 2026-11-21): The USD sets MuJoCo's ``gravcomp`` to 1 on every robot link, which MJWarp applies and
+    PhysX ignores. Under PhysX the robot links have gravity disabled instead; without it the arm sags under its drives.
     """
 
     registry_name = "yam_abs_joint_pos"
