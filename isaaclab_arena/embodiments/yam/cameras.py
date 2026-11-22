@@ -20,7 +20,12 @@ _CAMERA_HEIGHT = 720
 _HORIZONTAL_APERTURE = 6.4
 """Horizontal film aperture in millimeters."""
 _SQUARE_PIXEL_VERTICAL_APERTURE = _HORIZONTAL_APERTURE * _CAMERA_HEIGHT / _CAMERA_WIDTH
-"""Vertical film aperture in millimeters that gives the 1280x720 image square pixels."""
+"""Vertical film aperture in millimeters: 3.6 mm, the horizontal aperture scaled by the 16:9 image aspect ratio.
+
+Isaac Lab cameras assume square pixels, so a 4:3 aperture such as 4.8 mm would not give the 1280x720 image the
+requested vertical field of view. With 3.6 mm and the D405's 58-degree vertical field of view, the focal length is
+3.25 mm and the horizontal field of view is about 89 degrees, close to the D405's 87 degrees.
+"""
 # AUTOLab's yam_bimanual_scene.xml mounts the D405 housing at (-0.0107, 0.079729, 0.066021) tilted 50 degrees about X.
 # Its optical frame adds 9 mm along the housing X axis and a 180 degree roll, then converts MuJoCo's (-Z forward,
 # +Y up) camera axes to ROS optical axes.
