@@ -15,9 +15,11 @@ from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
 from isaaclab.envs import mdp
 from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
+from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils.configclass import configclass
 from pxr import Usd, UsdPhysics
 
@@ -26,7 +28,7 @@ from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import ArticulationGeometrySpec, EmbodimentBase
-from isaaclab_arena.embodiments.yam.cameras import YamBimanualCameraCfg
+from isaaclab_arena.embodiments.yam.cameras import BASE_PRIM_SUFFIX, LINK_SIX_PRIM_SUFFIX, YamBimanualCameraCfg
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -59,6 +61,8 @@ The USD couples the fingers so the left finger stays at minus the right finger's
 read this mimic joint, so no separate PhysX mimic is added: it would constrain the same finger pair twice.
 """
 END_EFFECTOR_BODY_NAME = "link_6"
+GRASP_SITE_OFFSET_FROM_LINK_SIX = (0.0, 0.0, 0.1347)
+"""The USD's ``grasp_site`` in the ``link_6`` frame, midway between the fingertips; the end-effector frames track it."""
 GRIPPER_OPEN_POSITION = 0.037524
 GRIPPER_CLOSED_POSITION = 0.0
 
@@ -109,7 +113,7 @@ def make_yam_articulation_cfg(prim_path: str, usd_path: str = YAM_USD_PATH) -> A
     joint_pos[PASSIVE_GRIPPER_JOINT_NAME] = -GRIPPER_OPEN_POSITION
     return ArticulationCfg(
         prim_path=prim_path,
-        articulation_root_prim_path="/Geometry/arm",
+        articulation_root_prim_path=BASE_PRIM_SUFFIX,
         spawn=sim_utils.UsdFileCfg(usd_path=usd_path, copy_from_source=False, activate_contact_sensors=True),
         init_state=ArticulationCfg.InitialStateCfg(joint_pos=joint_pos, joint_vel={".*": 0.0}),
         soft_joint_pos_limit_factor=0.95,
@@ -129,6 +133,25 @@ def make_yam_articulation_cfg(prim_path: str, usd_path: str = YAM_USD_PATH) -> A
                 joint_names_expr=[PASSIVE_GRIPPER_JOINT_NAME], stiffness=0.0, damping=0.0
             ),
         },
+    )
+
+
+def make_yam_ee_frame_cfg(robot_prim_path: str) -> FrameTransformerCfg:
+    """Build a frame sensor tracking one YAM's grasp site, expressed in that arm's base frame.
+
+    Args:
+        robot_prim_path: Prim path of the YAM articulation, e.g. ``{ENV_REGEX_NS}/LeftRobot``.
+    """
+    return FrameTransformerCfg(
+        prim_path=f"{robot_prim_path}{BASE_PRIM_SUFFIX}",
+        debug_vis=False,
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path=f"{robot_prim_path}{LINK_SIX_PRIM_SUFFIX}",
+                name="end_effector",
+                offset=OffsetCfg(pos=GRASP_SITE_OFFSET_FROM_LINK_SIX),
+            )
+        ],
     )
 
 
@@ -153,10 +176,29 @@ def _make_gripper_action_cfg(asset_name: str) -> JointPositionActionCfg:
 
 @configclass
 class YamBimanualSceneCfg:
-    """The left and right YAM articulations."""
+    """The left and right YAM articulations and their end-effector frame sensors."""
 
     left_robot: ArticulationCfg | None = None
     right_robot: ArticulationCfg | None = None
+    left_ee_frame: FrameTransformerCfg | None = None
+    right_ee_frame: FrameTransformerCfg | None = None
+
+
+def _make_joint_reset_event(asset_name: str) -> EventTerm:
+    """Build a reset event that returns one arm's joints to their initial positions and zero velocity."""
+    return EventTerm(
+        func=mdp.reset_joints_by_offset,
+        mode="reset",
+        params={"position_range": (0.0, 0.0), "velocity_range": (0.0, 0.0), "asset_cfg": SceneEntityCfg(asset_name)},
+    )
+
+
+@configclass
+class YamBimanualEventsCfg:
+    """Reset events that restore both arms' initial joint positions at the start of every episode."""
+
+    reset_left_robot_joints: EventTerm = _make_joint_reset_event(LEFT_ROBOT_KEY)
+    reset_right_robot_joints: EventTerm = _make_joint_reset_event(RIGHT_ROBOT_KEY)
 
 
 @configclass
@@ -211,17 +253,38 @@ class YamBimanualAbsoluteJointPositionEmbodiment(EmbodimentBase):
     default_arm_mode = ArmMode.DUAL_ARM
     """DUAL_ARM fits this class because it spawns two arms; LEFT or RIGHT marks a task done with one of them."""
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, usd_path: str = YAM_USD_PATH):
-        """Initialize the embodiment; ``enable_cameras`` adds both wrist cameras and the top-down camera."""
-        super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose, concatenate_observation_terms=True)
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        usd_path: str = YAM_USD_PATH,
+        arm_mode: ArmMode | None = None,
+    ):
+        """Initialize the embodiment; ``enable_cameras`` adds both wrist cameras and the top-down camera.
+
+        Args:
+            enable_cameras: Whether to add the wrist and top-down cameras.
+            initial_pose: Env-local rig pose, at the midpoint between the two bases.
+            usd_path: YAM USD to spawn for each arm.
+            arm_mode: Arm the task uses. LEFT or RIGHT selects that arm's scene key and end-effector frame.
+        """
+        super().__init__(
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            concatenate_observation_terms=True,
+            arm_mode=arm_mode,
+        )
         self.scene_config = YamBimanualSceneCfg(
             left_robot=make_yam_articulation_cfg("{ENV_REGEX_NS}/LeftRobot", usd_path),
             right_robot=make_yam_articulation_cfg("{ENV_REGEX_NS}/RightRobot", usd_path),
+            left_ee_frame=make_yam_ee_frame_cfg("{ENV_REGEX_NS}/LeftRobot"),
+            right_ee_frame=make_yam_ee_frame_cfg("{ENV_REGEX_NS}/RightRobot"),
         )
         for name, t_M_B in t_M_B_BY_ARM.items():
             getattr(self.scene_config, name).init_state.pos = t_M_B
         self.action_config = YamBimanualAbsoluteJointPositionActionsCfg()
         self.observation_config = YamBimanualObservationsCfg()
+        self.event_config = YamBimanualEventsCfg()
         self.camera_config = YamBimanualCameraCfg()
         self.camera_config.mount_top_camera_on_left_base(t_M_B_BY_ARM[LEFT_ROBOT_KEY])
         self.add_camera_variations(self.camera_config)
@@ -250,8 +313,8 @@ class YamBimanualAbsoluteJointPositionEmbodiment(EmbodimentBase):
             )
 
     def get_scene_key(self) -> str:
-        """Return the left arm as the primary scene entity."""
-        return LEFT_ROBOT_KEY
+        """Return the scene key of the arm the task uses: the right arm in RIGHT mode, otherwise the left arm."""
+        return RIGHT_ROBOT_KEY if self.arm_mode is ArmMode.RIGHT else LEFT_ROBOT_KEY
 
     def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
         """Return each arm's base pose for a rig pose ``layout_pose`` (T_E_M, rig frame M in the env frame E)."""
@@ -306,5 +369,14 @@ class YamBimanualAbsoluteJointPositionEmbodiment(EmbodimentBase):
     def get_command_body_name(self) -> str:
         return END_EFFECTOR_BODY_NAME
 
+    def get_ee_frame_transformer_names(self) -> list[str]:
+        """Return both arms' end-effector frame sensor names."""
+        return ["left_ee_frame", "right_ee_frame"]
+
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
-        return END_EFFECTOR_BODY_NAME
+        """Return the end-effector frame sensor name of the LEFT or RIGHT arm."""
+        assert arm_mode in (
+            ArmMode.LEFT,
+            ArmMode.RIGHT,
+        ), f"The bimanual YAM has one end-effector frame per arm; pass ArmMode.LEFT or ArmMode.RIGHT, not {arm_mode}."
+        return f"{arm_mode.value}_ee_frame"

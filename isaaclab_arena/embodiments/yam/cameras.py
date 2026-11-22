@@ -34,8 +34,8 @@ _D405_MOUNT_ROTATION_XYZW = (0.0, -0.42304971, 0.90610647, 0.0)
 _t_M_TOP = (0.335, 0.0, 0.93732053)
 """Top camera position in the rig frame M, which sits midway between the two bases; it looks straight down."""
 _TOP_CAMERA_ROTATION_XYZW = (math.sqrt(0.5), math.sqrt(0.5), 0.0, 0.0)
-_BASE_PRIM_SUFFIX = "/Geometry/arm"
-_LINK_SIX_PRIM_SUFFIX = f"{_BASE_PRIM_SUFFIX}/link_1/link_2/link_3/link_4/link_5/link_6"
+BASE_PRIM_SUFFIX = "/Geometry/arm"
+LINK_SIX_PRIM_SUFFIX = f"{BASE_PRIM_SUFFIX}/link_1/link_2/link_3/link_4/link_5/link_6"
 
 
 def make_d405_camera_cfg(
@@ -80,17 +80,17 @@ class YamBimanualCameraCfg(ArenaCameraCfg):
     """
 
     left_wrist_camera: CameraCfg = make_d405_camera_cfg(
-        f"{{ENV_REGEX_NS}}/LeftRobot{_LINK_SIX_PRIM_SUFFIX}/left_wrist_camera",
+        f"{{ENV_REGEX_NS}}/LeftRobot{LINK_SIX_PRIM_SUFFIX}/left_wrist_camera",
         _D405_MOUNT_POSITION,
         _D405_MOUNT_ROTATION_XYZW,
     )
     right_wrist_camera: CameraCfg = make_d405_camera_cfg(
-        f"{{ENV_REGEX_NS}}/RightRobot{_LINK_SIX_PRIM_SUFFIX}/right_wrist_camera",
+        f"{{ENV_REGEX_NS}}/RightRobot{LINK_SIX_PRIM_SUFFIX}/right_wrist_camera",
         _D405_MOUNT_POSITION,
         _D405_MOUNT_ROTATION_XYZW,
     )
     top_camera: CameraCfg = make_d405_camera_cfg(
-        f"{{ENV_REGEX_NS}}/LeftRobot{_BASE_PRIM_SUFFIX}/top_camera",
+        f"{{ENV_REGEX_NS}}/LeftRobot{BASE_PRIM_SUFFIX}/top_camera",
         _t_M_TOP,
         _TOP_CAMERA_ROTATION_XYZW,
     )

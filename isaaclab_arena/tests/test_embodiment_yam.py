@@ -22,6 +22,7 @@ RIG_POSITION = (0.2, -0.1, 0.05)
 """Env-local rig position, away from the origin so placement is observable."""
 ROOT_POSITION_TOLERANCE_M = 0.001
 ROOT_WRITE_SHIFT_X_M = 0.1
+RESET_TEST_JOINT1_OFFSET_RAD = 0.3
 
 
 def _test_yam_bimanual_embodiment_backends(simulation_app) -> bool:
@@ -29,6 +30,7 @@ def _test_yam_bimanual_embodiment_backends(simulation_app) -> bool:
     import math
 
     from isaaclab_arena.assets.registries import AssetRegistry, ensure_assets_registered
+    from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.embodiments.yam.yam import (
         LEFT_ROBOT_KEY,
         RIGHT_ROBOT_KEY,
@@ -77,6 +79,18 @@ def _test_yam_bimanual_embodiment_backends(simulation_app) -> bool:
     # Placement bounds cover both arms, whose bases sit 0.31 m either side of the rig midpoint.
     bbox = newton_embodiment.get_bounding_box()
     assert bbox.min_point[0, 1].item() < -0.31 and bbox.max_point[0, 1].item() > 0.31
+
+    # Each arm has its own end-effector frame sensor and joint reset; LEFT or RIGHT selects one arm.
+    assert newton_embodiment.get_ee_frame_transformer_names() == ["left_ee_frame", "right_ee_frame"]
+    assert newton_scene.left_ee_frame is not None and newton_scene.right_ee_frame is not None
+    assert newton_embodiment.get_ee_frame_name(ArmMode.LEFT) == "left_ee_frame"
+    assert newton_embodiment.get_ee_frame_name(ArmMode.RIGHT) == "right_ee_frame"
+    right_arm_embodiment = YamBimanualAbsoluteJointPositionEmbodiment(arm_mode=ArmMode.RIGHT)
+    assert right_arm_embodiment.get_scene_key() == RIGHT_ROBOT_KEY
+    assert newton_embodiment.get_scene_key() == LEFT_ROBOT_KEY
+    events = newton_embodiment.get_events_cfg()
+    assert events.reset_left_robot_joints.params["asset_cfg"].name == LEFT_ROBOT_KEY
+    assert events.reset_right_robot_joints.params["asset_cfg"].name == RIGHT_ROBOT_KEY
     return True
 
 
@@ -97,7 +111,9 @@ def _yam_bimanual_env(env_name: str, backend_name: str):
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
     from isaaclab_arena.utils.pose import Pose
 
-    embodiment = YamBimanualAbsoluteJointPositionEmbodiment(initial_pose=Pose(position_xyz=RIG_POSITION))
+    embodiment = YamBimanualAbsoluteJointPositionEmbodiment()
+    # set_initial_pose also adds the reset event that writes the rig pose back at every episode start.
+    embodiment.set_initial_pose(Pose(position_xyz=RIG_POSITION))
     arena_env = IsaacLabArenaEnvironment(name=env_name, embodiment=embodiment, scene=Scene())
     if env_name in gym.registry:
         del gym.registry[env_name]
@@ -112,8 +128,13 @@ def _yam_bimanual_env(env_name: str, backend_name: str):
             del gym.registry[env_name]
 
 
-def _hold_default_arm_poses(env, left_gripper_command: float, right_gripper_command: float) -> dict[str, torch.Tensor]:
-    """Command both arms' default poses and each gripper's closure in [0, 1], settle, and return joint positions."""
+def _hold_default_arm_poses(
+    env, left_gripper_command: float, right_gripper_command: float, joint1_offset: float = 0.0
+) -> dict[str, torch.Tensor]:
+    """Command both arms' default poses, shifted by ``joint1_offset`` on joint1, and each gripper's closure in [0, 1].
+
+    Steps until settled and returns each arm's joint positions.
+    """
     import torch
 
     import warp as wp
@@ -129,6 +150,7 @@ def _hold_default_arm_poses(env, left_gripper_command: float, right_gripper_comm
         robot = env.unwrapped.scene[name]
         arm_joint_ids, _ = robot.find_joints(ARM_JOINT_NAMES, preserve_order=True)
         action[:, offset : offset + 6] = wp.to_torch(robot.data.default_joint_pos)[:, arm_joint_ids]
+        action[:, offset] += joint1_offset
         action[:, offset + 6] = gripper_command
     for _ in range(SETTLE_STEPS):
         env.step(action)
@@ -139,13 +161,16 @@ def _hold_default_arm_poses(env, left_gripper_command: float, right_gripper_comm
 
 
 def _test_yam_bimanual_holds_arms_and_mirrors_fingers(simulation_app, backend_name: str) -> bool:
-    """Both arms should stay at their mounts, hold their default poses and follow their own gripper commands."""
+    """Both arms should stay at their mounts, hold their default poses, follow their own gripper commands and reset."""
+    import math
     import torch
 
     import warp as wp
 
     from isaaclab_arena.embodiments.yam.yam import (
         ARM_JOINT_NAMES,
+        END_EFFECTOR_BODY_NAME,
+        GRASP_SITE_OFFSET_FROM_LINK_SIX,
         GRIPPER_CLOSED_POSITION,
         GRIPPER_JOINT_NAME,
         GRIPPER_OPEN_POSITION,
@@ -202,6 +227,48 @@ def _test_yam_bimanual_holds_arms_and_mirrors_fingers(simulation_app, backend_na
                 x_error = abs(wp.to_torch(scene[name].data.root_pos_w)[0, 0].item() - x)
                 print(f"[{backend_name}] {name} base is {x_error:.4f} m from its written x")
                 assert x_error < ROOT_POSITION_TOLERANCE_M, f"The {name} base ignored a root pose write."
+
+            # Each end-effector frame tracks its arm's grasp site, a fixed distance from link_6.
+            for name, ee_frame_name in ((LEFT_ROBOT_KEY, "left_ee_frame"), (RIGHT_ROBOT_KEY, "right_ee_frame")):
+                robot = scene[name]
+                (link_six_id,), _ = robot.find_bodies([END_EFFECTOR_BODY_NAME])
+                t_W_link6 = wp.to_torch(robot.data.body_pos_w)[0, link_six_id]
+                t_W_grasp = wp.to_torch(scene[ee_frame_name].data.target_pos_w)[0, 0]
+                distance = torch.norm(t_W_grasp - t_W_link6).item()
+                expected = math.dist((0.0, 0.0, 0.0), GRASP_SITE_OFFSET_FROM_LINK_SIX)
+                print(f"[{backend_name}] {ee_frame_name} is {distance:.4f} m from link_6, expected {expected:.4f} m")
+                assert abs(distance - expected) < ROOT_POSITION_TOLERANCE_M
+
+            # A reset must restore the initial joint state and mounts after the arms move and the grippers close.
+            _hold_default_arm_poses(env, 1.0, 1.0, joint1_offset=RESET_TEST_JOINT1_OFFSET_RAD)
+            for name in (LEFT_ROBOT_KEY, RIGHT_ROBOT_KEY):
+                joint_pos = wp.to_torch(scene[name].data.joint_pos)[0]
+                default_joint_pos = wp.to_torch(scene[name].data.default_joint_pos)[0]
+                moved = torch.max(torch.abs(joint_pos - default_joint_pos)).item()
+                assert moved > RESET_TEST_JOINT1_OFFSET_RAD / 2, f"{name} did not move before the reset."
+            env.reset()
+            for name in (LEFT_ROBOT_KEY, RIGHT_ROBOT_KEY):
+                robot = scene[name]
+                joint_error = torch.abs(
+                    wp.to_torch(robot.data.joint_pos)[0] - wp.to_torch(robot.data.default_joint_pos)[0]
+                )
+                arm_joint_ids, _ = robot.find_joints(ARM_JOINT_NAMES, preserve_order=True)
+                finger_joint_ids, _ = robot.find_joints([GRIPPER_JOINT_NAME, PASSIVE_GRIPPER_JOINT_NAME])
+                arm_error = torch.max(joint_error[arm_joint_ids]).item()
+                # The open finger starts at its hard limit; the reset clamps it to the 0.95 soft limit, 1 mm short.
+                finger_error = torch.max(joint_error[finger_joint_ids]).item()
+                t_E_B = wp.to_torch(robot.data.root_pos_w)[0] - scene.env_origins[0]
+                expected_t_E_B = torch.tensor(RIG_POSITION, device=t_E_B.device) + torch.tensor(
+                    t_M_B_BY_ARM[name], device=t_E_B.device
+                )
+                base_error = torch.norm(t_E_B - expected_t_E_B).item()
+                print(
+                    f"[{backend_name}] {name} after reset: arm error {arm_error:.5f} rad, finger error"
+                    f" {finger_error:.4f} m, base error {base_error:.4f} m"
+                )
+                assert arm_error < 1e-4, f"{name} kept {arm_error:.4f} rad of its previous arm pose."
+                assert finger_error < FINGER_TOLERANCE_M, f"{name} kept {finger_error:.4f} m of its gripper closure."
+                assert base_error < ROOT_POSITION_TOLERANCE_M, f"{name} base is {base_error:.4f} m off its mount."
     return True
 
 
