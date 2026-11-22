@@ -1,0 +1,99 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Three look-alike bars (red and blue end caps) lie on a ledge beside a channel. Set each one so it reaches past the
+# yellow line over the channel (0.14 m past the ledge edge) and stays there on its own. Each bar's center of mass is
+# hidden: 5 cm toward the red end, 5 cm toward the blue end, or centered. An off-center bar stays only with its heavy
+# end on the ledge; a centered bar stays only with the clamp-on counterweight on its inner end.
+#
+# Hidden variable: which bar class lies in which slot (bar_1 at x=0.35, bar_2 at x=0.43, bar_3 at x=0.51; every bar
+# starts with its red end on the ledge side, +Y). The defaults come from each bar's registry_name. Set them per run
+# with each bar's asset_selection variation, for example:
+#   bar_1.asset_selection.enabled=true 'bar_1.asset_selection.registry_names=[cantilever_bar_centered]'
+#   bar_2.asset_selection.enabled=true 'bar_2.asset_selection.registry_names=[cantilever_bar_blue_heavy]'
+#   bar_3.asset_selection.enabled=true 'bar_3.asset_selection.registry_names=[cantilever_bar_red_heavy]'
+env_name: cantilever_ledge_bars
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+# Ledge edge at y=-0.05; the ledge top (z=0.054) spans y -0.05..0.20, the channel y -0.29..-0.05 at x 0.29..0.57.
+- id: ledge
+  registry_name: cantilever_ledge
+  params:
+    line_overhang_m: 0.14
+    initial_pose:
+      position_xyz: [0.43, -0.05, 0.004]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: bar_1
+  registry_name: cantilever_bar_red_heavy
+  params: {}
+- id: bar_2
+  registry_name: cantilever_bar_centered
+  params: {}
+- id: bar_3
+  registry_name: cantilever_bar_blue_heavy
+  params: {}
+- id: counterweight
+  registry_name: clamp_counterweight
+  params: {mass_kg: 0.14}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: ledge
+- kind: 'on'
+  subject: bar_1
+  reference: ledge
+  params: {edge_margin_m: 0.0}
+- kind: 'on'
+  subject: bar_2
+  reference: ledge
+  params: {edge_margin_m: 0.0}
+- kind: 'on'
+  subject: bar_3
+  reference: ledge
+  params: {edge_margin_m: 0.0}
+- kind: 'on'
+  subject: counterweight
+  reference: table_oak_robolab
+# Bar slots: each bar lies fully on the ledge top, across the edge direction, its center 0.12-0.13 m from the edge.
+- kind: position_limits_box
+  subject: bar_1
+  params: {x_limits: [0.345, 0.355], y_limits: [0.07, 0.08]}
+- kind: position_limits_box
+  subject: bar_2
+  params: {x_limits: [0.425, 0.435], y_limits: [0.07, 0.08]}
+- kind: position_limits_box
+  subject: bar_3
+  params: {x_limits: [0.505, 0.515], y_limits: [0.07, 0.08]}
+# Counterweight start area: on the table behind the ledge, inside DROID's top-down grasp region.
+- kind: position_limits_box
+  subject: counterweight
+  params: {x_limits: [0.36, 0.5], y_limits: [0.26, 0.29]}
+placer_params:
+  solver_params:
+    clearance_m: 0.03
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  # The original task's instruction.
+  description: "Set all three bars on the ledge so that each one reaches past the yellow line over the
+    trough and stays there on its own. A clamp-on weight is available."  # codespell:ignore trough
+  subtasks:
+  - kind: CantileverLedgeBarsTask
+    params:
+      ledge: ledge
+      bars: [bar_1, bar_2, bar_3]
+      counterweight: counterweight
+      episode_length_s: 180.0

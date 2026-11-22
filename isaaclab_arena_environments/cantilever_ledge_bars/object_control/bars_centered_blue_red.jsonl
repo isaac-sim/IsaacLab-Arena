@@ -1,0 +1,31 @@
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Bars centered / blue-heavy / red-heavy: weight on bar 1, flip bar 2, slide bar 3"}
+{"action":"lift","name":"bar_3","height":0.12,"seconds":1.0}
+{"action":"move","name":"bar_3","reference":"bar_3","reference_axes":["x"],"goal":[0.0,-0.078,0.12],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"bar_3","reference":"bar_3","reference_axes":["x"],"goal":[0.0,-0.078,0.065],"seconds":1.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"release","name":"bar_3"}
+{"action":"wait","seconds":1.5}
+{"action":"inspect"}
+{"action":"lift","name":"bar_2","height":0.14,"seconds":1.0}
+{"action":"move","name":"bar_2","reference":"bar_2","reference_axes":["x","y"],"goal":[0.0,0.0,0.14],"seconds":2.0,"orientation":[0.0,0.0,1.0,0.0]}
+{"action":"move","name":"bar_2","reference":"bar_2","reference_axes":["x"],"goal":[0.0,-0.078,0.14],"seconds":1.5,"orientation":[0.0,0.0,1.0,0.0]}
+{"action":"move","name":"bar_2","reference":"bar_2","reference_axes":["x"],"goal":[0.0,-0.078,0.065],"seconds":1.0,"orientation":[0.0,0.0,1.0,0.0]}
+{"action":"release","name":"bar_2"}
+{"action":"wait","seconds":1.5}
+{"action":"inspect"}
+{"action":"lift","name":"bar_1","height":0.12,"seconds":1.0}
+{"action":"move","name":"bar_1","reference":"bar_1","reference_axes":["x"],"goal":[0.0,-0.078,0.12],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"bar_1","reference":"bar_1","reference_axes":["x"],"goal":[0.0,-0.078,0.065],"seconds":1.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"lift","name":"counterweight","height":0.15,"seconds":1.0}
+{"action":"move","name":"counterweight","reference":"bar_1","reference_axes":["x"],"goal":[0.0,0.022,0.15],"seconds":2.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"counterweight","reference":"bar_1","reference_axes":["x"],"goal":[0.0,0.022,0.078],"seconds":1.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"release","name":"counterweight"}
+{"action":"wait","seconds":0.5}
+{"action":"release","name":"bar_1"}
+{"action":"wait","seconds":1.5}
+{"action":"inspect"}
+{"action":"wait_final","timeout_steps":900}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"end","title":"Bars centered / blue-heavy / red-heavy: weight on bar 1, flip bar 2, slide bar 3"}
+{"action":"finish"}

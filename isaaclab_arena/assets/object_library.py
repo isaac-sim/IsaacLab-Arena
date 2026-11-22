@@ -2347,3 +2347,7 @@ class CalibratedWeight(Object):
             initial_pose=initial_pose,
             tags=list(self.tags),
         )
+
+
+import isaaclab_arena.assets.cantilever_ledge_bars_assets  # noqa: E402, F401
+import isaaclab_arena.assets.objective_case_depths_assets  # noqa: E402, F401

@@ -1,0 +1,37 @@
+{"action":"setup_joint","name":"objective_case","joint_name":"lid_hinge","effort_limit":1.0,"replace_existing":true,"drive_damping":0.005}
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Pack by length into sockets of depth 72/42/62/52 mm, close lid"}
+{"action":"lift","name":"cylinder_42mm","height":0.22,"seconds":1.2}
+{"action":"move","name":"cylinder_42mm","goal":[0.48,0.025,0.22],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"cylinder_42mm","goal":[0.48,0.025,0.115],"seconds":1.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"cylinder_42mm","goal":[0.48,0.025,0.069],"seconds":1.2,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"release","name":"cylinder_42mm"}
+{"action":"wait","seconds":0.6}
+{"action":"lift","name":"cylinder_52mm","height":0.22,"seconds":1.2}
+{"action":"move","name":"cylinder_52mm","goal":[0.48,-0.075,0.22],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"cylinder_52mm","goal":[0.48,-0.075,0.12],"seconds":1.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"cylinder_52mm","goal":[0.48,-0.075,0.064],"seconds":1.2,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"release","name":"cylinder_52mm"}
+{"action":"wait","seconds":0.6}
+{"action":"lift","name":"cylinder_62mm","height":0.22,"seconds":1.2}
+{"action":"move","name":"cylinder_62mm","goal":[0.48,-0.025,0.22],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"cylinder_62mm","goal":[0.48,-0.025,0.125],"seconds":1.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"cylinder_62mm","goal":[0.48,-0.025,0.059],"seconds":1.2,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"release","name":"cylinder_62mm"}
+{"action":"wait","seconds":0.6}
+{"action":"lift","name":"cylinder_72mm","height":0.22,"seconds":1.2}
+{"action":"move","name":"cylinder_72mm","goal":[0.48,0.075,0.22],"seconds":1.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"cylinder_72mm","goal":[0.48,0.075,0.13],"seconds":1.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"cylinder_72mm","goal":[0.48,0.075,0.054],"seconds":1.2,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"release","name":"cylinder_72mm"}
+{"action":"wait","seconds":0.6}
+{"action":"inspect"}
+{"action":"joint","name":"objective_case","joint_name":"lid_hinge","goal":0.0,"seconds":2.5,"gain":0.5,"damping":0.02,"limit":0.3}
+{"action":"release","name":"objective_case","joint_name":"lid_hinge"}
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"wait_final","timeout_steps":600}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"end","title":"Pack by length into sockets of depth 72/42/62/52 mm, close lid"}
+{"action":"finish"}
