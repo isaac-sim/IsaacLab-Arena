@@ -11,6 +11,7 @@
 from isaaclab_arena.tasks import (  # noqa: F401
     assembly_task,
     balance_scale_task,
+    cantilever_ledge_bars_task,
     close_door_task,
     gear_insertion_task,
     goal_pose_task,
@@ -18,6 +19,7 @@ from isaaclab_arena.tasks import (  # noqa: F401
     lift_object_task,
     no_task,
     object_in_task,
+    objective_case_depths_task,
     open_door_task,
     pick_and_place_task,
     place_upright_task,

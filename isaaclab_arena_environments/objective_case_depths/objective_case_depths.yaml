@@ -1,0 +1,90 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Pack four objective cylinders (42, 52, 62, 72 mm long) into a case whose four look-alike sockets have hidden
+# depths, then close the hinged lid. Only the assignment that puts the k-th shortest cylinder in the k-th shallowest
+# socket leaves every cylinder flush with the rim; any other leaves one standing proud, which blocks the lid.
+#
+# Hidden variable: the socket depths, socket 1 (+Y, the robot's left) to socket 4 (-Y). The default comes from
+# objective_case.params.socket_depths_mm. Set them per run with the case's socket_depths variation:
+#   objective_case.socket_depths.enabled=true 'objective_case.socket_depths.depths_mm=[72,42,62,52]'
+# or draw one of the 24 permutations from the build seed:
+#   objective_case.socket_depths.enabled=true
+env_name: objective_case_depths
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: objective_case
+  registry_name: objective_case
+  params:
+    socket_depths_mm: [42, 52, 62, 72]
+    initial_lid_angle_deg: 108.0
+    initial_pose:
+      position_xyz: [0.48, 0.0, 0.004]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: cylinder_42mm
+  registry_name: objective_cylinder
+  params: {length_mm: 42}
+- id: cylinder_52mm
+  registry_name: objective_cylinder
+  params: {length_mm: 52}
+- id: cylinder_62mm
+  registry_name: objective_cylinder
+  params: {length_mm: 62}
+- id: cylinder_72mm
+  registry_name: objective_cylinder
+  params: {length_mm: 72}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: objective_case
+- kind: 'on'
+  subject: cylinder_42mm
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: cylinder_52mm
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: cylinder_62mm
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: cylinder_72mm
+  reference: table_oak_robolab
+# Cylinder start area: in front of the case (its front face is at x=0.445), inside DROID's top-down grasp region.
+- kind: position_limits_box
+  subject: cylinder_42mm
+  params: {x_limits: [0.3, 0.38], y_limits: [-0.22, 0.22]}
+- kind: position_limits_box
+  subject: cylinder_52mm
+  params: {x_limits: [0.3, 0.38], y_limits: [-0.22, 0.22]}
+- kind: position_limits_box
+  subject: cylinder_62mm
+  params: {x_limits: [0.3, 0.38], y_limits: [-0.22, 0.22]}
+- kind: position_limits_box
+  subject: cylinder_72mm
+  params: {x_limits: [0.3, 0.38], y_limits: [-0.22, 0.22]}
+placer_params:
+  solver_params:
+    clearance_m: 0.04
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  description: Pack all four objective cylinders into the case and close the lid.
+  subtasks:
+  - kind: ObjectiveCaseDepthsTask
+    params:
+      objective_case: objective_case
+      cylinders: [cylinder_42mm, cylinder_52mm, cylinder_62mm, cylinder_72mm]
+      episode_length_s: 180.0
