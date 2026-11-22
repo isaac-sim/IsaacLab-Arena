@@ -1,0 +1,93 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Four look-alike toy houses on a board, each with a flat roof that opens about a hidden edge, and a toy animal in
+# every house. Put the blue animal in the pen; the others stay home, all roofs end closed and the board stays on its
+# mat. Hidden per variant:
+# - the house the blue animal starts in, by number (1 = h1 front-left, 2 = h2 front-right, 3 = h3 back-left,
+#   4 = h4 back-right): the task's blue_animal_house, or per run:
+#   blue_animal.home_house.enabled=true blue_animal.home_house.houses=[2]
+# - each roof's hinge edge (front, back, left, right), in h1..h4 order: the village's hinge_edges, or per run:
+#   village.roof_hinges.enabled=true village.roof_hinges.edges=[left,back,right,front]
+#   (with edges unset, each roof draws its edge from roof_hinges.edge_choices, seeded by --seed).
+# The other animals fill the remaining houses in house order.
+env_name: hinged_roof_village
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: village_mat
+  registry_name: village_mat
+  params:
+    initial_pose:
+      position_xyz: [0.42, 0.1, 0.005]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+# The board stands on the mat (top at z = 0.007). House centers: x 0.3475 / 0.4925, y 0.1725 / 0.0275.
+- id: village
+  registry_name: hinged_roof_village
+  params:
+    hinge_edges: [front, right, back, left]
+    initial_pose:
+      position_xyz: [0.42, 0.1, 0.0075]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+# The task seats every animal on a house floor, so the animals need no poses here.
+- id: blue_animal
+  registry_name: toy_animal
+  params: {color: blue}
+- id: red_animal
+  registry_name: toy_animal
+  params: {color: red}
+- id: yellow_animal
+  registry_name: toy_animal
+  params: {color: yellow}
+- id: white_animal
+  registry_name: toy_animal
+  params: {color: white}
+- id: playground_pen
+  registry_name: playground_pen
+  params: {}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: village_mat
+- kind: is_anchor
+  subject: village
+- kind: is_anchor
+  subject: blue_animal
+- kind: is_anchor
+  subject: red_animal
+- kind: is_anchor
+  subject: yellow_animal
+- kind: is_anchor
+  subject: white_animal
+- kind: 'on'
+  subject: playground_pen
+  reference: table_oak_robolab
+# Pen area: right of the mat (mat edge at y = -0.07), clear of a roof opened toward it, and in DROID's reach.
+- kind: position_limits_box
+  subject: playground_pen
+  params: {x_limits: [0.34, 0.5], y_limits: [-0.25, -0.18]}
+task:
+  composition: atomic
+  description: Put the blue animal in the playground pen. Every other animal must stay in
+    its own house, all roofs must end closed, and the village board must stay on its mat.
+  subtasks:
+  - kind: HingedRoofVillageTask
+    params:
+      village: village
+      mat: village_mat
+      pen: playground_pen
+      blue_animal: blue_animal
+      other_animals: [red_animal, yellow_animal, white_animal]
+      blue_animal_house: 3
+      episode_length_s: 120.0

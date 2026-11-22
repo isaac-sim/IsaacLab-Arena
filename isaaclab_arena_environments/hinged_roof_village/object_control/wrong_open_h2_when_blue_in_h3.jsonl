@@ -1,0 +1,20 @@
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Wrong house: open roof h2, move the animal found in h2 (yellow when the blue one is in h3) to the pen, close roof h2"}
+{"action":"joint","name":"village","joint_name":"roof_h2_hinge","goal":1.9,"seconds":2.0,"gain":2.0,"damping":0.05,"limit":1.0}
+{"action":"release","name":"village","joint_name":"roof_h2_hinge"}
+{"action":"wait","seconds":0.5}
+{"action":"inspect"}
+{"action":"lift","name":"yellow_animal","height":0.26,"seconds":1.2}
+{"action":"move","name":"yellow_animal","reference":"playground_pen","reference_axes":["x","y"],"goal":[0.0,0.0,0.26],"seconds":2.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"yellow_animal","reference":"playground_pen","offset":[0.0,0.0,0.012],"seconds":2.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"yellow_animal"}
+{"action":"wait","seconds":1.0}
+{"action":"joint","name":"village","joint_name":"roof_h2_hinge","goal":0.0,"seconds":2.0,"gain":2.0,"damping":0.05,"limit":1.0}
+{"action":"release","name":"village","joint_name":"roof_h2_hinge"}
+{"action":"inspect"}
+{"action":"wait_final","timeout_steps":1200}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"end","title":"Wrong house: open roof h2, move the animal found in h2 (yellow when the blue one is in h3) to the pen, close roof h2"}
+{"action":"finish"}

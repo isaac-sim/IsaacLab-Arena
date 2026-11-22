@@ -14,6 +14,7 @@ from isaaclab_arena.tasks import (  # noqa: F401
     close_door_task,
     gear_insertion_task,
     goal_pose_task,
+    hinged_roof_village_task,
     lift_object_task,
     no_task,
     object_in_task,
@@ -23,5 +24,6 @@ from isaaclab_arena.tasks import (  # noqa: F401
     press_button_task,
     rotate_revolute_joint_task,
     sorting_task,
+    swivel_cover_hidden_pivot_task,
     turn_knob_task,
 )
