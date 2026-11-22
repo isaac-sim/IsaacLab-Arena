@@ -41,22 +41,21 @@ PASSIVE_GRIPPER_JOINT_NAME = "right_finger"
 """Right finger joint, which follows the driven finger through the USD's mimic joint and has no drive of its own.
 
 The USD couples the fingers so the left finger stays at minus the right finger's position. Both MJWarp and PhysX
-read this mimic joint. ETL added a second, compliant PhysX mimic (120 Hz, damping ratio 1); it is not added here
-because it would constrain the same finger pair twice.
+read this mimic joint, so no separate PhysX mimic is added: it would constrain the same finger pair twice.
 """
 END_EFFECTOR_BODY_NAME = "link_6"
 GRIPPER_OPEN_POSITION = 0.037524
 GRIPPER_CLOSED_POSITION = 0.0
 
 _DEFAULT_ARM_JOINT_POSITIONS = (0.0, 0.85, 0.60, 0.0, 0.0, 0.0)
-_ETL_PHYSX_ARM_DRIVES = {
+_PHYSX_ARM_DRIVES = {
     "arm_joints_1_3": (40.0, 2.5, 28.0),
     "arm_joint_4": (20.0, 0.5, 10.0),
     "arm_joints_5_6": (10.0, 1.0, 10.0),
 }
-"""ETL's PhysX arm drives per actuator group: stiffness (N m/rad), damping (N m s/rad) and effort limit (N m)."""
-_ETL_PHYSX_GRIPPER_EFFORT_LIMIT = 40.0
-"""ETL's PhysX force limit on the driven finger, in newtons."""
+"""PhysX arm drives per actuator group: stiffness (N m/rad), damping (N m s/rad) and effort limit (N m)."""
+_PHYSX_GRIPPER_EFFORT_LIMIT = 40.0
+"""PhysX force limit on the driven finger, in newtons."""
 _USD_BASE_JOINT_PATH = "Geometry/arm/PhysicsFixedJoint"
 """The USD's fixed joint from its static root Xform to the robot base, relative to the asset root."""
 
@@ -66,7 +65,7 @@ class YamPhysxFixedBaseCfg(UsdPrimSpawnPhysicsCfg):
     """Replace the USD's base joint to its static root Xform with Isaac Lab's world-fixed root joint.
 
     PhysX anchors the USD's joint where the robot spawns, so root pose writes such as placement resets leave the base
-    in place. Isaac Lab's fixed root joint follows them. This is ETL's PhysX fixed-base setup.
+    in place. Isaac Lab's fixed root joint follows them.
     """
 
     def validate_target(self, prim: Usd.Prim, root: Usd.Prim) -> None:
@@ -166,15 +165,15 @@ class YamEmbodiment(EmbodimentBase):
     """One fixed-base YAM arm with absolute joint-position control.
 
     PhysX and Newton (MJWarp) both spawn AUTOLab's MuJoCo model, ``YAM_USD_PATH``. Newton uses the USD as authored;
-    PhysX applies ETL's PhysX setup on top of it.
+    PhysX adds the overrides in ``_configure_physics_backend``.
 
     Note:
         Right finger: the USD's mimic joint makes it mirror the driven left finger under both backends, so it has no
         drive (see ``PASSIVE_GRIPPER_JOINT_NAME``).
 
         Gravity compensation: the USD sets MuJoCo's ``gravcomp`` to 1 on every robot link, which MJWarp applies and
-        PhysX ignores. Under PhysX the robot links have gravity disabled instead, as in ETL; without it the arm sags
-        under its drives.
+        PhysX ignores. Under PhysX the robot links have gravity disabled instead; without it the arm sags under its
+        drives.
     """
 
     registry_name = "yam"
@@ -192,10 +191,10 @@ class YamEmbodiment(EmbodimentBase):
         self.add_camera_variations(self.camera_config)
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
-        """Apply ETL's PhysX setup to a PhysX spawn; Newton uses the USD as authored.
+        """Apply the PhysX overrides to a PhysX spawn; Newton uses the USD as authored.
 
-        ETL's setup is a world-fixed base that follows root pose writes, no gravity on the robot links (PhysX ignores
-        the USD's MuJoCo gravity compensation), and ETL's arm drives and finger force limit.
+        PhysX gets a world-fixed base that follows root pose writes, no gravity on the robot links (PhysX ignores the
+        USD's MuJoCo gravity compensation), softer arm drives and a finger force limit.
         """
         if backend is PhysicsBackend.PHYSX:
             from isaaclab_physx.sim.schemas import PhysxRigidBodyCfg
@@ -204,12 +203,12 @@ class YamEmbodiment(EmbodimentBase):
             prim_physics[_USD_BASE_JOINT_PATH] = YamPhysxFixedBaseCfg()
             robot = self.scene_config.robot
             robot.spawn.rigid_props = PhysxRigidBodyCfg(disable_gravity=True)
-            for group, (stiffness, damping, effort_limit) in _ETL_PHYSX_ARM_DRIVES.items():
+            for group, (stiffness, damping, effort_limit) in _PHYSX_ARM_DRIVES.items():
                 robot.actuators[group] = robot.actuators[group].replace(
                     stiffness=stiffness, damping=damping, joint_effort_limit=effort_limit
                 )
             robot.actuators["gripper"] = robot.actuators["gripper"].replace(
-                joint_effort_limit=_ETL_PHYSX_GRIPPER_EFFORT_LIMIT
+                joint_effort_limit=_PHYSX_GRIPPER_EFFORT_LIMIT
             )
 
     def get_command_body_name(self) -> str:
