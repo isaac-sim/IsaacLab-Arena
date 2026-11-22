@@ -2347,3 +2347,7 @@ class CalibratedWeight(Object):
             initial_pose=initial_pose,
             tags=list(self.tags),
         )
+
+
+import isaaclab_arena.assets.domino_mass_order_assets  # noqa: E402, F401
+import isaaclab_arena.assets.fused_block_tower_assets  # noqa: E402, F401

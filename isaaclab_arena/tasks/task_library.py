@@ -12,6 +12,8 @@ from isaaclab_arena.tasks import (  # noqa: F401
     assembly_task,
     balance_scale_task,
     close_door_task,
+    domino_mass_order_task,
+    fused_block_tower_task,
     gear_insertion_task,
     goal_pose_task,
     lift_object_task,

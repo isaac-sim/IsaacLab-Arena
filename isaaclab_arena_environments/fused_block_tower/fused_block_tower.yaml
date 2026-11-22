@@ -1,0 +1,126 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# A five-layer block tower (15 blocks, three per layer, 10 cm tall) with six dot-marked blocks, the outer blocks of
+# layers 1-3. Every dot-marked block except a hidden free pair is fused (fixed joint) to the middle block of the layer
+# above. Remove the two free blocks onto the side pad without disturbing the tower.
+# Hidden variable, the free pair (two dot-marked blocks in different layers, 12 pairs):
+# - per YAML: fused_tower.params.free_pair, e.g. [L1_a, L3_c];
+# - per run (CLI, Hydra): fused_tower.free_pair.enabled=true 'fused_tower.free_pair.free_pairs=[[L2_a,L3_c]]';
+#   with free_pairs left at its default the variation draws one of the 12 pairs from --seed.
+env_name: fused_block_tower
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: fused_tower
+  registry_name: fused_block_tower
+  params:
+    free_pair: [L1_a, L3_c]
+    initial_pose:
+      position_xyz: [0.43, 0.0, 0.0035]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: side_pad
+  registry_name: fused_tower_side_pad
+  params: {}
+object_references:
+- id: block_L1_a
+  parent_id: fused_tower
+  prim_path: L1_a
+  object_type: rigid
+- id: block_L1_b
+  parent_id: fused_tower
+  prim_path: L1_b
+  object_type: rigid
+- id: block_L1_c
+  parent_id: fused_tower
+  prim_path: L1_c
+  object_type: rigid
+- id: block_L2_a
+  parent_id: fused_tower
+  prim_path: L2_a
+  object_type: rigid
+- id: block_L2_b
+  parent_id: fused_tower
+  prim_path: L2_b
+  object_type: rigid
+- id: block_L2_c
+  parent_id: fused_tower
+  prim_path: L2_c
+  object_type: rigid
+- id: block_L3_a
+  parent_id: fused_tower
+  prim_path: L3_a
+  object_type: rigid
+- id: block_L3_b
+  parent_id: fused_tower
+  prim_path: L3_b
+  object_type: rigid
+- id: block_L3_c
+  parent_id: fused_tower
+  prim_path: L3_c
+  object_type: rigid
+- id: block_L4_a
+  parent_id: fused_tower
+  prim_path: L4_a
+  object_type: rigid
+- id: block_L4_b
+  parent_id: fused_tower
+  prim_path: L4_b
+  object_type: rigid
+- id: block_L4_c
+  parent_id: fused_tower
+  prim_path: L4_c
+  object_type: rigid
+- id: block_L5_a
+  parent_id: fused_tower
+  prim_path: L5_a
+  object_type: rigid
+- id: block_L5_b
+  parent_id: fused_tower
+  prim_path: L5_b
+  object_type: rigid
+- id: block_L5_c
+  parent_id: fused_tower
+  prim_path: L5_c
+  object_type: rigid
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+# The tower is anchored: its blocks are object references whose poses come from the tower USD.
+- kind: is_anchor
+  subject: fused_tower
+- kind: 'on'
+  subject: side_pad
+  reference: table_oak_robolab
+- kind: position_limits_box
+  subject: side_pad
+  params: {x_limits: [0.36, 0.50], y_limits: [0.15, 0.26]}
+placer_params:
+  solver_params:
+    clearance_m: 0.02
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  description: Remove exactly two of the six dot-marked blocks from the tower and leave
+    them on the side pad. The tower must still be standing with all its other blocks
+    in place.
+  subtasks:
+  - kind: FusedBlockTowerTask
+    params:
+      tower: fused_tower
+      blocks: [block_L1_a, block_L1_b, block_L1_c, block_L2_a, block_L2_b, block_L2_c, block_L3_a, block_L3_b,
+        block_L3_c, block_L4_a, block_L4_b, block_L4_c, block_L5_a, block_L5_b, block_L5_c]
+      candidate_blocks: [block_L1_a, block_L1_c, block_L2_a, block_L2_c, block_L3_a, block_L3_c]
+      side_pad: side_pad
+      episode_length_s: 180.0

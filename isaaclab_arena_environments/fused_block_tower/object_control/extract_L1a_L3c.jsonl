@@ -1,0 +1,22 @@
+{"action":"wait","seconds":2.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Extract blocks L3_c and L1_a onto the side pad"}
+{"action":"move","name":"block_L3_c","goal":[0.305,0.0355,0.0525],"orientation":[0.0,0.0,0.0,1.0],"seconds":2.5,"minimum_stiffness":200.0,"critical_damping":true}
+{"action":"lift","name":"block_L3_c","height":0.15,"seconds":1.5,"minimum_stiffness":200.0,"critical_damping":true}
+{"action":"move","name":"block_L3_c","reference":"side_pad","offset":[0.0,-0.028,0.13],"orientation":[0.0,0.0,0.0,1.0],"seconds":2.0,"minimum_stiffness":200.0,"critical_damping":true}
+{"action":"move","name":"block_L3_c","reference":"side_pad","offset":[0.0,-0.028,0.0165],"orientation":[0.0,0.0,0.0,1.0],"seconds":1.5,"minimum_stiffness":200.0,"critical_damping":true}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"block_L3_c"}
+{"action":"wait","seconds":1.0}
+{"action":"move","name":"block_L1_a","goal":[0.305,-0.0355,0.0125],"orientation":[0.0,0.0,0.0,1.0],"seconds":2.5,"minimum_stiffness":200.0,"critical_damping":true}
+{"action":"lift","name":"block_L1_a","height":0.15,"seconds":1.5,"minimum_stiffness":200.0,"critical_damping":true}
+{"action":"move","name":"block_L1_a","reference":"side_pad","offset":[0.0,0.028,0.13],"orientation":[0.0,0.0,0.0,1.0],"seconds":2.0,"minimum_stiffness":200.0,"critical_damping":true}
+{"action":"move","name":"block_L1_a","reference":"side_pad","offset":[0.0,0.028,0.0165],"orientation":[0.0,0.0,0.0,1.0],"seconds":1.5,"minimum_stiffness":200.0,"critical_damping":true}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"block_L1_a"}
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"wait_final","timeout_steps":1200}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"end","title":"Extract blocks L3_c and L1_a onto the side pad"}
+{"action":"finish"}
