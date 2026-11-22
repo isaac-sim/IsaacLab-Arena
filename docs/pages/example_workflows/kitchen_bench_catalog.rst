@@ -158,7 +158,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_turn_palatial_blender_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_blender_one_wall_coastal.yaml>`_
      - 33%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_palatial_blender_one_wall_coastal_pi05.gif
-          :alt: Pi0.5 policy turning the palatial blender knob
+          :alt: Pi0.5 policy turning the blender speed dial in the coastal kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -166,7 +166,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_turn_palatial_food_processor_galley_industrial.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_food_processor_galley_industrial.yaml>`_
      - 13%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_palatial_food_processor_galley_industrial_pi05.gif
-          :alt: Pi0.5 policy turning the palatial food processor knob
+          :alt: Pi0.5 policy turning the food processor dial in the industrial kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -174,7 +174,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml>`_
      - 23%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_palatial_toaster_u_shaped_modern1_pi05.gif
-          :alt: Pi0.5 policy turning the palatial toaster knob
+          :alt: Pi0.5 policy turning the toaster browning dial in the modern kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -182,7 +182,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_turn_nvidia_toaster_g_shaped_rustic.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_nvidia_toaster_g_shaped_rustic.yaml>`_
      - 51%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_nvidia_toaster_g_shaped_rustic_pi05.gif
-          :alt: Pi0.5 policy turning the nvidia toaster knob
+          :alt: Pi0.5 policy turning the toaster dial in the rustic kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -190,7 +190,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml>`_
      - 38%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2_pi05.gif
-          :alt: Pi0.5 policy turning the toaster oven001 knob
+          :alt: Pi0.5 policy turning the toaster oven temperature knob in the farmhouse kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -198,7 +198,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml>`_
      - 36%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_blender003_l_shaped_scandinavian_pi05.gif
-          :alt: Pi0.5 policy turning the blender003 knob
+          :alt: Pi0.5 policy turning the blender speed dial in the Scandinavian kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -206,7 +206,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml>`_
      - 32%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian_pi05.gif
-          :alt: Pi0.5 policy turning the stand mixer003 knob
+          :alt: Pi0.5 policy turning the stand mixer knob in the Scandinavian kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -214,7 +214,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml>`_
      - 84%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1_pi05.gif
-          :alt: Pi0.5 turning the Toaster002 dial in a farmhouse kitchen
+          :alt: Pi0.5 policy turning the toaster dial in the farmhouse kitchen
           :width: 100%
 
        Pi0.5, 2x speed.

@@ -3,33 +3,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_turn_palatial_food_processor_galley_industrial
+env_name: kitchen_bench_turn_blender008_one_wall_coastal
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
   params:
-    stand_height_m: 0.65
+    stand_height_m: 0.60
     placement_bbox_stand_only: true
     collision_mode: mesh
 background:
   id: kitchen
-  registry_name: lightwheel_kitchen_galley_industrial
+  registry_name: lightwheel_kitchen_one_wall_coastal
   params:
     collision_mode: mesh
 objects:
 - id: appliance
-  registry_name: turnable_appliance
-  params:
-    turnable_joint_name: speed_dial_turn
-    min_level_angle_deg: 30.0
-    max_level_angle_deg: 150.0
-    num_levels: 5
-    knob_damping: 0.05
-    usd_path: https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/69a87329036cec0440403351c12230970c4e67d8/D00312/simready_usd/D00312.usd
+  registry_name: lightwheel_blender008
 - id: distractor_1
-  registry_name: sweet_potato
+  registry_name: banana_ycb_robolab
 - id: distractor_2
-  registry_name: wooden_bowl_hot3d_robolab
+  registry_name: orange_01_fruits_veggies_robolab
 object_references:
 - id: floor
   parent_id: kitchen
@@ -37,45 +30,53 @@ object_references:
   object_type: base
 - id: counter
   parent_id: kitchen
-  prim_path: counter_left_group
+  prim_path: counter_main_main_group
   object_type: base
+- id: sink
+  parent_id: kitchen
+  prim_path: sink_main_group
+  object_type: base
+  params:
+    collision_mode: bbox
 relations:
 - kind: is_anchor
   subject: floor
 - kind: is_anchor
   subject: counter
+- kind: is_anchor
+  subject: sink
 - kind: 'on'
   subject: appliance
   reference: counter
 - kind: rotate_around_solution
   subject: appliance
   params:
-    yaw_rad: 1.5708
+    yaw_rad: 0
+- kind: position_limits_box
+  subject: appliance
+  params:
+    x_limits: [1.45, 2.65]
+    y_limits: [-0.55, -0.35]
 - kind: 'on'
   subject: droid
   reference: floor
 - kind: rotate_around_solution
   subject: droid
   params:
-    yaw_rad: 3.03
-- kind: position_limits_box
-  subject: appliance
-  params:
-    x_limits: [0.29, 0.45]
-    y_limits: [-3.7, -3.6]
+    yaw_rad: 1.45
 - kind: align_with
   subject: droid
   reference: appliance
   params:
     axis: x
-    offset_m: 1.05
-    tolerance_m: 0.1
+    offset_m: -0.12
+    tolerance_m: 0.15
 - kind: align_with
   subject: droid
   reference: appliance
   params:
     axis: y
-    offset_m: -0.1
+    offset_m: -1.15
     tolerance_m: 0.07
 - kind: 'on'
   subject: distractor_1
@@ -85,15 +86,13 @@ relations:
   reference: appliance
   params:
     axis: x
-    offset_m: 0
-    tolerance_m: 0.05
+    tolerance_m: 0.6
 - kind: align_with
   subject: distractor_1
   reference: appliance
   params:
     axis: y
-    offset_m: 0.42
-    tolerance_m: 0.05
+    tolerance_m: 0.1
 - kind: 'on'
   subject: distractor_2
   reference: counter
@@ -102,21 +101,19 @@ relations:
   reference: appliance
   params:
     axis: x
-    offset_m: 0
-    tolerance_m: 0.05
+    tolerance_m: 0.6
 - kind: align_with
   subject: distractor_2
   reference: appliance
   params:
     axis: y
-    offset_m: 0.7
-    tolerance_m: 0.05
+    tolerance_m: 0.1
 task:
   composition: atomic
-  description: Turn the round dial at the front of the food processor counterclockwise.
+  description: Turn the large numbered dial on the front of the white blender clockwise.
   subtasks:
   - kind: TurnKnobTask
     params:
       turnable_object: appliance
-      target_level: 0
+      target_level: 1
       reset_level: -1

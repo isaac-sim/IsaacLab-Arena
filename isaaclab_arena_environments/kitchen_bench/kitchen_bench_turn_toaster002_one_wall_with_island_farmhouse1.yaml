@@ -18,14 +18,7 @@ background:
     collision_mode: mesh
 objects:
 - id: appliance
-  registry_name: turnable_appliance
-  params:
-    turnable_joint_name: knob_doneness_joint
-    min_level_angle_deg: 30.0
-    max_level_angle_deg: 150.0
-    num_levels: 5
-    knob_damping: 0.05
-    lightwheel_file_version: 2597ffee-6855-4b82-a869-3bb2d584e6ab
+  registry_name: lightwheel_toaster002
 - id: distractor_1
   registry_name: wooden_bowl_hot3d_robolab
 - id: distractor_2
@@ -39,11 +32,19 @@ object_references:
   parent_id: kitchen
   prim_path: island_island_group
   object_type: base
+- id: sink
+  parent_id: kitchen
+  prim_path: sink_island_group
+  object_type: base
+  params:
+    collision_mode: bbox
 relations:
 - kind: is_anchor
   subject: floor
 - kind: is_anchor
   subject: counter
+- kind: is_anchor
+  subject: sink
 - kind: 'on'
   subject: appliance
   reference: counter
@@ -51,6 +52,12 @@ relations:
   subject: appliance
   params:
     yaw_rad: 3.141592653589793
+    max_random_yaw_rad: 0.2
+- kind: position_limits_box
+  subject: appliance
+  params:
+    x_limits: [1.15, 2.35]
+    y_limits: [-2.24, -2.04]
 - kind: 'on'
   subject: droid
   reference: floor
@@ -58,24 +65,19 @@ relations:
   subject: droid
   params:
     yaw_rad: -1.45
-- kind: position_limits_box
-  subject: appliance
-  params:
-    x_limits: [1.67, 1.83]
-    y_limits: [-2.24, -2.14]
 - kind: align_with
   subject: droid
   reference: appliance
   params:
     axis: x
     offset_m: -0.12
-    tolerance_m: 0.1
+    tolerance_m: 0.15
 - kind: align_with
   subject: droid
   reference: appliance
   params:
     axis: y
-    offset_m: 1.10
+    offset_m: 1.1
     tolerance_m: 0.07
 - kind: 'on'
   subject: distractor_1
@@ -85,15 +87,13 @@ relations:
   reference: appliance
   params:
     axis: x
-    offset_m: 0.36
-    tolerance_m: 0.05
+    tolerance_m: 0.6
 - kind: align_with
   subject: distractor_1
   reference: appliance
   params:
     axis: y
-    offset_m: 0
-    tolerance_m: 0.05
+    tolerance_m: 0.1
 - kind: 'on'
   subject: distractor_2
   reference: counter
@@ -102,15 +102,13 @@ relations:
   reference: appliance
   params:
     axis: x
-    offset_m: 0.58
-    tolerance_m: 0.05
+    tolerance_m: 0.6
 - kind: align_with
   subject: distractor_2
   reference: appliance
   params:
     axis: y
-    offset_m: 0
-    tolerance_m: 0.05
+    tolerance_m: 0.1
 task:
   composition: atomic
   description: Turn the black round dial at the bottom of the toaster clockwise.
@@ -118,5 +116,5 @@ task:
   - kind: TurnKnobTask
     params:
       turnable_object: appliance
-      target_level: 0
+      target_level: 1
       reset_level: -1

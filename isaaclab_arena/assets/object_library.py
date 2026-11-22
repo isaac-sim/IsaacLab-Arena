@@ -9,6 +9,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
+from isaaclab.actuators import ImplicitActuatorCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
@@ -2228,3 +2229,161 @@ class SimReadyCentralOscilloscope(LibraryObject, Pressable):
     def __init__(self, **kwargs):
         kwargs.setdefault("pressable_joint_name", self.pressable_joint_name)
         super().__init__(**kwargs)
+
+
+class KitchenKnobAppliance(LibraryObject, Turnable):
+    """A fixed-base countertop appliance whose setting dial is a passive, frictional revolute joint.
+
+    Subclasses name the dial joint and may tune the knob drive. Armature adds joint-space inertia so gripper
+    contacts do not fling the light dial link, and static friction holds the dial where it is left.
+    """
+
+    object_type = ObjectType.ARTICULATION
+    turnable_joint_name: str
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
+    knob_armature = 0.001
+    """Added dial inertia in kg m^2."""
+    knob_friction = 0.1
+    """Static and dynamic dial friction torque in N m."""
+    closed_joint_names: list[str] = []
+    """Undriven joints, such as doors, that are held at their zero (closed) position so gravity cannot open them."""
+    closed_joint_stiffness = 20.0
+    """Stiffness in N m/rad of the drive holding closed_joint_names at zero."""
+    closed_joint_damping = 2.0
+    """Damping in N m s/rad of the drive holding closed_joint_names at zero."""
+    closed_joint_effort_limit = 10.0
+    """Maximum torque in N m of the drive holding closed_joint_names."""
+    fix_root_link: bool | None = True
+    """Whether the spawner fixes the root link to the world; None for USDs that author their own fixed base joint."""
+
+    def __init__(self, **kwargs):
+        self.spawn_cfg_addon = {**self.spawn_cfg_addon, "fix_root_link": self.fix_root_link}
+        if self.closed_joint_names:
+            # Some USDs author revolute drives on a non-angular instance, which PhysX ignores, so the actuator
+            # gains have no effect unless an angular drive is authored on the spawned joint.
+            closed_joint_drive = sim_utils.UsdPhysicsDriveCfg(
+                drive_type="force",
+                max_force=self.closed_joint_effort_limit,
+                stiffness=self.closed_joint_stiffness,
+                damping=self.closed_joint_damping,
+            )
+            self.spawn_cfg_addon["joint_drive_props"] = {
+                f"/.*/{joint_name}": [closed_joint_drive] for joint_name in self.closed_joint_names
+            }
+        actuators = {
+            "knob": ImplicitActuatorCfg(
+                joint_names_expr=[self.turnable_joint_name],
+                stiffness=0.0,
+                damping=0.0,
+                armature=self.knob_armature,
+                friction=self.knob_friction,
+                dynamic_friction=self.knob_friction,
+            )
+        }
+        if self.closed_joint_names:
+            actuators["closed_joints"] = ImplicitActuatorCfg(
+                joint_names_expr=self.closed_joint_names,
+                stiffness=self.closed_joint_stiffness,
+                damping=self.closed_joint_damping,
+                effort_limit_sim=self.closed_joint_effort_limit,
+            )
+        self.asset_cfg_addon = {**self.asset_cfg_addon, "actuators": actuators}
+        kwargs.setdefault("turnable_joint_name", self.turnable_joint_name)
+        kwargs.setdefault("min_level_angle_deg", self.min_level_angle_deg)
+        kwargs.setdefault("max_level_angle_deg", self.max_level_angle_deg)
+        kwargs.setdefault("num_levels", self.num_levels)
+        super().__init__(**kwargs)
+
+
+@register_asset
+class LightwheelBlender003(KitchenKnobAppliance):
+    """A Lightwheel countertop blender with a speed dial."""
+
+    registry_name = "lightwheel_blender003"
+    tags = ["object", "turnable", "kitchen"]
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Blender003", file_type="USD")
+    turnable_joint_name = "knob_speed_joint"
+
+
+@register_asset
+class LightwheelBlender008(KitchenKnobAppliance):
+    """A Lightwheel blender with a large numbered speed dial on a white base."""
+
+    registry_name = "lightwheel_blender008"
+    tags = ["object", "turnable", "kitchen"]
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Blender008", file_type="USD")
+    turnable_joint_name = "knob_speed_joint"
+
+
+@register_asset
+class LightwheelStandMixer003(KitchenKnobAppliance):
+    """A Lightwheel stand mixer with a speed dial."""
+
+    registry_name = "lightwheel_stand_mixer003"
+    tags = ["object", "turnable", "kitchen"]
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="StandMixer003", file_type="USD")
+    turnable_joint_name = "knob_speed_joint"
+
+
+@register_asset
+class LightwheelToaster002(KitchenKnobAppliance):
+    """A Lightwheel toaster with a doneness dial."""
+
+    registry_name = "lightwheel_toaster002"
+    tags = ["object", "turnable", "kitchen"]
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Toaster002", file_type="USD")
+    turnable_joint_name = "knob_doneness_joint"
+
+
+@register_asset
+class LightwheelToasterOven001(KitchenKnobAppliance):
+    """A Lightwheel toaster oven with a temperature dial."""
+
+    registry_name = "lightwheel_toaster_oven001"
+    tags = ["object", "turnable", "kitchen"]
+    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="ToasterOven001", file_type="USD")
+    turnable_joint_name = "knob_temp_joint"
+    closed_joint_names = ["door_joint"]
+
+
+@register_asset
+class ForgeCadToaster(KitchenKnobAppliance):
+    """A ForgeCAD toaster from SimReady Central with a browning dial."""
+
+    registry_name = "forgecad_toaster"
+    tags = ["object", "turnable", "sim-ready", "kitchen"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/"
+        "0573053fa2c9174ca2a4678a462ec4dfd3035d59/toaster/simready_usd/toaster.usda"
+    )
+    turnable_joint_name = "dial"
+
+
+@register_asset
+class ForgeCadAirFryer(KitchenKnobAppliance):
+    """A ForgeCAD air fryer from SimReady Central with a front timer dial."""
+
+    registry_name = "forgecad_air_fryer"
+    tags = ["object", "turnable", "sim-ready", "kitchen"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/"
+        "0573053fa2c9174ca2a4678a462ec4dfd3035d59/air_fryer/simready_usd/air_fryer.usda"
+    )
+    turnable_joint_name = "dial"
+    fix_root_link = None
+
+
+@register_asset
+class PalatialToaster(KitchenKnobAppliance):
+    """A Palatial toaster from SimReady Central with a browning dial."""
+
+    registry_name = "palatial_toaster"
+    tags = ["object", "turnable", "sim-ready", "kitchen"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
+        "69a87329036cec0440403351c12230970c4e67d8/D00866/simready_usd/D00866.usd"
+    )
+    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
+    turnable_joint_name = "dial_rotate"

@@ -16,7 +16,7 @@ from isaaclab_arena.relations.optimization.initializers.initializer_factory impo
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.relations import AlignWith, ClutterOn, FaceTo, RotateAroundSolution, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.random import derive_seed, get_random_rotation
+from isaaclab_arena.utils.random import derive_seed, get_bounded_random_rotation, get_random_rotation
 from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
@@ -131,6 +131,7 @@ class PlacementCandidateGenerator:
         """Sample world Z headings, including marker yaw, for non-anchor objects without FaceTo.
 
         ClutterOn.random_yaw controls clutter sampling; random_yaw_init controls other objects.
+        A marker's max_random_yaw_rad adds a bounded uniform offset on top of either.
         Ordinary objects with tilted markers keep their authored orientation.
         """
         orientations: dict[PlaceableAsset, float] = {}
@@ -140,7 +141,9 @@ class PlacementCandidateGenerator:
             has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
             marker_yaw = yaw_from_quat_xyzw(marker.get_rotation_xyzw()) if marker is not None else 0.0
             if obj in anchor_objects:
-                assert marker is None or (marker_yaw == 0.0 and not has_roll_pitch), (
+                assert marker is None or (
+                    marker_yaw == 0.0 and not has_roll_pitch and marker.max_random_yaw_rad == 0.0
+                ), (
                     f"Anchor '{obj.name}' has a RotateAroundSolution. "
                     "Anchors are not repositioned by the placer, so any marker rotation must "
                     "already be baked into the anchor's initial_pose before calling place()."
@@ -148,6 +151,8 @@ class PlacementCandidateGenerator:
             elif get_relation(obj, FaceTo) is None and (not has_roll_pitch or clutter is not None):
                 random_yaw = clutter.random_yaw if clutter is not None else self.params.random_yaw_init
                 sampled_yaw = get_random_rotation(generator) if random_yaw else 0.0
+                if marker is not None and marker.max_random_yaw_rad > 0.0:
+                    sampled_yaw += get_bounded_random_rotation(marker.max_random_yaw_rad, generator)
                 total_yaw = wrap_angle_to_pi(sampled_yaw + marker_yaw)
                 if total_yaw != 0.0 or marker_yaw != 0.0:
                     orientations[obj] = total_yaw
