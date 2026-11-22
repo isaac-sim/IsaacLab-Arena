@@ -38,7 +38,12 @@ ARM_JOINT_NAMES = [f"joint{index}" for index in range(1, 7)]
 GRIPPER_JOINT_NAME = "left_finger"
 """Driven finger joint."""
 PASSIVE_GRIPPER_JOINT_NAME = "right_finger"
-"""Finger joint the USD's mimic joint couples to the driven finger with a -1 gain."""
+"""Right finger joint, which follows the driven finger through the USD's mimic joint and has no drive of its own.
+
+The USD couples the fingers so the left finger stays at minus the right finger's position. Both MJWarp and PhysX
+read this mimic joint. ETL added a second, compliant PhysX mimic (120 Hz, damping ratio 1); it is not added here
+because it would constrain the same finger pair twice.
+"""
 END_EFFECTOR_BODY_NAME = "link_6"
 GRIPPER_OPEN_POSITION = 0.037524
 GRIPPER_CLOSED_POSITION = 0.0
@@ -162,6 +167,14 @@ class YamEmbodiment(EmbodimentBase):
 
     PhysX and Newton (MJWarp) both spawn AUTOLab's MuJoCo model, ``YAM_USD_PATH``. Newton uses the USD as authored;
     PhysX applies ETL's PhysX setup on top of it.
+
+    Note:
+        Right finger: the USD's mimic joint makes it mirror the driven left finger under both backends, so it has no
+        drive (see ``PASSIVE_GRIPPER_JOINT_NAME``).
+
+        Gravity compensation: the USD sets MuJoCo's ``gravcomp`` to 1 on every robot link, which MJWarp applies and
+        PhysX ignores. Under PhysX the robot links have gravity disabled instead, as in ETL; without it the arm sags
+        under its drives.
     """
 
     registry_name = "yam"
