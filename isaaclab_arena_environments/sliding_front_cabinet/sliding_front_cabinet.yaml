@@ -1,0 +1,91 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Take the token out of each of the three compartments of a light, free-standing cabinet, put all three on the tray,
+# close every front and leave the cabinet where it stands. The three fronts look the same; each opens by a hidden mode:
+# slide_left (+Y, the robot's left), slide_right (-Y) or fold_down (hinged at its bottom edge).
+#
+# Default below: fronts 1 (bottom), 2, 3 open by slide_left/fold_down/slide_right. Override per run with Hydra:
+#   cabinet.front_modes.enabled=true cabinet.front_modes.choices=[fold_down/slide_left/slide_left]
+# With cabinet.front_modes.enabled=true and no choices, a build draws one of the 27 assignments from --seed.
+env_name: sliding_front_cabinet
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: cabinet
+  registry_name: sliding_front_cabinet
+  params:
+    front_modes: [slide_left, fold_down, slide_right]
+    # Carcass x 0.47-0.59, y 0.01-0.19; fronts' outer face at x=0.459. A front slides 0.18 m sideways or folds
+    # down to 95 deg, reaching x=0.375 at its compartment's floor height. Compartments are 8 cm tall; their
+    # floors sit at z=0.062, 0.150 and 0.238 on a 5 cm plinth, and each token rests 3 cm behind the front opening.
+    initial_pose:
+      position_xyz: [0.53, 0.10, 0.004]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+# The tokens are anchored inside the compartments: placement checks no_overlap between a placed object and every
+# anchor it is not 'on', and the cabinet's bounding box encloses its compartments.
+- id: token_1
+  registry_name: cabinet_token
+  params:
+    initial_pose:
+      position_xyz: [0.50, 0.10, 0.0775]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: token_2
+  registry_name: cabinet_token
+  params:
+    initial_pose:
+      position_xyz: [0.50, 0.10, 0.1655]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: token_3
+  registry_name: cabinet_token
+  params:
+    initial_pose:
+      position_xyz: [0.50, 0.10, 0.2535]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: tray
+  registry_name: procedural_tray
+  params: {}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: cabinet
+- kind: is_anchor
+  subject: token_1
+- kind: is_anchor
+  subject: token_2
+- kind: is_anchor
+  subject: token_3
+- kind: 'on'
+  subject: tray
+  reference: table_oak_robolab
+# Tray area on the robot's right, clear of every front's sliding and folding sweep.
+- kind: position_limits_box
+  subject: tray
+  params: {x_limits: [0.30, 0.37], y_limits: [-0.26, -0.12]}
+placer_params:
+  solver_params:
+    clearance_m: 0.03
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  description: Take the token out of each of the three cabinet compartments and put all
+    three on the tray. Leave every compartment front closed and the cabinet where it stands.
+  subtasks:
+  - kind: SlidingFrontCabinetTask
+    params:
+      cabinet: cabinet
+      tokens: [token_1, token_2, token_3]
+      tray: tray
+      episode_length_s: 240.0

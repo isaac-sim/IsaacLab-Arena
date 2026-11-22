@@ -1,0 +1,83 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Put one of three look-alike load blocks on each of three look-alike spring platforms so every pointer sits in
+# its green band (22 mm deflection). Hidden per run: the spring class of each platform and the mass of each block.
+# Each block deflects only its matched spring (light 0.1 kg / 44.59 N/m, medium 0.2 kg / 89.18 N/m,
+# heavy 0.4 kg / 178.36 N/m) to 22 mm; any mismatch reads 5.5, 11, 44 or 88 mm (end stop at 50 mm).
+#
+# Defaults below: platforms (0 at +Y, 1, 2 at -Y) are light/heavy/medium; blocks a/b/c weigh 0.2/0.4/0.1 kg.
+# Override per run with Hydra, for example:
+#   spring_rack.spring_classes.enabled=true spring_rack.spring_classes.choices=[heavy/medium/light]
+#   load_block_a.mass.enabled=true load_block_a.mass.sampler_cfg.low=[0.4] load_block_a.mass.sampler_cfg.high=[0.4]
+# With spring_rack.spring_classes.enabled=true and no choices, a build draws one of the six assignments from --seed.
+env_name: spring_platform_ballast_match
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: spring_rack
+  registry_name: spring_platform_rack
+  params:
+    spring_classes: [light, heavy, medium]
+    # Platform tops sit at x=0.50, y=+0.15/0/-0.15, top surface z=0.114.
+    initial_pose:
+      position_xyz: [0.50, 0.0, 0.004]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: load_block_a
+  registry_name: spring_load_block
+  params: {mass_kg: 0.2}
+- id: load_block_b
+  registry_name: spring_load_block
+  params: {mass_kg: 0.4}
+- id: load_block_c
+  registry_name: spring_load_block
+  params: {mass_kg: 0.1}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: spring_rack
+- kind: 'on'
+  subject: load_block_a
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: load_block_b
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: load_block_c
+  reference: table_oak_robolab
+# Block start area in front of the rack (its dial boards start at x=0.438).
+- kind: position_limits_box
+  subject: load_block_a
+  params: {x_limits: [0.30, 0.38], y_limits: [-0.25, 0.25]}
+- kind: position_limits_box
+  subject: load_block_b
+  params: {x_limits: [0.30, 0.38], y_limits: [-0.25, 0.25]}
+- kind: position_limits_box
+  subject: load_block_c
+  params: {x_limits: [0.30, 0.38], y_limits: [-0.25, 0.25]}
+placer_params:
+  solver_params:
+    clearance_m: 0.04
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  description: Put one load block on each of the three spring platforms so that every
+    platform's pointer sits in its green band, and take your hands away.
+  subtasks:
+  - kind: SpringPlatformBallastTask
+    params:
+      spring_rack: spring_rack
+      load_blocks: [load_block_a, load_block_b, load_block_c]
+      episode_length_s: 180.0

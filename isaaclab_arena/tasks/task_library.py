@@ -27,7 +27,9 @@ from isaaclab_arena.tasks import (  # noqa: F401
     place_upright_task,
     press_button_task,
     rotate_revolute_joint_task,
+    sliding_front_cabinet_task,
     sorting_task,
+    spring_platform_ballast_match_task,
     swivel_cover_hidden_pivot_task,
     turn_knob_task,
 )
