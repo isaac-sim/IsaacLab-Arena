@@ -10,7 +10,6 @@ shared:
   environment_builder:
     num_envs: 2
     seed: 42
-    camera_resolution_mode: POLICY_DEFAULT
   rollout_limit:
     num_episodes: 100
 runs:
