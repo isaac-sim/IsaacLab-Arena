@@ -2247,49 +2247,18 @@ class KitchenKnobAppliance(LibraryObject, Turnable):
     """Added dial inertia in kg m^2."""
     knob_friction = 0.1
     """Static and dynamic dial friction torque in N m."""
-    closed_joint_names: list[str] = []
-    """Undriven joints, such as doors, that are held at their zero (closed) position so gravity cannot open them."""
-    closed_joint_stiffness = 20.0
-    """Stiffness in N m/rad of the drive holding closed_joint_names at zero."""
-    closed_joint_damping = 2.0
-    """Damping in N m s/rad of the drive holding closed_joint_names at zero."""
-    closed_joint_effort_limit = 10.0
-    """Maximum torque in N m of the drive holding closed_joint_names."""
-    fix_root_link: bool | None = True
-    """Whether the spawner fixes the root link to the world; None for USDs that author their own fixed base joint."""
 
     def __init__(self, **kwargs):
-        self.spawn_cfg_addon = {**self.spawn_cfg_addon, "fix_root_link": self.fix_root_link}
-        if self.closed_joint_names:
-            # Some USDs author revolute drives on a non-angular instance, which PhysX ignores, so the actuator
-            # gains have no effect unless an angular drive is authored on the spawned joint.
-            closed_joint_drive = sim_utils.UsdPhysicsDriveCfg(
-                drive_type="force",
-                max_force=self.closed_joint_effort_limit,
-                stiffness=self.closed_joint_stiffness,
-                damping=self.closed_joint_damping,
-            )
-            self.spawn_cfg_addon["joint_drive_props"] = {
-                f"/.*/{joint_name}": [closed_joint_drive] for joint_name in self.closed_joint_names
-            }
-        actuators = {
-            "knob": ImplicitActuatorCfg(
-                joint_names_expr=[self.turnable_joint_name],
-                stiffness=0.0,
-                damping=0.0,
-                armature=self.knob_armature,
-                friction=self.knob_friction,
-                dynamic_friction=self.knob_friction,
-            )
-        }
-        if self.closed_joint_names:
-            actuators["closed_joints"] = ImplicitActuatorCfg(
-                joint_names_expr=self.closed_joint_names,
-                stiffness=self.closed_joint_stiffness,
-                damping=self.closed_joint_damping,
-                effort_limit_sim=self.closed_joint_effort_limit,
-            )
-        self.asset_cfg_addon = {**self.asset_cfg_addon, "actuators": actuators}
+        self.spawn_cfg_addon = {"fix_root_link": True, **self.spawn_cfg_addon}
+        knob_actuator = ImplicitActuatorCfg(
+            joint_names_expr=[self.turnable_joint_name],
+            stiffness=0.0,
+            damping=0.0,
+            armature=self.knob_armature,
+            friction=self.knob_friction,
+            dynamic_friction=self.knob_friction,
+        )
+        self.asset_cfg_addon = {**self.asset_cfg_addon, "actuators": {"knob": knob_actuator}}
         kwargs.setdefault("turnable_joint_name", self.turnable_joint_name)
         kwargs.setdefault("min_level_angle_deg", self.min_level_angle_deg)
         kwargs.setdefault("max_level_angle_deg", self.max_level_angle_deg)
@@ -2345,7 +2314,15 @@ class LightwheelToasterOven001(KitchenKnobAppliance):
     tags = ["object", "turnable", "kitchen"]
     usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="ToasterOven001", file_type="USD")
     turnable_joint_name = "knob_temp_joint"
-    closed_joint_names = ["door_joint"]
+    # The USD authors the door drive on a non-angular instance, which PhysX ignores, so gravity swings the door
+    # open; this angular drive holds it closed.
+    spawn_cfg_addon = {
+        "joint_drive_props": {
+            "/.*/door_joint": [
+                sim_utils.UsdPhysicsDriveCfg(drive_type="force", max_force=10.0, stiffness=20.0, damping=2.0)
+            ]
+        }
+    }
 
 
 @register_asset
@@ -2372,7 +2349,8 @@ class ForgeCadAirFryer(KitchenKnobAppliance):
         "0573053fa2c9174ca2a4678a462ec4dfd3035d59/air_fryer/simready_usd/air_fryer.usda"
     )
     turnable_joint_name = "dial"
-    fix_root_link = None
+    # The USD authors its own fixed base joint, so the spawner must not add another.
+    spawn_cfg_addon = {"fix_root_link": None}
 
 
 @register_asset

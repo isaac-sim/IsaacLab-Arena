@@ -24,18 +24,12 @@ def _test_kitchen_knob_appliances(simulation_app):
     for appliance_class in appliance_classes:
         appliance = appliance_class()
         assert isinstance(appliance, Turnable)
-        assert appliance.object_cfg.spawn.fix_root_link == appliance.fix_root_link
+        assert appliance.object_cfg.spawn.fix_root_link == appliance.spawn_cfg_addon["fix_root_link"]
         knob = appliance.object_cfg.actuators["knob"]
         assert knob.joint_names_expr == [appliance.turnable_joint_name]
         assert knob.stiffness == 0.0 and knob.damping == 0.0
         assert knob.armature == appliance.knob_armature
         assert knob.friction == knob.dynamic_friction == appliance.knob_friction
-        if appliance.closed_joint_names:
-            closed_joints = appliance.object_cfg.actuators["closed_joints"]
-            assert closed_joints.joint_names_expr == appliance.closed_joint_names
-            assert closed_joints.stiffness == appliance.closed_joint_stiffness > 0.0
-            drive_props = appliance.object_cfg.spawn.joint_drive_props
-            assert set(drive_props) == {f"/.*/{name}" for name in appliance.closed_joint_names}
 
         stage = appliance.open_spawned_usd_stage()
         joints = [p for p in stage.Traverse() if p.GetName() == appliance.turnable_joint_name]
@@ -51,6 +45,7 @@ def _test_kitchen_knob_appliances(simulation_app):
             upper_limit_deg is None or upper_limit_deg >= appliance.max_level_angle_deg - 1e-3
         ), f"{appliance_class.__name__} upper limit"
         assert [p for p in stage.Traverse() if p.HasAPI(UsdPhysics.ArticulationRootAPI)]
+    assert "/.*/door_joint" in object_library.LightwheelToasterOven001().object_cfg.spawn.joint_drive_props
     return True
 
 
