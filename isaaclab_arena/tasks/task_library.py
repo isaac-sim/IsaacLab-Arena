@@ -23,5 +23,6 @@ from isaaclab_arena.tasks import (  # noqa: F401
     press_button_task,
     rotate_revolute_joint_task,
     sorting_task,
+    spring_platform_ballast_match_task,
     turn_knob_task,
 )

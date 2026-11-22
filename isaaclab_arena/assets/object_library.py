@@ -2347,3 +2347,6 @@ class CalibratedWeight(Object):
             initial_pose=initial_pose,
             tags=list(self.tags),
         )
+
+
+import isaaclab_arena.assets.spring_platform_ballast_match_assets  # noqa: E402, F401
