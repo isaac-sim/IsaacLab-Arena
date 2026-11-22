@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Wrist and top-down cameras for the YAM embodiment."""
+"""Wrist and top-down cameras for the bimanual YAM embodiment."""
 
 from __future__ import annotations
 
@@ -31,7 +31,8 @@ requested vertical field of view. With 3.6 mm and the D405's 58-degree vertical 
 # +Y up) camera axes to ROS optical axes.
 _D405_MOUNT_POSITION = (-0.0017, 0.079729, 0.066021)
 _D405_MOUNT_ROTATION_XYZW = (0.0, -0.42304971, 0.90610647, 0.0)
-_TOP_CAMERA_OFFSET_FROM_BASE = (0.335, 0.0, 0.93732053)
+_t_M_TOP = (0.335, 0.0, 0.93732053)
+"""Top camera position in the rig frame M, which sits midway between the two bases; it looks straight down."""
 _TOP_CAMERA_ROTATION_XYZW = (math.sqrt(0.5), math.sqrt(0.5), 0.0, 0.0)
 _BASE_PRIM_SUFFIX = "/Geometry/arm"
 _LINK_SIX_PRIM_SUFFIX = f"{_BASE_PRIM_SUFFIX}/link_1/link_2/link_3/link_4/link_5/link_6"
@@ -71,16 +72,33 @@ def make_d405_camera_cfg(
 
 
 @configclass
-class YamCameraCfg(ArenaCameraCfg):
-    """One wrist camera on the end-effector link and one top-down camera above the robot base."""
+class YamBimanualCameraCfg(ArenaCameraCfg):
+    """A wrist camera on each arm's end-effector link and one top-down camera above the midpoint between the bases.
 
-    wrist_camera: CameraCfg = make_d405_camera_cfg(
-        f"{{ENV_REGEX_NS}}/Robot{_LINK_SIX_PRIM_SUFFIX}/wrist_camera",
+    The top camera rides on the left arm's base so it follows the rig; ``mount_top_camera_on_left_base`` sets its
+    offset from that base.
+    """
+
+    left_wrist_camera: CameraCfg = make_d405_camera_cfg(
+        f"{{ENV_REGEX_NS}}/LeftRobot{_LINK_SIX_PRIM_SUFFIX}/left_wrist_camera",
+        _D405_MOUNT_POSITION,
+        _D405_MOUNT_ROTATION_XYZW,
+    )
+    right_wrist_camera: CameraCfg = make_d405_camera_cfg(
+        f"{{ENV_REGEX_NS}}/RightRobot{_LINK_SIX_PRIM_SUFFIX}/right_wrist_camera",
         _D405_MOUNT_POSITION,
         _D405_MOUNT_ROTATION_XYZW,
     )
     top_camera: CameraCfg = make_d405_camera_cfg(
-        f"{{ENV_REGEX_NS}}/Robot{_BASE_PRIM_SUFFIX}/top_camera",
-        _TOP_CAMERA_OFFSET_FROM_BASE,
+        f"{{ENV_REGEX_NS}}/LeftRobot{_BASE_PRIM_SUFFIX}/top_camera",
+        _t_M_TOP,
         _TOP_CAMERA_ROTATION_XYZW,
     )
+
+    def mount_top_camera_on_left_base(self, t_M_L: tuple[float, float, float]) -> None:
+        """Re-express the top camera's rig-frame position as an offset from the left base it rides on.
+
+        Args:
+            t_M_L: Left base position in the rig frame M, which sits midway between the two bases.
+        """
+        self.top_camera.offset.pos = tuple(top - left for top, left in zip(_t_M_TOP, t_M_L, strict=True))
