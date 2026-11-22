@@ -763,6 +763,7 @@ class Broccoli(LibraryObject):
     registry_name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
     usd_source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    scale = (2.0, 2.0, 2.0)
 
 
 @register_asset
