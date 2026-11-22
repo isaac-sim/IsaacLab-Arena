@@ -1,0 +1,103 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Display three look-alike samples on a shelf tilted 24 degrees, one per bay, so that they stay put.
+# A grip mat and a stop pin lie on the table. Hidden variable: which friction class (slick, medium,
+# grippy) each sample slot holds. The default is a=slick, b=medium, c=grippy; set another
+# assignment per run with each slot's asset selection, for example:
+#   sample_a.asset_selection.enabled=true 'sample_a.asset_selection.registry_names=[tilted_shelf_sample_grippy]'
+#   sample_b.asset_selection.enabled=true 'sample_b.asset_selection.registry_names=[tilted_shelf_sample_slick]'
+#   sample_c.asset_selection.enabled=true 'sample_c.asset_selection.registry_names=[tilted_shelf_sample_medium]'
+env_name: tilted_shelf_supports
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: tilted_shelf
+  registry_name: tilted_display_shelf
+  params:
+    # Board low edge at x=0.46; bays at y=+0.118 (left), 0, -0.118 (right).
+    initial_pose:
+      position_xyz: [0.46, 0.0, 0.003]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: sample_a
+  registry_name: tilted_shelf_sample_slick
+  params: {}
+- id: sample_b
+  registry_name: tilted_shelf_sample_medium
+  params: {}
+- id: sample_c
+  registry_name: tilted_shelf_sample_grippy
+  params: {}
+- id: grip_mat
+  registry_name: grip_mat
+  params: {}
+- id: stop_pin
+  registry_name: stop_pin
+  params: {}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: tilted_shelf
+- kind: 'on'
+  subject: sample_a
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: sample_b
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: sample_c
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: grip_mat
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: stop_pin
+  reference: table_oak_robolab
+# The pin lies flat on the table.
+- kind: rotate_around_solution
+  subject: stop_pin
+  params: {pitch_rad: 1.5707963}
+# Sample slots: a on the robot's left, b in the middle, c on the right, in a row in front of the shelf.
+- kind: position_limits_box
+  subject: sample_a
+  params: {x_limits: [0.36, 0.41], y_limits: [0.12, 0.24]}
+- kind: position_limits_box
+  subject: sample_b
+  params: {x_limits: [0.36, 0.41], y_limits: [-0.05, 0.05]}
+- kind: position_limits_box
+  subject: sample_c
+  params: {x_limits: [0.36, 0.41], y_limits: [-0.24, -0.12]}
+- kind: position_limits_box
+  subject: grip_mat
+  params: {x_limits: [0.28, 0.32], y_limits: [0.04, 0.24]}
+- kind: position_limits_box
+  subject: stop_pin
+  params: {x_limits: [0.28, 0.32], y_limits: [-0.24, -0.04]}
+placer_params:
+  solver_params:
+    clearance_m: 0.02
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  description: Display all three samples on the tilted shelf, one per bay, so that they
+    stay put. A grip mat and a stop pin are on the table.
+  subtasks:
+  - kind: TiltedShelfSupportsTask
+    params:
+      shelf: tilted_shelf
+      samples: [sample_a, sample_b, sample_c]
+      grip_mat: grip_mat
+      stop_pin: stop_pin
+      episode_length_s: 240.0

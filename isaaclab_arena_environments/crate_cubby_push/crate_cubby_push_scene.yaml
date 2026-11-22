@@ -1,0 +1,76 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Scene and task shared by crate_cubby_push.yaml and its object-control probe variant
+# crate_cubby_push_probe.yaml. Load one of those, not this file.
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+# The crate is pushed along +Y, across the robot's front at x=0.42, into a cubby whose entrance faces -Y.
+- id: floor_mat
+  registry_name: rubber_floor_mat
+  params:
+    # Spans y -0.17..0.29 at x 0.32..0.52, under the crate's start and the cubby; top surface at z=0.009.
+    size_xyz_m: [0.2, 0.46, 0.006]
+    initial_pose:
+      position_xyz: [0.42, 0.06, 0.006]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: cubby
+  registry_name: cubby_shelf
+  params:
+    # Entrance plane at y=0.10, interior toward +Y: 0.124 wide, 0.17 deep, 0.155 high.
+    initial_pose:
+      position_xyz: [0.42, 0.1, 0.009]
+      rotation_xyzw: [0.0, 0.0, 0.7071068, 0.7071068]
+- id: crate
+  registry_name: sealed_crate
+  params:
+    # Hidden center-of-mass offset (m) in the crate frame: toward the leading face (+X, turned to world +Y),
+    # and toward the crate's left (+Y, turned to world -X, the robot's side).
+    com_forward_m: 0.04
+    com_left_m: 0.0
+    mass_kg: 0.38
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: floor_mat
+- kind: is_anchor
+  subject: cubby
+- kind: 'on'
+  subject: crate
+  reference: floor_mat
+  params: {edge_margin_m: 0.0}
+# Leading face toward the cubby.
+- kind: rotate_around_solution
+  subject: crate
+  params: {yaw_rad: 1.5707963}
+# The crate starts 9.5-11 cm in front of the entrance, in line with the cubby, so a crate that tips over falls
+# before it reaches the cubby.
+- kind: position_limits_box
+  subject: crate
+  params: {x_limits: [0.417, 0.423], y_limits: [-0.08, -0.065]}
+placer_params:
+  solver_params:
+    clearance_m: 0.01
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  description: Push the sealed crate all the way into the cubby under the shelf and leave
+    it standing there. The crate cannot be lifted.
+  subtasks:
+  - kind: CrateCubbyPushTask
+    params:
+      crate: crate
+      cubby: cubby
+      floor: floor_mat
+      episode_length_s: 120.0

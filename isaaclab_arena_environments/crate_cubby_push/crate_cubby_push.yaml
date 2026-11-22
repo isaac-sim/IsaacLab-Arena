@@ -1,0 +1,18 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Push a sealed crate with a hidden center of mass, without lifting it, fully into a snug cubby
+# under a shelf, and leave it standing. Hidden variables, set per run:
+# - center-of-mass offset: pick a registered crate variant with the crate's asset selection,
+#     crate.asset_selection.enabled=true 'crate.asset_selection.registry_names=[sealed_crate_front_heavy_left]'
+#   (variants sealed_crate_<front|rear>_heavy_<left|center|right>: 4 cm toward the face that enters the
+#   cubby first or toward the face pushed, and 3 cm to the left or right seen looking into the cubby; add
+#   crate.asset_selection.sampler_cfg.random_choice=true with several names to draw one per build),
+#   or edit com_forward_m / com_left_m in crate_cubby_push_scene.yaml.
+# - mass (nuisance): crate.mass.enabled=true 'crate.mass.sampler_cfg.low=[0.38]' 'crate.mass.sampler_cfg.high=[0.46]'
+env_name: crate_cubby_push
+external_yaml:
+- crate_cubby_push_scene.yaml
+- ../robolab/robolab_defaults.yaml

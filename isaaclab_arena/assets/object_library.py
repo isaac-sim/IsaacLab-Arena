@@ -2350,6 +2350,7 @@ class CalibratedWeight(Object):
 
 
 import isaaclab_arena.assets.cantilever_ledge_bars_assets  # noqa: E402, F401
+import isaaclab_arena.assets.crate_cubby_push_assets  # noqa: E402, F401
 import isaaclab_arena.assets.domino_mass_order_assets  # noqa: E402, F401
 import isaaclab_arena.assets.fused_block_tower_assets  # noqa: E402, F401
 import isaaclab_arena.assets.hinged_roof_village_assets  # noqa: E402, F401
@@ -2357,3 +2358,4 @@ import isaaclab_arena.assets.objective_case_depths_assets  # noqa: E402, F401
 import isaaclab_arena.assets.sliding_front_cabinet_assets  # noqa: E402, F401
 import isaaclab_arena.assets.spring_platform_ballast_match_assets  # noqa: E402, F401
 import isaaclab_arena.assets.swivel_cover_hidden_pivot_assets  # noqa: E402, F401
+import isaaclab_arena.assets.tilted_shelf_supports_assets  # noqa: E402, F401

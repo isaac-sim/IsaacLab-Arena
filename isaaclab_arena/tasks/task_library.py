@@ -13,6 +13,7 @@ from isaaclab_arena.tasks import (  # noqa: F401
     balance_scale_task,
     cantilever_ledge_bars_task,
     close_door_task,
+    crate_cubby_push_task,
     domino_mass_order_task,
     fused_block_tower_task,
     gear_insertion_task,
@@ -31,5 +32,6 @@ from isaaclab_arena.tasks import (  # noqa: F401
     sorting_task,
     spring_platform_ballast_match_task,
     swivel_cover_hidden_pivot_task,
+    tilted_shelf_supports_task,
     turn_knob_task,
 )
