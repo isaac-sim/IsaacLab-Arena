@@ -1,0 +1,110 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Five look-alike dominoes stand at rack slots 1-5 (domino_1 .. domino_5, from -Y to +Y). Two are heavy (0.30 kg) and
+# three light (0.05 kg); a light domino falling on a heavy one cannot topple it. Stand all five in a line on the runway
+# so that one push on the first rings the bell at the far (+Y) end, then push it.
+# Hidden variable, which two slots hold the heavy dominoes (10 variants):
+# - per YAML: each domino's params.mass_kg (default: heavy at slots 2 and 4);
+# - per run (CLI, Hydra), through each domino's mass variation, e.g. to make domino_1 heavy and domino_2 light:
+#   domino_1.mass.enabled=true domino_1.mass.sampler_cfg.low=[0.3] domino_1.mass.sampler_cfg.high=[0.3]
+#   domino_2.mass.enabled=true domino_2.mass.sampler_cfg.low=[0.05] domino_2.mass.sampler_cfg.high=[0.05]
+env_name: domino_mass_order
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: domino_1
+  registry_name: domino_block
+  params: {mass_kg: 0.05}
+- id: domino_2
+  registry_name: domino_block
+  params: {mass_kg: 0.3}
+- id: domino_3
+  registry_name: domino_block
+  params: {mass_kg: 0.05}
+- id: domino_4
+  registry_name: domino_block
+  params: {mass_kg: 0.3}
+- id: domino_5
+  registry_name: domino_block
+  params: {mass_kg: 0.05}
+- id: runway
+  registry_name: domino_runway
+  params:
+    length_m: 0.505
+    width_m: 0.10
+    # Runs along Y from y=-0.27 to y=0.235; its top face is at z=0.007.
+    initial_pose:
+      position_xyz: [0.47, -0.0175, 0.005]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: bell
+  registry_name: domino_bell
+  params:
+    initial_pose:
+      position_xyz: [0.47, 0.33, 0.003]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: runway
+- kind: is_anchor
+  subject: bell
+- kind: 'on'
+  subject: domino_1
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: domino_2
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: domino_3
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: domino_4
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: domino_5
+  reference: table_oak_robolab
+- kind: position_limits_box
+  subject: domino_1
+  params: {x_limits: [0.30, 0.34], y_limits: [-0.255, -0.225]}
+- kind: position_limits_box
+  subject: domino_2
+  params: {x_limits: [0.30, 0.34], y_limits: [-0.135, -0.105]}
+- kind: position_limits_box
+  subject: domino_3
+  params: {x_limits: [0.30, 0.34], y_limits: [-0.015, 0.015]}
+- kind: position_limits_box
+  subject: domino_4
+  params: {x_limits: [0.30, 0.34], y_limits: [0.105, 0.135]}
+- kind: position_limits_box
+  subject: domino_5
+  params: {x_limits: [0.30, 0.34], y_limits: [0.225, 0.255]}
+# Rack slots: each domino keeps to its own band along Y, so slot i always holds domino_i. The dominoes face X and
+# topple only along X, so neighbouring slots cannot knock each other over.
+placer_params:
+  solver_params:
+    clearance_m: 0.03
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  description: Stand the five blocks in a line on the runway so that one push on the
+    first block rings the bell, then make it ring.
+  subtasks:
+  - kind: DominoMassOrderTask
+    params:
+      dominoes: [domino_1, domino_2, domino_3, domino_4, domino_5]
+      runway: runway
+      bell: bell
+      episode_length_s: 240.0

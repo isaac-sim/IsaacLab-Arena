@@ -13,6 +13,8 @@ from isaaclab_arena.tasks import (  # noqa: F401
     balance_scale_task,
     cantilever_ledge_bars_task,
     close_door_task,
+    domino_mass_order_task,
+    fused_block_tower_task,
     gear_insertion_task,
     goal_pose_task,
     hinged_roof_village_task,
