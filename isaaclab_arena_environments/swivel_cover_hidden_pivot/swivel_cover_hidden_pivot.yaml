@@ -1,0 +1,66 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Take a blue core out of a fixture whose cover swivels on a concealed corner pivot, stand it on a green pad and
+# leave the cover closed. Hidden per variant: the pivot corner (front_left, front_right, back_left, back_right), the
+# free swing side (ccw: limits [0, 95] deg, cw: [-95, 0] deg) and the return spring (weak 0.003, strong 0.006 N*m/deg).
+# Set them with the fixture params below, or per run with the fixture's hidden_pivot variation, for example:
+#   swivel_fixture.hidden_pivot.enabled=true swivel_fixture.hidden_pivot.pivot_corners=[back_right]
+#   swivel_fixture.hidden_pivot.swing_sides=[cw] swivel_fixture.hidden_pivot.return_springs=[strong]
+# Enabling hidden_pivot with its default lists draws one of the 16 tuples per build from the --seed.
+env_name: swivel_cover_hidden_pivot
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: swivel_fixture
+  registry_name: swivel_cover_fixture
+  params:
+    pivot_corner: front_left
+    swing_side: ccw
+    return_spring: weak
+    initial_pose:
+      position_xyz: [0.44, 0.1, 0.004]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+# The task seats the core upright on the fixture's tray floor, so it needs no pose here.
+- id: blue_core
+  registry_name: swivel_core
+  params: {}
+- id: green_pad
+  registry_name: swivel_target_pad
+  params: {}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: swivel_fixture
+- kind: is_anchor
+  subject: blue_core
+- kind: 'on'
+  subject: green_pad
+  reference: table_oak_robolab
+# Pad area: y stays below -0.21 so the pad is clear of every cover swing (a cover turned 95 deg about a right
+# corner reaches y = -0.153), and x stays in DROID's top-down reach.
+- kind: position_limits_box
+  subject: green_pad
+  params: {x_limits: [0.34, 0.5], y_limits: [-0.27, -0.21]}
+task:
+  composition: atomic
+  description: Take the blue core out of the fixture and stand it on the green pad.
+    Leave the fixture cover closed when you are done.
+  subtasks:
+  - kind: SwivelCoverRetrievalTask
+    params:
+      fixture: swivel_fixture
+      core: blue_core
+      pad: green_pad
+      episode_length_s: 120.0

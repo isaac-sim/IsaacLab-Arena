@@ -1,0 +1,20 @@
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Swing the cover open counter-clockwise, let go, move the core to the pad, push the cover shut"}
+{"action":"joint","name":"swivel_fixture","joint_name":"cover_pivot","goal":1.57,"seconds":2.5,"gain":6.0,"damping":0.3,"limit":4.0}
+{"action":"inspect"}
+{"action":"release","name":"swivel_fixture","joint_name":"cover_pivot"}
+{"action":"lift","name":"blue_core","height":0.25,"seconds":1.0}
+{"action":"move","name":"blue_core","reference":"green_pad","reference_axes":["x","y"],"goal":[0.0,0.0,0.25],"seconds":2.5,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"move","name":"blue_core","reference":"green_pad","offset":[0.0,0.0,0.036],"seconds":2.0,"orientation":[0.0,0.0,0.0,1.0]}
+{"action":"wait","seconds":0.3}
+{"action":"release","name":"blue_core"}
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"joint","name":"swivel_fixture","joint_name":"cover_pivot","goal":0.0,"seconds":2.0,"gain":6.0,"damping":0.3,"limit":4.0}
+{"action":"release","name":"swivel_fixture","joint_name":"cover_pivot"}
+{"action":"inspect"}
+{"action":"wait_final","timeout_steps":2400}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"end","title":"Swing the cover open counter-clockwise, let go, move the core to the pad, push the cover shut"}
+{"action":"finish"}
