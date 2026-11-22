@@ -26,6 +26,7 @@ ROOT_WRITE_SHIFT_X_M = 0.1
 
 def _test_yam_embodiment_backends(simulation_app) -> bool:
     """Check both backends spawn the AUTOLab USD, only PhysX disables gravity, and the cameras are exposed."""
+    import math
 
     from isaaclab_arena.assets.registries import AssetRegistry, ensure_assets_registered
     from isaaclab_arena.embodiments.yam.yam import YAM_USD_PATH, YamEmbodiment
@@ -41,6 +42,11 @@ def _test_yam_embodiment_backends(simulation_app) -> bool:
         "/Robot/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/wrist_camera"
     )
     assert camera_rig.top_camera.prim_path.endswith("/Robot/Geometry/arm/top_camera")
+    for camera in (camera_rig.wrist_camera, camera_rig.top_camera):
+        lens = camera.spawn
+        assert lens.vertical_aperture / lens.horizontal_aperture == pytest.approx(camera.height / camera.width)
+        vertical_fov_deg = math.degrees(2.0 * math.atan(lens.vertical_aperture / (2.0 * lens.focal_length)))
+        assert vertical_fov_deg == pytest.approx(58.0)
 
     newton_embodiment = YamEmbodiment()
     newton_embodiment.configure_physics_backend(PhysicsBackend.NEWTON)

@@ -17,6 +17,10 @@ from isaaclab_arena.utils.cameras import ArenaCameraCfg
 
 _CAMERA_WIDTH = 1280
 _CAMERA_HEIGHT = 720
+_HORIZONTAL_APERTURE = 6.4
+"""Horizontal film aperture in millimeters."""
+_SQUARE_PIXEL_VERTICAL_APERTURE = _HORIZONTAL_APERTURE * _CAMERA_HEIGHT / _CAMERA_WIDTH
+"""Vertical film aperture in millimeters that gives the 1280x720 image square pixels."""
 # AUTOLab's yam_bimanual_scene.xml mounts the D405 housing at (-0.0107, 0.079729, 0.066021) tilted 50 degrees about X.
 # Its optical frame adds 9 mm along the housing X axis and a 180 degree roll, then converts MuJoCo's (-Z forward,
 # +Y up) camera axes to ROS optical axes.
@@ -33,7 +37,7 @@ def make_d405_camera_cfg(
     position: tuple[float, float, float],
     rotation_xyzw: tuple[float, float, float, float],
     vertical_fov_deg: float = 58.0,
-    vertical_aperture: float = 4.8,
+    vertical_aperture: float = _SQUARE_PIXEL_VERTICAL_APERTURE,
 ) -> CameraCfg:
     """Build a 1280x720 RealSense D405 RGB and depth camera mounted at the given offset from its parent prim.
 
@@ -42,7 +46,8 @@ def make_d405_camera_cfg(
         position: Camera position in its parent prim's frame, in meters.
         rotation_xyzw: Camera rotation in its parent prim's frame, in the ROS optical convention.
         vertical_fov_deg: Vertical field of view in degrees, which sets the focal length.
-        vertical_aperture: Vertical film aperture in millimeters.
+        vertical_aperture: Vertical film aperture in millimeters. The default keeps pixels square, so the image
+            has the requested vertical field of view.
     """
     focal_length = vertical_aperture / (2.0 * math.tan(math.radians(vertical_fov_deg / 2.0)))
     return CameraCfg(
@@ -53,7 +58,7 @@ def make_d405_camera_cfg(
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=focal_length,
             focus_distance=28.0,
-            horizontal_aperture=6.4,
+            horizontal_aperture=_HORIZONTAL_APERTURE,
             vertical_aperture=vertical_aperture,
         ),
         offset=CameraCfg.OffsetCfg(pos=position, rot=rotation_xyzw, convention="ros"),
