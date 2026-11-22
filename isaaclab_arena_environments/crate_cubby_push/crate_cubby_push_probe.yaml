@@ -1,0 +1,22 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# crate_cubby_push with a push probe for Object Control Runner validation. The runner drives
+# objects with gravity-compensated forces at their center of mass, so driving the crate itself
+# would hide its center of mass. The probe, an 8 cm rod with a 2 cm square tip, instead pushes the
+# crate through contact at a chosen height and lateral offset, as an arm-held fingertip would. It
+# has no relations and rests on the table beside the floor mat, its long axis along the push
+# direction (+Y). Accepts the same hidden-variable overrides as crate_cubby_push.yaml.
+env_name: crate_cubby_push_probe
+external_yaml:
+- crate_cubby_push_scene.yaml
+- ../robolab/robolab_defaults.yaml
+objects:
+- id: push_probe
+  registry_name: push_probe
+  params:
+    initial_pose:
+      position_xyz: [0.3, -0.25, 0.014]
+      rotation_xyzw: [0.0, 0.0, 0.7071068, 0.7071068]

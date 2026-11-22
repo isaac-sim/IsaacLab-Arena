@@ -12,6 +12,7 @@ from isaaclab_arena.tasks import (  # noqa: F401
     assembly_task,
     balance_scale_task,
     close_door_task,
+    crate_cubby_push_task,
     gear_insertion_task,
     goal_pose_task,
     lift_object_task,
@@ -23,5 +24,6 @@ from isaaclab_arena.tasks import (  # noqa: F401
     press_button_task,
     rotate_revolute_joint_task,
     sorting_task,
+    tilted_shelf_supports_task,
     turn_knob_task,
 )

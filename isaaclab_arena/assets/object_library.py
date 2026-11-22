@@ -2347,3 +2347,7 @@ class CalibratedWeight(Object):
             initial_pose=initial_pose,
             tags=list(self.tags),
         )
+
+
+import isaaclab_arena.assets.crate_cubby_push_assets  # noqa: E402, F401
+import isaaclab_arena.assets.tilted_shelf_supports_assets  # noqa: E402, F401

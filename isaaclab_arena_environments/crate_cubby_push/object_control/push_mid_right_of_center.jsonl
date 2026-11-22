@@ -1,0 +1,15 @@
+{"action":"wait","seconds":2.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Push at mid height (8.5 cm), 3 cm right of the crate center"}
+{"action":"lift","name":"push_probe","height":0.22,"seconds":1.5,"rotation_gain":3600.0,"angular_damping":100.0}
+{"action":"move","name":"push_probe","goal":[0.0,0.0,0.22],"reference":"crate","reference_axes":["x","y"],"offset":[0.03,-0.135,0.0],"seconds":2.0,"orientation":[0.0,0.0,0.707107,0.707107],"rotation_gain":3600.0,"angular_damping":100.0}
+{"action":"move","name":"push_probe","goal":[0.0,0.0,0.094],"reference":"crate","reference_axes":["x","y"],"offset":[0.03,-0.135,0.0],"seconds":1.5,"orientation":[0.0,0.0,0.707107,0.707107],"rotation_gain":3600.0,"angular_damping":100.0}
+{"action":"move","name":"push_probe","goal":[0.0,0.08,0.094],"reference":"crate","reference_axes":["x"],"offset":[0.03,0.0,0.0],"seconds":6.0,"minimum_stiffness":3000.0,"critical_damping":true,"max_force":15.0,"orientation":[0.0,0.0,0.707107,0.707107],"rotation_gain":3600.0,"angular_damping":100.0}
+{"action":"wait","seconds":0.5}
+{"action":"inspect"}
+{"action":"move","name":"push_probe","goal":[0.0,-0.05,0.094],"reference":"crate","reference_axes":["x"],"offset":[0.03,0.0,0.0],"seconds":1.5,"orientation":[0.0,0.0,0.707107,0.707107],"rotation_gain":3600.0,"angular_damping":100.0}
+{"action":"move","name":"push_probe","goal":[0.0,-0.1,0.25],"reference":"crate","reference_axes":["x"],"offset":[0.03,0.0,0.0],"seconds":1.5,"orientation":[0.0,0.0,0.707107,0.707107],"rotation_gain":3600.0,"angular_damping":100.0}
+{"action":"wait_final","timeout_steps":1200}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"end","title":"Push at mid height (8.5 cm), 3 cm right of the crate center"}
+{"action":"finish"}
