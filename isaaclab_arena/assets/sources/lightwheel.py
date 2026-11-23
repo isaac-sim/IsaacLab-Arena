@@ -52,8 +52,9 @@ def find_cached_object_usd(file_name: str) -> str | None:
 def find_cached_floorplan_usd(scene: str, layout_id: int, style_id: int, backend: str) -> str | None:
     """Return the path of a completely cached Lightwheel floorplan ``scene.usd``, or None if it is not cached.
 
-    The floorplan is complete when ``usd_version.json`` has an entry for ``{backend}-{scene}-{layout_id}-{style_id}``
-    and ``floorplan/<that name>/scene.usd`` exists.
+    The floorplan is complete when ``usd_version.json`` has a key for ``{backend}-{scene}-{layout_id}-{style_id}``
+    (its value may be null, which the SDK writes when the server omits the version) and
+    ``floorplan/<that name>/scene.usd`` exists.
     """
     floorplan_root = lightwheel_cache_root() / "floorplan"
     name = f"{backend}-{scene}-{layout_id}-{style_id}"
@@ -61,7 +62,7 @@ def find_cached_floorplan_usd(scene: str, layout_id: int, style_id: int, backend
         versions = json.loads((floorplan_root / "usd_version.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    if not isinstance(versions, dict) or not versions.get(name):
+    if not isinstance(versions, dict) or name not in versions:
         return None
     usd_path = floorplan_root / name / "scene.usd"
     return str(usd_path) if usd_path.is_file() else None
