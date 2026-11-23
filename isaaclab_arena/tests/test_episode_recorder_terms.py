@@ -96,8 +96,9 @@ def _test_revolute_joint_movement_is_the_largest_change_from_the_reset_openness(
     )
     term = RevoluteJointMovement(term_cfg, env)
     term.reset()
-    # Env 0 opens the door to 0.6 and closes it back to 0.2; env 1 closes it fully.
-    for openness_env_0, openness_env_1 in ((0.2, 0.2), (0.6, 0.1), (0.2, 0.0)):
+    # The door resets to 0.2, but env 0 already reads 0.25 after the first step; movement still counts from 0.2.
+    # Env 0 then opens the door to 0.6 and closes it back to 0.2; env 1 closes it fully.
+    for openness_env_0, openness_env_1 in ((0.25, 0.2), (0.6, 0.1), (0.2, 0.0)):
         env.openness[:] = torch.tensor([openness_env_0, openness_env_1])
         term.post_step()
     assert term(env, 0, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.4)
