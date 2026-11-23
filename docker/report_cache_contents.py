@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 
 MEGABYTE = 1024 * 1024
-# The SDK stores its credential in `login`; it must never be counted or read.
+# The SDK keeps its credential in the `login/` directory (account.json), outside the cached
+# roots. These names are only a safety net: do not rely on this filter if a root ever widens.
 IGNORED_NAMES = {"login"}
 IGNORED_SUFFIXES = (".lock",)
 # Content of these files is hashed because it can change without changing size.

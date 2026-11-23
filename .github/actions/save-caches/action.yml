@@ -69,10 +69,14 @@ runs:
           --name "lightwheel-${CACHE_NAME}" \
           --before "${before}" \
           "${HOME}/.cache/lightwheel_sdk/floorplan" \
-          "${HOME}/.cache/lightwheel_sdk/object"
+          "${HOME}/.cache/lightwheel_sdk/object" \
+          || echo "::warning::Could not report the Lightwheel cache changes; it is not saved."
 
-    # Only the floorplan and object directories; the `login` file next to them holds a
-    # credential and must never be cached.
+    # Only the floorplan and object directories; the `login/` directory next to them holds
+    # the credential file `account.json` and must never be cached. The SDK leaves
+    # object/<Name>.zip behind after extraction (about half of the object directory); the
+    # extracted files are what lookups use, so the zips are excluded. This path list must stay
+    # identical to the one in setup-caches, because the cache version hash depends on it.
     - name: Save Lightwheel cache
       if: >-
         success() &&
@@ -84,4 +88,5 @@ runs:
         path: |
           ~/.cache/lightwheel_sdk/floorplan
           ~/.cache/lightwheel_sdk/object
+          !~/.cache/lightwheel_sdk/object/*.zip
         key: ${{ env.LIGHTWHEEL_CACHE_KEY }}
