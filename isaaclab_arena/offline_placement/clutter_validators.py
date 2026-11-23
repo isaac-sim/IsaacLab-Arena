@@ -66,7 +66,7 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
         for asset in assets:
             relation = get_relation(asset, ClutterOn)
             if relation is not None:
-                support_keys.add(relation.parent.get_scene_key())
+                support_keys.add(relation.reference.get_scene_key())
         unknown = self.minimum_resting_heights_m.keys() - support_keys
         assert not unknown, f"Minimum resting heights reference unknown ClutterOn supports: {sorted(unknown)}"
         for key in sorted(support_keys):
@@ -86,7 +86,7 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
         for asset in assets:
             relation = get_relation(asset, ClutterOn)
             if relation is not None:
-                keys.update((asset.get_scene_key(), relation.parent.get_scene_key()))
+                keys.update((asset.get_scene_key(), relation.reference.get_scene_key()))
         return keys
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
@@ -108,12 +108,12 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
                 relation = get_relation(asset, ClutterOn)
                 if relation is None:
                     continue
-                child_key, support_key = asset.get_scene_key(), relation.parent.get_scene_key()
+                child_key, support_key = asset.get_scene_key(), relation.reference.get_scene_key()
                 child, support = data.geometry[child_key], data.geometry[support_key]
-                if relation.parent.is_anchor:
-                    expected_pose = relation.parent.get_initial_pose()
+                if relation.reference.is_anchor:
+                    expected_pose = relation.reference.get_initial_pose()
                 else:
-                    expected_pose = get_pose_from_layout(relation.parent, layout)
+                    expected_pose = get_pose_from_layout(relation.reference, layout)
                 expected = expected_pose.to_tensor(support.initial_poses.device)
                 if not all(
                     fixed_poses_match(expected, poses[env_id]) for poses in (support.initial_poses, support.final_poses)

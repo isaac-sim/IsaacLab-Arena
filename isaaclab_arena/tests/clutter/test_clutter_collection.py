@@ -156,7 +156,7 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path, backe
                 collect_settled_placements(env, 1, params, scene_assets=assets)
         clutter.relations.remove(get_relation(clutter, RequiresReachability))
         # A fixed target can retain its pre-physics reachability requirement.
-        get_relation(clutter, ClutterOn).parent.add_relation(RequiresReachability())
+        get_relation(clutter, ClutterOn).reference.add_relation(RequiresReachability())
         with patch.object(pool, "sample_for_envs", wraps=pool.sample_for_envs) as sample:
             result = collect_settled_placements(env, 2, params, scene_assets=arena_env.get_placement_assets())
         assert sample.call_count == 2
@@ -262,8 +262,8 @@ def _test_clutter_recording_replays_movable_supports(simulation_app, tmp_path, b
         assert bool((base.scene.env_origins != 0).any())
         # Reject a kinematic tray resting on falling clutter before consuming a pooled layout.
         with (
-            patch.object(get_relation(cube, ClutterOn), "parent", fixtures[0]),
-            patch.object(get_relation(fixtures[1], On), "parent", cube),
+            patch.object(get_relation(cube, ClutterOn), "reference", fixtures[0]),
+            patch.object(get_relation(fixtures[1], On), "reference", cube),
             patch.object(base, "reset", side_effect=AssertionError("must reject before resetting")),
             pytest.raises(AssertionError, match="tray.*cannot be On falling clutter.*cube_body"),
         ):
@@ -407,7 +407,7 @@ def _test_movable_bowl_recording_and_replay(simulation_app, tmp_path):
             layout = batch.source_layouts[env_id]
             bowl = next(asset for asset in layout.positions if asset.get_scene_key() == "bowl")
             expected = get_pose_from_layout(bowl, layout).to_tensor("cpu")
-            table = get_relation(bowl, On).parent
+            table = get_relation(bowl, On).reference
             table_top = float(table.get_world_bounding_box().max_point[0, 2])
             bowl_bottom = float(expected[2] + batch.geometry["bowl"].bounds.min_point[env_id, 2])
             assert bowl_bottom == pytest.approx(table_top, abs=1e-4)
@@ -489,12 +489,12 @@ def _test_raised_support_requires_explicit_surface(simulation_app, tmp_path):
                 stage.GetRootLayer().Save()
             surface = ObjectReference(
                 name="tabletop",
-                parent_asset=relation.parent,
+                parent_asset=relation.reference,
                 prim_path="{ENV_REGEX_NS}/table/tabletop",
                 object_type=ObjectType.BASE,
             )
             surface.add_relation(IsAnchor())
-            relation.parent = surface
+            relation.reference = surface
             arena_env.scene.add_asset(surface)
         env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1)).make_registered()
         try:

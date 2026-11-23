@@ -167,9 +167,9 @@ class ObjectPlacer:
             for relation in obj.get_relations():
                 relation.validate_placement_configuration(obj, object_set)
             clutter = get_relation(obj, ClutterOn)
-            if clutter is not None and not clutter.parent.is_anchor:
+            if clutter is not None and not clutter.reference.is_anchor:
                 assert not self.params.random_yaw_init, (
-                    f"ClutterOn support '{clutter.parent.name}' requires a fixed quarter-turn rotation; "
+                    f"ClutterOn support '{clutter.reference.name}' requires a fixed quarter-turn rotation; "
                     "disable random_yaw_init"
                 )
             marker = get_relation(obj, RotateAroundSolution)
@@ -309,7 +309,7 @@ class ObjectPlacer:
             if relation is None:
                 continue
             subject_positions = torch.tensor([positions[obj] for positions in positions_per_candidate])
-            target_positions = torch.tensor([positions[relation.parent] for positions in positions_per_candidate])
+            target_positions = torch.tensor([positions[relation.reference] for positions in positions_per_candidate])
             yaws, is_defined = yaw_toward_positions(subject_positions, target_positions)
             for candidate_idx, (yaw, direction_is_defined) in enumerate(zip(yaws, is_defined, strict=True)):
                 if direction_is_defined:

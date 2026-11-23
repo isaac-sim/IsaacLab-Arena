@@ -118,7 +118,7 @@ def test_relation_catalogue_collects_required_optional_and_enum_params():
     ]
     assert entries["next_to"].enum_options == {"side": ["positive_x", "negative_x", "positive_y", "negative_y"]}
     for entry in entries.values():
-        assert "parent" not in entry.required_params + entry.optional_params
+        assert "reference" not in entry.required_params + entry.optional_params
 
 
 def test_relation_catalogue_can_include_relations_outside_the_default_selection():
