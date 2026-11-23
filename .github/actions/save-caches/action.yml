@@ -5,8 +5,8 @@
 
 name: Save caches
 description: |
-  Report what the tests changed in the caches restored by setup-caches, and save the
-  Lightwheel SDK asset cache when they changed it. Call once at the end of every job that
+  Save the Lightwheel SDK asset cache when the tests changed it, and report what the tests
+  changed in the caches restored by setup-caches. Call once at the end of every job that
   calls setup-caches. Each step does nothing when setup-caches did not set up its cache.
 
   The kit and Warp caches are only reported here; actions/cache saves them at the end of
