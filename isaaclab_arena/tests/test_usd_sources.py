@@ -13,9 +13,9 @@ import pytest
 
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.sources.lightwheel import (
-    LightwheelAssetSource,
     LightwheelFloorplanUsdSource,
-    LightwheelUsdSource,
+    LightwheelObjectUsdSource,
+    LightwheelSource,
 )
 
 BLOCK_LIGHTWHEEL_SDK = {"lightwheel_sdk": None, "lightwheel_sdk.loader": None}
@@ -78,7 +78,7 @@ def test_lightwheel_source_is_lazy_and_memoizes_acquisition():
     loader_module.object_loader = loader
     package = ModuleType("lightwheel_sdk")
     package.loader = loader_module
-    source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    source = LightwheelObjectUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
 
     assert loader.acquire_by_registry.call_count == 0
     with patch.dict(
@@ -136,7 +136,7 @@ def test_lightwheel_object_source_returns_cached_path_without_importing_sdk(empt
     object_dir.mkdir(parents=True)
     (object_dir / "Microwave039.usd").write_text("")
     (object_dir / "version.txt").write_text("1")
-    source = LightwheelUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
+    source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
 
     with patch.dict("sys.modules", BLOCK_LIGHTWHEEL_SDK):
         assert source.to_local_usd_path() == str(object_dir / "Microwave039.usd")
@@ -147,7 +147,7 @@ def test_lightwheel_object_source_calls_sdk_on_cache_miss():
         acquire_by_registry=Mock(return_value=("/cache/microwave.usd", "microwave", {})),
         client=SimpleNamespace(base_timeout=10),
     )
-    source = LightwheelUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
+    source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
 
     with patch.dict("sys.modules", _make_loader_modules(object_loader=loader)):
         assert source.to_local_usd_path() == "/cache/microwave.usd"
@@ -166,7 +166,7 @@ def test_lightwheel_source_without_file_name_bypasses_cache(empty_lightwheel_cac
         acquire_by_registry=Mock(return_value=("/sdk/broccoli.usd", "broccoli", {})),
         client=SimpleNamespace(base_timeout=10),
     )
-    source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    source = LightwheelObjectUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
 
     with patch.dict("sys.modules", _make_loader_modules(object_loader=loader)):
         assert source.to_local_usd_path() == "/sdk/broccoli.usd"
@@ -194,7 +194,7 @@ def test_lightwheel_source_rejects_missing_path_without_caching_it(kind, file_pa
     loader_module = ModuleType("lightwheel_sdk.loader")
     if kind == "object":
         loader_module.object_loader = SimpleNamespace(acquire_by_registry=acquire)
-        source = LightwheelUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
+        source = LightwheelObjectUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
     else:
         loader_module.floorplan_loader = SimpleNamespace(get_usd=acquire)
         source = LightwheelFloorplanUsdSource(scene="robocasakitchen", layout_id=6, style_id=10, backend="robocasa")
@@ -226,7 +226,7 @@ def test_library_objects_reuse_their_class_level_lightwheel_source(tmp_path):
     loader_module.object_loader = loader
     package = ModuleType("lightwheel_sdk")
     package.loader = loader_module
-    source = LightwheelUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
+    source = LightwheelObjectUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
 
     class SourcedObject(LibraryObject):
         registry_name = "sourced_object"
@@ -270,7 +270,7 @@ def test_broccoli_is_pinned_to_one_variant():
     }
 
 
-class _FakeLightwheelSource(LightwheelAssetSource):
+class _FakeLightwheelSource(LightwheelSource):
     """Minimal subclass recording how the base class drives the cache lookup and the SDK call."""
 
     def __init__(self, key, cached_path):
@@ -294,7 +294,7 @@ class _FakeLightwheelSource(LightwheelAssetSource):
 
 def test_lightwheel_asset_source_cannot_be_instantiated_without_the_four_hooks():
     with pytest.raises(TypeError):
-        LightwheelAssetSource()
+        LightwheelSource()
 
 
 def test_lightwheel_asset_source_hit_prints_key_and_skips_the_sdk(capsys):

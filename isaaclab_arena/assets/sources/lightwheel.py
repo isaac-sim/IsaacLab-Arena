@@ -24,7 +24,7 @@ def lightwheel_cache_root() -> Path:
     return Path("~/.cache/lightwheel_sdk").expanduser()
 
 
-class LightwheelAssetSource(UsdSource, ABC):
+class LightwheelSource(UsdSource, ABC):
     """Acquire and memoize one Lightwheel USD, using the SDK cache directory when the asset is complete there."""
 
     _asset_label: str = "asset"
@@ -79,7 +79,7 @@ class LightwheelAssetSource(UsdSource, ABC):
         return str(file_path)
 
 
-class LightwheelUsdSource(LightwheelAssetSource):
+class LightwheelObjectUsdSource(LightwheelSource):
     """Acquire and memoize one Lightwheel object USD on first use; the keyword arguments go to ``acquire_by_registry``."""
 
     def _cache_key(self) -> str | None:
@@ -114,7 +114,7 @@ class LightwheelUsdSource(LightwheelAssetSource):
         return loader.acquire_by_registry
 
 
-class LightwheelFloorplanUsdSource(LightwheelAssetSource):
+class LightwheelFloorplanUsdSource(LightwheelSource):
     """Acquire and memoize one Lightwheel floorplan USD on first use."""
 
     _asset_label = "floorplan"

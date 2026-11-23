@@ -31,7 +31,7 @@ from isaaclab_arena.assets.object_utils import (
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS, SIMREADY_PHYSICS_VARIANTS
 from isaaclab_arena.assets.sources.base import UsdSource
-from isaaclab_arena.assets.sources.lightwheel import LightwheelUsdSource
+from isaaclab_arena.assets.sources.lightwheel import LightwheelObjectUsdSource
 from isaaclab_arena.assets.sources.simready_central import SimReadyCentralUsdSource
 from isaaclab_arena.utils.pose import Pose
 
@@ -149,7 +149,7 @@ class Microwave(LibraryObject, Openable):
 
     registry_name = "microwave"
     tags = ["object", "openable"]
-    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -174,7 +174,7 @@ class CoffeeMachine(LibraryObject, Pressable):
 
     registry_name = "coffee_machine"
     tags = ["object", "pressable"]
-    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -762,7 +762,7 @@ class Broccoli(LibraryObject):
 
     registry_name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
-    usd_source = LightwheelUsdSource(registry_type="objects", file_name="Broccoli015", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="objects", file_name="Broccoli015", file_type="USD")
 
 
 @register_asset
@@ -773,7 +773,7 @@ class SweetPotato(LibraryObject):
 
     registry_name = "sweet_potato"
     tags = ["object", "vegetable", "graspable"]
-    usd_source = LightwheelUsdSource(registry_type="objects", file_name="SweetPotato005", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="objects", file_name="SweetPotato005", file_type="USD")
     scale = (1.5, 1.5, 1.5)
 
 
@@ -785,7 +785,7 @@ class Jug(LibraryObject):
 
     registry_name = "jug"
     tags = ["object", "graspable"]
-    usd_source = LightwheelUsdSource(registry_type="objects", file_name="Jug005", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="objects", file_name="Jug005", file_type="USD")
     scale = (2.0, 2.0, 2.0)
 
 
@@ -797,7 +797,7 @@ class BeerBottle(LibraryObject):
 
     registry_name = "beer_bottle"
     tags = ["object", "graspable"]
-    usd_source = LightwheelUsdSource(registry_type="objects", file_name="beer016", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="objects", file_name="beer016", file_type="USD")
     scale = (1.2, 1.2, 1.2)
 
 

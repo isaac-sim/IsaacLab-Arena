@@ -37,7 +37,7 @@ def make_floorplan(root, name, version="uuid1", register=True):
 
 
 def find_cached_object_usd(file_name):
-    return lightwheel.LightwheelUsdSource(
+    return lightwheel.LightwheelObjectUsdSource(
         registry_type="objects", file_name=file_name, file_type="USD"
     )._find_cached_usd()
 
