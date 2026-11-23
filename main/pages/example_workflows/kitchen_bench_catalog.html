@@ -576,11 +576,12 @@
                   
   <section id="kitchen-benchmark-catalog">
 <h1>Kitchen Benchmark Catalog<a class="headerlink" href="#kitchen-benchmark-catalog" title="Link to this heading">#</a></h1>
-<p>The kitchen benchmark contains 42 DROID tasks defined as environment graph
+<p>The kitchen benchmark contains 51 DROID tasks defined as environment graph
 YAML specs under <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/kitchen_bench/</span></code>. Pass a spec
 to <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> with <code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> to run that environment.
 π0.5 (<code class="docutils literal notranslate"><span class="pre">pi05_droid_jointpos</span></code>, DROID adapter) was evaluated on 100 episodes per
-environment on October 28, 2026.</p>
+environment: the original 42 environments on October 28, 2026, and the nine
+<code class="docutils literal notranslate"><span class="pre">kitchen_bench_spatial_*</span></code> placement environments on November 22, 2026.</p>
 <div class="pst-scrollable-table-container"><table class="table" id="id1">
 <caption><span class="caption-text">Task categories</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
 <colgroup>
@@ -620,16 +621,16 @@ environment on October 28, 2026.</p>
 <td><p>32.3%</p></td>
 </tr>
 <tr class="row-even"><td><p>Spatial placement</p></td>
-<td><p>2</p></td>
-<td><p>30.5%</p></td>
+<td><p>11</p></td>
+<td><p>39.2%</p></td>
 </tr>
 <tr class="row-odd"><td><p>Stacking</p></td>
 <td><p>2</p></td>
 <td><p>42.0%</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Total</strong></p></td>
-<td><p><strong>42</strong></p></td>
-<td><p><strong>38.3%</strong></p></td>
+<td><p><strong>51</strong></p></td>
+<td><p><strong>38.8%</strong></p></td>
 </tr>
 </tbody>
 </table>
@@ -940,7 +941,79 @@ the maintained DROID external camera. Rows are grouped by task category.</p>
 <p>Pi0.5, 2x speed.</p>
 </td>
 </tr>
-<tr class="row-even"><td><p>Stacking</p></td>
+<tr class="row-even"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml">kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml</a></p></td>
+<td><p>75.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_apple_in_right_bowl_g_shape_pi05.gif"><img alt="Pi0.5 placing an apple in the right bowl in the G-shaped kitchen" src="../../_images/kitchen_bench_spatial_apple_in_right_bowl_g_shape_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml">kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml</a></p></td>
+<td><p>22.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island_pi05.gif"><img alt="Pi0.5 placing a bagel on the plate to the left of the mug in the L-island kitchen" src="../../_images/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml">kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml</a></p></td>
+<td><p>80.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_lemon_on_near_plate_peninsula_pi05.gif"><img alt="Pi0.5 placing a lemon on the nearer plate in the peninsula kitchen" src="../../_images/kitchen_bench_spatial_lemon_on_near_plate_peninsula_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml">kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml</a></p></td>
+<td><p>25.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal_pi05.gif"><img alt="Pi0.5 placing a lime in the bowl between the mug and mustard bottle in the coastal kitchen" src="../../_images/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml">kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml</a></p></td>
+<td><p>92.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_orange_in_front_right_bowl_l_island_pi05.gif"><img alt="Pi0.5 placing an orange in the front-right of four bowls in the L-island kitchen" src="../../_images/kitchen_bench_spatial_orange_in_front_right_bowl_l_island_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_back_right_bowl_l_island.yaml">kitchen_bench_spatial_orange_in_back_right_bowl_l_island.yaml</a></p></td>
+<td><p>1.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_orange_in_back_right_bowl_l_island_pi05.gif"><img alt="Pi0.5 placing an orange in the back-right of four bowls in the L-island kitchen" src="../../_images/kitchen_bench_spatial_orange_in_back_right_bowl_l_island_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 3x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml">kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml</a></p></td>
+<td><p>12.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian_pi05.gif"><img alt="Pi0.5 placing a pepper in the middle bowl in the Scandinavian kitchen" src="../../_images/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml">kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml</a></p></td>
+<td><p>63.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape_pi05.gif"><img alt="Pi0.5 placing a sponge on the tray behind the plate in the U-shaped kitchen" src="../../_images/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Spatial placement</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml">kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml</a></p></td>
+<td><p>0.0%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse_pi05.gif"><img alt="Pi0.5 placing the red onion in the far bowl instead of the bowl nearest the pepper in the farmhouse kitchen" src="../../_images/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5 failure: the onion goes in the far bowl, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Stacking</p></td>
 <td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml">kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml</a></p></td>
 <td><p>37%</p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_replicator_g_shape_mustard_on_wooden_block_pi05.gif"><img alt="Pi0.5 policy placing a mustard bottle onto a wooden block in the G-shaped kitchen" src="../../_images/kitchen_bench_replicator_g_shape_mustard_on_wooden_block_pi05.gif" style="width: 100%;" />
@@ -948,7 +1021,7 @@ the maintained DROID external camera. Rows are grouped by task category.</p>
 <p>Pi0.5, 2x speed.</p>
 </td>
 </tr>
-<tr class="row-odd"><td><p>Stacking</p></td>
+<tr class="row-even"><td><p>Stacking</p></td>
 <td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal.yaml">kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal.yaml</a></p></td>
 <td><p>47%</p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal_pi05.gif"><img alt="Pi0.5 policy placing a soup can onto a cracker box in the coastal kitchen" src="../../_images/kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal_pi05.gif" style="width: 100%;" />
