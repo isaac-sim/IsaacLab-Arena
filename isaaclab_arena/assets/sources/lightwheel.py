@@ -7,13 +7,57 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from isaaclab_arena.assets.sources.base import UsdSource
 
 _MISSING = object()
+
+
+def lightwheel_cache_root() -> Path:
+    """Return the directory where the Lightwheel SDK keeps its downloaded assets."""
+    return Path("~/.cache/lightwheel_sdk").expanduser()
+
+
+def find_cached_object_usd(file_name: str) -> str | None:
+    """Return the path of a completely cached Lightwheel object USD, or None if it is not cached.
+
+    The object is complete when ``object/<Name>/<Name>.usd`` exists and ``object/<Name>/`` holds a
+    ``*.txt`` version marker. ``<Name>`` matches ``file_name`` case-insensitively.
+    """
+    object_root = lightwheel_cache_root() / "object"
+    if not object_root.is_dir():
+        return None
+    for object_dir in object_root.iterdir():
+        if object_dir.name.lower() != file_name.lower() or not object_dir.is_dir():
+            continue
+        usd_path = object_dir / f"{object_dir.name}.usd"
+        has_marker = any(object_dir.glob("*.txt"))
+        if usd_path.is_file() and has_marker:
+            return str(usd_path)
+    return None
+
+
+def find_cached_floorplan_usd(scene: str, layout_id: int, style_id: int, backend: str) -> str | None:
+    """Return the path of a completely cached Lightwheel floorplan ``scene.usd``, or None if it is not cached.
+
+    The floorplan is complete when ``usd_version.json`` has an entry for ``{backend}-{scene}-{layout_id}-{style_id}``
+    and ``floorplan/<that name>/scene.usd`` exists.
+    """
+    floorplan_root = lightwheel_cache_root() / "floorplan"
+    name = f"{backend}-{scene}-{layout_id}-{style_id}"
+    try:
+        versions = json.loads((floorplan_root / "usd_version.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(versions, dict) or not versions.get(name):
+        return None
+    usd_path = floorplan_root / name / "scene.usd"
+    return str(usd_path) if usd_path.is_file() else None
 
 
 class LightwheelUsdSource(UsdSource):
