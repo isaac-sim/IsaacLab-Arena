@@ -310,35 +310,35 @@ jobs:
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
       - name: Run in-process Newton tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
+          isaaclab.sh -p -m pytest -m "with_newton and not with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process Newton tests with cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
+          isaaclab.sh -p -m pytest -m "with_newton and with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+          isaaclab.sh -p -m pytest -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
             isaaclab_arena_benchmarking/tests/ \
             isaaclab_arena_policies/isaaclab_arena_vlm_agent/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
+          isaaclab.sh -p -m pytest -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/ \
             isaaclab_arena_policies/isaaclab_arena_vlm_agent/tests/
 
       - name: Run GR00T policy client & data tests (lightweight gr00t deps only)
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_policy \
+          isaaclab.sh -p -m pytest -m gr00t_policy \
             isaaclab_arena_policies/isaaclab_arena_gr00t/tests/
 
       - name: Run cuRobo IK reachability tests
         run: |
-          MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
+          MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -m curobo_deps \
             isaaclab_arena_curobo/tests/
 
 
@@ -376,13 +376,13 @@ jobs:
       - name: Run subprocess-spawning Newton tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_subprocess" \
+          isaaclab.sh -p -m pytest -m "with_newton and with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
+          isaaclab.sh -p -m pytest -m "with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
 
@@ -488,7 +488,7 @@ jobs:
       - name: Run GR00T remote closed-loop policy runner test
         if: steps.gr00t_cuda.outputs.enabled == 'true'
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_remote_e2e \
+          isaaclab.sh -p -m pytest -m gr00t_remote_e2e \
             isaaclab_arena_policies/isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
   build_docs_pre_merge:
