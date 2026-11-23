@@ -13,9 +13,12 @@ description: |
   cache and saves one at the end of a successful job, so the saved cache holds only
   what that run used. Every other run restores the newest saved cache.
 
+  It reports the restored contents of each cache. Every job that calls it also calls the
+  save-caches action after its tests, which reports what the tests changed.
+
   With `lightwheel: 'true'` it also restores the Lightwheel SDK asset cache
   (~/.cache/lightwheel_sdk/floorplan and ~/.cache/lightwheel_sdk/object) on every run and
-  records its contents. Jobs that set it call the save-caches action after their tests.
+  records its contents; save-caches then saves it when the tests changed it.
 
 inputs:
   cache-name:
@@ -26,8 +29,8 @@ inputs:
     required: true
   lightwheel:
     description: |
-      'true' to restore the Lightwheel SDK asset cache. The job must then call the
-      save-caches action with the same cache-name after its tests.
+      'true' to also restore the Lightwheel SDK asset cache. The save-caches action, which
+      every job calls with the same cache-name after its tests, saves it when it changed.
     required: false
     default: 'false'
 
@@ -40,7 +43,8 @@ runs:
       run: echo "isaac_sim_version=$(cat /isaac-sim/VERSION)" >> "${GITHUB_OUTPUT}"
 
     # Restore the newest cache with this name.
-    - name: Restore caches
+    - id: restore_kit
+      name: Restore caches
       if: >-
         !(github.ref == 'refs/heads/main' &&
           contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event_name))
@@ -52,6 +56,26 @@ runs:
         key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
         restore-keys: |
           ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
+
+    # Report what was restored and record it for the report in save-caches. Runs on every
+    # event: when the restore above was skipped, both keys are empty and the report says
+    # "miss", which is accurate because those runs start cold. Reporting only, so a failure
+    # here warns instead of failing the job.
+    - name: Report kit and Warp cache contents
+      shell: bash
+      env:
+        CACHE_NAME: ${{ inputs.cache-name }}
+        MATCHED_KEY: ${{ steps.restore_kit.outputs.cache-matched-key }}
+        PRIMARY_KEY: ${{ steps.restore_kit.outputs.cache-primary-key }}
+      run: |
+        python3 "${GITHUB_WORKSPACE}/docker/report_cache_contents.py" snapshot \
+          --name "kit-warp-${CACHE_NAME}" \
+          --matched-key "${MATCHED_KEY}" \
+          --primary-key "${PRIMARY_KEY}" \
+          --out "${RUNNER_TEMP}/kit-warp-before.json" \
+          /isaac-sim/kit/cache \
+          "${HOME}/.cache/warp" \
+          || echo "::warning::Could not report the kit and Warp cache contents."
 
     # actions/cache automatically saves the paths in a step at the end of a successful job
     # when its key was not found. The key is new on every run, so it always saves.
