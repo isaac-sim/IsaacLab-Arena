@@ -195,9 +195,10 @@ and ``camera_free_baseline/arena_run_timings.json`` below that directory.
 Each timing record names one timer and gives its ``count``, ``mean_ms``, ``total_ms``, ``min_ms``,
 ``max_ms``, ``p10_ms``, ``p50_ms``, and ``p90_ms``. The ``step`` timer covers one full control
 step; ``step/policy_inference`` and ``step/env_step`` split it into the policy call and the
-environment step. ``arena_run_timings.json`` is a list of these records.
-``arena_experiment_timings.json`` lists them under ``runs``, with the Run name added to each
-record, and sums them per timer under ``totals``. The timers cover the rollout only. Isaac Sim
+environment step. ``arena_run_timings.json`` is a list of these records, each with the timer's
+reservoir sample as ``samples_ms``. ``arena_experiment_timings.json`` lists the records under
+``runs``, with the Run name added to each and without ``samples_ms``, and sums them per timer under
+``totals``. The percentiles in ``totals`` are approximate and pooled from the Runs' samples. The timers cover the rollout only. Isaac Sim
 startup and scene construction are part of the trial wall-clock but have no timer of their own.
 
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
