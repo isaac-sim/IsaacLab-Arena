@@ -254,3 +254,13 @@ def test_extract_asset_usd_path_resolves_source_without_constructing_asset():
 
     assert _extract_asset_usd_path(SourcedAsset) == "/cache/asset.usd"
     source.to_local_usd_path.assert_called_once_with()
+
+
+def test_broccoli_is_pinned_to_one_variant():
+    from isaaclab_arena.assets.object_library import Broccoli
+
+    assert Broccoli.usd_source._kwargs == {
+        "registry_type": "objects",
+        "file_name": "Broccoli015",
+        "file_type": "USD",
+    }
