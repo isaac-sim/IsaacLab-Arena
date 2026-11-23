@@ -106,5 +106,4 @@ task:
     params:
       pick_up_object: apple
       destination_location: right_bowl
-      destination_object: right_bowl
       background_scene: kitchen

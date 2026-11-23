@@ -167,5 +167,4 @@ task:
     params:
       pick_up_object: red_onion
       destination_location: target_bowl
-      destination_object: target_bowl
       background_scene: kitchen

@@ -110,5 +110,4 @@ task:
     params:
       pick_up_object: lemon
       destination_location: near_plate
-      destination_object: near_plate
       background_scene: kitchen

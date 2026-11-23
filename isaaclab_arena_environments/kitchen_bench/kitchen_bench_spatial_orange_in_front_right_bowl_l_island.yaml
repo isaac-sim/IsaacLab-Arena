@@ -169,5 +169,4 @@ task:
     params:
       pick_up_object: orange
       destination_location: front_right
-      destination_object: front_right
       background_scene: kitchen

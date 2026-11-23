@@ -138,5 +138,4 @@ task:
     params:
       pick_up_object: bagel
       destination_location: left_plate
-      destination_object: left_plate
       background_scene: kitchen

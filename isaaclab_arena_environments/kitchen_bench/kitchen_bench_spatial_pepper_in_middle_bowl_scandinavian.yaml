@@ -143,5 +143,4 @@ task:
     params:
       pick_up_object: pepper
       destination_location: middle_bowl
-      destination_object: middle_bowl
       background_scene: kitchen

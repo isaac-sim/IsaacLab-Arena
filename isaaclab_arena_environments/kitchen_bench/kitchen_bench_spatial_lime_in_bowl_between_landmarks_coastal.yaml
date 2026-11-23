@@ -148,5 +148,4 @@ task:
     params:
       pick_up_object: lime
       destination_location: target_bowl
-      destination_object: target_bowl
       background_scene: kitchen

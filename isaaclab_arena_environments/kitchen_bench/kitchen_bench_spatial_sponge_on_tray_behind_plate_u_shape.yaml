@@ -136,5 +136,4 @@ task:
     params:
       pick_up_object: sponge
       destination_location: rear_tray
-      destination_object: rear_tray
       background_scene: kitchen
