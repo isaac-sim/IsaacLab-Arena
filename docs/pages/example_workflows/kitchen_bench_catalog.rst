@@ -1,12 +1,12 @@
 Kitchen Benchmark Catalog
 =========================
 
-The kitchen benchmark contains 50 DROID tasks defined as environment graph
+The kitchen benchmark contains 51 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
-environment: the original 42 environments on October 28, 2026, and the eight
-additional spatial placement environments on October 31–November 1, 2026.
+environment: the original 42 environments on October 28, 2026, and the nine
+``kitchen_bench_spatial_*`` placement environments on November 22, 2026.
 
 .. list-table:: Task categories
    :header-rows: 1
@@ -41,16 +41,16 @@ additional spatial placement environments on October 31–November 1, 2026.
      - 32.3%
 
    * - Spatial placement
-     - 10
-     - 31.2%
+     - 11
+     - 39.2%
 
    * - Stacking
      - 2
      - 42.0%
 
    * - **Total**
-     - **50**
-     - **37.2%**
+     - **51**
+     - **38.8%**
 
 Each row links to the source YAML and shows a Pi policy execution recorded from
 the maintained DROID external camera. Rows are grouped by task category.
@@ -324,7 +324,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Spatial placement
      - `kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml>`_
-     - 35.0%
+     - 75.0%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape_pi05.gif
           :alt: Pi0.5 placing an apple in the right bowl in the G-shaped kitchen
           :width: 100%
@@ -332,7 +332,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Spatial placement
      - `kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml>`_
-     - 14.0%
+     - 22.0%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island_pi05.gif
           :alt: Pi0.5 placing a bagel on the plate to the left of the mug in the L-island kitchen
           :width: 100%
@@ -340,7 +340,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Spatial placement
      - `kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml>`_
-     - 37.0%
+     - 80.0%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula_pi05.gif
           :alt: Pi0.5 placing a lemon on the nearer plate in the peninsula kitchen
           :width: 100%
@@ -348,7 +348,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Spatial placement
      - `kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml>`_
-     - 62.0%
+     - 25.0%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal_pi05.gif
           :alt: Pi0.5 placing a lime in the bowl between the mug and mustard bottle in the coastal kitchen
           :width: 100%
@@ -356,15 +356,23 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Spatial placement
      - `kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml>`_
-     - 69.0%
+     - 92.0%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island_pi05.gif
           :alt: Pi0.5 placing an orange in the front-right of four bowls in the L-island kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Spatial placement
+     - `kitchen_bench_spatial_orange_in_back_right_bowl_l_island.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_back_right_bowl_l_island.yaml>`_
+     - 1.0%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_orange_in_back_right_bowl_l_island_pi05.gif
+          :alt: Pi0.5 placing an orange in the back-right of four bowls in the L-island kitchen
+          :width: 100%
+
+       Pi0.5, 3x speed.
+   * - Spatial placement
      - `kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml>`_
-     - 23.0%
+     - 12.0%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian_pi05.gif
           :alt: Pi0.5 placing a pepper in the middle bowl in the Scandinavian kitchen
           :width: 100%
@@ -372,7 +380,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Spatial placement
      - `kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml>`_
-     - 3.0%
+     - 63.0%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape_pi05.gif
           :alt: Pi0.5 placing a sponge on the tray behind the plate in the U-shaped kitchen
           :width: 100%
@@ -380,12 +388,12 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Spatial placement
      - `kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml>`_
-     - 8.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_sweet_potato_in_bowl_nearest_pepper_farmhouse_pi05.gif
-          :alt: Pi0.5 placing a sweet potato in the bowl nearest the pepper in the farmhouse kitchen
+     - 0.0%
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse_pi05.gif
+          :alt: Pi0.5 placing the red onion in the far bowl instead of the bowl nearest the pepper in the farmhouse kitchen
           :width: 100%
 
-       Pi0.5, 2x speed.
+       Pi0.5 failure: the onion goes in the far bowl, 2x speed.
    * - Stacking
      - `kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml>`_
      - 37%
