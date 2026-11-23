@@ -50,6 +50,8 @@ t_M_B_BY_ARM = {LEFT_ROBOT_KEY: (0.0, 0.31, 0.0), RIGHT_ROBOT_KEY: (0.0, -0.31, 
 
 The bases are 0.62 m apart, as in AUTOLab's bimanual scene.
 """
+ASSET_NAME_BY_EE_FRAME = {"left_ee_frame": LEFT_ROBOT_KEY, "right_ee_frame": RIGHT_ROBOT_KEY}
+"""Scene key of the arm that carries each end-effector frame sensor."""
 
 ARM_JOINT_NAMES = [f"joint{index}" for index in range(1, 7)]
 GRIPPER_JOINT_NAME = "left_finger"
@@ -136,11 +138,12 @@ def make_yam_articulation_cfg(prim_path: str, usd_path: str = YAM_USD_PATH) -> A
     )
 
 
-def make_yam_ee_frame_cfg(robot_prim_path: str) -> FrameTransformerCfg:
+def make_yam_ee_frame_cfg(robot_prim_path: str, frame_name: str) -> FrameTransformerCfg:
     """Build a frame sensor tracking one YAM's grasp site, expressed in that arm's base frame.
 
     Args:
         robot_prim_path: Prim path of the YAM articulation, e.g. ``{ENV_REGEX_NS}/LeftRobot``.
+        frame_name: Name of the tracked grasp-site frame, unique across the embodiment's frame sensors.
     """
     return FrameTransformerCfg(
         prim_path=f"{robot_prim_path}{BASE_PRIM_SUFFIX}",
@@ -148,7 +151,7 @@ def make_yam_ee_frame_cfg(robot_prim_path: str) -> FrameTransformerCfg:
         target_frames=[
             FrameTransformerCfg.FrameCfg(
                 prim_path=f"{robot_prim_path}{LINK_SIX_PRIM_SUFFIX}",
-                name="end_effector",
+                name=frame_name,
                 offset=OffsetCfg(pos=GRASP_SITE_OFFSET_FROM_LINK_SIX),
             )
         ],
@@ -277,8 +280,8 @@ class YamBimanualAbsoluteJointPositionEmbodiment(EmbodimentBase):
         self.scene_config = YamBimanualSceneCfg(
             left_robot=make_yam_articulation_cfg("{ENV_REGEX_NS}/LeftRobot", usd_path),
             right_robot=make_yam_articulation_cfg("{ENV_REGEX_NS}/RightRobot", usd_path),
-            left_ee_frame=make_yam_ee_frame_cfg("{ENV_REGEX_NS}/LeftRobot"),
-            right_ee_frame=make_yam_ee_frame_cfg("{ENV_REGEX_NS}/RightRobot"),
+            left_ee_frame=make_yam_ee_frame_cfg("{ENV_REGEX_NS}/LeftRobot", "left_end_effector"),
+            right_ee_frame=make_yam_ee_frame_cfg("{ENV_REGEX_NS}/RightRobot", "right_end_effector"),
         )
         for name, t_M_B in t_M_B_BY_ARM.items():
             getattr(self.scene_config, name).init_state.pos = t_M_B
@@ -371,7 +374,11 @@ class YamBimanualAbsoluteJointPositionEmbodiment(EmbodimentBase):
 
     def get_ee_frame_transformer_names(self) -> list[str]:
         """Return both arms' end-effector frame sensor names."""
-        return ["left_ee_frame", "right_ee_frame"]
+        return list(ASSET_NAME_BY_EE_FRAME)
+
+    def get_ee_frame_asset_name(self, frame_transformer_name: str) -> str:
+        """Return the scene key of the arm that carries the given end-effector frame sensor."""
+        return ASSET_NAME_BY_EE_FRAME[frame_transformer_name]
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         """Return the end-effector frame sensor name of the LEFT or RIGHT arm."""

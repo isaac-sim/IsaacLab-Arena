@@ -23,6 +23,10 @@ RIG_POSITION = (0.2, -0.1, 0.05)
 ROOT_POSITION_TOLERANCE_M = 0.001
 ROOT_WRITE_SHIFT_X_M = 0.1
 RESET_TEST_JOINT1_OFFSET_RAD = 0.3
+MOTION_RECORD_STEPS = 3
+"""Steps into a joint1 turn before recording, so the turning arm is still moving."""
+MOVING_EE_MIN_SPEED_M_S = 0.05
+STILL_EE_MAX_SPEED_M_S = 0.01
 
 
 def _test_yam_bimanual_embodiment_backends(simulation_app) -> bool:
@@ -82,12 +86,21 @@ def _test_yam_bimanual_embodiment_backends(simulation_app) -> bool:
 
     # Each arm has its own end-effector frame sensor and joint reset; LEFT or RIGHT selects one arm.
     assert newton_embodiment.get_ee_frame_transformer_names() == ["left_ee_frame", "right_ee_frame"]
-    assert newton_scene.left_ee_frame is not None and newton_scene.right_ee_frame is not None
+    assert newton_scene.left_ee_frame.target_frames[0].name == "left_end_effector"
+    assert newton_scene.right_ee_frame.target_frames[0].name == "right_end_effector"
     assert newton_embodiment.get_ee_frame_name(ArmMode.LEFT) == "left_ee_frame"
     assert newton_embodiment.get_ee_frame_name(ArmMode.RIGHT) == "right_ee_frame"
     right_arm_embodiment = YamBimanualAbsoluteJointPositionEmbodiment(arm_mode=ArmMode.RIGHT)
     assert right_arm_embodiment.get_scene_key() == RIGHT_ROBOT_KEY
     assert newton_embodiment.get_scene_key() == LEFT_ROBOT_KEY
+    # The trajectory recorder reads each frame's velocity from the arm that carries it, whichever arm is selected.
+    for embodiment in (newton_embodiment, right_arm_embodiment):
+        recorder_terms_cfg = embodiment.get_recorder_term_cfg(record_trajectories=True)
+        for term, ee_frame_name, asset_name in (
+            (recorder_terms_cfg.record_end_effector_poses_0, "left_ee_frame", LEFT_ROBOT_KEY),
+            (recorder_terms_cfg.record_end_effector_poses_1, "right_ee_frame", RIGHT_ROBOT_KEY),
+        ):
+            assert (term.frame_transformer_name, term.asset_name) == (ee_frame_name, asset_name)
     events = newton_embodiment.get_events_cfg()
     assert events.reset_left_robot_joints.params["asset_cfg"].name == LEFT_ROBOT_KEY
     assert events.reset_right_robot_joints.params["asset_cfg"].name == RIGHT_ROBOT_KEY
@@ -128,13 +141,14 @@ def _yam_bimanual_env(env_name: str, backend_name: str):
             del gym.registry[env_name]
 
 
-def _hold_default_arm_poses(
-    env, left_gripper_command: float, right_gripper_command: float, joint1_offset: float = 0.0
-) -> dict[str, torch.Tensor]:
-    """Command both arms' default poses, shifted by ``joint1_offset`` on joint1, and each gripper's closure in [0, 1].
-
-    Steps until settled and returns each arm's joint positions.
-    """
+def _make_default_arm_pose_action(
+    env,
+    left_gripper_command: float,
+    right_gripper_command: float,
+    left_joint1_offset: float = 0.0,
+    right_joint1_offset: float = 0.0,
+) -> torch.Tensor:
+    """Return an action commanding both arms' default poses, shifted on joint1, and each gripper's closure in [0, 1]."""
     import torch
 
     import warp as wp
@@ -143,15 +157,32 @@ def _hold_default_arm_poses(
 
     action = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
     # Policy order: left arm (6), left gripper (1), right arm (6), right gripper (1).
-    for offset, name, gripper_command in (
-        (0, LEFT_ROBOT_KEY, left_gripper_command),
-        (7, RIGHT_ROBOT_KEY, right_gripper_command),
+    for offset, name, gripper_command, joint1_offset in (
+        (0, LEFT_ROBOT_KEY, left_gripper_command, left_joint1_offset),
+        (7, RIGHT_ROBOT_KEY, right_gripper_command, right_joint1_offset),
     ):
         robot = env.unwrapped.scene[name]
         arm_joint_ids, _ = robot.find_joints(ARM_JOINT_NAMES, preserve_order=True)
         action[:, offset : offset + 6] = wp.to_torch(robot.data.default_joint_pos)[:, arm_joint_ids]
         action[:, offset] += joint1_offset
         action[:, offset + 6] = gripper_command
+    return action
+
+
+def _hold_default_arm_poses(
+    env, left_gripper_command: float, right_gripper_command: float, joint1_offset: float = 0.0
+) -> dict[str, torch.Tensor]:
+    """Command both arms' default poses, shifted by ``joint1_offset`` on joint1, and each gripper's closure in [0, 1].
+
+    Steps until settled and returns each arm's joint positions.
+    """
+    import warp as wp
+
+    from isaaclab_arena.embodiments.yam.yam import LEFT_ROBOT_KEY, RIGHT_ROBOT_KEY
+
+    action = _make_default_arm_pose_action(
+        env, left_gripper_command, right_gripper_command, joint1_offset, joint1_offset
+    )
     for _ in range(SETTLE_STEPS):
         env.step(action)
     return {
@@ -177,8 +208,10 @@ def _test_yam_bimanual_holds_arms_and_mirrors_fingers(simulation_app, backend_na
         LEFT_ROBOT_KEY,
         PASSIVE_GRIPPER_JOINT_NAME,
         RIGHT_ROBOT_KEY,
+        YamBimanualAbsoluteJointPositionEmbodiment,
         t_M_B_BY_ARM,
     )
+    from isaaclab_arena.terms.recorders import EndEffectorPosesRecorder
 
     with _yam_bimanual_env(f"yam_bimanual_{backend_name}_hold_test", backend_name) as env:
         scene = env.unwrapped.scene
@@ -238,6 +271,28 @@ def _test_yam_bimanual_holds_arms_and_mirrors_fingers(simulation_app, backend_na
                 expected = math.dist((0.0, 0.0, 0.0), GRASP_SITE_OFFSET_FROM_LINK_SIX)
                 print(f"[{backend_name}] {ee_frame_name} is {distance:.4f} m from link_6, expected {expected:.4f} m")
                 assert abs(distance - expected) < ROOT_POSITION_TOLERANCE_M
+
+            # Each recorded end-effector velocity comes from the arm carrying that frame: only the right arm turns.
+            recorder_terms_cfg = YamBimanualAbsoluteJointPositionEmbodiment().get_recorder_term_cfg(
+                record_trajectories=True
+            )
+            recorders = [
+                EndEffectorPosesRecorder(recorder_terms_cfg.record_end_effector_poses_0, env.unwrapped),
+                EndEffectorPosesRecorder(recorder_terms_cfg.record_end_effector_poses_1, env.unwrapped),
+            ]
+            turn_right_arm = _make_default_arm_pose_action(
+                env, 0.0, 0.0, right_joint1_offset=RESET_TEST_JOINT1_OFFSET_RAD
+            )
+            for _ in range(MOTION_RECORD_STEPS):
+                env.step(turn_right_arm)
+            speed_by_frame = {}
+            for recorder in recorders:
+                _, frames = recorder.record_post_step()
+                for frame_name, frame in frames.items():
+                    speed_by_frame[frame_name] = torch.norm(frame["linear_velocity"][0]).item()
+            print(f"[{backend_name}] recorded end-effector speeds while the right arm turns: {speed_by_frame}")
+            assert speed_by_frame["right_end_effector"] > MOVING_EE_MIN_SPEED_M_S, "The turning right arm read still."
+            assert speed_by_frame["left_end_effector"] < STILL_EE_MAX_SPEED_M_S, "The still left arm read moving."
 
             # A reset must restore the initial joint state and mounts after the arms move and the grippers close.
             _hold_default_arm_poses(env, 1.0, 1.0, joint1_offset=RESET_TEST_JOINT1_OFFSET_RAD)
