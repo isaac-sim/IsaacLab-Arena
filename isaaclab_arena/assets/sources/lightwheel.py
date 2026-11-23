@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from typing import Any
@@ -14,6 +15,12 @@ from typing import Any
 from isaaclab_arena.assets.sources.base import UsdSource
 
 _MISSING = object()
+
+_RETRYABLE_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+"""HTTP statuses that indicate a transient server or gateway problem worth retrying."""
+
+_SDK_STATUS_PATTERN = re.compile(r"^\S*\s+(\d{3})\b")
+"""Matches the status in the lightwheel_sdk ApiException message '<url> <status> <body>'."""
 
 
 class LightwheelUsdSource(UsdSource):
@@ -71,12 +78,16 @@ def acquire_lightwheel_asset(
     loader: Any,
     acquire_fn: Callable,
     description: str,
-    attempts: int = 3,
+    attempts: int = 4,
     timeout_sec: int | None = 60,
-    delay_sec: float = 2.0,
+    delay_sec: float = 5.0,
     **kwargs: Any,
 ) -> Any:
-    """Acquire a Lightwheel asset with scoped timeout and retry handling."""
+    """Acquire a Lightwheel asset with a scoped timeout, retrying transient failures.
+
+    Timeouts, connection errors and transient HTTP statuses (429, 5xx such as a gateway 504) are retried with
+    exponential backoff starting at ``delay_sec``. Other errors, such as 4xx, are raised immediately.
+    """
     assert attempts > 0, "attempts must be positive"
     assert delay_sec >= 0, "delay_sec must be non-negative"
 
@@ -88,11 +99,15 @@ def acquire_lightwheel_asset(
                 client.base_timeout = timeout_sec
             return acquire_fn(**kwargs)
         except Exception as exc:
-            if not _looks_like_timeout(exc) or attempt == attempts:
+            if not _looks_like_transient_failure(exc) or attempt == attempts:
                 raise
-            print(f"[isaaclab-arena] {description} timed out; retrying {attempt + 1}/{attempts} in {delay_sec:g}s.")
-            if delay_sec > 0:
-                time.sleep(delay_sec)
+            backoff_sec = delay_sec * 2 ** (attempt - 1)
+            print(
+                f"[isaaclab-arena] {description} failed transiently ({_summarize_exception(exc)});"
+                f" retrying {attempt + 1}/{attempts} in {backoff_sec:g}s."
+            )
+            if backoff_sec > 0:
+                time.sleep(backoff_sec)
         finally:
             if old_timeout is not _MISSING:
                 client.base_timeout = old_timeout
@@ -100,12 +115,21 @@ def acquire_lightwheel_asset(
     raise AssertionError("unreachable")
 
 
-def _looks_like_timeout(exc: BaseException) -> bool:
-    """Return whether an exception is a timeout."""
+def _looks_like_transient_failure(exc: BaseException) -> bool:
+    """Return whether an exception, or one in its cause chain, is a timeout, connection error or transient HTTP status."""
     current: BaseException | None = exc
     while current is not None:
         text = f"{type(current).__name__}: {current}".lower()
-        if "timeout" in text or "timed out" in text:
+        if "timeout" in text or "timed out" in text or "connectionerror" in text:
+            return True
+        status_match = _SDK_STATUS_PATTERN.match(str(current))
+        if status_match is not None and int(status_match.group(1)) in _RETRYABLE_HTTP_STATUSES:
             return True
         current = current.__cause__ or current.__context__
     return False
+
+
+def _summarize_exception(exc: BaseException) -> str:
+    """Return the exception type and the first 120 characters of its message, for retry log lines."""
+    message = " ".join(str(exc).split())
+    return f"{type(exc).__name__}: {message[:120]}"
