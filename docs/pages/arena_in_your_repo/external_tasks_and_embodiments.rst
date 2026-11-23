@@ -81,29 +81,10 @@ the same way as any built-in embodiment (see :ref:`putting_it_all_together` belo
 Recording a Custom Value per Episode
 ------------------------------------
 
-For every finished episode, Arena writes one line to the episode results, with its success, task
-progress, and the variations drawn for it. An **episode recorder term** adds a value of your own: it
-returns a JSON value, such as a number or a dictionary, when the episode ends, and the line holds it under
-the term's name. A NaN or infinite value is written as ``null``, with a warning.
-
-The example records two values for each episode: the object's height when the episode ends, and the
-highest speed it reached. The height is read once, when the episode ends, so the example defines a
-function:
-
-.. literalinclude:: ../../../isaaclab_arena_examples/external_environments/advanced.py
-   :language: python
-   :pyobject: record_object_final_height
-
-The peak speed builds up during the episode, so it needs a class derived from ``EpisodeRecorderTerm``.
-The example uses Arena's ``ObjectPeakSpeed``. Arena calls its ``post_step()`` after every step and its
-``reset()`` when a new episode starts:
-
-.. literalinclude:: ../../../isaaclab_arena/terms/episode_recorders.py
-   :language: python
-   :pyobject: ObjectPeakSpeed
-
-The environment adds both through ``episode_recorder_terms``, as shown below. Each line of the episode
-results then holds the values under the terms' names, for example
+The example also records two values for each episode through ``episode_recorder_terms``, shown below. It
+defines ``record_object_final_height``, a function for a value read when the episode ends, and uses Arena's
+``ObjectPeakSpeed``, a class derived from ``EpisodeRecorderTerm`` for a value that builds up during the
+episode. Each episode's line in the episode results holds the values under the terms' names, for example
 ``"object_final_height": 0.12, "object_peak_speed": 0.83``.
 
 .. _putting_it_all_together:
