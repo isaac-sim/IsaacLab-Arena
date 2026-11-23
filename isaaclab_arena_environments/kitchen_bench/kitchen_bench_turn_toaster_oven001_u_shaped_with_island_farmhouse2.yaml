@@ -44,7 +44,6 @@ relations:
   subject: appliance
   params:
     yaw_rad: 0
-    max_random_yaw_rad: 0.2
 - kind: position_limits_box
   subject: appliance
   params:

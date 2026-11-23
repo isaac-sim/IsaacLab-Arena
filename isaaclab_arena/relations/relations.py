@@ -473,23 +473,16 @@ class RotateAroundSolution(RelationBase):
         roll_rad: float = 0.0,
         pitch_rad: float = 0.0,
         yaw_rad: float = 0.0,
-        max_random_yaw_rad: float = 0.0,
     ):
         """
         Args:
             roll_rad: Roll rotation in radians.
             pitch_rad: Pitch rotation in radians.
             yaw_rad: Yaw rotation in radians.
-            max_random_yaw_rad: Half-width in radians of a uniform yaw offset sampled around ``yaw_rad``
-                for each placement candidate. Zero keeps the yaw fixed.
         """
-        assert (
-            math.isfinite(max_random_yaw_rad) and 0.0 <= max_random_yaw_rad <= math.pi
-        ), "max_random_yaw_rad must be in [0, pi]"
         self.roll_rad = roll_rad
         self.pitch_rad = pitch_rad
         self.yaw_rad = yaw_rad
-        self.max_random_yaw_rad = max_random_yaw_rad
 
     def get_rotation_xyzw(self) -> tuple[float, float, float, float]:
         """Get the rotation as a quaternion (x, y, z, w).
