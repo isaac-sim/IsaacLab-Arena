@@ -90,8 +90,8 @@ runs:
           ~/.cache/warp
         key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
 
-    # The Lightwheel cache holds only the floorplan and object directories. The `login` file
-    # next to them holds a credential and must never be cached.
+    # The Lightwheel cache holds only the floorplan and object directories. The `login/`
+    # directory next to them holds the credential file `account.json` and must never be cached.
     - name: Create Lightwheel cache directories
       if: inputs.lightwheel == 'true'
       shell: bash
@@ -110,6 +110,8 @@ runs:
     # nightly and manual runs on main. Those runs download from the Lightwheel servers, and
     # starting them cold is the failure this cache avoids. The save at the end only adds what
     # the run downloaded on top, which save-caches detects.
+    # The object/*.zip exclusion (the SDK leaves the archives after extraction) must match the
+    # path list of the save in save-caches, because the cache version hash depends on it.
     - id: restore_lightwheel
       name: Restore Lightwheel cache
       if: inputs.lightwheel == 'true'
@@ -118,6 +120,7 @@ runs:
         path: |
           ~/.cache/lightwheel_sdk/floorplan
           ~/.cache/lightwheel_sdk/object
+          !~/.cache/lightwheel_sdk/object/*.zip
         key: ${{ env.LIGHTWHEEL_CACHE_KEY }}
         restore-keys: |
           lw-assets-v1-${{ inputs.cache-name }}-
