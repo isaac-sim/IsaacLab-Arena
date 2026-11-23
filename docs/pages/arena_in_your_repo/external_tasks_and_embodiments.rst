@@ -98,7 +98,7 @@ The peak speed builds up during the episode, so it needs a class derived from ``
 The example uses Arena's ``ObjectPeakSpeed``. Arena calls its ``post_step()`` after every step and its
 ``reset()`` when a new episode starts:
 
-.. literalinclude:: ../../../isaaclab_arena/recording/object_terms.py
+.. literalinclude:: ../../../isaaclab_arena/terms/episode_recorders.py
    :language: python
    :pyobject: ObjectPeakSpeed
 
