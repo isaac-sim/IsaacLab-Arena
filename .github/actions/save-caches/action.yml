@@ -78,10 +78,11 @@ runs:
     # extracted files are what lookups use, so the zips are excluded. This path list must stay
     # identical to the one in setup-caches, because the cache version hash depends on it.
     - name: Save Lightwheel cache
+      # TEST ONLY (do not merge): save from every event and ref, so a pull request or a branch
+      # dispatch can populate the cache for this experiment. The real rule is main plus
+      # schedule/workflow_dispatch.
       if: >-
         success() &&
-        github.ref == 'refs/heads/main' &&
-        contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) &&
         steps.compare_lightwheel.outputs.changed == 'true'
       uses: actions/cache/save@v4
       with:
