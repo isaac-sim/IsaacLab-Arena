@@ -71,28 +71,28 @@ class ObjectDisplacement(EpisodeRecorderTerm):
         return float(self._largest_displacement[env_id])
 
 
-class OpennessChange(EpisodeRecorderTerm):
-    """Records how far an openable object's openness got from its reset openness during the episode.
+class RevoluteJointMovement(EpisodeRecorderTerm):
+    """Records how far a revolute joint moved from its reset openness during the episode.
 
-    Openness is the joint position as a fraction of its range, from 0 (closed) to 1 (open), so the change is
-    a fraction of the range too. A joint that is moved and moved back still counts with its largest change.
+    Openness is the joint position as a fraction of its range, from 0 (closed) to 1 (open), so the movement is
+    a fraction of the range too. A joint that is moved and moved back still counts with its largest movement.
     """
 
     def __init__(self, cfg: EpisodeRecorderTermCfg, env):
         super().__init__(cfg, env)
         self._openable_object = cfg.params["openable_object"]
         self._reset_openness = cfg.params["reset_openness"]
-        self._largest_change = torch.zeros(env.num_envs, device=env.device)
+        self._largest_movement = torch.zeros(env.num_envs, device=env.device)
 
     def post_step(self):
         openness = self._openable_object.get_openness(self._env)
-        change = torch.abs(openness - self._reset_openness)
+        movement = torch.abs(openness - self._reset_openness)
         # Update in place, for the same reason as in ObjectPeakSpeed.post_step().
-        torch.maximum(self._largest_change, change, out=self._largest_change)
+        torch.maximum(self._largest_movement, movement, out=self._largest_movement)
 
     def reset(self, env_ids=None):
-        self._largest_change[slice(None) if env_ids is None else env_ids] = 0.0
+        self._largest_movement[slice(None) if env_ids is None else env_ids] = 0.0
 
     def __call__(self, env, env_id: int, openable_object, reset_openness: float) -> float:
         # The manager passes every cfg.params entry as a keyword argument, so both must be accepted here.
-        return float(self._largest_change[env_id])
+        return float(self._largest_movement[env_id])

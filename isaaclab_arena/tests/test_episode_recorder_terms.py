@@ -84,17 +84,17 @@ class _Openable:
         return env.openness.clone()
 
 
-def _test_openness_change_is_the_largest_change_from_the_reset_openness(simulation_app):
+def _test_revolute_joint_movement_is_the_largest_change_from_the_reset_openness(simulation_app):
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-    from isaaclab_arena.terms.episode_recorders import OpennessChange
+    from isaaclab_arena.terms.episode_recorders import RevoluteJointMovement
 
     openable_object = _Openable()
     # The term config copies its params, so the term reads the openness through the env.
     env = SimpleNamespace(num_envs=2, device="cpu", openness=torch.zeros(2))
     term_cfg = EpisodeRecorderTermCfg(
-        func=OpennessChange, params={"openable_object": openable_object, "reset_openness": 0.2}
+        func=RevoluteJointMovement, params={"openable_object": openable_object, "reset_openness": 0.2}
     )
-    term = OpennessChange(term_cfg, env)
+    term = RevoluteJointMovement(term_cfg, env)
     term.reset()
     # Env 0 opens the door to 0.6 and closes it back to 0.2; env 1 closes it fully.
     for openness_env_0, openness_env_1 in ((0.2, 0.2), (0.6, 0.1), (0.2, 0.0)):
@@ -110,7 +110,7 @@ def _test_openness_change_is_the_largest_change_from_the_reset_openness(simulati
     return True
 
 
-def test_openness_change_is_the_largest_change_from_the_reset_openness():
+def test_revolute_joint_movement_is_the_largest_change_from_the_reset_openness():
     assert run_function_with_persistent_simulation_app(
-        _test_openness_change_is_the_largest_change_from_the_reset_openness
+        _test_revolute_joint_movement_is_the_largest_change_from_the_reset_openness
     )
