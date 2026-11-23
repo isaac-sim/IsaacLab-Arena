@@ -211,17 +211,6 @@ class StandMixer(LibraryObject, Turnable):
     max_level_angle_deg = 280.0
     num_levels = 7
 
-    def __init__(self, name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
-        super().__init__(
-            name=name,
-            prim_path=prim_path,
-            initial_pose=initial_pose,
-            turnable_joint_name=self.turnable_joint_name,
-            min_level_angle_deg=self.min_level_angle_deg,
-            max_level_angle_deg=self.max_level_angle_deg,
-            num_levels=self.num_levels,
-        )
-
 
 @register_asset
 class OfficeTable(LibraryObject):
@@ -2231,102 +2220,114 @@ class SimReadyCentralOscilloscope(LibraryObject, Pressable):
         super().__init__(**kwargs)
 
 
-class KitchenKnobAppliance(LibraryObject, Turnable):
-    """A fixed-base countertop appliance whose setting dial is a passive, frictional revolute joint.
+def _passive_dial_actuators(joint_name: str) -> dict[str, ImplicitActuatorCfg]:
+    """Return an actuator group that leaves a dial joint undriven and frictional.
 
-    Subclasses name the dial joint and may tune the knob drive. Armature adds joint-space inertia so gripper
-    contacts do not fling the light dial link, and static friction holds the dial where it is left.
+    Armature adds joint-space inertia so gripper contacts do not fling the light dial link, and static friction holds
+    the dial where it is left.
     """
-
-    object_type = ObjectType.ARTICULATION
-    turnable_joint_name: str
-    min_level_angle_deg = 30.0
-    max_level_angle_deg = 150.0
-    num_levels = 5
-    knob_armature = 0.001
-    """Added dial inertia in kg m^2."""
-    knob_friction = 0.1
-    """Static and dynamic dial friction torque in N m."""
-
-    def __init__(self, **kwargs):
-        self.spawn_cfg_addon = {"fix_root_link": True, **self.spawn_cfg_addon}
-        knob_actuator = ImplicitActuatorCfg(
-            joint_names_expr=[self.turnable_joint_name],
-            stiffness=0.0,
-            damping=0.0,
-            armature=self.knob_armature,
-            friction=self.knob_friction,
-            dynamic_friction=self.knob_friction,
-        )
-        self.asset_cfg_addon = {**self.asset_cfg_addon, "actuators": {"knob": knob_actuator}}
-        kwargs.setdefault("turnable_joint_name", self.turnable_joint_name)
-        kwargs.setdefault("min_level_angle_deg", self.min_level_angle_deg)
-        kwargs.setdefault("max_level_angle_deg", self.max_level_angle_deg)
-        kwargs.setdefault("num_levels", self.num_levels)
-        super().__init__(**kwargs)
+    dial_actuator = ImplicitActuatorCfg(
+        joint_names_expr=[joint_name],
+        stiffness=0.0,
+        damping=0.0,
+        armature=0.001,
+        friction=0.1,
+        dynamic_friction=0.1,
+    )
+    return {"knob": dial_actuator}
 
 
 @register_asset
-class LightwheelBlender003(KitchenKnobAppliance):
+class LightwheelBlender003(LibraryObject, Turnable):
     """A Lightwheel countertop blender with a speed dial."""
 
     registry_name = "lightwheel_blender003"
     tags = ["object", "turnable", "kitchen"]
     usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Blender003", file_type="USD")
+    object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_speed_joint"
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
+    spawn_cfg_addon = {"fix_root_link": True}
+    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
 
 
 @register_asset
-class LightwheelBlender008(KitchenKnobAppliance):
+class LightwheelBlender008(LibraryObject, Turnable):
     """A Lightwheel blender with a large numbered speed dial on a white base."""
 
     registry_name = "lightwheel_blender008"
     tags = ["object", "turnable", "kitchen"]
     usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Blender008", file_type="USD")
+    object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_speed_joint"
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
+    spawn_cfg_addon = {"fix_root_link": True}
+    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
 
 
 @register_asset
-class LightwheelStandMixer003(KitchenKnobAppliance):
+class LightwheelStandMixer003(LibraryObject, Turnable):
     """A Lightwheel stand mixer with a speed dial."""
 
     registry_name = "lightwheel_stand_mixer003"
     tags = ["object", "turnable", "kitchen"]
     usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="StandMixer003", file_type="USD")
+    object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_speed_joint"
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
+    spawn_cfg_addon = {"fix_root_link": True}
+    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
 
 
 @register_asset
-class LightwheelToaster002(KitchenKnobAppliance):
+class LightwheelToaster002(LibraryObject, Turnable):
     """A Lightwheel toaster with a doneness dial."""
 
     registry_name = "lightwheel_toaster002"
     tags = ["object", "turnable", "kitchen"]
     usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Toaster002", file_type="USD")
+    object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_doneness_joint"
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
+    spawn_cfg_addon = {"fix_root_link": True}
+    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
 
 
 @register_asset
-class LightwheelToasterOven001(KitchenKnobAppliance):
+class LightwheelToasterOven001(LibraryObject, Turnable):
     """A Lightwheel toaster oven with a temperature dial."""
 
     registry_name = "lightwheel_toaster_oven001"
     tags = ["object", "turnable", "kitchen"]
     usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="ToasterOven001", file_type="USD")
+    object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_temp_joint"
-    # The USD authors the door drive on a non-angular instance, which PhysX ignores, so gravity swings the door
-    # open; this angular drive holds it closed.
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
     spawn_cfg_addon = {
+        "fix_root_link": True,
+        # The USD authors the door drive on a non-angular instance, which PhysX ignores, so gravity swings the door
+        # open; this angular drive holds it closed.
         "joint_drive_props": {
             "/.*/door_joint": [
                 sim_utils.UsdPhysicsDriveCfg(drive_type="force", max_force=10.0, stiffness=20.0, damping=2.0)
             ]
-        }
+        },
     }
+    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
 
 
 @register_asset
-class ForgeCadToaster(KitchenKnobAppliance):
+class ForgeCadToaster(LibraryObject, Turnable):
     """A ForgeCAD toaster from SimReady Central with a browning dial."""
 
     registry_name = "forgecad_toaster"
@@ -2335,11 +2336,17 @@ class ForgeCadToaster(KitchenKnobAppliance):
         "https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/"
         "0573053fa2c9174ca2a4678a462ec4dfd3035d59/toaster/simready_usd/toaster.usda"
     )
+    object_type = ObjectType.ARTICULATION
     turnable_joint_name = "dial"
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
+    spawn_cfg_addon = {"fix_root_link": True}
+    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
 
 
 @register_asset
-class ForgeCadAirFryer(KitchenKnobAppliance):
+class ForgeCadAirFryer(LibraryObject, Turnable):
     """A ForgeCAD air fryer from SimReady Central with a front timer dial."""
 
     registry_name = "forgecad_air_fryer"
@@ -2348,13 +2355,17 @@ class ForgeCadAirFryer(KitchenKnobAppliance):
         "https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/"
         "0573053fa2c9174ca2a4678a462ec4dfd3035d59/air_fryer/simready_usd/air_fryer.usda"
     )
+    object_type = ObjectType.ARTICULATION
     turnable_joint_name = "dial"
-    # The USD authors its own fixed base joint, so the spawner must not add another.
-    spawn_cfg_addon = {"fix_root_link": None}
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
+    # The USD authors its own fixed base joint, so the spawner does not add one.
+    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
 
 
 @register_asset
-class PalatialToaster(KitchenKnobAppliance):
+class PalatialToaster(LibraryObject, Turnable):
     """A Palatial toaster from SimReady Central with a browning dial."""
 
     registry_name = "palatial_toaster"
@@ -2363,5 +2374,10 @@ class PalatialToaster(KitchenKnobAppliance):
         "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
         "69a87329036cec0440403351c12230970c4e67d8/D00866/simready_usd/D00866.usd"
     )
-    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
+    object_type = ObjectType.ARTICULATION
     turnable_joint_name = "dial_rotate"
+    min_level_angle_deg = 30.0
+    max_level_angle_deg = 150.0
+    num_levels = 5
+    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS, "fix_root_link": True}
+    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}

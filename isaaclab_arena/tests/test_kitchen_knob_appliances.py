@@ -13,23 +13,29 @@ def _test_kitchen_knob_appliances(simulation_app):
 
     from isaaclab_arena.affordances.turnable import Turnable
     from isaaclab_arena.assets import object_library
-    from isaaclab_arena.assets.object_library import KitchenKnobAppliance
 
     appliance_classes = [
-        cls
-        for cls in vars(object_library).values()
-        if isinstance(cls, type) and issubclass(cls, KitchenKnobAppliance) and cls is not KitchenKnobAppliance
+        object_library.LightwheelBlender003,
+        object_library.LightwheelBlender008,
+        object_library.LightwheelStandMixer003,
+        object_library.LightwheelToaster002,
+        object_library.LightwheelToasterOven001,
+        object_library.ForgeCadToaster,
+        object_library.ForgeCadAirFryer,
+        object_library.PalatialToaster,
     ]
-    assert len(appliance_classes) == 8
     for appliance_class in appliance_classes:
         appliance = appliance_class()
         assert isinstance(appliance, Turnable)
-        assert appliance.object_cfg.spawn.fix_root_link == appliance.spawn_cfg_addon["fix_root_link"]
+        # The air fryer USD authors its own fixed base joint; every other appliance is fixed by the spawner.
+        assert appliance.object_cfg.spawn.fix_root_link is (
+            None if appliance_class is object_library.ForgeCadAirFryer else True
+        )
         knob = appliance.object_cfg.actuators["knob"]
         assert knob.joint_names_expr == [appliance.turnable_joint_name]
         assert knob.stiffness == 0.0 and knob.damping == 0.0
-        assert knob.armature == appliance.knob_armature
-        assert knob.friction == knob.dynamic_friction == appliance.knob_friction
+        assert knob.armature > 0.0
+        assert knob.friction == knob.dynamic_friction > 0.0
 
         stage = appliance.open_spawned_usd_stage()
         joints = [p for p in stage.Traverse() if p.GetName() == appliance.turnable_joint_name]
