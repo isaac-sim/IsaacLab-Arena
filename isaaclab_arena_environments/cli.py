@@ -25,11 +25,12 @@ if TYPE_CHECKING:
 def ensure_environments_registered():
     """Trigger registration of all environments in the ``isaaclab_arena_environments`` package.
 
-    Importing the package fires the ``@register_environment`` decorator on each
-    environment module, which handles registration.  The import is cached by
-    Python, so subsequent calls are free.
+    Environment modules are imported explicitly here so importing this CLI module
+    does not load USD/pxr before SimulationApp starts.
     """
-    import isaaclab_arena_environments  # noqa: F401
+    import isaaclab_arena_environments
+
+    isaaclab_arena_environments.register_environments()
 
 
 # Legacy argparse compatibility
