@@ -56,7 +56,6 @@ class OpenDoorTask(RotateRevoluteJointTask):
         is_open_params = {}
         if self.target_joint_percentage_threshold is not None:
             is_open_params["threshold"] = self.target_joint_percentage_threshold
-        reset_openness = 0.0 if self.reset_joint_percentage is None else self.reset_joint_percentage
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
@@ -69,7 +68,7 @@ class OpenDoorTask(RotateRevoluteJointTask):
                                 self.openable_object.name,
                                 joint_names=[self.openable_object.openable_joint_name],
                             ),
-                            rest_openness=reset_openness,
+                            rest_openness=self.reset_openness,
                             min_openness_change=self.min_openness_change,
                         ),
                         partial(self.openable_object.is_open, **is_open_params),
