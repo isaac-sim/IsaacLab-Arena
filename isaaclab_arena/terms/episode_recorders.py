@@ -34,3 +34,38 @@ class ObjectPeakSpeed(EpisodeRecorderTerm):
         # The manager passes every cfg.params entry as a keyword argument, so object_name must be
         # accepted here even though __init__ already read it.
         return float(self._peak_speed[env_id])
+
+
+class ObjectDisplacement(EpisodeRecorderTerm):
+    """Records the largest distance [m] an object got from where it was after the episode's first step.
+
+    The start position is taken after the episode's first control step, so motion during that step, such as a
+    short drop onto the support after spawning, does not count; settling that lasts longer does. An object that
+    is moved and put back still counts with its largest distance. Deformable objects use their mean node position.
+    """
+
+    def __init__(self, cfg: EpisodeRecorderTermCfg, env):
+        super().__init__(cfg, env)
+        self._object_name = cfg.params["object_name"]
+        self._start_position_w = torch.zeros(env.num_envs, 3, device=env.device)
+        self._has_start_position = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        self._largest_displacement = torch.zeros(env.num_envs, device=env.device)
+
+    def post_step(self):
+        position_w = self._env.arena_world.get_position_w(self._object_name)
+        # Update in place, for the same reason as in ObjectPeakSpeed.post_step().
+        needs_start_position = ~self._has_start_position
+        self._start_position_w[needs_start_position] = position_w[needs_start_position]
+        self._has_start_position.fill_(True)
+        displacement = torch.linalg.norm(position_w - self._start_position_w, dim=-1)
+        torch.maximum(self._largest_displacement, displacement, out=self._largest_displacement)
+
+    def reset(self, env_ids=None):
+        selected_envs = slice(None) if env_ids is None else env_ids
+        self._has_start_position[selected_envs] = False
+        self._largest_displacement[selected_envs] = 0.0
+
+    def __call__(self, env, env_id: int, object_name: str) -> float:
+        # The manager passes every cfg.params entry as a keyword argument, so object_name must be
+        # accepted here even though __init__ already read it.
+        return float(self._largest_displacement[env_id])
