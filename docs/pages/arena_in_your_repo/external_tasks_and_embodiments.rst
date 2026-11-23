@@ -87,8 +87,6 @@ defines ``record_object_final_height``, a function for a value read when the epi
 episode. Each episode's line in the episode results holds the values under the terms' names, for example
 ``"object_final_height": 0.12, "object_peak_speed": 0.83``.
 
-A task can return terms from ``get_episode_recorder_terms()`` so that every environment using it records them.
-
 .. _putting_it_all_together:
 
 Putting It All Together
