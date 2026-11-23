@@ -320,7 +320,10 @@ class ArenaEnvBuilder:
         }
         for added_terms in (task_terms, environment_terms):
             for name, term_cfg in added_terms.items():
-                assert name not in terms, f"Episode recorder term name '{name}' is used more than once."
+                assert name not in terms, (
+                    f"Episode recorder term name '{name}' is already used by a built-in or task term; choose another"
+                    " name."
+                )
                 terms[name] = term_cfg
         fields = [(name, EpisodeRecorderTermCfg, term_cfg) for name, term_cfg in terms.items()]
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
