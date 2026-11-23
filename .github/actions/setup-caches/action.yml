@@ -13,6 +13,10 @@ description: |
   cache and saves one at the end of a successful job, so the saved cache holds only
   what that run used. Every other run restores the newest saved cache.
 
+  With `lightwheel: 'true'` it also restores the Lightwheel SDK asset cache
+  (~/.cache/lightwheel_sdk/floorplan and ~/.cache/lightwheel_sdk/object) on every run and
+  records its contents. Jobs that set it call the save-caches action after their tests.
+
 inputs:
   cache-name:
     description: |
@@ -20,6 +24,12 @@ inputs:
       each warms different shaders, meshes and kernels. A restore picks the newest cache
       with the same name, so jobs sharing a name would restore whichever job saved last.
     required: true
+  lightwheel:
+    description: |
+      'true' to restore the Lightwheel SDK asset cache. The job must then call the
+      save-caches action with the same cache-name after its tests.
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -55,3 +65,53 @@ runs:
           /isaac-sim/kit/cache
           ~/.cache/warp
         key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
+
+    # The Lightwheel cache holds only the floorplan and object directories. The `login` file
+    # next to them holds a credential and must never be cached.
+    - name: Create Lightwheel cache directories
+      if: inputs.lightwheel == 'true'
+      shell: bash
+      run: mkdir -p "${HOME}/.cache/lightwheel_sdk/floorplan" "${HOME}/.cache/lightwheel_sdk/object"
+
+    # Exported through GITHUB_ENV so that save-caches, a separate action, saves under the same
+    # key and runs its steps only when this restore ran.
+    - name: Set Lightwheel cache key
+      if: inputs.lightwheel == 'true'
+      shell: bash
+      env:
+        CACHE_NAME: ${{ inputs.cache-name }}
+      run: echo "LIGHTWHEEL_CACHE_KEY=lw-assets-v1-${CACHE_NAME}-${GITHUB_RUN_ID}" >> "${GITHUB_ENV}"
+
+    # Unlike the kit cache, the Lightwheel cache is restored on every run, including the
+    # nightly and manual runs on main. Those runs download from the Lightwheel servers, and
+    # starting them cold is the failure this cache avoids. The save at the end only adds what
+    # the run downloaded on top, which save-caches detects.
+    - id: restore_lightwheel
+      name: Restore Lightwheel cache
+      if: inputs.lightwheel == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cache/lightwheel_sdk/floorplan
+          ~/.cache/lightwheel_sdk/object
+        key: ${{ env.LIGHTWHEEL_CACHE_KEY }}
+        restore-keys: |
+          lw-assets-v1-${{ inputs.cache-name }}-
+
+    # Report what was restored and record it, so save-caches can tell whether the tests
+    # changed the contents.
+    - name: Report Lightwheel cache contents
+      if: inputs.lightwheel == 'true'
+      shell: bash
+      env:
+        CACHE_NAME: ${{ inputs.cache-name }}
+        MATCHED_KEY: ${{ steps.restore_lightwheel.outputs.cache-matched-key }}
+        PRIMARY_KEY: ${{ steps.restore_lightwheel.outputs.cache-primary-key }}
+      run: |
+        python3 "${GITHUB_WORKSPACE}/docker/report_cache_contents.py" snapshot \
+          --name "lightwheel-${CACHE_NAME}" \
+          --matched-key "${MATCHED_KEY}" \
+          --primary-key "${PRIMARY_KEY}" \
+          --out "${RUNNER_TEMP}/lightwheel-before.json" \
+          "${HOME}/.cache/lightwheel_sdk/floorplan" \
+          "${HOME}/.cache/lightwheel_sdk/object"
