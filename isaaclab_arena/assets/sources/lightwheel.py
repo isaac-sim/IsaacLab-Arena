@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import time
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,11 @@ def find_cached_object_usd(file_name: str) -> str | None:
     return None
 
 
+def floorplan_cache_name(scene: str, layout_id: int, style_id: int, backend: str) -> str:
+    """Return the name the SDK gives a floorplan's cache directory and its ``usd_version.json`` entry."""
+    return f"{backend}-{scene}-{layout_id}-{style_id}"
+
+
 def find_cached_floorplan_usd(scene: str, layout_id: int, style_id: int, backend: str) -> str | None:
     """Return the path of a completely cached Lightwheel floorplan ``scene.usd``, or None if it is not cached.
 
@@ -50,7 +56,7 @@ def find_cached_floorplan_usd(scene: str, layout_id: int, style_id: int, backend
     ``floorplan/<that name>/scene.usd`` exists.
     """
     floorplan_root = lightwheel_cache_root() / "floorplan"
-    name = f"{backend}-{scene}-{layout_id}-{style_id}"
+    name = floorplan_cache_name(scene, layout_id, style_id, backend)
     try:
         versions = json.loads((floorplan_root / "usd_version.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -61,76 +67,101 @@ def find_cached_floorplan_usd(scene: str, layout_id: int, style_id: int, backend
     return str(usd_path) if usd_path.is_file() else None
 
 
-class LightwheelUsdSource(UsdSource):
-    """Acquire and memoize one Lightwheel USD on first use."""
+class LightwheelAssetSource(UsdSource, ABC):
+    """Acquire and memoize one Lightwheel USD, using the SDK cache directory when the asset is complete there."""
 
-    def __init__(self, **acquire_by_registry_kwargs: Any):
-        self._kwargs = acquire_by_registry_kwargs
+    _asset_label: str = "asset"
+    """Names the kind of asset in log and error messages."""
+
+    def __init__(self, **sdk_kwargs: Any):
+        self._kwargs = sdk_kwargs
         self._local_file_path: str | None = None
 
     def to_local_usd_path(self) -> str:
-        """Acquire the USD on first use and reuse that path thereafter."""
+        """Return the local USD path, resolving it on first use and reusing it thereafter."""
         if self._local_file_path is None:
-            file_name = self._kwargs.get("file_name")
-            if isinstance(file_name, str):
-                key = f"lightwheel-object/{file_name.lower()}"
-                cached_path = find_cached_object_usd(file_name)
-                if cached_path is not None:
-                    print(f"[isaaclab-arena] Lightwheel cache hit: {key}")
-                    self._local_file_path = cached_path
-                    return cached_path
-                print(f"[isaaclab-arena] Lightwheel cache miss: {key}")
-            else:
-                print(f"[isaaclab-arena] Lightwheel request without file_name is not cacheable: {self._kwargs}")
-            from lightwheel_sdk.loader import object_loader
-
-            file_path, _, _ = acquire_lightwheel_asset(
-                object_loader,
-                object_loader.acquire_by_registry,
-                description=f"Lightwheel asset {self._kwargs}",
-                **self._kwargs,
-            )
-            assert file_path, f"Lightwheel did not return a USD path for {self._kwargs}"
-            self._local_file_path = str(file_path)
+            self._local_file_path = self._resolve_usd_path()
         return self._local_file_path
 
+    @abstractmethod
+    def _cache_key(self) -> str | None:
+        """Return the stable name used in log lines for this asset, or None if the request has no stable name."""
 
-class LightwheelFloorplanUsdSource(UsdSource):
-    """Acquire and memoize one Lightwheel floorplan USD on first use."""
+    @abstractmethod
+    def _find_cached_usd(self) -> str | None:
+        """Return the USD path of this asset if it is completely cached on disk, else None."""
 
-    def __init__(self, scene: str, layout_id: int, style_id: int, backend: str):
-        self._kwargs = {
-            "scene": scene,
-            "layout_id": layout_id,
-            "style_id": style_id,
-            "backend": backend,
-        }
-        self._local_file_path: str | None = None
+    @abstractmethod
+    def _sdk_loader(self) -> Any:
+        """Import the Lightwheel SDK lazily and return the loader object for this kind of asset."""
 
-    def to_local_usd_path(self) -> str:
-        """Acquire the floorplan USD on first use and reuse that path thereafter."""
-        if self._local_file_path is None:
-            scene, layout_id, style_id, backend = (
-                self._kwargs[k] for k in ("scene", "layout_id", "style_id", "backend")
-            )
-            key = f"lightwheel-floorplan/{backend}-{scene}-{layout_id}-{style_id}"
-            cached_path = find_cached_floorplan_usd(scene, layout_id, style_id, backend)
+    @abstractmethod
+    def _sdk_acquire_fn(self, loader: Any) -> Callable:
+        """Return the method of ``loader`` that fetches this asset and returns a tuple starting with its path."""
+
+    def _resolve_usd_path(self) -> str:
+        """Return the cached USD path, or acquire it through the SDK on a cache miss."""
+        key = self._cache_key()
+        if key is None:
+            print(f"[isaaclab-arena] Lightwheel request has no stable name and is not cacheable: {self._kwargs}")
+        else:
+            cached_path = self._find_cached_usd()
             if cached_path is not None:
                 print(f"[isaaclab-arena] Lightwheel cache hit: {key}")
-                self._local_file_path = cached_path
                 return cached_path
             print(f"[isaaclab-arena] Lightwheel cache miss: {key}")
-            from lightwheel_sdk.loader import floorplan_loader
+        loader = self._sdk_loader()
+        result = acquire_lightwheel_asset(
+            loader,
+            self._sdk_acquire_fn(loader),
+            description=f"Lightwheel {self._asset_label} {self._kwargs}",
+            **self._kwargs,
+        )
+        file_path = result[0]
+        assert file_path, f"Lightwheel did not return a {self._asset_label} USD path for {self._kwargs}"
+        return str(file_path)
 
-            file_path = acquire_lightwheel_asset(
-                floorplan_loader,
-                floorplan_loader.get_usd,
-                description=f"Lightwheel floorplan {self._kwargs}",
-                **self._kwargs,
-            )[0]
-            assert file_path, f"Lightwheel did not return a floorplan USD path for {self._kwargs}"
-            self._local_file_path = str(file_path)
-        return self._local_file_path
+
+class LightwheelUsdSource(LightwheelAssetSource):
+    """Acquire and memoize one Lightwheel object USD on first use; the keyword arguments go to ``acquire_by_registry``."""
+
+    def _cache_key(self) -> str | None:
+        file_name = self._kwargs.get("file_name")
+        return f"lightwheel-object/{file_name.lower()}" if isinstance(file_name, str) else None
+
+    def _find_cached_usd(self) -> str | None:
+        return find_cached_object_usd(self._kwargs["file_name"])
+
+    def _sdk_loader(self) -> Any:
+        from lightwheel_sdk.loader import object_loader
+
+        return object_loader
+
+    def _sdk_acquire_fn(self, loader: Any) -> Callable:
+        return loader.acquire_by_registry
+
+
+class LightwheelFloorplanUsdSource(LightwheelAssetSource):
+    """Acquire and memoize one Lightwheel floorplan USD on first use."""
+
+    _asset_label = "floorplan"
+
+    def __init__(self, scene: str, layout_id: int, style_id: int, backend: str):
+        super().__init__(scene=scene, layout_id=layout_id, style_id=style_id, backend=backend)
+
+    def _cache_key(self) -> str:
+        return f"lightwheel-floorplan/{floorplan_cache_name(**self._kwargs)}"
+
+    def _find_cached_usd(self) -> str | None:
+        return find_cached_floorplan_usd(**self._kwargs)
+
+    def _sdk_loader(self) -> Any:
+        from lightwheel_sdk.loader import floorplan_loader
+
+        return floorplan_loader
+
+    def _sdk_acquire_fn(self, loader: Any) -> Callable:
+        return loader.get_usd
 
 
 def acquire_lightwheel_asset(

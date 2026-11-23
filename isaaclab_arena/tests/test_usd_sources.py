@@ -12,7 +12,11 @@ from unittest.mock import Mock, patch
 import pytest
 
 from isaaclab_arena.assets.sources.base import UsdSource
-from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource, LightwheelUsdSource
+from isaaclab_arena.assets.sources.lightwheel import (
+    LightwheelAssetSource,
+    LightwheelFloorplanUsdSource,
+    LightwheelUsdSource,
+)
 
 BLOCK_LIGHTWHEEL_SDK = {"lightwheel_sdk": None, "lightwheel_sdk.loader": None}
 """sys.modules entries that make ``import lightwheel_sdk`` raise ImportError."""
@@ -264,3 +268,68 @@ def test_broccoli_is_pinned_to_one_variant():
         "file_name": "Broccoli015",
         "file_type": "USD",
     }
+
+
+class _FakeLightwheelSource(LightwheelAssetSource):
+    """Minimal subclass recording how the base class drives the cache lookup and the SDK call."""
+
+    def __init__(self, key, cached_path):
+        super().__init__(name="fake")
+        self._key = key
+        self._cached_path = cached_path
+        self.acquire_fn = Mock(return_value=("/sdk/fake.usd", {}))
+
+    def _cache_key(self):
+        return self._key
+
+    def _find_cached_usd(self):
+        return self._cached_path
+
+    def _sdk_loader(self):
+        return SimpleNamespace(client=SimpleNamespace(base_timeout=10))
+
+    def _sdk_acquire_fn(self, loader):
+        return self.acquire_fn
+
+
+def test_lightwheel_asset_source_cannot_be_instantiated_without_the_four_hooks():
+    with pytest.raises(TypeError):
+        LightwheelAssetSource()
+
+
+def test_lightwheel_asset_source_hit_prints_key_and_skips_the_sdk(capsys):
+    source = _FakeLightwheelSource("lightwheel-object/fake", "/cache/fake.usd")
+
+    assert source.to_local_usd_path() == "/cache/fake.usd"
+
+    assert "Lightwheel cache hit: lightwheel-object/fake" in capsys.readouterr().out
+    source.acquire_fn.assert_not_called()
+
+
+def test_lightwheel_asset_source_miss_prints_key_and_acquires_through_the_sdk(capsys):
+    source = _FakeLightwheelSource("lightwheel-object/fake", None)
+
+    assert source.to_local_usd_path() == "/sdk/fake.usd"
+
+    assert "Lightwheel cache miss: lightwheel-object/fake" in capsys.readouterr().out
+    source.acquire_fn.assert_called_once_with(name="fake")
+
+
+def test_lightwheel_asset_source_without_a_key_is_not_cacheable_and_never_looks_in_the_cache(capsys):
+    source = _FakeLightwheelSource(None, "/cache/should-not-be-used.usd")
+
+    assert source.to_local_usd_path() == "/sdk/fake.usd"
+
+    assert "is not cacheable" in capsys.readouterr().out
+    source.acquire_fn.assert_called_once_with(name="fake")
+
+
+def test_lightwheel_asset_source_memoizes_its_path(capsys):
+    source = _FakeLightwheelSource("lightwheel-object/fake", None)
+
+    first = source.to_local_usd_path()
+    second = source.to_local_usd_path()
+
+    assert first == second
+    source.acquire_fn.assert_called_once()
+    assert capsys.readouterr().out.count("Lightwheel cache miss") == 1
