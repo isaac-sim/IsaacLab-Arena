@@ -128,8 +128,8 @@ For an evaluation that reaches finalization:
 Treat the canonical result statuses, not process exit alone, as the workflow outcome. Keep policy
 task success separate from execution success: zero-action episodes are expected to be semantically
 unsuccessful while still proving that the evaluation pipeline works. When the Runs finish, the
-runner's Run table shows each Run's recorded episodes and success rate; per-episode results are in the
-episode JSONL files and `arena_experiment_result.json`.
+runner's Run table shows each Run's recorded episodes and success rate, plus each subtask's success rate
+for composite tasks; per-episode results are in the episode JSONL files and `arena_experiment_result.json`.
 
 For `--list_variations`, report the catalogue and explicitly state that no rollout or output
 artifacts were expected.

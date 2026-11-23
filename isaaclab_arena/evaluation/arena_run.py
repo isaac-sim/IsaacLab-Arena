@@ -15,12 +15,16 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.report_data import success_rate_from_values
+from isaaclab_arena.evaluation.report_data import subtask_success_rates, success_rate_from_values
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
-    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, ArenaExperimentRunData
+    from isaaclab_arena.evaluation.arena_experiment_result import (
+        ArenaEpisodeResultData,
+        ArenaExperimentResult,
+        ArenaExperimentRunData,
+    )
     from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 
 
@@ -161,12 +165,24 @@ def build_runs_info_table(
         run_cfgs: The configured Runs, one row each.
         results: The Runs' execution results; Runs without one are shown as pending.
         experiment_result: The finished Experiment's result. When given, the table also shows each Run's recorded
-            episode count and success rate.
+            episode count and success rate, and each subtask's success rate when a Run's task has subtasks.
     """
+    run_cfgs = list(run_cfgs)
     results_by_name = {result.run_name: result for result in results}
+    episodes_by_run_name: dict[str, list[ArenaEpisodeResultData]] = {}
+    if experiment_result is not None:
+        for run_cfg in run_cfgs:
+            episodes_by_run_name[run_cfg.name] = _recorded_episodes(experiment_result.runs[run_cfg.name])
+    subtask_rates_by_run_name = {
+        run_name: subtask_success_rates(episodes) for run_name, episodes in episodes_by_run_name.items()
+    }
+    # Only composite tasks record subtasks, so tables without them leave the column out.
+    shows_subtask_rates = any(subtask_rates_by_run_name.values())
     field_names = ["Run Name", "Status", "Policy Type", "Num Envs", "Num Steps", "Num Episodes", "Num Rebuilds"]
     if experiment_result is not None:
         field_names += ["Recorded Episodes", "Success Rate"]
+    if shows_subtask_rates:
+        field_names.append("Subtask Success Rates")
     table = PrettyTable(field_names=field_names)
     policy_registry = PolicyRegistry()
     for run_cfg in run_cfgs:
@@ -187,15 +203,30 @@ def build_runs_info_table(
             run_cfg.num_rebuilds,
         ]
         if experiment_result is not None:
-            row += _recorded_episodes_and_success_rate(experiment_result.runs[run_cfg.name])
+            episodes = episodes_by_run_name[run_cfg.name]
+            run_success_rate = success_rate_from_values(episode["success"] for episode in episodes)
+            row += [len(episodes), _format_rate(run_success_rate)]
+        if shows_subtask_rates:
+            row.append(_format_subtask_rates(subtask_rates_by_run_name[run_cfg.name]))
         table.add_row(row)
     return table
 
 
-def _recorded_episodes_and_success_rate(run_data: ArenaExperimentRunData) -> list[int | str]:
-    """Return a Run's number of recorded episodes and its success rate, formatted for the Run table."""
+def _recorded_episodes(run_data: ArenaExperimentRunData) -> list[ArenaEpisodeResultData]:
+    """Return a Run's recorded episodes from all its rebuilds."""
     episodes = []
     for rebuild in run_data["rebuilds"]:
         episodes.extend(rebuild["episodes"])
-    run_success_rate = success_rate_from_values(episode["success"] for episode in episodes)
-    return [len(episodes), "n/a" if run_success_rate is None else f"{run_success_rate:.4f}"]
+    return episodes
+
+
+def _format_rate(rate: float | None) -> str:
+    """Format a success rate for the Run table, as "n/a" when no episode has a success value."""
+    return "n/a" if rate is None else f"{rate:.4f}"
+
+
+def _format_subtask_rates(rates_by_subtask: dict[int, float | None]) -> str:
+    """Format each subtask's success rate for the Run table, in subtask order."""
+    if not rates_by_subtask:
+        return "n/a"
+    return ", ".join(_format_rate(rate) for rate in rates_by_subtask.values())
