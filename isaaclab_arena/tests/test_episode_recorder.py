@@ -255,7 +255,7 @@ def _test_variations_recorded(simulation_app, output_dir):  # noqa: ARG001
 
 def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-    from isaaclab_arena.recording.object_terms import ObjectPeakSpeed
+    from isaaclab_arena.terms.episode_recorders import ObjectPeakSpeed
 
     custom_terms = {
         CUSTOM_KEY: EpisodeRecorderTermCfg(func=record_step_bucket),

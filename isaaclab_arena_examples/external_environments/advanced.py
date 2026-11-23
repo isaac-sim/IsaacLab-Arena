@@ -25,9 +25,9 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-from isaaclab_arena.recording.object_terms import ObjectPeakSpeed
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+from isaaclab_arena.terms.episode_recorders import ObjectPeakSpeed
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Episode recorder terms that follow an object during the episode."""
+"""Episode recorder terms that tasks and environments can add to record a value per episode."""
 
 from __future__ import annotations
 
