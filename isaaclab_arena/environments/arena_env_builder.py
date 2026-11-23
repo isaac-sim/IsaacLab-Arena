@@ -299,13 +299,18 @@ class ArenaEnvBuilder:
         termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
         return make_configclass("TerminationsCfg", termination_fields)()
 
-    def _build_episode_recorders_cfg(self, environment_terms: dict[str, EpisodeRecorderTermCfg]) -> object:
+    def _build_episode_recorders_cfg(
+        self,
+        task_terms: dict[str, EpisodeRecorderTermCfg],
+        environment_terms: dict[str, EpisodeRecorderTermCfg],
+    ) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
-        The built-in placement, variations, and progress terms come first, then the environment's terms. Each name
-        becomes a top-level key of the episode record.
+        The built-in placement, variations, and progress terms come first, then the task's terms, then the
+        environment's terms. Each name becomes a top-level key of the episode record, so names must be unique.
 
         Args:
+            task_terms: The task's episode recorder terms, keyed by term name.
             environment_terms: The environment's episode recorder terms, keyed by term name.
         """
         terms: dict[str, EpisodeRecorderTermCfg] = {
@@ -313,9 +318,10 @@ class ArenaEnvBuilder:
             "variations": VariationEpisodeRecorderTermCfg(),
             "progress": ProgressEpisodeRecorderTermCfg(),
         }
-        for name, term_cfg in environment_terms.items():
-            assert name not in terms, f"Episode recorder term name '{name}' is used by a built-in term."
-            terms[name] = term_cfg
+        for added_terms in (task_terms, environment_terms):
+            for name, term_cfg in added_terms.items():
+                assert name not in terms, f"Episode recorder term name '{name}' is used more than once."
+                terms[name] = term_cfg
         fields = [(name, EpisodeRecorderTermCfg, term_cfg) for name, term_cfg in terms.items()]
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
@@ -479,7 +485,9 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        episode_recorders_cfg = self._build_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+        episode_recorders_cfg = self._build_episode_recorders_cfg(
+            task.get_episode_recorder_terms(), self.arena_env.episode_recorder_terms
+        )
 
         viewer_cfg = task.get_viewer_cfg()
 
