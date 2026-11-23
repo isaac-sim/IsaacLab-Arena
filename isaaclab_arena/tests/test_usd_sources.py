@@ -279,16 +279,16 @@ class _FakeLightwheelSource(LightwheelSource):
         self._cached_path = cached_path
         self.acquire_fn = Mock(return_value=("/sdk/fake.usd", {}))
 
-    def _cache_key(self):
+    def _get_cache_key(self):
         return self._key
 
-    def _find_cached_usd(self):
+    def _get_cached_usd_path(self):
         return self._cached_path
 
-    def _sdk_loader(self):
+    def _get_lightwheel_sdk_loader(self):
         return SimpleNamespace(client=SimpleNamespace(base_timeout=10))
 
-    def _sdk_acquire_fn(self, loader):
+    def _get_lightwheel_sdk_download_fn(self, loader):
         return self.acquire_fn
 
 
