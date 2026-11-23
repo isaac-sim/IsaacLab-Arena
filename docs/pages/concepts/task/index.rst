@@ -44,8 +44,7 @@ Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``LiftObj
 
 Individual tasks can be combined into order-independent or sequential composite tasks. Each task
 returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``, declaring its ``success`` criteria,
-named ``failures``, and ``timeout_s`` time limit. A task can also record its own values for each episode,
-such as how far ``PickAndPlaceTask``'s object moved; see :ref:`recording-per-episode-values`.
+named ``failures``, and ``timeout_s`` time limit.
 
 More details
 ------------
