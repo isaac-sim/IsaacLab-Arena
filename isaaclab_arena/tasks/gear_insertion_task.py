@@ -21,6 +21,7 @@ from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.predicates.spatial import (
     depth_in_range,
     lateral_in_proximity,
@@ -32,6 +33,7 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import check_success
+from isaaclab_arena.terms.episode_recorders import ObjectPeakSpeed
 
 
 @dataclass(frozen=True)
@@ -120,6 +122,14 @@ class GearInsertionTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return None
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        """Record the highest speed the object reached in each episode, in m/s."""
+        return {
+            "object_peak_speed": EpisodeRecorderTermCfg(
+                func=ObjectPeakSpeed, params={"object_name": self.held_asset.name}
+            )
+        }
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.45, 1.10, 0.90), lookat=(0.48, 0.02, 0.08))

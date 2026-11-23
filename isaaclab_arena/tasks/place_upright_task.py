@@ -15,9 +15,11 @@ from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+from isaaclab_arena.terms.episode_recorders import ObjectPeakSpeed
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -68,6 +70,14 @@ class PlaceUprightTask(TaskBase):
             arm_mode=arm_mode,
             placeable_object_name=self.placeable_object.name,
         )
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        """Record the highest speed the object reached in each episode, in m/s."""
+        return {
+            "object_peak_speed": EpisodeRecorderTermCfg(
+                func=ObjectPeakSpeed, params={"object_name": self.placeable_object.name}
+            )
+        }
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.placeable_object, offset=np.array([1.5, 1.5, 1.5]))
