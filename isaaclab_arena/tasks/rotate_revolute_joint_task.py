@@ -35,6 +35,8 @@ class RotateRevoluteJointTask(TaskBase):
         self.openable_object = openable_object
         self.target_joint_percentage_threshold = target_joint_percentage_threshold
         self.reset_joint_percentage = reset_joint_percentage
+        self.reset_openness = 0.0 if reset_joint_percentage is None else reset_joint_percentage
+        """Openness the reset event sets the joint to; without a reset percentage, the event resets it to 0."""
         self.min_openness_change = 0.05
         """Openness change, as a fraction of the joint range, past which the joint counts as having moved."""
         self.task_description = (
@@ -63,12 +65,10 @@ class RotateRevoluteJointTask(TaskBase):
 
     def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
         """Record how far the joint's openness got from its reset openness in each episode."""
-        # Without a reset openness, the reset event leaves the joint at 0.
-        reset_openness = 0.0 if self.reset_joint_percentage is None else self.reset_joint_percentage
         return {
             "openness_change": EpisodeRecorderTermCfg(
                 func=OpennessChange,
-                params={"openable_object": self.openable_object, "reset_openness": reset_openness},
+                params={"openable_object": self.openable_object, "reset_openness": self.reset_openness},
             )
         }
 
