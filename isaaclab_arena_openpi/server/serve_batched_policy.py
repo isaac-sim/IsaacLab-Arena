@@ -141,17 +141,21 @@ class BatchedPolicy:
             "batch_sizes": self._batch_sizes,
         }
 
-    def compile_batch_sizes(self) -> None:
-        """Run the model once at every batch shape on all-ones observations, so later requests find it compiled.
+    def compile_batch_sizes(self, fake_observation: Callable[[int], Any]) -> None:
+        """Run the model once at every batch shape, so later requests find it compiled.
 
         Takes minutes per shape (seconds for a shape of 2); the shapes compile one after the other, smallest first.
+
+        Args:
+            fake_observation: Returns a model observation of the given batch size with the shapes and dtypes the
+                model expects, such as the openpi model config's ``fake_obs``.
         """
         jax = self._jax
         policy = self._policy
         for batch_size in self._batch_sizes:
             start_time = time.monotonic()
             policy._rng, sample_rng = jax.random.split(policy._rng)
-            observation = policy._model.fake_obs(batch_size)
+            observation = fake_observation(batch_size)
             jax.block_until_ready(policy._sample_actions(sample_rng, observation, **policy._sample_kwargs))
             self._compiled_batch_sizes.add(batch_size)
             logging.info("Compiled batch size %d in %.0f s", batch_size, time.monotonic() - start_time)
@@ -216,6 +220,17 @@ def _import_serve_policy_module() -> Any:
     return serve_policy
 
 
+def _model_config(args: Any, serve_policy: Any) -> Any:
+    """Return the openpi model config of the checkpoint ``serve_policy.create_policy(args)`` serves."""
+    from openpi.training import config as _config
+
+    if isinstance(args.policy, serve_policy.Checkpoint):
+        config_name = args.policy.config
+    else:
+        config_name = serve_policy.DEFAULT_CHECKPOINT[args.env].config
+    return _config.get_config(config_name).model
+
+
 def main() -> None:
     import tyro
     from openpi.serving import websocket_policy_server
@@ -239,7 +254,7 @@ def main() -> None:
     policy = BatchedPolicy(serve_policy.create_policy(args), batch_sizes=args.batch_sizes)
     if args.compile_on_start:
         logging.info("Compiling batch sizes %s before serving", policy.metadata["batch_sizes"])
-        policy.compile_batch_sizes()
+        policy.compile_batch_sizes(_model_config(args, serve_policy).fake_obs)
     logging.info("Serving batched policy on port %d (batch sizes %s)", args.port, policy.metadata["batch_sizes"])
     server = websocket_policy_server.WebsocketPolicyServer(
         policy=policy, host="0.0.0.0", port=args.port, metadata=policy.metadata

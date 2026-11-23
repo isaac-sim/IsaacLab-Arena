@@ -90,7 +90,6 @@ class _FakeOpenpiPolicy:
     def __init__(self):
         self._rng = 0
         self._sample_kwargs = {}
-        self._model = types.SimpleNamespace(fake_obs=lambda batch_size: {"state": np.ones((batch_size, 3), np.float32)})
         self.sample_batch_sizes: list[int] = []
         self.single_calls = 0
 
@@ -156,7 +155,7 @@ def test_compile_batch_sizes_runs_the_model_once_per_shape_on_fake_observations(
     monkeypatch.setitem(sys.modules, "jax", _FakeJax())
     inner = _FakeOpenpiPolicy()
     policy = serve_batched_policy.BatchedPolicy(inner, batch_sizes=[8, 2])
-    policy.compile_batch_sizes()
+    policy.compile_batch_sizes(lambda batch_size: {"state": np.ones((batch_size, 3), np.float32)})
     assert inner.sample_batch_sizes == [2, 8], "every shape runs once, smallest first"
     assert inner.single_calls == 0
 
