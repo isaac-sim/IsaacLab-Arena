@@ -52,11 +52,11 @@ def test_episode_recorder_terms_are_combined_in_order():
 def _test_episode_recorder_term_names_must_be_unique(simulation_app):
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
-    with pytest.raises(AssertionError, match="'motion' is used more than once"):
+    with pytest.raises(AssertionError, match="'motion' is already used by a built-in or task term"):
         _build_episode_recorders_cfg(
             {"motion": EpisodeRecorderTermCfg(func=_record)}, {"motion": EpisodeRecorderTermCfg(func=_record)}
         )
-    with pytest.raises(AssertionError, match="'progress' is used more than once"):
+    with pytest.raises(AssertionError, match="'progress' is already used by a built-in or task term"):
         _build_episode_recorders_cfg({"progress": EpisodeRecorderTermCfg(func=_record)}, {})
     return True
 
