@@ -227,12 +227,16 @@ You should see the following output on the console with the runs and their succe
 
 .. code-block:: text
 
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
-   |                        Run Name                        |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
-   |          gr1_put_jug_in_fridge_and_close_door          | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |         10        |    0.1000    |
-   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |         10        |    0.9000    |
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+   |                        Run Name                        |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate | Subtask Success Rates |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+   |          gr1_put_jug_in_fridge_and_close_door          | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |         10        |    0.1000    |     0.2000, 0.2000    |
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |         10        |    0.9000    |     0.9000, 0.9000    |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+
+``Subtask Success Rates`` lists each subtask's success rate in order: placing the object, then closing the door.
+In a sequential task a subtask only counts once the ones before it are complete. This task also requires both
+subtasks to still hold when the episode ends, so its success rate can be lower than the subtask rates.
 
 With the policy trained on using ranch dressing bottle as object of interest,
 the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.1.

@@ -202,3 +202,37 @@ def test_runs_info_table_shows_recorded_episodes_once_the_experiment_finished(tm
     assert "Success Rate" not in table_before_runs.field_names
     assert table_after_runs.field_names[-2:] == ["Recorded Episodes", "Success Rate"]
     assert [row[-2:] for row in table_after_runs.rows] == [[3, "0.5000"], [1, "n/a"]]
+
+
+def _episode_with_subtasks(success: bool, *subtasks_complete: bool) -> dict:
+    criteria_by_name = {}
+    for subtask_index, is_complete in enumerate(subtasks_complete):
+        criteria_by_name[f"subtask_{subtask_index}/pick_and_place"] = {"is_complete": is_complete}
+    return {"success": success, "progress": {"criteria_by_name": criteria_by_name}}
+
+
+def test_runs_info_table_shows_subtask_success_rates_when_a_run_has_subtasks(tmp_path):
+    run_cfgs = [_run(name="composite_run"), _run(name="single_task_run")]
+    run_results = [
+        ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED, start_timestamp_ns=0, end_timestamp_ns=1)
+        for run_cfg in run_cfgs
+    ]
+    composite_episodes = [
+        [_episode_with_subtasks(True, True, True), _episode_with_subtasks(False, True, False)],
+        [_episode_with_subtasks(False, True, False), _episode_with_subtasks(False, False, False)],
+    ]
+    experiment_result = ArenaExperimentResult(
+        tmp_path,
+        "test_experiment",
+        GitStamp(git_sha="unknown", git_branch="unknown"),
+        {
+            "composite_run": _run_data(composite_episodes),
+            "single_task_run": _run_data([[{"success": True}]]),
+        },
+    )
+
+    with patch.object(PolicyRegistry, "get_policy_type_for_cfg", return_value=SimpleNamespace(name="test_policy")):
+        table = build_runs_info_table(run_cfgs, run_results, experiment_result)
+
+    assert table.field_names[-3:] == ["Recorded Episodes", "Success Rate", "Subtask Success Rates"]
+    assert [row[-3:] for row in table.rows] == [[4, "0.2500", "0.7500, 0.2500"], [1, "1.0000", "n/a"]]

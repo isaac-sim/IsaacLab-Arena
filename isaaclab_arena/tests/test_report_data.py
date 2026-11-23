@@ -19,6 +19,8 @@ from isaaclab_arena.evaluation.report_data import (
     _infer_task_and_policy_labels_with_source,
     build_experiment_summary,
     run_status_to_lowercase_string,
+    subtask_completion,
+    subtask_success_rates,
     success_rate_from_values,
 )
 
@@ -66,6 +68,35 @@ def test_success_rate_counts_only_episodes_with_a_success_value():
     assert success_rate_from_values([True, False, None, True]) == pytest.approx(2 / 3)
     assert success_rate_from_values([None, None]) is None
     assert success_rate_from_values([]) is None
+
+
+def test_subtask_completion_requires_every_criteria_set_of_the_subtask():
+    record = {
+        "progress": {
+            "criteria_by_name": {
+                "subtask_0/pick_and_place": {"is_complete": True},
+                "subtask_1/pick_and_place": {"is_complete": True},
+                "subtask_1/close_door": {"is_complete": False},
+                "not_a_subtask": {"is_complete": False},
+            }
+        }
+    }
+    assert subtask_completion(record) == {0: True, 1: False}
+    assert subtask_completion({"success": True}) == {}
+
+
+def test_subtask_success_rates_count_only_episodes_that_recorded_the_subtask():
+    def episode(**completion_by_name):
+        criteria_by_name = {name: {"is_complete": is_complete} for name, is_complete in completion_by_name.items()}
+        return {"progress": {"criteria_by_name": criteria_by_name}}
+
+    records = [
+        episode(**{"subtask_0/pick": True, "subtask_1/pick": True}),
+        episode(**{"subtask_0/pick": True, "subtask_1/pick": False}),
+        episode(**{"subtask_0/pick": False}),
+    ]
+    assert subtask_success_rates(records) == {0: pytest.approx(2 / 3), 1: 0.5}
+    assert subtask_success_rates([{"success": True}]) == {}
 
 
 def test_progress_fraction_uses_recorded_overall_score():
