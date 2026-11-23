@@ -4,14 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # 9 spatial-placement KitchenBench tasks, each run with both the OpenPI (pi0.5) and Cosmos policies
-# (18 runs, 20 parallel environments each, 100 episodes over 5 rebuilds).
+# (18 runs, 20 parallel environments each).
 # Values under shared are used by every Run below.
 # A Run only needs to list what is different; its values override the shared ones.
 # To change a shared value for every Run on the command line:
 # - with experiment_runner.py, use shared.<path>=<value>
 # - with osmo/submit_arena_experiment.py, use experiment_cfg.shared.<path>=<value>
 shared:
-  num_rebuilds: 5
   environment:
     enable_cameras: true
   environment_builder:
