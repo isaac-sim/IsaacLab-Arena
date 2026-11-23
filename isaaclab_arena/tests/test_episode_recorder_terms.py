@@ -78,3 +78,47 @@ def _test_reset_starts_a_new_episode_for_the_selected_envs(simulation_app):
 
 def test_reset_starts_a_new_episode_for_the_selected_envs():
     assert run_function_with_persistent_simulation_app(_test_reset_starts_a_new_episode_for_the_selected_envs)
+
+
+class _Openable:
+    """Stand-in for an Openable that reads the openness from the env, like the real affordance."""
+
+    def get_openness(self, env):
+        return env.openness.clone()
+
+
+def _test_openness_change_is_the_largest_change_from_the_reset_openness(simulation_app):
+    import torch
+    from types import SimpleNamespace
+
+    import pytest
+
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+    from isaaclab_arena.terms.episode_recorders import OpennessChange
+
+    openable_object = _Openable()
+    # The term config copies its params, so the term reads the openness through the env.
+    env = SimpleNamespace(num_envs=2, device="cpu", openness=torch.zeros(2))
+    term_cfg = EpisodeRecorderTermCfg(
+        func=OpennessChange, params={"openable_object": openable_object, "reset_openness": 0.2}
+    )
+    term = OpennessChange(term_cfg, env)
+    term.reset()
+    # Env 0 opens the door to 0.6 and closes it back to 0.2; env 1 closes it fully.
+    for openness_env_0, openness_env_1 in ((0.2, 0.2), (0.6, 0.1), (0.2, 0.0)):
+        env.openness[:] = torch.tensor([openness_env_0, openness_env_1])
+        term.post_step()
+    assert term(env, 0, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.4)
+    assert term(env, 1, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.2)
+
+    term.reset(torch.tensor([0]))
+    term.post_step()
+    assert term(env, 0, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.0)
+    assert term(env, 1, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.2)
+    return True
+
+
+def test_openness_change_is_the_largest_change_from_the_reset_openness():
+    assert run_function_with_persistent_simulation_app(
+        _test_openness_change_is_the_largest_change_from_the_reset_openness
+    )
