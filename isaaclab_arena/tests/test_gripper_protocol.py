@@ -67,6 +67,51 @@ def test_panda_gripper_implements_parallel_jaw_interface() -> None:
     assert run_function_with_persistent_simulation_app(_test_panda_gripper_implements_parallel_jaw_interface)
 
 
+def _test_keyed_franka_gripper_reads_its_own_robot(_simulation_app) -> bool:
+    import torch
+
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
+
+    world = _make_world()
+    world._scene.articulations["left"] = world._scene.articulations.pop("robot")
+    sensor = world._scene.sensors.pop("ee_frame")
+    sensor.data.target_frame_names = ["left_end_effector", "left_tool_leftfinger", "left_tool_rightfinger"]
+    world._scene.sensors["left_ee_frame"] = sensor
+    gripper = FrankaIKEmbodiment(instance_key="left").get_gripper()
+
+    torch.testing.assert_close(gripper.get_opening_width_m(world), torch.tensor([0.03, 0.08]))
+    torch.testing.assert_close(gripper.get_position_w(world), torch.tensor([[0.1, 0.0, 0.0], [0.3, 0.0, 0.0]]))
+    return True
+
+
+def test_keyed_franka_gripper_reads_its_own_robot() -> None:
+    assert run_function_with_persistent_simulation_app(_test_keyed_franka_gripper_reads_its_own_robot)
+
+
+def _test_keyed_franka_gripper_reads_its_own_closing_error(_simulation_app) -> bool:
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
+    from isaaclab_arena.tasks.predicates.gripper import gripper_not_grasping
+
+    world = _make_world()
+    world._scene.articulations["left"] = world._scene.articulations.pop("robot")
+    data = world._scene.articulations["left"].data
+    data.joint_pos_target = SimpleNamespace(torch=torch.tensor([[0.005, 0.0, 0.0], [0.05, 0.0, 0.0]]))
+    gripper = FrankaIKEmbodiment(instance_key="left").get_gripper()
+    env = SimpleNamespace(arena_world=world)
+
+    torch.testing.assert_close(gripper.get_closing_error_m(env), torch.tensor([0.005, -0.01]))
+    not_grasping = gripper_not_grasping(env, gripper, grasp_width_m=0.03, gap_band_m=0.001, stall_margin_m=0.0002)
+    assert not_grasping.tolist() == [False, True]
+    return True
+
+
+def test_keyed_franka_gripper_reads_its_own_closing_error() -> None:
+    assert run_function_with_persistent_simulation_app(_test_keyed_franka_gripper_reads_its_own_closing_error)
+
+
 def _test_robotiq_gripper_measures_tracked_finger_pad_gap(_simulation_app) -> bool:
     import torch
 

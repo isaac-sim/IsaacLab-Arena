@@ -78,6 +78,9 @@ class ParallelJawGripper(Gripper, Protocol):
 class PandaGripper(ParallelJawGripper):
     """Franka Panda parallel-jaw gripper."""
 
+    asset_name: str = "robot"
+    """Scene key of the articulation that owns the finger joints."""
+
     left_finger_joint_name: str = "panda_finger_joint1"
     """Joint measuring the left finger's distance from the centerline."""
 
@@ -92,8 +95,8 @@ class PandaGripper(ParallelJawGripper):
 
     def get_jaw_gap_m(self, world: ArenaWorld) -> torch.Tensor:
         """Return the sum of the two prismatic finger positions."""
-        left = world.get_joint_position("robot", self.left_finger_joint_name)
-        right = world.get_joint_position("robot", self.right_finger_joint_name)
+        left = world.get_joint_position(self.asset_name, self.left_finger_joint_name)
+        right = world.get_joint_position(self.asset_name, self.right_finger_joint_name)
         return left + right
 
     def get_position_w(self, world: ArenaWorld) -> torch.Tensor:
@@ -103,8 +106,8 @@ class PandaGripper(ParallelJawGripper):
     def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
         """Return the left finger's measured position minus its applied position target, in meters."""
         world = env.arena_world
-        measured = world.get_joint_position("robot", self.left_finger_joint_name)
-        commanded = world.get_joint_position_target("robot", self.left_finger_joint_name)
+        measured = world.get_joint_position(self.asset_name, self.left_finger_joint_name)
+        commanded = world.get_joint_position_target(self.asset_name, self.left_finger_joint_name)
         return measured - commanded
 
 
