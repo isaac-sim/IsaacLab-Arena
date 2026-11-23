@@ -87,6 +87,12 @@ defines ``record_object_final_height``, a function for a value read when the epi
 episode. Each episode's line in the episode results holds the values under the terms' names, for example
 ``"object_final_height": 0.12, "object_peak_speed": 0.83``.
 
+A task can return terms in the same form from ``get_episode_recorder_terms()``, so that every environment
+using it records them. ``PickAndPlaceTask``, for example, records ``object_displacement``, the largest
+distance in metres that the picked object got from where it was after the episode's first step. A
+composite task adds ``_subtask_<i>`` to its subtasks' term names. Each subtask's term runs for the whole
+episode, not only while its subtask is active.
+
 .. _putting_it_all_together:
 
 Putting It All Together

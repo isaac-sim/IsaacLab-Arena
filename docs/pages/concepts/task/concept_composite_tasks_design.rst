@@ -6,7 +6,8 @@ Composite and Sequential Tasks
 * By default, subtasks may finish in any order.
 * ``subtasks_are_sequential=True`` requires them to finish in the listed order.
 
-The class combines the subtasks' scene settings and reset events.
+The class combines the subtasks' scene settings and reset events. It also collects the subtasks'
+episode recorder terms and adds ``_subtask_<i>`` to their names (see :ref:`recording-per-episode-values`).
 Its ``get_termination_cfg()`` returns one ``TaskTerminationCfg`` with the subtasks' success
 criteria, failure conditions, and a time limit for the whole task.
 

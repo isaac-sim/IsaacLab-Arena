@@ -42,6 +42,9 @@ CUSTOM_KEY = "step_bucket"
 # Field contributed by the built-in progress episode recorder term.
 PROGRESS_KEY = "progress"
 
+# Field contributed by PickAndPlaceTask's episode recorder term for the picked object.
+OBJECT_DISPLACEMENT_KEY = "object_displacement"
+
 # Field contributed by the class-based custom term registered in the custom-term test.
 OBJECT_PEAK_SPEED_KEY = "object_peak_speed"
 
@@ -208,9 +211,9 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
         # episode_in_env must increment from 0 per env, and the deterministic poses fix success.
         per_env_counter: dict[int, int] = {}
         for record in records:
-            # With no variation drawn and no custom term, every record is the core schema plus the
-            # progress block contributed by PickAndPlaceTask's progress objectives.
-            expected_keys = CORE_KEYS | {PROGRESS_KEY}
+            # With no variation drawn and no custom term, every record is the core schema plus the progress
+            # block and the object displacement that PickAndPlaceTask records.
+            expected_keys = CORE_KEYS | {PROGRESS_KEY, OBJECT_DISPLACEMENT_KEY}
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record["job_name"] == JOB_NAME
             assert record["language_instruction"] == LANGUAGE_INSTRUCTION
@@ -227,6 +230,9 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
             assert record["progress"]["all_complete"] is expected_success
             if expected_success:
                 assert [event["predicate_index"] for event in record["progress"]["events"]] == [0, 1, 2]
+                # Each reset drops the box from 0.2 m, so it moves more than 2 cm after the first step. A term
+                # whose post_step() never ran would record 0.
+                assert record[OBJECT_DISPLACEMENT_KEY] > 0.02
 
         # Both envs must have completed at least one episode.
         assert set(per_env_counter.keys()) == {0, 1}
@@ -267,7 +273,7 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
 
         # The custom term's field is present and derived from the same intact episode-length buffer.
         for record in records:
-            expected_keys = CORE_KEYS | {PROGRESS_KEY, OBJECT_PEAK_SPEED_KEY, CUSTOM_KEY}
+            expected_keys = CORE_KEYS | {PROGRESS_KEY, OBJECT_DISPLACEMENT_KEY, OBJECT_PEAK_SPEED_KEY, CUSTOM_KEY}
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record[CUSTOM_KEY] == {"bucket": record["episode_length"] // 10}
             # Each reset places the box 0.2 m up and lets it fall, so a term that follows the episode sees it move.
