@@ -24,49 +24,6 @@ def lightwheel_cache_root() -> Path:
     return Path("~/.cache/lightwheel_sdk").expanduser()
 
 
-def find_cached_object_usd(file_name: str) -> str | None:
-    """Return the path of a completely cached Lightwheel object USD, or None if it is not cached.
-
-    The object is complete when ``object/<Name>/<Name>.usd`` exists and ``object/<Name>/`` holds a
-    ``*.txt`` version marker. ``<Name>`` matches ``file_name`` case-insensitively.
-    """
-    object_root = lightwheel_cache_root() / "object"
-    if not object_root.is_dir():
-        return None
-    for object_dir in object_root.iterdir():
-        if object_dir.name.lower() != file_name.lower() or not object_dir.is_dir():
-            continue
-        usd_path = object_dir / f"{object_dir.name}.usd"
-        has_marker = any(object_dir.glob("*.txt"))
-        if usd_path.is_file() and has_marker:
-            return str(usd_path)
-    return None
-
-
-def floorplan_cache_name(scene: str, layout_id: int, style_id: int, backend: str) -> str:
-    """Return the name the SDK gives a floorplan's cache directory and its ``usd_version.json`` entry."""
-    return f"{backend}-{scene}-{layout_id}-{style_id}"
-
-
-def find_cached_floorplan_usd(scene: str, layout_id: int, style_id: int, backend: str) -> str | None:
-    """Return the path of a completely cached Lightwheel floorplan ``scene.usd``, or None if it is not cached.
-
-    The floorplan is complete when ``usd_version.json`` has a key for ``{backend}-{scene}-{layout_id}-{style_id}``
-    (its value may be null, which the SDK writes when the server omits the version) and
-    ``floorplan/<that name>/scene.usd`` exists.
-    """
-    floorplan_root = lightwheel_cache_root() / "floorplan"
-    name = floorplan_cache_name(scene, layout_id, style_id, backend)
-    try:
-        versions = json.loads((floorplan_root / "usd_version.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(versions, dict) or name not in versions:
-        return None
-    usd_path = floorplan_root / name / "scene.usd"
-    return str(usd_path) if usd_path.is_file() else None
-
-
 class LightwheelAssetSource(UsdSource, ABC):
     """Acquire and memoize one Lightwheel USD, using the SDK cache directory when the asset is complete there."""
 
@@ -130,7 +87,23 @@ class LightwheelUsdSource(LightwheelAssetSource):
         return f"lightwheel-object/{file_name.lower()}" if isinstance(file_name, str) else None
 
     def _find_cached_usd(self) -> str | None:
-        return find_cached_object_usd(self._kwargs["file_name"])
+        """Return ``object/<Name>/<Name>.usd`` if it exists next to a ``*.txt`` version marker.
+
+        The SDK writes the marker after extracting the object. ``<Name>`` matches ``file_name`` case-insensitively
+        because the server names the directory from the download URL.
+        """
+        file_name = self._kwargs["file_name"]
+        object_root = lightwheel_cache_root() / "object"
+        if not object_root.is_dir():
+            return None
+        for object_dir in object_root.iterdir():
+            if object_dir.name.lower() != file_name.lower() or not object_dir.is_dir():
+                continue
+            usd_path = object_dir / f"{object_dir.name}.usd"
+            has_marker = any(object_dir.glob("*.txt"))
+            if usd_path.is_file() and has_marker:
+                return str(usd_path)
+        return None
 
     def _sdk_loader(self) -> Any:
         from lightwheel_sdk.loader import object_loader
@@ -149,11 +122,30 @@ class LightwheelFloorplanUsdSource(LightwheelAssetSource):
     def __init__(self, scene: str, layout_id: int, style_id: int, backend: str):
         super().__init__(scene=scene, layout_id=layout_id, style_id=style_id, backend=backend)
 
+    def _cache_name(self) -> str:
+        """Return the name the SDK gives this floorplan's cache directory and its ``usd_version.json`` entry."""
+        kwargs = self._kwargs
+        return f"{kwargs['backend']}-{kwargs['scene']}-{kwargs['layout_id']}-{kwargs['style_id']}"
+
     def _cache_key(self) -> str:
-        return f"lightwheel-floorplan/{floorplan_cache_name(**self._kwargs)}"
+        return f"lightwheel-floorplan/{self._cache_name()}"
 
     def _find_cached_usd(self) -> str | None:
-        return find_cached_floorplan_usd(**self._kwargs)
+        """Return ``floorplan/<name>/scene.usd`` if ``usd_version.json`` has a key for ``<name>``.
+
+        The SDK writes the version entry after extracting the floorplan. Its value may be null, which the SDK writes
+        when the server omits the version.
+        """
+        floorplan_root = lightwheel_cache_root() / "floorplan"
+        name = self._cache_name()
+        try:
+            versions = json.loads((floorplan_root / "usd_version.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not isinstance(versions, dict) or name not in versions:
+            return None
+        usd_path = floorplan_root / name / "scene.usd"
+        return str(usd_path) if usd_path.is_file() else None
 
     def _sdk_loader(self) -> Any:
         from lightwheel_sdk.loader import floorplan_loader

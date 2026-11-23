@@ -36,59 +36,69 @@ def make_floorplan(root, name, version="uuid1", register=True):
         (floorplan_dir / "usd_version.json").write_text(json.dumps({name: version}))
 
 
+def find_cached_object_usd(file_name):
+    return lightwheel.LightwheelUsdSource(
+        registry_type="objects", file_name=file_name, file_type="USD"
+    )._find_cached_usd()
+
+
+def find_cached_floorplan_usd(scene, layout_id, style_id, backend):
+    return lightwheel.LightwheelFloorplanUsdSource(scene, layout_id, style_id, backend)._find_cached_usd()
+
+
 def test_find_cached_object_usd_returns_complete_asset(cache_root):
     make_object(cache_root, "Microwave039")
     expected = str(cache_root / "object" / "Microwave039" / "Microwave039.usd")
-    assert lightwheel.find_cached_object_usd("Microwave039") == expected
+    assert find_cached_object_usd("Microwave039") == expected
 
 
 def test_find_cached_object_usd_matches_file_name_case_insensitively(cache_root):
     make_object(cache_root, "Beer016")
     expected = str(cache_root / "object" / "Beer016" / "Beer016.usd")
-    assert lightwheel.find_cached_object_usd("beer016") == expected
+    assert find_cached_object_usd("beer016") == expected
 
 
 def test_find_cached_object_usd_misses_without_version_marker(cache_root):
     make_object(cache_root, "Microwave039", marker=None)
-    assert lightwheel.find_cached_object_usd("Microwave039") is None
+    assert find_cached_object_usd("Microwave039") is None
 
 
 def test_find_cached_object_usd_misses_when_usd_missing(cache_root):
     make_object(cache_root, "Microwave039", with_usd=False)
-    assert lightwheel.find_cached_object_usd("Microwave039") is None
+    assert find_cached_object_usd("Microwave039") is None
 
 
 def test_find_cached_object_usd_misses_in_empty_cache(cache_root):
-    assert lightwheel.find_cached_object_usd("Microwave039") is None
+    assert find_cached_object_usd("Microwave039") is None
 
 
 def test_find_cached_floorplan_usd_returns_complete_asset(cache_root):
     make_floorplan(cache_root, "robocasa-robocasakitchen-7-10")
     expected = str(cache_root / "floorplan" / "robocasa-robocasakitchen-7-10" / "scene.usd")
-    assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") == expected
+    assert find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") == expected
 
 
 def test_find_cached_floorplan_usd_hits_when_version_entry_is_null(cache_root):
     make_floorplan(cache_root, "robocasa-robocasakitchen-7-10", version=None)
     expected = str(cache_root / "floorplan" / "robocasa-robocasakitchen-7-10" / "scene.usd")
-    assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") == expected
+    assert find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") == expected
 
 
 def test_find_cached_floorplan_usd_misses_without_version_entry(cache_root):
     make_floorplan(cache_root, "robocasa-robocasakitchen-7-10", register=False)
-    assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") is None
+    assert find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") is None
 
 
 def test_find_cached_floorplan_usd_misses_on_corrupt_version_file(cache_root):
     make_floorplan(cache_root, "robocasa-robocasakitchen-7-10")
     (cache_root / "floorplan" / "usd_version.json").write_text("{not json")
-    assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") is None
+    assert find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") is None
 
 
 def test_find_cached_floorplan_usd_misses_without_version_file(cache_root):
     make_floorplan(cache_root, "robocasa-robocasakitchen-7-10", register=False)
     assert not (cache_root / "floorplan" / "usd_version.json").exists()
-    assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") is None
+    assert find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") is None
 
 
 def test_floorplan_cache_dir_name_matches_installed_sdk(cache_root):
@@ -100,4 +110,4 @@ def test_floorplan_cache_dir_name_matches_installed_sdk(cache_root):
     sdk_name = loader_classes[0]._usd_cache_name(None, "robocasa", "robocasakitchen", 7, 10)
     make_floorplan(cache_root, sdk_name)
     expected = str(cache_root / "floorplan" / sdk_name / "scene.usd")
-    assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") == expected
+    assert find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") == expected
