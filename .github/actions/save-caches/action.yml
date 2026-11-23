@@ -1,0 +1,57 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Save caches
+description: |
+  Report the Lightwheel SDK asset cache after the tests and save it when they changed it.
+  Call once at the end of a job that called setup-caches with `lightwheel: 'true'`; it does
+  nothing otherwise.
+
+  A composite action cannot have post steps, and the automatic end-of-job save of
+  actions/cache is decided before the tests run. The save therefore is an explicit step
+  that the job calls after its tests.
+
+  The report runs on every run. The save happens only on the nightly run on main (and
+  manual dispatches on main), the same events that save the kit cache, only when the job
+  succeeded and only when the contents changed since the restore.
+
+inputs:
+  cache-name:
+    description: |
+      Name of the cache. Pass the cache-name given to setup-caches in the same job; it names
+      the report, and the saved key (set by setup-caches) uses the same name.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # LIGHTWHEEL_CACHE_KEY is set by setup-caches only when it restored the Lightwheel cache.
+    - id: compare_lightwheel
+      name: Report Lightwheel cache changes
+      if: env.LIGHTWHEEL_CACHE_KEY != ''
+      shell: bash
+      env:
+        CACHE_NAME: ${{ inputs.cache-name }}
+      run: |
+        python3 "${GITHUB_WORKSPACE}/docker/report_cache_contents.py" compare \
+          --name "lightwheel-${CACHE_NAME}" \
+          --before "${RUNNER_TEMP}/lightwheel-before.json" \
+          "${HOME}/.cache/lightwheel_sdk/floorplan" \
+          "${HOME}/.cache/lightwheel_sdk/object"
+
+    # Only the floorplan and object directories; the `login` file next to them holds a
+    # credential and must never be cached.
+    - name: Save Lightwheel cache
+      if: >-
+        success() &&
+        github.ref == 'refs/heads/main' &&
+        contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) &&
+        steps.compare_lightwheel.outputs.changed == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.cache/lightwheel_sdk/floorplan
+          ~/.cache/lightwheel_sdk/object
+        key: ${{ env.LIGHTWHEEL_CACHE_KEY }}
