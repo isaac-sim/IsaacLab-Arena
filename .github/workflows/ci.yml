@@ -125,7 +125,7 @@ jobs:
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
       - name: Test cache diagnostics
-        run: python3 -m unittest discover -s docker -p 'test_report_build_cache.py' -v
+        run: python3 -m unittest discover -s docker -p 'test_report_*.py' -v
 
 
   build_and_push_image:
@@ -292,6 +292,7 @@ jobs:
         uses: ./.github/actions/setup-caches
         with:
           cache-name: tests
+          lightwheel: 'true'
 
       # Run the tests.
       #
@@ -341,6 +342,11 @@ jobs:
           MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
             isaaclab_arena_curobo/tests/
 
+      - name: Save caches
+        uses: ./.github/actions/save-caches
+        with:
+          cache-name: tests
+
 
   tests_with_subprocess:
     name: Run tests with subprocess
@@ -369,6 +375,7 @@ jobs:
         uses: ./.github/actions/setup-caches
         with:
           cache-name: tests_with_subprocess
+          lightwheel: 'true'
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
@@ -384,6 +391,11 @@ jobs:
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
             isaaclab_arena/tests/
+
+      - name: Save caches
+        uses: ./.github/actions/save-caches
+        with:
+          cache-name: tests_with_subprocess
 
 
   test_gr00t_closedloop_e2e:
@@ -490,6 +502,12 @@ jobs:
         run: |
           isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_remote_e2e \
             isaaclab_arena_policies/isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
+
+      - name: Save caches
+        if: steps.gr00t_cuda.outputs.enabled == 'true'
+        uses: ./.github/actions/save-caches
+        with:
+          cache-name: gr00t
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
