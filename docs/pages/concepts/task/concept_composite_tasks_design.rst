@@ -82,3 +82,6 @@ Earlier milestones stay recorded: a placed object does not need to remain above 
 height, for example. Conditions that must hold together belong in the same final predicate.
 For named sequences, the criteria set's ``ALL``, ``ANY``, or ``CHOOSE`` setting combines their final predicates.
 If a subtask defines multiple criteria sets, all their final conditions must hold for its current result to be true.
+
+Graph YAML supports the same option as ``task.desired_subtask_success_state`` for parallel
+and sequential tasks, with one entry per subtask in ``subtasks`` order.
