@@ -762,7 +762,7 @@ class Broccoli(LibraryObject):
 
     registry_name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
-    usd_source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    usd_source = LightwheelUsdSource(registry_type="objects", file_name="Broccoli015", file_type="USD")
 
 
 @register_asset
