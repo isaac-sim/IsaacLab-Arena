@@ -36,6 +36,8 @@ objects:
     scale: [1.35, 1.35, 1]
 - id: broccoli
   registry_name: broccoli
+  params:
+    scale: [2.0, 2.0, 2.0]
 object_references:
 - id: floor
   parent_id: kitchen
