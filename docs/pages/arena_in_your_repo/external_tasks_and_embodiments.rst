@@ -76,12 +76,19 @@ The ``@register_asset`` decorator registers the class with the
 ``AssetRegistry`` under its ``registry_name``, ``"franka_ik_soft"``, so it can be fetched
 the same way as any built-in embodiment (see :ref:`putting_it_all_together` below for an example).
 
+.. _recording-per-episode-values:
+
 Recording a Custom Value per Episode
 ------------------------------------
 
-The example also records two values for each episode: the object's height when the episode ends, and
-the highest speed it reached (see :ref:`recording-per-episode-values`). The height is read once, when the
-episode ends, so the example defines a function:
+For every finished episode, Arena writes one line to the episode results, with its success, task
+progress, and the variations drawn for it. An **episode recorder term** adds a value of your own: it
+returns a JSON value, such as a number or a dictionary, when the episode ends, and the line holds it under
+the term's name. A NaN or infinite value is written as ``null``, with a warning.
+
+The example records two values for each episode: the object's height when the episode ends, and the
+highest speed it reached. The height is read once, when the episode ends, so the example defines a
+function:
 
 .. literalinclude:: ../../../isaaclab_arena_examples/external_environments/advanced.py
    :language: python
