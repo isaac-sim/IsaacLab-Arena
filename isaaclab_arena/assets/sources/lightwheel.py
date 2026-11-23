@@ -70,6 +70,17 @@ class LightwheelUsdSource(UsdSource):
     def to_local_usd_path(self) -> str:
         """Acquire the USD on first use and reuse that path thereafter."""
         if self._local_file_path is None:
+            file_name = self._kwargs.get("file_name")
+            if isinstance(file_name, str):
+                key = f"lightwheel-object/{file_name.lower()}"
+                cached_path = find_cached_object_usd(file_name)
+                if cached_path is not None:
+                    print(f"[isaaclab-arena] Lightwheel cache hit: {key}")
+                    self._local_file_path = cached_path
+                    return cached_path
+                print(f"[isaaclab-arena] Lightwheel cache miss: {key}")
+            else:
+                print(f"[isaaclab-arena] Lightwheel request without file_name is not cacheable: {self._kwargs}")
             from lightwheel_sdk.loader import object_loader
 
             file_path, _, _ = acquire_lightwheel_asset(
@@ -98,6 +109,16 @@ class LightwheelFloorplanUsdSource(UsdSource):
     def to_local_usd_path(self) -> str:
         """Acquire the floorplan USD on first use and reuse that path thereafter."""
         if self._local_file_path is None:
+            scene, layout_id, style_id, backend = (
+                self._kwargs[k] for k in ("scene", "layout_id", "style_id", "backend")
+            )
+            key = f"lightwheel-floorplan/{backend}-{scene}-{layout_id}-{style_id}"
+            cached_path = find_cached_floorplan_usd(scene, layout_id, style_id, backend)
+            if cached_path is not None:
+                print(f"[isaaclab-arena] Lightwheel cache hit: {key}")
+                self._local_file_path = cached_path
+                return cached_path
+            print(f"[isaaclab-arena] Lightwheel cache miss: {key}")
             from lightwheel_sdk.loader import floorplan_loader
 
             file_path = acquire_lightwheel_asset(
