@@ -54,8 +54,8 @@ class Pi0ServerTaskCfg(TaskCfg):
     upstream's one-observation ``scripts/serve_policy.py`` instead."""
 
     batch_sizes: list[int] | None = None
-    """Batch shapes the batched server pads requests to (``--batch-sizes``); the largest is its batch limit.
-    None keeps the server script's default."""
+    """Batch shapes the batched server runs the model at and compiles on start (``--batch-sizes``). None keeps
+    the server script's default."""
 
     def __post_init__(self) -> None:
         assert self.batch_sizes is None or (

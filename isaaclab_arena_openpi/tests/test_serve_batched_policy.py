@@ -34,6 +34,18 @@ def test_padded_batch_size_picks_the_smallest_fitting_size(serve_batched_policy)
         serve_batched_policy.padded_batch_size(17, [8, 16])
 
 
+def test_group_batch_sizes_fills_the_largest_shape_then_pads_the_rest_to_the_smallest_fitting_one(
+    serve_batched_policy,
+):
+    assert serve_batched_policy.group_batch_sizes(1, [2, 8, 20]) == [2]
+    assert serve_batched_policy.group_batch_sizes(7, [2, 8, 20]) == [8]
+    assert serve_batched_policy.group_batch_sizes(20, [2, 8, 20]) == [20]
+    assert serve_batched_policy.group_batch_sizes(46, [2, 8, 20]) == [20, 20, 8]
+    assert serve_batched_policy.group_batch_sizes(100, [8]) == [8] * 13
+    with pytest.raises(AssertionError):
+        serve_batched_policy.group_batch_sizes(0, [8])
+
+
 def test_stack_and_unstack_round_trip_with_padding(serve_batched_policy):
     samples = [
         {"state": np.full(3, i, dtype=np.float32), "image": {"base": np.full((2, 2), i, dtype=np.uint8)}}
@@ -59,6 +71,7 @@ class _FakeJax(types.SimpleNamespace):
             numpy=types.SimpleNamespace(asarray=np.asarray),
             tree=types.SimpleNamespace(map=lambda fn, tree: _tree_map(fn, tree)),
             random=types.SimpleNamespace(split=lambda key: (key + 1, key + 1000)),
+            block_until_ready=lambda x: x,
         )
 
 
@@ -77,6 +90,7 @@ class _FakeOpenpiPolicy:
     def __init__(self):
         self._rng = 0
         self._sample_kwargs = {}
+        self._model = types.SimpleNamespace(fake_obs=lambda batch_size: {"state": np.ones((batch_size, 3), np.float32)})
         self.sample_batch_sizes: list[int] = []
         self.single_calls = 0
 
@@ -130,12 +144,21 @@ def test_batched_request_runs_the_model_once_and_returns_one_entry_per_observati
     assert response["policy_timing"]["batch_size"] == 3
 
 
-def test_batches_above_the_limit_are_split(batched_policy):
+def test_requests_above_the_largest_shape_are_split(batched_policy):
     policy, inner = batched_policy
     observations = [{"observation/state": np.full(3, i, dtype=np.float32)} for i in range(6)]
     response = policy.infer({"batch": observations})
     assert inner.sample_batch_sizes == [4, 4], "the remaining 2 observations pad to the only shape, 4"
     assert [int(o["actions"][0, 0]) for o in response["batch"]] == [2 * i + 1 for i in range(6)]
+
+
+def test_compile_batch_sizes_runs_the_model_once_per_shape_on_fake_observations(monkeypatch, serve_batched_policy):
+    monkeypatch.setitem(sys.modules, "jax", _FakeJax())
+    inner = _FakeOpenpiPolicy()
+    policy = serve_batched_policy.BatchedPolicy(inner, batch_sizes=[8, 2])
+    policy.compile_batch_sizes()
+    assert inner.sample_batch_sizes == [2, 8], "every shape runs once, smallest first"
+    assert inner.single_calls == 0
 
 
 def test_metadata_advertises_batching(batched_policy):
@@ -158,3 +181,8 @@ def test_several_batch_sizes_pad_every_batch_to_the_smallest_fitting_shape(monke
     response = policy.infer({"batch": observations})
     assert inner.sample_batch_sizes == [4, 2], "4 observations fill a batch of 4; the remaining 2 fit the shape of 2"
     assert [int(o["actions"][0, 0]) for o in response["batch"]] == [2 * i + 1 for i in range(6)]
+
+    inner.sample_batch_sizes.clear()
+    response = policy.infer({"batch": observations[:3]})
+    assert inner.sample_batch_sizes == [4], "3 observations pad to 4 rather than running 2 + 2"
+    assert [int(o["actions"][0, 0]) for o in response["batch"]] == [2 * i + 1 for i in range(3)]

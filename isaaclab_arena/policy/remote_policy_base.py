@@ -165,16 +165,15 @@ class RemoteChunkReplayPolicy:
             return False
         return bool(self._websocket_client.get_server_metadata().get("batch_inference", False))
 
-    def _batch_size_limit(self) -> int:
-        """Return the most envs one batched request may carry: the config limit or the server's advertised one."""
-        assert self._websocket_client is not None
-        server_limit = self._websocket_client.get_server_metadata().get("max_batch_size")
-        if self._max_batch_size is not None and server_limit is not None:
-            return min(self._max_batch_size, int(server_limit))
-        if self._max_batch_size is not None:
-            return self._max_batch_size
-        assert server_limit is not None, "a server advertising batch_inference must advertise max_batch_size"
-        return int(server_limit)
+    def _request_batch_size(self, num_requests: int) -> int:
+        """Return how many envs one batched request carries: all ``num_requests`` unless the config caps it.
+
+        The batched server splits a request of any size into its compiled batch shapes itself, so the
+        config's ``max_batch_size`` is only a cap on the request size, not a server limit.
+        """
+        if self._max_batch_size is None:
+            return num_requests
+        return min(self._max_batch_size, num_requests)
 
     def _maybe_init_per_env_state(self, num_envs: int) -> None:
         if self._cached_action_chunks is None:
@@ -197,8 +196,8 @@ class RemoteChunkReplayPolicy:
     def _fetch_action_chunks(self, observation: dict[str, Any], env_ids: list[int]) -> list[np.ndarray]:
         """Fetch the given envs' chunks, in env order.
 
-        With a batching server the envs are grouped into requests of at most ``_batch_size_limit()``
-        observations; otherwise each env gets its own request.
+        With a batching server all envs share one request, or several of ``config.max_batch_size`` envs when
+        that is set; otherwise each env gets its own request.
         """
         requests = [
             self._adapter.pack_request(self._adapter.extract(observation, env_id), self.task_description)
@@ -207,7 +206,7 @@ class RemoteChunkReplayPolicy:
         self.chunk_requests += len(requests)
         if not self.server_batches_requests():
             return [self._chunk_from_response(self._call_server_with_retry(request)) for request in requests]
-        batch_size = self._batch_size_limit()
+        batch_size = self._request_batch_size(len(requests))
         chunks: list[np.ndarray] = []
         for start in range(0, len(requests), batch_size):
             batch = requests[start : start + batch_size]

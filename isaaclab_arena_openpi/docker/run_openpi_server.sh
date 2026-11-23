@@ -6,7 +6,7 @@
 #   ./run_openpi_server.sh -r                           # force rebuild, then run
 #   ./run_openpi_server.sh -p 8001                      # run on a non-default port
 #   ./run_openpi_server.sh -v pi0                       # run the pi0 variant
-#   ./run_openpi_server.sh -b 8,16                      # pad every batch to 8 or 16 observations (2 compiled shapes)
+#   ./run_openpi_server.sh -b 2,8,20                    # run the model at batch shapes 2, 8 and 20 (3 compiled shapes)
 #   ./run_openpi_server.sh -u                           # upstream serve_policy.py, no batched requests
 #   ./run_openpi_server.sh -h                           # help
 #
@@ -38,10 +38,10 @@ Options:
   -r              Force rebuilding of the server image.
   -p <port>       Port to serve on. Defaults to 8000.
   -v <variant>    Policy variant to serve: pi05 (default) or pi0.
-  -b <sizes>      Comma-separated batch shapes to pad every batched request to, e.g. 8,16 (default:
-                  serve_batched_policy.py's --batch-sizes default, a single shape of 8). The largest is
-                  the batch limit; bigger requests are split. Each shape compiles once on first use,
-                  which takes minutes, and bigger shapes need more GPU memory on the server.
+  -b <sizes>      Comma-separated batch shapes the model runs at, e.g. 2,8,20 (default: serve_batched_policy.py's
+                  --batch-sizes default, a single shape of 8). A batched request is split into groups of the
+                  largest shape and the rest padded to the smallest shape that holds it. The server compiles
+                  every shape before it listens, minutes per shape, and bigger shapes need more GPU memory.
   -u              Serve with openpi's upstream serve_policy.py (one observation per request).
   -h              Show this help and exit.
 EOF

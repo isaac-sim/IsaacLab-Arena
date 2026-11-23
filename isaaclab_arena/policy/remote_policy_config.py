@@ -32,7 +32,11 @@ class RemoteChunkReplayPolicyCfg(PolicyCfg):
     """
 
     max_batch_size: int | None = None
-    """Largest number of environments per batched request, or None to use the server's advertised limit."""
+    """Cap on the environments per batched request, or None to send every requesting environment in one request.
+
+    The batched server splits a request of any size into its compiled batch shapes, so a cap is only needed to
+    bound the size of a single websocket message.
+    """
 
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""

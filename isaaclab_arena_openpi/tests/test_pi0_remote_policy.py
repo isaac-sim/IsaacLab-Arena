@@ -300,16 +300,16 @@ def test_envs_requesting_on_the_same_step_share_one_request_when_the_server_batc
     assert policy.chunk_requests == 32
 
 
-def test_batched_requests_are_split_at_the_server_limit(monkeypatch):
+def test_the_whole_step_goes_in_one_request_whatever_the_server_advertises(monkeypatch):
     calls: list[int] = []
     _patch_batching_server(monkeypatch, max_batch_size=8, calls=calls)
     policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
     policy.set_task_description("pick up the block")
     policy.get_action(_fake_env(num_envs=20), _fake_observation(num_envs=20))
-    assert calls == [8, 8, 4]
+    assert calls == [20], "the server splits the request into its batch shapes itself"
 
 
-def test_config_max_batch_size_caps_the_request_below_the_server_limit(monkeypatch):
+def test_config_max_batch_size_caps_the_request(monkeypatch):
     calls: list[int] = []
     _patch_batching_server(monkeypatch, max_batch_size=32, calls=calls)
     policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu", max_batch_size=4))

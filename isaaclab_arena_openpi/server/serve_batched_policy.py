@@ -15,10 +15,12 @@ the form ``{"batch": [obs_0, obs_1, ...]}`` runs the model once for all observat
 ``batch_inference`` and ``max_batch_size`` in the metadata it sends on connect, which is how clients
 discover the batched form.
 
-The JAX model is compiled once per batch shape, which takes minutes, so a batch is padded (by repeating
-its last observation) to the smallest of the ``--batch-sizes`` that holds it, each shape compiled on its
-first use. The default is a single shape of 8; ``--batch-sizes 8 16`` compiles two. Requests with more
-observations than the largest size are split.
+The JAX model is compiled once per batch shape, which takes minutes, so the server runs the model only at
+the ``--batch-sizes`` shapes (default: a single shape of 8; ``--batch-sizes 2 8 20`` compiles three) and
+compiles all of them when it starts, before it accepts connections, unless ``--no-compile-on-start`` is
+given. A request may carry any number of observations: while more remain than the largest shape holds, a
+group of that size runs; the rest is padded to the smallest shape that holds it by repeating its last
+observation.
 """
 
 from __future__ import annotations
@@ -45,6 +47,26 @@ def padded_batch_size(num_samples: int, batch_sizes: Sequence[int]) -> int:
     fitting_sizes = [size for size in batch_sizes if size >= num_samples]
     assert 0 < num_samples and fitting_sizes, f"expected 0 < {num_samples} <= one of {sorted(batch_sizes)}"
     return min(fitting_sizes)
+
+
+def group_batch_sizes(num_samples: int, batch_sizes: Sequence[int]) -> list[int]:
+    """Return the batch shape of each model call that serves a request of ``num_samples`` observations.
+
+    While more observations remain than the largest shape holds, a group of the largest shape runs full;
+    the remaining observations are padded to the smallest shape that holds them. ``sum`` of the result is at
+    least ``num_samples``; the difference is padding.
+
+    Args:
+        num_samples: Observations in the request, at least one.
+        batch_sizes: The batch shapes the server compiles, in any order.
+    """
+    assert num_samples > 0, f"a request needs at least one observation, got {num_samples}"
+    largest = max(batch_sizes)
+    full_groups, remainder = divmod(num_samples, largest)
+    group_sizes = [largest] * full_groups
+    if remainder:
+        group_sizes.append(padded_batch_size(remainder, batch_sizes))
+    return group_sizes
 
 
 def stack_samples(samples: list[dict[str, Any]], batch_size: int, stack: Callable[[list], Any]) -> dict[str, Any]:
@@ -95,8 +117,8 @@ class BatchedPolicy:
 
     Args:
         policy: The openpi policy to wrap.
-        batch_sizes: Batch shapes to pad every model call to; the largest is the most observations per model
-            call, and bigger requests are split.
+        batch_sizes: Batch shapes the model runs at; a request is split into groups of these shapes by
+            ``group_batch_sizes``.
     """
 
     def __init__(self, policy: Any, batch_sizes: Sequence[int]) -> None:
@@ -119,9 +141,20 @@ class BatchedPolicy:
             "batch_sizes": self._batch_sizes,
         }
 
-    def padded_batch_size(self, num_samples: int) -> int:
-        """Return the batch shape a group of ``num_samples`` observations is padded to."""
-        return padded_batch_size(num_samples, self._batch_sizes)
+    def compile_batch_sizes(self) -> None:
+        """Run the model once at every batch shape on all-ones observations, so later requests find it compiled.
+
+        Takes minutes per shape (seconds for a shape of 2); the shapes compile one after the other, smallest first.
+        """
+        jax = self._jax
+        policy = self._policy
+        for batch_size in self._batch_sizes:
+            start_time = time.monotonic()
+            policy._rng, sample_rng = jax.random.split(policy._rng)
+            observation = policy._model.fake_obs(batch_size)
+            jax.block_until_ready(policy._sample_actions(sample_rng, observation, **policy._sample_kwargs))
+            self._compiled_batch_sizes.add(batch_size)
+            logging.info("Compiled batch size %d in %.0f s", batch_size, time.monotonic() - start_time)
 
     def infer(self, obs: dict[str, Any]) -> dict[str, Any]:
         if BATCH_KEY not in obs:
@@ -130,8 +163,11 @@ class BatchedPolicy:
         assert isinstance(observations, list) and observations, "batch request must hold a non-empty list"
         outputs: list[dict[str, Any]] = []
         model_ms = 0.0
-        for start in range(0, len(observations), self._max_batch_size):
-            group_outputs, group_ms = self._infer_group(observations[start : start + self._max_batch_size])
+        start = 0
+        for batch_size in group_batch_sizes(len(observations), self._batch_sizes):
+            group = observations[start : start + batch_size]
+            start += len(group)
+            group_outputs, group_ms = self._infer_group(group, batch_size)
             outputs.extend(group_outputs)
             model_ms += group_ms
         return {BATCH_KEY: outputs, "policy_timing": {"infer_ms": model_ms, "batch_size": len(observations)}}
@@ -139,13 +175,13 @@ class BatchedPolicy:
     def reset(self) -> None:
         self._policy.reset()
 
-    def _infer_group(self, observations: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], float]:
+    def _infer_group(self, observations: list[dict[str, Any]], batch_size: int) -> tuple[list[dict[str, Any]], float]:
+        """Run one model call of shape ``batch_size`` on ``observations``, padded with their last entry."""
         jax, jnp = self._jax, self._jax.numpy
         policy = self._policy
         from openpi.models import model as _model
 
         transformed = [policy._input_transform(jax.tree.map(lambda x: x, observation)) for observation in observations]
-        batch_size = self.padded_batch_size(len(transformed))
         if batch_size not in self._compiled_batch_sizes:
             logging.info("Batched inference: first request with batch size %d, compiling", batch_size)
             self._compiled_batch_sizes.add(batch_size)
@@ -191,12 +227,19 @@ def main() -> None:
         """serve_policy.py arguments plus the batch shapes."""
 
         batch_sizes: tuple[int, ...] = (8,)
-        """Batch shapes every batch is padded to, for example ``--batch-sizes 8 16``; the largest is the most
-        observations per model call, and bigger requests are split. Each shape compiles once, on first use,
-        which takes minutes."""
+        """Batch shapes the model runs at, for example ``--batch-sizes 2 8 20``. A request of any size is split
+        into groups of the largest shape, with the rest padded to the smallest shape that holds it. Each shape
+        compiles once, which takes minutes."""
+
+        compile_on_start: bool = True
+        """Compile every batch shape before accepting connections; ``--no-compile-on-start`` compiles each shape
+        on its first request instead."""
 
     args = tyro.cli(Args)
     policy = BatchedPolicy(serve_policy.create_policy(args), batch_sizes=args.batch_sizes)
+    if args.compile_on_start:
+        logging.info("Compiling batch sizes %s before serving", policy.metadata["batch_sizes"])
+        policy.compile_batch_sizes()
     logging.info("Serving batched policy on port %d (batch sizes %s)", args.port, policy.metadata["batch_sizes"])
     server = websocket_policy_server.WebsocketPolicyServer(
         policy=policy, host="0.0.0.0", port=args.port, metadata=policy.metadata
