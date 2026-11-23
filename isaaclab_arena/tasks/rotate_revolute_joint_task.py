@@ -13,9 +13,11 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
+from isaaclab_arena.terms.episode_recorders import OpennessChange
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -58,6 +60,17 @@ class RotateRevoluteJointTask(TaskBase):
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         raise NotImplementedError("Function {self.get_termination_cfg.__name__} not implemented yet.")
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        """Record how far the joint's openness got from its reset openness in each episode."""
+        # Without a reset openness, the reset event leaves the joint at 0.
+        reset_openness = 0.0 if self.reset_joint_percentage is None else self.reset_joint_percentage
+        return {
+            "openness_change": EpisodeRecorderTermCfg(
+                func=OpennessChange,
+                params={"openable_object": self.openable_object, "reset_openness": reset_openness},
+            )
+        }
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))
