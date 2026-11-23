@@ -68,6 +68,12 @@ def test_find_cached_floorplan_usd_returns_complete_asset(cache_root):
     assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") == expected
 
 
+def test_find_cached_floorplan_usd_hits_when_version_entry_is_null(cache_root):
+    make_floorplan(cache_root, "robocasa-robocasakitchen-7-10", version=None)
+    expected = str(cache_root / "floorplan" / "robocasa-robocasakitchen-7-10" / "scene.usd")
+    assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") == expected
+
+
 def test_find_cached_floorplan_usd_misses_without_version_entry(cache_root):
     make_floorplan(cache_root, "robocasa-robocasakitchen-7-10", register=False)
     assert lightwheel.find_cached_floorplan_usd("robocasakitchen", 7, 10, "robocasa") is None
