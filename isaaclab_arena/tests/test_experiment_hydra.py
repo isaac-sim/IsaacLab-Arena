@@ -378,7 +378,7 @@ _MINIMAL_RUN_YAML = """runs:
 def test_yaml_without_kpi_exporters_defaults_to_timing_and_resource(tmp_path):
     experiment_cfg = _load_experiment(_write_experiment(tmp_path, _MINIMAL_RUN_YAML))
 
-    assert experiment_cfg.kpi_exporters == ["timing", "resource"]
+    assert experiment_cfg.kpi_exporters == ["timing", "resource_usage"]
 
 
 def test_yaml_top_level_kpi_exporters_selects_the_exporters(tmp_path):

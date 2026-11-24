@@ -19,7 +19,7 @@ from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
-from isaaclab_arena.evaluation.experiment_resources import write_run_resources
+from isaaclab_arena.evaluation.experiment_resource_usage import write_run_resource_usage
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
@@ -34,7 +34,7 @@ from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDi
 from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
 from isaaclab_arena.utils.resource_usage import ResourceUsage
-from isaaclab_arena.utils.runtime_resource_tracker import RuntimeResourceTracker
+from isaaclab_arena.utils.resource_usage_tracker import ResourceUsageTrackerDaemon
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
@@ -74,7 +74,7 @@ def execute_experiment(
         # Clear timers.
         reset_timer_stats()
         start_timestamp_ns = time.time_ns()
-        with RuntimeResourceTracker() as resource_tracker:
+        with ResourceUsageTrackerDaemon() as resource_tracker:
             try:
                 result = build_and_run(
                     run_cfg,
@@ -101,7 +101,7 @@ def execute_experiment(
                 continue
 
         print_timer_stats()
-        _write_run_outputs(run_output_dir, result, resource_tracker.usage)
+        _write_run_outputs(run_output_dir, result, resource_tracker.get_usage())
         results.append(result)
     return results
 
@@ -109,7 +109,7 @@ def execute_experiment(
 def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult, usage: ResourceUsage) -> None:
     """Write a completed Run's timings and resource usage to its output directory."""
     write_run_timings(run_output_dir)
-    write_run_resources(run_output_dir, usage)
+    write_run_resource_usage(run_output_dir, usage)
 
 
 def build_and_run(

@@ -33,9 +33,9 @@ import time
 from collections.abc import Iterable, MutableMapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any
 
-from isaaclab_arena.utils.sample_statistics import SAMPLE_DECIMALS, SampleStatistics, merge_statistics_json
+from isaaclab_arena.utils.sample_statistics import SampleStatistics, merge_statistics_json
 
 # Timing statistics accumulated over the process lifetime, keyed by qualified timer name.
 _timer_registry: dict[str, TimerStats] = {}
@@ -60,7 +60,15 @@ _open_timer_names = _OpenTimerNames()
 class TimerStats(SampleStatistics):
     """Accumulated timing statistics, in milliseconds, for a named timer."""
 
-    unit: ClassVar[str] = "ms"
+    @classmethod
+    def get_unit(cls) -> str:
+        """Return the unit of the timings."""
+        return "ms"
+
+    @classmethod
+    def get_num_decimals(cls) -> int:
+        """Return the decimals kept per sample, i.e. microsecond resolution."""
+        return 3
 
     @property
     def total_ms(self) -> float:
@@ -80,12 +88,12 @@ class TimerStats(SampleStatistics):
     @property
     def mean_ms(self) -> float:
         """Return the mean elapsed time in milliseconds."""
-        return self.mean
+        return self.get_mean()
 
     @property
     def samples_ms(self) -> list[float]:
         """Return a copy of the reservoir sample of measurements in milliseconds."""
-        return self.samples
+        return self.get_samples()
 
 
 def _update_stats(name: str, elapsed_ms: float) -> None:
@@ -201,7 +209,7 @@ def get_timer_stats_json(app_name: str) -> list[dict]:
             TYPE_KEY: "timing",
             NAME_KEY: name,
             APP_NAME_KEY: app_name,
-            **timer_stats.to_json_fields(SAMPLE_DECIMALS),
+            **timer_stats.to_json_fields(),
         }
         for name, timer_stats in get_timer_stats().items()
     ]
@@ -226,7 +234,7 @@ def merge_timer_stats_json(
         One record per distinct timer name, holding the combined count, total, mean, min, and max, plus the
         percentiles when available. The samples are not carried over.
     """
-    return merge_statistics_json(records, TimerStats.unit, remove_samples_from_input_records)
+    return merge_statistics_json(records, TimerStats.get_unit(), remove_samples_from_input_records)
 
 
 def write_timer_stats_json(output_path: str | Path, app_name: str) -> Path:

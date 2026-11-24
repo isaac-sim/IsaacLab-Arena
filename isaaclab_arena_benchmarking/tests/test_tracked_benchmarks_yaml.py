@@ -100,7 +100,7 @@ def test_benchmark_experiment_exports_kpis(entry):
         expected_exporters = ["timing"]
     elif entry["name"].startswith("perf-"):
         # These configs do not list kpi_exporters, so they get the default.
-        expected_exporters = ["timing", "resource"]
+        expected_exporters = ["timing", "resource_usage"]
     else:
         expected_exporters = ["success_rate", "timing"]
     assert experiment_cfg.kpi_exporters == expected_exporters, f"benchmark {entry['name']!r}"

@@ -5,7 +5,7 @@
 
 """Export the resource usage of a finished Arena Experiment as InfluxDB KPI records.
 
-The records file is ``kpis_resource.json``. It holds one ``resource`` record per tracked resource that was sampled,
+The records file is ``kpis_resource_usage.json``. It holds one ``resource_usage`` record per tracked resource that was sampled,
 with the statistics totalled over every Run, timestamped with the latest Run end and tagged with the Arena git commit
 SHA, branch and benchmark id (the Experiment name).
 """
@@ -17,21 +17,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_AGGREGATED_RESOURCES_FILENAME, ArenaExperimentResult
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_AGGREGATED_RESOURCE_USAGE_FILENAME,
+    ArenaExperimentResult,
+)
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.utils.resource_usage import RESOURCE_UNITS
 from isaaclab_arena_benchmarking.benchmarks.registry import register_kpi_exporter
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
 
-RESOURCE_RECORDS_FILENAME = "kpis_resource.json"
+RESOURCE_USAGE_RECORDS_FILENAME = "kpis_resource_usage.json"
 """Name of the resource KPI records file in an Experiment output directory."""
 
 
 @dataclass(kw_only=True)
-class MegabyteResourceRecord(InfluxdbKpiRecord):
+class MegabyteResourceUsageRecord(InfluxdbKpiRecord):
     """Statistics of one resource measured in megabytes, totalled over every Run."""
 
-    record_type: ClassVar[str] = "resource"
+    record_type: ClassVar[str] = "resource_usage"
 
     name: str
     """Resource name."""
@@ -59,10 +62,10 @@ class MegabyteResourceRecord(InfluxdbKpiRecord):
 
 
 @dataclass(kw_only=True)
-class PercentResourceRecord(InfluxdbKpiRecord):
+class PercentResourceUsageRecord(InfluxdbKpiRecord):
     """Statistics of one resource measured in percent, totalled over every Run."""
 
-    record_type: ClassVar[str] = "resource"
+    record_type: ClassVar[str] = "resource_usage"
 
     name: str
     """Resource name."""
@@ -89,10 +92,10 @@ class PercentResourceRecord(InfluxdbKpiRecord):
     """Approximate 90th percentile in percent."""
 
 
-def build_resource_record(
+def build_resource_usage_record(
     total: dict[str, Any], *, timestamp_ns: int, git_stamp: GitStamp, benchmark_id: str
 ) -> InfluxdbKpiRecord:
-    """Return the record of one Experiment resources total; the entry must have a nonzero count.
+    """Return the record of one Experiment resource usage total; the entry must have a nonzero count.
 
     Args:
         total: Resource statistics with ``name``, ``count`` and ``min_<u>``, ``max_<u>`` and ``mean_<u>``, and
@@ -105,7 +108,7 @@ def build_resource_record(
         A megabyte or percent resource record, by the unit of the resource.
     """
     unit = RESOURCE_UNITS[total["name"]]
-    record_type = MegabyteResourceRecord if unit == "mb" else PercentResourceRecord
+    record_type = MegabyteResourceUsageRecord if unit == "mb" else PercentResourceUsageRecord
     statistics = {
         f"{statistic}_{unit}": total.get(f"{statistic}_{unit}")
         for statistic in ("min", "max", "mean", "p10", "p50", "p90")
@@ -121,20 +124,20 @@ def build_resource_record(
     )
 
 
-@register_kpi_exporter("resource")
-class ResourceKpiExporter(InfluxdbKpiExporter):
+@register_kpi_exporter("resource_usage")
+class ResourceUsageKpiExporter(InfluxdbKpiExporter):
     """Exports the resource usage of a finished Arena Experiment output directory."""
 
-    record_types: ClassVar[tuple[str, ...]] = (MegabyteResourceRecord.record_type,)
+    record_types: ClassVar[tuple[str, ...]] = (MegabyteResourceUsageRecord.record_type,)
 
     def get_records_filename(self) -> str:
-        return RESOURCE_RECORDS_FILENAME
+        return RESOURCE_USAGE_RECORDS_FILENAME
 
     def build_records_from_output_dir(self, output_dir: Path) -> list[InfluxdbKpiRecord]:
         """Build the resource records of a finished Experiment output directory.
 
         Reads ``arena_experiment_result.json`` for the timestamp, git stamp and Experiment name and
-        ``arena_experiment_resources.json`` for the resource totals.
+        ``arena_experiment_resource_usage.json`` for the resource usage totals.
 
         Args:
             output_dir: Experiment output root holding the result file and, when tracked, the resources file.
@@ -144,14 +147,14 @@ class ResourceKpiExporter(InfluxdbKpiExporter):
             absent.
         """
         output_dir = Path(output_dir)
-        resources_path = output_dir / ARENA_AGGREGATED_RESOURCES_FILENAME
-        if not resources_path.is_file():
+        resource_usage_path = output_dir / ARENA_AGGREGATED_RESOURCE_USAGE_FILENAME
+        if not resource_usage_path.is_file():
             return []
         result = ArenaExperimentResult.from_experiment_output(output_dir)
-        resources = json.loads(resources_path.read_text(encoding="utf-8"))
+        resources = json.loads(resource_usage_path.read_text(encoding="utf-8"))
         # Resources that were never sampled have no statistics.
         records: list[InfluxdbKpiRecord] = [
-            build_resource_record(
+            build_resource_usage_record(
                 total,
                 timestamp_ns=result.latest_run_end_timestamp_ns,
                 git_stamp=result.git_stamp,

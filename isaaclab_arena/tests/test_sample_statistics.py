@@ -7,19 +7,32 @@
 
 import random
 from dataclasses import dataclass
-from typing import ClassVar
+
+import pytest
 
 from isaaclab_arena.utils.sample_statistics import SampleStatistics, merge_statistics_json
 
 
 @dataclass
 class _MillisecondStatistics(SampleStatistics):
-    unit: ClassVar[str] = "ms"
+    @classmethod
+    def get_unit(cls) -> str:
+        return "ms"
+
+    @classmethod
+    def get_num_decimals(cls) -> int:
+        return 3
 
 
 @dataclass
 class _PercentStatistics(SampleStatistics):
-    unit: ClassVar[str] = "percent"
+    @classmethod
+    def get_unit(cls) -> str:
+        return "percent"
+
+    @classmethod
+    def get_num_decimals(cls) -> int:
+        return 0
 
 
 def test_initial_state() -> None:
@@ -28,8 +41,8 @@ def test_initial_state() -> None:
     assert stats.total == 0.0
     assert stats.minimum == float("inf")
     assert stats.maximum == float("-inf")
-    assert stats.mean == 0.0
-    assert stats.samples == []
+    assert stats.get_mean() == 0.0
+    assert stats.get_samples() == []
     assert stats.percentile(50) is None
 
 
@@ -41,7 +54,7 @@ def test_accumulation() -> None:
     assert stats.total == 60.0
     assert stats.minimum == 10.0
     assert stats.maximum == 30.0
-    assert stats.mean == 20.0
+    assert stats.get_mean() == 20.0
 
 
 def test_percentiles() -> None:
@@ -59,15 +72,15 @@ def test_reservoir_is_bounded_and_leaves_global_random_state_alone() -> None:
     for value in range(100):
         stats.update(float(value))
     assert random.getstate() == state_before
-    assert len(stats.samples) == 5
+    assert len(stats.get_samples()) == 5
     assert stats.count == 100
 
 
 def test_samples_is_a_copy() -> None:
     stats = _MillisecondStatistics()
     stats.update(1.0)
-    stats.samples.append(2.0)
-    assert stats.samples == [1.0]
+    stats.get_samples().append(2.0)
+    assert stats.get_samples() == [1.0]
 
 
 def test_to_json_fields_keys_follow_unit() -> None:
@@ -75,7 +88,7 @@ def test_to_json_fields_keys_follow_unit() -> None:
         stats = statistics_class()
         for value in (1.23456, 2.0):
             stats.update(value)
-        fields = stats.to_json_fields(3)
+        fields = stats.to_json_fields()
         assert list(fields) == [
             "count",
             f"mean_{unit}",
@@ -88,11 +101,11 @@ def test_to_json_fields_keys_follow_unit() -> None:
             f"samples_{unit}",
         ]
         assert fields["count"] == 2
-        assert fields[f"samples_{unit}"] == [1.235, 2.0]
+        assert fields[f"samples_{unit}"] == ([1.235, 2.0] if unit == "ms" else [1.0, 2.0])
 
 
 def test_to_json_fields_of_empty_statistics() -> None:
-    fields = _PercentStatistics().to_json_fields(3)
+    fields = _PercentStatistics().to_json_fields()
     assert fields["p10_percent"] is None
     assert fields["p50_percent"] is None
     assert fields["p90_percent"] is None
@@ -157,3 +170,52 @@ def test_merge_removes_samples_from_inputs_only_when_asked() -> None:
     assert record["samples_percent"] == [1.0]
     merge_statistics_json([record], unit="percent", remove_samples_from_input_records=True)
     assert "samples_percent" not in record
+
+
+def test_subclass_missing_get_unit_cannot_be_instantiated() -> None:
+    @dataclass
+    class _MissingUnit(SampleStatistics):
+        @classmethod
+        def get_num_decimals(cls) -> int:
+            return 0
+
+    with pytest.raises(TypeError, match="get_unit"):
+        _MissingUnit()
+
+
+def test_subclass_missing_get_num_decimals_cannot_be_instantiated() -> None:
+    @dataclass
+    class _MissingDecimals(SampleStatistics):
+        @classmethod
+        def get_unit(cls) -> str:
+            return "ms"
+
+    with pytest.raises(TypeError, match="get_num_decimals"):
+        _MissingDecimals()
+
+
+def test_num_decimals_rounds_samples_but_not_summary_fields() -> None:
+    @dataclass
+    class _TwoDecimals(_MillisecondStatistics):
+        @classmethod
+        def get_num_decimals(cls) -> int:
+            return 2
+
+    stats = _TwoDecimals()
+    for value in (1.23456, 2.34567):
+        stats.update(value)
+    fields = stats.to_json_fields()
+    assert fields["samples_ms"] == [1.23, 2.35]
+    assert fields["min_ms"] == 1.23456
+    assert fields["total_ms"] == pytest.approx(3.58023)
+
+
+def test_zero_decimal_samples_serialize_and_merge() -> None:
+    stats = _PercentStatistics()
+    for value in (0.2, 49.6, 100.4):
+        stats.update(value)
+    record = {"name": "u", **stats.to_json_fields()}
+    assert record["samples_percent"] == [0.0, 50.0, 100.0]
+    merged = merge_statistics_json([record], unit="percent")
+    assert merged[0]["p50_percent"] == 50.0
+    assert merged[0]["max_percent"] == 100.4

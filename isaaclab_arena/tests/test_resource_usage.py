@@ -7,7 +7,14 @@
 
 import json
 
-from isaaclab_arena.utils.resource_usage import RESOURCE_NAMES, RESOURCE_UNITS, ResourceUsage, merge_resource_records
+from isaaclab_arena.utils.resource_usage import (
+    RESOURCE_NAMES,
+    RESOURCE_UNITS,
+    MegabyteStatistics,
+    PercentStatistics,
+    ResourceUsage,
+    merge_resource_records,
+)
 
 
 def _usage(vram=(), ram=(), cpu_util=(), gpu_util=()) -> ResourceUsage:
@@ -26,6 +33,11 @@ def _usage(vram=(), ram=(), cpu_util=(), gpu_util=()) -> ResourceUsage:
 def test_constants() -> None:
     assert RESOURCE_NAMES == ("vram", "ram", "cpu_util", "gpu_util")
     assert RESOURCE_UNITS == {"vram": "mb", "ram": "mb", "cpu_util": "percent", "gpu_util": "percent"}
+
+
+def test_statistics_classes_define_unit_and_decimals() -> None:
+    assert (MegabyteStatistics.get_unit(), MegabyteStatistics.get_num_decimals()) == ("mb", 0)
+    assert (PercentStatistics.get_unit(), PercentStatistics.get_num_decimals()) == ("percent", 0)
 
 
 def test_default_instances_are_independent() -> None:
@@ -49,7 +61,7 @@ def test_record_keys_follow_unit_and_order_follows_resource_names() -> None:
     records = usage.to_json_records("my_app")
     assert [record["name"] for record in records] == list(RESOURCE_NAMES)
     vram, _, cpu, _ = records
-    assert vram["type"] == "resource" and vram["app_name"] == "my_app"
+    assert vram["type"] == "resource_usage" and vram["app_name"] == "my_app"
     assert "max_mb" in vram and "samples_mb" in vram
     assert "mean_percent" in cpu and "p90_percent" in cpu and "max_mb" not in cpu
 

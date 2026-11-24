@@ -13,13 +13,16 @@ from unittest.mock import patch
 import pytest
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
-    ARENA_AGGREGATED_RESOURCES_FILENAME,
+    ARENA_AGGREGATED_RESOURCE_USAGE_FILENAME,
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
-    ARENA_SINGLE_RUN_RESOURCES_FILENAME,
+    ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
-from isaaclab_arena.evaluation.experiment_resources import aggregate_experiment_resources, write_run_resources
+from isaaclab_arena.evaluation.experiment_resource_usage import (
+    aggregate_experiment_resource_usage,
+    write_run_resource_usage,
+)
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
@@ -101,8 +104,8 @@ def _write_run_timings(
     aggregate_experiment_timings(experiment_runner_output_directory, [run_name])
     usage = ResourceUsage()
     usage.vram.update(100.0)
-    write_run_resources(run_output_directory, usage)
-    aggregate_experiment_resources(experiment_runner_output_directory, [run_name])
+    write_run_resource_usage(run_output_directory, usage)
+    aggregate_experiment_resource_usage(experiment_runner_output_directory, [run_name])
 
 
 def _write_experiment_runner_result(
@@ -256,9 +259,9 @@ def test_collects_run_outputs_without_building_report(tmp_path):
     assert collected_run_timings == json.loads(
         (experiment_runner_output_directory / "first" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).read_text(encoding="utf-8")
     )
-    assert (experiment_output_directory / "first" / ARENA_SINGLE_RUN_RESOURCES_FILENAME).read_text(
+    assert (experiment_output_directory / "first" / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME).read_text(
         encoding="utf-8"
-    ) == (experiment_runner_output_directory / "first" / ARENA_SINGLE_RUN_RESOURCES_FILENAME).read_text(
+    ) == (experiment_runner_output_directory / "first" / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME).read_text(
         encoding="utf-8"
     )
     assert not (experiment_output_directory / "index.html").exists()
@@ -268,8 +271,8 @@ def test_rejects_completed_experiment_runner_output_without_resources(tmp_path):
     experiment_runner_output_directory = tmp_path / "experiment-runner-0-output"
     _write_run_output(experiment_runner_output_directory / "first", "first", True)
     _write_run_timings(experiment_runner_output_directory, "first", [_timing_record("step", 1, 10.0)])
-    run_resources_path = experiment_runner_output_directory / "first" / ARENA_SINGLE_RUN_RESOURCES_FILENAME
-    run_resources_path.unlink()
+    run_resource_usage_path = experiment_runner_output_directory / "first" / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME
+    run_resource_usage_path.unlink()
     _write_experiment_runner_result(
         experiment_runner_output_directory,
         RunStatus.COMPLETED,
@@ -277,12 +280,12 @@ def test_rejects_completed_experiment_runner_output_without_resources(tmp_path):
         {"first": _run_metadata("first-environment", "pi05")},
     )
 
-    with pytest.raises(AssertionError, match="Completed Run 'first' is missing its resources file") as error:
+    with pytest.raises(AssertionError, match="Completed Run 'first' is missing its resource usage file") as error:
         collect_run_outputs_into_experiment_output(
             {"first": experiment_runner_output_directory},
             tmp_path / "experiment-output",
         )
-    assert str(run_resources_path) in str(error.value)
+    assert str(run_resource_usage_path) in str(error.value)
 
 
 def test_rejects_completed_experiment_runner_output_without_timings(tmp_path):
@@ -436,14 +439,14 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
         ("first", "step/policy_inference"),
         ("second", "step"),
     ]
-    experiment_resources = json.loads(
-        (experiment_output_directory / ARENA_AGGREGATED_RESOURCES_FILENAME).read_text(encoding="utf-8")
+    experiment_resource_usage = json.loads(
+        (experiment_output_directory / ARENA_AGGREGATED_RESOURCE_USAGE_FILENAME).read_text(encoding="utf-8")
     )
-    assert [(record["run_name"], record["name"]) for record in experiment_resources["runs"]] == [
+    assert [(record["run_name"], record["name"]) for record in experiment_resource_usage["runs"]] == [
         ("first", "vram"),
         ("second", "vram"),
     ]
-    assert experiment_resources["totals"][0]["count"] == 2
+    assert experiment_resource_usage["totals"][0]["count"] == 2
     report_contents = report_path.read_text(encoding="utf-8")
     assert "first" in report_contents
     assert "second" in report_contents
@@ -510,8 +513,8 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     # A failed Run's timings describe a partial execution, so they are excluded like its episode results.
     assert (experiment_output_directory / "completed-run" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
     assert not (experiment_output_directory / "failed-run" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
-    assert (experiment_output_directory / "completed-run" / ARENA_SINGLE_RUN_RESOURCES_FILENAME).is_file()
-    assert not (experiment_output_directory / "failed-run" / ARENA_SINGLE_RUN_RESOURCES_FILENAME).exists()
+    assert (experiment_output_directory / "completed-run" / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME).is_file()
+    assert not (experiment_output_directory / "failed-run" / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME).exists()
     experiment_timings = json.loads(
         (experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME).read_text(encoding="utf-8")
     )

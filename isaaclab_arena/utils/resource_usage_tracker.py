@@ -12,6 +12,8 @@ import threading
 import time
 from dataclasses import dataclass
 
+import pynvml
+
 from isaaclab_arena.utils.resource_usage import ResourceUsage
 
 BYTES_PER_MB = 2**20
@@ -48,13 +50,10 @@ class ProcessResourceReader:
         Args:
             gpu_index: Index of the GPU to read.
         """
-        import pynvml
-
         assert hasattr(pynvml, "nvmlMemory_v2"), (
             "The imported pynvml has no nvmlMemory_v2; the resource tracker needs the nvidia-ml-py package."
             f" The imported module is {getattr(pynvml, '__file__', None)!r}; an older pynvml may shadow nvidia-ml-py."
         )
-        self._pynvml = pynvml
         pynvml.nvmlInit()
         try:
             self._handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_index)
@@ -71,10 +70,13 @@ class ProcessResourceReader:
         Returns:
             The sample. Its CPU utilization is None on the first call.
         """
+        # RAM: resident set size, the second field of /proc/self/statm in pages.
         with open("/proc/self/statm") as statm:
             resident_pages = int(statm.read().split()[1])
         ram_mb = resident_pages * self._page_size / BYTES_PER_MB
 
+        # CPU utilization: CPU time of this process (all threads) since the previous sample divided by the wall
+        # time since then, in percent of one core, so it can exceed 100. The first sample has no previous one.
         cpu_time_s = time.process_time()
         wall_time_s = time.monotonic()
         cpu_util_percent = None
@@ -83,8 +85,11 @@ class ProcessResourceReader:
         self._last_cpu_time_s = cpu_time_s
         self._last_wall_time_s = wall_time_s
 
-        memory_info = self._pynvml.nvmlDeviceGetMemoryInfo(self._handle, version=self._pynvml.nvmlMemory_v2)
-        gpu_util_percent = self._pynvml.nvmlDeviceGetUtilizationRates(self._handle).gpu
+        # VRAM: device-wide memory in use from NVML's v2 memory info. It includes every process on the GPU and
+        # excludes the memory the driver reserves for itself.
+        memory_info = pynvml.nvmlDeviceGetMemoryInfo(self._handle, version=pynvml.nvmlMemory_v2)
+        # GPU utilization: NVML's utilization of the device, the percent of time a kernel was running recently.
+        gpu_util_percent = pynvml.nvmlDeviceGetUtilizationRates(self._handle).gpu
         return ResourceSample(
             ram_mb=ram_mb,
             cpu_util_percent=cpu_util_percent,
@@ -94,48 +99,48 @@ class ProcessResourceReader:
 
     def close(self) -> None:
         """Shut down NVML."""
-        self._pynvml.nvmlShutdown()
+        pynvml.nvmlShutdown()
 
 
-class RuntimeResourceTracker:
+class ResourceUsageTrackerDaemon:
     """Context manager sampling process and GPU resources at a fixed interval while its block runs.
+
+    It samples cheaply in a background thread and so can stay on during every Run, unlike profilers such as
+    Nsight Systems.
 
     VRAM and GPU utilization are read from NVML GPU ``gpu_index`` (default 0), regardless of ``--device`` or
     ``CUDA_VISIBLE_DEVICES``, so on a multi-GPU machine that runs on another GPU they describe a different GPU.
     """
 
-    def __init__(self, interval_s: float = 0.1, gpu_index: int = 0, reader: ProcessResourceReader | None = None):
-        """Create a tracker; NVML is initialized when the context is entered.
+    def __init__(self, interval_s: float = 0.1, gpu_index: int = 0):
+        """Create a tracker; sampling starts when the context is entered.
 
         Args:
             interval_s: Seconds between samples.
             gpu_index: Index of the GPU to read.
-            reader: Replaces the NVML reader; it only needs sample() and close().
         """
         self._interval_s = interval_s
         self._gpu_index = gpu_index
-        self._reader = reader
+        self._reader: ProcessResourceReader | None = None
         self._usage = ResourceUsage()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
         self._failed = False
 
-    @property
-    def usage(self) -> ResourceUsage:
+    def get_usage(self) -> ResourceUsage:
         """The statistics of the samples so far; complete after the context exits."""
         return self._usage
 
-    def __enter__(self) -> RuntimeResourceTracker:
+    def __enter__(self) -> ResourceUsageTrackerDaemon:
         """Take the first sample and start the sampling thread."""
-        if self._reader is None:
-            self._reader = ProcessResourceReader(self._gpu_index)
+        self._reader = ProcessResourceReader(self._gpu_index)
         try:
             self._record(self._reader.sample())
         except BaseException:
             self._reader.close()
             raise
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, name="runtime-resource-tracker", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="resource-usage-tracker-daemon", daemon=True)
         self._thread.start()
         return self
 
@@ -165,7 +170,7 @@ class RuntimeResourceTracker:
     def _report_failure(self, error: Exception) -> None:
         if not self._failed:
             self._failed = True
-            print(f"RuntimeResourceTracker stopped sampling: {error!r}")
+            print(f"ResourceUsageTrackerDaemon stopped sampling: {error!r}")
 
     def _run(self) -> None:
         while not self._stop_event.wait(self._interval_s):

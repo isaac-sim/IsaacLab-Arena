@@ -13,14 +13,14 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
-    ARENA_AGGREGATED_RESOURCES_FILENAME,
-    ARENA_SINGLE_RUN_RESOURCES_FILENAME,
+    ARENA_AGGREGATED_RESOURCE_USAGE_FILENAME,
+    ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME,
 )
 from isaaclab_arena.evaluation.experiment_timings import EXPERIMENT_RUNNER_APP_NAME
 from isaaclab_arena.utils.resource_usage import ResourceUsage, merge_resource_records
 
 
-def write_run_resources(run_output_directory: Path, usage: ResourceUsage) -> Path:
+def write_run_resource_usage(run_output_directory: Path, usage: ResourceUsage) -> Path:
     """Write a Run's resource usage into its output directory, returning the path written.
 
     Args:
@@ -29,12 +29,12 @@ def write_run_resources(run_output_directory: Path, usage: ResourceUsage) -> Pat
     """
     run_output_directory.mkdir(parents=True, exist_ok=True)
     text = json.dumps(usage.to_json_records(app_name=EXPERIMENT_RUNNER_APP_NAME), allow_nan=False, indent=2)
-    run_resources_path = run_output_directory / ARENA_SINGLE_RUN_RESOURCES_FILENAME
-    run_resources_path.write_text(_put_samples_on_one_line(text) + "\n", encoding="utf-8")
-    return run_resources_path
+    run_resource_usage_path = run_output_directory / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME
+    run_resource_usage_path.write_text(_put_samples_on_one_line(text) + "\n", encoding="utf-8")
+    return run_resource_usage_path
 
 
-def aggregate_experiment_resources(experiment_output_directory: Path, run_names: Iterable[str]) -> Path:
+def aggregate_experiment_resource_usage(experiment_output_directory: Path, run_names: Iterable[str]) -> Path:
     """Combine the named Runs' resource files into one Experiment resources file.
 
     The combined file holds "totals", one entry per resource summed or maximized over every Run, and "runs",
@@ -49,21 +49,24 @@ def aggregate_experiment_resources(experiment_output_directory: Path, run_names:
     """
     run_records: list[dict[str, object]] = []
     for run_name in sorted(run_names):
-        run_resources_path = experiment_output_directory / run_name / ARENA_SINGLE_RUN_RESOURCES_FILENAME
-        assert run_resources_path.is_file(), f"Run '{run_name}' is missing its resources file: '{run_resources_path}'"
+        run_resource_usage_path = experiment_output_directory / run_name / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME
+        assert (
+            run_resource_usage_path.is_file()
+        ), f"Run '{run_name}' is missing its resources file: '{run_resource_usage_path}'"
         run_records.extend(
-            {"run_name": run_name, **record} for record in json.loads(run_resources_path.read_text(encoding="utf-8"))
+            {"run_name": run_name, **record}
+            for record in json.loads(run_resource_usage_path.read_text(encoding="utf-8"))
         )
 
     # The samples only feed the totals' percentiles; each Run's own record keeps its percentiles.
     totals = merge_resource_records(run_records, remove_samples_from_input_records=True)
 
-    experiment_resources_path = experiment_output_directory / ARENA_AGGREGATED_RESOURCES_FILENAME
-    experiment_resources_path.write_text(
+    experiment_resource_usage_path = experiment_output_directory / ARENA_AGGREGATED_RESOURCE_USAGE_FILENAME
+    experiment_resource_usage_path.write_text(
         json.dumps({"totals": totals, "runs": run_records}, allow_nan=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    return experiment_resources_path
+    return experiment_resource_usage_path
 
 
 def _put_samples_on_one_line(indented_json: str) -> str:

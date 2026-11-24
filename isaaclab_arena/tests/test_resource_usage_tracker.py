@@ -3,20 +3,24 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests of the RuntimeResourceTracker and its ProcessResourceReader."""
+"""Tests of the ResourceUsageTrackerDaemon and its ProcessResourceReader."""
 
 from __future__ import annotations
 
-import sys
 import threading
 import time
 import types
 
 import pytest
 
-from isaaclab_arena.utils.runtime_resource_tracker import ProcessResourceReader, ResourceSample, RuntimeResourceTracker
+import isaaclab_arena.utils.resource_usage_tracker as tracker_module
+from isaaclab_arena.utils.resource_usage_tracker import (
+    ProcessResourceReader,
+    ResourceSample,
+    ResourceUsageTrackerDaemon,
+)
 
-THREAD_NAME = "runtime-resource-tracker"
+THREAD_NAME = "resource-usage-tracker-daemon"
 
 
 class FakeReader:
@@ -36,6 +40,11 @@ class FakeReader:
         self.closed = True
 
 
+def _patch_reader(monkeypatch, reader: FakeReader) -> None:
+    """Make the tracker use the given reader instead of constructing a ProcessResourceReader."""
+    monkeypatch.setattr(tracker_module, "ProcessResourceReader", lambda gpu_index: reader)
+
+
 def _sample(vram=100.0, ram=200.0, cpu=50.0, gpu=10.0) -> ResourceSample:
     return ResourceSample(ram_mb=ram, cpu_util_percent=cpu, vram_mb=vram, gpu_util_percent=gpu)
 
@@ -51,53 +60,59 @@ def _wait_for(condition, timeout_s: float = 5.0) -> None:
         time.sleep(0.005)
 
 
-def test_peak_and_mean_match_scripted_samples():
+def test_peak_and_mean_match_scripted_samples(monkeypatch):
     reader = FakeReader([_sample(vram=100, ram=300, cpu=None, gpu=10), _sample(vram=500, ram=200, cpu=20, gpu=30)])
-    with RuntimeResourceTracker(interval_s=0.01, reader=reader) as tracker:
+    _patch_reader(monkeypatch, reader)
+    with ResourceUsageTrackerDaemon(interval_s=0.01) as tracker:
         _wait_for(lambda: reader.sample_count >= 5)
-    usage = tracker.usage
+    usage = tracker.get_usage()
     assert usage.vram.maximum == 500
     assert usage.ram.maximum == 300
     assert usage.gpu_util.maximum == 30
-    assert 10 <= usage.gpu_util.mean <= 30
-    assert usage.cpu_util.mean == 20
+    assert 10 <= usage.gpu_util.get_mean() <= 30
+    assert usage.cpu_util.get_mean() == 20
     assert reader.closed
 
 
-def test_immediate_exit_has_start_and_stop_samples():
+def test_immediate_exit_has_start_and_stop_samples(monkeypatch):
     reader = FakeReader([_sample()])
-    with RuntimeResourceTracker(interval_s=10.0, reader=reader) as tracker:
+    _patch_reader(monkeypatch, reader)
+    with ResourceUsageTrackerDaemon(interval_s=10.0) as tracker:
         pass
-    assert tracker.usage.vram.count >= 2
+    assert tracker.get_usage().vram.count >= 2
 
 
-def test_first_cpu_sample_is_skipped():
+def test_first_cpu_sample_is_skipped(monkeypatch):
     reader = FakeReader([_sample(cpu=None)])
-    with RuntimeResourceTracker(interval_s=10.0, reader=reader) as tracker:
+    _patch_reader(monkeypatch, reader)
+    with ResourceUsageTrackerDaemon(interval_s=10.0) as tracker:
         pass
-    assert tracker.usage.cpu_util.count == 0
-    assert tracker.usage.vram.count == 2
+    assert tracker.get_usage().cpu_util.count == 0
+    assert tracker.get_usage().vram.count == 2
 
 
-def test_thread_is_gone_after_exit_and_after_exception():
-    with RuntimeResourceTracker(interval_s=0.01, reader=FakeReader([_sample()])):
+def test_thread_is_gone_after_exit_and_after_exception(monkeypatch):
+    _patch_reader(monkeypatch, FakeReader([_sample()]))
+    with ResourceUsageTrackerDaemon(interval_s=0.01):
         assert THREAD_NAME in _thread_names()
     assert THREAD_NAME not in _thread_names()
 
+    _patch_reader(monkeypatch, FakeReader([_sample()]))
     with pytest.raises(RuntimeError):
-        with RuntimeResourceTracker(interval_s=0.01, reader=FakeReader([_sample()])):
+        with ResourceUsageTrackerDaemon(interval_s=0.01):
             raise RuntimeError("boom")
     assert THREAD_NAME not in _thread_names()
 
 
-def test_exit_twice_is_harmless():
-    tracker = RuntimeResourceTracker(interval_s=0.01, reader=FakeReader([_sample()]))
+def test_exit_twice_is_harmless(monkeypatch):
+    _patch_reader(monkeypatch, FakeReader([_sample()]))
+    tracker = ResourceUsageTrackerDaemon(interval_s=0.01)
     tracker.__enter__()
     tracker.__exit__(None, None, None)
     tracker.__exit__(None, None, None)
 
 
-def test_sampling_error_stops_sampling_without_raising(capsys):
+def test_sampling_error_stops_sampling_without_raising(capsys, monkeypatch):
     class FailingReader(FakeReader):
         def sample(self):
             if self.sample_count >= 1:
@@ -106,7 +121,8 @@ def test_sampling_error_stops_sampling_without_raising(capsys):
             return super().sample()
 
     reader = FailingReader([_sample()])
-    with RuntimeResourceTracker(interval_s=0.01, reader=reader):
+    _patch_reader(monkeypatch, reader)
+    with ResourceUsageTrackerDaemon(interval_s=0.01):
         _wait_for(lambda: reader.sample_count >= 2)
         _wait_for(lambda: THREAD_NAME not in _thread_names())
     assert "sampling failed" in capsys.readouterr().out
@@ -139,9 +155,9 @@ def _make_fake_pynvml(init_error: Exception | None = None):
 
 def test_nvml_init_failure_propagates_from_enter_without_thread(monkeypatch):
     fake = _make_fake_pynvml(init_error=RuntimeError("NVML unavailable"))
-    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(tracker_module, "pynvml", fake)
     with pytest.raises(RuntimeError, match="NVML unavailable"):
-        with RuntimeResourceTracker(interval_s=0.01):
+        with ResourceUsageTrackerDaemon(interval_s=0.01):
             pass
     assert THREAD_NAME not in _thread_names()
 
@@ -152,9 +168,9 @@ def test_old_pynvml_without_v2_memory_info_fails_at_start_without_thread(monkeyp
     fake.__file__ = "/isaac-sim/pip_prebundle/pynvml/__init__.py"
     init_calls = []
     fake.nvmlInit = lambda: init_calls.append(1)
-    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(tracker_module, "pynvml", fake)
     with pytest.raises(AssertionError, match=r"nvidia-ml-py.*pip_prebundle/pynvml.*shadow"):
-        with RuntimeResourceTracker(interval_s=0.01):
+        with ResourceUsageTrackerDaemon(interval_s=0.01):
             pass
     assert init_calls == []
     assert fake.shutdown_calls == 0
@@ -168,20 +184,21 @@ def test_reader_shuts_down_nvml_when_handle_lookup_fails(monkeypatch):
         raise RuntimeError("no such GPU")
 
     fake.nvmlDeviceGetHandleByIndex = fail_handle
-    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(tracker_module, "pynvml", fake)
     with pytest.raises(RuntimeError, match="no such GPU"):
         ProcessResourceReader(gpu_index=7)
     assert fake.shutdown_calls == 1
 
 
-def test_reader_closed_even_if_stop_sample_is_interrupted():
+def test_reader_closed_even_if_stop_sample_is_interrupted(monkeypatch):
     reader = FakeReader([_sample()])
 
     def interrupted():
         raise KeyboardInterrupt()
 
     with pytest.raises(KeyboardInterrupt):
-        with RuntimeResourceTracker(interval_s=60.0, reader=reader):
+        _patch_reader(monkeypatch, reader)
+        with ResourceUsageTrackerDaemon(interval_s=60.0):
             reader.sample = interrupted
     assert reader.closed
     assert THREAD_NAME not in _thread_names()
@@ -189,7 +206,7 @@ def test_reader_closed_even_if_stop_sample_is_interrupted():
 
 def test_reader_uses_v2_used_memory_and_proc_rss(monkeypatch):
     fake = _make_fake_pynvml()
-    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(tracker_module, "pynvml", fake)
     reader = ProcessResourceReader(gpu_index=1)
     first = reader.sample()
     second = reader.sample()

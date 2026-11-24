@@ -53,10 +53,10 @@ def test_experiment_cfg_rejects_invalid_named_runs(runs, error):
         ArenaExperimentCfg(runs=runs, name="experiment")
 
 
-def test_experiment_cfg_exports_timing_and_resource_kpis_by_default():
+def test_experiment_cfg_exports_timing_and_resource_usage_kpis_by_default():
     experiment_cfg = ArenaExperimentCfg(runs={"run": _run("run")}, name="experiment")
 
-    assert experiment_cfg.kpi_exporters == ["timing", "resource"]
+    assert experiment_cfg.kpi_exporters == ["timing", "resource_usage"]
 
 
 def test_experiment_cfg_default_kpi_exporters_are_not_shared_between_instances():
@@ -65,7 +65,7 @@ def test_experiment_cfg_default_kpi_exporters_are_not_shared_between_instances()
 
     first.kpi_exporters.append("success_rate")
 
-    assert second.kpi_exporters == ["timing", "resource"]
+    assert second.kpi_exporters == ["timing", "resource_usage"]
 
 
 @pytest.mark.parametrize("kpi_exporters", [[], ["success_rate", "timing"]])
@@ -80,7 +80,7 @@ def test_experiment_cfg_accepts_registered_kpi_exporters_or_none(kpi_exporters):
     [
         (
             ["latency"],
-            r"Unknown KPI exporters \['latency'\].*\['placement_success', 'resource', 'success_rate', 'timing'\]",
+            r"Unknown KPI exporters \['latency'\].*\['placement_success', 'resource_usage', 'success_rate', 'timing'\]",
         ),
         (["timing", "timing"], r"duplicate KPI exporters \['timing'\]"),
         ("timing", "must be a list of names"),

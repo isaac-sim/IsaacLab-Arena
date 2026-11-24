@@ -29,6 +29,11 @@ from isaaclab_arena.utils.timer import (
 class TestTimerStats:
     """Tests for the TimerStats dataclass."""
 
+    def test_unit_and_decimals(self) -> None:
+        """Verify timings are in milliseconds with microsecond sample resolution."""
+        assert TimerStats.get_unit() == "ms"
+        assert TimerStats.get_num_decimals() == 3
+
     def test_initial_state(self) -> None:
         """Verify default state of a fresh TimerStats."""
         stats = TimerStats()

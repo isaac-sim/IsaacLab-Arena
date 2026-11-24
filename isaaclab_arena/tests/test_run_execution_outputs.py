@@ -6,7 +6,7 @@
 """Tests of the files a completed Run writes. No Isaac Sim or GPU required."""
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
-    ARENA_SINGLE_RUN_RESOURCES_FILENAME,
+    ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunResult
@@ -23,4 +23,4 @@ def test_write_run_outputs_writes_timings_and_resources(tmp_path):
     _write_run_outputs(tmp_path / "run", result, usage)
 
     assert (tmp_path / "run" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
-    assert (tmp_path / "run" / ARENA_SINGLE_RUN_RESOURCES_FILENAME).is_file()
+    assert (tmp_path / "run" / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME).is_file()

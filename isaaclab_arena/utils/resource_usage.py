@@ -9,30 +9,51 @@ from __future__ import annotations
 
 from collections.abc import Iterable, MutableMapping
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import Any
 
-from isaaclab_arena.utils.sample_statistics import SAMPLE_DECIMALS, SampleStatistics, merge_statistics_json
+from isaaclab_arena.utils.sample_statistics import SampleStatistics, merge_statistics_json
 
 
 @dataclass
 class MegabyteStatistics(SampleStatistics):
     """Statistics of measurements in megabytes (2**20 bytes)."""
 
-    unit: ClassVar[str] = "mb"
+    @classmethod
+    def get_unit(cls) -> str:
+        """Return the unit of the measurements."""
+        return "mb"
+
+    @classmethod
+    def get_num_decimals(cls) -> int:
+        """Return the decimals kept per sample; whole megabytes are precise enough."""
+        return 0
 
 
 @dataclass
 class PercentStatistics(SampleStatistics):
     """Statistics of measurements in percent."""
 
-    unit: ClassVar[str] = "percent"
+    @classmethod
+    def get_unit(cls) -> str:
+        """Return the unit of the measurements."""
+        return "percent"
+
+    @classmethod
+    def get_num_decimals(cls) -> int:
+        """Return the decimals kept per sample; whole percent is precise enough."""
+        return 0
 
 
 RESOURCE_NAMES = ("vram", "ram", "cpu_util", "gpu_util")
 """Names of the tracked resources, in the order their records are written."""
 
-RESOURCE_UNITS: dict[str, str] = {"vram": "mb", "ram": "mb", "cpu_util": "percent", "gpu_util": "percent"}
-"""Unit of each tracked resource."""
+RESOURCE_UNITS: dict[str, str] = {
+    "vram": MegabyteStatistics.get_unit(),
+    "ram": MegabyteStatistics.get_unit(),
+    "cpu_util": PercentStatistics.get_unit(),
+    "gpu_util": PercentStatistics.get_unit(),
+}
+"""Unit of each tracked resource, taken from its statistics class."""
 
 
 @dataclass
@@ -66,10 +87,10 @@ class ResourceUsage:
             if statistics.count == 0:
                 continue
             records.append({
-                "type": "resource",
+                "type": "resource_usage",
                 "name": name,
                 "app_name": app_name,
-                **statistics.to_json_fields(SAMPLE_DECIMALS),
+                **statistics.to_json_fields(),
             })
         return records
 

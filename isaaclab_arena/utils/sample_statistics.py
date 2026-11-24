@@ -5,22 +5,20 @@
 
 """Running statistics of a stream of measurements, with approximate percentiles and a cross-record merge.
 
-Subclass SampleStatistics and set its unit to name the measured quantity, for example "ms" or "percent".
-The unit suffixes the serialized keys, as in "mean_ms" and "samples_percent".
+Subclass SampleStatistics and implement get_unit and get_num_decimals for the measured quantity, for example
+"ms" with 3 decimals or "percent" with 0. The unit suffixes the serialized keys, as in "mean_ms" and "samples_percent".
 """
 
 from __future__ import annotations
 
 import random
+from abc import ABC, abstractmethod
 from collections.abc import Iterable, MutableMapping
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import Any
 
 # Keep reservoir sampling independent from application randomness.
 _reservoir_random_generator = random.Random()
-
-SAMPLE_DECIMALS = 3
-"""Decimals kept when a sample is written, i.e. microsecond resolution for a value in milliseconds."""
 
 PERCENTILES = (10, 50, 90)
 """Percentiles written to a record and estimated when records are merged."""
@@ -39,14 +37,11 @@ def weighted_percentile(weighted_samples: list[tuple[float, float]], p: float) -
 
 
 @dataclass
-class SampleStatistics:
+class SampleStatistics(ABC):
     """Accumulated statistics of measurements in one unit.
 
     Maintains a reservoir sample for approximate percentile estimation.
     """
-
-    unit: ClassVar[str]
-    """Unit of the measurements, used as the suffix of the serialized keys."""
 
     percentile_approximation_reservoir_size: int = 1024
     count: int = 0
@@ -55,15 +50,23 @@ class SampleStatistics:
     maximum: float = field(default=float("-inf"))
     _reservoir: list[float] = field(default_factory=list)
 
-    @property
-    def mean(self) -> float:
+    @classmethod
+    @abstractmethod
+    def get_unit(cls) -> str:
+        """Return the unit of the measurements, used as the suffix of the serialized keys."""
+
+    @classmethod
+    @abstractmethod
+    def get_num_decimals(cls) -> int:
+        """Return the number of decimals each reservoir sample is rounded to when written."""
+
+    def get_mean(self) -> float:
         """Return the mean of the measurements, or 0.0 when there are none."""
         if self.count == 0:
             return 0.0
         return self.total / self.count
 
-    @property
-    def samples(self) -> list[float]:
+    def get_samples(self) -> list[float]:
         """Return a copy of the reservoir sample of measurements."""
         return list(self._reservoir)
 
@@ -96,26 +99,24 @@ class SampleStatistics:
             return None
         return weighted_percentile([(sample, 1.0) for sample in self._reservoir], p)
 
-    def to_json_fields(self, sample_decimals: int) -> dict[str, float | int | list[float] | None]:
+    def to_json_fields(self) -> dict[str, float | int | list[float] | None]:
         """Return the statistics as unit-suffixed JSON fields.
-
-        Args:
-            sample_decimals: Decimals to round each reservoir sample to.
 
         Returns:
             The count, mean, total, min, max, p10, p50, p90 and the rounded reservoir samples.
         """
-        unit = self.unit
+        unit = self.get_unit()
+        num_decimals = self.get_num_decimals()
         return {
             "count": self.count,
-            f"mean_{unit}": self.mean,
+            f"mean_{unit}": self.get_mean(),
             f"total_{unit}": self.total,
             f"min_{unit}": self.minimum,
             f"max_{unit}": self.maximum,
             f"p10_{unit}": self.percentile(10),
             f"p50_{unit}": self.percentile(50),
             f"p90_{unit}": self.percentile(90),
-            f"samples_{unit}": [round(sample, sample_decimals) for sample in self._reservoir],
+            f"samples_{unit}": [round(sample, num_decimals) for sample in self._reservoir],
         }
 
 
