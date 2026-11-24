@@ -37,10 +37,7 @@ runs:
       shell: bash
       run: echo "isaac_sim_version=$(cat /isaac-sim/VERSION)" >> "${GITHUB_OUTPUT}"
 
-    # The directories to cache, defined once for the restore and the save. The cache version
-    # hash depends on this list, so both steps must use the same one.
-    # For LightWheel we cache only floorplan and object directories, excluding stray zip
-    # files. login/ must never be cached because it holds credentials.
+    # The directories to cache.
     - id: cache_paths
       name: Define cache paths
       shell: bash
@@ -49,16 +46,18 @@ runs:
           echo "paths<<EOF"
           echo "/isaac-sim/kit/cache"
           echo "~/.cache/warp"
+          # For LightWheel we cache only floorplan and object directories, excluding stray zip
+          # files. login/ must never be cached because it holds credentials.
           echo "~/.cache/lightwheel_sdk/floorplan"
           echo "~/.cache/lightwheel_sdk/object"
           echo "!~/.cache/lightwheel_sdk/object/*.zip"
           echo "EOF"
         } >> "${GITHUB_OUTPUT}"
 
-    # Restore the newest cache id
+    # PREMERGE: Restore the newest cache id
     - id: restore_caches
       name: Restore caches
-      if: github.ref != 'refs/heads/main' # PREMERGE only
+      if: github.ref != 'refs/heads/main'
       uses: actions/cache/restore@v4 # Only restore. no save
       with:
         path: ${{ steps.cache_paths.outputs.paths }}
@@ -66,10 +65,10 @@ runs:
         restore-keys: |
           ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
 
-    # Restore and save cache
+    # POSTMERGE/NIGHTLY: Restore and save cache
     - id: restore_and_save_caches
       name: Restore caches and save them at the end of the job
-      if: github.ref == 'refs/heads/main' # POSTMERGE and NIGHTLY
+      if: github.ref == 'refs/heads/main'
       uses: actions/cache@v4 # Default: restore and saves
       with:
         path: ${{ steps.cache_paths.outputs.paths }}
