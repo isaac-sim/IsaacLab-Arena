@@ -91,13 +91,16 @@ def _compose_benchmark_submission(entry: dict):
 
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
 def test_benchmark_experiment_exports_kpis(entry):
-    """Every tracked Experiment selects its KPI exporters explicitly, not the config default."""
+    """Every tracked Experiment exports the KPIs of its exporters, the config default unless it lists them."""
     experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
 
     if entry["name"].startswith("placement-success-"):
         expected_exporters = ["placement_success", "timing"]
-    elif entry["name"].startswith("perf-"):
+    elif entry["name"].startswith(("perf-newton-", "perf-physx-")):
         expected_exporters = ["timing"]
+    elif entry["name"].startswith("perf-"):
+        # These configs do not list kpi_exporters, so they get the default.
+        expected_exporters = ["timing", "resource"]
     else:
         expected_exporters = ["success_rate", "timing"]
     assert experiment_cfg.kpi_exporters == expected_exporters, f"benchmark {entry['name']!r}"

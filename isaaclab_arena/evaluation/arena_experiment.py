@@ -22,7 +22,7 @@ class ArenaExperimentCfg:
     name: str
     """Name of the Experiment, a non-empty single-line string."""
 
-    kpi_exporters: list[str] = field(default_factory=lambda: ["timing"])
+    kpi_exporters: list[str] = field(default_factory=lambda: ["timing", "resource"])
     """Names of the registered KPI exporters that write the Experiment's KPI records once every Run completed."""
 
     def __post_init__(self) -> None:
