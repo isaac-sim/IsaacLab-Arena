@@ -14,6 +14,7 @@ from isaaclab.sim.utils import clone
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.physics_spawner import deactivate_physics_scenes
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
@@ -128,16 +129,6 @@ def _deinstance_nested_physics(prim: Usd.Prim) -> None:
         assert deinstanced, f"Failed to de-instance nested physics subtree '{path}'"
 
 
-def _deactivate_physics_scenes(prim: Usd.Prim) -> None:
-    """Deactivate the physics scenes under the spawned background prim, except those inside instanced subtrees."""
-    from pxr import Usd, UsdPhysics
-
-    # Collect before deactivating; editing the stage can invalidate a live traversal.
-    physics_scenes = [candidate for candidate in Usd.PrimRange(prim) if candidate.IsA(UsdPhysics.Scene)]
-    for physics_scene in physics_scenes:
-        physics_scene.SetActive(False)
-
-
 @clone
 def _spawn_background_from_usd(
     prim_path: str,
@@ -157,5 +148,5 @@ def _spawn_background_from_usd(
     # instanceable subtrees containing physics so reset views can control them.
     _deinstance_nested_physics(prim)
     # After de-instancing, so scenes inside those subtrees are editable too.
-    _deactivate_physics_scenes(prim)
+    deactivate_physics_scenes(prim)
     return prim

@@ -17,7 +17,7 @@ from pxr import Usd
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
+from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons, spawn_from_usd_without_physics_scenes
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry, get_geometry_key
 from isaaclab_arena.relations.relations import RelationBase
@@ -198,6 +198,7 @@ class Object(RootedObjectBase):
             )
             return self.spawner_cfg
         spawn_cfg = UsdFileCfg(
+            func=spawn_from_usd_without_physics_scenes,
             usd_path=self.usd_path,
             scale=self.scale,
             activate_contact_sensors=activate_contact_sensors,

@@ -12,12 +12,49 @@ from dataclasses import fields
 from typing import Any
 
 from isaaclab.sim import UsdFileCfg
+from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.sim.utils import clone
 from isaaclab.utils.string import string_to_callable
-from pxr import Usd
+from pxr import Usd, UsdPhysics
 
 from isaaclab_arena.assets.physics_config import UsdFileCfgPrimPhysicsWrapper, UsdPrimSpawnPhysicsCfg
 from isaaclab_arena.utils.usd.prim_paths import get_prim_relative_to_root
+
+
+def deactivate_physics_scenes(prim: Usd.Prim) -> list[str]:
+    """Deactivate the physics scenes under a spawned asset prim, except those inside instanced subtrees.
+
+    Args:
+        prim: Spawned asset root.
+
+    Returns:
+        Paths of the deactivated physics scenes.
+    """
+    # Collect before deactivating; editing the stage can invalidate a live traversal.
+    physics_scenes = [candidate for candidate in Usd.PrimRange(prim) if candidate.IsA(UsdPhysics.Scene)]
+    for physics_scene in physics_scenes:
+        physics_scene.SetActive(False)
+    return [str(physics_scene.GetPath()) for physics_scene in physics_scenes]
+
+
+@clone
+def spawn_from_usd_without_physics_scenes(
+    prim_path: str,
+    cfg: UsdFileCfg,
+    translation: tuple[float, float, float] | None = None,
+    orientation: tuple[float, float, float, float] | None = None,
+    **kwargs,
+) -> Usd.Prim:
+    """Spawn a USD asset and deactivate the physics scenes authored in it, then clone it.
+
+    A physics scene authored in the USD would add one PhysX scene per environment, and with many environments
+    the first simulation step never returns. The simulation's own physics scene is unaffected.
+    """
+    prim = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
+    deactivated_paths = deactivate_physics_scenes(prim)
+    if deactivated_paths:
+        print(f"WARNING: Deactivated physics scenes authored in {cfg.usd_path}: {deactivated_paths}")
+    return prim
 
 
 def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> UsdFileCfg:
