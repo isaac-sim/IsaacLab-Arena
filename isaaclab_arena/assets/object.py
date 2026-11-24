@@ -263,13 +263,11 @@ def _spawn_object_from_usd(
     orientation: tuple[float, float, float, float] | None = None,
     **kwargs,
 ) -> Usd.Prim:
-    """Spawn an object USD and deactivate its own physics scenes, then clone it.
-
-    A physics scene authored in the USD would add one PhysX scene per environment, and with many environments
-    the first simulation step never returns. The simulation's own physics scene is unaffected.
-    """
+    """Spawn an object USD with Arena's spawn-time edits, then clone it."""
     # Undecorated, so the outer @clone applies visibility, labels, and contact sensors once.
     prim = spawn_from_usd.__wrapped__(prim_path, cfg, translation, orientation, **kwargs)
+    # A physics scene authored in the USD would add one PhysX scene per environment, and with many environments
+    # the first simulation step never returns. The simulation's own physics scene is unaffected.
     deactivated_paths = deactivate_physics_scenes(prim)
     if deactivated_paths:
         print(f"WARNING: Deactivated physics scenes authored in {cfg.usd_path}: {deactivated_paths}")
