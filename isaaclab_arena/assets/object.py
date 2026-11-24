@@ -79,6 +79,8 @@ class Object(RootedObjectBase):
         """Explicit local bounds. None derives bounds from object_cfg.spawn."""
         self._selected_asset: Object | None = None
         """Asset that an asset selection spawns instead of the declared asset. None spawns the declared asset."""
+        self.runtime_asset_selection = None
+        """Per-environment candidate catalogue when reset-time asset selection is enabled."""
         # TODO(cvolk, 2026.10.13): Replace this per-object cache with one cache in spawn_cfg_geometry.py
         # shared across objects, keyed by get_geometry_key(), so objects and asset-selection candidates that
         # use the same asset compute its geometry once.
@@ -110,6 +112,11 @@ class Object(RootedObjectBase):
         """Return the asset whose spawn configuration and simulation check this object uses."""
         return self._selected_asset if self._selected_asset is not None else self
 
+    def get_selected_registry_names(self, env_ids=None) -> list[str]:
+        """Return reset-selected asset names without changing this role's shared registry identity."""
+        assert self.runtime_asset_selection is not None, "This object has no reset-time asset selection"
+        return self.runtime_asset_selection.get_selected_registry_names(env_ids)
+
     def open_spawned_usd_stage(self) -> Usd.Stage:
         """Open this object's USD spawn configuration for inspection.
 
@@ -123,6 +130,9 @@ class Object(RootedObjectBase):
 
         Returns bounding_box when it is set, otherwise bounds derived from object_cfg.spawn.
         """
+        assert (
+            self.runtime_asset_selection is None
+        ), f"'{self.name}' has per-environment geometry; use its selected candidate for placement"
         if self.bounding_box is not None:
             return self.bounding_box
         return self._get_spawn_cfg_geometry(self.object_cfg.spawn).get_bounding_box()
@@ -144,7 +154,10 @@ class Object(RootedObjectBase):
     def get_contact_sensor_prim_path(self) -> str:
         """Return the scene prim path where this object's contact sensor is attached."""
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        return self.prim_path + self._get_spawn_cfg_geometry(self.object_cfg.spawn).get_contact_body_path()
+        spawn = self.object_cfg.spawn
+        if self.runtime_asset_selection is not None:
+            spawn = next(iter(self.runtime_asset_selection.candidates.values())).object_cfg.spawn
+        return self.prim_path + self._get_spawn_cfg_geometry(spawn).get_contact_body_path()
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # We override this function from the parent class because some assets do not have their rigid body

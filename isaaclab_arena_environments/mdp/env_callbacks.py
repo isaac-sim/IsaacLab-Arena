@@ -43,7 +43,7 @@ def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> Isa
     """
     from isaaclab.sim import SimulationCfg
     from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
-    from isaaclab_physx.physics.physx_manager_cfg import PhysxCfg
+    from isaaclab_isaacsim.physics.physx_manager_cfg import PhysxCfg
 
     assert env_cfg.sim.physics is None or isinstance(
         env_cfg.sim.physics, PhysxCfg

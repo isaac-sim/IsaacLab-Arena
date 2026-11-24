@@ -75,7 +75,12 @@ class NewtonBufferMonitor:
 
     def check(self) -> None:
         """Abort on overflow after replay, synchronizing one small status array to the host."""
+        from mujoco_warp import OverflowType
+
         num_contacts, num_constraints, flags = self._peaks.numpy().tolist()
+        # MuJoCo Warp 3.17 also reports finite solver/line-search iteration limits here.
+        # Those retain the solver's warnings; they do not mean contact or constraint data was truncated.
+        flags &= ~int(OverflowType.ITERATIONS | OverflowType.LS_ITERATIONS)
         failures = []
         if num_contacts > self._data.naconmax:
             num_contacts_required = (num_contacts + self._data.nworld - 1) // self._data.nworld

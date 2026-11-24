@@ -111,6 +111,11 @@ class PickAndPlaceTask(TaskBase):
         """
         if self.task_description is not None:
             return self.task_description
+        if (
+            getattr(self.pick_up_object, "runtime_asset_selection", None) is not None
+            or getattr(self.destination_location, "runtime_asset_selection", None) is not None
+        ):
+            return "Pick up the object and place it in the destination."
         pick_up_object_label = self.pick_up_object.registry_name or self.pick_up_object.name
         destination_label = self.destination_location.registry_name or self.destination_location.name
         return f"Pick up the {pick_up_object_label}, and place it into the {destination_label}"

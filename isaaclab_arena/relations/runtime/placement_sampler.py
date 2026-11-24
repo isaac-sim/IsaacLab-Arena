@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import math
 import torch
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -37,16 +37,24 @@ class PlacementSample:
 
     layout_id: str
     poses: dict[str, Pose]
+    selected_assets: dict[str, dict[str, str]] = field(default_factory=dict)
+    """Registry identity and spawn fingerprint for each runtime-selected scene role."""
 
     def __post_init__(self) -> None:
         assert self.layout_id, "Placement layout_id must be nonempty"
         _validate_native_poses(self.poses)
+        assert isinstance(self.selected_assets, dict), "selected_assets must be a mapping"
+        for name, metadata in self.selected_assets.items():
+            assert isinstance(name, str) and name
+            assert isinstance(metadata, dict) and set(metadata) == {"registry_name", "fingerprint"}
+            assert all(isinstance(value, str) and value for value in metadata.values())
 
     def to_record(self) -> dict[str, Any]:
         """Return the JSON-compatible representation used for recording and replay."""
         return {
             "layout_id": self.layout_id,
             "poses": {scene_key: pose.to_dict() for scene_key, pose in self.poses.items()},
+            **({"selected_assets": self.selected_assets} if self.selected_assets else {}),
         }
 
     @classmethod
@@ -55,6 +63,7 @@ class PlacementSample:
         return cls(
             layout_id=record["layout_id"],
             poses={scene_key: Pose.from_dict(pose) for scene_key, pose in record["poses"].items()},
+            selected_assets=record.get("selected_assets", {}),
         )
 
 
@@ -76,6 +85,11 @@ class PlacementSampler(SamplerBase):
         self.last_results: dict[int, PlacementResult] = {}
         self._next_layout_id = 0
         self._fixed_placements: dict[int, tuple[PlacementResult, PlacementSample]] | None = None
+
+    @property
+    def last_fill_diagnostics(self):
+        """Return validation diagnostics for this sampler's live layouts."""
+        return self.placement_pool.last_fill_diagnostics
 
     def prepare_live(self, num_envs: int, resolve_on_reset: bool) -> list[PlacementResult]:
         """Draw construction layouts and retain them when resets should stay fixed."""
@@ -139,6 +153,7 @@ class RecordedPlacementSampler(SamplerBase):
         self.recorded_samples = recorded_samples
         self.scheduler = scheduler
         self.write_assets = write_assets
+        self.runtime_selections = {}
 
     def sample(self, num_samples: int, env_ids: torch.Tensor) -> list[PlacementSample]:
         """Return one assigned recorded placement per requested environment."""
@@ -146,6 +161,14 @@ class RecordedPlacementSampler(SamplerBase):
         env_id_list = [int(env_id) for env_id in env_ids.tolist()]
         assert num_samples == len(env_id_list), "Placement sample count must match env_ids"
         samples = [self.recorded_samples[self.scheduler.source_record_index_for_env(env_id)] for env_id in env_id_list]
+        for env_id, sample in zip(env_id_list, samples):
+            expected = {
+                name: selection.selected_metadata(env_id) for name, selection in self.runtime_selections.items()
+            }
+            assert sample.selected_assets == expected, (
+                f"Recorded placement geometry differs from selected assets in env {env_id}: "
+                f"recorded={sample.selected_assets}, selected={expected}"
+            )
         self._notify(samples, env_ids)
         return samples
 

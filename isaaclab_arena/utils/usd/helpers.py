@@ -346,6 +346,8 @@ def extract_trimesh_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
     excluded_prim_paths: Sequence[str] = (),
+    *,
+    stage: Usd.Stage | None = None,
 ) -> trimesh.Trimesh | None:
     """Extract all UsdGeom.Mesh prims from a USD into a single trimesh.
 
@@ -357,6 +359,7 @@ def extract_trimesh_from_usd(
         usd_path: Path to the .usd/.usda/.usdc file.
         scale: (sx, sy, sz) per-axis scale factors applied in local frame.
         excluded_prim_paths: Absolute USD prim paths whose complete subtrees are omitted.
+        stage: Optional prepared stage with spawn scale and variant selections already applied.
 
     Returns:
         Combined trimesh with per-prim world transforms baked in, or ``None`` when exclusions
@@ -370,7 +373,8 @@ def extract_trimesh_from_usd(
         path.startswith("/") for path in excluded_paths
     ), f"excluded_prim_paths must be absolute USD paths, got {excluded_paths}"
 
-    stage = Usd.Stage.Open(usd_path)
+    if stage is None:
+        stage = Usd.Stage.Open(usd_path)
     if stage is None:
         raise ValueError(f"Failed to open USD: {usd_path}")
 

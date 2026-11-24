@@ -19,6 +19,9 @@ from typing import Any, Literal, Union, get_args, get_origin, get_type_hints
 def field_annotation(owner: type, field_name: str) -> Any:
     """Resolve one inherited dataclass field annotation without resolving unrelated fields."""
     for cls in owner.__mro__:
+        source = cls.__dict__.get("__arena_field_sources__", {}).get(field_name)
+        if source is not None:
+            return field_annotation(source, field_name)
         # Isaac Lab copies inherited annotations into each configclass. Use its
         # original field declarations to find the module that owns the imports.
         own_fields = cls.__dict__.get("__configclass_own_fields__")

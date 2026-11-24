@@ -32,6 +32,11 @@ class ArenaWorld:
         self._scene = scene
         self._aabbs_in_local_frame_cache: dict[str, AxisAlignedBoundingBox] = {}
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
+        self._runtime_geometry = {}
+
+    def register_runtime_geometry(self, scene_key: str, selection) -> None:
+        """Use the selected candidate's body-frame bounds for live geometry queries."""
+        self._runtime_geometry[scene_key] = selection
 
     # -------------------------------------------------------------------------
     # Rooted object APIs
@@ -378,6 +383,8 @@ class ArenaWorld:
         The cache assumes descendants remain fixed relative to F.
         """
         scene = self._scene
+        if scene_key in self._runtime_geometry:
+            return self._runtime_geometry[scene_key].get_body_bounds(scene.device)
         if scene_key not in self._aabbs_in_local_frame_cache:
             aabb_F = scene_access.compute_spawned_geometry_bounds_in_local_frame(scene, scene_key)
             self._aabbs_in_local_frame_cache[scene_key] = aabb_F

@@ -1,0 +1,24 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+default_physics_backend: newton
+env_cfg_override:
+  decimation: 8
+  sim:
+    dt: 0.008333333333333333
+    render_interval: 8
+    physics:
+      solver_cfg:
+        use_mujoco_contacts: false
+        integrator: implicitfast
+        iterations: 100
+        ls_iterations: 15
+        njmax: 4096
+        nconmax: 4096
+        ccd_iterations: 35
+      collision_cfg:
+        _target_: isaaclab_newton.physics.NewtonCollisionPipelineCfg
+        broad_phase: sap
+      num_substeps: 2

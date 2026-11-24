@@ -14,14 +14,13 @@ HEADLESS = True
 
 def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     from types import SimpleNamespace
-    from unittest.mock import patch
 
+    from isaaclab_isaacsim.physics import PhysxCfg
     from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
-    from isaaclab_physx.physics import PhysxCfg
 
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
         ArenaPhysicsCfg,
-        NewtonArenaMJWarpManager,
+        NewtonArenaMJWarpSolver,
     )
 
     cfg = ArenaPhysicsCfg()
@@ -32,12 +31,17 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     with pytest.raises(AttributeError):
         getattr(cfg, "unknown_backend")
     assert cfg.newton.solver_cfg.solver == "newton"
-    assert cfg.newton.solver_cfg.class_type is NewtonArenaMJWarpManager
-    assert cfg.newton.class_type is NewtonArenaMJWarpManager
-    assert NewtonArenaMJWarpManager.__name__.lower().startswith("newton")
+    assert cfg.newton.solver_cfg.class_type is NewtonArenaMJWarpSolver
+    assert NewtonArenaMJWarpSolver.__name__.lower().startswith("newton")
     model_without_mujoco_actuators = SimpleNamespace(mujoco=SimpleNamespace())
-    with patch.object(NewtonArenaMJWarpManager, "get_model", return_value=model_without_mujoco_actuators):
-        assert NewtonArenaMJWarpManager.create_fixed_tendon_control(object()) is None
+    assert (
+        NewtonArenaMJWarpSolver.fixed_tendon_control(
+            cfg.newton.solver_cfg,
+            SimpleNamespace(root_view=SimpleNamespace(custom_frequency_counts={})),
+            model_without_mujoco_actuators,
+        )
+        is None
+    )
     return True
 
 
@@ -101,8 +105,8 @@ def _build_env_cfg(
 
 
 def _test_builder_preset(simulation_app, presets: str | None, expected_backend: str, replicate_physics: bool):
+    from isaaclab_isaacsim.physics import PhysxCfg
     from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
-    from isaaclab_physx.physics import PhysxCfg
 
     env_cfg = _build_env_cfg(presets=presets)
     expected_type = {"physx": PhysxCfg, "newton": NewtonCfg}[expected_backend]
@@ -153,7 +157,7 @@ def _test_env_default_physics_backend_applies_without_cli_preset(simulation_app)
 
 
 def _test_cli_preset_physx_wins_over_newton_env_default(simulation_app) -> bool:
-    from isaaclab_physx.physics import PhysxCfg
+    from isaaclab_isaacsim.physics import PhysxCfg
 
     env_cfg = _build_env_cfg(presets="physx", default_physics_backend="newton")
     assert isinstance(env_cfg.sim.physics, PhysxCfg)
@@ -162,7 +166,7 @@ def _test_cli_preset_physx_wins_over_newton_env_default(simulation_app) -> bool:
 
 
 def _test_droid_diff_ik_physx_preset_keeps_default_spawn(simulation_app) -> bool:
-    from isaaclab_physx.physics import PhysxCfg
+    from isaaclab_isaacsim.physics import PhysxCfg
 
     from isaaclab_arena.embodiments.droid.droid import DroidDifferentialIKEmbodiment, spawn_newton_droid
 
@@ -262,8 +266,8 @@ def _test_builder_applies_gear_solver_env_cfg_override(simulation_app) -> bool:
 def _test_env_cfg_override_nested_hydra_target_in_payload(simulation_app) -> bool:
     from isaaclab.sim import SimulationCfg
     from isaaclab.utils.configclass import configclass
-    from isaaclab_contrib.coupling.coupler_cfg import CouplerProxyCfg
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+    from isaaclab_newton.physics.coupling.coupler_cfg import CouplerProxyCfg
 
     from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
 
@@ -277,7 +281,7 @@ def _test_env_cfg_override_nested_hydra_target_in_payload(simulation_app) -> boo
             "sim": {
                 "physics": {
                     "solver_cfg": {
-                        "_target_": "isaaclab_contrib.coupling.coupler_cfg.CouplerProxyCfg",
+                        "_target_": "isaaclab_newton.physics.coupling.coupler_cfg.CouplerProxyCfg",
                         "iterations": 1,
                         "entries": [
                             {
@@ -298,8 +302,71 @@ def _test_env_cfg_override_nested_hydra_target_in_payload(simulation_app) -> boo
     assert isinstance(env_cfg.sim.physics.solver_cfg, CouplerProxyCfg)
     assert isinstance(env_cfg.sim.physics.solver_cfg.entries[0].solver_cfg, MJWarpSolverCfg)
     assert env_cfg.sim.physics.solver_cfg.entries[0].solver_cfg.iterations == 23
-    assert env_cfg.sim.physics.class_type == env_cfg.sim.physics.solver_cfg.class_type
+    assert env_cfg.sim.physics.class_type == NewtonCfg().class_type
     return True
+
+
+def _test_env_cfg_override_adds_video_recorders(simulation_app) -> bool:
+    from isaaclab.envs.utils.video_recorder_cfg import VideoRecorderCfg
+
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+
+    cfg = IsaacLabArenaManagerBasedRLEnvCfg()
+    recorders = [{"_target_": "isaaclab.envs.utils.video_recorder_cfg.VideoRecorderCfg", "source": "viz:newton"}]
+    apply_env_cfg_override(cfg, {"video_recorders": recorders})
+    assert len(cfg.video_recorders) == 1
+    assert isinstance(cfg.video_recorders[0], VideoRecorderCfg)
+    assert cfg.video_recorders[0].source == "viz:newton"
+    apply_env_cfg_override(cfg, {"video_recorders": recorders * 2})
+    assert len(cfg.video_recorders) == 2
+    # Replacements are committed only after the rest of the override validates.
+    with pytest.raises(ValueError, match="unknown_field"):
+        apply_env_cfg_override(cfg, {"video_recorders": recorders, "sim": {"unknown_field": 1}})
+    assert len(cfg.video_recorders) == 2
+    return True
+
+
+def test_env_cfg_override_adds_video_recorders():
+    assert run_function_with_persistent_simulation_app(_test_env_cfg_override_adds_video_recorders, headless=HEADLESS)
+
+
+def _test_env_cfg_override_camera_renderer(simulation_app) -> bool:
+    from isaaclab_newton.renderers import NewtonWarpRendererCfg
+    from isaaclab_visualizers.newton import NewtonGLBackendCfg
+
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+
+    cfg = _build_env_cfg(
+        presets="newton",
+        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=True),
+        builder_env_cfg_override={
+            "sim": {
+                "visualizer_cfgs": {
+                    "_target_": "isaaclab.visualizers.VisualizerCfg",
+                    "backend": {"_target_": "isaaclab_visualizers.newton.NewtonGLBackendCfg"},
+                    "headless": True,
+                },
+            },
+            "scene": {
+                "external_camera": {
+                    "renderer_cfg": {"_target_": "isaaclab_newton.renderers.NewtonWarpRendererCfg"},
+                },
+            },
+        },
+    )
+    camera = cfg.scene.external_camera
+    assert isinstance(camera.renderer_cfg, NewtonWarpRendererCfg)
+    assert isinstance(cfg.sim.visualizer_cfgs.backend, NewtonGLBackendCfg)
+    assert (camera.width, camera.height) == (1280, 720)
+    with pytest.raises(AssertionError, match="incompatible"):
+        apply_env_cfg_override(cfg, {"scene": {"external_camera": {"_target_": "isaaclab.sim.MassCfg"}}})
+    return True
+
+
+def test_env_cfg_override_camera_renderer():
+    assert run_function_with_persistent_simulation_app(_test_env_cfg_override_camera_renderer, headless=HEADLESS)
 
 
 def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
@@ -543,8 +610,8 @@ def test_droid_newton_prim_physics():
 
 def _test_gear_assets_reject_incompatible_physics(simulation_app):
     from isaaclab.sim import SimulationCfg
+    from isaaclab_isaacsim.physics import PhysxCfg
     from isaaclab_newton.physics import NewtonCfg
-    from isaaclab_physx.physics import PhysxCfg
 
     from isaaclab_arena.assets.object_library import GearInsertionBase, GearInsertionMediumGear
     from isaaclab_arena.scene.scene import Scene

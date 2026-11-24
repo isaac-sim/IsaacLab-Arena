@@ -77,12 +77,18 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
     Args:
         env: The gym-wrapped Isaac Lab env; the base env is reached via ``env.unwrapped``.
     """
+    from isaaclab_arena.relations.runtime.selected_asset_placement import SelectedAssetPlacementSampler
+
     try:
         term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     except ValueError:
         return None
     handle = term_cfg.params.get("placement_sampler")
     assert handle is not None, f"'{PLACEMENT_RESET_EVENT_NAME}' event is missing its placement_sampler parameter."
+    assert not isinstance(handle.sampler, SelectedAssetPlacementSampler), (
+        "Runtime asset selection has multiple geometry-specific pools. "
+        "Record episode placements with Experiment Runner instead of the offline single-pool tools."
+    )
     assert handle.pool is not None, "Relation placement is using recorded replay, not a live placement pool."
     return handle.pool
 
@@ -100,8 +106,8 @@ def get_placement_diagnostics(env: gym.Env) -> PlacementDiagnostics | None:
         term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     except ValueError:
         return None
-    pool = term_cfg.params["placement_sampler"].pool
-    return pool.last_fill_diagnostics if pool is not None else None
+    sampler = term_cfg.params["placement_sampler"].sampler
+    return sampler.last_fill_diagnostics if isinstance(sampler, PlacementSampler) else None
 
 
 def get_reset_placement_results(env: ManagerBasedEnv) -> dict[int, PlacementResult]:

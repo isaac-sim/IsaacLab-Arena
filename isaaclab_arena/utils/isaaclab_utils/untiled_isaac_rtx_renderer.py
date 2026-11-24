@@ -16,8 +16,8 @@ from isaaclab.renderers import RenderBufferKind
 from isaaclab.renderers.camera_render_spec import CameraRenderSpec
 from isaaclab.sensors import CameraCfg
 from isaaclab.utils.warp import ProxyArray
-from isaaclab_physx.renderers.isaac_rtx_renderer import IsaacRtxRenderData, IsaacRtxRenderer
-from isaaclab_physx.renderers.isaac_rtx_renderer_cfg import IsaacRtxRendererCfg
+from isaaclab_isaacsim.renderers.isaac_rtx_renderer import IsaacRtxRenderData, IsaacRtxRenderer
+from isaaclab_isaacsim.renderers.isaac_rtx_renderer_cfg import IsaacRtxRendererCfg
 
 if TYPE_CHECKING:
     from isaaclab.sensors.camera.camera_data import CameraData

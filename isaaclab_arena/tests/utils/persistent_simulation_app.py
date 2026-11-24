@@ -3,14 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import atexit
 import os
 import sys
 import traceback
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-from isaaclab.app import AppLauncher
-from isaacsim import SimulationApp
+if TYPE_CHECKING:
+    from isaaclab.app import AppLauncher
+    from isaacsim import SimulationApp
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.tests.conftest import PYTEST_SESSION

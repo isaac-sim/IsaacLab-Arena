@@ -13,13 +13,16 @@ from typing import Any
 import isaaclab.sim as sim_utils
 from isaaclab.sim.spawners.spawner_cfg import DeformableObjectSpawnerCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab_isaacsim.sim.schemas import PhysxCollisionCfg, PhysxDeformableBodyPropertiesCfg
+from isaaclab_isaacsim.sim.spawners.materials import (
+    PhysxDeformableBodyMaterialCfg,
+    PhysxSurfaceDeformableBodyMaterialCfg,
+)
 from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
 from isaaclab_newton.sim.spawners.materials import (
     NewtonDeformableBodyMaterialCfg,
     NewtonSurfaceDeformableBodyMaterialCfg,
 )
-from isaaclab_physx.sim.schemas import PhysxCollisionCfg, PhysxDeformableBodyPropertiesCfg
-from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg, PhysxSurfaceDeformableBodyMaterialCfg
 
 from isaaclab_arena.assets.deformable_object import DeformableObject
 from isaaclab_arena.assets.register import register_asset

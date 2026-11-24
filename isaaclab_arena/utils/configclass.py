@@ -136,6 +136,7 @@ def get_field_info(field: dataclasses.Field) -> tuple[str, type, Any]:
 
 def combine_configclasses(name: str, *input_configclasses: type, bases: tuple[type, ...] = ()) -> configclass:
     field_map: "OrderedDict[str, tuple]" = OrderedDict()
+    field_sources = {}
     for cls in input_configclasses:
         for current_field in dataclasses.fields(cls):
             if current_field.name in field_map:
@@ -147,8 +148,11 @@ def combine_configclasses(name: str, *input_configclasses: type, bases: tuple[ty
                 raise ValueError(f"Field {current_field.name} has different types in the input configclasses")
             field_info = get_field_info(current_field)
             field_map[current_field.name] = field_info
+            field_sources[current_field.name] = cls
 
     new_configclass = make_configclass(name, list(field_map.values()), bases=bases)
+    # Postponed annotations still belong to their declaring module, not this generated class's module.
+    new_configclass.__arena_field_sources__ = field_sources
     new_configclass.__post_init__ = combine_post_inits(*input_configclasses)
     return new_configclass
 

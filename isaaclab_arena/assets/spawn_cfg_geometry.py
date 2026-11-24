@@ -116,6 +116,32 @@ class SpawnCfgGeometry:
         apply_usd_variant_selections(stage, self.spawn_cfg.variants)
         return stage
 
+    def get_collision_mesh(self, excluded_prim_paths=(), *, body_frame=False):
+        """Extract selected meshes in the spawn-root or rigid-body frame, keeping spawn scale."""
+        from isaaclab.sim.utils import make_uninstanceable, standardize_xform_ops
+
+        from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd
+
+        stage = self.open_usd_stage()
+        root = stage.GetDefaultPrim()
+        make_uninstanceable(root.GetPath(), stage=stage)
+        standardize_xform_ops(root, translation=(0, 0, 0), orientation=(0, 0, 0, 1), scale=self.spawn_cfg.scale)
+        # Public exclusions refer to source-stage paths; the inspection stage references that root at /Asset.
+        exclusions = []
+        for path in excluded_prim_paths:
+            parts = Sdf.Path(path).GetPrefixes()
+            exclusions.append(str(Sdf.Path(path).ReplacePrefix(parts[0], root.GetPath())))
+        mesh = extract_trimesh_from_usd(self.spawn_cfg.usd_path, excluded_prim_paths=exclusions, stage=stage)
+        if body_frame and mesh is not None:
+            import numpy as np
+
+            from pxr import UsdGeom
+
+            body = stage.GetPrimAtPath(str(root.GetPath()) + self.get_contact_body_path())
+            T_R_B = UsdGeom.XformCache().GetLocalToWorldTransform(body).RemoveScaleShear()
+            mesh.apply_transform(np.array(T_R_B.GetInverse()).T)
+        return mesh
+
 
 def _get_shape_half_extents(spawn_cfg: SpawnerCfg) -> tuple[float, float, float]:
     """Return the half extents of a standard Isaac Lab primitive shape along x, y and z."""

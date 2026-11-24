@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from isaaclab_newton.physics import NewtonCfg
-
 from isaaclab_arena.hydra.config_override import apply_config_override
 
 if TYPE_CHECKING:
@@ -28,11 +26,4 @@ def apply_env_cfg_override(
         override_name="env_cfg_override",
         path="env",
     )
-    # NewtonCfg derives its manager class from the initial solver in __post_init__, so resynchronize it
-    # when an override replaces solver_cfg.
-    physics_cfg = env_cfg.sim.physics
-    if isinstance(physics_cfg, NewtonCfg):
-        expected_class = physics_cfg.solver_cfg.class_type
-        if physics_cfg.class_type is not expected_class:
-            physics_cfg.class_type = expected_class
     return env_cfg

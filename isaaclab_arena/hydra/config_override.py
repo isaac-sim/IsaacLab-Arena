@@ -21,7 +21,8 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
     "isaaclab_contrib.",
     "isaaclab_newton.",
     "isaaclab_ov.",
-    "isaaclab_physx.",
+    "isaaclab_isaacsim.",
+    "isaaclab_visualizers.",
 )
 _HYDRA_TARGET_KEY = "_target_"
 _ALLOW_CONFIG_OVERRIDE_METADATA_KEY = "allow_config_override"
@@ -248,9 +249,13 @@ def _extract_materialized_values(
         child_obj = target_obj[key] if isinstance(target_obj, dict) else getattr(target_obj, key)
         is_new_optional_value = child_obj is None and value is not None and not isinstance(target_obj, dict)
         is_materialized_config = dataclasses.is_dataclass(value)
-        if is_new_optional_value or is_materialized_config:
+        is_materialized_config_list = (
+            isinstance(value, list) and bool(value) and all(dataclasses.is_dataclass(item) for item in value)
+        )
+        if is_new_optional_value or is_materialized_config or is_materialized_config_list:
             # Optional fields (for example ``placement_seed: int | None``) have no live child object
             # for recursive merging. Materialized configclasses must also bypass the raw mapping merge.
+            # A fully constructed config list replaces the list, including an initially empty one.
             pending_assignments.append((target_obj, key, value))
             values.pop(key)
         elif isinstance(value, (dict, list)):

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Runtime patch for ``isaaclab_physx.renderers.isaac_rtx_renderer_utils.ensure_isaac_rtx_render_update``.
+"""Runtime patch for ``isaaclab_isaacsim.renderers.isaac_rtx_renderer_utils.ensure_isaac_rtx_render_update``.
 
 Lab's stock implementation early-returns whenever any visualizer reports
 ``viz.pumps_app_update() == True``. On the first call for a fresh
@@ -29,8 +29,8 @@ def patch_isaac_rtx_renderer() -> None:
     load time and holds its own binding.
     """
     import isaaclab.sim as sim_utils
-    import isaaclab_physx.renderers.isaac_rtx_renderer as rtx_renderer
-    import isaaclab_physx.renderers.isaac_rtx_renderer_utils as rtx_utils
+    import isaaclab_isaacsim.renderers.isaac_rtx_renderer as rtx_renderer
+    import isaaclab_isaacsim.renderers.isaac_rtx_renderer_utils as rtx_utils
 
     def patched_ensure_isaac_rtx_render_update() -> None:
         sim = sim_utils.SimulationContext.instance()
@@ -76,4 +76,4 @@ def patch_isaac_rtx_renderer() -> None:
     rtx_utils.ensure_isaac_rtx_render_update = patched_ensure_isaac_rtx_render_update
     rtx_renderer.ensure_isaac_rtx_render_update = patched_ensure_isaac_rtx_render_update
 
-    print("Patched isaaclab_physx.renderers.isaac_rtx_renderer_utils.ensure_isaac_rtx_render_update")
+    print("Patched isaaclab_isaacsim.renderers.isaac_rtx_renderer_utils.ensure_isaac_rtx_render_update")
