@@ -186,21 +186,10 @@ Set these variables inside the Arena container before each command:
 
 The exact output directory passed to Arena must be missing or empty.
 
-Each command writes two timing files: ``arena_experiment_timings.json`` in the directory passed to
-``--experiment_output_directory``, and ``arena_run_timings.json`` in the Run's subdirectory. For
-example, the first run writes
-``${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/steps-${NUM_STEPS}/arena_experiment_timings.json``
-and ``camera_free_baseline/arena_run_timings.json`` below that directory.
-
-Each timing record names one timer and gives its ``count``, ``mean_ms``, ``total_ms``, ``min_ms``,
-``max_ms``, ``p10_ms``, ``p50_ms``, and ``p90_ms``. The ``step`` timer covers one full control
-step; ``step/policy_inference`` and ``step/env_step`` split it into the policy call and the
-environment step. ``arena_run_timings.json`` is a list of these records, each with the timer's
-reservoir sample as ``samples_ms``. ``arena_experiment_timings.json`` lists the records under
-``runs``, with the Run name added to each and without ``samples_ms``, and sums them per timer under
-``totals``. The percentiles in ``totals`` are approximate and pooled from the Runs' samples. The timers cover the rollout only. Isaac Sim
-startup and scene construction are part of the trial wall-clock but have no timer of their own.
-``arena_experiment_resource_usage.json`` stores the per-Run resource usage.
+Each command writes per-job metrics in the directory passed to ``--experiment_output_directory`` and
+per-Run metrics in the Run's subdirectory: ``arena_experiment_timings.json`` and
+``arena_run_timings.json`` for timings, and ``arena_experiment_resource_usage.json`` and
+``arena_run_resource_usage.json`` for resource usage.
 
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
 trial wall-clock immediately before ``isaaclab.sh`` and stop it when that process exits. Container
