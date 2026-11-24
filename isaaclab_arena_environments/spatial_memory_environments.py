@@ -225,3 +225,19 @@ class SpatialMemoryShelfBayEnvironment(
     name = "spatial_memory_shelf_bay"
     _legacy_argparse_cfg_type = SpatialMemoryShelfBayEnvironmentCfg
     task_logic_path = f"{_TASKS_PACKAGE}.shelf_bay.ShelfBayLogic"
+
+
+@dataclass
+class SpatialMemoryPartitionDeliveryEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 partition delivery task."""
+
+
+@register_environment
+class SpatialMemoryPartitionDeliveryEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryPartitionDeliveryEnvironmentCfg]
+):
+    """Deliver a carton to the room matching the delayed instruction."""
+
+    name = "spatial_memory_partition_delivery"
+    _legacy_argparse_cfg_type = SpatialMemoryPartitionDeliveryEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.partition_delivery.PartitionDeliveryLogic"
