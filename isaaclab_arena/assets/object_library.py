@@ -2254,3 +2254,122 @@ class SimReadyCentralOscilloscope(LibraryObject, Pressable):
     def __init__(self, **kwargs):
         kwargs.setdefault("pressable_joint_name", self.pressable_joint_name)
         super().__init__(**kwargs)
+
+
+@register_asset
+class BalanceScale(LibraryObject):
+    """Passive equal-arm balance scale: a fixed stand, a beam on a damped pivot and two hanging pans.
+
+    The USD is generated procedurally on first use; see balance_scale_usd.py for the frame and dimensions. The joints
+    have no position drive: the actuators only add viscous bearing damping, so gravity and contacts alone move the beam.
+    """
+
+    registry_name = "balance_scale"
+    tags = ["object", "articulation", "procedural", "balance_scale"]
+    object_type = ObjectType.ARTICULATION
+
+    def __init__(
+        self,
+        initial_beam_angle_deg: float = 0.0,
+        beam_damping: float = 0.06,
+        pan_damping: float = 0.03,
+        **kwargs,
+    ):
+        """Create the balance scale.
+
+        Args:
+            initial_beam_angle_deg: Beam angle at reset, in degrees; positive raises the left (+Y) pan. The pans
+                start level in the world.
+            beam_damping: Viscous damping of the beam pivot, in N*m*s/rad.
+            pan_damping: Viscous damping of each pan pivot, in N*m*s/rad.
+            **kwargs: Arguments passed to ``LibraryObject``.
+        """
+        import math
+
+        from isaaclab.actuators import ImplicitActuatorCfg
+
+        from isaaclab_arena.assets.balance_scale_usd import (
+            BEAM_JOINT_NAME,
+            LEFT_PAN_JOINT_NAME,
+            RIGHT_PAN_JOINT_NAME,
+            get_balance_scale_usd_path,
+        )
+
+        self.usd_path = get_balance_scale_usd_path()
+        super().__init__(**kwargs)
+        beam_angle_rad = math.radians(initial_beam_angle_deg)
+        self.object_cfg.init_state.joint_pos = {
+            BEAM_JOINT_NAME: beam_angle_rad,
+            LEFT_PAN_JOINT_NAME: -beam_angle_rad,
+            RIGHT_PAN_JOINT_NAME: -beam_angle_rad,
+        }
+        self.object_cfg.init_state.joint_vel = {".*": 0.0}
+        self.object_cfg.actuators = {
+            "beam_bearing": ImplicitActuatorCfg(
+                joint_names_expr=[BEAM_JOINT_NAME], stiffness=0.0, damping=beam_damping
+            ),
+            "pan_bearings": ImplicitActuatorCfg(
+                joint_names_expr=[LEFT_PAN_JOINT_NAME, RIGHT_PAN_JOINT_NAME], stiffness=0.0, damping=pan_damping
+            ),
+        }
+
+
+CALIBRATED_WEIGHT_DIMENSIONS_M = {
+    # mass_g: (radius_m, height_m, rgb). Larger masses are larger and brass; small ones are steel.
+    100: (0.016, 0.050, (0.72, 0.55, 0.22)),
+    50: (0.013, 0.044, (0.66, 0.42, 0.20)),
+    20: (0.010, 0.038, (0.62, 0.64, 0.68)),
+    10: (0.008, 0.032, (0.38, 0.40, 0.44)),
+}
+
+
+@register_asset
+class CalibratedWeight(Object):
+    """Upright cylindrical calibration weight whose simulated mass equals its nominal mass (10, 20, 50 or 100 g)."""
+
+    registry_name = "calibrated_weight"
+    tags = ["object", "graspable", "procedural", "balance_scale"]
+
+    def __init__(
+        self,
+        mass_g: int = 100,
+        name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        """Create a calibration weight.
+
+        Args:
+            mass_g: Nominal and simulated mass in grams; one of 10, 20, 50 or 100.
+            name: Name of the object in the scene. Defaults to ``calibrated_weight_<mass_g>g``.
+            prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/<name>``.
+            initial_pose: Initial pose of the object.
+        """
+        assert (
+            mass_g in CALIBRATED_WEIGHT_DIMENSIONS_M
+        ), f"mass_g must be one of {sorted(CALIBRATED_WEIGHT_DIMENSIONS_M)}"
+        radius_m, height_m, color = CALIBRATED_WEIGHT_DIMENSIONS_M[mass_g]
+        self.mass_g = mass_g
+        spawner_cfg = sim_utils.CylinderCfg(
+            radius=radius_m,
+            height=height_m,
+            axis="Z",
+            activate_contact_sensors=True,
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=1,
+                sleep_threshold=0.0,
+            ),
+            mass_props=sim_utils.MassPropertiesCfg(mass=mass_g / 1000.0),
+            collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.002, rest_offset=0.0),
+            physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.8, dynamic_friction=0.6, restitution=0.0),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=color, metallic=0.8, roughness=0.35),
+        )
+        super().__init__(
+            name=name if name is not None else f"calibrated_weight_{mass_g}g",
+            prim_path=prim_path,
+            object_type=ObjectType.RIGID,
+            spawner_cfg=spawner_cfg,
+            initial_pose=initial_pose,
+            tags=list(self.tags),
+        )

@@ -1,0 +1,119 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Weigh an apple of hidden mass on a passive balance scale with six calibrated weights
+# (100 g x2, 50 g, 20 g x2, 10 g). Set the hidden mass per episode with the apple's mass
+# variation, for example: apple.mass.enabled=true apple.mass.sampler_cfg.low=[0.17]
+# apple.mass.sampler_cfg.high=[0.17]
+env_name: balance_scale_measurement
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: balance_scale
+  registry_name: balance_scale
+  params:
+    initial_beam_angle_deg: 0.0
+    initial_pose:
+      position_xyz: [0.62, 0.0, 0.004]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: apple
+  registry_name: apple_01_objaverse_robolab
+  params:
+    # Centered in the left pan; its floor top is at z=0.099 while the beam is level.
+    initial_pose:
+      position_xyz: [0.5435, 0.1505, 0.1208]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: weight_100g_a
+  registry_name: calibrated_weight
+  params: {mass_g: 100}
+- id: weight_100g_b
+  registry_name: calibrated_weight
+  params: {mass_g: 100}
+- id: weight_50g
+  registry_name: calibrated_weight
+  params: {mass_g: 50}
+- id: weight_20g_a
+  registry_name: calibrated_weight
+  params: {mass_g: 20}
+- id: weight_20g_b
+  registry_name: calibrated_weight
+  params: {mass_g: 20}
+- id: weight_10g
+  registry_name: calibrated_weight
+  params: {mass_g: 10}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+- kind: is_anchor
+  subject: balance_scale
+# The apple is anchored inside the pan: placement checks no_overlap between a placed object
+# and every anchor it is not 'on', and the scale's bounding box encloses its pans.
+- kind: is_anchor
+  subject: apple
+- kind: 'on'
+  subject: weight_100g_a
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: weight_100g_b
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: weight_50g
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: weight_20g_a
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: weight_20g_b
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: weight_10g
+  reference: table_oak_robolab
+- kind: position_limits_box
+  subject: weight_100g_a
+  params: {x_limits: [0.32, 0.42], y_limits: [-0.3, 0.3]}
+- kind: position_limits_box
+  subject: weight_100g_b
+  params: {x_limits: [0.32, 0.42], y_limits: [-0.3, 0.3]}
+- kind: position_limits_box
+  subject: weight_50g
+  params: {x_limits: [0.32, 0.42], y_limits: [-0.3, 0.3]}
+- kind: position_limits_box
+  subject: weight_20g_a
+  params: {x_limits: [0.32, 0.42], y_limits: [-0.3, 0.3]}
+- kind: position_limits_box
+  subject: weight_20g_b
+  params: {x_limits: [0.32, 0.42], y_limits: [-0.3, 0.3]}
+- kind: position_limits_box
+  subject: weight_10g
+  params: {x_limits: [0.32, 0.42], y_limits: [-0.3, 0.3]}
+# Weight start area: x stops at 0.42 because the pans start at x=0.48, and a top-down approach to a short weight
+# closer than that clips a pan. Weights stay 4 cm apart so the open Robotiq fingers fit between neighbours.
+# isaaclab_arena_environments/balance_scale/check_reachability.py checks both with cuRobo.
+placer_params:
+  solver_params:
+    clearance_m: 0.04
+    max_iters: 1500
+    save_position_history: false
+task:
+  composition: atomic
+  description: An apple rests on the left pan of the balance scale. Use the calibrated
+    weights on the table (two 100 g, one 50 g, two 20 g, one 10 g) to balance it on the
+    right pan. Release the weights, move the gripper away, and wait until the scale is
+    level and still. Do not move the apple or press on the scale.
+  subtasks:
+  - kind: BalanceScaleTask
+    params:
+      balance_scale: balance_scale
+      measured_object: apple
+      counterweights: [weight_100g_a, weight_100g_b, weight_50g, weight_20g_a, weight_20g_b, weight_10g]
+      episode_length_s: 240.0
