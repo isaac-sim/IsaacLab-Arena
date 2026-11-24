@@ -156,18 +156,18 @@ the maintained DROID external camera. Rows are grouped by task category.
 
        Pi0.5, 2x speed.
    * - Turn knob
-     - `kitchen_bench_turn_palatial_blender_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_blender_one_wall_coastal.yaml>`_
+     - `kitchen_bench_turn_blender008_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender008_one_wall_coastal.yaml>`_
      - 33%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_palatial_blender_one_wall_coastal_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_blender008_one_wall_coastal_pi05.gif
           :alt: Pi0.5 policy turning the blender speed dial in the coastal kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Turn knob
-     - `kitchen_bench_turn_palatial_food_processor_galley_industrial.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_food_processor_galley_industrial.yaml>`_
+     - `kitchen_bench_turn_forgecad_air_fryer_galley_industrial.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_air_fryer_galley_industrial.yaml>`_
      - 13%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_palatial_food_processor_galley_industrial_pi05.gif
-          :alt: Pi0.5 policy turning the food processor dial in the industrial kitchen
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_forgecad_air_fryer_galley_industrial_pi05.gif
+          :alt: Pi0.5 policy turning the air fryer timer dial in the industrial kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -180,9 +180,9 @@ the maintained DROID external camera. Rows are grouped by task category.
 
        Pi0.5, 2x speed.
    * - Turn knob
-     - `kitchen_bench_turn_nvidia_toaster_g_shaped_rustic.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_nvidia_toaster_g_shaped_rustic.yaml>`_
+     - `kitchen_bench_turn_forgecad_toaster_g_shaped_rustic.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_toaster_g_shaped_rustic.yaml>`_
      - 51%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_nvidia_toaster_g_shaped_rustic_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_turn_forgecad_toaster_g_shaped_rustic_pi05.gif
           :alt: Pi0.5 policy turning the toaster dial in the rustic kitchen
           :width: 100%
 
