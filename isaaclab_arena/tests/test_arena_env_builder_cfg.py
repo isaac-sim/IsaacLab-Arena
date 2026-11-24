@@ -14,6 +14,7 @@ from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_arg
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg, CameraResolutionMode
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.utils.camera_renderer import CameraRenderer
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 
@@ -49,6 +50,8 @@ def test_argparse_adapter_maps_builder_configuration():
         "--mimic",
         "--presets",
         "newton",
+        "--camera_renderer",
+        "newton_warp",
         "--device",
         "cpu",
         "--language_instruction",
@@ -67,10 +70,12 @@ def test_argparse_adapter_maps_builder_configuration():
         disable_fabric=True,
         mimic=True,
         presets=PhysicsBackend.NEWTON,
+        camera_renderer=CameraRenderer.NEWTON_WARP,
         device="cpu",
         language_instruction="pick up the cube",
     )
     assert cfg.presets is PhysicsBackend.NEWTON
+    assert cfg.camera_renderer is CameraRenderer.NEWTON_WARP
 
 
 def test_builder_configuration_requires_positive_num_envs():
@@ -110,6 +115,24 @@ def test_builder_configuration_rejects_unknown_camera_resolution_modes(camera_re
     """Reject anything other than the two CameraResolutionMode values."""
     with pytest.raises(ValueError):
         ArenaEnvBuilderCfg(camera_resolution_mode=camera_resolution_mode)
+
+
+@pytest.mark.parametrize("camera_renderer", ["isaac_rtx", "newton_warp"])
+def test_builder_configuration_accepts_camera_renderer_strings(camera_renderer):
+    """Convert plain value strings into the CameraRenderer enum, as done for the physics backend."""
+    assert ArenaEnvBuilderCfg(camera_renderer=camera_renderer).camera_renderer is CameraRenderer(camera_renderer)
+
+
+def test_builder_configuration_defaults_to_isaac_rtx_cameras():
+    """Keep rendering the cameras with Isaac RTX unless a Run opts into Newton Warp."""
+    assert ArenaEnvBuilderCfg().camera_renderer is CameraRenderer.ISAAC_RTX
+
+
+@pytest.mark.parametrize("camera_renderer", ["", "rtx", "warp", "NEWTON_WARP"])
+def test_builder_configuration_rejects_unknown_camera_renderers(camera_renderer):
+    """Reject anything other than the two CameraRenderer values."""
+    with pytest.raises(ValueError):
+        ArenaEnvBuilderCfg(camera_renderer=camera_renderer)
 
 
 def _test_builder_applies_camera_resolution_mode(simulation_app):
@@ -182,3 +205,40 @@ def test_builder_applies_camera_resolution_mode():
     """Fit the embodiment camera rig to the policy only in policy_default mode, and only with cameras."""
     result = run_function_with_persistent_simulation_app(_test_builder_applies_camera_resolution_mode)
     assert result
+
+
+def _test_builder_applies_camera_renderer(simulation_app):
+    # ArenaEnvBuilder imports Isaac Sim modules, so it is imported after the SimulationApp starts.
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    class FakeCameraRig:
+        def __init__(self):
+            self.renderers = []
+
+        def set_renderer(self, renderer):
+            self.renderers.append(renderer)
+
+    def arena_environment(default_physics_backend):
+        return SimpleNamespace(
+            embodiment=SimpleNamespace(camera_config=FakeCameraRig()), default_physics_backend=default_physics_backend
+        )
+
+    # Isaac RTX, the default, renders with either physics backend.
+    for physics_backend in PhysicsBackend:
+        environment = arena_environment(physics_backend)
+        ArenaEnvBuilder(environment, ArenaEnvBuilderCfg())._apply_camera_renderer()
+        assert environment.embodiment.camera_config.renderers == [CameraRenderer.ISAAC_RTX]
+
+    newton_warp_cfg = ArenaEnvBuilderCfg(camera_renderer="newton_warp")
+    newton_environment = arena_environment(PhysicsBackend.NEWTON)
+    ArenaEnvBuilder(newton_environment, newton_warp_cfg)._apply_camera_renderer()
+    assert newton_environment.embodiment.camera_config.renderers == [CameraRenderer.NEWTON_WARP]
+
+    with pytest.raises(AssertionError, match="requires the Newton physics backend"):
+        ArenaEnvBuilder(arena_environment(PhysicsBackend.PHYSX), newton_warp_cfg)._apply_camera_renderer()
+    return True
+
+
+def test_builder_applies_camera_renderer():
+    """Pass the selected renderer to the embodiment camera rig, and reject Newton Warp without Newton physics."""
+    assert run_function_with_persistent_simulation_app(_test_builder_applies_camera_renderer)
