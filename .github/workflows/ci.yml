@@ -292,7 +292,6 @@ jobs:
         uses: ./.github/actions/setup-caches
         with:
           cache-name: tests
-          lightwheel: 'true'
 
       # Run the tests.
       #
@@ -370,7 +369,6 @@ jobs:
         uses: ./.github/actions/setup-caches
         with:
           cache-name: tests_with_subprocess
-          lightwheel: 'true'
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
