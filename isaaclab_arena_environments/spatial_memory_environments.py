@@ -193,3 +193,19 @@ class SpatialMemoryMovedCartEnvironment(
     name = "spatial_memory_moved_cart"
     _legacy_argparse_cfg_type = SpatialMemoryMovedCartEnvironmentCfg
     task_logic_path = f"{_TASKS_PACKAGE}.moved_cart.MovedCartLogic"
+
+
+@dataclass
+class SpatialMemoryReverseGapEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 reverse-gap delivery task."""
+
+
+@register_environment
+class SpatialMemoryReverseGapEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryReverseGapEnvironmentCfg]
+):
+    """Carry a box backwards through a previously inspected barrier."""
+
+    name = "spatial_memory_reverse_gap"
+    _legacy_argparse_cfg_type = SpatialMemoryReverseGapEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.reverse_gap.ReverseGapLogic"

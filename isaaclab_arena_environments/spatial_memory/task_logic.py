@@ -311,10 +311,16 @@ class SpatialMemoryTaskLogic(ABC):
             self.update_memory_probe(env, episode, visible, active)
 
     def update_memory_probe(
-        self, env, episode: SpatialMemoryEpisodeState, visible: torch.Tensor, active: torch.Tensor
+        self,
+        env,
+        episode: SpatialMemoryEpisodeState,
+        visible: torch.Tensor,
+        active: torch.Tensor,
+        reveal_allowed: torch.Tensor | None = None,
     ) -> None:
         """Reveal the instruction once the memory targets were seen and then stayed out of view for a while.
 
+        When supplied, ``reveal_allowed`` selects environments where the instruction may first appear.
         Between the reveal and ``commitment_made``, the steps in which a memory target is visible are counted;
         exceeding ``reobservation_budget_s`` marks the episode as "searched again".
         """
@@ -326,6 +332,8 @@ class SpatialMemoryTaskLogic(ABC):
         )
         delay_steps = int(math.ceil(self.instruction_delay_s / episode.step_dt))
         newly_revealed = episode.memory_seen & (episode.memory_unseen_steps >= delay_steps) & active
+        if reveal_allowed is not None:
+            newly_revealed &= reveal_allowed
         newly_revealed &= ~episode.instruction_revealed
         episode.instruction_reveal_step[newly_revealed] = env.episode_length_buf[newly_revealed]
         episode.instruction_revealed |= newly_revealed
