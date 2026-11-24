@@ -219,14 +219,15 @@ also write ``kpis_resource.json`` with one ``resource`` record per resource, tot
    * - ``vram``
      - mb
      - GPU memory in use, from NVML (``used`` of the v2 memory info). It is device-wide: it includes every
-       process on the GPU and, on a developer machine, the desktop. It equals the ``Memory-Usage`` figure of
-       ``nvidia-smi``.
+       process on the GPU, their CUDA context memory and, on a developer machine, the desktop's use of the GPU.
+       It excludes the memory the driver reserves for itself (about 600 MiB on an RTX A6000), so it equals the
+       ``Memory-Usage`` figure of ``nvidia-smi``.
    * - ``ram``
      - mb
      - Resident set size of the Arena process.
    * - ``cpu_util``
      - percent
-     - CPU time of the Arena process as a percent of one core, so it can exceed ``100``.
+     - CPU time of the Arena process as a percent of one core, so it can exceed ``100``. It has no value for the first sample.
    * - ``gpu_util``
      - percent
      - GPU utilization of the device, from NVML.
