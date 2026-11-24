@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal
+env_name: kitchen_bench_lightwheel_spatial_place_lime_in_bowl_between_landmarks_one_wall_coastal
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

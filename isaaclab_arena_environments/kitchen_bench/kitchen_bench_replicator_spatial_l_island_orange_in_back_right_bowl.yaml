@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_spatial_orange_in_back_right_bowl_l_island
+env_name: kitchen_bench_replicator_spatial_l_island_orange_in_back_right_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
