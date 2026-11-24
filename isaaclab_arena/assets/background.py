@@ -40,7 +40,7 @@ class Background(Object):
         **kwargs,
     ):
         self.reset_nested_physics = reset_nested_physics
-        """Whether to de-instance and reset physics nested in the USD, and deactivate the physics scenes authored in it."""
+        """Whether to de-instance and reset physics nested in the USD."""
         super().__init__(
             name=name,
             usd_path=usd_path,
@@ -61,8 +61,8 @@ class Background(Object):
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
         """Return the USD spawner for this background.
 
-        With reset_nested_physics, the spawner de-instances nested physics and deactivates the physics scenes
-        authored in the USD.
+        The spawner deactivates the physics scenes authored in the USD. With reset_nested_physics, it also
+        de-instances nested physics, so physics scenes inside those subtrees are deactivated too.
         """
         cfg = super()._get_spawn_cfg(activate_contact_sensors)
         if self.reset_nested_physics:
