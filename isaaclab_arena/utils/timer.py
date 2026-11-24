@@ -70,31 +70,6 @@ class TimerStats(SampleStatistics):
         """Return the decimals kept per sample, i.e. microsecond resolution."""
         return 3
 
-    @property
-    def total_ms(self) -> float:
-        """Return the total elapsed time in milliseconds."""
-        return self.total
-
-    @property
-    def min_ms(self) -> float:
-        """Return the shortest elapsed time in milliseconds."""
-        return self.minimum
-
-    @property
-    def max_ms(self) -> float:
-        """Return the longest elapsed time in milliseconds."""
-        return self.maximum
-
-    @property
-    def mean_ms(self) -> float:
-        """Return the mean elapsed time in milliseconds."""
-        return self.get_mean()
-
-    @property
-    def samples_ms(self) -> list[float]:
-        """Return a copy of the reservoir sample of measurements in milliseconds."""
-        return self.get_samples()
-
 
 def _update_stats(name: str, elapsed_ms: float) -> None:
     """Create or update the registry entry for the given timer name."""
@@ -294,13 +269,13 @@ def print_timer_stats() -> None:
         vals = [
             f"{name:<{name_length}}",
             f"{s.count:>8d}",
-            f"{s.mean_ms:>10.3f}",
-            f"{s.total_ms:>12.3f}",
-            f"{s.min_ms:>10.3f}",
+            f"{s.get_mean():>10.3f}",
+            f"{s.total:>12.3f}",
+            f"{s.minimum:>10.3f}",
             f"{p10:>10.3f}" if p10 is not None else f"{'-':>10}",
             f"{p50:>10.3f}" if p50 is not None else f"{'-':>10}",
             f"{p90:>10.3f}" if p90 is not None else f"{'-':>10}",
-            f"{s.max_ms:>10.3f}",
+            f"{s.maximum:>10.3f}",
         ]
         print(" ".join(vals))
 

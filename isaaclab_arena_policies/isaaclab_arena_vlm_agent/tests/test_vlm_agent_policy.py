@@ -870,7 +870,7 @@ def test_concurrent_requests_each_record_their_own_latency(backend):
         # thread, so its timer is not nested under the step's timers on the calling thread.
         request_timer_stats = get_timer_stats()[INFERENCE_REQUEST_TIMER_NAME]
         assert request_timer_stats.count == 2
-        assert request_timer_stats.min_ms >= request_seconds * 1e3
+        assert request_timer_stats.minimum >= request_seconds * 1e3
     finally:
         reset_timer_stats()
         policy.close()

@@ -38,10 +38,10 @@ class TestTimerStats:
         """Verify default state of a fresh TimerStats."""
         stats = TimerStats()
         assert stats.count == 0
-        assert stats.total_ms == 0.0
-        assert stats.min_ms == float("inf")
-        assert stats.max_ms == float("-inf")
-        assert stats.mean_ms == 0.0
+        assert stats.total == 0.0
+        assert stats.minimum == float("inf")
+        assert stats.maximum == float("-inf")
+        assert stats.get_mean() == 0.0
 
     def test_accumulation(self) -> None:
         """Verify min/max/mean/total after multiple measurements."""
@@ -50,10 +50,10 @@ class TestTimerStats:
         stats.update(20.0)
         stats.update(30.0)
         assert stats.count == 3
-        assert stats.total_ms == 60.0
-        assert stats.min_ms == 10.0
-        assert stats.max_ms == 30.0
-        assert stats.mean_ms == pytest.approx(20.0)
+        assert stats.total == 60.0
+        assert stats.minimum == 10.0
+        assert stats.maximum == 30.0
+        assert stats.get_mean() == pytest.approx(20.0)
 
     def test_percentile_empty(self) -> None:
         """Verify percentile returns None when no data recorded."""
@@ -116,7 +116,7 @@ class TestTimer:
         stats = get_timer_stats()
         assert "test_op" in stats
         assert stats["test_op"].count == 1
-        assert stats["test_op"].total_ms >= 0.0
+        assert stats["test_op"].total >= 0.0
 
     def test_multiple_names(self) -> None:
         """Verify distinct timer names produce separate stats."""
@@ -144,7 +144,7 @@ class TestTimer:
                 pass
 
         stats = get_timer_stats()
-        assert stats["outer"].total_ms >= stats["outer/inner"].total_ms
+        assert stats["outer"].total >= stats["outer/inner"].total
 
     def test_nested_name_is_qualified_by_its_enclosing_timers(self) -> None:
         """Verify each nesting level appends its name to the enclosing name."""
