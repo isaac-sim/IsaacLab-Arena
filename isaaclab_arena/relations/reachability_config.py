@@ -34,3 +34,6 @@ class ReachabilityConfig:
 
     require_collision_free: bool = True
     """If True, it's also collision-free with the robot itself."""
+
+    ik_batch_size: int = 64
+    """Grasps the check IK-solves in one batched cuRobo call, each against its own layout's obstacles."""

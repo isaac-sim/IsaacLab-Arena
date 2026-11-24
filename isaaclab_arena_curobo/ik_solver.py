@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import torch
 
+import isaaclab.utils.math as math_utils
 from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
 from curobo.logging import setup_logger
 from curobo.scene import Scene
@@ -44,7 +45,7 @@ class CuroboIKSolver:
     #     robot_cfg: The curobo robot configuration for the solver.
     #     ik_solver: The IK solver for the solver.
     #     hand_link_names: The robot's hand links, muted during a collision-free solve.
-    __slots__ = ("logger", "device", "device_cfg", "robot_cfg", "ik_solver", "hand_link_names")
+    __slots__ = ("logger", "device", "device_cfg", "robot_cfg", "ik_solver", "hand_link_names", "multi_env")
 
     def __init__(
         self,
@@ -56,6 +57,7 @@ class CuroboIKSolver:
         rotation_threshold: float = 0.1,
         collision_cache_size: dict[str, int] | None = None,
         max_batch_size: int = 1,
+        multi_env: bool = False,
         use_cuda_graph: bool = True,
         debug: bool = False,
     ) -> None:
@@ -73,6 +75,8 @@ class CuroboIKSolver:
             collision_cache_size: Obstacle slots per type; defaults to ``{"cuboid": 150}``. A world with more
                 obstacles than its slots fails to load.
             max_batch_size: Most poses one ``solve_ik_feasibility`` call may pass; smaller batches are padded to it.
+            multi_env: Give every pose of a batch its own collision environment (see ``load_cuboid_worlds``)
+                instead of one shared world.
             use_cuda_graph: Replay captured CUDA graphs for the solve, which cuRobo v2 recommends for speed.
             debug: Enable cuRobo/planner debug logging.
         """
@@ -99,9 +103,15 @@ class CuroboIKSolver:
             orientation_tolerance=rotation_threshold,
             optimizer_collision_activation_distance=collision_activation_distance,
             max_batch_size=max_batch_size,
+            multi_env=multi_env,
             use_cuda_graph=use_cuda_graph,
         )
+        if multi_env:
+            # cuRobo sizes the collision storage from the YAML path only; a Scene object leaves it at one environment.
+            assert ik_config.scene_collision_cfg is not None
+            ik_config.scene_collision_cfg.num_envs = max_batch_size
         self.ik_solver = InverseKinematics(ik_config)
+        self.multi_env = multi_env
 
     def __deepcopy__(self, memory_map: dict[int, object]) -> CuroboIKSolver:
         """Return the live solver for ``copy.deepcopy`` instead of duplicating it.
@@ -163,3 +173,45 @@ class CuroboIKSolver:
         self.ik_solver.update_world(scene)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
+
+    def load_cuboid_worlds(
+        self,
+        dims_xyz: torch.Tensor,
+        t_R_O: torch.Tensor,
+        q_R_O_xyzw: torch.Tensor,
+        enabled: torch.Tensor,
+    ) -> None:
+        """Fill one collision environment per batch row with cuboids given in the robot base frame.
+
+        Writes cuRobo's cuboid storage directly, so a whole batch of worlds costs a few tensor copies instead of
+        one obstacle load per world. Needs a solver built with ``multi_env=True`` and a batch no larger than its
+        ``max_batch_size``; cuboid slot ``k`` of every environment holds the same object, disabled where
+        ``enabled`` is False (a grasp target does not obstruct its own grasp).
+
+        Args:
+            dims_xyz: ``(B, K, 3)`` full cuboid extents.
+            t_R_O: ``(B, K, 3)`` cuboid centers in the robot base frame.
+            q_R_O_xyzw: ``(B, K, 4)`` cuboid orientations in the robot base frame.
+            enabled: ``(B, K)`` bool, which cuboids take part in collision checking.
+        """
+        assert self.multi_env, "load_cuboid_worlds needs a solver built with multi_env=True"
+        cuboids = self.ik_solver.scene_collision_checker.data.cuboids
+        num_worlds, num_cuboids = enabled.shape
+        assert (
+            num_worlds <= cuboids.num_envs
+        ), f"{num_worlds} worlds exceed the solver's {cuboids.num_envs} environments"
+        assert num_cuboids <= cuboids.max_n, f"{num_cuboids} cuboids exceed the collision cache of {cuboids.max_n}"
+        t_R_O = self._to_curobo_device(t_R_O)
+        q_R_O_xyzw = self._to_curobo_device(q_R_O_xyzw)
+        # cuRobo stores the inverse pose T_O_R: object frame from the (robot base) world frame.
+        q_O_R_xyzw = math_utils.quat_conjugate(q_R_O_xyzw.reshape(-1, 4))
+        R_O_R = math_utils.matrix_from_quat(q_O_R_xyzw)
+        t_O_R = -torch.bmm(R_O_R, t_R_O.reshape(-1, 3, 1)).squeeze(-1)
+        cuboids.dims[:num_worlds, :num_cuboids, :3] = self._to_curobo_device(dims_xyz)
+        cuboids.inv_pose[:num_worlds, :num_cuboids, :3] = t_O_R.reshape(num_worlds, num_cuboids, 3)
+        cuboids.inv_pose[:num_worlds, :num_cuboids, 3:7] = math_utils.convert_quat(q_O_R_xyzw, to="wxyz").reshape(
+            num_worlds, num_cuboids, 4
+        )
+        cuboids.enable[:num_worlds, :num_cuboids] = enabled.to(device=cuboids.enable.device, dtype=cuboids.enable.dtype)
+        cuboids.enable[:num_worlds, num_cuboids:] = 0
+        cuboids.count[:num_worlds] = num_cuboids
