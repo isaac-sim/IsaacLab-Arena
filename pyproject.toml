@@ -24,6 +24,8 @@ dependencies = [
     "pydantic>=2.0",
     "openai>=2.0",
     "tqdm",
+    # NVML binding for the runtime resource tracker (VRAM and GPU utilization).
+    "nvidia-ml-py",
     # Sensitivity analysis (isaaclab_arena.analysis.sensitivity), imported at module level.
     "sbi",
     "scipy",

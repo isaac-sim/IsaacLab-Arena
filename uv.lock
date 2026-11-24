@@ -1623,6 +1623,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "moviepy" },
     { name = "nvidia-curobo", extra = ["cu13"] },
+    { name = "nvidia-ml-py" },
     { name = "onnxruntime" },
     { name = "openai" },
     { name = "pandas" },
@@ -1703,6 +1704,7 @@ requires-dist = [
     { name = "moviepy", specifier = ">=1.0.3,<2.0.0.dev0" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=3.0.0" },
     { name = "nvidia-curobo", extras = ["cu13"], git = "https://github.com/NVlabs/curobo.git?rev=78fd485fa82d9b9a063fb4985e371814587e666a" },
+    { name = "nvidia-ml-py" },
     { name = "nvidia-sphinx-theme", marker = "extra == 'docs'", specifier = "==0.0.8" },
     { name = "onnxruntime" },
     { name = "openai", specifier = ">=2.0" },
@@ -3703,6 +3705,15 @@ version = "0.8.0"
 source = { registry = "https://pypi.nvidia.com/" }
 wheels = [
     { url = "https://pypi.nvidia.com/nvidia-cusparselt-cu13/nvidia_cusparselt_cu13-0.8.0-py3-none-manylinux2014_x86_64.whl", hash = "sha256:25e30a8a7323935d4ad0340b95a0b69926eee755767e8e0b1cf8dd85b197d3fd" },
+]
+
+[[package]]
+name = "nvidia-ml-py"
+version = "13.615.71"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/30/b25216758be3d3e2834825d8193609e2d71c770a8bd7984438c058c90268/nvidia_ml_py-13.615.71.tar.gz", hash = "sha256:bebe4e48f51b1dc75028c0815cb7bfa14a31a5bb80be70c9d980c6036953fc3d", size = 57485, upload-time = "2026-09-25T15:15:28.226Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/53/a1/1681dfa1c904d4e3e72e51b55a0ff012d50b766843ef832d584abe2113c6/nvidia_ml_py-13.615.71-py3-none-any.whl", hash = "sha256:959bf4adf6fe1308e4bd739e722236b0d1ec8392e2cefad33ff70c311380b9b6", size = 58132, upload-time = "2026-09-25T15:15:26.54Z" },
 ]
 
 [[package]]

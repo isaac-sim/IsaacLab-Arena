@@ -589,6 +589,9 @@ New files
 ^^^^^^^^^
 
 - ``<run>/arena_run_timings.json`` and ``arena_experiment_timings.json`` record step timings (#1198, #1426).
+- ``<run>/arena_run_resources.json`` and ``arena_experiment_resources.json`` record VRAM, RAM, CPU and GPU
+  utilization, sampled every 0.1 s. VRAM is device-wide, so it includes every process on the GPU. The Run fails
+  at its start if NVML cannot initialize.
 - ``<run>/arena_run_placement_diagnostics.json`` records the placement checks that rejected candidates
   (#1560, #1602).
 - ``kpis_timing.json``, ``kpis_resource.json``, ``kpis_success_rates.json`` and ``kpis_placement_success.json`` are written
