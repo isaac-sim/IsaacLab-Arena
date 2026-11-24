@@ -41,7 +41,7 @@ and its metric tracks ``openable.get_openness()``.
 This is what makes tasks modular — the same task works across different objects
 and scenes without any changes.
 
-Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``LiftObjectTask``,
+Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``LiftObjectTaskRL``,
 ``OpenDoorTask``, ``CloseDoorTask``, and ``PressButtonTask``.
 
 Individual tasks can be combined into order-independent or sequential composite tasks. Each task

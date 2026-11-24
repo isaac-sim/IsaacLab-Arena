@@ -25,99 +25,15 @@ from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-from isaaclab_arena.tasks.terminations import lift_object_il_success, lift_object_rl_success
+from isaaclab_arena.tasks.terminations import lift_object_rl_success
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.pose import PoseRange
 
 
 @register_task
-class LiftObjectTask(TaskBase):
-    def __init__(
-        self,
-        lift_object: Asset,
-        background_scene: Asset,
-        episode_length_s: float = 5.0,
-        goal_position_delta_xyz: tuple[float, float, float] = (0.0, 0.0, 0.3),
-        goal_position_tolerance: float = 0.05,
-    ):
-        """Initialize the Lift Object task.
+class LiftObjectTaskRL(TaskBase):
+    """Lift an object to a target position sampled each episode, for RL training and evaluation."""
 
-        Args:
-            lift_object: The object to lift.
-            background_scene: The background scene (table, etc.).
-            episode_length_s: Episode length in seconds.
-            goal_position_delta_xyz: Goal position delta [dx, dy, dz] relative to initial pose (m).
-                Default: (0, 0, 0.3) = 30cm above initial position.
-            goal_position_tolerance: Position tolerance for success (m).
-        """
-        super().__init__(episode_length_s=episode_length_s)
-        self.lift_object = lift_object
-        self.background_scene = background_scene
-
-        # Compute goal position from object's initial pose + delta
-        initial_pose = lift_object.get_initial_pose()
-        if isinstance(initial_pose, PoseRange):
-            initial_pose = initial_pose.get_midpoint()
-
-        # IL and teleoperation use a fixed goal.
-        self.goal_position_xyz = (
-            initial_pose.position_xyz[0] + goal_position_delta_xyz[0],
-            initial_pose.position_xyz[1] + goal_position_delta_xyz[1],
-            initial_pose.position_xyz[2] + goal_position_delta_xyz[2],
-        )
-        self.goal_position_tolerance = goal_position_tolerance
-
-        self.scene_config = None
-        self.events_cfg = None
-
-    def get_scene_cfg(self):
-        return self.scene_config
-
-    def get_events_cfg(self):
-        return self.events_cfg
-
-    def get_termination_cfg(self) -> TaskTerminationCfg:
-        object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
-            params={
-                "minimum_height": self.background_scene.object_min_z,
-                "asset_cfg": SceneEntityCfg(self.lift_object.name),
-            },
-        )
-
-        return TaskTerminationCfg(
-            timeout_s=self.episode_length_s,
-            success=[
-                CompletionCriteria(
-                    name="lift_object",
-                    predicate_sequence=[
-                        partial(
-                            lift_object_il_success,
-                            object_cfg=SceneEntityCfg(self.lift_object.name),
-                            goal_position=self.goal_position_xyz,
-                            position_tolerance=self.goal_position_tolerance,
-                        )
-                    ],
-                ),
-            ],
-            failures={"object_dropped": object_dropped},
-        )
-
-    def get_mimic_env_cfg(self, embodiment_name: str):
-        raise NotImplementedError("Function not implemented yet.")
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric()]
-
-    def get_viewer_cfg(self) -> ViewerCfg:
-        return get_viewer_cfg_look_at_object(
-            lookat_object=self.lift_object,
-            offset=np.array([-1.5, -1.5, 1.5]),
-        )
-
-
-@register_task
-class LiftObjectTaskRL(LiftObjectTask):
     def __init__(
         self,
         lift_object: Asset,
@@ -165,14 +81,12 @@ class LiftObjectTaskRL(LiftObjectTask):
             initial_pose.position_xyz[2] + target_z_delta[1],
         )
 
-        # The RL objective uses the command goal instead of the parent's fixed goal.
-        super().__init__(
-            lift_object=lift_object,
-            background_scene=background_scene,
-            episode_length_s=episode_length_s,
-            goal_position_delta_xyz=(0, 0, 0),
-            goal_position_tolerance=0.05,
-        )
+        super().__init__(episode_length_s=episode_length_s)
+        self.lift_object = lift_object
+        self.background_scene = background_scene
+        self.goal_position_tolerance = 0.05
+        self.scene_config = None
+        self.events_cfg = None
 
         self.embodiment = embodiment
         self.observation_cfg = LiftObjectObservationsCfg(
@@ -193,24 +107,51 @@ class LiftObjectTaskRL(LiftObjectTask):
             ee_frame_name=self.embodiment.get_ee_frame_name(self.embodiment.get_arm_mode()),
         )
 
+    def get_scene_cfg(self):
+        return self.scene_config
+
+    def get_events_cfg(self):
+        return self.events_cfg
+
     def get_termination_cfg(self) -> TaskTerminationCfg:
-        termination_cfg = super().get_termination_cfg()
-        termination_cfg.success = [
-            CompletionCriteria(
-                name="lift_object",
-                predicate_sequence=[
-                    partial(
-                        lift_object_rl_success,
-                        object_cfg=SceneEntityCfg(self.lift_object.name),
-                        robot_cfg=SceneEntityCfg(self.embodiment.get_scene_key()),
-                        rl_training=self.rl_training_mode,
-                        command_name="object_pose",
-                        position_tolerance=self.goal_position_tolerance,
-                    )
-                ],
-            )
-        ]
-        return termination_cfg
+        object_dropped = TerminationTermCfg(
+            func=mdp_isaac_lab.root_height_below_minimum,
+            params={
+                "minimum_height": self.background_scene.object_min_z,
+                "asset_cfg": SceneEntityCfg(self.lift_object.name),
+            },
+        )
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=[
+                CompletionCriteria(
+                    name="lift_object",
+                    predicate_sequence=[
+                        partial(
+                            lift_object_rl_success,
+                            object_cfg=SceneEntityCfg(self.lift_object.name),
+                            robot_cfg=SceneEntityCfg(self.embodiment.get_scene_key()),
+                            rl_training=self.rl_training_mode,
+                            command_name="object_pose",
+                            position_tolerance=self.goal_position_tolerance,
+                        )
+                    ],
+                )
+            ],
+            failures={"object_dropped": object_dropped},
+        )
+
+    def get_mimic_env_cfg(self, embodiment_name: str):
+        raise NotImplementedError("Function not implemented yet.")
+
+    def get_metrics(self) -> list[MetricBase]:
+        return [SuccessRateMetric()]
+
+    def get_viewer_cfg(self) -> ViewerCfg:
+        return get_viewer_cfg_look_at_object(
+            lookat_object=self.lift_object,
+            offset=np.array([-1.5, -1.5, 1.5]),
+        )
 
     def get_observation_cfg(self):
         return self.observation_cfg

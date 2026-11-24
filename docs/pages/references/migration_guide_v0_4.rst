@@ -310,6 +310,13 @@ Sequential tasks
 ``SequentialTaskBase`` was removed. Use ``CompositeTaskBase`` with ``subtasks_are_sequential=True``.
 Pass a flat list of subtasks; nested composite tasks are not supported (#1255).
 
+Lift object task
+~~~~~~~~~~~~~~~~
+
+``LiftObjectTask`` was removed. It succeeded when the object came within 5 cm of a fixed point above its
+initial pose. ``LiftObjectTaskRL`` is unchanged but now subclasses ``TaskBase`` directly. To require an
+object to reach a fixed region, use ``GoalPoseTask`` with a ``target_z_range``.
+
 Scene access at run time
 ^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -104,36 +104,6 @@ def combine_success_results(
     return results.sum(dim=0) >= k
 
 
-# NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary
-# seem to generate a "small" velocity.
-def lift_object_il_success(
-    env: IsaacLabArenaManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
-    goal_position: tuple[float, float, float] | None = None,
-    position_tolerance: float = 0.05,
-) -> torch.Tensor:
-    """Dynamic success termination for lift object task.
-
-    Args:
-        env: The RL environment instance.
-        object_cfg: The configuration of the object to track.
-        goal_position: Fixed world-frame goal position [x, y, z].
-        position_tolerance: Distance tolerance for success (m).
-
-    Returns:
-        A boolean tensor of shape (num_envs,) indicating success.
-    """
-
-    assert goal_position is not None, "lift_object_il_success requires goal_position."
-
-    object_position_w = env.arena_world.get_position_w(object_cfg.name)
-    goal_position_w = torch.tensor([goal_position] * env.num_envs, device=env.device)
-
-    # Check if object is within tolerance of goal
-    distance = torch.norm(object_position_w - goal_position_w, dim=1)
-    return distance < position_tolerance
-
-
 def lift_object_rl_success(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
