@@ -87,7 +87,6 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
 
     placer_params = ObjectPlacerParams(
         max_placement_attempts=10,
-        min_unique_layouts_per_env=1,
         allow_best_loss_fallbacks=False,
         resolve_on_reset=False,
         random_yaw_init=True,

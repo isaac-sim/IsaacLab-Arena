@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
+from isaaclab_arena.environments.relation_solver_interface import DEFAULT_LAYOUTS_PER_ENV
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
@@ -75,13 +76,17 @@ def test_placement_experiment_runs_solve_separate_candidate_seeds(experiment_con
     # The bound below uses the default placer parameters, so no spec may override them.
     for run in experiment["runs"].values():
         spec_placer_params = load_env_graph_spec_dict(REPO_ROOT / run["environment"]["type"]).get("placer_params")
-        overridden = {"min_unique_layouts_per_env", "max_placement_attempts"} & set(spec_placer_params or {})
+        overridden = {"min_unique_layouts_per_env", "max_placement_attempts", "max_pool_fill_batches"} & set(
+            spec_placer_params or {}
+        )
         assert not overridden, f"{run['environment']['type']} sets {sorted(overridden)}; widen the seed spacing"
-    # A build solves at most max_placement_attempts batches, each of at most
-    # num_envs * min_unique_layouts_per_env * max_placement_attempts candidates, seeded consecutively.
+    # A build solves at most max_pool_fill_batches batches, each of at most
+    # pool_size * max_placement_attempts candidates, seeded consecutively. These Runs are limited by steps, so
+    # the pool holds DEFAULT_LAYOUTS_PER_ENV layouts per environment.
     params = ObjectPlacerParams()
     num_envs = experiment["shared"]["environment_builder"]["num_envs"]
-    seeds_per_build = num_envs * params.min_unique_layouts_per_env * params.max_placement_attempts**2
+    assert "num_episodes" not in experiment["shared"]["rollout_limit"], "an episode budget would size the pool"
+    seeds_per_build = num_envs * DEFAULT_LAYOUTS_PER_ENV * params.max_placement_attempts * params.max_pool_fill_batches
     seeds = sorted(run["environment_builder"]["placement_seed"] for run in experiment["runs"].values())
     assert all(next_seed - seed >= seeds_per_build for seed, next_seed in zip(seeds, seeds[1:]))
 

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import copy
+import warnings
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
@@ -37,10 +38,33 @@ if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 
+DEFAULT_LAYOUTS_PER_ENV = 5
+"""Layouts solved per environment when the Run's episode budget is unknown."""
+
+
+def placement_pool_size(num_envs: int, num_episodes: int | None) -> int:
+    """Return how many layouts the placement pool holds for a Run.
+
+    Every episode consumes one layout of its environment, so the pool holds one layout per episode, split
+    evenly over the environments (each environment gets at least one). An unknown budget (a Run limited by
+    steps) gets ``DEFAULT_LAYOUTS_PER_ENV`` per environment. The pool refills itself if it runs dry.
+
+    Args:
+        num_envs: Environments of the Run.
+        num_episodes: Episodes the Run plays, or None when it is not limited by episodes.
+    """
+    assert num_envs > 0, f"num_envs must be positive, got {num_envs}"
+    if num_episodes is None:
+        return num_envs * DEFAULT_LAYOUTS_PER_ENV
+    assert num_episodes > 0, f"num_episodes must be positive, got {num_episodes}"
+    return max(num_episodes, num_envs)
+
+
 def prepare_live_relation_placement(
     assets: list[PlaceableAsset],
     num_envs: int,
     placer_params: ObjectPlacerParams | None = None,
+    num_episodes: int | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
 ) -> PlacementSampler | None:
@@ -55,6 +79,8 @@ def prepare_live_relation_placement(
             or relation-constrained.
         scene_assets: Optional scene assets to scan for passive collision objects
             when collision_objects is not supplied.
+        num_episodes: Episodes the Run plays, which sizes the placement pool (see ``placement_pool_size``);
+            None sizes it for an unknown budget.
 
     Returns:
         Live placement sampler, or ``None`` when there is no placement.
@@ -84,10 +110,20 @@ def prepare_live_relation_placement(
         collision_objects = get_placement_collision_objects(
             assets, scene_assets, placer_params.solver_params.collision_mode
         )
+    if placer_params.min_unique_layouts_per_env is not None:
+        warnings.warn(
+            "ObjectPlacerParams.min_unique_layouts_per_env is deprecated; the placement pool holds one layout"
+            " per episode of the Run.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        pool_size = num_envs * placer_params.min_unique_layouts_per_env
+    else:
+        pool_size = placement_pool_size(num_envs, num_episodes)
     placement_pool = PooledObjectPlacer(
         objects=assets,
         placer_params=placer_params,
-        pool_size=num_envs * placer_params.min_unique_layouts_per_env,
+        pool_size=pool_size,
         num_envs=num_envs,
         collision_objects=collision_objects,
     )

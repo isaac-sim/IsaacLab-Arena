@@ -61,6 +61,13 @@ class ArenaEnvBuilderCfg:
     ``PolicyBase.default_image_size``.
     """
 
+    num_episodes: int | None = None
+    """Episodes the Run plays with this environment, when it is limited by episodes.
+
+    Sizes the relation-placement pool (see ``placement_pool_size``); the Run execution sets it from the
+    rollout limit. None sizes the pool for an unknown budget.
+    """
+
     env_cfg_override: dict[str, Any] = field(default_factory=dict)
     """Validated Isaac Lab config overrides applied after the environment's existing callback.
     An empty mapping leaves the environment config unchanged and supports Hydra's dictionary merging."""

@@ -138,6 +138,7 @@ def build_and_run(
                 rebuild_video_cfg.render_mode,
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
+                num_episodes=num_episodes,
             )
             # Read before the rollout, whose resets can refill the placement pool and replace its diagnostics.
             placement_diagnostics = get_placement_diagnostics(env)
@@ -210,6 +211,7 @@ def _build_environment_from_cfg(
     render_mode: str | None,
     output_dir: str | Path,
     rebuild_index: int = 0,
+    num_episodes: int | None = None,
 ) -> gym.Env:
     """Compile and instantiate a run's environment.
 
@@ -218,12 +220,14 @@ def _build_environment_from_cfg(
         render_mode: Render mode required by the enabled video recorders.
         output_dir: Directory the run's recorded dataset is exported to.
         rebuild_index: Index of the rebuild this environment serves.
+        num_episodes: Episodes this rebuild plays, which sizes the placement pool; None when unknown.
     """
     # Copy runtime-derived recorder output options into the builder cfg so
     # ArenaEnvBuilder.build_env_cfg sees them without mutating the caller's run config.
     run_cfg = deepcopy(cfg)
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
+    run_cfg.environment_builder.num_episodes = num_episodes
     arena_builder = build_arena_builder_from_run_cfg(run_cfg, rebuild_index=rebuild_index)
     return arena_builder.make_registered(render_mode=render_mode)
 

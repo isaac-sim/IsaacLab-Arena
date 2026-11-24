@@ -159,12 +159,12 @@ class PooledObjectPlacer:
     def _solve_and_store(self, num_layouts: int) -> None:
         """Solve and store layouts until every env has target_num_layouts_per_env unread layouts.
 
-        Bounded by max_placement_attempts; raises if the target cannot be met.
+        Bounded by max_pool_fill_batches; raises if the target cannot be met.
         """
         self._discard_consumed_layouts()
         self._last_fill_diagnostics = PlacementDiagnostics(self._num_envs)
         target_num_layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
-        max_solve_batches = max(1, self._placer.params.max_placement_attempts)
+        max_solve_batches = self._placer.params.max_pool_fill_batches
 
         for batch_idx in range(max_solve_batches):
             max_missing = target_num_layouts_per_env - min(self._available_per_env())

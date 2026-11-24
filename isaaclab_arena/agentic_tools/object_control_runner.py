@@ -44,7 +44,6 @@ import sys
 import time
 from collections.abc import Callable, Iterator
 from copy import deepcopy
-from dataclasses import replace
 from pathlib import Path
 
 from isaaclab_arena.agentic_tools.object_control.command_executor import (
@@ -94,12 +93,8 @@ def main() -> None:
                 recipe = load_object_control_recipe(args.commands, require_runtime_commands=not args.follow_commands)
                 builder = get_arena_builder_from_cli(args, hydra_overrides=hydra_overrides)
                 assert builder.resolved_physics_backend is PhysicsBackend.PHYSX, "object_control_runner requires PhysX"
-                from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-
-                # This runner starts exactly one episode; unused pool layouts only add solver work.
-                builder.arena_env.placer_params = replace(
-                    builder.arena_env.placer_params or ObjectPlacerParams(), min_unique_layouts_per_env=1
-                )
+                # This runner starts exactly one episode; the placement pool is sized for it.
+                builder.cfg.num_episodes = 1
             _run_recipe(builder, args, recipe)
         finally:
             app_args.output.mkdir(parents=True, exist_ok=True)
