@@ -30,6 +30,7 @@ from isaaclab_arena.inference.backend import (
     InferenceUsage,
     build_strict_schema,
 )
+from isaaclab_arena.policy.idle_envs import hold_action_from_action_manager, idle_env_ids
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
@@ -211,6 +212,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         assert isinstance(action_adapter, AgentActionAdapter)
         self.observation_adapter = observation_adapter
         self.action_adapter = action_adapter
+        self._last_actions: torch.Tensor | None = None
+        """Actions of the previous step; idle envs repeat them when their action space has no hold action."""
         self._response_schema = build_strict_schema(action_adapter.response_model)
         self._system_prompt = config.system_prompt
         if self._system_prompt is None:
@@ -234,8 +237,6 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         self._request_executor = ThreadPoolExecutor(
             max_workers=config.max_concurrent_requests, thread_name_prefix="vlm_inference"
         )
-        self._last_actions: dict[int, torch.Tensor] = {}
-        """Last action returned for each environment."""
 
     def get_inference_usage(self) -> InferenceUsage:
         """Return the endpoint, model, and the VLM requests and tokens since the policy was created."""
@@ -247,14 +248,6 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         # requests in flight; they are never read, so do not wait for them.
         self._request_executor.shutdown(wait=False, cancel_futures=True)
         self._inference_backend.client.close()
-
-    def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        """Discard the last actions of selected environments, or all environments."""
-        if env_ids is None:
-            self._last_actions.clear()
-        else:
-            for env_id in env_ids.reshape(-1).tolist():
-                self._last_actions.pop(env_id, None)
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return a batch of native actions using the policy execution strategy.
@@ -277,12 +270,13 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         assert self.action_adapter.is_robot_action_space_supported(
             env
         ), "Robot action space is unsupported by this adapter"
-        # An environment is inactive once its episode ended without a replacement; one that never acted still needs an action.
-        active_episode_mask = env.unwrapped.active_episode_mask.tolist()
-        inactive_env_ids = set()
-        for env_id in range(env.unwrapped.num_envs):
-            if not active_episode_mask[env_id] and env_id in self._last_actions:
-                inactive_env_ids.add(env_id)
+        # An environment is idle once its episode ended without a replacement, or if it never got one.
+        # Its actions are discarded, so it sends no request and holds its robot in place.
+        inactive_env_ids = set(idle_env_ids(env))
+        hold_actions = hold_action_from_action_manager(env) if inactive_env_ids else None
+        if inactive_env_ids and hold_actions is None:
+            # Without a hold action for this action space, idle envs repeat their last action as before.
+            hold_actions = self._last_actions
 
         # Build a request for every active environment whose current prediction is used up or finished.
         contents = {}
@@ -304,17 +298,16 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         actions = []
         for env_id in range(env.unwrapped.num_envs):
             if env_id in inactive_env_ids:
-                actions.append(self._last_actions[env_id])
+                actions.append(hold_actions[env_id].to(device=env.unwrapped.device))
                 continue
             command = self._get_next_command(env, env_id)
             action = self.action_adapter.command_to_action(env, command)
             assert (
                 action.ndim == 1 and action.numel() > 0 and torch.isfinite(action).all()
             ), "Expected a finite action vector"
-            action = action.to(device=env.unwrapped.device)
-            self._last_actions[env_id] = action
-            actions.append(action)
-        return torch.stack(actions)
+            actions.append(action.to(device=env.unwrapped.device))
+        self._last_actions = torch.stack(actions)
+        return self._last_actions
 
     def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
         """Update env_id's current prediction from the live environment state.
