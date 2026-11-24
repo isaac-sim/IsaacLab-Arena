@@ -77,10 +77,24 @@ runs:
         # Key from previous run
         restore-keys: ${{ github.event_name != 'schedule' && format('ci-caches-{0}-{1}-', steps.read_isaac_sim_version.outputs.isaac_sim_version, inputs.cache-name) || '' }}
 
+    # EXPERIMENT (NOT FOR MERGE): cache the omni.client HTTP asset cache (Nucleus/S3 assets) under a
+    # constant key per job, so that a re-run of the same PR restores exactly what the first run saved.
+    # Saved on every run, in PRs too. Caches saved from a PR are only readable from that same PR.
+    - id: nucleus_cache
+      name: Restore and save Nucleus asset cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/ov/client
+          !~/.cache/ov/client/temp
+        key: nucleus-assets-experiment-${{ inputs.cache-name }}
+
     - name: Print restored cache
       shell: bash
       env:
         MATCHED_KEY: ${{ steps.restore_caches.outputs.cache-matched-key || steps.restore_and_save_caches.outputs.cache-matched-key }}
       run: |
         echo "Caches restored from: ${MATCHED_KEY:-nothing (cache miss or nightly run)}"
-        du -sh /isaac-sim/kit/cache ~/.cache/warp ~/.cache/lightwheel_sdk/* 2>/dev/null || true
+        echo "Nucleus asset cache hit: ${{ steps.nucleus_cache.outputs.cache-hit }}"
+        du -sh /isaac-sim/kit/cache ~/.cache/warp ~/.cache/lightwheel_sdk/* ~/.cache/ov/client 2>/dev/null || true
+        find ~/.cache/ov/client -type f 2>/dev/null | wc -l
