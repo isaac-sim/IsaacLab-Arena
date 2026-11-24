@@ -100,6 +100,54 @@ row; a value that no episode drew is not listed. In this Experiment, only ``swap
 one per selected pick-up object.
 
 
+Read the episode results
+------------------------
+
+Open ``baseline/episode_results_rebuild0.jsonl`` in the Experiment output directory. The file
+has one JSON object per finished episode. Here is the zero-action episode, formatted with
+some fields omitted.
+
+.. code-block:: json
+
+   {
+     "env_id": 0,
+     "episode_in_env": 0,
+     "success": false,
+     "episode_length": 23,
+     "progress": {
+       "overall_score": 0.3333333432674408,
+       "criteria_by_name": {
+         "pick_and_place": {
+           "is_complete": false,
+           "active_predicates": {
+             "default_sequence": "object_is_above_height(object_name='pick_up_object', use_settled_state=True)"
+           }
+         }
+       },
+       "events": [{"step": 1, "predicate_name": "objects_settled"}],
+       "consecutive_step_summary": [
+         {"status": "waiting", "consecutive_steps": 0, "required_steps": 1}
+       ]
+     }
+   }
+
+* ``success: false`` records the task outcome. The episode reached the time limit with the
+  pick-and-place task still incomplete.
+* ``progress.events`` shows that the cube settled at control step 1. That completed the first of
+  three equally weighted stages so the episode reached 33% progress.
+* ``active_predicates`` shows that lifting the cube was the next stage. The placement check in
+  ``consecutive_step_summary`` was still ``waiting`` because it only starts after the lift is complete.
+
+For the same episode in the HTML report, open ``index.html`` in the Experiment output directory.
+Select **baseline** under **Runs**, then open the episode. **Task completion summary** shows the
+placement check as **Not reached**. The ``pick_and_place`` criteria below it show the completed
+settling check.
+
+See :doc:`Predicates and Subtask Progress Tracking <../concepts/task/concept_progress_tracking_design>`
+for how Arena records subtask progress and :ref:`consecutive-step-episode-summary` for the
+meaning of each status in **Task completion summary**.
+
+
 Change values from the command line
 -----------------------------------
 
