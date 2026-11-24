@@ -97,4 +97,4 @@ runs:
         echo "Caches restored from: ${MATCHED_KEY:-nothing (cache miss or nightly run)}"
         echo "Nucleus asset cache hit: ${{ steps.nucleus_cache.outputs.cache-hit }}"
         du -sh /isaac-sim/kit/cache ~/.cache/warp ~/.cache/lightwheel_sdk/* ~/.cache/ov/client 2>/dev/null || true
-        find ~/.cache/ov/client -type f 2>/dev/null | wc -l
+        find ~/.cache/ov/client -type f 2>/dev/null | wc -l || true
