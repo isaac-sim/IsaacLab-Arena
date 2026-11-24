@@ -31,7 +31,7 @@ def _test_kitchen_knob_appliances(simulation_app):
         assert appliance.object_cfg.spawn.fix_root_link is (
             None if appliance_class is object_library.ForgeCadAirFryer else True
         )
-        knob = appliance.object_cfg.actuators["knob"]
+        knob = appliance.object_cfg.actuators["passive_joint"]
         assert knob.joint_names_expr == [appliance.turnable_joint_name]
         assert knob.stiffness == 0.0 and knob.damping == 0.0
         assert knob.armature > 0.0

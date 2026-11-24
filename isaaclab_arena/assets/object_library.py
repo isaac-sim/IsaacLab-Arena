@@ -9,7 +9,6 @@ from abc import ABC
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
-from isaaclab.actuators import ImplicitActuatorCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
@@ -28,6 +27,8 @@ from isaaclab_arena.assets.object_utils import (
     EMPTY_ARTICULATION_INIT_STATE_CFG,
     RIGID_BODY_PROPS_HIGH_PRECISION,
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
+    get_joint_drive_props,
+    get_passive_joint_actuators,
 )
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS, SIMREADY_PHYSICS_VARIANTS
@@ -2220,23 +2221,6 @@ class SimReadyCentralOscilloscope(LibraryObject, Pressable):
         super().__init__(**kwargs)
 
 
-def _passive_dial_actuators(joint_name: str) -> dict[str, ImplicitActuatorCfg]:
-    """Return an actuator group that leaves a dial joint undriven and frictional.
-
-    Armature adds joint-space inertia so gripper contacts do not fling the light dial link, and static friction holds
-    the dial where it is left.
-    """
-    dial_actuator = ImplicitActuatorCfg(
-        joint_names_expr=[joint_name],
-        stiffness=0.0,
-        damping=0.0,
-        armature=0.001,
-        friction=0.1,
-        dynamic_friction=0.1,
-    )
-    return {"knob": dial_actuator}
-
-
 @register_asset
 class LightwheelBlender003(LibraryObject, Turnable):
     """A Lightwheel countertop blender with a speed dial."""
@@ -2250,7 +2234,7 @@ class LightwheelBlender003(LibraryObject, Turnable):
     max_level_angle_deg = 150.0
     num_levels = 5
     spawn_cfg_addon = {"fix_root_link": True}
-    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}
 
 
 @register_asset
@@ -2266,7 +2250,7 @@ class LightwheelBlender008(LibraryObject, Turnable):
     max_level_angle_deg = 150.0
     num_levels = 5
     spawn_cfg_addon = {"fix_root_link": True}
-    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}
 
 
 @register_asset
@@ -2282,7 +2266,7 @@ class LightwheelStandMixer003(LibraryObject, Turnable):
     max_level_angle_deg = 150.0
     num_levels = 5
     spawn_cfg_addon = {"fix_root_link": True}
-    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}
 
 
 @register_asset
@@ -2298,7 +2282,7 @@ class LightwheelToaster002(LibraryObject, Turnable):
     max_level_angle_deg = 150.0
     num_levels = 5
     spawn_cfg_addon = {"fix_root_link": True}
-    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}
 
 
 @register_asset
@@ -2317,13 +2301,9 @@ class LightwheelToasterOven001(LibraryObject, Turnable):
         "fix_root_link": True,
         # The USD authors the door drive on a non-angular instance, which PhysX ignores, so gravity swings the door
         # open; this angular drive holds it closed.
-        "joint_drive_props": {
-            "/.*/door_joint": [
-                sim_utils.UsdPhysicsDriveCfg(drive_type="force", max_force=10.0, stiffness=20.0, damping=2.0)
-            ]
-        },
+        "joint_drive_props": get_joint_drive_props("door_joint"),
     }
-    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}
 
 
 @register_asset
@@ -2342,7 +2322,7 @@ class ForgeCadToaster(LibraryObject, Turnable):
     max_level_angle_deg = 150.0
     num_levels = 5
     spawn_cfg_addon = {"fix_root_link": True}
-    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}
 
 
 @register_asset
@@ -2361,7 +2341,7 @@ class ForgeCadAirFryer(LibraryObject, Turnable):
     max_level_angle_deg = 150.0
     num_levels = 5
     # The USD authors its own fixed base joint, so the spawner does not add one.
-    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}
 
 
 @register_asset
@@ -2380,4 +2360,4 @@ class PalatialToaster(LibraryObject, Turnable):
     max_level_angle_deg = 150.0
     num_levels = 5
     spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS, "fix_root_link": True}
-    asset_cfg_addon = {"actuators": _passive_dial_actuators(turnable_joint_name)}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}

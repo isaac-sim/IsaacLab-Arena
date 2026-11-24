@@ -5,6 +5,7 @@
 
 
 import isaaclab.sim as sim_utils
+from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
 from pxr import Usd
 
@@ -110,3 +111,58 @@ EMPTY_ARTICULATION_INIT_STATE_CFG = ArticulationCfg.InitialStateCfg(
     joint_pos={},
     joint_vel={},
 )
+
+
+def get_passive_joint_actuators(
+    joint_name: str,
+    actuator_name: str = "passive_joint",
+    armature: float = 0.001,
+    friction: float = 0.1,
+) -> dict[str, ImplicitActuatorCfg]:
+    """Return an actuator group that leaves a joint undriven and frictional, for an articulation's ``actuators``.
+
+    Armature adds joint-space inertia so contacts do not fling a light link, and static friction holds the joint
+    where it is left.
+
+    Args:
+        joint_name: Name or regular expression of the joint.
+        actuator_name: Key of the actuator group.
+        armature: Added joint inertia in kg m^2 for a revolute joint.
+        friction: Static and dynamic joint friction in N m for a revolute joint.
+
+    Returns:
+        A mapping from actuator_name to the actuator config.
+    """
+    actuator = ImplicitActuatorCfg(
+        joint_names_expr=[joint_name],
+        stiffness=0.0,
+        damping=0.0,
+        armature=armature,
+        friction=friction,
+        dynamic_friction=friction,
+    )
+    return {actuator_name: actuator}
+
+
+def get_joint_drive_props(
+    joint_name: str,
+    stiffness: float = 20.0,
+    damping: float = 2.0,
+    max_force: float = 10.0,
+) -> dict[str, list[sim_utils.UsdPhysicsDriveCfg]]:
+    """Return spawner joint_drive_props that author a force drive towards the joint's zero position.
+
+    The drive is written to the spawned USD, so it also applies when the source asset authors no drive, or authors
+    it on an instance PhysX ignores.
+
+    Args:
+        joint_name: Name of the joint, matched anywhere below the spawned prim.
+        stiffness: Drive stiffness in N m/rad for a revolute joint.
+        damping: Drive damping in N m s/rad for a revolute joint.
+        max_force: Maximum drive torque in N m for a revolute joint.
+
+    Returns:
+        A mapping from the joint's prim path pattern to its drive config.
+    """
+    drive = sim_utils.UsdPhysicsDriveCfg(drive_type="force", max_force=max_force, stiffness=stiffness, damping=damping)
+    return {f"/.*/{joint_name}": [drive]}
