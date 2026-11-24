@@ -160,9 +160,12 @@ class ArenaEnvBuilder:
     def _apply_camera_renderer(self) -> None:
         """Select the renderer of the embodiment camera rig as ``cfg.camera_renderer`` asks."""
         if self.cfg.camera_renderer is CameraRenderer.NEWTON_WARP:
+            # Isaac Lab also pairs Newton Warp with PhysX, but in Arena that leaves cameras on robot links at their
+            # start pose and does not draw the DROID gripper.
             assert self.resolved_physics_backend is PhysicsBackend.NEWTON, (
-                "camera_renderer 'newton_warp' renders Newton's model of the scene, so it requires the Newton physics"
-                f" backend, but this build uses '{self.resolved_physics_backend}'"
+                "camera_renderer 'newton_warp' requires the Newton physics backend, but this build uses"
+                f" '{self.resolved_physics_backend}'. With PhysX, Newton Warp leaves cameras on robot links at their"
+                " start pose."
             )
         embodiment = self.arena_env.embodiment
         if embodiment is not None and embodiment.camera_config is not None:

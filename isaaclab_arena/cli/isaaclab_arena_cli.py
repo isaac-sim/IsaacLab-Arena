@@ -109,7 +109,10 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         type=CameraRenderer,
         choices=list(CameraRenderer),
         default=CameraRenderer.ISAAC_RTX,
-        help="Renderer of the embodiment cameras: 'isaac_rtx' or 'newton_warp'. 'newton_warp' requires Newton physics.",
+        help=(
+            "Renderer of the embodiment cameras: 'isaac_rtx' or 'newton_warp'. 'newton_warp' requires Newton physics:"
+            " with PhysX, cameras on robot links stay at their start pose."
+        ),
     )
     arena_group.add_argument(
         "--resolve_on_reset",

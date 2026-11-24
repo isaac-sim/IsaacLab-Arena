@@ -15,8 +15,8 @@ class CameraRenderer(str, Enum):
     """Isaac Sim's RTX renderer, through Kit. Renders tiled and untiled cameras with either physics backend."""
 
     NEWTON_WARP = "newton_warp"
-    """Newton's Warp ray tracer, which renders Newton's model of the scene on the GPU. Requires the Newton physics
-    backend and tiled cameras."""
+    """Newton's Warp ray tracer, which renders Newton's model of the scene on the GPU. Requires tiled cameras and,
+    in Arena, the Newton physics backend: with PhysX, cameras on robot links stay at their start pose."""
 
     def __str__(self) -> str:
         return self.value

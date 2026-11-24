@@ -65,8 +65,8 @@ class ArenaEnvBuilderCfg:
     camera_renderer: CameraRenderer = CameraRenderer.ISAAC_RTX
     """Which renderer draws the embodiment cameras.
 
-    ``ISAAC_RTX`` renders through Kit. ``NEWTON_WARP`` renders Newton's model of the scene with Newton's Warp ray
-    tracer, so it requires the Newton physics backend and tiled cameras.
+    ``ISAAC_RTX`` renders through Kit. ``NEWTON_WARP`` renders with Newton's Warp ray tracer and requires tiled
+    cameras and the Newton physics backend: with PhysX, cameras on robot links stay at their start pose.
     """
 
     env_cfg_override: dict[str, Any] = field(default_factory=dict)

@@ -29,7 +29,7 @@ class ArenaCameraCfg:
 
     CameraCfg configclasses subclass this and declare camera fields (as per usual). The get_cfg
     then returns a copy using tiled Isaac RTX cameras by default. Setting ``use_tiled_camera=False``
-    selects the untiled renderer, and :meth:`set_renderer` selects the renderer.
+    selects the untiled renderer, and ``set_renderer`` selects the renderer.
     """
 
     # Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it.
@@ -50,18 +50,11 @@ class ArenaCameraCfg:
         """Select whether get_cfg returns tiled cameras."""
         self._use_tiled_camera = use_tiled_camera
 
-    @property
-    def renderer(self) -> CameraRenderer:
-        """The renderer of every camera that get_cfg returns."""
-        return self._renderer
-
-    @renderer.setter
-    def renderer(self, renderer: CameraRenderer | str) -> None:
-        self._renderer = CameraRenderer(renderer)
-
-    def set_renderer(self, renderer: CameraRenderer | str) -> None:
+    def set_renderer(self, renderer: CameraRenderer) -> None:
         """Select the renderer of every camera that get_cfg returns."""
-        self._renderer = CameraRenderer(renderer)
+        # A plain string would never match the renderer checks in get_cfg and would silently select Isaac RTX.
+        assert isinstance(renderer, CameraRenderer), f"Expected a CameraRenderer, got {renderer!r}"
+        self._renderer = renderer
 
     def camera_names(self) -> list[str]:
         """Return the field name of every camera in this rig."""
@@ -118,29 +111,25 @@ class ArenaCameraCfg:
         return rig
 
 
-# Renderer settings that shape the camera outputs and that both Isaac RTX and Newton Warp accept.
-_RENDERER_OUTPUT_SETTINGS = (
-    "semantic_filter",
-    "colorize_semantic_segmentation",
-    "colorize_instance_segmentation",
-    "semantic_segmentation_mapping",
-    "depth_clipping_behavior",
-)
-
-
 def _to_newton_warp_renderer_cfg(renderer_cfg: Any) -> Any:
-    """Return a Newton Warp renderer config that keeps the output settings of ``renderer_cfg``.
+    """Return a Newton Warp renderer config that keeps the output settings of an Isaac RTX ``renderer_cfg``.
 
     Segmentation and depth-clipping settings carry over. Isaac RTX quality settings have no Newton Warp
     counterpart and are dropped.
     """
     from isaaclab_newton.renderers import NewtonWarpRendererCfg
+    from isaaclab_physx.renderers import IsaacRtxRendererCfg
 
-    newton_warp_cfg = NewtonWarpRendererCfg()
-    for setting in _RENDERER_OUTPUT_SETTINGS:
-        if hasattr(renderer_cfg, setting):
-            setattr(newton_warp_cfg, setting, getattr(renderer_cfg, setting))
-    return newton_warp_cfg
+    assert isinstance(
+        renderer_cfg, IsaacRtxRendererCfg
+    ), f"Newton Warp replaces the Isaac RTX renderer, but this camera uses {type(renderer_cfg).__name__}"
+    return NewtonWarpRendererCfg(
+        semantic_filter=renderer_cfg.semantic_filter,
+        colorize_semantic_segmentation=renderer_cfg.colorize_semantic_segmentation,
+        colorize_instance_segmentation=renderer_cfg.colorize_instance_segmentation,
+        semantic_segmentation_mapping=renderer_cfg.semantic_segmentation_mapping,
+        depth_clipping_behavior=renderer_cfg.depth_clipping_behavior,
+    )
 
 
 def fit_image_size(height: int, width: int, max_height: int, max_width: int) -> tuple[int, int]:
