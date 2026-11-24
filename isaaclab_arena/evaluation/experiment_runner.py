@@ -166,6 +166,7 @@ def main():
         if variation_table.rows:
             print(variation_table)
 
+        from isaaclab_arena.evaluation.experiment_resource_usage import aggregate_experiment_resource_usage
         from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 
         completed_run_names = [
@@ -173,6 +174,8 @@ def main():
         ]
         timings_path = aggregate_experiment_timings(experiment_output_directory, completed_run_names)
         print(f"Wrote Arena Experiment timings to: {timings_path}")
+        resource_usage_path = aggregate_experiment_resource_usage(experiment_output_directory, completed_run_names)
+        print(f"Wrote Arena Experiment resources to: {resource_usage_path}")
 
         # Write HTML report.
         report_path = build_report(experiment_output_directory)

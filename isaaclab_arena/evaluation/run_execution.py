@@ -19,6 +19,7 @@ from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
+from isaaclab_arena.evaluation.experiment_resource_usage import write_run_resource_usage
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
@@ -31,6 +32,8 @@ from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
+from isaaclab_arena.utils.resource_usage import ResourceUsage
+from isaaclab_arena.utils.resource_usage_tracker import ResourceUsageTrackerDaemon
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
@@ -69,40 +72,42 @@ def execute_experiment(
         # Clear timers.
         reset_timer_stats()
         start_timestamp_ns = time.time_ns()
-        try:
-            result = build_and_run(
-                run_cfg,
-                output_dir=run_output_dir,
-                video_cfg=VideoRecordingCfg(
-                    record_viewport_video=record_viewport_video,
-                    record_camera_video=record_camera_video,
-                    video_base_dir=str(run_output_dir),
-                ),
-            )
-        except Exception as error:
-            results.append(
-                ArenaRunResult(
-                    run_name=run_cfg.name,
-                    status=RunStatus.FAILED,
-                    start_timestamp_ns=start_timestamp_ns,
-                    end_timestamp_ns=time.time_ns(),
+        with ResourceUsageTrackerDaemon() as resource_tracker:
+            try:
+                result = build_and_run(
+                    run_cfg,
+                    output_dir=run_output_dir,
+                    video_cfg=VideoRecordingCfg(
+                        record_viewport_video=record_viewport_video,
+                        record_camera_video=record_camera_video,
+                        video_base_dir=str(run_output_dir),
+                    ),
                 )
-            )
-            print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
-            print(f"Traceback: {traceback.format_exc()}", flush=True)
-            if not continue_on_error:
-                raise
-            continue
+            except Exception as error:
+                results.append(
+                    ArenaRunResult(
+                        run_name=run_cfg.name,
+                        status=RunStatus.FAILED,
+                        start_timestamp_ns=start_timestamp_ns,
+                        end_timestamp_ns=time.time_ns(),
+                    )
+                )
+                print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
+                print(f"Traceback: {traceback.format_exc()}", flush=True)
+                if not continue_on_error:
+                    raise
+                continue
 
         print_timer_stats()
-        _write_run_outputs(run_output_dir, result)
+        _write_run_outputs(run_output_dir, result, resource_tracker.get_usage())
         results.append(result)
     return results
 
 
-def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult) -> None:
-    """Write a completed Run's timings to its output directory."""
+def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult, usage: ResourceUsage) -> None:
+    """Write a completed Run's timings and resource usage to its output directory."""
     write_run_timings(run_output_dir)
+    write_run_resource_usage(run_output_dir, usage)
 
 
 def build_and_run(
