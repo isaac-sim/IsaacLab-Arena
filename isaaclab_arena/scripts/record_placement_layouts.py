@@ -129,18 +129,19 @@ def record_settled_placement_layouts(
     placer_params = arena_env.placer_params
     if placer_params is None:
         placer_params = build_placer_params_from_override(None)
-    arena_env.placer_params = replace(
-        placer_params,
-        placement_seed=cfg.seed,
-        min_unique_layouts_per_env=cfg.layouts_per_env,
-        resolve_on_reset=True,
-    )
+    # The pool holds one layout per episode, so the episode budget below is one episode per recorded layout.
+    arena_env.placer_params = replace(placer_params, placement_seed=cfg.seed, resolve_on_reset=True)
 
     print(f"[recording] Solving placements for {cfg.num_envs} environments...", flush=True)
     env = ArenaEnvBuilder(
         arena_env,
         ArenaEnvBuilderCfg(
-            num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, seed=cfg.seed, device=device, presets=cfg.presets
+            num_envs=cfg.num_envs,
+            env_spacing=cfg.env_spacing,
+            seed=cfg.seed,
+            device=device,
+            presets=cfg.presets,
+            num_episodes=cfg.num_envs * cfg.layouts_per_env,
         ),
     ).make_registered()
     try:

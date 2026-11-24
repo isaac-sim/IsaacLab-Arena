@@ -286,3 +286,60 @@ def test_set_initial_pose_create_reset_event_flag_controls_reset_event():
 
     box.set_initial_pose(Pose(position_xyz=(0.1, 0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     assert box.has_pose_reset_event()
+
+
+def test_placement_pool_holds_one_layout_per_episode():
+    from isaaclab_arena.environments.relation_solver_interface import DEFAULT_LAYOUTS_PER_ENV, placement_pool_size
+
+    assert placement_pool_size(100, 300) == 300
+    assert placement_pool_size(20, 100) == 100
+    assert placement_pool_size(100, 50) == 100, "every env needs at least one layout"
+    assert placement_pool_size(100, None) == 100 * DEFAULT_LAYOUTS_PER_ENV, "unknown budget keeps the default"
+
+
+def test_fixed_min_unique_layouts_per_env_is_deprecated_but_honoured(monkeypatch):
+    import warnings
+
+    from isaaclab_arena.environments import relation_solver_interface
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    class _PoolBuilt(Exception):
+        pass
+
+    captured = {}
+
+    def _fake_pool(objects, placer_params, pool_size, num_envs, collision_objects=None):
+        captured["pool_size"] = pool_size
+        raise _PoolBuilt()
+
+    monkeypatch.setattr(relation_solver_interface, "PooledObjectPlacer", _fake_pool)
+    desk, box = _make_desk(), _make_box()
+    with warnings.catch_warnings(record=True) as caught, pytest.raises(_PoolBuilt):
+        warnings.simplefilter("always")
+        relation_solver_interface.prepare_live_relation_placement(
+            [desk, box], num_envs=4, placer_params=ObjectPlacerParams(min_unique_layouts_per_env=3), num_episodes=400
+        )
+    assert captured["pool_size"] == 12, "the deprecated fixed count wins over the episode budget"
+    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+
+
+def test_pool_is_sized_from_the_episode_budget(monkeypatch):
+    from isaaclab_arena.environments import relation_solver_interface
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    class _PoolBuilt(Exception):
+        pass
+
+    captured = {}
+
+    def _fake_pool(objects, placer_params, pool_size, num_envs, collision_objects=None):
+        captured["pool_size"] = pool_size
+        raise _PoolBuilt()
+
+    monkeypatch.setattr(relation_solver_interface, "PooledObjectPlacer", _fake_pool)
+    desk, box = _make_desk(), _make_box()
+    with pytest.raises(_PoolBuilt):
+        relation_solver_interface.prepare_live_relation_placement(
+            [desk, box], num_envs=100, placer_params=ObjectPlacerParams(), num_episodes=300
+        )
+    assert captured["pool_size"] == 300, "one layout per episode"

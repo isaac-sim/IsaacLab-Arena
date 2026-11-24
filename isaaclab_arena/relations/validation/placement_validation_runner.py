@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from math import inf
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
@@ -45,8 +47,17 @@ class PlacementValidationRunner:
         self,
         batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
+        required_valid_per_env: int | None = None,
     ) -> BatchValidationDiagnostics:
         """Update each candidate's validation in place using the configured required-check policy.
+
+        Args:
+            batch: Candidate layouts to check; every candidate carries its env and its solver loss.
+            collision_objects: Fixed background obstacles in the scene.
+            required_valid_per_env: When set, the expensive checks run in loss order within each env and stop
+                once that many layouts of the env passed every required check; the layouts they never reached
+                are recorded as failing those checks, which keeps them out of the valid set. None checks every
+                candidate that passed the inexpensive checks.
 
         Returns:
             The batch's validation diagnostics.
@@ -80,6 +91,7 @@ class PlacementValidationRunner:
             layout_pass_verdicts_by_check,
             evaluated_layout_indices_by_check,
             rejections_by_check,
+            required_valid_per_env,
         )
         if self._visualizer is not None:
             self._visualizer.log_batch_verdicts(
@@ -131,30 +143,76 @@ class PlacementValidationRunner:
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
         rejections_by_check: dict[str, list[Rejection]],
+        required_valid_per_env: int | None = None,
     ) -> None:
-        """Run each expensive validator only on candidates that passed the required inexpensive checks."""
+        """Run each expensive validator only on candidates that passed the required checks so far.
+
+        With ``required_valid_per_env`` the candidates of each env are checked in loss order, in rounds that
+        request for every env only the layouts it still lacks, until every env has that many passing layouts or
+        runs out of candidates; unchecked candidates fail the check. Without it every passing candidate is checked.
+        """
         num_candidates = len(batch)
         for validator in self._validators:
-            if validator.run_after_inexpensive_checks:
-                passed_layout_indices = [
-                    i
-                    for i in range(num_candidates)
-                    if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
-                ]
-                if self._visualizer is not None:
-                    self._visualizer.set_active_layouts(passed_layout_indices)
-                # only passed layouts are validated
-                rejections = rejections_by_check[validator.check]
-                passed_layouts = batch.select(passed_layout_indices)
-                verdicts_over_passed_layout = validator.validate_batch(passed_layouts, collision_objects, rejections)
-                verdicts = [False] * num_candidates
-                for layout_index_within_batch, verdict in zip(
-                    passed_layout_indices, verdicts_over_passed_layout, strict=True
-                ):
-                    verdicts[layout_index_within_batch] = verdict
-                layout_pass_verdicts_by_check[validator.check] = verdicts
-                evaluated_layout_indices_by_check[validator.check] = passed_layout_indices
-                self._print_rejections(validator.check, rejections)
+            if not validator.run_after_inexpensive_checks:
+                continue
+            passed_layout_indices = [
+                i
+                for i in range(num_candidates)
+                if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
+            ]
+            if self._visualizer is not None:
+                self._visualizer.set_active_layouts(passed_layout_indices)
+            rejections = rejections_by_check[validator.check]
+            verdicts = [False] * num_candidates
+            if required_valid_per_env is None:
+                rounds = [passed_layout_indices]
+            else:
+                rounds = self._layout_rounds_until_enough_valid(
+                    batch, passed_layout_indices, required_valid_per_env, verdicts
+                )
+            evaluated_layout_indices: list[int] = []
+            for round_layout_indices in rounds:
+                round_verdicts = validator.validate_batch(
+                    batch.select(round_layout_indices), collision_objects, rejections
+                )
+                for layout_index, verdict in zip(round_layout_indices, round_verdicts, strict=True):
+                    verdicts[layout_index] = verdict
+                evaluated_layout_indices.extend(round_layout_indices)
+            layout_pass_verdicts_by_check[validator.check] = verdicts
+            evaluated_layout_indices_by_check[validator.check] = sorted(evaluated_layout_indices)
+            self._print_rejections(validator.check, rejections)
+
+    @staticmethod
+    def _layout_rounds_until_enough_valid(
+        batch: PlacementCandidateBatch,
+        passed_layout_indices: list[int],
+        required_valid_per_env: int,
+        verdicts: list[bool],
+    ) -> Iterator[list[int]]:
+        """Yield rounds of layout indices to check, in loss order per env, until every env has enough valid ones.
+
+        Reads ``verdicts`` between rounds, so the caller must write each round's verdicts into it before
+        asking for the next round.
+        """
+        ordered_per_env: dict[int, list[int]] = {}
+        for layout_index in passed_layout_indices:
+            ordered_per_env.setdefault(batch.candidates[layout_index].env_id, []).append(layout_index)
+        for layout_indices in ordered_per_env.values():
+            layout_indices.sort(key=lambda i: batch.candidates[i].loss if batch.candidates[i].loss is not None else inf)
+        next_position = dict.fromkeys(ordered_per_env, 0)
+        while True:
+            round_layout_indices: list[int] = []
+            for env_id, layout_indices in ordered_per_env.items():
+                checked = layout_indices[: next_position[env_id]]
+                missing = required_valid_per_env - sum(verdicts[i] for i in checked)
+                if missing <= 0:
+                    continue
+                take = layout_indices[next_position[env_id] : next_position[env_id] + missing]
+                next_position[env_id] += len(take)
+                round_layout_indices.extend(take)
+            if not round_layout_indices:
+                return
+            yield round_layout_indices
 
     @staticmethod
     def _print_rejection_causes(batch_diagnostics: BatchValidationDiagnostics) -> None:

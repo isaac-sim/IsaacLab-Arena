@@ -28,9 +28,13 @@ class ObjectPlacerParams:
     scene variety. ClutterOn uses its own random_yaw setting. Not optimized; collision checks use the
     rotated box."""
 
-    max_placement_attempts: int = 10
-    """Number of candidate layouts solved and ranked per result. Higher values raise the chance a valid
-    layout is found in the batched solve. Also bounds the refill batches in PooledObjectPlacer."""
+    max_placement_attempts: int = 2
+    """Number of candidate layouts solved and ranked per layout the pool keeps. Higher values raise the chance a
+    valid layout is found in one batched solve."""
+
+    max_pool_fill_batches: int = 10
+    """Most solve batches a placement pool fill may run before it falls back to best-loss layouts or fails. A
+    batch solves max_placement_attempts candidates for every layout an environment is still missing."""
 
     apply_positions_to_objects: bool = True
     """If True, automatically set solved positions on objects after placement."""
@@ -54,10 +58,12 @@ class ObjectPlacerParams:
     """If True, draw fresh layouts from the placement pool on each environment reset.
     If False, solve initial positions once and reuse them across all resets."""
 
-    min_unique_layouts_per_env: int = 5
-    """Number of unique pre-solved layouts per environment in the placement pool.
-    The pool stores ``min_unique_layouts_per_env * num_envs`` valid layouts so each
-    environment has many distinct configurations to draw from."""
+    min_unique_layouts_per_env: int | None = None
+    """Deprecated: fixed number of pre-solved layouts per environment in the placement pool.
+
+    None, the default, holds one layout per episode of the Run instead, split evenly over the environments
+    (see ``placement_pool_size``). Setting a number keeps that fixed size and warns.
+    """
 
     allow_best_loss_fallbacks: bool = True
     """Whether pooled placement may fill an environment's remaining slots with best-loss layouts when its last
@@ -87,10 +93,13 @@ class ObjectPlacerParams:
         """Validate scalar placement controls."""
         assert isinstance(self.max_placement_attempts, int) and not isinstance(self.max_placement_attempts, bool)
         assert self.max_placement_attempts > 0, "max_placement_attempts must be positive"
-        assert isinstance(self.min_unique_layouts_per_env, int) and not isinstance(
-            self.min_unique_layouts_per_env, bool
-        )
-        assert self.min_unique_layouts_per_env > 0, "min_unique_layouts_per_env must be positive"
+        assert isinstance(self.max_pool_fill_batches, int) and not isinstance(self.max_pool_fill_batches, bool)
+        assert self.max_pool_fill_batches > 0, "max_pool_fill_batches must be positive"
+        if self.min_unique_layouts_per_env is not None:
+            assert isinstance(self.min_unique_layouts_per_env, int) and not isinstance(
+                self.min_unique_layouts_per_env, bool
+            )
+            assert self.min_unique_layouts_per_env > 0, "min_unique_layouts_per_env must be positive"
         assert (
             math.isfinite(self.on_relation_z_tolerance_m) and self.on_relation_z_tolerance_m >= 0
         ), "on_relation_z_tolerance_m must be finite and non-negative"

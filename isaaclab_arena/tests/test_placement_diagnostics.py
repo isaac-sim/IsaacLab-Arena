@@ -94,7 +94,7 @@ def test_pool_diagnostics_record_fallbacks_and_explain_fill_failures():
     pool = PooledObjectPlacer(_desk_and_box(box_width_m=1.5), _placer_params(), pool_size=2, num_envs=2)
 
     diagnostics = pool.last_fill_diagnostics
-    # Every batch rejects every candidate, so the pool solves all max_placement_attempts batches, then falls back.
+    # Every batch rejects every candidate, so the pool solves all max_pool_fill_batches batches, then falls back.
     assert [batch.num_valid for batch in diagnostics.batches] == [0, 0]
     assert diagnostics.batches[0].checks["on_relation"].num_rejected == diagnostics.batches[0].num_candidates
     assert diagnostics.fallback_envs == [0, 1] and pool.had_fallbacks
@@ -325,6 +325,7 @@ def _placer_params(allow_best_loss_fallbacks: bool = True) -> ObjectPlacerParams
     return ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=20, verbose=False),
         max_placement_attempts=2,
+        max_pool_fill_batches=2,
         placement_seed=0,
         allow_best_loss_fallbacks=allow_best_loss_fallbacks,
     )

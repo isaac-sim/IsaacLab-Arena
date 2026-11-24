@@ -230,7 +230,10 @@ class ObjectPlacer:
             self._finish_candidate_geometry(batch, env_bboxes)
             self._assert_finite_solver_output(batch)
         with Timer("validate"):
-            self.last_batch_validation_diagnostics = self._validation.validate_candidates(batch, collision_objects)
+            results_per_env = max(1, candidates_per_env // attempts_per_result)
+        self.last_batch_validation_diagnostics = self._validation.validate_candidates(
+            batch, collision_objects, required_valid_per_env=results_per_env
+        )
         ranked_batches = self._rank_candidates(batch, num_envs)
 
         results = []

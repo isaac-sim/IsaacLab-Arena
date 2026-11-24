@@ -219,6 +219,7 @@ class ArenaEnvBuilder:
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
+            num_episodes=self.cfg.num_episodes,
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:

@@ -48,6 +48,8 @@ class RelationSolver:
 
     POSITION_HISTORY_SAVE_INTERVAL = 10
     """Save position snapshot every N iterations (when save_position_history is enabled)."""
+    CONVERGENCE_CHECK_INTERVAL = 10
+    """Iterations between convergence checks; each check reads the loss back from the GPU."""
 
     def __init__(
         self,
@@ -342,21 +344,23 @@ class RelationSolver:
                 position_history.append(state.get_all_positions_snapshot())
 
             loss = self._compute_total_loss(state)
-            loss_history.append(loss.item())
+            loss_history.append(loss.detach())
 
             # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
             if loss.grad_fn is not None:
                 loss.backward()
                 optimizer.step()
 
-            if self.params.verbose and iter % 100 == 0:
-                print(f"Iter {iter}: loss = {loss.item():.6f}")
-
-            # Check convergence
-            if loss.item() < self.params.convergence_threshold:
-                if self.params.verbose:
-                    print(f"Converged at iteration {iter}")
-                break
+            # Reading the loss back syncs the GPU, so convergence is checked every few iterations.
+            if iter % self.CONVERGENCE_CHECK_INTERVAL == 0:
+                loss_value = loss.item()
+                if self.params.verbose and iter % 100 == 0:
+                    print(f"Iter {iter}: loss = {loss_value:.6f}")
+                if loss_value < self.params.convergence_threshold:
+                    if self.params.verbose:
+                        print(f"Converged at iteration {iter}")
+                    break
+        loss_history = torch.stack(loss_history).tolist() if loss_history else []
 
         # Recompute ranking losses for the positions returned after the final optimizer step.
         with torch.no_grad():

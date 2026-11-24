@@ -93,3 +93,54 @@ def top_down_grasp_pose_from_world_poses(
 
     t_R_O, q_R_O_xyzw = world_pose_to_robot_frame(t_W_O, q_W_O_xyzw, t_W_R, q_W_R_xyzw)
     return top_down_grasp_matrix(t_R_O, q_R_O_xyzw, grasp_z_offset, align_yaw_to_object)
+
+
+def world_poses_to_robot_frame_batched(
+    t_W_O: torch.Tensor,
+    q_W_O_xyzw: torch.Tensor,
+    t_W_R: torch.Tensor,
+    q_W_R_xyzw: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Re-express a batch of world-frame poses in their robot base frames.
+
+    Frames: W = world, R = robot base, O = object. All inputs have a leading batch dimension ``N``:
+    ``(N, 3)`` translations and ``(N, 4)`` xyzw quaternions. Returns ``(t_R_O, q_R_O_xyzw)`` of the same shapes.
+    """
+    q_R_W_xyzw = math_utils.quat_inv(q_W_R_xyzw)
+    R_R_W = math_utils.matrix_from_quat(q_R_W_xyzw)
+    t_R_O = torch.bmm(R_R_W, (t_W_O - t_W_R).unsqueeze(-1)).squeeze(-1)
+    q_R_O_xyzw = math_utils.quat_mul(q_R_W_xyzw, q_W_O_xyzw)
+    return t_R_O, q_R_O_xyzw
+
+
+def top_down_grasp_matrices(
+    t_R_O: torch.Tensor,
+    q_R_O_xyzw: torch.Tensor,
+    grasp_z_offset: float = 0.02,
+    align_yaw_to_object: bool = True,
+) -> torch.Tensor:
+    """Top-down grasp poses at a batch of objects, in the robot base frame, as ``(N, 4, 4)`` transforms.
+
+    The batched form of ``top_down_grasp_matrix``: lifts each target by ``grasp_z_offset``, faces the gripper
+    down and, when ``align_yaw_to_object``, spins each grasp about the vertical axis to the object's yaw folded
+    into [-pi/2, pi/2].
+    """
+    num_poses = t_R_O.shape[0]
+    device, dtype = t_R_O.device, t_R_O.dtype
+    t_grasp = t_R_O.clone()
+    t_grasp[:, 2] += grasp_z_offset
+    R_down = math_utils.matrix_from_quat(torch.tensor(DOWN_FACING_QUAT_XYZW, dtype=dtype, device=device).unsqueeze(0))
+    R_grasp = R_down.expand(num_poses, 3, 3)
+    if align_yaw_to_object:
+        R_R_O = math_utils.matrix_from_quat(q_R_O_xyzw)
+        yaw = torch.atan2(R_R_O[:, 1, 0], R_R_O[:, 0, 0])
+        yaw = torch.remainder(yaw + torch.pi / 2, torch.pi) - torch.pi / 2
+        cos_yaw, sin_yaw = torch.cos(yaw), torch.sin(yaw)
+        R_yaw = torch.eye(3, device=device, dtype=dtype).repeat(num_poses, 1, 1)
+        R_yaw[:, 0, 0], R_yaw[:, 0, 1] = cos_yaw, -sin_yaw
+        R_yaw[:, 1, 0], R_yaw[:, 1, 1] = sin_yaw, cos_yaw
+        R_grasp = torch.bmm(R_yaw, R_grasp)
+    T_R_G = torch.eye(4, device=device, dtype=dtype).repeat(num_poses, 1, 1)
+    T_R_G[:, :3, :3] = R_grasp
+    T_R_G[:, :3, 3] = t_grasp
+    return T_R_G
