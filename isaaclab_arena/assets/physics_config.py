@@ -12,7 +12,7 @@ from collections.abc import Callable
 from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.utils.configclass import configclass
-from pxr import Usd, UsdPhysics
+from pxr import Gf, Usd, UsdPhysics
 
 
 @configclass
@@ -48,6 +48,32 @@ class CollisionDisabledCfg(UsdPrimSpawnPhysicsCfg):
     def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
         """Disable the collider."""
         UsdPhysics.CollisionAPI(prim).CreateCollisionEnabledAttr().Set(False)
+
+
+@configclass
+class RigidBodyMassCfg(UsdPrimSpawnPhysicsCfg):
+    """Set a rigid body's mass, centre of mass and principal moments of inertia."""
+
+    mass: float = 1.0
+    """Mass [kg]."""
+
+    center_of_mass: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    """Centre of mass in the prim's own coordinates, which a spawn scale scales [m]."""
+
+    diagonal_inertia: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    """Principal moments of inertia about the centre of mass along the prim's axes, unchanged by a spawn scale [kg m^2]."""
+
+    def validate_target(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        """Require a rigid body."""
+        assert prim.HasAPI(UsdPhysics.RigidBodyAPI), f"{prim.GetPath()} is not a rigid body."
+
+    def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        """Author the mass properties."""
+        mass_api = UsdPhysics.MassAPI.Apply(prim)
+        mass_api.CreateMassAttr(self.mass)
+        mass_api.CreateCenterOfMassAttr(Gf.Vec3f(*self.center_of_mass))
+        mass_api.CreateDiagonalInertiaAttr(Gf.Vec3f(*self.diagonal_inertia))
+        mass_api.CreatePrincipalAxesAttr(Gf.Quatf(1.0))
 
 
 @configclass

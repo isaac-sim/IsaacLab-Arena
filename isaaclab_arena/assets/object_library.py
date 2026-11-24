@@ -28,7 +28,7 @@ from isaaclab_arena.assets.object_utils import (
     RIGID_BODY_PROPS_HIGH_PRECISION,
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
-from isaaclab_arena.assets.physics_config import CollisionDisabledCfg
+from isaaclab_arena.assets.physics_config import CollisionDisabledCfg, RigidBodyMassCfg
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.simready_constants import SIMREADY_CENTRAL_PHYSICS_VARIANTS, SIMREADY_PHYSICS_VARIANTS
 from isaaclab_arena.assets.sources.base import UsdSource
@@ -855,7 +855,14 @@ class GreenCube(LibraryObject):
     scale = (0.02, 0.02, 0.02)
 
 
-_BOXES_ONLY_SPAWN_CFG_ADDON = {"prim_physics": {"container_h20_inst/Container_H20_01": CollisionDisabledCfg()}}
+# The containers' five boxes collide; their mesh would collide too. The mass properties are the visual mesh's
+# as polypropylene (112 cm^3 at 900 kg/m^3) at the library scale, so every physics backend uses the same ones.
+_H20_CONTAINER_SPAWN_CFG_ADDON = {
+    "prim_physics": {
+        "container_h20_inst/Container_H20_01": CollisionDisabledCfg(),
+        ".": RigidBodyMassCfg(mass=0.1, center_of_mass=(0.0, 0.0, 0.0305), diagonal_inertia=(5.8e-4, 1.12e-3, 1.65e-3)),
+    }
+}
 
 
 @register_asset
@@ -868,7 +875,7 @@ class RedContainer(LibraryObject):
     tags = ["object"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_red.usd"
     scale = (0.5, 0.5, 0.5)
-    spawn_cfg_addon = _BOXES_ONLY_SPAWN_CFG_ADDON
+    spawn_cfg_addon = _H20_CONTAINER_SPAWN_CFG_ADDON
 
 
 @register_asset
@@ -881,7 +888,7 @@ class GreenContainer(LibraryObject):
     tags = ["object"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_green.usd"
     scale = (0.5, 0.5, 0.5)
-    spawn_cfg_addon = _BOXES_ONLY_SPAWN_CFG_ADDON
+    spawn_cfg_addon = _H20_CONTAINER_SPAWN_CFG_ADDON
 
 
 @register_asset

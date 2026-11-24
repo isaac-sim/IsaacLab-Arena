@@ -3,10 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _test_containers_collide_with_boxes_only(_simulation_app):
+def _test_containers_collide_with_boxes_and_set_mass(_simulation_app):
     from isaaclab.sim.utils import create_new_stage
     from pxr import Usd, UsdPhysics
 
@@ -29,8 +31,9 @@ def _test_containers_collide_with_boxes_only(_simulation_app):
             "Cube_03": True,
             "Cube_04": True,
         }, f"{container.name}: {colliders}"
+        assert UsdPhysics.MassAPI(root).GetMassAttr().Get() == pytest.approx(0.1)
     return True
 
 
-def test_containers_collide_with_boxes_only():
-    assert run_function_with_persistent_simulation_app(_test_containers_collide_with_boxes_only)
+def test_containers_collide_with_boxes_and_set_mass():
+    assert run_function_with_persistent_simulation_app(_test_containers_collide_with_boxes_and_set_mass)
