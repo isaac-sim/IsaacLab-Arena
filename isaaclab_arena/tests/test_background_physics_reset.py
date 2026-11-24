@@ -454,14 +454,15 @@ def test_reset_background_physics_handles_mixed_rigids():
     assert run_function_with_persistent_simulation_app(_test_reset_background_physics_handles_mixed_rigids)
 
 
-def _test_background_spawn_deactivates_embedded_physics_scene(_) -> bool:
-    """Spawn a background USD with its own physics scenes into two environments."""
+def _test_spawn_deactivates_embedded_physics_scenes(_) -> bool:
+    """Spawn a background USD and an object USD with their own physics scenes into two environments."""
     import tempfile
 
     from isaaclab.sim.utils import create_new_stage
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.assets.object import Object
 
     with tempfile.TemporaryDirectory() as temp_dir:
         background_path = f"{temp_dir}/background.usd"
@@ -486,8 +487,15 @@ def _test_background_spawn_deactivates_embedded_physics_scene(_) -> bool:
             for scene_path in ("PhysicsScene", "Prop_OnlineVisual/PhysicsScene"):
                 physics_scene = stage.GetPrimAtPath(f"/World/env_{index}/background/{scene_path}")
                 assert physics_scene.IsValid() and not physics_scene.IsActive()
+
+        online_object = Object(name="online_asset", usd_path=online_asset_path)
+        object_spawn = online_object.object_cfg.spawn
+        object_spawn.func("/World/env_.*/online_asset", object_spawn)
+        for index in range(2):
+            physics_scene = stage.GetPrimAtPath(f"/World/env_{index}/online_asset/PhysicsScene")
+            assert physics_scene.IsValid() and not physics_scene.IsActive()
     return True
 
 
-def test_background_spawn_deactivates_embedded_physics_scene():
-    assert run_function_with_persistent_simulation_app(_test_background_spawn_deactivates_embedded_physics_scene)
+def test_spawn_deactivates_embedded_physics_scenes():
+    assert run_function_with_persistent_simulation_app(_test_spawn_deactivates_embedded_physics_scenes)

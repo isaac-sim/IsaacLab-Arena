@@ -14,10 +14,26 @@ from typing import Any
 from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.utils import clone
 from isaaclab.utils.string import string_to_callable
-from pxr import Usd
+from pxr import Usd, UsdPhysics
 
 from isaaclab_arena.assets.physics_config import UsdFileCfgPrimPhysicsWrapper, UsdPrimSpawnPhysicsCfg
 from isaaclab_arena.utils.usd.prim_paths import get_prim_relative_to_root
+
+
+def deactivate_physics_scenes(prim: Usd.Prim) -> list[str]:
+    """Deactivate the physics scenes under a spawned asset prim, except those inside instanced subtrees.
+
+    Args:
+        prim: Spawned asset root.
+
+    Returns:
+        Paths of the deactivated physics scenes.
+    """
+    # Collect before deactivating; editing the stage can invalidate a live traversal.
+    physics_scenes = [candidate for candidate in Usd.PrimRange(prim) if candidate.IsA(UsdPhysics.Scene)]
+    for physics_scene in physics_scenes:
+        physics_scene.SetActive(False)
+    return [str(physics_scene.GetPath()) for physics_scene in physics_scenes]
 
 
 def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> UsdFileCfg:
