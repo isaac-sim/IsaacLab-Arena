@@ -274,7 +274,8 @@ runs:
         "end_timestamp_ns",
         "rebuilds",
     }
-    # The timing and resource files exist only when a timer or the resource tracker ran, so they are checked when present.
+    # The resource tracker always runs, so kpis_resource.json is expected whenever the default `resource` exporter is
+    # selected; a file may be absent only if the experiment selects other exporters. Present files are validated.
     kpis_filenames = {path.name for path in (tmp_path / "output").glob("kpis_*.json")}
     assert "kpis_success_rates.json" in kpis_filenames
     assert kpis_filenames <= {"kpis_success_rates.json", "kpis_timing.json", "kpis_resource.json"}

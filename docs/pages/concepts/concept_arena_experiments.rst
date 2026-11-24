@@ -52,7 +52,8 @@ list names the registered KPI exporters (see the `KPI exporter registry
 <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_benchmarking/benchmarks/registry.py>`_)
 that write the Experiment's KPI records once every Run has completed. The default is
 ``[timing, resource]``: ``timing`` writes ``kpis_timing.json`` and ``resource`` writes
-``kpis_resource.json`` (VRAM, RAM, CPU and GPU utilization). An empty list exports no KPIs. KPIs are aggregated over all Runs of the Experiment. Each key below ``runs`` is a Run name:
+``kpis_resource.json`` (VRAM, RAM, CPU and GPU utilization, sampled over each whole Run). An empty list
+exports no KPIs. KPIs are aggregated over all Runs of the Experiment. Each key below ``runs`` is a Run name:
 
 .. code-block:: yaml
 

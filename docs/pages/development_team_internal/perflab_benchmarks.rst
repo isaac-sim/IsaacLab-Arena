@@ -208,6 +208,9 @@ names one resource, with ``count`` and unit-suffixed ``mean_<u>``, ``min_<u>``, 
 ``p50_<u>`` and ``p90_<u>``. ``arena_run_resources.json`` also holds the reservoir sample as
 ``samples_<u>``. ``<u>`` is ``mb`` (megabytes of ``2**20`` bytes) or ``percent``. The default KPI exporters
 also write ``kpis_resource.json`` with one ``resource`` record per resource, totalled over every Run.
+The KPI is the absolute footprint of the process, so Runs that share a process inherit earlier
+allocations, and the RAM and VRAM peaks can only grow across such Runs. Per-Run isolation needs separate
+processes, for example one Experiment Runner invocation per Run.
 
 .. list-table::
    :header-rows: 1
@@ -227,7 +230,8 @@ also write ``kpis_resource.json`` with one ``resource`` record per resource, tot
      - Resident set size of the Arena process.
    * - ``cpu_util``
      - percent
-     - CPU time of the Arena process as a percent of one core, so it can exceed ``100``. It has no value for the first sample.
+     - CPU time of the Arena process as a percent of one core, so it can exceed ``100``.
+       It has no value for the first sample.
    * - ``gpu_util``
      - percent
      - GPU utilization of the device, from NVML.
@@ -235,6 +239,8 @@ also write ``kpis_resource.json`` with one ``resource`` record per resource, tot
 A tracker samples all four resources every 0.1 s during a Run, once at its start and once at its end.
 Peaks are the maximum of these samples, so a spike shorter than 0.1 s can be missed. The tracker needs
 NVML: if it cannot initialize, the Run fails at its start instead of reporting empty resources.
+VRAM and GPU utilization are read from NVML GPU 0, regardless of ``--device`` or ``CUDA_VISIBLE_DEVICES``,
+so on a multi-GPU machine that runs on another GPU they describe a different GPU. OSMO tasks have one GPU.
 
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
 trial wall-clock immediately before ``isaaclab.sh`` and stop it when that process exits. Container
