@@ -5,19 +5,21 @@
 
 name: Setup caches
 description: |
-  Restore the caches that speed up CI test jobs from the GitHub Actions cache: the Isaac
-  Sim kit cache (/isaac-sim/kit/cache: RTX shaders and the PhysX mesh cooking cache in
-  DerivedDataCache), the Warp kernel cache (~/.cache/warp) and the Lightwheel SDK asset
-  cache (~/.cache/lightwheel_sdk). Call once before the tests.
+  We cache certain directories to reduce time spent resolving assets and compiling shaders:
+    * Isaac Sim (kit cache RTX shaders and the PhysX mesh cooking cache)
+    * Warp kernel cache
+    * Lightwheel SDK asset cache
 
-  Every run except the nightly one restores the newest saved cache with the same name.
-  Runs on main (merges, the nightly run and manual dispatches) also save the cache at the
-  end of a successful job, so the cache accumulates what the runs on main used. Pull
-  requests only restore.
 
-  The nightly run starts without a restored cache. It shows whether the tests still pass
-  from scratch, and the cache it saves holds only what that run used, which removes
-  entries that are stale or no longer used.
+  Caching behavior depends on the type of CI run:
+
+                  RESTORED      SAVED
+    PREMERGE:        yes         no
+    POSTMERGE:       yes         yes
+    NIGHTLY:         no          yes
+
+  Note that we let NIGHTLY job start from a cold cache in order to prune entries that are stale or no longer
+  used. POSTMERGE runs from a warm cache to reduce the risk of unavailable asset endpoints.
 
 inputs:
   cache-name:
@@ -35,15 +37,14 @@ runs:
       shell: bash
       run: echo "isaac_sim_version=$(cat /isaac-sim/VERSION)" >> "${GITHUB_OUTPUT}"
 
-    # Restore the newest cache with this name. Pull requests only restore; on main the step
-    # below restores and saves.
-    # Cache only the floorplan and object directories of the Lightwheel SDK, excluding stray
-    # zip files. login/ must never be cached because it holds credentials.
+    # Restore the newest cache id
     - id: restore_caches
       name: Restore caches
-      if: github.ref != 'refs/heads/main'
-      uses: actions/cache/restore@v4
+      if: github.ref != 'refs/heads/main' # PREMERGE only
+      uses: actions/cache/restore@v4 # Only restore. no save
       with:
+        # For LightWheel we cache only floorplan and object directories, excluding stray zip
+        # files. login/ must never be cached because it holds credentials.
         path: |
           /isaac-sim/kit/cache
           ~/.cache/warp
@@ -54,15 +55,11 @@ runs:
         restore-keys: |
           ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
 
-    # On main, restore the newest cache (not on the nightly run, which has no restore-keys and
-    # so starts cold) and let actions/cache save the paths in a step at the end of a
-    # successful job when its key was not found. The key is new on every run, so it always
-    # saves. Keep the paths identical to the restore step above, because the cache version
-    # hash depends on them.
+    # Restore and save cache
     - id: restore_and_save_caches
       name: Restore caches and save them at the end of the job
-      if: github.ref == 'refs/heads/main'
-      uses: actions/cache@v4
+      if: github.ref == 'refs/heads/main' # POSTMERGE and NIGHTLY
+      uses: actions/cache@v4 # Default: restore and saves
       with:
         path: |
           /isaac-sim/kit/cache
@@ -70,7 +67,9 @@ runs:
           ~/.cache/lightwheel_sdk/floorplan
           ~/.cache/lightwheel_sdk/object
           !~/.cache/lightwheel_sdk/object/*.zip
+        # Key for new saved cache
         key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
+        # Key from previous run
         restore-keys: ${{ github.event_name != 'schedule' && format('ci-caches-{0}-{1}-', steps.read_isaac_sim_version.outputs.isaac_sim_version, inputs.cache-name) || '' }}
 
     - name: Print restored cache
