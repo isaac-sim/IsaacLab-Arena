@@ -51,9 +51,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variation_replay_scheduler: VariationReplayScheduler | None = None,
         **kwargs,
     ):
+        from isaaclab.utils.version import has_kit
+
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
 
-        apply_arena_global_settings()
+        if has_kit():
+            apply_arena_global_settings()
         self._arena_world: ArenaWorld | None = None
         self._progress_tracker: ProgressTracker | None = None
         self._task_progress_step = -1

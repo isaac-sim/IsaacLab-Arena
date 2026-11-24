@@ -8,9 +8,13 @@ import gc
 import os
 import sys
 import traceback
-from contextlib import nullcontext, suppress
+from contextlib import ExitStack, nullcontext, suppress
+from types import SimpleNamespace
 
-from isaaclab.app import AppLauncher
+from isaaclab.app import AppLauncher, launch_simulation, validate_launch
+
+from isaaclab_arena.utils.camera_renderer import CameraRenderer
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 
 def get_isaac_sim_version() -> str:
@@ -134,25 +138,72 @@ def _kill_child_processes() -> None:
                 continue
 
 
-class SimulationAppContext:
-    """Context manager for launching and closing a simulation app."""
+def _newton_launch_cfg(args: argparse.Namespace) -> SimpleNamespace:
+    """Return a stand-in for the environment config of a Newton run.
 
-    def __init__(self, args: argparse.Namespace):
+    Isaac Lab's launch reads the physics and the camera renderer of the config to decide whether to start Kit. Arena
+    builds the environment only after the launch, so the arguments stand in for it.
+    """
+    from isaaclab_newton.physics import NewtonCfg
+
+    cameras = CameraRenderer(args.camera_renderer).renderer_cfg() if args.enable_cameras else None
+    return SimpleNamespace(physics=NewtonCfg(), cameras=cameras)
+
+
+def _needs_kit(args: argparse.Namespace, require_kit: bool) -> bool:
+    """Return whether a run with these arguments needs Kit, as described in ``SimulationAppContext``."""
+    # Not every entry point has --presets.
+    if require_kit or getattr(args, "presets", None) != PhysicsBackend.NEWTON:
+        return True
+    launch_cfg = _newton_launch_cfg(args)
+    require_kit = (
+        (args.enable_cameras and launch_cfg.cameras is None) or args.xr or args.kit_args or os.environ.get("XR") == "1"
+    )
+    try:
+        _, kit_sources = validate_launch(launch_cfg, vars(args) | {"require_kit": require_kit})
+    except ValueError:
+        # Isaac Lab rejects some combinations without Kit, such as newton_rtx with a Kit visualizer. AppLauncher then
+        # drops newton_rtx and starts Kit.
+        return True
+    return bool(kit_sources)
+
+
+class SimulationAppContext:
+    """Context manager for launching and closing a simulation app.
+
+    Kit starts unless the run selects Newton physics (``--presets newton``) and Isaac Lab finds nothing that needs Kit,
+    such as Isaac RTX cameras, XR or ``--viz kit``.
+    """
+
+    def __init__(self, args: argparse.Namespace, require_kit: bool = False):
         """
         Args:
             args (argparse.Namespace): The arguments to the simulation app.
+            require_kit: Start Kit even if the arguments allow a launch without it.
         """
         self.args = args
+        self.require_kit = require_kit
         self.app_launcher = None
+        self._exit_stack = ExitStack()
 
     def is_running(self) -> bool:
+        if self.app_launcher is None:
+            from isaaclab.sim import SimulationContext
+
+            # Without Kit, a run goes on until the viewers of its simulation close; before it exists, nothing stopped.
+            simulation = SimulationContext.instance()
+            return simulation is None or simulation.is_running()
         return self.app_launcher.app.is_running()
 
     def is_exiting(self) -> bool:
-        return self.app_launcher.app.is_exiting()
+        return self.app_launcher is not None and self.app_launcher.app.is_exiting()
 
     def __enter__(self):
-        self.app_launcher = get_app_launcher(self.args)
+        if _needs_kit(self.args, self.require_kit):
+            self.app_launcher = get_app_launcher(self.args)
+            self._exit_stack.callback(self.app_launcher.app.close)
+        else:
+            self._exit_stack.enter_context(launch_simulation(_newton_launch_cfg(self.args), vars(self.args).copy()))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -180,7 +231,7 @@ class SimulationAppContext:
             _kill_child_processes()
             os._exit(0)
 
-        # Normal interactive / non-test path: attempt a clean Kit shutdown.
+        # Normal interactive / non-test path: attempt a clean shutdown.
         # app.close() may terminate the process with exit code 0 regardless of
         # errors — see the error branch above for the workaround.
-        self.app_launcher.app.close()
+        self._exit_stack.close()

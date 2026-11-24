@@ -504,12 +504,12 @@ def object_on_destination(
         force_matrix_w = contact_sensor.data.force_matrix_w
         assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
         force_matrix_w = force_matrix_w.torch
-        assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
-            f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
+        assert force_matrix_w.shape[:2] == (env.num_envs, 1), (
+            f"Contact sensor '{contact_sensor_cfg.name}' must sense one body; "
             f"got force shape {tuple(force_matrix_w.shape)}."
         )
-        # The two zeros select the sensor's single sensed body and single filtered destination body.
-        support_force_on_object_w = force_matrix_w[:, 0, 0, :]
+        # A static destination filtered by shape gives one column per collision shape, so the support force is their sum.
+        support_force_on_object_w = force_matrix_w[:, 0].sum(dim=1)
         destination_provides_upward_support = contact_force_is_upward_support(
             contact_force_w=support_force_on_object_w,
             force_threshold=force_threshold,

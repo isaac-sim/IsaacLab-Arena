@@ -3,7 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pxr import PhysxSchema, Usd
+from isaaclab.sim.utils import safe_set_attribute_on_usd_prim
+from pxr import Usd
 
 
 def add_contact_report(prim: Usd.Prim) -> None:
@@ -12,5 +13,6 @@ def add_contact_report(prim: Usd.Prim) -> None:
     Args:
         prim: The prim to add the contact report API to.
     """
-    cr_api = PhysxSchema.PhysxContactReportAPI.Apply(prim)
-    cr_api.CreateThresholdAttr().Set(0)
+    # Only Isaac Sim ships PhysxSchema's typed bindings.
+    prim.AddAppliedSchema("PhysxContactReportAPI")
+    safe_set_attribute_on_usd_prim(prim, "physxContactReport:threshold", 0.0, camel_case=False)

@@ -17,11 +17,17 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import CameraCfg
 from isaaclab.utils.images import is_depth_like, is_normals_like, is_rgb_like
+from isaaclab.utils.string import ResolvableString
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.camera_renderer import CameraRenderer
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+
+UNTILED_RENDERER = ResolvableString(
+    "isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer:UnTiledIsaacRtxRenderer"
+)
+"""The untiled renderer's class, resolved only when a camera uses it, because its module needs Kit."""
 
 
 class ArenaCameraCfg:
@@ -82,54 +88,54 @@ class ArenaCameraCfg:
         A copy is returned so callers may freely combine or mutate it without affecting this instance.
         Select tiling and the renderer on the source rig before calling this method.
         """
-        from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import (
-            UnTiledIsaacRtxRenderer,
-            assert_camera_cfg_compatible_with_independent_rendering,
-        )
-
         # Select the renderer for every camera in a copy, leaving the source rig reusable.
         # The renderer configuration determines tiling; the camera config type stays unchanged.
         rig = self.copy()
         for name in rig.camera_names():
             camera_cfg = getattr(rig, name)
-            assert camera_cfg.renderer_cfg.class_type is not UnTiledIsaacRtxRenderer, (
+            assert camera_cfg.renderer_cfg.class_type != UNTILED_RENDERER, (
                 "get_cfg() expects a source camera rig; change use_tiled_camera on the source rig, "
                 "not on the returned configuration"
             )
-            if self._renderer is CameraRenderer.NEWTON_WARP:
+            if self._renderer is not CameraRenderer.ISAAC_RTX:
                 assert self._use_tiled_camera, (
-                    f"Camera '{name}' is untiled, but Newton Warp renders tiled cameras only. Keep the rig tiled"
+                    f"Camera '{name}' is untiled, but {self._renderer} renders tiled cameras only. Keep the rig tiled"
                     " (the camera intrinsics variation makes it untiled) or select the Isaac RTX camera renderer."
                 )
-                camera_cfg.renderer_cfg = _to_newton_warp_renderer_cfg(camera_cfg.renderer_cfg)
-                # Newton Warp renders from the camera poses in the camera data, which keep their initial values
-                # unless updated, so a camera on a moving link would not follow it.
+                camera_cfg.renderer_cfg = _to_kitless_renderer_cfg(self._renderer, camera_cfg.renderer_cfg)
+                # Newton Warp and OVRTX render from the camera poses in the camera data, which keep their initial
+                # values unless updated, so a camera on a moving link would not follow it.
                 camera_cfg.update_latest_camera_pose = True
             elif not self._use_tiled_camera:
+                from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import (
+                    assert_camera_cfg_compatible_with_independent_rendering,
+                )
+
                 assert_camera_cfg_compatible_with_independent_rendering(camera_cfg)
-                camera_cfg.renderer_cfg.class_type = UnTiledIsaacRtxRenderer
+                camera_cfg.renderer_cfg.class_type = UNTILED_RENDERER
         return rig
 
 
-def _to_newton_warp_renderer_cfg(renderer_cfg: Any) -> Any:
-    """Return a Newton Warp renderer config that keeps the output settings of an Isaac RTX ``renderer_cfg``.
+def _to_kitless_renderer_cfg(renderer: CameraRenderer, renderer_cfg: Any) -> Any:
+    """Return a Newton Warp or OVRTX renderer config that keeps the output settings of an Isaac RTX ``renderer_cfg``.
 
-    Segmentation and depth-clipping settings carry over. Isaac RTX quality settings have no Newton Warp
-    counterpart and are dropped.
+    The segmentation and depth-clipping settings that the renderer has carry over. Isaac RTX quality settings have
+    no counterpart and are dropped.
     """
-    from isaaclab_newton.renderers import NewtonWarpRendererCfg
     from isaaclab_physx.renderers import IsaacRtxRendererCfg
 
     assert isinstance(
         renderer_cfg, IsaacRtxRendererCfg
-    ), f"Newton Warp replaces the Isaac RTX renderer, but this camera uses {type(renderer_cfg).__name__}"
-    return NewtonWarpRendererCfg(
+    ), f"{renderer} replaces the Isaac RTX renderer, but this camera uses {type(renderer_cfg).__name__}"
+    settings = dict(
         semantic_filter=renderer_cfg.semantic_filter,
         colorize_semantic_segmentation=renderer_cfg.colorize_semantic_segmentation,
         colorize_instance_segmentation=renderer_cfg.colorize_instance_segmentation,
         semantic_segmentation_mapping=renderer_cfg.semantic_segmentation_mapping,
         depth_clipping_behavior=renderer_cfg.depth_clipping_behavior,
     )
+    kitless_cfg = renderer.renderer_cfg()
+    return kitless_cfg.replace(**{name: value for name, value in settings.items() if hasattr(kitless_cfg, name)})
 
 
 def fit_image_size(height: int, width: int, max_height: int, max_width: int) -> tuple[int, int]:

@@ -36,11 +36,12 @@ _DEMO_SOLVER_MAX_ITERS = 250
 _DEMO_NUM_SPHERES = 8
 
 
-def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, args_cli=None) -> list[str]:
+def run_kitchen_background_collision_demo(app, view_steps: int = 0, args_cli=None) -> list[str]:
     """Solve the counter layout against the aggregate background mesh, then idle a viewer.
 
     Args:
-        simulation_app: The already-launched Isaac Sim application; the viewer runs until it stops.
+        app: The running app, Kit's ``SimulationApp`` or Arena's ``SimulationAppContext``; the viewer runs until it
+            stops.
         view_steps: Number of steps to run (0 = until the viewer window is closed).
         args_cli: Parsed CLI namespace. When None, defaults are parsed.
 
@@ -109,7 +110,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
 
     # Render without stepping physics so the solved placement stays on screen.
     step = 0
-    while simulation_app.is_running():
+    while app.is_running():
         if view_steps and step >= view_steps:
             break
         env.unwrapped.sim.render()
@@ -133,6 +134,4 @@ if __name__ == "__main__":
     _parser.add_argument("--view_steps", type=int, default=0, help="Steps to run (0 = until the viewer is closed).")
     _args_cli = _parser.parse_args()
     with SimulationAppContext(_args_cli) as _app_context:
-        run_kitchen_background_collision_demo(
-            _app_context.app_launcher.app, view_steps=_args_cli.view_steps, args_cli=_args_cli
-        )
+        run_kitchen_background_collision_demo(_app_context, view_steps=_args_cli.view_steps, args_cli=_args_cli)

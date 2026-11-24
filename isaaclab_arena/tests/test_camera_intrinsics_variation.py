@@ -98,11 +98,11 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).build_env_cfg()
 
-    from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import UnTiledIsaacRtxRenderer
+    from isaaclab_arena.utils.cameras import UNTILED_RENDERER
 
     for name in arena_env.embodiment.camera_config.camera_names():
         camera_cfg = getattr(env_cfg.scene, name)
-        assert camera_cfg.renderer_cfg.class_type is UnTiledIsaacRtxRenderer
+        assert camera_cfg.renderer_cfg.class_type == UNTILED_RENDERER
     camera_cfg = getattr(env_cfg.scene, CAMERA_NAME)
     assert rig.wrist_camera.renderer_cfg.class_type == original_renderer
     assert camera_cfg.renderer_cfg.global_settings.samples_per_pixel == 4
@@ -119,7 +119,7 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
     tiled = rig.get_cfg()
     assert tiled.wrist_camera.renderer_cfg.class_type == original_renderer
     rig.set_use_tiled_camera(False)
-    assert rig.get_cfg().wrist_camera.renderer_cfg.class_type is UnTiledIsaacRtxRenderer
+    assert rig.get_cfg().wrist_camera.renderer_cfg.class_type == UNTILED_RENDERER
     return True
 
 

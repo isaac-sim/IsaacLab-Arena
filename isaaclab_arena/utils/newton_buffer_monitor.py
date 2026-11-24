@@ -75,7 +75,11 @@ class NewtonBufferMonitor:
 
     def check(self) -> None:
         """Abort on overflow after replay, synchronizing one small status array to the host."""
+        from mujoco_warp import OverflowType
+
         num_contacts, num_constraints, flags = self._peaks.numpy().tolist()
+        # A solve stopped at its iteration limit is unconverged but valid.
+        flags &= ~int(OverflowType.ITERATIONS | OverflowType.LS_ITERATIONS)
         failures = []
         if num_contacts > self._data.naconmax:
             num_contacts_required = (num_contacts + self._data.nworld - 1) // self._data.nworld

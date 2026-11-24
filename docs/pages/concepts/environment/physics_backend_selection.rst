@@ -110,6 +110,11 @@ An Experiment Definition sets it under ``environment_builder`` by enum name, as 
      presets: NEWTON
      camera_renderer: NEWTON_WARP
 
+``--camera_renderer ovrtx`` selects Isaac Lab's OVRTX renderer, which renders with Omniverse RTX without Kit and,
+like Newton Warp, requires the Newton backend and tiled cameras. With either renderer, a ``--presets newton`` run
+with cameras starts no Kit, unless something else needs Kit, such as ``--viz kit`` or XR. OVRTX cannot run with
+Kit, so such a run stops with an error.
+
 ``build_env_cfg`` passes the choice to the embodiment's camera rig before it reads the camera configuration.
 Newton Warp keeps each camera's segmentation and depth-clipping settings; the Isaac RTX quality settings have no
 Newton Warp counterpart. Newton Warp renders tiled cameras only; untiled cameras, such as those of the camera

@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import functools
 import numpy as np
+import os
 import trimesh
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 
+from isaaclab.utils.assets import retrieve_file_path
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.assets.object_type import ObjectType
@@ -148,10 +150,22 @@ def get_prim_depth(prim: Usd.Prim) -> int:
     return len(str(prim.GetPath()).split("/")) - 2
 
 
+_retrieve_file_path_once = functools.cache(retrieve_file_path)
+
+
+def open_usd_file(path: str) -> Usd.Stage:
+    """Open the USD stage at a local path or URL, localized first with Isaac Lab's ``retrieve_file_path``.
+
+    That downloads a URL and its remote references, which USD alone cannot fetch. The localized path is cached for the
+    life of the process, by absolute path for a local file.
+    """
+    return Usd.Stage.Open(_retrieve_file_path_once(os.path.abspath(path) if os.path.isfile(path) else path))
+
+
 @contextmanager
 def open_stage(path):
     """Open a stage and ensure it is closed after use."""
-    stage = Usd.Stage.Open(path)
+    stage = open_usd_file(path)
     try:
         yield stage
     finally:
@@ -212,7 +226,7 @@ def compute_local_bounding_box_from_usd(
     Returns:
         AxisAlignedBoundingBox containing local min and max points.
     """
-    stage = Usd.Stage.Open(usd_path)
+    stage = open_usd_file(usd_path)
     if not stage:
         raise ValueError(f"Failed to open USD file: {usd_path}")
     return compute_local_bounding_box_from_stage(stage, scale=scale, prim_path=prim_path)
@@ -370,7 +384,7 @@ def extract_trimesh_from_usd(
         path.startswith("/") for path in excluded_paths
     ), f"excluded_prim_paths must be absolute USD paths, got {excluded_paths}"
 
-    stage = Usd.Stage.Open(usd_path)
+    stage = open_usd_file(usd_path)
     if stage is None:
         raise ValueError(f"Failed to open USD: {usd_path}")
 
@@ -526,7 +540,7 @@ def extract_trimesh_from_usd_path(
     Scoping extraction to the default prim excludes sibling scene props (ground planes, stray
     objects) baked into some flattened articulation USDs.
     """
-    stage = Usd.Stage.Open(usd_path)
+    stage = open_usd_file(usd_path)
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
     return extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
@@ -561,7 +575,7 @@ def _extract_trimesh_from_usd_at_joint_pos(
         component > 0 for component in scale
     ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
     joint_pos = dict(joint_pos_items)
-    stage = Usd.Stage.Open(usd_path)
+    stage = open_usd_file(usd_path)
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
     root_path = default_prim.GetPath().pathString
@@ -695,7 +709,7 @@ def _compute_local_bounding_box_from_usd_at_joint_pos(
 ) -> AxisAlignedBoundingBox:
     """Cacheable body of ``compute_local_bounding_box_from_usd_at_joint_pos``, keyed by hashable args."""
     joint_pos = dict(joint_pos_items)
-    stage = Usd.Stage.Open(usd_path)
+    stage = open_usd_file(usd_path)
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
     root_path = default_prim.GetPath().pathString

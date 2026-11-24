@@ -67,6 +67,7 @@ class ArenaEnvBuilderCfg:
 
     ``ISAAC_RTX`` renders through Kit. ``NEWTON_WARP`` renders with Newton's Warp ray tracer and requires tiled
     cameras and the Newton physics backend: with PhysX, cameras on robot links stay at their start pose.
+    ``OVRTX`` renders with Omniverse RTX without Kit and has the same requirements.
     """
 
     env_cfg_override: dict[str, Any] = field(default_factory=dict)
