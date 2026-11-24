@@ -201,7 +201,8 @@ reservoir sample as ``samples_ms``. ``arena_experiment_timings.json`` lists the 
 ``totals``. The percentiles in ``totals`` are approximate and pooled from the Runs' samples. The timers cover the rollout only. Isaac Sim
 startup and scene construction are part of the trial wall-clock but have no timer of their own.
 
-Each command also writes the resource usage of the rollout: ``arena_experiment_resources.json`` next to
+Each command also writes the resource usage of each whole Run, from environment build to teardown:
+``arena_experiment_resources.json`` next to
 ``arena_experiment_timings.json``, and ``arena_run_resources.json`` next to ``arena_run_timings.json``.
 Their layout matches the timing files, with ``runs`` and ``totals`` in the Experiment file. Each record
 names one resource, with ``count`` and unit-suffixed ``mean_<u>``, ``min_<u>``, ``max_<u>``, ``p10_<u>``,
@@ -209,7 +210,7 @@ names one resource, with ``count`` and unit-suffixed ``mean_<u>``, ``min_<u>``, 
 ``samples_<u>``. ``<u>`` is ``mb`` (megabytes of ``2**20`` bytes) or ``percent``. The default KPI exporters
 also write ``kpis_resource.json`` with one ``resource`` record per resource, totalled over every Run.
 The KPI is the absolute footprint of the process, so Runs that share a process inherit earlier
-allocations, and the RAM and VRAM peaks can only grow across such Runs. Per-Run isolation needs separate
+allocations, so a Run's footprint can include memory held over from earlier Runs. Per-Run isolation needs separate
 processes, for example one Experiment Runner invocation per Run.
 
 .. list-table::
