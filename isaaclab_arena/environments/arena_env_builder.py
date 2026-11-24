@@ -65,6 +65,7 @@ from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import task_success_from_progress
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
+from isaaclab_arena.utils.camera_renderer import CameraRenderer
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_warp_to_torch_patch
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -155,6 +156,21 @@ class ArenaEnvBuilder:
             " 'embodiment_default' instead"
         )
         embodiment.camera_config.fit_resolution(*policy_image_size)
+
+    def _apply_camera_renderer(self) -> None:
+        """Select the renderer of the embodiment camera rig as ``cfg.camera_renderer`` asks."""
+        if self.cfg.camera_renderer is CameraRenderer.NEWTON_WARP:
+            # Isaac Lab also pairs Newton Warp with PhysX, but in Arena that leaves cameras on robot links at their
+            # start pose and does not draw the DROID gripper.
+            assert self.resolved_physics_backend is PhysicsBackend.NEWTON, (
+                "camera_renderer 'newton_warp' requires the Newton physics backend, but this build uses"
+                f" '{self.resolved_physics_backend}'. With PhysX, Newton Warp leaves cameras on robot links at their"
+                " start pose."
+            )
+        embodiment = self.arena_env.embodiment
+        if embodiment is not None and embodiment.camera_config is not None:
+            # Set the default too: the rig belongs to the environment, which a later build may reuse.
+            embodiment.camera_config.set_renderer(self.cfg.camera_renderer)
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:
@@ -381,8 +397,10 @@ class ArenaEnvBuilder:
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
         embodiment.configure_physics_backend(resolved_physics_backend)
-        # Fit the cameras before embodiment.get_scene_cfg() and the observation cfgs read their dimensions.
+        # Fit the cameras and select their renderer before embodiment.get_scene_cfg() and the observation cfgs read
+        # their dimensions.
         self._apply_camera_resolution_mode()
+        self._apply_camera_renderer()
         task = self.arena_env.task or NoTask()
         task.configure_for_embodiment(embodiment)
         scene_cfg = combine_configclass_instances(
