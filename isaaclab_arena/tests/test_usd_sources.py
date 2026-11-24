@@ -78,7 +78,9 @@ def test_lightwheel_source_is_lazy_and_memoizes_acquisition():
     loader_module.object_loader = loader
     package = ModuleType("lightwheel_sdk")
     package.loader = loader_module
-    source = LightwheelObjectUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    source = LightwheelObjectUsdSource(
+        registry_type="objects", file_name="Broccoli015", file_type="USD", registry_name=["broccoli"]
+    )
 
     assert loader.acquire_by_registry.call_count == 0
     with patch.dict(
@@ -92,8 +94,9 @@ def test_lightwheel_source_is_lazy_and_memoizes_acquisition():
     assert first == "/cache/broccoli.usd"
     loader.acquire_by_registry.assert_called_once_with(
         registry_type="objects",
-        registry_name=["broccoli"],
+        file_name="Broccoli015",
         file_type="USD",
+        registry_name=["broccoli"],
     )
 
 
@@ -131,7 +134,7 @@ def test_lightwheel_floorplan_source_is_lazy_and_memoizes_acquisition():
     )
 
 
-def test_lightwheel_object_source_returns_cached_path_without_importing_sdk(empty_lightwheel_cache):
+def test_lightwheel_object_source_returns_cached_path_without_importing_sdk(empty_lightwheel_cache, capsys):
     object_dir = empty_lightwheel_cache / "object" / "Microwave039"
     object_dir.mkdir(parents=True)
     (object_dir / "Microwave039.usd").write_text("")
@@ -140,9 +143,10 @@ def test_lightwheel_object_source_returns_cached_path_without_importing_sdk(empt
 
     with patch.dict("sys.modules", BLOCK_LIGHTWHEEL_SDK):
         assert source.to_local_usd_path() == str(object_dir / "Microwave039.usd")
+    assert "Lightwheel cache hit: lightwheel-object/microwave039" in capsys.readouterr().out
 
 
-def test_lightwheel_object_source_calls_sdk_on_cache_miss():
+def test_lightwheel_object_source_calls_sdk_on_cache_miss(capsys):
     loader = SimpleNamespace(
         acquire_by_registry=Mock(return_value=("/cache/microwave.usd", "microwave", {})),
         client=SimpleNamespace(base_timeout=10),
@@ -151,27 +155,16 @@ def test_lightwheel_object_source_calls_sdk_on_cache_miss():
 
     with patch.dict("sys.modules", _make_loader_modules(object_loader=loader)):
         assert source.to_local_usd_path() == "/cache/microwave.usd"
+    assert "Lightwheel cache miss: lightwheel-object/microwave039" in capsys.readouterr().out
 
     loader.acquire_by_registry.assert_called_once_with(
         registry_type="fixtures", file_name="Microwave039", file_type="USD"
     )
 
 
-def test_lightwheel_source_without_file_name_bypasses_cache(empty_lightwheel_cache):
-    object_dir = empty_lightwheel_cache / "object" / "Broccoli015"
-    object_dir.mkdir(parents=True)
-    (object_dir / "Broccoli015.usd").write_text("")
-    (object_dir / "version.txt").write_text("1")
-    loader = SimpleNamespace(
-        acquire_by_registry=Mock(return_value=("/sdk/broccoli.usd", "broccoli", {})),
-        client=SimpleNamespace(base_timeout=10),
-    )
-    source = LightwheelObjectUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
-
-    with patch.dict("sys.modules", _make_loader_modules(object_loader=loader)):
-        assert source.to_local_usd_path() == "/sdk/broccoli.usd"
-
-    loader.acquire_by_registry.assert_called_once()
+def test_lightwheel_object_source_requires_a_file_name():
+    with pytest.raises(AssertionError, match="needs a file_name"):
+        LightwheelObjectUsdSource(registry_type="objects", file_name="", file_type="USD")
 
 
 def test_lightwheel_floorplan_source_returns_cached_path_without_importing_sdk(empty_lightwheel_cache):
@@ -260,76 +253,6 @@ def test_extract_asset_usd_path_resolves_source_without_constructing_asset():
     source.to_local_usd_path.assert_called_once_with()
 
 
-def test_broccoli_is_pinned_to_one_variant():
-    from isaaclab_arena.assets.object_library import Broccoli
-
-    assert Broccoli.usd_source._kwargs == {
-        "registry_type": "objects",
-        "file_name": "Broccoli015",
-        "file_type": "USD",
-    }
-
-
-class _FakeLightwheelSource(LightwheelSource):
-    """Minimal subclass recording how the base class drives the cache lookup and the SDK call."""
-
-    def __init__(self, key, cached_path):
-        super().__init__(name="fake")
-        self._key = key
-        self._cached_path = cached_path
-        self.acquire_fn = Mock(return_value=("/sdk/fake.usd", {}))
-
-    def _get_cache_key(self):
-        return self._key
-
-    def _get_cached_usd_path(self):
-        return self._cached_path
-
-    def _get_lightwheel_sdk_loader(self):
-        return SimpleNamespace(client=SimpleNamespace(base_timeout=10))
-
-    def _get_lightwheel_sdk_download_fn(self, loader):
-        return self.acquire_fn
-
-
-def test_lightwheel_asset_source_cannot_be_instantiated_without_the_four_hooks():
+def test_lightwheel_source_cannot_be_instantiated_without_the_four_hooks():
     with pytest.raises(TypeError):
         LightwheelSource()
-
-
-def test_lightwheel_asset_source_hit_prints_key_and_skips_the_sdk(capsys):
-    source = _FakeLightwheelSource("lightwheel-object/fake", "/cache/fake.usd")
-
-    assert source.to_local_usd_path() == "/cache/fake.usd"
-
-    assert "Lightwheel cache hit: lightwheel-object/fake" in capsys.readouterr().out
-    source.acquire_fn.assert_not_called()
-
-
-def test_lightwheel_asset_source_miss_prints_key_and_acquires_through_the_sdk(capsys):
-    source = _FakeLightwheelSource("lightwheel-object/fake", None)
-
-    assert source.to_local_usd_path() == "/sdk/fake.usd"
-
-    assert "Lightwheel cache miss: lightwheel-object/fake" in capsys.readouterr().out
-    source.acquire_fn.assert_called_once_with(name="fake")
-
-
-def test_lightwheel_asset_source_without_a_key_is_not_cacheable_and_never_looks_in_the_cache(capsys):
-    source = _FakeLightwheelSource(None, "/cache/should-not-be-used.usd")
-
-    assert source.to_local_usd_path() == "/sdk/fake.usd"
-
-    assert "is not cacheable" in capsys.readouterr().out
-    source.acquire_fn.assert_called_once_with(name="fake")
-
-
-def test_lightwheel_asset_source_memoizes_its_path(capsys):
-    source = _FakeLightwheelSource("lightwheel-object/fake", None)
-
-    first = source.to_local_usd_path()
-    second = source.to_local_usd_path()
-
-    assert first == second
-    source.acquire_fn.assert_called_once()
-    assert capsys.readouterr().out.count("Lightwheel cache miss") == 1

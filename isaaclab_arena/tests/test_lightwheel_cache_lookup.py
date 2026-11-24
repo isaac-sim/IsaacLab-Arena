@@ -3,8 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import inspect
 import json
+from pathlib import Path
 
 import pytest
 
@@ -86,6 +86,7 @@ def test_get_cached_floorplan_usd_path_hits_when_version_entry_is_null(cache_roo
 
 def test_get_cached_floorplan_usd_path_misses_without_version_entry(cache_root):
     make_floorplan(cache_root, "robocasa-robocasakitchen-7-10", register=False)
+    (cache_root / "floorplan" / "usd_version.json").write_text(json.dumps({"robocasa-robocasakitchen-1-1": "uuid1"}))
     assert get_cached_floorplan_usd_path("robocasakitchen", 7, 10, "robocasa") is None
 
 
@@ -102,12 +103,18 @@ def test_get_cached_floorplan_usd_path_misses_without_version_file(cache_root):
 
 
 def test_floorplan_cache_dir_name_matches_installed_sdk(cache_root):
-    floorplan_module = pytest.importorskip("lightwheel_sdk.loader.floorplan")
-    loader_classes = [
-        cls for _, cls in inspect.getmembers(floorplan_module, inspect.isclass) if "_usd_cache_name" in vars(cls)
-    ]
-    assert loader_classes, "no loader class defines _usd_cache_name"
-    sdk_name = loader_classes[0]._usd_cache_name(None, "robocasa", "robocasakitchen", 7, 10)
+    sdk_loader = pytest.importorskip("lightwheel_sdk.loader")
+    sdk_name = sdk_loader.floorplan_loader._usd_cache_name("robocasa", "robocasakitchen", 7, 10)
     make_floorplan(cache_root, sdk_name)
     expected = str(cache_root / "floorplan" / sdk_name / "scene.usd")
     assert get_cached_floorplan_usd_path("robocasakitchen", 7, 10, "robocasa") == expected
+
+
+def test_cache_root_matches_installed_sdk():
+    pytest.importorskip("lightwheel_sdk.loader")
+    from lightwheel_sdk.loader import floorplan as sdk_floorplan
+    from lightwheel_sdk.loader import object as sdk_object
+
+    sdk_root = lightwheel.LIGHTWHEEL_SDK_CACHE_ROOT
+    assert sdk_object.CACHE_PATH == Path(sdk_root).expanduser() / "object"
+    assert sdk_floorplan.CACHE_PATH == Path(sdk_root).expanduser() / "floorplan"

@@ -785,7 +785,7 @@ class GreenApple(LibraryObject):
 
     registry_name = "green_apple"
     tags = ["object", "fruit", "graspable"]
-    usd_source = LightwheelUsdSource(
+    usd_source = LightwheelObjectUsdSource(
         registry_type="objects", registry_name=["apple"], file_name="Apple029", file_type="USD"
     )
 
@@ -798,7 +798,7 @@ class Sponge(LibraryObject):
 
     registry_name = "sponge"
     tags = ["object", "graspable"]
-    usd_source = LightwheelUsdSource(
+    usd_source = LightwheelObjectUsdSource(
         registry_type="objects", registry_name=["sponge"], file_name="Sponge012", file_type="USD"
     )
 

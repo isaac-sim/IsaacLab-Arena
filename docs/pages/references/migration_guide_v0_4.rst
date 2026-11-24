@@ -235,7 +235,12 @@ USD sources
 ``Object``, ``Background`` and library classes accept a ``usd_source`` as an alternative to
 ``usd_path``; pass only one. A ``usd_source`` is downloaded on first use and its local path is stored
 in ``usd_path``. An explicit ``usd_path`` is kept as given. Lightwheel-backed assets declare
-``usd_source = LightwheelUsdSource(...)``, which replaces ``LightwheelLazyPath`` (#1621).
+``usd_source = LightwheelObjectUsdSource(...)`` for objects or ``LightwheelFloorplanUsdSource(...)``
+for floorplans, which replace ``LightwheelLazyPath`` (#1621). A Lightwheel asset found in the SDK
+cache (``~/.cache/lightwheel_sdk``) is used without calling the Lightwheel servers.
+
+``Broccoli`` now pins the file ``Broccoli015``. It used the category ``broccoli``, so the server picked
+the variant, and results that used the broccoli can change.
 
 ``Background`` reordered its arguments, so positional calls must change:
 

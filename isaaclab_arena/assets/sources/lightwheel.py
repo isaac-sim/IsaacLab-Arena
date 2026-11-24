@@ -31,6 +31,9 @@ class LightwheelSource(UsdSource, ABC):
     """Acquire and memoize one Lightwheel USD, using the SDK cache directory when the asset is complete there.
 
     The cache lookup avoids error-prone API and remote calls when a local copy exists.
+
+    NOTE: The lookups mirror the private cache layout of ``lightwheel_sdk`` 1.0.3 (the version in ``uv.lock``). Remove
+    them once the SDK can return a cached asset without calling its API first.
     """
 
     _asset_label: str = "asset"
@@ -52,8 +55,8 @@ class LightwheelSource(UsdSource, ABC):
         return self._local_file_path
 
     @abstractmethod
-    def _get_cache_key(self) -> str | None:
-        """Return the stable name used in log lines for this asset, or None if the request has no stable name."""
+    def _get_cache_key(self) -> str:
+        """Return the stable name used in log lines for this asset."""
 
     @abstractmethod
     def _get_cached_usd_path(self) -> str | None:
@@ -74,12 +77,8 @@ class LightwheelSource(UsdSource, ABC):
     def _get_cached_or_download(self) -> str:
         """Return the cached USD path, or download the asset through the SDK on a cache miss."""
         key = self._get_cache_key()
-        cached_path = None
-        if key is None:
-            print(f"[isaaclab-arena] Lightwheel request has no stable name and is not cacheable: {self._kwargs}")
-        else:
-            cached_path = self._get_cached_usd_path()
-            print(f"[isaaclab-arena] Lightwheel cache {'hit' if cached_path is not None else 'miss'}: {key}")
+        cached_path = self._get_cached_usd_path()
+        print(f"[isaaclab-arena] Lightwheel cache {'hit' if cached_path is not None else 'miss'}: {key}")
         if cached_path is not None:
             usd_path = cached_path
         else:
@@ -99,9 +98,25 @@ class LightwheelSource(UsdSource, ABC):
 class LightwheelObjectUsdSource(LightwheelSource):
     """Acquire and memoize one Lightwheel object USD on first use."""
 
-    def _get_cache_key(self) -> str | None:
-        file_name = self._kwargs.get("file_name")
-        return f"lightwheel-object/{file_name.lower()}" if isinstance(file_name, str) else None
+    def __init__(
+        self, registry_type: str, file_name: str, file_type: str = "USD", registry_name: list[str] | None = None
+    ):
+        """Describe one object request. ``file_name`` pins one file, so the same asset is returned every time.
+
+        Args:
+            registry_type: Registry the object belongs to, such as "objects" or "fixtures".
+            file_name: Name of the file in the registry, such as "Microwave039".
+            file_type: Type of the file to download.
+            registry_name: Optional asset categories that narrow the search, such as ["apple"].
+        """
+        assert file_name, "A Lightwheel object needs a file_name so the same asset is returned every time"
+        sdk_kwargs: dict[str, Any] = {"registry_type": registry_type, "file_name": file_name, "file_type": file_type}
+        if registry_name is not None:
+            sdk_kwargs["registry_name"] = registry_name
+        super().__init__(**sdk_kwargs)
+
+    def _get_cache_key(self) -> str:
+        return f"lightwheel-object/{self._kwargs['file_name'].lower()}"
 
     def _get_cached_usd_path(self) -> str | None:
         """Return ``object/<Name>/<Name>.usd`` if it exists next to a ``*.txt`` version marker.
