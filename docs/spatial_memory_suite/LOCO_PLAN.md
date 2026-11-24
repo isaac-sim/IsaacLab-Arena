@@ -1,0 +1,50 @@
+# G1 loco-manipulation task plan
+
+These are proposed experiments. Each uses the head camera, a physically grasped box, and the existing G1 walking and squeeze postures. A shelf reach means walking up to a shallow opening at the demonstrated hand height. Reach depth, clearance and stable release need measurement.
+
+## Trial design
+
+For each row, generate four equally likely answers by permuting the relevant geometry independently of starting pose. Jitter start position, approach distance and fixture positions within physically reachable bounds. Use the same distribution for both controllers. Where the answer is a continuous location, sample four separated feasible regions with disjoint success tolerances. The blind strategy follows the same inspection and handling motions and commits to a fixed feasible answer. Its expected success is at most one in four **if** the current view, instruction and proprioception contain no answer. Compare matched episodes with different correct answers at the same decision pose, including recent frames, to check that assumption.
+
+The inspection must expose enough geometry to distinguish all four answers. Track the actual discriminating surfaces as remembered targets. Return to a common decision pose after inspection to prevent the final inspection pose from encoding the answer. Reveal the query only after the targets have been hidden longer than the three-second history. Latch the first physical commitment (a crossed boundary, grasp or placement, as specified below). Fail a wrong first commitment even if later corrected. Count rediscovery before commitment as failure. Require physical manipulation and the correct final object pose for success.
+
+## Candidates
+
+Rows 1–3 are the proposed first batch. Each oracle reads the sampled layout to compute the specified choice. Each blind controller fixes that same choice independently of layout.
+
+| Task and scene | Earlier head-camera evidence | Hiding at decision | First commitment and oracle action | Difficulty control | G1 feasibility risk |
+|---|---|---|---|---|---|
+| 1. Restock a free shelf bay | Inspect four shallow bays from their open backs, three occupied | Opaque shelf apron hides interiors from the loading aisle | Cross the approach line at the empty bay and place the load inside | Apron depth | Head must lose sight before hands lose access |
+| 2. Deliver behind a partition | Inspect four room-to-symbol associations from the inner gallery | Symbols face away at four identical outer entrances | Enter the room corresponding to a delayed symbol query and deliver | Entrance separation | Turning clearance with box |
+| 3. Reverse through a loading gap | Inspect a barrier with one open cart-width gap in four possible positions | Pick up the box facing away from the barrier | Back across a transverse line aligned with the remembered opening and unload beyond it | Gap width | Backward gait and arm clearance |
+| 4. Retrieve a boxed item | Inspect markings on the rear faces of four boxes | Fronts appear identical from pickup side | Grasp the queried box and carry it to dispatch | Box spacing | Grip on adjacent boxes |
+| 5. Return a borrowed load | Inspect its original docking position among four | Rear labels disappear behind dock fascia on return | Enter original approach lane and replace load after a common staging stop | Dock spacing | Avoid lingering visible occupancy cue |
+| 6. Fit beneath a lintel | Survey four lane height profiles | Lintel undersides behind screen at fork | Enter lane with sufficient clearance and deliver | Vertical clearance | Need clearance for the whole G1 |
+| 7. Deliver to adjacent room | Survey cyclic room order from courtyard | Interior walls conceal room identities | Enter the clockwise neighbor of the queried room and place | Inspection distance | Long walking time |
+| 8. Load opposite a counterweight | Inspect occupied quadrant on back of pallet | Raised central spine blocks ballast | Approach opposite quadrant and place | Quadrant separation | Release near spine |
+| 9. Match a load footprint | Survey four recessed landing pads of different dimensions | Near lip hides pad profiles | Approach the sole fitting pad for the requested footprint and unload | Fit margin | Stable placement on recess |
+| 10. Retrieve from paired shelves | Inspect which front shelf aligns with each rear shelf through end openings | Opaque divider conceals correspondence | Grasp from the front shelf aligned with queried rear shelf and deliver | Lateral offset | End-view parallax |
+| 11. Take a connected passage | Inspect corridor connections through side openings | Walls conceal connectivity at entrance | Enter the passage connected to receiving dock and carry through | Number of bends | Swept volume at bends |
+| 12. Clear a service access | Survey which of four boxes obstructs a service hatch | Flush box fronts hide hatch from pickup side | Remove the obstructing box to staging | Hatch offset | Prevent camera leak around boxes |
+| 13. Place beside a recessed item | Inspect a recessed item's lateral position | Shelf brow hides item from loading side | Approach the adjoining free pad and unload | Pad pitch | Avoid hand contact with neighbor |
+| 14. Choose a turn pocket | Survey four alcoves along a delivery corridor | Inside corners hide depths on approach | Enter the pocket with room to turn the load, turn and deliver | Turning margin | Slow loaded yaw |
+| 15. Recover nearest stored box | Survey box positions relative to a rear access hatch | Hatch behind wall at identical pickup fronts | Grasp the box nearest the queried hatch and take to dispatch | Nearest-distance margin | Stable reach across position jitter |
+| 16. Bridge a missing row position | View staggered rows and an internal gap from above the open side | Side panel hides row endpoints on return | Approach the gap and place the missing box | Stagger | Shelf lip versus hands |
+| 17. Find two rooms' shared wall | Inspect both sides of a partitioned floor plan | Gallery blocks sight of room markers | Enter delivery bay adjoining both queried rooms and unload | Room proportions | Scene footprint |
+| 18. Retrieve the accessible end box | Inspect which rack end has lateral clearance at hand height | End guards hidden from approach aisle | Commit to a grasp lane with bilateral hand clearance and extract | Finger clearance | Squeeze posture width |
+| 19. Deliver through aligned gates | Survey offsets of two successive gate rows | Screen hides rear row at first row | Enter the lane aligned through both rows and carry through | Gate offset | Ambiguous partial depth views |
+| 20. Restock a paired workstation | Inspect which two benches share a supply recess | Workstation backs hide the recesses | Approach the other bench sharing queried bench's recess and place | Bench grouping distance | Layout must admit symmetric alternatives |
+| 21. Return around a moved obstacle | Inspect revised obstacle position after an earlier crossing | Corner hides revised position at return fork | Take the clear return lane and unload | Obstacle displacement | Need explicit second inspection |
+| 22. Fill the largest free interval | Survey divider positions along a bench | Front skirt hides divider boundaries | Approach midpoint of widest gap and place | Width difference | Reach and load clearance |
+| 23. Collect from the isolated island | Inspect cross-connections between storage islands | Partitions hide connections from pickup aisle | Fetch from the sole island disconnected from the others and deliver | Connection length | Connections must remain legible |
+| 24. Stage at a sightline intersection | Inspect two perpendicular datum marks from separate viewpoints | Both marks face away at loading apron | Approach their projected intersection and place the load | Mark separation | Registration across viewpoints |
+| 25. Route to the shallow dead end | Survey depths of four cul-de-sacs from an open side | Identical entrances hide endpoints | Enter the shortest lane and deliver to its end | Depth difference | Check far wall stays hidden until commitment |
+| 26. Recover a box below a marker | Survey overhead marker alignment along a rack | Canopy hides marker from beneath | Grasp box under queried marker and deliver | Marker offset | Vertical head-camera coverage |
+| 27. Balance storage occupancy | Inspect occupied footprints across four store bays | Bay backs hide contents at outer approaches | Enter least-occupied bay and place on clear front pad | Free-area margin | Avoid reducing task to counting boxes |
+| 28. Carry past alternating barriers | Survey two independent left/right clearances | Baffle hides both offsets at the staging bay | Commit to first lateral pass, then second without rediscovery, and unload | Barrier spacing | Second barrier must stay hidden until second choice |
+| 29. Replace a shifted shelf load | Inspect an exposed outline marking the box's former position | Shelf face hides outline on loading approach | Pick up displaced load and approach the original outline to replace it | Shift distance | Camera could see outline around load |
+| 30. Transfer between rotated workbenches | Inspect corresponding local axes marked on two rotated benches | Markings hidden from handling side | Carry from source and place in corresponding local quadrant at destination | Relative yaw | Enforce distinct physical landing regions |
+
+## Review evidence
+
+For each task retain 50-seed oracle and blind results, deterministic-reset and all four observation-variant checks. Require at least 45 oracle successes and at most 15 blind successes. Verify visibility in every solved episode, and compare analytic visibility with rendered instance segmentation for each new hiding mechanism. Record representative head-camera oracle and blind videos with seed, reveal time, commitment and outcome alongside each clip. The first three require review before further implementation. Replace any candidate whose current view discloses the answer or whose physical manipulation fails the acceptance criteria.
