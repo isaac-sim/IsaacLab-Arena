@@ -10,9 +10,14 @@ description: |
   DerivedDataCache), the Warp kernel cache (~/.cache/warp) and the Lightwheel SDK asset
   cache (~/.cache/lightwheel_sdk). Call once before the tests.
 
-  Every run restores the newest saved cache with the same name. Runs on main (merges,
-  the nightly run and manual dispatches) also save the cache at the end of a successful
-  job, so the cache accumulates what the runs on main used. Pull requests only restore.
+  Every run except the nightly one restores the newest saved cache with the same name.
+  Runs on main (merges, the nightly run and manual dispatches) also save the cache at the
+  end of a successful job, so the cache accumulates what the runs on main used. Pull
+  requests only restore.
+
+  The nightly run starts without a restored cache. It shows whether the tests still pass
+  from scratch, and the cache it saves holds only what that run used, which removes
+  entries that are stale or no longer used.
 
 inputs:
   cache-name:
@@ -49,10 +54,11 @@ runs:
         restore-keys: |
           ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
 
-    # On main, restore the newest cache and let actions/cache save the paths in a step at
-    # the end of a successful job when its key was not found. The key is new on every run,
-    # so it always saves. Keep the paths identical to the restore step above, because the
-    # cache version hash depends on them.
+    # On main, restore the newest cache (not on the nightly run, which has no restore-keys and
+    # so starts cold) and let actions/cache save the paths in a step at the end of a
+    # successful job when its key was not found. The key is new on every run, so it always
+    # saves. Keep the paths identical to the restore step above, because the cache version
+    # hash depends on them.
     - id: restore_and_save_caches
       name: Restore caches and save them at the end of the job
       if: github.ref == 'refs/heads/main'
@@ -65,13 +71,12 @@ runs:
           ~/.cache/lightwheel_sdk/object
           !~/.cache/lightwheel_sdk/object/*.zip
         key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
-        restore-keys: |
-          ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
+        restore-keys: ${{ github.event_name != 'schedule' && format('ci-caches-{0}-{1}-', steps.read_isaac_sim_version.outputs.isaac_sim_version, inputs.cache-name) || '' }}
 
     - name: Print restored cache
       shell: bash
       env:
         MATCHED_KEY: ${{ steps.restore_caches.outputs.cache-matched-key || steps.restore_and_save_caches.outputs.cache-matched-key }}
       run: |
-        echo "Caches restored from: ${MATCHED_KEY:-nothing (cache miss)}"
+        echo "Caches restored from: ${MATCHED_KEY:-nothing (cache miss or nightly run)}"
         du -sh /isaac-sim/kit/cache ~/.cache/warp ~/.cache/lightwheel_sdk/* 2>/dev/null || true
