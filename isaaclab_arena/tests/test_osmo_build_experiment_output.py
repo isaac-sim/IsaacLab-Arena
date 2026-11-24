@@ -566,7 +566,7 @@ class _FailingSuccessRateExporter(SuccessRateKpiExporter):
         raise RuntimeError("success rate exporter broke")
 
 
-def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch, capsys):
+def test_failing_kpi_exporter_fails_the_collector_after_building_the_output(tmp_path, monkeypatch, capsys):
     experiment_runner_output_directory = tmp_path / "experiment-runner-output"
     _write_run_output(experiment_runner_output_directory / "run_a", "run_a", True)
     _write_run_timings(experiment_runner_output_directory, "run_a", [_timing_record("step", 1, 10.0)])
@@ -579,19 +579,19 @@ def test_failing_kpi_exporter_does_not_fail_the_collector(tmp_path, monkeypatch,
     experiment_output_directory = tmp_path / "experiment-output"
     monkeypatch.setitem(registry.get_exporters_by_name(), "success_rate", _FailingSuccessRateExporter)
 
-    build_experiment_output(
-        {"run_a": experiment_runner_output_directory},
-        experiment_output_directory,
-        experiment_name=EXPERIMENT_NAME,
-        kpi_exporters=KPI_EXPORTERS,
-    )
+    with pytest.raises(RuntimeError, match="success rate exporter broke"):
+        build_experiment_output(
+            {"run_a": experiment_runner_output_directory},
+            experiment_output_directory,
+            experiment_name=EXPERIMENT_NAME,
+            kpi_exporters=KPI_EXPORTERS,
+        )
 
+    # The failure comes last: the rest of the Experiment output is complete and the other exporter still wrote.
     assert (experiment_output_directory / "index.html").is_file()
     assert not (experiment_output_directory / "kpis_success_rates.json").exists()
     assert (experiment_output_directory / "kpis_timing.json").is_file()
-    printed = capsys.readouterr().out
-    assert "success_rate" in printed
-    assert "success rate exporter broke" in printed
+    assert "success_rate" in capsys.readouterr().out
 
 
 def _write_experiment_definition(path: Path, name: str = EXPERIMENT_NAME, **extra_values) -> Path:
