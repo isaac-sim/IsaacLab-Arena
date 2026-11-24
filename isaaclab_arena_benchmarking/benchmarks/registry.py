@@ -22,6 +22,7 @@ from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiEx
 
 _EXPORTER_MODULE_NAMES = (
     "isaaclab_arena_benchmarking.benchmarks.placement_success.placement_success_exporter",
+    "isaaclab_arena_benchmarking.benchmarks.resource_usage.resource_usage_exporter",
     "isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter",
     "isaaclab_arena_benchmarking.benchmarks.timing.timing_exporter",
 )

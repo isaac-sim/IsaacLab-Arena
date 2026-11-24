@@ -200,6 +200,7 @@ reservoir sample as ``samples_ms``. ``arena_experiment_timings.json`` lists the 
 ``runs``, with the Run name added to each and without ``samples_ms``, and sums them per timer under
 ``totals``. The percentiles in ``totals`` are approximate and pooled from the Runs' samples. The timers cover the rollout only. Isaac Sim
 startup and scene construction are part of the trial wall-clock but have no timer of their own.
+``arena_experiment_resource_usage.json`` stores the per-Run resource usage.
 
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
 trial wall-clock immediately before ``isaaclab.sh`` and stop it when that process exits. Container
