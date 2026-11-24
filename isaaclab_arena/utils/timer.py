@@ -27,17 +27,15 @@ Usage:
 from __future__ import annotations
 
 import json
-import random
 import re
 import threading
 import time
 from collections.abc import Iterable, MutableMapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
-# Keep reservoir sampling independent from application randomness.
-_reservoir_random_generator = random.Random()
+from isaaclab_arena.utils.sample_statistics import SAMPLE_DECIMALS, SampleStatistics, merge_statistics_json
 
 # Timing statistics accumulated over the process lifetime, keyed by qualified timer name.
 _timer_registry: dict[str, TimerStats] = {}
@@ -59,59 +57,35 @@ _open_timer_names = _OpenTimerNames()
 
 
 @dataclass
-class TimerStats:
-    """Accumulated timing statistics for a named timer.
+class TimerStats(SampleStatistics):
+    """Accumulated timing statistics, in milliseconds, for a named timer."""
 
-    Maintains a reservoir sample for approximate percentile estimation.
-    """
+    unit: ClassVar[str] = "ms"
 
-    percentile_approximation_reservoir_size: int = 1024
-    count: int = 0
-    total_ms: float = 0.0
-    min_ms: float = field(default=float("inf"))
-    max_ms: float = field(default=float("-inf"))
-    _reservoir: list[float] = field(default_factory=list)
+    @property
+    def total_ms(self) -> float:
+        """Return the total elapsed time in milliseconds."""
+        return self.total
+
+    @property
+    def min_ms(self) -> float:
+        """Return the shortest elapsed time in milliseconds."""
+        return self.minimum
+
+    @property
+    def max_ms(self) -> float:
+        """Return the longest elapsed time in milliseconds."""
+        return self.maximum
 
     @property
     def mean_ms(self) -> float:
         """Return the mean elapsed time in milliseconds."""
-        if self.count == 0:
-            return 0.0
-        return self.total_ms / self.count
-
-    def update(self, elapsed_ms: float) -> None:
-        """Record a new timing measurement."""
-        self.count += 1
-        self.total_ms += elapsed_ms
-        self.min_ms = min(self.min_ms, elapsed_ms)
-        self.max_ms = max(self.max_ms, elapsed_ms)
-
-        # Reservoir sampling (Algorithm R). Maintain a small representative sample and compute
-        # percentiles on it as a proxy, avoiding unbounded memory growth.
-        if len(self._reservoir) < self.percentile_approximation_reservoir_size:
-            self._reservoir.append(elapsed_ms)
-        else:
-            replacement_index = _reservoir_random_generator.randint(0, self.count - 1)
-            if replacement_index < self.percentile_approximation_reservoir_size:
-                self._reservoir[replacement_index] = elapsed_ms
+        return self.mean
 
     @property
     def samples_ms(self) -> list[float]:
         """Return a copy of the reservoir sample of measurements in milliseconds."""
-        return list(self._reservoir)
-
-    def percentile(self, p: float) -> float | None:
-        """Return the approximate p-th percentile (0-100), or None if nothing was recorded.
-
-        Args:
-            p: Percentile to estimate, between 0 and 100.
-
-        Returns:
-            The estimated percentile in milliseconds, or None when no measurements exist.
-        """
-        if not self._reservoir:
-            return None
-        return _weighted_percentile([(sample, 1.0) for sample in self._reservoir], p)
+        return self.samples
 
 
 def _update_stats(name: str, elapsed_ms: float) -> None:
@@ -193,9 +167,6 @@ def get_timer_stats() -> dict[str, TimerStats]:
         }
 
 
-SAMPLE_DECIMALS = 3
-"""Decimals kept when a sample is written, i.e. microsecond resolution for a value in milliseconds."""
-
 TYPE_KEY = "type"
 NAME_KEY = "name"
 APP_NAME_KEY = "app_name"
@@ -230,30 +201,10 @@ def get_timer_stats_json(app_name: str) -> list[dict]:
             TYPE_KEY: "timing",
             NAME_KEY: name,
             APP_NAME_KEY: app_name,
-            COUNT_KEY: timer_stats.count,
-            MEAN_MS_KEY: timer_stats.mean_ms,
-            TOTAL_MS_KEY: timer_stats.total_ms,
-            MIN_MS_KEY: timer_stats.min_ms,
-            MAX_MS_KEY: timer_stats.max_ms,
-            P10_MS_KEY: timer_stats.percentile(10),
-            P50_MS_KEY: timer_stats.percentile(50),
-            P90_MS_KEY: timer_stats.percentile(90),
-            SAMPLES_MS_KEY: [round(sample, SAMPLE_DECIMALS) for sample in timer_stats.samples_ms],
+            **timer_stats.to_json_fields(SAMPLE_DECIMALS),
         }
         for name, timer_stats in get_timer_stats().items()
     ]
-
-
-def _weighted_percentile(weighted_samples: list[tuple[float, float]], p: float) -> float:
-    """Return the p-th percentile (0-100) of (value, weight) pairs: the smallest value whose cumulative weight reaches p%."""
-    ordered = sorted(weighted_samples)
-    threshold = p / 100.0 * sum(weight for _, weight in ordered)
-    cumulative_weight = 0.0
-    for value, weight in ordered:
-        cumulative_weight += weight
-        if cumulative_weight >= threshold:
-            return value
-    return ordered[-1][0]
 
 
 def merge_timer_stats_json(
@@ -275,48 +226,7 @@ def merge_timer_stats_json(
         One record per distinct timer name, holding the combined count, total, mean, min, and max, plus the
         percentiles when available. The samples are not carried over.
     """
-    merged_by_name: dict[str, dict] = {}
-    weighted_samples_by_name: dict[str, list[tuple[float, float]] | None] = {}
-    for record in records:
-        name = record[NAME_KEY]
-        if remove_samples_from_input_records:
-            samples = record.pop(SAMPLES_MS_KEY, None)
-        else:
-            samples = record.get(SAMPLES_MS_KEY)
-        merged = merged_by_name.get(name)
-        # Add the record's count, total, min and max to the running totals of its timer name.
-        if merged is None:
-            merged_by_name[name] = {
-                NAME_KEY: name,
-                COUNT_KEY: record[COUNT_KEY],
-                TOTAL_MS_KEY: record[TOTAL_MS_KEY],
-                MIN_MS_KEY: record[MIN_MS_KEY],
-                MAX_MS_KEY: record[MAX_MS_KEY],
-            }
-            weighted_samples_by_name[name] = []
-        else:
-            merged[COUNT_KEY] += record[COUNT_KEY]
-            merged[TOTAL_MS_KEY] += record[TOTAL_MS_KEY]
-            merged[MIN_MS_KEY] = min(merged[MIN_MS_KEY], record[MIN_MS_KEY])
-            merged[MAX_MS_KEY] = max(merged[MAX_MS_KEY], record[MAX_MS_KEY])
-
-        # Collect the record's samples, each weighted by the measurements it stands for. A record without
-        # samples makes the percentiles of its timer name unavailable.
-        if samples is None:
-            weighted_samples_by_name[name] = None
-        elif weighted_samples_by_name[name] is not None and samples:
-            weight = record[COUNT_KEY] / len(samples)
-            weighted_samples_by_name[name].extend((sample, weight) for sample in samples)
-
-    results = []
-    for name, merged in sorted(merged_by_name.items()):
-        result = {**merged, MEAN_MS_KEY: merged[TOTAL_MS_KEY] / merged[COUNT_KEY] if merged[COUNT_KEY] else 0.0}
-        weighted_samples = weighted_samples_by_name[name]
-        if weighted_samples:
-            for key, percentile in PERCENTILE_BY_KEY.items():
-                result[key] = _weighted_percentile(weighted_samples, percentile)
-        results.append(result)
-    return results
+    return merge_statistics_json(records, TimerStats.unit, remove_samples_from_input_records)
 
 
 def write_timer_stats_json(output_path: str | Path, app_name: str) -> Path:

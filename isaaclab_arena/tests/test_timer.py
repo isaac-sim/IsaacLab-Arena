@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
+import isaaclab_arena.utils.sample_statistics as sample_statistics_module
 import isaaclab_arena.utils.timer as timer_module
 from isaaclab_arena.utils.timer import (
     Timer,
@@ -76,7 +77,7 @@ class TestTimerStats:
     def test_reservoir_accuracy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify reservoir sampling percentiles track the exact ones on skewed data."""
         seed = 32
-        monkeypatch.setattr(timer_module, "_reservoir_random_generator", random.Random(seed))
+        monkeypatch.setattr(sample_statistics_module, "_reservoir_random_generator", random.Random(seed))
         synthetic_data_random_generator = random.Random(seed)
         num_samples = 10_000
 
