@@ -23,8 +23,8 @@ def _configure_newton_deformable_physics(
     env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Couple Newton rigid bodies to the VBD deformable solver."""
-    from isaaclab_contrib.coupling import CouplerEntryCfg, CouplerProxyCfg, CouplerProxyMappingCfg
     from isaaclab_newton.physics import NewtonCfg, NewtonSoftContactCfg, VBDSolverCfg
+    from isaaclab_newton.physics.coupling import CouplerEntryCfg, CouplerProxyCfg, CouplerProxyMappingCfg
     from isaaclab_newton.sim.schemas import NewtonCollisionCfg
 
     physics_cfg = env_cfg.sim.physics

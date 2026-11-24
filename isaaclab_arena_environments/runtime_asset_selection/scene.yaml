@@ -1,0 +1,61 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.697
+background:
+  id: ground
+  registry_name: runtime_lab_ground
+  params:
+    initial_pose:
+      position_xyz: [0.0, 0.0, -0.697]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+objects:
+- id: table
+  registry_name: runtime_lab_table_oak
+  params:
+    kinematic: true
+    initial_pose:
+      position_xyz: [0.6, 0.0, -0.347]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: pick_object
+  registry_name: runtime_lab_av_chess_pawn
+- id: destination
+  registry_name: runtime_lab_bin_b04
+- id: light
+  registry_name: light
+  params:
+    intensity: 1000.0
+relations:
+- kind: is_anchor
+  subject: table
+- kind: 'on'
+  subject: pick_object
+  reference: table
+  params: {clearance_m: 0.01}
+- kind: 'on'
+  subject: destination
+  reference: table
+  params: {clearance_m: 0.01}
+- kind: position_limits_box
+  subject: pick_object
+  params:
+    x_limits: [0.30, 0.48]
+    y_limits: [-0.25, -0.08]
+- kind: position_limits_box
+  subject: destination
+  params:
+    x_limits: [0.35, 0.60]
+    y_limits: [0.12, 0.30]
+placer_params:
+  min_unique_layouts_per_env: 2
+  max_placement_attempts: 8
+  allow_best_loss_fallbacks: false
+  solver_params:
+    verbose: false
+    save_position_history: false

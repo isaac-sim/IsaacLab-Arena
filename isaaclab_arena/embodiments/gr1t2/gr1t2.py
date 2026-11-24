@@ -138,8 +138,8 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
         # Lock waist joints
         self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
             joint_names_expr=["waist_.*"],
-            effort_limit=torch.inf,
-            velocity_limit=0.0,
+            joint_effort_limit=torch.inf,
+            joint_velocity_limit=0.0,
             stiffness=1e9,
             damping=1e9,
         )
@@ -164,8 +164,8 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         # Lock waist joints
         self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
             joint_names_expr=["waist_.*"],
-            effort_limit=torch.inf,
-            velocity_limit=0.0,
+            joint_effort_limit=torch.inf,
+            joint_velocity_limit=0.0,
             stiffness=1e9,
             damping=1e9,
         )
@@ -267,8 +267,8 @@ class GR1T2HighPDSceneCfg:
                 joint_names_expr=[
                     "head_.*",
                 ],
-                effort_limit=None,
-                velocity_limit=None,
+                joint_effort_limit=None,
+                joint_velocity_limit=None,
                 stiffness=None,
                 damping=None,
             ),
@@ -276,8 +276,8 @@ class GR1T2HighPDSceneCfg:
                 joint_names_expr=[
                     "waist_.*",
                 ],
-                effort_limit=None,
-                velocity_limit=None,
+                joint_effort_limit=None,
+                joint_velocity_limit=None,
                 stiffness=None,
                 damping=None,
             ),
@@ -287,8 +287,8 @@ class GR1T2HighPDSceneCfg:
                     ".*_knee_.*",
                     ".*_ankle_.*",
                 ],
-                effort_limit=None,
-                velocity_limit=None,
+                joint_effort_limit=None,
+                joint_velocity_limit=None,
                 stiffness=None,
                 damping=None,
             ),
@@ -298,8 +298,8 @@ class GR1T2HighPDSceneCfg:
                     "right_elbow_.*",
                     "right_wrist_.*",
                 ],
-                effort_limit=torch.inf,
-                velocity_limit=torch.inf,
+                joint_effort_limit=torch.inf,
+                joint_velocity_limit=torch.inf,
                 stiffness=3000,
                 damping=100,
                 armature=0.0,
@@ -310,8 +310,8 @@ class GR1T2HighPDSceneCfg:
                     "left_elbow_.*",
                     "left_wrist_.*",
                 ],
-                effort_limit=torch.inf,
-                velocity_limit=torch.inf,
+                joint_effort_limit=torch.inf,
+                joint_velocity_limit=torch.inf,
                 stiffness=3000,
                 damping=100,
                 armature=0.0,
@@ -320,8 +320,8 @@ class GR1T2HighPDSceneCfg:
                 joint_names_expr=[
                     "R_.*",
                 ],
-                effort_limit=None,
-                velocity_limit=None,
+                joint_effort_limit=None,
+                joint_velocity_limit=None,
                 stiffness=None,
                 damping=None,
             ),
@@ -329,8 +329,8 @@ class GR1T2HighPDSceneCfg:
                 joint_names_expr=[
                     "L_.*",
                 ],
-                effort_limit=None,
-                velocity_limit=None,
+                joint_effort_limit=None,
+                joint_velocity_limit=None,
                 stiffness=None,
                 damping=None,
             ),

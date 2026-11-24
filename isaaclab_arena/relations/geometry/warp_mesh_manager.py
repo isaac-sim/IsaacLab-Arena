@@ -196,15 +196,24 @@ class WarpMeshAndSphereCache:
 
         usd_path, scale = usd_spawn
         exclusions = tuple(sorted(excluded_prim_paths))
+        selected_geometry = getattr(obj, "_selected_placement_geometry", None)
         key = (usd_path, scale, exclusions)
+        if selected_geometry is not None:
+            from isaaclab_arena.assets.spawn_cfg_geometry import get_geometry_key
+
+            key = (get_geometry_key(selected_geometry.spawn_cfg), exclusions)
         if key not in self._trimesh_cache:
             from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd  # deferred: pxr import
 
             try:
-                self._trimesh_cache[key] = extract_trimesh_from_usd(
-                    usd_path,
-                    scale,
-                    excluded_prim_paths=exclusions,
+                self._trimesh_cache[key] = (
+                    selected_geometry.get_collision_mesh(exclusions, body_frame=True)
+                    if selected_geometry is not None
+                    else extract_trimesh_from_usd(
+                        usd_path,
+                        scale,
+                        excluded_prim_paths=exclusions,
+                    )
                 )
             except ValueError as e:
                 print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")
@@ -226,6 +235,8 @@ class WarpMeshAndSphereCache:
     def _cache_key(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> tuple:
         """Compute cache key. Uses the spawn's (usd_path, scale) for USD objects, content hash otherwise."""
         repair_non_watertight = obj.repair_collision_mesh_non_watertight if obj is not None else True
+        if getattr(obj, "_selected_placement_geometry", None) is not None:
+            return (_mesh_content_hash(mesh), repair_non_watertight, self._num_spheres, self._sphere_radius)
         usd_spawn = _get_single_usd_spawn(obj) if obj is not None else None
         if usd_spawn is not None:
             usd_path, scale = usd_spawn

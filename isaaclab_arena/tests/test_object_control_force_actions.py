@@ -145,7 +145,7 @@ def _test_force_action_environment_lifecycle(_simulation_app):
     from isaaclab.scene import InteractiveSceneCfg
     from isaaclab.sim import CuboidCfg, MassPropertiesCfg, RigidBodyPropertiesCfg, SimulationCfg
     from isaaclab.utils import configclass
-    from isaaclab_physx.physics import PhysxCfg
+    from isaaclab_isaacsim.physics import PhysxCfg
 
     from isaaclab_arena.agentic_tools.object_control.force_actions import ForcePoseActionCfg
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv

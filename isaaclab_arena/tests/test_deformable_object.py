@@ -13,10 +13,10 @@ from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
     import isaaclab.sim as sim_utils
+    from isaaclab_isaacsim.sim.schemas import PhysxCollisionCfg, PhysxDeformableBodyPropertiesCfg
+    from isaaclab_isaacsim.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
     from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
     from isaaclab_newton.sim.spawners.materials import NewtonDeformableBodyMaterialCfg
-    from isaaclab_physx.sim.schemas import PhysxCollisionCfg, PhysxDeformableBodyPropertiesCfg
-    from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
 
     from isaaclab_arena.assets.deformable_object import DeformableObject
 
@@ -42,8 +42,8 @@ def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
 
 def _test_backend_specific_deformable_config(simulation_app) -> bool:
     from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
-    from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
-    from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
+    from isaaclab_isaacsim.sim.schemas import PhysxDeformableBodyPropertiesCfg
+    from isaaclab_isaacsim.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
 
     from isaaclab_arena.assets.deformable_object import DeformableObject
     from isaaclab_arena.utils.pose import Pose, PoseRange
@@ -73,9 +73,9 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
 
 def _test_deformable_validates_simulation_cfg(simulation_app) -> bool:
     from isaaclab.sim import SimulationCfg
-    from isaaclab_contrib.coupling import CouplerEntryCfg, CouplerProxyCfg
+    from isaaclab_isaacsim.physics import PhysxCfg
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, VBDSolverCfg
-    from isaaclab_physx.physics import PhysxCfg
+    from isaaclab_newton.physics.coupling import CouplerEntryCfg, CouplerProxyCfg
 
     from isaaclab_arena.scene.scene import Scene
 
@@ -316,10 +316,10 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
     import sys
     import torch
 
+    from isaaclab_isaacsim.physics import PhysxCfg
+    from isaaclab_isaacsim.sim.schemas import PhysxDeformableBodyPropertiesCfg
     from isaaclab_newton.physics import NewtonCfg
     from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
-    from isaaclab_physx.physics import PhysxCfg
-    from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
 
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser

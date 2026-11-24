@@ -3,14 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import gc
 import os
 import sys
 import traceback
 from contextlib import nullcontext, suppress
+from typing import TYPE_CHECKING
 
-from isaaclab.app import AppLauncher
+if TYPE_CHECKING:
+    from isaaclab.app import AppLauncher
 
 
 def get_isaac_sim_version() -> str:
@@ -26,6 +30,8 @@ STARTUP_COMPLETE_MARKER = "[isaaclab-arena] AppLauncher initialization complete"
 def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     """Get an app launcher."""
     import time
+
+    from isaaclab.app import AppLauncher
 
     t0 = time.monotonic()
     # AppLauncher consumes recognized entries from its input mapping. Pass a copy so

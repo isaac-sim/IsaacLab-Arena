@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: runtime_asset_selection_pick_and_place
+external_yaml: [scene.yaml, newton.yaml]
+task:
+  composition: atomic
+  description: Pick up the object and place it in the destination.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: pick_object
+      destination_location: destination
+      background_scene: ground
+      episode_length_s: 60.0

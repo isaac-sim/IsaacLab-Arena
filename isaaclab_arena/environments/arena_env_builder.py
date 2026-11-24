@@ -17,8 +17,8 @@ from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.visualizers import VisualizerCfg
+from isaaclab_isaacsim.physics import PhysxCfg
 from isaaclab_newton.physics import NewtonCfg
-from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
@@ -71,6 +71,7 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
+from isaaclab_arena.variations.runtime_rigid_asset_selection_variation import RuntimeRigidAssetSelectionVariation
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase, get_enabled_variations_by_key
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
@@ -132,6 +133,7 @@ class ArenaEnvBuilder:
         # How live relation placement filled its pool in the last build_env_cfg(), or None when that build solved no
         # relations or failed.
         self.placement_diagnostics: PlacementDiagnostics | None = None
+        self.runtime_asset_selections = {}
 
     def _apply_camera_resolution_mode(self) -> None:
         """Resize the embodiment camera rig as selected by ``cfg.camera_resolution_mode``."""
@@ -185,11 +187,13 @@ class ArenaEnvBuilder:
             The prepared live or recorded placement sampler, or ``None`` when placement is disabled.
         """
         if scheduler is not None and scheduler.variation_record.has_placement_samples:
-            return prepare_recorded_relation_placement(
+            sampler = prepare_recorded_relation_placement(
                 replay_assets=self.arena_env.get_placement_assets(),
                 scheduler=scheduler,
                 num_envs=self.cfg.num_envs,
             )
+            sampler.runtime_selections = self.runtime_asset_selections
+            return sampler
 
         if not self.cfg.solve_relations:
             return None
@@ -214,6 +218,26 @@ class ArenaEnvBuilder:
         # Delists itself unless the embodiment has a registered cuRobo config.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
+        if self.runtime_asset_selections:
+            if not any(not asset.is_anchor for asset in placement_assets):
+                return None
+            from isaaclab_arena.environments.relation_solver_interface import _seed_spawn_config_from_layouts
+            from isaaclab_arena.relations.runtime.placement_sampler import validate_root_reset_for_live_placement
+            from isaaclab_arena.relations.runtime.selected_asset_placement import SelectedAssetPlacementSampler
+
+            validate_root_reset_for_live_placement(placement_assets)
+            sampler = SelectedAssetPlacementSampler(
+                placement_assets,
+                self.arena_env.scene.assets.values(),
+                self.runtime_asset_selections,
+                self.cfg.num_envs,
+                placer_params,
+            )
+            layouts = sampler.prepare_live(self.cfg.num_envs, placer_params.resolve_on_reset)
+            _seed_spawn_config_from_layouts(
+                placement_assets, {asset for asset in placement_assets if asset.is_anchor}, layouts
+            )
+            return sampler
         return prepare_live_relation_placement(
             placement_assets,
             num_envs=self.cfg.num_envs,
@@ -237,7 +261,7 @@ class ArenaEnvBuilder:
         variations: dict[str, list[VariationBase]] = self.get_all_variations()
         return variations_printing.get_variations_catalogue_as_string(variations, hydra_overrides=self.hydra_overrides)
 
-    def _build_variation_events_cfg(self) -> Any | None:
+    def _build_variation_events_cfg(self, *, asset_selection: bool = False) -> Any | None:
         """Build a configclass with one EventTermCfg per enabled run-time variation.
 
         Returns ``None`` when no run-time variation is enabled.
@@ -250,6 +274,8 @@ class ArenaEnvBuilder:
                 if not variation.enabled:
                     continue
                 if not isinstance(variation, RunTimeVariationBase):
+                    continue
+                if isinstance(variation, RuntimeRigidAssetSelectionVariation) != asset_selection:
                     continue
                 event_name, event_cfg = variation.build_event_cfg()
                 assert event_name not in added_event_names, (
@@ -351,12 +377,32 @@ class ArenaEnvBuilder:
         if self.hydra_overrides:
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
+        # Choose the lifecycle after Hydra, before recorder/replay listeners bind to variation objects.
+        for asset in self.arena_env.scene.assets.values():
+            selection = asset.variations.get("asset_selection")
+            if selection is None:
+                continue
+            assert selection.cfg.mode in ("build", "reset"), "asset_selection.mode must be build or reset"
+            if selection.enabled and selection.cfg.mode == "reset":
+                assert self.resolved_physics_backend == PhysicsBackend.NEWTON, "Reset asset selection requires Newton"
+                selection = RuntimeRigidAssetSelectionVariation(asset, selection.cfg, self.cfg.num_envs)
+                asset.variations["asset_selection"] = selection
+                self.runtime_asset_selections[asset.name] = selection
+        variations = self.get_all_variations()
+
         variation_replay_scheduler = None
         if self.cfg.recorded_variation_samples_path is not None:
             variation_replay_scheduler = configure_recorded_variation_replay(
                 self.cfg.recorded_variation_samples_path,
                 variations,
             )
+            records = variation_replay_scheduler.variation_record.episode_records
+            for name, selection in self.runtime_asset_selections.items():
+                key = f"{name}.asset_selection"
+                assert all(key in record.runtime_samples for record in records), f"Missing recorded selection {key}"
+                selection.set_initial_replay_names(
+                    [records[env_id % len(records)].runtime_samples[key] for env_id in range(self.cfg.num_envs)]
+                )
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
@@ -432,6 +478,7 @@ class ArenaEnvBuilder:
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             background_physics_events_cfg,
+            self._build_variation_events_cfg(asset_selection=True),
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
@@ -595,6 +642,21 @@ class ArenaEnvBuilder:
                 env_cfg.sim.physics, NewtonCfg
             ), "Environment configuration changed the physics backend away from Newton."
 
+        if self.runtime_asset_selections:
+            from isaaclab_newton.physics import MJWarpSolverCfg, XPBDSolverCfg
+
+            solver_cfg = env_cfg.sim.physics.solver_cfg
+            assert isinstance(
+                solver_cfg, (MJWarpSolverCfg, XPBDSolverCfg)
+            ), "Reset asset selection supports Newton MJWarp and XPBD solvers"
+            if isinstance(solver_cfg, MJWarpSolverCfg):
+                assert (
+                    not solver_cfg.use_mujoco_contacts and not solver_cfg.use_mujoco_cpu
+                ), "Reset asset selection requires GPU MJWarp with use_mujoco_contacts=False"
+            for selection in self.runtime_asset_selections.values():
+                for candidate in selection.candidates.values():
+                    candidate.validate_simulation_cfg(env_cfg.sim)
+
         env_kwargs: dict[str, Any] = {
             "variation_recorder": variation_recorder,
             "variation_replay_scheduler": variation_replay_scheduler,
@@ -602,7 +664,7 @@ class ArenaEnvBuilder:
         # Only live placement solves a pool. The sampler is a RecordedPlacementSampler when the build replays recorded
         # layouts, and None when it solves no relations; neither has diagnostics.
         if isinstance(placement_sampler, PlacementSampler):
-            self.placement_diagnostics = placement_sampler.placement_pool.last_fill_diagnostics
+            self.placement_diagnostics = placement_sampler.last_fill_diagnostics
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

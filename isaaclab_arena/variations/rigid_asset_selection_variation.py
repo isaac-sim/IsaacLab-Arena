@@ -39,6 +39,9 @@ class AssetSelectionSamplerCfg(SamplerBaseCfg):
 class RigidAssetSelectionVariationCfg(VariationBaseCfg):
     """Configuration for RigidAssetSelectionVariation."""
 
+    mode: str = "build"
+    """Select once per build (default), or per episode reset with Newton's mesh variants."""
+
     registry_names: list[str] = field(default_factory=list)
     """Registry names of the rigid objects to choose from, in this order. Required when enabled. A name listed more
     than once is selected more often."""

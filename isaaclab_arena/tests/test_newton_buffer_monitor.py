@@ -35,6 +35,8 @@ def _make_monitor(device: str = "cpu") -> tuple[NewtonBufferMonitor, SimpleNames
         (1, [1, 7], [0, 0], "njmax.*at least 7"),
         (1, [1, 1], [0, 1], "overflow flags"),
         (1, [1, 1], [0, 16], "overflow flags"),
+        (1, [1, 1], [1 << 9, 1 << 10], None),
+        (1, [1, 1], [1 << 10, 1], "overflow flags"),
     ],
 )
 def test_newton_buffer_limits(

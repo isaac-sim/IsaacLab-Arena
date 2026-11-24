@@ -168,8 +168,8 @@ def _test_rigid_objects_have_disabled_asset_selection(simulation_app):
 
 def _test_scene_validates_the_selected_asset(simulation_app):
     from isaaclab.sim import SimulationCfg
+    from isaaclab_isaacsim.physics import PhysxCfg
     from isaaclab_newton.physics import NewtonCfg
-    from isaaclab_physx.physics import PhysxCfg
 
     from isaaclab_arena.assets.object_library import CrackerBox, GearInsertionMediumGear
     from isaaclab_arena.scene.scene import Scene

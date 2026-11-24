@@ -300,7 +300,7 @@ class YamBimanualAbsoluteJointPositionEmbodiment(EmbodimentBase):
         """
         if backend is not PhysicsBackend.PHYSX:
             return
-        from isaaclab_physx.sim.schemas import PhysxRigidBodyCfg
+        from isaaclab_isaacsim.sim.schemas import PhysxRigidBodyCfg
 
         for name in t_M_B_BY_ARM:
             prim_physics = self.spawn_cfg_addon.setdefault(name, {}).setdefault("prim_physics", {})

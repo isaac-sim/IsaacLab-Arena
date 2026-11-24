@@ -16,8 +16,8 @@ from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.meshes.meshes_cfg import MeshCuboidCfg, MeshRectangleCfg
 from isaaclab.sim.spawners.spawner_cfg import DeformableObjectSpawnerCfg
+from isaaclab_isaacsim.sim.schemas import PhysxDeformableBodyPropertiesCfg
 from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
-from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
@@ -56,9 +56,9 @@ class DeformableObject(ObjectBase):
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
         """Validate the simulation backend and solver support this deformable."""
-        from isaaclab_contrib.coupling import CouplerCfg
+        from isaaclab_isaacsim.physics import PhysxCfg
         from isaaclab_newton.physics import NewtonCfg, VBDSolverCfg
-        from isaaclab_physx.physics import PhysxCfg
+        from isaaclab_newton.physics.coupling import CouplerCfg
 
         physics_cfg = sim_cfg.physics
         # Isaac Lab treats physics_cfg=None as defaulting to PhysX

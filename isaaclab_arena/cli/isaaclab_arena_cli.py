@@ -5,8 +5,6 @@
 
 import argparse
 
-from isaaclab.app import AppLauncher
-
 from isaaclab_arena.cli.dataclass_cli import dataclass_from_cli
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
@@ -30,6 +28,8 @@ def arena_env_builder_cfg_from_argparse(args_cli: argparse.Namespace) -> ArenaEn
 # policy_runner, experiment_runner, and the remaining argparse scripts accept typed configs.
 def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
     """Get a complete argument parser with both Isaac Lab and IsaacLab Arena arguments."""
+    from isaaclab.app import AppLauncher
+
     parser = argparse.ArgumentParser(description="IsaacLab Arena CLI parser.")
     AppLauncher.add_app_launcher_args(parser)
     add_isaac_lab_cli_args(parser)

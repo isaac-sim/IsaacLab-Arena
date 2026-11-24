@@ -15,10 +15,9 @@ dependencies = [
     "typing_extensions",
     "onnxruntime",
     "vuer",
-    # Arena imports isaacteleop directly; keep it aligned with Isaac Lab's
-    # supported 1.4 teleoperation stack.
-    "isaacteleop[retargeters,ui,cloudxr]~=1.4.145",
-    "websockets==16.1.1",
+    # IsaacCapture supplies the isaacteleop imports used by Arena and Lab main.
+    "isaaccapture[retargeters,ui,cloudxr]==1.7.118rc1",
+    "websockets>=17.3",
     "lightwheel-sdk",
     "pytest",
     "pydantic>=2.0",
@@ -92,7 +91,7 @@ isaaclab-from-source = [
     "isaaclab-mimic",
     "isaaclab-newton",
     "isaaclab-ov",
-    "isaaclab-physx",
+    "isaaclab-isaacsim",
     "isaaclab-ppisp",
     "isaaclab-rl",
     "isaaclab-tasks",
@@ -147,9 +146,12 @@ index-strategy = "first-index"
 # environment at all, leaving the asset search with no installable runtime.
 override-dependencies = [
     "numpy==2.3.1",
-    "mujoco~=3.12.0",
-    "mujoco-warp~=3.12.0",
-    "newton[sim]==1.6.1",
+    "scipy>=1.18.0",
+    "mujoco-usd-converter==0.7.0",
+    "urdf-usd-converter==0.3.4",
+    "mujoco~=3.17.0",
+    "mujoco-warp~=3.17.0",
+    "newton[sim] @ git+https://github.com/newton-physics/newton.git@d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff",
     "newton-usd-schemas>=0.5.0",
     "usd-exchange==3.0.1",
     "usd-optimize~=1.3.1",
@@ -160,7 +162,7 @@ override-dependencies = [
     "coverage==7.4.4",
     "packaging==26.0",
     "urllib3>=2.8.0",
-    "websockets==16.1.1",
+    "websockets>=17.3",
     "boto3==1.40.61",
     "botocore==1.40.61",
     "requests==2.32.3",
@@ -172,7 +174,6 @@ constraint-dependencies = [
     "pin-pink==3.3.0",
     "pyglet<3",
     "tinyobjloader==2.0.0rc13",
-    "mujoco-usd-converter==0.6.1",
     "typer<0.26",
 ]
 # Use a uv-managed CPython 3.12 rather than whatever happens to be on PATH.
@@ -217,7 +218,7 @@ isaaclab-experimental = [{ path = "submodules/IsaacLab/source/isaaclab_experimen
 isaaclab-mimic = [{ path = "submodules/IsaacLab/source/isaaclab_mimic", editable = true, group = "isaaclab-from-source" }]
 isaaclab-newton = [{ path = "submodules/IsaacLab/source/isaaclab_newton", editable = true, group = "isaaclab-from-source" }]
 isaaclab-ov = [{ path = "submodules/IsaacLab/source/isaaclab_ov", editable = true, group = "isaaclab-from-source" }]
-isaaclab-physx = [{ path = "submodules/IsaacLab/source/isaaclab_physx", editable = true, group = "isaaclab-from-source" }]
+isaaclab-isaacsim = [{ path = "submodules/IsaacLab/source/isaaclab_isaacsim", editable = true, group = "isaaclab-from-source" }]
 isaaclab-ppisp = [{ path = "submodules/IsaacLab/source/isaaclab_ppisp", editable = true, group = "isaaclab-from-source" }]
 isaaclab-rl = [{ path = "submodules/IsaacLab/source/isaaclab_rl", editable = true, group = "isaaclab-from-source" }]
 isaaclab-tasks = [{ path = "submodules/IsaacLab/source/isaaclab_tasks", editable = true, group = "isaaclab-from-source" }]
