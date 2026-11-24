@@ -100,9 +100,18 @@ which renders Newton's model of the scene on the GPU and therefore requires the 
    python isaaclab_arena/evaluation/policy_runner.py --enable_cameras --presets newton \
        --camera_renderer newton_warp ...
 
+An Experiment Definition sets it under ``environment_builder`` by enum name, as it does ``presets``:
+
+.. code-block:: yaml
+
+   environment_builder:
+     presets: NEWTON
+     camera_renderer: NEWTON_WARP
+
 ``build_env_cfg`` passes the choice to the embodiment's camera rig before it reads the camera configuration.
-Newton Warp renders tiled cameras only; untiled cameras, such as those of the camera intrinsics variation, need
-Isaac RTX.
+Newton Warp keeps each camera's segmentation and depth-clipping settings; the Isaac RTX quality settings have no
+Newton Warp counterpart. Newton Warp renders tiled cameras only; untiled cameras, such as those of the camera
+intrinsics variation, need Isaac RTX.
 
 Embodiment backend hooks
 ------------------------
