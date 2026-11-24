@@ -37,20 +37,31 @@ runs:
       shell: bash
       run: echo "isaac_sim_version=$(cat /isaac-sim/VERSION)" >> "${GITHUB_OUTPUT}"
 
+    # The directories to cache, defined once for the restore and the save. The cache version
+    # hash depends on this list, so both steps must use the same one.
+    # For LightWheel we cache only floorplan and object directories, excluding stray zip
+    # files. login/ must never be cached because it holds credentials.
+    - id: cache_paths
+      name: Define cache paths
+      shell: bash
+      run: |
+        {
+          echo "paths<<EOF"
+          echo "/isaac-sim/kit/cache"
+          echo "~/.cache/warp"
+          echo "~/.cache/lightwheel_sdk/floorplan"
+          echo "~/.cache/lightwheel_sdk/object"
+          echo "!~/.cache/lightwheel_sdk/object/*.zip"
+          echo "EOF"
+        } >> "${GITHUB_OUTPUT}"
+
     # Restore the newest cache id
     - id: restore_caches
       name: Restore caches
       if: github.ref != 'refs/heads/main' # PREMERGE only
       uses: actions/cache/restore@v4 # Only restore. no save
       with:
-        # For LightWheel we cache only floorplan and object directories, excluding stray zip
-        # files. login/ must never be cached because it holds credentials.
-        path: |
-          /isaac-sim/kit/cache
-          ~/.cache/warp
-          ~/.cache/lightwheel_sdk/floorplan
-          ~/.cache/lightwheel_sdk/object
-          !~/.cache/lightwheel_sdk/object/*.zip
+        path: ${{ steps.cache_paths.outputs.paths }}
         key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
         restore-keys: |
           ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
@@ -61,12 +72,7 @@ runs:
       if: github.ref == 'refs/heads/main' # POSTMERGE and NIGHTLY
       uses: actions/cache@v4 # Default: restore and saves
       with:
-        path: |
-          /isaac-sim/kit/cache
-          ~/.cache/warp
-          ~/.cache/lightwheel_sdk/floorplan
-          ~/.cache/lightwheel_sdk/object
-          !~/.cache/lightwheel_sdk/object/*.zip
+        path: ${{ steps.cache_paths.outputs.paths }}
         # Key for new saved cache
         key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
         # Key from previous run
