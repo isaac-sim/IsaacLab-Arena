@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 ARENA_SINGLE_RUN_TIMINGS_FILENAME = "arena_run_timings.json"
 ARENA_AGGREGATED_TIMINGS_FILENAME = "arena_experiment_timings.json"
+ARENA_SINGLE_RUN_RESOURCES_FILENAME = "arena_run_resources.json"
+ARENA_AGGREGATED_RESOURCES_FILENAME = "arena_experiment_resources.json"
 ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME = "arena_run_placement_diagnostics.json"
 
 
