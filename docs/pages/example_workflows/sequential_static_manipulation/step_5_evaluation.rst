@@ -56,7 +56,7 @@ leave it running:
 
    cd submodules/Isaac-GR00T
    uv run python gr00t/eval/run_gr00t_server.py \
-     --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
+     --modality-config-path ../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
      --model-path $HOME/models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000 \
      --embodiment-tag GR1 \
      --device cuda --host 127.0.0.1 --port 5555
@@ -67,7 +67,7 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``):
    :animate: fade-in
@@ -77,7 +77,7 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
       language_instruction: "Place the sauce bottle on the top shelf of the fridge, and close the fridge door."
       action_horizon: 16
       video_backend: decord
-      modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
+      modality_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
 
       action_chunk_length: 16
       gr00t_embodiment_adapter: gr1_arms
@@ -95,7 +95,7 @@ Test the policy in a single environment with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
      --remote_host 127.0.0.1 \
      --remote_port 5555 \
      --num_steps 2000 \
@@ -106,8 +106,8 @@ Test the policy in a single environment with visualization via the GUI run:
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
+and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
 You should see similar metrics. All of them shall be greater than 0.9, and the number of episodes should be in the range of 3-6.
 
 Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
@@ -119,7 +119,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
       .. code-block:: text
 
-         Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
+         Metrics: Metrics: {'success_rate': 1.0, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
 
    .. tab-item:: Low Hardware Requirements
 
@@ -127,7 +127,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
       .. code-block:: text
 
-         Metrics: Metrics: {'success_rate': 0.75, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
+         Metrics: Metrics: {'success_rate': 0.75, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
 
 Step 2: Run Parallel environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -141,7 +141,7 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
      --remote_host 127.0.0.1 \
      --remote_port 5555 \
      --num_steps 2000 \
@@ -161,14 +161,14 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
    Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
+and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
 All of them might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.98, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
+   Metrics: {'success_rate': 0.98, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
 
 .. note::
 
@@ -192,7 +192,7 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
    --viz kit \
    --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-   --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+   --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
    --remote_host 127.0.0.1 \
    --remote_port 5555 \
    --num_steps 2000 \
@@ -205,12 +205,12 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
+and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.8666666666666667, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
+   Metrics: {'success_rate': 0.8666666666666667, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
 
 The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
 when evaluated on structurally similar sauce bottles.
@@ -258,14 +258,14 @@ You should see the following output on the console indicating the runs and metri
 
    gr1_put_jug_in_fridge_and_close_door:
      num_episodes                           10
-     object_moved_rate_subtask_0        1.0000
+     object_peak_speed_exceeded_rate_subtask_0     1.0000
      revolute_joint_moved_rate_subtask_1     1.0000
      subtask_success_rate           [0.2, 0.2]
      success_rate                       0.1000
 
    gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
      num_episodes                           10
-     object_moved_rate_subtask_0        1.0000
+     object_peak_speed_exceeded_rate_subtask_0     1.0000
      revolute_joint_moved_rate_subtask_1     1.0000
      subtask_success_rate           [0.9, 0.9]
      success_rate                       0.9000

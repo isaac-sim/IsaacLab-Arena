@@ -20,7 +20,7 @@ upstream openpi at a pinned commit on first run) and starts the inference server
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 The first invocation builds ``isaaclab_arena:openpi_server`` (~3 min,
 ~19 GB) and then downloads the ~11 GB checkpoint into the container on startup;
@@ -33,7 +33,7 @@ address is already in use, stop the existing process or choose another port:
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh -p 8001
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh -p 8001
 
 When you see:
 
@@ -145,22 +145,22 @@ When all Runs finish, you will see a summary table followed by a metrics report:
 
    droid_pnp_srl_openpi_alphabet_soup_can:
      num_episodes                            3
-     object_moved_rate                  0.6667
+     object_peak_speed_exceeded_rate    0.6667
      success_rate                       1.0000
 
    droid_pnp_srl_openpi_billiard_hall:
      num_episodes                            3
-     object_moved_rate                  1.0000
+     object_peak_speed_exceeded_rate    1.0000
      success_rate                       1.0000
 
    droid_pnp_srl_openpi_rubiks_cube_home_office:
      num_episodes                            3
-     object_moved_rate                  1.0000
+     object_peak_speed_exceeded_rate    1.0000
      success_rate                       1.0000
 
    droid_pnp_srl_openpi_sugar_box:
      num_episodes                            3
-     object_moved_rate                  1.0000
+     object_peak_speed_exceeded_rate    1.0000
      success_rate                       0.0000
 
    ...
@@ -222,5 +222,5 @@ supports two OpenPI checkpoint variants on DROID:
      - 10
 
 To add a new embodiment, subclass ``Pi0EmbodimentAdapter`` in
-``isaaclab_arena_openpi/policy/pi0_remote_policy.py`` and register the adapter in
+``isaaclab_arena_policies/isaaclab_arena_openpi/policy/pi0_remote_policy.py`` and register the adapter in
 ``_resolve_openpi_embodiment_adapter``.

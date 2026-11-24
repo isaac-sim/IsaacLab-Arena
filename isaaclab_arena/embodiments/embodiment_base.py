@@ -306,9 +306,11 @@ class EmbodimentBase(PlaceableAsset):
             return None
         from isaaclab_arena.terms.recorders import make_trajectory_recorder_terms_cfg
 
-        return make_trajectory_recorder_terms_cfg(
-            frame_transformer_names=self.get_ee_frame_transformer_names(), asset_name=self.get_scene_key()
-        )
+        asset_name_by_frame_transformer = {
+            frame_transformer_name: self.get_ee_frame_asset_name(frame_transformer_name)
+            for frame_transformer_name in self.get_ee_frame_transformer_names()
+        }
+        return make_trajectory_recorder_terms_cfg(asset_name_by_frame_transformer)
 
     def get_scene_key(self) -> str:
         """Return the embodiment's Isaac Lab scene key."""
@@ -343,6 +345,16 @@ class EmbodimentBase(PlaceableAsset):
         or whose single frame transformer is not named "ee_frame".
         """
         return ["ee_frame"]
+
+    def get_ee_frame_asset_name(self, frame_transformer_name: str) -> str:
+        """Return the scene key of the articulation that owns the given end-effector frame transformer.
+
+        Override for embodiments whose end-effectors sit on separate articulations, such as two independent arms.
+
+        Args:
+            frame_transformer_name: Name of one of the scene's end-effector frame transformer sensors.
+        """
+        return self.get_scene_key()
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name

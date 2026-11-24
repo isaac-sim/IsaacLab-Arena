@@ -1,7 +1,7 @@
 ---
 name: serve-gr00t-policy
 description: Starts, reuses, verifies, and explicitly stops the local GR00T inference server used by Isaac Lab-Arena Gr00tRemoteClosedloopPolicy experiments. Use when serving the maintained N1.6-DROID policy locally, selecting a GR00T port or model, checking server readiness, handling a GR00T endpoint conflict, or when run-experiment discovers a local GR00T policy dependency. Do not use for running Experiment Definitions, OSMO submission, training, replay-policy serving, other policy providers, or general Arena setup.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(git submodule status *) Bash(git submodule update --init submodules/Isaac-GR00T) Bash(test -d *) Bash(test -f *) Bash(uv --version) Bash(nvidia-smi *) Bash(ps -eo pid=,args=) Bash(ss -ltnp *) Bash(uv run python gr00t/eval/run_gr00t_server.py *) Bash(uv run python */isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py *)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(git submodule status *) Bash(git submodule update --init submodules/Isaac-GR00T) Bash(test -d *) Bash(test -f *) Bash(uv --version) Bash(nvidia-smi *) Bash(ps -eo pid=,args=) Bash(ss -ltnp *) Bash(uv run python gr00t/eval/run_gr00t_server.py *) Bash(uv run python */isaaclab_arena_policies/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py *)
 ---
 
 # Serve GR00T Policy
@@ -17,7 +17,7 @@ Before acting, read:
 - `docs/pages/quickstart/running_a_real_policy/gr00t.rst` for the maintained local workflow,
   hardware notes, checkpoint, embodiment, and endpoint.
 - The server script referenced by that document for its current arguments and readiness message.
-- `isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py` for the protocol-level readiness probe.
+- `isaaclab_arena_policies/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py` for the protocol-level readiness probe.
 
 Treat the current checkout as the source of truth. The maintained documentation currently launches
 from `submodules/Isaac-GR00T`, but explicitly marks that location as transitional. If the docs name
@@ -103,7 +103,7 @@ absolute path to the server. After the readiness line appears, verify the endpoi
 from the GR00T uv environment, substituting the absolute Arena root and selected endpoint:
 
 ```bash
-uv run python <arena-root>/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
+uv run python <arena-root>/isaaclab_arena_policies/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
   --host 127.0.0.1 --port 5555 \
   --timeout-sec 60 --poll-interval-sec 5 --request-timeout-ms 5000
 ```
@@ -143,4 +143,4 @@ cannot be identified safely, report that limitation instead of guessing.
 
 - [Evaluation scenarios](evaluations.md)
 - [GR00T workflow](../../../docs/pages/quickstart/running_a_real_policy/gr00t.rst)
-- [GR00T readiness helper](../../../isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py)
+- [GR00T readiness helper](../../../isaaclab_arena_policies/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py)

@@ -195,9 +195,10 @@ and ``camera_free_baseline/arena_run_timings.json`` below that directory.
 Each timing record names one timer and gives its ``count``, ``mean_ms``, ``total_ms``, ``min_ms``,
 ``max_ms``, ``p10_ms``, ``p50_ms``, and ``p90_ms``. The ``step`` timer covers one full control
 step; ``step/policy_inference`` and ``step/env_step`` split it into the policy call and the
-environment step. ``arena_run_timings.json`` is a list of these records.
-``arena_experiment_timings.json`` lists them under ``runs``, with the Run name added to each
-record, and sums them per timer under ``totals``. The timers cover the rollout only. Isaac Sim
+environment step. ``arena_run_timings.json`` is a list of these records, each with the timer's
+reservoir sample as ``samples_ms``. ``arena_experiment_timings.json`` lists the records under
+``runs``, with the Run name added to each and without ``samples_ms``, and sums them per timer under
+``totals``. The percentiles in ``totals`` are approximate and pooled from the Runs' samples. The timers cover the rollout only. Isaac Sim
 startup and scene construction are part of the trial wall-clock but have no timer of their own.
 
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
@@ -325,7 +326,7 @@ Before running Pi0.5, start OpenPI in a second terminal on the host, from the re
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh -v pi05 -p 8000
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh -v pi05 -p 8000
 
 The script gives the server container access to every GPU on the machine and has no option to
 restrict it to one. Record the GPU memory the server uses, as shown by ``nvidia-smi`` once the
@@ -398,7 +399,7 @@ second terminal on the host:
 
 .. code-block:: bash
 
-   ./isaaclab_arena_cosmos/docker/run_cosmos_server.sh -p 8000
+   ./isaaclab_arena_policies/isaaclab_arena_cosmos/docker/run_cosmos_server.sh -p 8000
 
 Like the OpenPI script, this script gives the server container access to every GPU on the machine.
 The local client still uses ``127.0.0.1:8000``.
@@ -466,7 +467,7 @@ requests:
 
 .. code-block:: bash
 
-   uv run python ../../isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
+   uv run python ../../isaaclab_arena_policies/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
      --host 127.0.0.1 --port 5555 \
      --timeout-sec 60 --poll-interval-sec 5 --request-timeout-ms 5000
 

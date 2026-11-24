@@ -10,14 +10,16 @@ from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
+from isaaclab.sim.utils import clone
 from pxr import Usd
 
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
+from isaaclab_arena.assets.physics_spawner import deactivate_physics_scenes, make_usd_spawn_cfg_with_addons
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry, get_geometry_key
 from isaaclab_arena.relations.relations import RelationBase
@@ -198,6 +200,7 @@ class Object(RootedObjectBase):
             )
             return self.spawner_cfg
         spawn_cfg = UsdFileCfg(
+            func=_spawn_object_from_usd,
             usd_path=self.usd_path,
             scale=self.scale,
             activate_contact_sensors=activate_contact_sensors,
@@ -249,3 +252,22 @@ class Object(RootedObjectBase):
 
     def _requires_reset_pose_event(self) -> bool:
         return super()._requires_reset_pose_event() and self.reset_pose
+
+
+@clone
+def _spawn_object_from_usd(
+    prim_path: str,
+    cfg: UsdFileCfg,
+    translation: tuple[float, float, float] | None = None,
+    orientation: tuple[float, float, float, float] | None = None,
+    **kwargs,
+) -> Usd.Prim:
+    """Spawn an object USD with Arena's spawn-time edits, then clone it."""
+    # Undecorated, so the outer @clone applies visibility, labels, and contact sensors once.
+    prim = spawn_from_usd.__wrapped__(prim_path, cfg, translation, orientation, **kwargs)
+    # A physics scene authored in the USD would add one PhysX scene per environment, and with many environments
+    # the first simulation step never returns. The simulation's own physics scene is unaffected.
+    deactivated_paths = deactivate_physics_scenes(prim)
+    if deactivated_paths:
+        print(f"WARNING: Deactivated physics scenes authored in {cfg.usd_path}: {deactivated_paths}")
+    return prim

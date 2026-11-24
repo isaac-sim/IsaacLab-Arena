@@ -21,8 +21,8 @@ Before composing a command, read:
 Treat the current checkout as the source of truth. If this skill differs from the documentation or
 runner CLI, follow the checkout and report the mismatch.
 
-Use typed YAML as the primary interface. Accept legacy JSON only as a pass-through compatibility
-path; do not create new legacy configurations or apply Hydra overrides to them.
+Experiments are typed YAML files. The runner rejects legacy JSON configs; rewrite their jobs as
+Runs in a YAML Experiment.
 
 ## Preflight the run
 

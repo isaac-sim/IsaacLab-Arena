@@ -33,7 +33,8 @@ def write_run_timings(run_output_directory: Path) -> Path:
 def aggregate_experiment_timings(experiment_output_directory: Path, run_names: Iterable[str]) -> Path:
     """Combine the named Runs' timings files into one Experiment timings file.
 
-    The combined file holds "totals", one entry per timer name summed over every Run, and "runs",
+    The combined file holds "totals", one entry per timer name summed over every Run with approximate
+    percentiles pooled from the Runs' samples, and "runs",
     every Run's own entries with the Run's name added to each as "run_name".
 
     Args:
@@ -51,10 +52,12 @@ def aggregate_experiment_timings(experiment_output_directory: Path, run_names: I
             {"run_name": run_name, **record} for record in json.loads(run_timings_path.read_text(encoding="utf-8"))
         )
 
+    # The samples only feed the totals' percentiles; each Run's own record keeps its percentiles.
+    totals = merge_timer_stats_json(run_records, remove_samples_from_input_records=True)
+
     experiment_timings_path = experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME
     experiment_timings_path.write_text(
-        json.dumps({"totals": merge_timer_stats_json(run_records), "runs": run_records}, allow_nan=False, indent=2)
-        + "\n",
+        json.dumps({"totals": totals, "runs": run_records}, allow_nan=False, indent=2) + "\n",
         encoding="utf-8",
     )
     return experiment_timings_path

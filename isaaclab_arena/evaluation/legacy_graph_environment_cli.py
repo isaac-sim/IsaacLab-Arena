@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena_environments.cli import arena_env_from_graph_spec, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -60,9 +59,8 @@ def build_arena_builder_from_legacy_graph(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     assert cfg.env_spec_path.endswith((".yaml", ".yml")), "legacy graph config must select a graph YAML"
-    arena_env_args = legacy_environment_args_to_cli_args({"environment": cfg.env_spec_path, **cfg.per_run_overrides})
     parser = get_isaaclab_arena_environments_cli_parser()
-    args_cli = parser.parse_args(arena_env_args)
+    args_cli = parser.parse_args(_graph_environment_cli_args(cfg))
     arena_env = arena_env_from_graph_spec(args_cli.env_spec, args_cli)
     return ArenaEnvBuilder(
         arena_env,
@@ -71,3 +69,22 @@ def build_arena_builder_from_legacy_graph(
         rebuild_index=rebuild_index,
         policy_cfg=policy_cfg,
     )
+
+
+def _graph_environment_cli_args(cfg: LegacyGraphEnvironmentCfg) -> list[str]:
+    """Return the command-line arguments that build this graph-spec environment.
+
+    For example, per-run overrides ``{"enable_cameras": True, "object": "box", "mimic": False}`` give
+    ``["--env_spec", <env_spec_path>, "--enable_cameras", "--object", "box"]``.
+    """
+    cli_args = ["--env_spec", cfg.env_spec_path]
+    for name, value in cfg.per_run_overrides.items():
+        if value is None or value is False:
+            # An unset value or a switched-off flag is not passed at all.
+            continue
+        if value is True:
+            # Boolean flags such as --enable_cameras take no value.
+            cli_args.append(f"--{name}")
+        else:
+            cli_args.extend([f"--{name}", str(value)])
+    return cli_args

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+import isaaclab_arena.utils.timer as timer_module
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
@@ -98,3 +99,26 @@ def test_writes_an_empty_experiment_file_when_no_runs_completed(tmp_path):
 
     experiment_timings = json.loads(experiment_timings_path.read_text(encoding="utf-8"))
     assert experiment_timings == {"totals": [], "runs": []}
+
+
+def test_totals_have_percentiles_and_no_samples(tmp_path):
+    """Run files carry samples; the totals pool them into percentiles and the per-Run records drop them."""
+    for run_name, durations_ms in (("first", [1.0, 2.0, 3.0]), ("second", [4.0, 5.0, 6.0])):
+        reset_timer_stats()
+        for duration_ms in durations_ms:
+            timer_module._update_stats("step", duration_ms)
+        write_run_timings(tmp_path / run_name)
+
+    first_run_records = json.loads((tmp_path / "first" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).read_text(encoding="utf-8"))
+    assert first_run_records[0]["samples_ms"] == [1.0, 2.0, 3.0]
+
+    experiment_timings_path = aggregate_experiment_timings(tmp_path, ["first", "second"])
+
+    experiment_timings = json.loads(experiment_timings_path.read_text(encoding="utf-8"))
+    (total,) = experiment_timings["totals"]
+    assert total["count"] == 6
+    assert (total["p10_ms"], total["p50_ms"], total["p90_ms"]) == (1.0, 3.0, 6.0)
+    assert "samples_ms" not in total
+    assert all("samples_ms" not in record for record in experiment_timings["runs"])
+    # Each Run keeps its own percentiles.
+    assert experiment_timings["runs"][0]["p50_ms"] == 2.0

@@ -10,3 +10,4 @@ from .g1.g1 import *
 from .galbot.galbot import *
 from .gr1t2.gr1t2 import *
 from .gripper import *
+from .yam.yam import *

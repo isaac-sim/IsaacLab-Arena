@@ -14,6 +14,7 @@ from isaaclab.sim.utils import clone
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.physics_spawner import deactivate_physics_scenes
 from isaaclab_arena.assets.sources.base import UsdSource
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
@@ -39,7 +40,7 @@ class Background(Object):
         **kwargs,
     ):
         self.reset_nested_physics = reset_nested_physics
-        """Whether to de-instance and reset physics nested in the USD, and deactivate the physics scenes authored in it."""
+        """Whether to de-instance and reset physics nested in the USD."""
         super().__init__(
             name=name,
             usd_path=usd_path,
@@ -60,8 +61,8 @@ class Background(Object):
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
         """Return the USD spawner for this background.
 
-        With reset_nested_physics, the spawner de-instances nested physics and deactivates the physics scenes
-        authored in the USD.
+        The spawner deactivates the physics scenes authored in the USD. With reset_nested_physics, it also
+        de-instances nested physics, so physics scenes inside those subtrees are deactivated too.
         """
         cfg = super()._get_spawn_cfg(activate_contact_sensors)
         if self.reset_nested_physics:
@@ -128,16 +129,6 @@ def _deinstance_nested_physics(prim: Usd.Prim) -> None:
         assert deinstanced, f"Failed to de-instance nested physics subtree '{path}'"
 
 
-def _deactivate_physics_scenes(prim: Usd.Prim) -> None:
-    """Deactivate the physics scenes under the spawned background prim, except those inside instanced subtrees."""
-    from pxr import Usd, UsdPhysics
-
-    # Collect before deactivating; editing the stage can invalidate a live traversal.
-    physics_scenes = [candidate for candidate in Usd.PrimRange(prim) if candidate.IsA(UsdPhysics.Scene)]
-    for physics_scene in physics_scenes:
-        physics_scene.SetActive(False)
-
-
 @clone
 def _spawn_background_from_usd(
     prim_path: str,
@@ -157,5 +148,5 @@ def _spawn_background_from_usd(
     # instanceable subtrees containing physics so reset views can control them.
     _deinstance_nested_physics(prim)
     # After de-instancing, so scenes inside those subtrees are editable too.
-    _deactivate_physics_scenes(prim)
+    deactivate_physics_scenes(prim)
     return prim
