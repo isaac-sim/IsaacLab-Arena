@@ -13,12 +13,11 @@ description: |
   cache and saves one at the end of a successful job, so the saved cache holds only
   what that run used. Every other run restores the newest saved cache.
 
-  It reports the restored contents of each cache. Every job that calls it also calls the
-  save-caches action after its tests, which reports what the tests changed.
-
-  With `lightwheel: 'true'` it also restores the Lightwheel SDK asset cache
-  (~/.cache/lightwheel_sdk/floorplan and ~/.cache/lightwheel_sdk/object) on every run and
-  records its contents; save-caches then saves it when the tests changed it.
+  With `lightwheel: 'true'` it also caches the Lightwheel SDK assets
+  (~/.cache/lightwheel_sdk/floorplan and ~/.cache/lightwheel_sdk/object). Unlike the kit
+  cache, every run restores it, including the nightly run on main, because starting from
+  nothing means downloading from the Lightwheel servers, which is the failure this cache
+  avoids. The nightly run saves what it restored plus anything it downloaded.
 
 inputs:
   cache-name:
@@ -28,9 +27,7 @@ inputs:
       with the same name, so jobs sharing a name would restore whichever job saved last.
     required: true
   lightwheel:
-    description: |
-      'true' to also restore the Lightwheel SDK asset cache. The save-caches action, which
-      every job calls with the same cache-name after its tests, saves it when it changed.
+    description: "'true' to also cache the Lightwheel SDK assets."
     required: false
     default: 'false'
 
@@ -43,8 +40,7 @@ runs:
       run: echo "isaac_sim_version=$(cat /isaac-sim/VERSION)" >> "${GITHUB_OUTPUT}"
 
     # Restore the newest cache with this name.
-    - id: restore_kit
-      name: Restore caches
+    - name: Restore caches
       if: >-
         !(github.ref == 'refs/heads/main' &&
           contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event_name))
@@ -56,26 +52,6 @@ runs:
         key: ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-${{ github.run_id }}
         restore-keys: |
           ci-caches-${{ steps.read_isaac_sim_version.outputs.isaac_sim_version }}-${{ inputs.cache-name }}-
-
-    # Report what was restored and record it for the report in save-caches. Runs on every
-    # event: when the restore above was skipped, both keys are empty and the report says
-    # "miss", which is accurate because those runs start cold. Reporting only, so a failure
-    # here warns instead of failing the job.
-    - name: Report kit and Warp cache contents
-      shell: bash
-      env:
-        CACHE_NAME: ${{ inputs.cache-name }}
-        MATCHED_KEY: ${{ steps.restore_kit.outputs.cache-matched-key }}
-        PRIMARY_KEY: ${{ steps.restore_kit.outputs.cache-primary-key }}
-      run: |
-        python3 "${GITHUB_WORKSPACE}/docker/report_cache_contents.py" snapshot \
-          --name "kit-warp-${CACHE_NAME}" \
-          --matched-key "${MATCHED_KEY}" \
-          --primary-key "${PRIMARY_KEY}" \
-          --out "${RUNNER_TEMP}/kit-warp-before.json" \
-          /isaac-sim/kit/cache \
-          "${HOME}/.cache/warp" \
-          || echo "::warning::Could not report the kit and Warp cache contents."
 
     # actions/cache automatically saves the paths in a step at the end of a successful job
     # when its key was not found. The key is new on every run, so it always saves.
@@ -92,53 +68,54 @@ runs:
 
     # The Lightwheel cache holds only the floorplan and object directories. The `login/`
     # directory next to them holds the credential file `account.json` and must never be cached.
+    # The SDK leaves object/<Name>.zip behind after extraction (about half of the object
+    # directory); lookups use the extracted files, so the zips are excluded.
     - name: Create Lightwheel cache directories
       if: inputs.lightwheel == 'true'
       shell: bash
       run: mkdir -p "${HOME}/.cache/lightwheel_sdk/floorplan" "${HOME}/.cache/lightwheel_sdk/object"
 
-    # Exported through GITHUB_ENV so that save-caches, a separate action, saves under the same
-    # key and runs its steps only when this restore ran.
-    - name: Set Lightwheel cache key
-      if: inputs.lightwheel == 'true'
-      shell: bash
-      env:
-        CACHE_NAME: ${{ inputs.cache-name }}
-      run: echo "LIGHTWHEEL_CACHE_KEY=lw-assets-v1-${CACHE_NAME}-${GITHUB_RUN_ID}" >> "${GITHUB_ENV}"
-
-    # Unlike the kit cache, the Lightwheel cache is restored on every run, including the
-    # nightly and manual runs on main. Those runs download from the Lightwheel servers, and
-    # starting them cold is the failure this cache avoids. The save at the end only adds what
-    # the run downloaded on top, which save-caches detects.
-    # The object/*.zip exclusion (the SDK leaves the archives after extraction) must match the
-    # path list of the save in save-caches, because the cache version hash depends on it.
+    # Restore the newest Lightwheel cache with this name. Keep the paths identical to the save
+    # step below, because the cache version hash depends on them.
     - id: restore_lightwheel
       name: Restore Lightwheel cache
-      if: inputs.lightwheel == 'true'
+      if: >-
+        inputs.lightwheel == 'true' &&
+        !(github.ref == 'refs/heads/main' &&
+          contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event_name))
       uses: actions/cache/restore@v4
       with:
         path: |
           ~/.cache/lightwheel_sdk/floorplan
           ~/.cache/lightwheel_sdk/object
           !~/.cache/lightwheel_sdk/object/*.zip
-        key: ${{ env.LIGHTWHEEL_CACHE_KEY }}
+        key: lw-assets-v1-${{ inputs.cache-name }}-${{ github.run_id }}
         restore-keys: |
           lw-assets-v1-${{ inputs.cache-name }}-
 
-    # Report what was restored and record it, so save-caches can tell whether the tests
-    # changed the contents.
-    - name: Report Lightwheel cache contents
+    # On the nightly run, restore the newest cache and save the result at the end of a
+    # successful job under a new key. Keep the paths identical to the restore step above.
+    - id: restore_and_save_lightwheel
+      name: Restore Lightwheel cache and save it at the end of the job
+      if: >-
+        inputs.lightwheel == 'true' &&
+        github.ref == 'refs/heads/main' &&
+        contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event_name)
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/lightwheel_sdk/floorplan
+          ~/.cache/lightwheel_sdk/object
+          !~/.cache/lightwheel_sdk/object/*.zip
+        key: lw-assets-v1-${{ inputs.cache-name }}-${{ github.run_id }}
+        restore-keys: |
+          lw-assets-v1-${{ inputs.cache-name }}-
+
+    - name: Print Lightwheel cache contents
       if: inputs.lightwheel == 'true'
       shell: bash
       env:
-        CACHE_NAME: ${{ inputs.cache-name }}
-        MATCHED_KEY: ${{ steps.restore_lightwheel.outputs.cache-matched-key }}
-        PRIMARY_KEY: ${{ steps.restore_lightwheel.outputs.cache-primary-key }}
+        MATCHED_KEY: ${{ steps.restore_lightwheel.outputs.cache-matched-key || steps.restore_and_save_lightwheel.outputs.cache-matched-key }}
       run: |
-        python3 "${GITHUB_WORKSPACE}/docker/report_cache_contents.py" snapshot \
-          --name "lightwheel-${CACHE_NAME}" \
-          --matched-key "${MATCHED_KEY}" \
-          --primary-key "${PRIMARY_KEY}" \
-          --out "${RUNNER_TEMP}/lightwheel-before.json" \
-          "${HOME}/.cache/lightwheel_sdk/floorplan" \
-          "${HOME}/.cache/lightwheel_sdk/object"
+        echo "Lightwheel cache restored from: ${MATCHED_KEY:-nothing (cache miss)}"
+        du -sh "${HOME}/.cache/lightwheel_sdk/floorplan" "${HOME}/.cache/lightwheel_sdk/object"
