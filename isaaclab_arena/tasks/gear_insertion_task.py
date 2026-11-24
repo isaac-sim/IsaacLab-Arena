@@ -128,8 +128,9 @@ class GearInsertionTask(TaskBase):
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.held_asset)]
 
     def get_mdp2_task_cfg(self):
-        """Return the partial MDP2 task config of gear insertion: success after the gear sits on its peg for
-        consecutive steps, the dropped-gear failure, the time limit, and the success and object-moved metrics.
+        """Return the partial MDP2 task config of gear insertion: done once the gear sits on its peg for consecutive
+        steps, which ends the episode as a success, the dropped-gear failure, the time limit, and the object-moved
+        metric. The environment logs and records whether, and at which step, the task was done.
 
         Returns:
             The partial task config.
@@ -164,13 +165,6 @@ class GearInsertionTask(TaskBase):
                         "max_angular_speed": criteria.angular_velocity_threshold,
                     },
                 ),
-                "success": mdp2.Quantity(
-                    task_terms.held_for,
-                    inputs={"condition": mdp2.quantities.gear_seated},
-                    params={"steps": criteria.consecutive_success_steps},
-                    log=True,
-                    record=True,
-                ),
                 "object_moved": mdp2.Quantity(
                     task_terms.moved,
                     inputs={"root_com_vel_w": gear.root_com_vel_w},
@@ -179,9 +173,12 @@ class GearInsertionTask(TaskBase):
                     record=True,
                 ),
             },
+            # Done once the gear stays seated for consecutive steps, as TrueForConsecutiveStepsCfg counts them.
+            done=mdp2.quantities.gear_seated,
+            hold=criteria.consecutive_success_steps,
             terminations={
                 "time_out": mdp2.TimeLimit(episode_length_s=self.episode_length_s),
-                "success": mdp2.Termination(mdp2_mdp.is_positive, inputs={"value": mdp2.quantities.success}),
+                "success": mdp2.Termination(mdp2_mdp.is_true, inputs={"value": mdp2.progress.done}),
                 "gear_dropped": mdp2.Termination(
                     mdp2_mdp.root_height_below_minimum,
                     inputs={"root_link_pose_w": gear.root_link_pose_w},

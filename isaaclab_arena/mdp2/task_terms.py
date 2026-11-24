@@ -56,16 +56,6 @@ less than ``max_tilt_rad`` from the receiver's z axis, and slower than ``max_lin
 the ``lateral_in_proximity``, ``depth_in_range``, ``tilt_axis_aligned``, and ``velocity_below_threshold`` predicates."""
 
 
-def _held_for(condition: torch.Tensor, count: torch.Tensor, steps: int) -> torch.Tensor:
-    count.copy_(torch.where(condition > 0.0, count + 1.0, torch.zeros_like(count)))
-    return (count >= steps).float()
-
-
-held_for = Term(torch=_held_for, state={"count": State()})
-"""One once ``condition`` held for ``steps`` consecutive control steps, like ``TrueForConsecutiveStepsCfg``. Its state
-``count`` holds the current run of steps."""
-
-
 def _moved(root_com_vel_w: torch.Tensor, moved: torch.Tensor, speed: float) -> torch.Tensor:
     moved.logical_or_(root_com_vel_w[:, :3].norm(dim=1) > speed)
     return moved.clone()

@@ -57,7 +57,7 @@ class TaskBase(ABC):
         raise NotImplementedError("Function not implemented yet.")
 
     def get_mdp2_task_cfg(self) -> mdp2.TaskCfg | None:
-        """Return the task's partial MDP2 task config: its success quantities, terminations, and metrics.
+        """Return the task's partial MDP2 task config: when the task is done, its terminations, and its metrics.
 
         Returns:
             The partial task config, or None if the task has no MDP2 version.

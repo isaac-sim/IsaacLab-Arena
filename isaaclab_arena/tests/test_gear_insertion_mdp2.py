@@ -109,7 +109,9 @@ def _test_mdp2_gear_insertion_episodes(simulation_app) -> bool:
         assert terminated_steps == [[False, False]] * (required - 1) + [[True, False]], terminated_steps
         records = env.episode_records()
         assert records["world"].tolist() == [0.0]
-        assert records["success"].tolist() == [1.0] and records["termination/success"].tolist() == [1.0]
+        # The task was done at the last step of the episode, which it ended as a success.
+        assert records["progress/task"].tolist() == records["length"].tolist()
+        assert records["termination/success"].tolist() == [1.0]
 
         # Drop both gears below the background's minimum height, beside the table and clear of the robot's stand:
         # the budget of three is then spent.
@@ -125,6 +127,7 @@ def _test_mdp2_gear_insertion_episodes(simulation_app) -> bool:
         records = env.episode_records()
         assert records["world"].tolist() == [0.0, 0.0, 1.0]
         assert records["termination/gear_dropped"].tolist() == [0.0, 1.0, 1.0]
+        assert records["progress/task"].tolist()[1:] == [-1.0, -1.0]  # Dropped, never done
         drop()
         _, _, terminated, truncated, _ = env.step(actions)
         assert not (terminated | truncated).any() and env.episodes_completed == BUDGET
@@ -166,9 +169,6 @@ def _test_mdp2_gear_insertion_seated_thresholds(simulation_app) -> bool:
     assert seated(tilt_deg=4.0) == 1.0 and seated(tilt_deg=6.0) == 0.0
     assert seated(linear_speed=0.04) == 1.0 and seated(linear_speed=0.06) == 0.0
     assert seated(angular_speed=0.4) == 1.0 and seated(angular_speed=0.6) == 0.0
-    count = torch.zeros(1)
-    held = [task_terms._held_for(torch.tensor([c]), count, steps=3).item() for c in (1.0, 1.0, 0.0, 1.0, 1.0, 1.0)]
-    assert held == [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
     return True
 
 
