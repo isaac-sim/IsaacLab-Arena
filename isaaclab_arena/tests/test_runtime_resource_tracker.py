@@ -146,6 +146,47 @@ def test_nvml_init_failure_propagates_from_enter_without_thread(monkeypatch):
     assert THREAD_NAME not in _thread_names()
 
 
+def test_old_pynvml_without_v2_memory_info_fails_at_start_without_thread(monkeypatch):
+    fake = _make_fake_pynvml()
+    del fake.nvmlMemory_v2
+    fake.__file__ = "/isaac-sim/pip_prebundle/pynvml/__init__.py"
+    init_calls = []
+    fake.nvmlInit = lambda: init_calls.append(1)
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    with pytest.raises(AssertionError, match=r"nvidia-ml-py.*pip_prebundle/pynvml.*shadow"):
+        with RuntimeResourceTracker(interval_s=0.01):
+            pass
+    assert init_calls == []
+    assert fake.shutdown_calls == 0
+    assert THREAD_NAME not in _thread_names()
+
+
+def test_reader_shuts_down_nvml_when_handle_lookup_fails(monkeypatch):
+    fake = _make_fake_pynvml()
+
+    def fail_handle(index):
+        raise RuntimeError("no such GPU")
+
+    fake.nvmlDeviceGetHandleByIndex = fail_handle
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    with pytest.raises(RuntimeError, match="no such GPU"):
+        ProcessResourceReader(gpu_index=7)
+    assert fake.shutdown_calls == 1
+
+
+def test_reader_closed_even_if_stop_sample_is_interrupted():
+    reader = FakeReader([_sample()])
+
+    def interrupted():
+        raise KeyboardInterrupt()
+
+    with pytest.raises(KeyboardInterrupt):
+        with RuntimeResourceTracker(interval_s=60.0, reader=reader):
+            reader.sample = interrupted
+    assert reader.closed
+    assert THREAD_NAME not in _thread_names()
+
+
 def test_reader_uses_v2_used_memory_and_proc_rss(monkeypatch):
     fake = _make_fake_pynvml()
     monkeypatch.setitem(sys.modules, "pynvml", fake)

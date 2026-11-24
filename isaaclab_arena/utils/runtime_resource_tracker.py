@@ -35,7 +35,12 @@ class ResourceSample:
 
 
 class ProcessResourceReader:
-    """Reads the resources used by the current process and a GPU through NVML and /proc."""
+    """Reads the resources used by the current process and a GPU through NVML and /proc.
+
+    VRAM and GPU utilization come from the GPU with the NVML index given at construction (default 0),
+    regardless of ``--device`` or ``CUDA_VISIBLE_DEVICES``. On a multi-GPU machine that runs on another
+    GPU they describe a different GPU.
+    """
 
     def __init__(self, gpu_index: int = 0):
         """Initialize NVML and get the handle of the GPU; fails if NVML cannot initialize.
@@ -45,9 +50,17 @@ class ProcessResourceReader:
         """
         import pynvml
 
+        assert hasattr(pynvml, "nvmlMemory_v2"), (
+            "The imported pynvml has no nvmlMemory_v2; the resource tracker needs the nvidia-ml-py package."
+            f" The imported module is {getattr(pynvml, '__file__', None)!r}; an older pynvml may shadow nvidia-ml-py."
+        )
         self._pynvml = pynvml
         pynvml.nvmlInit()
-        self._handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_index)
+        try:
+            self._handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_index)
+        except BaseException:
+            pynvml.nvmlShutdown()
+            raise
         self._page_size = os.sysconf("SC_PAGE_SIZE")
         self._last_cpu_time_s: float | None = None
         self._last_wall_time_s: float | None = None
@@ -85,7 +98,11 @@ class ProcessResourceReader:
 
 
 class RuntimeResourceTracker:
-    """Context manager sampling process and GPU resources at a fixed interval while its block runs."""
+    """Context manager sampling process and GPU resources at a fixed interval while its block runs.
+
+    VRAM and GPU utilization are read from NVML GPU ``gpu_index`` (default 0), regardless of ``--device`` or
+    ``CUDA_VISIBLE_DEVICES``, so on a multi-GPU machine that runs on another GPU they describe a different GPU.
+    """
 
     def __init__(self, interval_s: float = 0.1, gpu_index: int = 0, reader: ProcessResourceReader | None = None):
         """Create a tracker; NVML is initialized when the context is entered.
@@ -126,15 +143,17 @@ class RuntimeResourceTracker:
         """Stop the sampling thread, take the last sample and close the reader."""
         if self._thread is None:
             return
-        self._stop_event.set()
-        self._thread.join()
-        self._thread = None
-        if not self._failed:
-            try:
-                self._record(self._reader.sample())
-            except Exception as error:
-                self._report_failure(error)
-        self._reader.close()
+        try:
+            self._stop_event.set()
+            self._thread.join()
+            self._thread = None
+            if not self._failed:
+                try:
+                    self._record(self._reader.sample())
+                except Exception as error:
+                    self._report_failure(error)
+        finally:
+            self._reader.close()
 
     def _record(self, sample: ResourceSample) -> None:
         self._usage.vram.update(sample.vram_mb)
