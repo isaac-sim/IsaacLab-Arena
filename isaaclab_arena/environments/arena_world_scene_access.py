@@ -11,9 +11,13 @@ import numpy as np
 import torch
 
 import isaaclab.sim as sim_utils
+import isaaclab.utils.math as math_utils
+import warp as wp
 from isaaclab import cloner
 from isaaclab.scene import InteractiveScene
 from isaaclab.sim.views import FrameView
+from isaaclab_newton.physics import NewtonManager
+from newton import ShapeFlags
 from pxr import Usd, UsdGeom, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -214,6 +218,37 @@ def compute_spawned_geometry_bounds_in_local_frame(
     )
 
 
+def _newton_static_collider_poses_w(scene: InteractiveScene, prim_path: str) -> torch.Tensor | None:
+    """Return the prim's world pose in each environment if Newton built it as a static collider, else None.
+
+    Isaac Lab's FrameView refuses Newton colliders. A static shape's transform in the Newton model is its world pose,
+    up to a fixed offset from its prim, such as Newton's turn of a cylinder along x, which the first environment's stage
+    gives. A decomposed collider keeps the prim's label on its first shape.
+    """
+    if "newton" not in scene.physics_backend:
+        return None
+    model = NewtonManager.get_model()
+    shape_ids = {label: shape_id for shape_id, label in enumerate(model.shape_label)}
+    paths = [prim_path.replace(scene.env_regex_ns, env_prim_path) for env_prim_path in scene.env_prim_paths]
+    if paths[0] not in shape_ids:
+        return None
+    ids = [shape_ids[path] for path in paths]
+    if not model.shape_flags.numpy()[ids[0]] & (ShapeFlags.COLLIDE_SHAPES | ShapeFlags.COLLIDE_PARTICLES):
+        return None
+    assert (
+        model.shape_body.numpy()[ids] == -1
+    ).all(), f"'{paths[0]}' is a collider of a Newton body; only static colliders are read."
+    T_W_S = wp.to_torch(model.shape_transform)[ids]
+    t_W_P0, q_W_P0 = sim_utils.resolve_prim_pose(scene.stage.GetPrimAtPath(paths[0]))
+    t_S_P, q_S_P = math_utils.subtract_frame_transforms(
+        T_W_S[:1, :3], T_W_S[:1, 3:], T_W_S.new_tensor([t_W_P0]), T_W_S.new_tensor([q_W_P0])
+    )
+    t_W_P, q_W_P = math_utils.combine_frame_transforms(
+        T_W_S[:, :3], T_W_S[:, 3:], t_S_P.expand(len(ids), 3), q_S_P.expand(len(ids), 4)
+    )
+    return torch.cat((t_W_P, q_W_P), dim=-1)
+
+
 class SceneExtraPoseReader:
     """Read current T_W_F poses for an InteractiveScene.extras entry defining frame F."""
 
@@ -225,6 +260,9 @@ class SceneExtraPoseReader:
         self._scene_extra_key = scene_extra_key
         self._num_envs = scene.num_envs
         scene_extra_prim_path = getattr(scene.cfg, scene_extra_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+        self._static_collider_poses_w = _newton_static_collider_poses_w(scene, scene_extra_prim_path)
+        if self._static_collider_poses_w is not None:
+            return
         prims = sim_utils.find_matching_prims(scene_extra_prim_path, stage=scene.stage)
         # Reauthoring an already valid collider frame can invalidate live physics views.
         needs_standardization = False
@@ -256,10 +294,11 @@ class SceneExtraPoseReader:
 
     def get_pose_w(self) -> torch.Tensor:
         """Return T_W_F with shape (num_envs, 7), ordered as (x, y, z, qx, qy, qz, qw)."""
-        position_w_buffer, orientation_w_buffer = self._frame_view.get_world_poses()
-        t_W_F = position_w_buffer.torch
-        q_W_F = orientation_w_buffer.torch
-        T_W_F = torch.cat((t_W_F, q_W_F), dim=-1)
+        if self._static_collider_poses_w is not None:
+            T_W_F = self._static_collider_poses_w
+        else:
+            position_w_buffer, orientation_w_buffer = self._frame_view.get_world_poses()
+            T_W_F = torch.cat((position_w_buffer.torch, orientation_w_buffer.torch), dim=-1)
         assert T_W_F.shape == (self._num_envs, 7), (
             f"Scene extra '{self._scene_extra_key}' returned pose shape {tuple(T_W_F.shape)}; "
             f"expected ({self._num_envs}, 7)."

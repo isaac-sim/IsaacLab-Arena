@@ -390,6 +390,7 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
         cfg=SimpleNamespace(reference=SimpleNamespace(prim_path="{ENV_REGEX_NS}/reference")),
         env_regex_ns="/World/envs/env_.*",
         env_prim_paths=["/World/envs/env_0", "/World/envs/env_1"],
+        physics_backend="physxmanager",
     )
     frame_view = FrameViewDouble()
     with patch.object(scene_access_module, "FrameView", return_value=frame_view) as make_frame_view:
@@ -445,6 +446,76 @@ def _test_arena_world_scene_access(_simulation_app) -> bool:
 
 def test_arena_world_scene_access():
     assert run_function_with_persistent_simulation_app(_test_arena_world_scene_access)
+
+
+def _test_static_collider_pose_on_newton(simulation_app, tmp_path) -> bool:
+    import torch
+
+    import isaaclab.sim as sim_utils
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tests.test_reference_objects import background_from_usd_path
+    from isaaclab_arena.utils.physics_backend import PhysicsBackend
+    from isaaclab_arena.utils.pose import Pose
+
+    # Static colliders: a counter top turned a quarter turn about z, and a rail along x, whose Newton shape frame
+    # Newton turns to z.
+    usd_path = tmp_path / "kitchen.usda"
+    stage = Usd.Stage.CreateNew(str(usd_path))
+    stage.SetDefaultPrim(UsdGeom.Xform.Define(stage, "/World").GetPrim())
+    top = UsdGeom.Cube.Define(stage, "/World/counter/top")
+    top.AddTranslateOp().Set(Gf.Vec3d(0.5, -0.2, 0.9))
+    top.AddOrientOp().Set(Gf.Quatf(0.70710678, 0.0, 0.0, 0.70710678))
+    rail = UsdGeom.Cylinder.Define(stage, "/World/counter/rail")
+    rail.CreateAxisAttr("X")
+    rail.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.5, 1.0))
+    for collider in (top, rail):
+        UsdPhysics.CollisionAPI.Apply(collider.GetPrim())
+    stage.GetRootLayer().Save()
+    kitchen = background_from_usd_path("kitchen", usd_path, Pose.identity())
+    counter = ObjectReference(name="counter", prim_path="{ENV_REGEX_NS}/kitchen/counter/top", parent_asset=kitchen)
+    rail = ObjectReference(name="rail", prim_path="{ENV_REGEX_NS}/kitchen/counter/rail", parent_asset=kitchen)
+    # MuJoCo needs at least one joint in the model.
+    box = Object(
+        name="box",
+        object_type=ObjectType.RIGID,
+        spawner_cfg=sim_utils.CuboidCfg(
+            size=(0.1, 0.1, 0.1),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+        ),
+        initial_pose=Pose(position_xyz=(0.5, -0.2, 1.5)),
+    )
+    arena_env = IsaacLabArenaEnvironment(name="static_collider", scene=Scene(assets=[kitchen, counter, rail, box]))
+    builder_cfg = ArenaEnvBuilderCfg(presets=PhysicsBackend.NEWTON, num_envs=2)
+    env = ArenaEnvBuilder(arena_env, builder_cfg).make_registered()
+    try:
+        env.reset()
+        for reference, T_E_F in (
+            (counter, [0.5, -0.2, 0.9, 0.0, 0.0, 0.70710678, 0.70710678]),
+            (rail, [0.0, 0.5, 1.0, 0.0, 0.0, 0.0, 1.0]),
+        ):
+            T_W_F = env.unwrapped.arena_world.get_pose_w(reference.name)
+            expected = torch.tensor(T_E_F, device=T_W_F.device).repeat(2, 1)
+            expected[:, :3] += env.unwrapped.scene.env_origins
+            torch.testing.assert_close(T_W_F, expected)
+    finally:
+        env.close()
+    return True
+
+
+@pytest.mark.with_newton
+def test_static_collider_pose_on_newton(tmp_path):
+    """Read the pose of a destination that is a static collision shape, which Isaac Lab's FrameView refuses."""
+    assert run_function_with_persistent_simulation_app(_test_static_collider_pose_on_newton, tmp_path=tmp_path)
 
 
 if __name__ == "__main__":

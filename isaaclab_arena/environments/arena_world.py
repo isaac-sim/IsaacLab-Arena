@@ -46,8 +46,8 @@ class ArenaWorld:
         """
         scene = self._scene
         # Rigid objects and articulations expose their live root-link poses directly. An articulation
-        # body reference reads its body's live link pose. Other scene extras are plain cloned prims, so
-        # their live post-clone poses require a FrameView-backed reader.
+        # body reference reads its body's live link pose. Other scene extras are plain cloned prims, read
+        # through FrameView, or on Newton from the model if they are static colliders.
         if scene_key in scene.rigid_objects:
             T_W_F = scene.rigid_objects[scene_key].data.root_pose_w.torch
         elif scene_key in scene.articulations:
