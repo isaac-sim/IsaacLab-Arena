@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian
+env_name: kitchen_bench_lightwheel_spatial_place_pepper_in_middle_bowl_l_shaped_scandinavian
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape
+env_name: kitchen_bench_replicator_spatial_u_shape_sponge_on_tray_behind_plate
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

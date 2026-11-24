@@ -6,7 +6,7 @@ YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
 environment: the original 42 environments on October 28, 2026, and the nine
-``kitchen_bench_spatial_*`` placement environments on November 22, 2026.
+``kitchen_bench_*_spatial_*`` placement environments on November 22, 2026.
 
 .. list-table:: Task categories
    :header-rows: 1
@@ -323,73 +323,73 @@ the maintained DROID external camera. Rows are grouped by task category.
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml>`_
+     - `kitchen_bench_replicator_spatial_g_shape_apple_in_right_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_g_shape_apple_in_right_bowl.yaml>`_
      - 75.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_spatial_g_shape_apple_in_right_bowl_pi05.gif
           :alt: Pi0.5 placing an apple in the right bowl in the G-shaped kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml>`_
+     - `kitchen_bench_replicator_spatial_l_island_bagel_on_plate_left_of_mug.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_l_island_bagel_on_plate_left_of_mug.yaml>`_
      - 22.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_spatial_l_island_bagel_on_plate_left_of_mug_pi05.gif
           :alt: Pi0.5 placing a bagel on the plate to the left of the mug in the L-island kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml>`_
+     - `kitchen_bench_replicator_spatial_peninsula_lemon_on_near_plate.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_peninsula_lemon_on_near_plate.yaml>`_
      - 80.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_spatial_peninsula_lemon_on_near_plate_pi05.gif
           :alt: Pi0.5 placing a lemon on the nearer plate in the peninsula kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml>`_
+     - `kitchen_bench_lightwheel_spatial_place_lime_in_bowl_between_landmarks_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_spatial_place_lime_in_bowl_between_landmarks_one_wall_coastal.yaml>`_
      - 25.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_spatial_place_lime_in_bowl_between_landmarks_one_wall_coastal_pi05.gif
           :alt: Pi0.5 placing a lime in the bowl between the mug and mustard bottle in the coastal kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml>`_
+     - `kitchen_bench_replicator_spatial_l_island_orange_in_front_right_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_l_island_orange_in_front_right_bowl.yaml>`_
      - 92.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_spatial_l_island_orange_in_front_right_bowl_pi05.gif
           :alt: Pi0.5 placing an orange in the front-right of four bowls in the L-island kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_orange_in_back_right_bowl_l_island.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_back_right_bowl_l_island.yaml>`_
+     - `kitchen_bench_replicator_spatial_l_island_orange_in_back_right_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_l_island_orange_in_back_right_bowl.yaml>`_
      - 1.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_orange_in_back_right_bowl_l_island_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_spatial_l_island_orange_in_back_right_bowl_pi05.gif
           :alt: Pi0.5 placing an orange in the back-right of four bowls in the L-island kitchen
           :width: 100%
 
        Pi0.5, 3x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml>`_
+     - `kitchen_bench_lightwheel_spatial_place_pepper_in_middle_bowl_l_shaped_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_spatial_place_pepper_in_middle_bowl_l_shaped_scandinavian.yaml>`_
      - 12.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_spatial_place_pepper_in_middle_bowl_l_shaped_scandinavian_pi05.gif
           :alt: Pi0.5 placing a pepper in the middle bowl in the Scandinavian kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml>`_
+     - `kitchen_bench_replicator_spatial_u_shape_sponge_on_tray_behind_plate.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_u_shape_sponge_on_tray_behind_plate.yaml>`_
      - 63.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_spatial_u_shape_sponge_on_tray_behind_plate_pi05.gif
           :alt: Pi0.5 placing a sponge on the tray behind the plate in the U-shaped kitchen
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Spatial placement
-     - `kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml>`_
+     - `kitchen_bench_lightwheel_spatial_place_red_onion_in_bowl_nearest_pepper_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_spatial_place_red_onion_in_bowl_nearest_pepper_u_shaped_with_island_farmhouse2.yaml>`_
      - 0.0%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse_pi05.gif
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_spatial_place_red_onion_in_bowl_nearest_pepper_u_shaped_with_island_farmhouse2_pi05.gif
           :alt: Pi0.5 placing the red onion in the far bowl instead of the bowl nearest the pepper in the farmhouse kitchen
           :width: 100%
 

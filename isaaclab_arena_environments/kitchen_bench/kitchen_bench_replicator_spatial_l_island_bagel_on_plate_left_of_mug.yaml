@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island
+env_name: kitchen_bench_replicator_spatial_l_island_bagel_on_plate_left_of_mug
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchen_bench_spatial_lemon_on_near_plate_peninsula
+env_name: kitchen_bench_replicator_spatial_peninsula_lemon_on_near_plate
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

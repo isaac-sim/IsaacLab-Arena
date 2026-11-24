@@ -231,48 +231,48 @@ runs:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_mustard_bowl.yaml
     environment_builder:
       placement_seed: 4100000
-  kitchen_bench_spatial_apple_in_right_bowl_g_shape:
+  kitchen_bench_replicator_spatial_g_shape_apple_in_right_bowl:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_g_shape_apple_in_right_bowl.yaml
     environment_builder:
       placement_seed: 4200000
-  kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island:
+  kitchen_bench_replicator_spatial_l_island_bagel_on_plate_left_of_mug:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_l_island_bagel_on_plate_left_of_mug.yaml
     environment_builder:
       placement_seed: 4300000
-  kitchen_bench_spatial_lemon_on_near_plate_peninsula:
+  kitchen_bench_replicator_spatial_peninsula_lemon_on_near_plate:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_peninsula_lemon_on_near_plate.yaml
     environment_builder:
       placement_seed: 4400000
-  kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal:
+  kitchen_bench_lightwheel_spatial_place_lime_in_bowl_between_landmarks_one_wall_coastal:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_spatial_place_lime_in_bowl_between_landmarks_one_wall_coastal.yaml
     environment_builder:
       placement_seed: 4500000
-  kitchen_bench_spatial_orange_in_back_right_bowl_l_island:
+  kitchen_bench_replicator_spatial_l_island_orange_in_back_right_bowl:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_back_right_bowl_l_island.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_l_island_orange_in_back_right_bowl.yaml
     environment_builder:
       placement_seed: 4600000
-  kitchen_bench_spatial_orange_in_front_right_bowl_l_island:
+  kitchen_bench_replicator_spatial_l_island_orange_in_front_right_bowl:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_l_island_orange_in_front_right_bowl.yaml
     environment_builder:
       placement_seed: 4700000
-  kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian:
+  kitchen_bench_lightwheel_spatial_place_pepper_in_middle_bowl_l_shaped_scandinavian:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_spatial_place_pepper_in_middle_bowl_l_shaped_scandinavian.yaml
     environment_builder:
       placement_seed: 4800000
-  kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse:
+  kitchen_bench_lightwheel_spatial_place_red_onion_in_bowl_nearest_pepper_u_shaped_with_island_farmhouse2:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_spatial_place_red_onion_in_bowl_nearest_pepper_u_shaped_with_island_farmhouse2.yaml
     environment_builder:
       placement_seed: 4900000
-  kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape:
+  kitchen_bench_replicator_spatial_u_shape_sponge_on_tray_behind_plate:
     environment:
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_spatial_u_shape_sponge_on_tray_behind_plate.yaml
     environment_builder:
       placement_seed: 5000000
