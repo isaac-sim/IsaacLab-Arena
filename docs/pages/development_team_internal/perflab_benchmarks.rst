@@ -200,48 +200,7 @@ reservoir sample as ``samples_ms``. ``arena_experiment_timings.json`` lists the 
 ``runs``, with the Run name added to each and without ``samples_ms``, and sums them per timer under
 ``totals``. The percentiles in ``totals`` are approximate and pooled from the Runs' samples. The timers cover the rollout only. Isaac Sim
 startup and scene construction are part of the trial wall-clock but have no timer of their own.
-
-Each command also writes the resource usage of each whole Run, from environment build to teardown:
-``arena_experiment_resources.json`` next to
-``arena_experiment_timings.json``, and ``arena_run_resources.json`` next to ``arena_run_timings.json``.
-Their layout matches the timing files, with ``runs`` and ``totals`` in the Experiment file. Each record
-names one resource, with ``count`` and unit-suffixed ``mean_<u>``, ``min_<u>``, ``max_<u>``, ``p10_<u>``,
-``p50_<u>`` and ``p90_<u>``. ``arena_run_resources.json`` also holds the reservoir sample as
-``samples_<u>``. ``<u>`` is ``mb`` (megabytes of ``2**20`` bytes) or ``percent``. The default KPI exporters
-also write ``kpis_resource.json`` with one ``resource`` record per resource, totalled over every Run.
-The KPI is the absolute footprint of the process, so Runs that share a process inherit earlier
-allocations, so a Run's footprint can include memory held over from earlier Runs. Per-Run isolation needs separate
-processes, for example one Experiment Runner invocation per Run.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 15 10 75
-
-   * - Resource
-     - Unit
-     - Meaning
-   * - ``vram``
-     - mb
-     - GPU memory in use, from NVML (``used`` of the v2 memory info). It is device-wide: it includes every
-       process on the GPU, their CUDA context memory and, on a developer machine, the desktop's use of the GPU.
-       It excludes the memory the driver reserves for itself (about 600 MiB on an RTX A6000), so it equals the
-       ``Memory-Usage`` figure of ``nvidia-smi``.
-   * - ``ram``
-     - mb
-     - Resident set size of the Arena process.
-   * - ``cpu_util``
-     - percent
-     - CPU time of the Arena process as a percent of one core, so it can exceed ``100``.
-       It has no value for the first sample.
-   * - ``gpu_util``
-     - percent
-     - GPU utilization of the device, from NVML.
-
-A tracker samples all four resources every 0.1 s during a Run, once at its start and once at its end.
-Peaks are the maximum of these samples, so a spike shorter than 0.1 s can be missed. The tracker needs
-NVML: if it cannot initialize, the Run fails at its start instead of reporting empty resources.
-VRAM and GPU utilization are read from NVML GPU 0, regardless of ``--device`` or ``CUDA_VISIBLE_DEVICES``,
-so on a multi-GPU machine that runs on another GPU they describe a different GPU. OSMO tasks have one GPU.
+``arena_experiment_resource_usage.json`` stores the per-Run resource usage.
 
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
 trial wall-clock immediately before ``isaaclab.sh`` and stop it when that process exits. Container
@@ -560,8 +519,6 @@ A successful trial has all of the following:
 - ``arena_experiment_result.json`` with ``runs.<run-name>.status`` equal to ``completed``.
 - ``arena_experiment_timings.json``.
 - ``<run-name>/arena_run_timings.json``.
-- ``arena_experiment_resources.json``.
-- ``<run-name>/arena_run_resources.json``.
 - ``index.html``.
 - ``<run-name>/episode_results_rebuild0.jsonl``. It may be empty when no episode finishes during
   the fixed number of steps.
