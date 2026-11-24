@@ -12,6 +12,8 @@ from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
+    from isaaclab_experimental.envs import MDP2RLEnvCfg
+
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
@@ -32,7 +34,10 @@ class IsaacLabArenaEnvironment:
         task: TaskBase | None = None,
         teleop_device: TeleopDeviceBase | None = None,
         env_cfg_callback: (
-            Callable[[IsaacLabArenaManagerBasedRLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg] | None
+            Callable[
+                [IsaacLabArenaManagerBasedRLEnvCfg | MDP2RLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg | MDP2RLEnvCfg
+            ]
+            | None
         ) = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
@@ -49,6 +54,7 @@ class IsaacLabArenaEnvironment:
             teleop_device: The teleop device to use in the environment.
             env_cfg_callback: A callback that tunes the environment configuration after the
                 resolved physics backend is materialized. It must not change the backend type.
+                ``ArenaMDP2EnvBuilder`` passes it an ``MDP2RLEnvCfg`` instead of a manager-based config.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.

@@ -27,6 +27,8 @@ from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 if TYPE_CHECKING:
     import trimesh
 
+    from isaaclab_experimental import mdp2
+
 
 @dataclass(frozen=True)
 class ArticulationGeometrySpec:
@@ -259,6 +261,13 @@ class EmbodimentBase(PlaceableAsset):
         )()
         # Merge the pose reset last so it runs after joint/root resets in ``event_config``.
         return combine_configclass_instances("EventsCfg", self.event_config, pose_reset_cfg)
+
+    def get_mdp2_task_cfg(self) -> mdp2.TaskCfg | None:
+        """Return the embodiment's partial MDP2 task config: its actions, observations, and joint resets.
+
+        Returns:
+            The partial task config, or None if the embodiment has no MDP2 version.
+        """
 
     def get_mimic_env(self) -> ManagerBasedRLMimicEnv:
         return self.mimic_env

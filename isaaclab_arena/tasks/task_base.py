@@ -20,6 +20,8 @@ from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
 
 if TYPE_CHECKING:
+    from isaaclab_experimental import mdp2
+
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.progress_tracking.tracked_event_cfg import TrackedEventCfg
 
@@ -53,6 +55,13 @@ class TaskBase(ABC):
     @abstractmethod
     def get_metrics(self) -> list[MetricBase]:
         raise NotImplementedError("Function not implemented yet.")
+
+    def get_mdp2_task_cfg(self) -> mdp2.TaskCfg | None:
+        """Return the task's partial MDP2 task config: its success quantities, terminations, and metrics.
+
+        Returns:
+            The partial task config, or None if the task has no MDP2 version.
+        """
 
     def get_observation_cfg(self) -> Any:
         return None
