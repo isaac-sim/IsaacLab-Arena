@@ -13,7 +13,6 @@ from isaaclab_arena.tasks import (  # noqa: F401
     close_door_task,
     gear_insertion_task,
     goal_pose_task,
-    lift_object_task,
     no_task,
     object_in_task,
     open_door_task,
@@ -24,3 +23,4 @@ from isaaclab_arena.tasks import (  # noqa: F401
     sorting_task,
     turn_knob_task,
 )
+from isaaclab_arena.tasks.reinforcement_learning import lift_object_task  # noqa: F401
