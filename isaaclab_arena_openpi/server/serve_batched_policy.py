@@ -144,7 +144,8 @@ class BatchedPolicy:
     def compile_batch_sizes(self, fake_observation: Callable[[int], Any]) -> None:
         """Run the model once at every batch shape, so later requests find it compiled.
 
-        Takes minutes per shape (seconds for a shape of 2); the shapes compile one after the other, smallest first.
+        Takes about the same few minutes for every shape, from 1 up; the shapes compile one after the other,
+        smallest first.
 
         Args:
             fake_observation: Returns a model observation of the given batch size with the shapes and dtypes the
