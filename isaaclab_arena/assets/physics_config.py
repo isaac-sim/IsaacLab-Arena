@@ -12,7 +12,7 @@ from collections.abc import Callable
 from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.utils.configclass import configclass
-from pxr import Usd
+from pxr import Usd, UsdPhysics
 
 
 @configclass
@@ -35,6 +35,19 @@ class UsdPrimSpawnPhysicsCfg:
             root: Spawned asset root for resolving any asset-relative relationships.
         """
         raise NotImplementedError("Concrete UsdPrimSpawnPhysicsCfg subclasses must implement apply().")
+
+
+@configclass
+class CollisionDisabledCfg(UsdPrimSpawnPhysicsCfg):
+    """Turn off a collider."""
+
+    def validate_target(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        """Require a collider."""
+        assert prim.HasAPI(UsdPhysics.CollisionAPI), f"{prim.GetPath()} is not a collider."
+
+    def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        """Disable the collider."""
+        UsdPhysics.CollisionAPI(prim).CreateCollisionEnabledAttr().Set(False)
 
 
 @configclass
