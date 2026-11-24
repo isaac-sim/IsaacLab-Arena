@@ -14,6 +14,7 @@ TASK_ENV_NAMES = [
     "spatial_memory_fetch_behind",
     "spatial_memory_box_carry",
     "spatial_memory_reverse_gap",
+    "spatial_memory_shelf_bay",
     "spatial_memory_dishwasher_rack",
     "spatial_memory_back_of_shelf",
     "spatial_memory_high_shelf",

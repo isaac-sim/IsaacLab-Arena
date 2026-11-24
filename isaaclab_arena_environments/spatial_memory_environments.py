@@ -209,3 +209,19 @@ class SpatialMemoryReverseGapEnvironment(
     name = "spatial_memory_reverse_gap"
     _legacy_argparse_cfg_type = SpatialMemoryReverseGapEnvironmentCfg
     task_logic_path = f"{_TASKS_PACKAGE}.reverse_gap.ReverseGapLogic"
+
+
+@dataclass
+class SpatialMemoryShelfBayEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 shelf restocking task."""
+
+
+@register_environment
+class SpatialMemoryShelfBayEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryShelfBayEnvironmentCfg]
+):
+    """Restock a previously inspected shelf bay."""
+
+    name = "spatial_memory_shelf_bay"
+    _legacy_argparse_cfg_type = SpatialMemoryShelfBayEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.shelf_bay.ShelfBayLogic"
