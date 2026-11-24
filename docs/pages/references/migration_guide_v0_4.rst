@@ -513,7 +513,7 @@ changes are additions and one change to how shared settings merge.
 - **Experiment name:** every Experiment has a ``name``. It is taken from the top-level ``name:`` key, or
   from the file stem when the key is missing. Override it with ``name=<x>`` (#1585).
 - **KPI exporters:** the optional top-level ``kpi_exporters`` list selects the KPI files written after
-  all Runs complete. The default is ``[timing]`` (#1588).
+  all Runs complete. The default is ``[timing, resource]`` (#1588).
 - **Rollout limits:** ``rollout_limit.num_episodes_per_rebuild`` sets the episodes for each rebuild. Its
   length must equal ``num_rebuilds`` (#1544).
 - **Shared rollout limits:** a ``rollout_limit`` declared on a Run now replaces the one in ``shared``
@@ -591,7 +591,7 @@ New files
 - ``<run>/arena_run_timings.json`` and ``arena_experiment_timings.json`` record step timings (#1198, #1426).
 - ``<run>/arena_run_placement_diagnostics.json`` records the placement checks that rejected candidates
   (#1560, #1602).
-- ``kpis_timing.json``, ``kpis_success_rates.json`` and ``kpis_placement_success.json`` are written
+- ``kpis_timing.json``, ``kpis_resource.json``, ``kpis_success_rates.json`` and ``kpis_placement_success.json`` are written
   by the exporters listed in ``kpi_exporters`` (#1587, #1588, #1623).
 
 Recordings and videos
