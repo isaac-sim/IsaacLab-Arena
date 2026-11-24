@@ -112,7 +112,7 @@ class ResourceUsageTrackerDaemon:
     ``CUDA_VISIBLE_DEVICES``, so on a multi-GPU machine that runs on another GPU they describe a different GPU.
     """
 
-    def __init__(self, interval_s: float = 0.1, gpu_index: int = 0):
+    def __init__(self, interval_s: float = 1.0, gpu_index: int = 0):
         """Create a tracker; sampling starts when the context is entered.
 
         Args:
