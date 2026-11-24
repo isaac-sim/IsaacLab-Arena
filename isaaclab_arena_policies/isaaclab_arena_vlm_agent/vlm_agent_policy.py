@@ -212,6 +212,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         assert isinstance(action_adapter, AgentActionAdapter)
         self.observation_adapter = observation_adapter
         self.action_adapter = action_adapter
+        self._last_actions: torch.Tensor | None = None
+        """Actions of the previous step; idle envs repeat them when their action space has no hold action."""
         self._response_schema = build_strict_schema(action_adapter.response_model)
         self._system_prompt = config.system_prompt
         if self._system_prompt is None:
@@ -272,6 +274,9 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         # Its actions are discarded, so it sends no request and holds its robot in place.
         inactive_env_ids = set(idle_env_ids(env))
         hold_actions = hold_action_from_action_manager(env) if inactive_env_ids else None
+        if inactive_env_ids and hold_actions is None:
+            # Without a hold action for this action space, idle envs repeat their last action as before.
+            hold_actions = self._last_actions
 
         # Build a request for every active environment whose current prediction is used up or finished.
         contents = {}
@@ -301,7 +306,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 action.ndim == 1 and action.numel() > 0 and torch.isfinite(action).all()
             ), "Expected a finite action vector"
             actions.append(action.to(device=env.unwrapped.device))
-        return torch.stack(actions)
+        self._last_actions = torch.stack(actions)
+        return self._last_actions
 
     def _update_prediction_state(self, env: gym.Env, env_id: int) -> None:
         """Update env_id's current prediction from the live environment state.

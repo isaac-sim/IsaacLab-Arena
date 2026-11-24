@@ -105,7 +105,12 @@ class RemoteChunkReplayPolicy:
 
         # Envs that finished their last episode get no more chunks; their robot holds its pose.
         idle_ids = set(idle_env_ids(env))
-        hold_action = hold_action_from_action_manager(env).cpu().numpy() if idle_ids else None
+        hold_action = hold_action_from_action_manager(env) if idle_ids else None
+        if hold_action is None:
+            # Without a hold action for this action space, idle envs keep requesting chunks as before.
+            idle_ids = set()
+        else:
+            hold_action = hold_action.cpu().numpy()
 
         actions = []
         for env_id in range(num_envs):

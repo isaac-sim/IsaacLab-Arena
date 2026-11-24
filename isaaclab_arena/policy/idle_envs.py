@@ -27,19 +27,26 @@ def idle_env_ids(env: gym.Env) -> list[int]:
     return (~env.unwrapped.active_episode_mask).nonzero(as_tuple=True)[0].tolist()
 
 
-def hold_action_from_action_manager(env: gym.Env) -> torch.Tensor:
-    """Return the action that keeps every env's robot where it is for one control step.
+_UNSUPPORTED_HOLD_TERMS_WARNED: set[str] = set()
+
+
+def hold_action_from_action_manager(env: gym.Env) -> torch.Tensor | None:
+    """Return the action that keeps every env's robot where it is for one control step, or None.
 
     Each action term contributes its slice of the ``(num_envs, total_action_dim)`` result:
 
     - absolute joint position terms get the current joint positions, mapped back through the
       term's scale and offset, so the drive target is the current pose;
+    - absolute inverse-kinematics terms get the end effector's current pose in the base frame, mapped
+      back the same way, so an env that never acted holds where it stands instead of being sent to the
+      base origin;
     - relative joint position, joint velocity, non-holonomic and relative inverse-kinematics
       terms get zero, their "stay in place" command;
-    - binary joint terms and absolute inverse-kinematics terms repeat the raw action they
-      applied last, which is zero right after a reset.
+    - binary joint terms repeat the raw action they applied last, which is zero right after a reset.
 
-    Any other term type is rejected, since repeating its last command would keep the robot moving.
+    For any other term type there is no hold action, since repeating its last command would keep the
+    robot moving: the function prints a warning once per term type and returns None, and callers keep
+    the behaviour they had without holding.
 
     Args:
         env: Environment whose action manager defines the action layout.
@@ -64,10 +71,22 @@ def hold_action_from_action_manager(env: gym.Env) -> torch.Tensor:
             term_hold_actions.append((joint_pos - term._offset) / term._scale)
         elif isinstance(term, DifferentialInverseKinematicsAction) and term.cfg.controller.use_relative_mode:
             term_hold_actions.append(torch.zeros_like(term.raw_actions))
-        elif isinstance(term, (BinaryJointAction, DifferentialInverseKinematicsAction)):
+        elif isinstance(term, DifferentialInverseKinematicsAction):
+            ee_pos_b, ee_quat_b = term._compute_frame_pose()
+            if term.cfg.controller.command_type == "position":
+                ee_command = ee_pos_b
+            else:
+                ee_command = torch.cat([ee_pos_b, ee_quat_b], dim=-1)
+            term_hold_actions.append((ee_command - term._offset) / term._scale)
+        elif isinstance(term, BinaryJointAction):
             term_hold_actions.append(term.raw_actions.clone())
         else:
-            raise AssertionError(
-                f"no hold action is defined for action term '{term_name}' of type {type(term).__name__}"
-            )
+            term_type = type(term).__name__
+            if term_type not in _UNSUPPORTED_HOLD_TERMS_WARNED:
+                _UNSUPPORTED_HOLD_TERMS_WARNED.add(term_type)
+                print(
+                    f"[idle_envs] No hold action is defined for action term '{term_name}' of type {term_type};"
+                    " idle environments keep acting as if they were not idle."
+                )
+            return None
     return torch.cat(term_hold_actions, dim=-1)
