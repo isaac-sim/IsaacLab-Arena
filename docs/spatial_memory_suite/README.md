@@ -1,18 +1,18 @@
 # Spatial-memory task suite
 
-Ten Isaac Lab-Arena environments in which the geometry that matters at action time is out of the egocentric camera's
+Thirteen Isaac Lab-Arena environments in which the geometry that matters at action time is out of the egocentric camera's
 view, so a policy must have remembered or mapped it. Every task has four observation variants, a difficulty knob, a
 privileged scripted oracle, a "blind" scripted controller, collision and visibility logging, and tests that check that
 the suite tests what it claims. Design notes and the decisions taken along the way are in [PLAN.md](PLAN.md).
 
 The code lives in `isaaclab_arena_environments/spatial_memory/` (shared infrastructure and one module per task under
-`tasks/`), all ten registered environments in `isaaclab_arena_environments/spatial_memory_environments.py`, and the
+`tasks/`), the registered environments in `isaaclab_arena_environments/spatial_memory_environments.py`, and the
 tests in `isaaclab_arena/tests/test_spatial_memory_*.py`.
 
 ## Common conventions
 
 - **Embodiment and camera.** Tasks 1, 2 and 4 to 10 use a Franka on a counter (`franka_joint_pos` with the high-gain,
-  gravity-compensated arm) and its wrist camera only. Task 3 uses the G1 humanoid with Arena's whole-body controller
+  gravity-compensated arm) and its wrist camera only. Tasks 3 and 11–13 use the G1 humanoid with Arena's whole-body controller
   (`g1_wbc_joint`) and its head camera only. There is no external camera.
 - **Scenes.** Fixtures and items are primitive boxes and cylinders in distinct colours, because the per-episode
   geometry (door angle, slot width, shelf height, ...) must change per environment and per reset, and because the
@@ -22,7 +22,7 @@ tests in `isaaclab_arena/tests/test_spatial_memory_*.py`.
   frustum and against every box in the scene (and a box model of the Franka hand). It is checked against rendered
   instance segmentation for tasks 1, 4 and 7 in the camera tests; a one-off check of task 3's head camera agreed on
   99.3% of samples, with no analytically hidden part ever rendered.
-- **Memory probe.** In the "turn away and return" tasks (2, 6, 8, 9) the instruction is revealed only after
+- **Memory probe.** In the "turn away and return" tasks (2, 6, 8, 9, 11–13) the instruction is revealed only after
   the memorised geometry has been out of view for 3.5 s, longer than the default 3 s frame history.
 - **Collisions.** Any contact of the robot or of a carried item with scene geometry the task does not need ends the
   episode as a failure; the first contact (bodies, time and position) is logged.
@@ -41,6 +41,9 @@ tests in `isaaclab_arena/tests/test_spatial_memory_*.py`.
 | 8 | `spatial_memory_kitting` | number of bins, 2 to 6 (5) |
 | 9 | `spatial_memory_restock_slot` | number of empty bins, 1 to 3 (1) |
 | 10 | `spatial_memory_moved_cart` | re-observation window in seconds (1.0) |
+| 11 | `spatial_memory_reverse_gap` | box height in metres (0.25) |
+| 12 | `spatial_memory_shelf_bay` | box height in metres (0.25) |
+| 13 | `spatial_memory_partition_delivery` | box height in metres (0.25) |
 
 **1. Put the mug away past the open door.** The Franka picks a mug from the counter and puts it on the indicated shelf
 of a wall cabinet whose door stands open beside the opening. Once the tool is 5 cm inside the cabinet, the door and the
@@ -94,6 +97,25 @@ when the cart is first back in view. The robot must avoid the cart at its new po
 one: the carry path must stay within 10% (plus 4 cm) of the oracle route for the new pose. Knob: the length of the
 re-observation window (shorter is harder).
 
+**11. Reverse through a loading gap.** Three barrier sections occupy three of four lanes. The G1 surveys the
+barrier, turns to the pickup table and grasps a carton. It must choose its lateral position before backing through
+the opening, then carry the carton to a receiving table and release it upright.
+
+**12. Restock a shelf bay.** The G1 inspects three stocked bays and the intervening free space. At pickup it faces away
+from the shelf. The first crossing of the loading aisle selects the bay. After committing, the G1 turns to the shelf,
+inserts the carton into the remembered empty bay, opens its hands and steps back.
+
+**13. Deliver to the queried room.** The G1 inspects the colour at each of four partitioned entrances. The requested
+colour is revealed at the pickup table after the entrances leave view. The G1 must commit to the matching lane and
+deliver the carton there. The same colour can correspond to any entrance across resets.
+
+The three layouts remain static throughout each episode. The inspection path and pickup are common to all four
+answers. The instruction requires all remembered targets to have been seen and subsequently hidden for 3.5 s.
+Re-observing them before the first lane crossing fails the episode. The blind controller executes the same pickup
+and guesses a fixed lane. For example, in the 50-seed evaluation the gap instruction appeared at 16.54 s for layouts requiring each of
+the four different lanes. The shelf instruction likewise appeared at 16.46 s for all four answers. All three tasks
+use the box-height variation from task 3.
+
 ## Launching a task
 
 Every task is a registered environment, so the usual Arena runners work. Use the checkout's runtime (see the
@@ -110,7 +132,7 @@ The environment flags select the observation variant and the difficulty:
 | `--observation_variant mapped` | adds a `mapped` group filled by an online map provider; the default provider returns an empty map (the hook for an nvblox-next reconstruction, see `observations.OnlineMapProvider`) |
 | `--difficulty <value>` | the task's difficulty knob (see the table above) |
 
-Tasks that give an instruction (2, 6, 8 and 9) also add a `task_obs` group with it in every variant
+Tasks that give an instruction (2, 6, 8, 9 and 11–13) also add a `task_obs` group with it in every variant
 (for example the one-hot colour in tasks 2 and 8).
 Add `--enable_cameras` to render the egocentric camera.
 
@@ -201,6 +223,17 @@ their bars:
 | 8 | Kitting from bins | 0.92 | 0.00 |
 | 9 | Restock into the empty slot | 1.00 | 0.26 |
 | 10 | The cart someone moved | 0.94 | 0.26 |
+| 11 | Reverse through a loading gap | 0.96 | 0.24 |
+| 12 | Restock a shelf bay | 0.94 | 0.26 |
+| 13 | Deliver to the queried room | 0.90 | 0.22 |
+
+The room-delivery oracle met the 45/50 acceptance threshold exactly. Three handling failures and two
+carton contacts with partitions accounted for its five unsuccessful trials.
+
+For the G1 pilots, head-camera instance segmentation agreed with analytic visibility on 98.6% of decided
+samples for the gap, 99.9% for the shelf and 99.8% for the room entrances. In the paired video trials, the
+oracle saw all remembered targets before the query. Their instance masks occupied zero pixels across 82
+sampled hidden frames for the gap, 149 for the shelf and 127 for the room entrances.
 
 ## A model baseline: pi05 (zero-shot)
 
