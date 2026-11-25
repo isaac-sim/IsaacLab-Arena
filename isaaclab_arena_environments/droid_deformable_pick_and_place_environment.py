@@ -32,6 +32,8 @@ def _configure_newton_deformable_physics(
         "Newton deformable pick objects need the Newton backend. Omit --presets, or use a PhysX asset such as "
         "--pick_object deformable_cube_physx."
     )
+    # Refresh RTX render products after Newton rebuilds cameras during a hard simulation reset.
+    env_cfg.num_rerenders_on_reset = 1
     # Inflate only the plate collider to avoid cube face penetration at the thin rim.
     env_cfg.scene.plate.spawn.collision_props = [NewtonCollisionCfg(contact_margin=0.002)]
     rigid_solver_cfg = physics_cfg.solver_cfg

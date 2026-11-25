@@ -21,6 +21,8 @@ def gear_insertion_newton_env_cfg_callback(
 
     assert isinstance(env_cfg.sim.physics, NewtonCfg), "gear_insertion requires the Newton physics backend"
 
+    # Refresh RTX render products after Newton rebuilds cameras during a hard simulation reset.
+    env_cfg.num_rerenders_on_reset = 1
     # Keep contact integration at 960 Hz without running Python managers at that rate.
     env_cfg.sim.dt = 1.0 / 60.0
     env_cfg.decimation = 2
