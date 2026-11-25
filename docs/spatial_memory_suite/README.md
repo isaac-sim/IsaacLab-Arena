@@ -2,6 +2,8 @@
 
 The [30-task G1 catalog](LOCO_CATALOG.md) lists the three controls and 27 selected challenges, with a real-life example and the scored operation for each.
 
+For the short low-level controller skills, see the [robot-free motion scenes](MOTION_SCENES.md) for the OpenUSD exporter, camera views and fixture descriptions.
+
 Thirteen Isaac Lab-Arena environments in which the geometry that matters at action time is out of the egocentric camera's
 view, so a policy must have remembered or mapped it. Every task has four observation variants, a difficulty knob, a
 privileged scripted oracle, a "blind" scripted controller, collision and visibility logging, and tests that check that
