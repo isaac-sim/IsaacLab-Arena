@@ -15,6 +15,7 @@ from isaaclab.managers import CommandTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.sensors import FrameTransformer
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import combine_frame_transforms
 
@@ -25,7 +26,6 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.observations import observations
-from isaaclab_arena.tasks.reinforcement_learning.rewards import lift_object_rewards, rewards
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
@@ -236,7 +236,7 @@ class LiftObjectRewardCfg:
 
     def __init__(self, lift_object: Asset, minimum_height_to_lift: float, robot_name: str, ee_frame_name: str):
         self.reaching_object = RewardTermCfg(
-            func=rewards.object_ee_distance,
+            func=object_ee_distance,
             params={
                 "std": 0.1,
                 "object_cfg": SceneEntityCfg(lift_object.name),
@@ -245,7 +245,7 @@ class LiftObjectRewardCfg:
             weight=1.0,
         )
         self.lifting_object = RewardTermCfg(
-            func=lift_object_rewards.object_is_lifted,
+            func=object_is_lifted,
             params={
                 "object_cfg": SceneEntityCfg(lift_object.name),
                 "minimal_height": minimum_height_to_lift,
@@ -253,7 +253,7 @@ class LiftObjectRewardCfg:
             weight=15.0,
         )
         self.object_goal_tracking = RewardTermCfg(
-            func=lift_object_rewards.object_goal_distance,
+            func=object_goal_distance,
             params={
                 "std": 0.3,
                 "minimal_height": minimum_height_to_lift,
@@ -264,7 +264,7 @@ class LiftObjectRewardCfg:
             weight=16.0,
         )
         self.object_goal_tracking_fine_grained = RewardTermCfg(
-            func=lift_object_rewards.object_goal_distance,
+            func=object_goal_distance,
             params={
                 "std": 0.05,
                 "minimal_height": minimum_height_to_lift,
@@ -274,6 +274,25 @@ class LiftObjectRewardCfg:
             },
             weight=5.0,
         )
+
+
+def _commanded_position_w(
+    env: "IsaacLabArenaManagerBasedRLEnv", robot_cfg: SceneEntityCfg, command_name: str
+) -> torch.Tensor:
+    """Return the goal position of a pose command, transformed from the robot base frame into the world frame.
+
+    Args:
+        env: The RL environment instance.
+        robot_cfg: The robot whose base frame the command is expressed in.
+        command_name: The name of the pose command.
+
+    Returns:
+        The goal positions t_W_G, shape (num_envs, 3).
+    """
+    T_W_B = env.arena_world.get_pose_w(robot_cfg.name)
+    t_B_G = env.command_manager.get_command(command_name)[:, :3]
+    t_W_G, _ = combine_frame_transforms(T_W_B[:, :3], T_W_B[:, 3:], t_B_G)
+    return t_W_G
 
 
 def object_at_commanded_position(
@@ -303,14 +322,49 @@ def object_at_commanded_position(
     if rl_training:
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
-    arena_world = env.arena_world
-    T_W_B = arena_world.get_pose_w(robot_cfg.name)
-    t_W_O = arena_world.get_position_w(object_cfg.name)
-
-    command = env.command_manager.get_command(command_name)
-    t_B_G = command[:, :3]
-
-    t_W_G, _ = combine_frame_transforms(T_W_B[:, :3], T_W_B[:, 3:], t_B_G)
-
+    t_W_O = env.arena_world.get_position_w(object_cfg.name)
+    t_W_G = _commanded_position_w(env, robot_cfg, command_name)
     distance = torch.linalg.norm(t_W_G - t_W_O, dim=1)
     return distance < position_tolerance
+
+
+def object_ee_distance(
+    env: "IsaacLabArenaManagerBasedRLEnv",
+    std: float,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    ee_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame"),
+) -> torch.Tensor:
+    """Reward the agent for reaching the object using tanh-kernel."""
+    t_W_O = env.arena_world.get_position_w(object_cfg.name)
+
+    ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
+    t_W_E = ee_frame.data.target_pos_w.torch[..., 0, :]
+    distance_to_object = torch.norm(t_W_O - t_W_E, dim=1)
+
+    return 1 - torch.tanh(distance_to_object / std)
+
+
+def object_is_lifted(
+    env: "IsaacLabArenaManagerBasedRLEnv",
+    minimal_height: float,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+) -> torch.Tensor:
+    """Reward the agent for lifting the object above the minimal height."""
+    object_height_w = env.arena_world.get_position_w(object_cfg.name)[:, 2]
+    return torch.where(object_height_w > minimal_height, 1.0, 0.0)
+
+
+def object_goal_distance(
+    env: "IsaacLabArenaManagerBasedRLEnv",
+    std: float,
+    minimal_height: float,
+    command_name: str,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+) -> torch.Tensor:
+    """Reward the agent for tracking the goal pose using tanh-kernel."""
+    t_W_O = env.arena_world.get_position_w(object_cfg.name)
+    t_W_G = _commanded_position_w(env, robot_cfg, command_name)
+    distance_to_goal = torch.norm(t_W_G - t_W_O, dim=1)
+    object_is_above_minimal_height = t_W_O[:, 2] > minimal_height
+    return object_is_above_minimal_height * (1 - torch.tanh(distance_to_goal / std))
