@@ -1,6 +1,6 @@
 ---
 name: inspect-sim-visually
-description: Gets images of the Isaac Sim viewer from an Isaac Lab-Arena simulation without desktop screenshots. Use when debugging an environment and you need to see the scene, for example placement after reset, an object falling through or flying off the table, a robot pose, or a view from another angle; also when --headless, a camera move, --record_viewport_video or env.render() gives no image. Do not use for recording evaluation videos or a policy's camera observations (run-experiment).
+description: Gets images of the Isaac Sim viewer from an Isaac Lab-Arena simulation without desktop screenshots. Use when debugging an environment and you need to see the scene, for example placement after reset, an object falling through or flying off the table, a robot pose, or a view from another angle; also when --headless, a camera move, --record_viewport_video or env.render() gives no image. Do not use for recording evaluation videos (run-experiment).
 ---
 
 # Inspect the Simulation Visually
@@ -87,7 +87,8 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    | `print_scene_state(env_index=0)` | Position relative to the env origin, speed, and tilt of every rigid object and articulation |
    | `pause_physics()` / `resume_physics()` | Freezes the simulation, including the episode clock, for several looks at one state |
    | `pause_when(condition)` | Pauses on the first update where `condition(env)` is true, for events faster than a request; can be armed while paused. A new call replaces the previous condition; join several with `or` |
-   | `is_paused()` | Whether the simulation is paused, e.g. to wait for a `pause_when` condition |
+   | `is_paused()` | Whether the simulation is paused; the reply is `true` or `false`. Wait for a `pause_when` condition with `until [ "$(python3 -I <scripts>/run_in_sim.py --port <port> --code 'is_paused()')" = true ]; do sleep 0.5; done` |
+   | `save_policy_camera_images(output_dir, env_index=0)` | Saves the camera images the policy got at the last step (`obs_buf["camera_obs"]`), one PNG per camera term; needs `--enable_cameras` |
    | `end_episode()` | Starts a new episode in every env at the next step, through Isaac Lab's reset request |
    | `move_object(scene_key, position, env_index=0)` | Teleports a rigid object to `position` relative to the env origin, at rest |
    | `find_arena_env()` | The unwrapped Arena env, for anything else, e.g. `find_arena_env().scene["robot"].data.joint_pos.torch` (Isaac Lab data fields need `.torch`) |
@@ -154,24 +155,24 @@ With `HEADLESS=1 --viz kit`, camera observations (`obs["camera_obs"]`) only upda
 
 ## Contact sheet
 
-Tile frames into one image of at most about 1568 px width:
-
-```bash
-ffmpeg -v error -y -pattern_type glob -i '/tmp/<run>/cap_*.png' -vf "scale=320:-2,tile=4x3:padding=4" -frames:v 1 /tmp/<run>/sheet.png
-ffmpeg -v error -y -i clip.mp4 -vf "select='not(mod(n\,5))',scale=320:-2,tile=4x3:padding=4" -frames:v 1 /tmp/<run>/sheet.png
-```
-
-`tile=4x3` holds 12 panels and leaves the rest black, so match the grid to the number of images. The second command
-takes every 5th frame of the video; change the 5 to spread the panels over the clip.
-
-To label each panel with its file name (names without `:`), label the images first, then tile them:
+Tile images into one picture of at most about 1568 px width. For PNGs, first bring every image to the same size and
+pixel format and label it with its file name (names without `:`); ffmpeg's tile filter silently drops panels when
+sizes or formats differ, as between viewer captures (RGBA) and camera images (RGB):
 
 ```bash
 for f in /tmp/<run>/cap_*.png; do
-  ffmpeg -v error -y -i "$f" -vf "scale=384:-2,drawtext=text='$(basename "$f" .png)':x=6:y=6:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6" "/tmp/<run>/label_$(basename "$f")"
+  ffmpeg -v error -y -i "$f" -vf "scale=384:216:force_original_aspect_ratio=decrease,pad=384:216:(ow-iw)/2:(oh-ih)/2,format=rgb24,drawtext=text='$(basename "$f" .png)':x=6:y=6:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6" "/tmp/<run>/label_$(basename "$f")"
 done
 ffmpeg -v error -y -pattern_type glob -i '/tmp/<run>/label_cap_*.png' -vf "tile=3x2:padding=4" -frames:v 1 /tmp/<run>/sheet.png
 ```
+
+For a video, take every 5th frame (change the 5 to spread the panels over the clip):
+
+```bash
+ffmpeg -v error -y -i clip.mp4 -vf "select='not(mod(n\,5))',scale=320:-2,tile=4x3:padding=4" -frames:v 1 /tmp/<run>/sheet.png
+```
+
+A grid holds columns x rows panels and leaves the rest black, so match it to the number of images.
 
 ## Pitfalls
 

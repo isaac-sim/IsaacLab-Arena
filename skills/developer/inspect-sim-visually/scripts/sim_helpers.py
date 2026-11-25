@@ -85,6 +85,25 @@ def print_scene_state(env_index=0):
         print(f"{scene_key}: position [{position_text}] m, speed {speed:.3f} m/s, tilt {tilt_deg:.1f} deg")
 
 
+def save_policy_camera_images(output_dir, env_index=0):
+    """Save the camera images the policy received at the last env step as PNGs, one per camera observation term.
+
+    Reads ``obs_buf["camera_obs"]``, which stays fixed while paused; the camera sensors themselves may already hold a newer
+    frame. Needs a run launched with --enable_cameras.
+    """
+    import os
+
+    from PIL import Image
+
+    env = find_arena_env()
+    camera_obs = env.obs_buf["camera_obs"]
+    for term_name in sorted(camera_obs.keys()):
+        image = camera_obs[term_name][env_index].detach().cpu().numpy()[..., :3]
+        image_path = os.path.join(output_dir, f"{term_name}.png")
+        Image.fromarray(image).save(image_path)
+        print(image_path)
+
+
 def move_object(scene_key, position, env_index=0):
     """Teleport a rigid object to position (meters, relative to the env origin), keeping its orientation, at rest."""
     import torch
