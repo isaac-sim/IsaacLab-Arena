@@ -308,7 +308,7 @@ the agent through the evaluation. Expect it to:
    environment and uses ``Pi0RemotePolicy`` with the ``pi05`` variant and the
    DROID adapter.
 2. **Start pi0.5:** reuse a running OpenPI server for that variant and port, or
-   start one with ``./isaaclab_arena_openpi/docker/run_openpi_server.sh``. The
+   start one with ``./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh``. The
    first start builds the ``isaaclab_arena:openpi_server`` image (~3 min,
    ~19 GB) and downloads the ~11 GB checkpoint, so the agent should ask before
    starting it.
@@ -319,8 +319,9 @@ the agent through the evaluation. Expect it to:
    output directory under ``outputs/`` in your browser.
 
 An episode only counts as a success when both fruits are in their bowls. The
-results also include ``subtask_success_rate``, the success rate for each fruit,
-so you can see which placement the policy completed.
+``Subtask Success Rates`` column of the Run table shows the success rate for each
+fruit, in the order of ``subtasks`` (banana first), so you can see which placement
+the policy completed.
 
 The report shows each episode's result next to its recorded videos, one per
 camera.

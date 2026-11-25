@@ -39,15 +39,8 @@ from isaaclab_arena.environments.relation_solver_interface import (
     prepare_live_relation_placement,
     prepare_recorded_relation_placement,
 )
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
-from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
-from isaaclab_arena.recording.common_terms import (
-    CoreEpisodeRecorderTermCfg,
-    PlacementEpisodeRecorderTermCfg,
-    VariationEpisodeRecorderTermCfg,
-)
+from isaaclab_arena.recording.common_terms import PlacementEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -65,6 +58,7 @@ from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import task_success_from_progress
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
+from isaaclab_arena.utils.camera_renderer import CameraRenderer
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_warp_to_torch_patch
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -155,6 +149,21 @@ class ArenaEnvBuilder:
             " 'embodiment_default' instead"
         )
         embodiment.camera_config.fit_resolution(*policy_image_size)
+
+    def _apply_camera_renderer(self) -> None:
+        """Select the renderer of the embodiment camera rig as ``cfg.camera_renderer`` asks."""
+        if self.cfg.camera_renderer is CameraRenderer.NEWTON_WARP:
+            # Isaac Lab also pairs Newton Warp with PhysX, but in Arena that leaves cameras on robot links at their
+            # start pose and does not draw the DROID gripper.
+            assert self.resolved_physics_backend is PhysicsBackend.NEWTON, (
+                "camera_renderer 'newton_warp' requires the Newton physics backend, but this build uses"
+                f" '{self.resolved_physics_backend}'. With PhysX, Newton Warp leaves cameras on robot links at their"
+                " start pose."
+            )
+        embodiment = self.arena_env.embodiment
+        if embodiment is not None and embodiment.camera_config is not None:
+            # Set the default too: the rig belongs to the environment, which a later build may reuse.
+            embodiment.camera_config.set_renderer(self.cfg.camera_renderer)
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:
@@ -282,13 +291,6 @@ class ArenaEnvBuilder:
         )
         return recorder_cfg
 
-    def _build_metrics_cfg(self, metrics: list[MetricBase] | None) -> object | None:
-        """Build a configclass container with one ``MetricTermCfg`` field per metric."""
-        if not metrics:
-            return None
-        fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
-        return make_configclass("MetricsCfg", fields)()
-
     def _build_termination_manager_cfg(
         self,
         task_termination_cfg: TaskTerminationCfg,
@@ -313,26 +315,33 @@ class ArenaEnvBuilder:
         termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
         return make_configclass("TerminationsCfg", termination_fields)()
 
-    def _build_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
+    def _build_episode_recorders_cfg(
+        self,
+        task_terms: dict[str, EpisodeRecorderTermCfg],
+        environment_terms: dict[str, EpisodeRecorderTermCfg],
+    ) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
-        Includes the built-in core, placement, variations, and progress terms. The
-        progress term records nothing for tasks that define no completion criteria.
+        The built-in placement, variations, and progress terms come first, then the task's terms, then the
+        environment's terms. Each name becomes a top-level key of the episode record, so names must be unique.
+
+        Args:
+            task_terms: The task's episode recorder terms, keyed by term name.
+            environment_terms: The environment's episode recorder terms, keyed by term name.
         """
-        fields = [
-            ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
-            ("placement", EpisodeRecorderTermCfg, PlacementEpisodeRecorderTermCfg()),
-            ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
-            ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
-        ]
-        for name, term_cfg in (extra_terms or {}).items():
-            assert name not in (
-                "core",
-                "placement",
-                "variations",
-                "progress",
-            ), f"Episode recorder term name '{name}' collides with a built-in term."
-            fields.append((name, EpisodeRecorderTermCfg, term_cfg))
+        terms: dict[str, EpisodeRecorderTermCfg] = {
+            "placement": PlacementEpisodeRecorderTermCfg(),
+            "variations": VariationEpisodeRecorderTermCfg(),
+            "progress": ProgressEpisodeRecorderTermCfg(),
+        }
+        for added_terms in (task_terms, environment_terms):
+            for name, term_cfg in added_terms.items():
+                assert name not in terms, (
+                    f"Episode recorder term name '{name}' is already used by a built-in or task term; choose another"
+                    " name."
+                )
+                terms[name] = term_cfg
+        fields = [(name, EpisodeRecorderTermCfg, term_cfg) for name, term_cfg in terms.items()]
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
     def build_env_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
@@ -381,8 +390,10 @@ class ArenaEnvBuilder:
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
         embodiment.configure_physics_backend(resolved_physics_backend)
-        # Fit the cameras before embodiment.get_scene_cfg() and the observation cfgs read their dimensions.
+        # Fit the cameras and select their renderer before embodiment.get_scene_cfg() and the observation cfgs read
+        # their dimensions.
         self._apply_camera_resolution_mode()
+        self._apply_camera_renderer()
         task = self.arena_env.task or NoTask()
         task.configure_for_embodiment(embodiment)
         scene_cfg = combine_configclass_instances(
@@ -460,13 +471,9 @@ class ArenaEnvBuilder:
                 isaac_teleop_cfg = device_cfg
             elif isinstance(device_cfg, DeviceCfg):
                 teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
-        metrics = task.get_metrics()
-        metrics_cfg = self._build_metrics_cfg(metrics)
-        metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
         recorder_manager_cfg = combine_configclass_instances(
             "RecorderManagerCfg",
-            metrics_recorder_manager_cfg,
             task.get_recorder_term_cfg(),
             embodiment.get_recorder_term_cfg(record_trajectories=self.cfg.record_trajectories),
             bases=(RecorderManagerBaseCfg,),
@@ -499,7 +506,9 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        episode_recorders_cfg = self._build_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+        episode_recorders_cfg = self._build_episode_recorders_cfg(
+            task.get_episode_recorder_terms(), self.arena_env.episode_recorder_terms
+        )
 
         viewer_cfg = task.get_viewer_cfg()
 
@@ -529,7 +538,6 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 demo_recorder_config=demo_recorder_config,
-                metrics=metrics_cfg,
                 episode_recorders=episode_recorders_cfg,
                 task_description=task_description,
                 viewer=viewer_cfg,
@@ -562,10 +570,9 @@ class ArenaEnvBuilder:
                 subtask_configs=task_mimic_env_cfg.subtask_configs,
                 task_constraint_configs=task_mimic_env_cfg.task_constraint_configs,
                 mimic_recorder_config=mimic_recorder_config,
-                # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
+                # NOTE(alexmillane, 2025-09-25): Recorders excluded from mimic env,
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
-                # metrics=metrics_cfg,
                 task_description=task_description,
                 viewer=viewer_cfg,
             )

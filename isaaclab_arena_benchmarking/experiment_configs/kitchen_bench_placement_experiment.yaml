@@ -231,3 +231,88 @@ runs:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_mustard_bowl.yaml
     environment_builder:
       placement_seed: 4100000
+  kitchen_bench_spatial_apple_in_right_bowl_g_shape:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_apple_in_right_bowl_g_shape.yaml
+    environment_builder:
+      placement_seed: 4200000
+  kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island.yaml
+    environment_builder:
+      placement_seed: 4300000
+  kitchen_bench_spatial_lemon_on_near_plate_peninsula:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lemon_on_near_plate_peninsula.yaml
+    environment_builder:
+      placement_seed: 4400000
+  kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_lime_in_bowl_between_landmarks_coastal.yaml
+    environment_builder:
+      placement_seed: 4500000
+  kitchen_bench_spatial_orange_in_back_right_bowl_l_island:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_back_right_bowl_l_island.yaml
+    environment_builder:
+      placement_seed: 4600000
+  kitchen_bench_spatial_orange_in_front_right_bowl_l_island:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_orange_in_front_right_bowl_l_island.yaml
+    environment_builder:
+      placement_seed: 4700000
+  kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian.yaml
+    environment_builder:
+      placement_seed: 4800000
+  kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_red_onion_in_bowl_nearest_pepper_farmhouse.yaml
+    environment_builder:
+      placement_seed: 4900000
+  kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_spatial_sponge_on_tray_behind_plate_u_shape.yaml
+    environment_builder:
+      placement_seed: 5000000
+  kitchen_bench_turn_blender003_l_shaped_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml
+    environment_builder:
+      placement_seed: 5100000
+  kitchen_bench_turn_blender008_one_wall_coastal:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender008_one_wall_coastal.yaml
+    environment_builder:
+      placement_seed: 5200000
+  kitchen_bench_turn_forgecad_air_fryer_galley_industrial:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_air_fryer_galley_industrial.yaml
+    environment_builder:
+      placement_seed: 5300000
+  kitchen_bench_turn_forgecad_toaster_g_shaped_rustic:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_toaster_g_shaped_rustic.yaml
+    environment_builder:
+      placement_seed: 5400000
+  kitchen_bench_turn_palatial_toaster_u_shaped_modern1:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml
+    environment_builder:
+      placement_seed: 5500000
+  kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml
+    environment_builder:
+      placement_seed: 5600000
+  kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml
+    environment_builder:
+      placement_seed: 5700000
+  kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml
+    environment_builder:
+      placement_seed: 5800000

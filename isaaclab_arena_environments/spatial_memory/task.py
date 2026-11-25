@@ -12,14 +12,12 @@ from functools import partial
 
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
 
-from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena_environments.spatial_memory.collision import make_contact_sensor_cfgs
 from isaaclab_arena_environments.spatial_memory.episode_state import reset_layout, update_episode_state
-from isaaclab_arena_environments.spatial_memory.metrics import get_suite_metrics
 from isaaclab_arena_environments.spatial_memory.observations import ObservationVariant, make_task_observation_cfg
 from isaaclab_arena_environments.spatial_memory.task_logic import SpatialMemoryTaskLogic
 
@@ -103,6 +101,3 @@ class SpatialMemoryTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode):
         raise NotImplementedError("Spatial-memory tasks do not define a Mimic configuration.")
-
-    def get_metrics(self) -> list[MetricBase]:
-        return get_suite_metrics()

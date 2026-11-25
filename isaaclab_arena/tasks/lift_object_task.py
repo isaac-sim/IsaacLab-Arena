@@ -18,8 +18,6 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
@@ -105,9 +103,6 @@ class LiftObjectTask(TaskBase):
 
     def get_mimic_env_cfg(self, embodiment_name: str):
         raise NotImplementedError("Function not implemented yet.")
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(

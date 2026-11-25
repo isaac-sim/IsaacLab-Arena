@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import warp as wp
@@ -121,6 +121,12 @@ class EndEffectorPosesRecorder(RecorderTerm):
         body_ids_by_frame: dict[str, int] = {}
         for frame_name in sensor.data.target_frame_names:
             frame_cfg = cfg_by_name[frame_name]
+            # Link names repeat across articulations (e.g. two arms of one model), so a frame paired with the
+            # wrong articulation would silently report that articulation's link velocity.
+            assert frame_cfg.prim_path.startswith(f"{robot.cfg.prim_path}/"), (
+                f"Frame '{frame_name}' at {frame_cfg.prim_path} is not on articulation '{self.cfg.asset_name}' at"
+                f" {robot.cfg.prim_path}"
+            )
             # Leaf of the USD prim path is the articulation link name (e.g. panda_hand).
             body_name = frame_cfg.prim_path.rstrip("/").rsplit("/", 1)[-1]
             body_ids, matched_names = robot.find_bodies(body_name)
@@ -290,32 +296,30 @@ class TrajectoryRecorderTermsBaseCfg:
     record_gripper_state: GripperStateRecorderCfg = GripperStateRecorderCfg()
 
 
-def make_trajectory_recorder_terms_cfg(
-    frame_transformer_names: Sequence[str] = ("ee_frame",), asset_name: str = "robot"
-) -> Any:
-    """Build the per-step trajectory recorder terms for one embodiment's frame transformers and asset name.
+def make_trajectory_recorder_terms_cfg(asset_name_by_frame_transformer: Mapping[str, str] | None = None) -> Any:
+    """Build the per-step trajectory recorder terms for one embodiment's end-effector frame transformers.
 
-    Adds one end-effector pose recorder term per entry in ``frame_transformer_names``, so embodiments
-    with several tracked end-effectors (e.g. both arms of a bi-manual robot) get every one recorded;
-    each tracked frame still lands under its own name in the exported dataset, so the terms don't
-    collide there even though they share ``asset_name``. The embodiment is responsible for giving
-    every ``FrameTransformerCfg.FrameCfg`` across all its frame transformers a unique ``name`` (e.g.
-    ``left_end_effector`` / ``right_end_effector``), since that name, not the sensor's, is what
-    namespaces the exported dataset group.
+    Adds one end-effector pose recorder term per frame transformer, each reading link velocities from the
+    articulation that owns that frame, so embodiments with several tracked end-effectors (e.g. both arms
+    of a bi-manual robot, on one articulation or on two) get every one recorded. The embodiment is
+    responsible for giving every ``FrameTransformerCfg.FrameCfg`` across all its frame transformers a
+    unique ``name`` (e.g. ``left_end_effector`` / ``right_end_effector``), since that name, not the
+    sensor's, is what namespaces the exported dataset group.
 
     Args:
-        frame_transformer_names: Names of the scene's end-effector frame transformer sensors, one per
-            tracked end-effector.
-        asset_name: Scene entity name of the articulation that owns the end-effector frames.
+        asset_name_by_frame_transformer: Scene entity name of the articulation that owns each
+            end-effector frame transformer, keyed by the sensor's name. None tracks ``ee_frame`` on ``robot``.
     """
-    ee_pose_recorder_fields = [
-        (
-            f"record_end_effector_poses_{index}",
-            EndEffectorPosesRecorderCfg,
-            EndEffectorPosesRecorderCfg(frame_transformer_name=frame_transformer_name, asset_name=asset_name),
+    if asset_name_by_frame_transformer is None:
+        asset_name_by_frame_transformer = {"ee_frame": "robot"}
+    ee_pose_recorder_fields = []
+    for index, (frame_transformer_name, asset_name) in enumerate(asset_name_by_frame_transformer.items()):
+        ee_pose_recorder_cfg = EndEffectorPosesRecorderCfg(
+            frame_transformer_name=frame_transformer_name, asset_name=asset_name
         )
-        for index, frame_transformer_name in enumerate(frame_transformer_names)
-    ]
+        ee_pose_recorder_fields.append(
+            (f"record_end_effector_poses_{index}", EndEffectorPosesRecorderCfg, ee_pose_recorder_cfg)
+        )
     ee_pose_recorders_cfg = make_configclass("EndEffectorPosesRecordersCfg", ee_pose_recorder_fields)()
     return combine_configclass_instances(
         "TrajectoryRecorderTermsCfg", TrajectoryRecorderTermsBaseCfg(), ee_pose_recorders_cfg

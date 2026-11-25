@@ -83,10 +83,13 @@ def summarize_episode_records(records: list[dict[str, Any]]) -> dict[str, float]
     num_records = max(len(records), 1)
     successes = [record for record in records if record["success"]]
     times = [record["episode_length"] for record in successes]
+    durations = [record["spatial_memory"].get("time_to_success_s") for record in successes]
+    measured_seconds = [duration for duration in durations if duration is not None]
     return {
         "episodes": len(records),
         "success_rate": len(successes) / num_records,
         "collision_rate": sum(record["spatial_memory"]["collided"] for record in records) / num_records,
         "searched_again_rate": sum(record["spatial_memory"]["searched_again"] for record in records) / num_records,
+        "time_to_success_s": sum(measured_seconds) / len(measured_seconds) if measured_seconds else float("nan"),
         "mean_time_to_success_steps": (sum(times) / len(times)) if times else float("nan"),
     }

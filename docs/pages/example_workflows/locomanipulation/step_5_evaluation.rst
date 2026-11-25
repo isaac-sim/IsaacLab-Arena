@@ -57,7 +57,7 @@ leave it running:
 
    cd submodules/Isaac-GR00T
    uv run python gr00t/eval/run_gr00t_server.py \
-     --modality-config-path ../../isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py \
+     --modality-config-path ../../isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py \
      --model-path $HOME/models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000 \
      --embodiment-tag NEW_EMBODIMENT \
      --device cuda --host 127.0.0.1 --port 5555
@@ -68,7 +68,7 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``g1_locomanip_gr00t_closedloop_config.yaml``):
    :animate: fade-in
@@ -78,7 +78,7 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
       language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
       action_horizon: 50
       video_backend: decord
-      modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
+      modality_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
 
       action_chunk_length: 50
       pov_cam_name_sim: "robot_head_cam_rgb"
@@ -92,7 +92,7 @@ Test the policy in a single environment with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
      --remote_host 127.0.0.1 \
      --remote_port 5555 \
      --num_steps 1500 \
@@ -101,15 +101,11 @@ Test the policy in a single environment with visualization via the GUI run:
      --object brown_box \
      --embodiment g1_wbc_joint
 
-The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.
+At the end of the evaluation, the policy runner writes the evaluation report, which shows the number of finished
+episodes and the success rate. You should see similar results: 1 episode with a success rate of 1.0.
 
-Note that all these metrics are computed over the entire evaluation process, and are affected
+Note that the success rate is computed over the entire evaluation process, and is affected
 by the quality of post-trained policy, the quality of the dataset, and number of steps in the evaluation.
-
-.. code-block:: text
-
-   Metrics: {success_rate: 1.0, num_episodes: 1}
 
 Step 2: Run Parallel Environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -123,7 +119,7 @@ Test the policy in 5 parallel environments with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
      --remote_host 127.0.0.1 \
      --remote_port 5555 \
      --num_steps 1200 \
@@ -145,13 +141,9 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 
    Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
+At the end of the evaluation, the evaluation report shows 4 finished episodes with a success rate of 1.0.
+The success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
 and the number of episodes is more than the single environment evaluation because of the parallelization.
-
-.. code-block:: text
-
-   Metrics: {'success_rate': 1.0, 'num_episodes': 4}
 
 .. note::
 

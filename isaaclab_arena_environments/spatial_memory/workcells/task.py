@@ -12,7 +12,6 @@ from isaaclab.managers import EventTermCfg, ObservationGroupCfg, ObservationTerm
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
@@ -148,9 +147,6 @@ class MotionTask(NoTask):
             )
             fields.append(("support_" + surface, ContactSensorCfg, sensor))
         return make_configclass("WorkcellContactSensors", fields)() if fields else None
-
-    def get_metrics(self):
-        return [SuccessRateMetric()]
 
     def get_events_cfg(self):
         fields = []

@@ -8,11 +8,13 @@
 import re
 import subprocess
 import yaml
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from osmo.submit_arena_experiment import build_arena_experiment_submission_cfg
 
 REPO_ROOT = Path(TestConstants.repo_root).resolve()
@@ -92,18 +94,87 @@ def test_benchmark_experiment_exports_kpis(entry):
     """Every tracked Experiment selects its KPI exporters explicitly, not the config default."""
     experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
 
-    expected_exporters = (
-        ["placement_success", "timing"] if entry["name"] == "placement-subset" else ["success_rate", "timing"]
-    )
+    if entry["name"].startswith("placement-success-"):
+        expected_exporters = ["placement_success", "timing"]
+    elif entry["name"].startswith("perf-"):
+        expected_exporters = ["timing"]
+    else:
+        expected_exporters = ["success_rate", "timing"]
     assert experiment_cfg.kpi_exporters == expected_exporters, f"benchmark {entry['name']!r}"
 
 
-def test_smoke_single_run_benchmark_keeps_only_the_baseline_run():
-    entry = next(entry for entry in BENCHMARK_ENTRIES if entry["name"] == "smoke-single-run")
+ENVS_TOKEN_PATTERN = re.compile(r"-(\d+)envs(?=-|$)")
+TASKS_TOKEN_PATTERN = re.compile(r"-(\d+)tasks(?=-|$)")
+POLICY_CFG_CLASS_NAME_BY_NAME_TOKEN = {"zero-action": "ZeroActionPolicyCfg", "pi05": "Pi0RemotePolicyCfg"}
+"""Policy tokens a benchmark name may carry, and the policy config class each one selects."""
+PHYSICS_BACKEND_NAME_TOKENS = ("newton", "physx")
 
+
+@pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)
+def test_benchmark_name_matches_its_composed_experiment(entry):
+    """The env count, task count, policy and physics backend a name states hold for the Experiment it runs."""
+    name = entry["name"]
     experiment_cfg = _compose_benchmark_submission(entry).experiment_cfg
+    run_cfgs = list(experiment_cfg.runs.values())
 
-    assert list(experiment_cfg.runs) == ["baseline"]
+    envs_match = ENVS_TOKEN_PATTERN.search(name)
+    if envs_match:
+        for run_cfg in run_cfgs:
+            assert run_cfg.environment_builder.num_envs == int(
+                envs_match.group(1)
+            ), f"{name!r}: Run {run_cfg.name!r} has {run_cfg.environment_builder.num_envs} envs"
+
+    tasks_match = TASKS_TOKEN_PATTERN.search(name)
+    if tasks_match:
+        assert len(run_cfgs) == int(tasks_match.group(1)), f"{name!r}: the Experiment has {len(run_cfgs)} Runs"
+
+    for token, policy_cfg_class_name in POLICY_CFG_CLASS_NAME_BY_NAME_TOKEN.items():
+        if f"-{token}-" in name:
+            for run_cfg in run_cfgs:
+                assert (
+                    type(run_cfg.policy).__name__ == policy_cfg_class_name
+                ), f"{name!r}: Run {run_cfg.name!r} uses {type(run_cfg.policy).__name__}"
+            if token == "pi05":
+                assert all(run_cfg.policy.policy_variant == "pi05" for run_cfg in run_cfgs), f"{name!r}: not pi05"
+
+    for backend in PHYSICS_BACKEND_NAME_TOKENS:
+        if f"-{backend}-" in name:
+            for run_cfg in run_cfgs:
+                # An explicit preset overrides the backend the environment defaults to.
+                presets = run_cfg.environment_builder.presets
+                if presets is not None:
+                    assert (
+                        str(PhysicsBackend(presets).value) == backend
+                    ), f"{name!r}: Run {run_cfg.name!r} sets presets {presets!r}"
+                pick_object = getattr(run_cfg.environment, "pick_object", None)
+                if pick_object is not None:
+                    assert pick_object.endswith(f"_{backend}"), f"{name!r}: Run {run_cfg.name!r} picks {pick_object!r}"
+
+
+def test_newton_and_physx_deformable_benchmarks_differ_only_in_the_backend():
+    """The PhysX entry is the baseline of the Newton entry: same experiment file, and the same env count and policy."""
+    entries_by_name = {entry["name"]: entry for entry in BENCHMARK_ENTRIES}
+    pairs = [
+        (name, name.replace("-newton-", "-physx-"))
+        for name in entries_by_name
+        if name.startswith("perf-newton-deformable-")
+    ]
+    assert pairs, "expected a Newton deformable benchmark with a PhysX baseline"
+    for newton_name, physx_name in pairs:
+        assert physx_name in entries_by_name, f"{newton_name!r} has no PhysX baseline {physx_name!r}"
+        newton_entry, physx_entry = entries_by_name[newton_name], entries_by_name[physx_name]
+        assert newton_entry["experiment_cfg"] == physx_entry["experiment_cfg"]
+        newton_run_cfgs = _compose_benchmark_submission(newton_entry).experiment_cfg.runs
+        physx_run_cfgs = _compose_benchmark_submission(physx_entry).experiment_cfg.runs
+        assert list(newton_run_cfgs) == list(physx_run_cfgs)
+        for run_name, newton_run_cfg in newton_run_cfgs.items():
+            physx_run_cfg = physx_run_cfgs[run_name]
+            assert newton_run_cfg.environment.pick_object.endswith("_newton")
+            assert physx_run_cfg.environment.pick_object.endswith("_physx")
+            # Everything else, such as seeds, cameras, rollout limit and presets, must be equal.
+            assert replace(newton_run_cfg, environment=replace(newton_run_cfg.environment, pick_object="")) == replace(
+                physx_run_cfg, environment=replace(physx_run_cfg.environment, pick_object="")
+            ), f"{newton_name!r} and {physx_name!r} differ beyond the physics backend in Run {run_name!r}"
 
 
 @pytest.mark.parametrize("entry", BENCHMARK_ENTRIES, ids=_entry_id)

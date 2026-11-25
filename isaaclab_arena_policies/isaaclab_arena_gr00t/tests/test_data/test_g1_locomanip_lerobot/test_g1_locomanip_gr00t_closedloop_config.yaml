@@ -1,0 +1,14 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# This file shows how to configure the Gr00tRemoteClosedloopPolicy class for G1 locomanipulation task
+action_horizon: 50
+video_backend: decord
+modality_config_path: isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
+
+action_chunk_length: 50
+gr00t_embodiment_adapter: g1_wbc
+
+pov_cam_name_sim: "robot_head_cam_rgb"

@@ -9,6 +9,7 @@ from isaaclab.app import AppLauncher
 
 from isaaclab_arena.cli.dataclass_cli import dataclass_from_cli
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+from isaaclab_arena.utils.camera_renderer import CameraRenderer
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 
@@ -102,6 +103,16 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         choices=list(PhysicsBackend),
         default=None,
         help="Arena physics backend preset: 'physx' or 'newton'. When not set, each environment uses its own default.",
+    )
+    arena_group.add_argument(
+        "--camera_renderer",
+        type=CameraRenderer,
+        choices=list(CameraRenderer),
+        default=CameraRenderer.ISAAC_RTX,
+        help=(
+            "Renderer of the embodiment cameras: 'isaac_rtx' or 'newton_warp'. 'newton_warp' requires Newton physics:"
+            " with PhysX, cameras on robot links stay at their start pose."
+        ),
     )
     arena_group.add_argument(
         "--resolve_on_reset",

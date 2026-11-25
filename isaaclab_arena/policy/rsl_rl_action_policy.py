@@ -22,10 +22,9 @@ class _RslRlInferenceEnvWrapper(RslRlVecEnvWrapper):
     """``RslRlVecEnvWrapper`` that skips ``env.reset()`` during ``__init__``.
 
     The base wrapper calls ``env.reset()`` because the RSL-RL training
-    runner never calls reset itself.  For inference inside
-    ``policy_runner.py`` the rollout loop already resets the env, so the
-    extra reset records a phantom episode in the ``RecorderManager`` and
-    inflates ``num_episodes`` by one.
+    runner never calls reset itself. During Arena evaluation the rollout
+    loop already resets the env, so the extra reset records a phantom
+    episode in the ``RecorderManager`` and inflates ``num_episodes`` by one.
     """
 
     def __init__(self, env: gym.Env, clip_actions: float | None = None):
@@ -60,25 +59,20 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     """Policy that uses a trained RSL-RL model for inference.
 
     Loads the checkpoint and agent config (``params/agent.yaml``) produced by
-    IsaacLab's ``train.py``. No separate JSON config file is required.
+    IsaacLab's ``train.py``.
 
-    Example configuration for Experiment Runner:
+    Example Run in an Experiment YAML:
 
-    .. code-block:: json
+    .. code-block:: yaml
 
-        {
-          "jobs": [
-            {
-              "name": "eval_lift_cube",
-              "policy_type": "rsl_rl",
-              "policy_config_dict": {
-                "checkpoint_path": "logs/rsl_rl/lift_object/2026-01-28_17-26-10/model_1000.pt",
-                "device": "cuda:0"
-              },
-              "arena_env_args": ["lift_object", "--embodiment", "franka_ik"]
-            }
-          ]
-        }
+        runs:
+          eval_lift_object:
+            environment:
+              type: lift_object
+            policy:
+              type: rsl_rl
+              checkpoint_path: logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_1000.pt
+              device: cuda:0
     """
 
     name = "rsl_rl"

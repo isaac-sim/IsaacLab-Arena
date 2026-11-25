@@ -73,7 +73,9 @@ FAKE_OSMO_SUBMIT_STDOUT = """Workflow submit successful.
     Workflow Overview  - https://osmo.example.com/workflows/arena-kpi-run-7
 """
 EXPERIMENT_NAME = "pnp_benchmark"
-GR00T_CONFIG_YAML_PATH = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
+GR00T_CONFIG_YAML_PATH = (
+    "isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
+)
 
 
 def _pi0_experiment_cfg(first_variant: str = "pi05") -> ArenaExperimentCfg:
@@ -990,7 +992,7 @@ def test_submission_rejects_legacy_json_experiment(tmp_path):
     experiment_path = tmp_path / "legacy.json"
     experiment_path.write_text("{}", encoding="utf-8")
 
-    with pytest.raises(AssertionError, match="requires a typed YAML Experiment Definition"):
+    with pytest.raises(AssertionError, match="must be a YAML file"):
         build_arena_experiment_submission_cfg(experiment_path)
 
 

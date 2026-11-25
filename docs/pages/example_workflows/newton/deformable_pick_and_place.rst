@@ -163,7 +163,7 @@ Start the local OpenPI server in a separate terminal:
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+   ./isaaclab_arena_policies/isaaclab_arena_openpi/docker/run_openpi_server.sh
 
 Then evaluate four parallel environments for 16 completed episodes:
 
@@ -186,10 +186,6 @@ Then evaluate four parallel environments for 16 completed episodes:
       A local 16-episode OpenPI ``pi05`` validation run succeeded in 9 episodes (56.25%).
       This small stochastic run validates the workflow.
 
-      .. code-block:: text
-
-         [Rank 0/1] Metrics: {'num_episodes': 16, 'success_rate': 0.5625, 'object_moved_rate': 1.0}
-
    .. tab-item:: PhysX
 
       .. code-block:: bash
@@ -205,10 +201,6 @@ Then evaluate four parallel environments for 16 completed episodes:
 
       A local 16-episode OpenPI ``pi05`` validation run succeeded in 15 episodes (93.75%).
       This small stochastic run validates the workflow.
-
-      .. code-block:: text
-
-         [Rank 0/1] Metrics: {'num_episodes': 16, 'success_rate': 0.9375, 'object_moved_rate': 1.0}
 
 The following rollout shows one successful Newton episode from an external camera and the
 robot wrist camera:

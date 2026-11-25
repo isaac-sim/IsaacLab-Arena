@@ -100,10 +100,6 @@ def build_arena_experiment_submission_cfg(
         The fully composed typed submission configuration.
     """
     experiment_cfg_path = Path(experiment_cfg_path).expanduser()
-    assert experiment_cfg_path.suffix.lower() in {
-        ".yaml",
-        ".yml",
-    }, f"OSMO Experiment submission requires a typed YAML Experiment Definition; got '{experiment_cfg_path}'"
     shared_default_overrides, submission_overrides = split_shared_run_default_overrides(
         overrides or [],
         experiment_config_prefix="experiment_cfg",

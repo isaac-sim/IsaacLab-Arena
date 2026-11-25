@@ -5,7 +5,6 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
-import json
 import yaml
 from pathlib import Path
 
@@ -20,7 +19,6 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
-from isaaclab_arena.evaluation.legacy_experiment_runner import legacy_json_experiment_requires_cameras
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
@@ -35,14 +33,6 @@ CAMERA_SENSITIVITY_YAML_PATH = (
     / "experiment_configs"
     / "droid_pnp_camera_sensitivity_openpi_experiment.yaml"
 )
-
-
-@pytest.fixture
-def legacy_json_experiment_path(tmp_path) -> Path:
-    """A legacy JSON Experiment with two entries, so --chunk_size 1 dispatches more than one chunk."""
-    config_path = tmp_path / "legacy_experiment.json"
-    config_path.write_text(json.dumps({"jobs": [{"name": "first_run"}, {"name": "second_run"}]}), encoding="utf-8")
-    return config_path
 
 
 def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
@@ -200,8 +190,6 @@ def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch)
     experiment = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
     assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
 
-    with pytest.raises(AssertionError, match="must register a config"):
-        registry.get_environment_cfg_type(ExternalFrankaTableEnvironment)
     with pytest.raises(AssertionError, match="unknown environment type 'external_without_config'"):
         load_arena_experiment_from_config_file(
             GETTING_STARTED_YAML_PATH,
@@ -209,11 +197,9 @@ def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch)
             overrides=["shared.environment.type=external_without_config"],
         )
 
-    # Typed loading keeps registered aliases after the legacy lookup is removed.
+    # Typed loading keeps registered aliases.
     factory = registry.get_component_by_name("pick_and_place_maple_table")
     registry.register(factory, "maple_alias")
-    # Remove this deletion when the registry's cleanup TODO removes the legacy map.
-    monkeypatch.delattr(registry, "_cfg_types_by_factory_type")
     configured = registry.get_environment_cfg_types()
     assert configured["maple_alias"] is configured["pick_and_place_maple_table"]
     assert "external_without_config" not in configured
@@ -308,30 +294,6 @@ def test_default_experiment_is_a_short_zero_action_smoke_test(monkeypatch):
     assert smoke_test_run.rollout_limit.num_steps == 20
 
 
-def test_load_legacy_json_experiment_returns_canonical_cfg(tmp_path, monkeypatch):
-    config_path = tmp_path / "experiment.json"
-    config_path.write_text('{"jobs": []}', encoding="utf-8")
-    run_cfg = _experiment_cfg().runs["baseline"]
-    monkeypatch.setattr(
-        arena_experiment_config_loader,
-        "run_cfgs_from_legacy_eval_config",
-        lambda _config, device: [run_cfg],
-    )
-
-    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:1")
-
-    assert isinstance(experiment_cfg, ArenaExperimentCfg)
-    assert experiment_cfg.runs == {"baseline": run_cfg}
-
-
-def test_empty_legacy_json_experiment_is_rejected(tmp_path):
-    config_path = tmp_path / "experiment.json"
-    config_path.write_text('{"jobs": []}', encoding="utf-8")
-
-    with pytest.raises(AssertionError, match="must contain at least one Run"):
-        load_arena_experiment_from_config_file(config_path, device="cuda:0")
-
-
 def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkeypatch):
     simulation_is_running = False
 
@@ -420,48 +382,6 @@ def test_typed_experiment_enables_camera_support_from_its_config(
     assert launched_with_cameras is expected_enable_cameras
 
 
-def test_legacy_json_camera_detection_is_preserved():
-    legacy_experiment_config = {"jobs": [{"arena_env_args": {}}, {"arena_env_args": {"enable_cameras": True}}]}
-
-    assert legacy_json_experiment_requires_cameras(legacy_experiment_config)
-
-
-def test_experiment_runner_rejects_yaml_chunking_before_starting_simulation(monkeypatch):
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "experiment_runner.py",
-            "--experiment_config",
-            str(GETTING_STARTED_YAML_PATH),
-            "--chunk_size",
-            "1",
-        ],
-    )
-
-    with pytest.raises(AssertionError, match="only legacy JSON Experiments"):
-        experiment_runner.main()
-
-
-def test_experiment_runner_rejects_exact_output_for_multiple_legacy_chunks(
-    monkeypatch, tmp_path, legacy_json_experiment_path
-):
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "experiment_runner.py",
-            "--experiment_config",
-            str(legacy_json_experiment_path),
-            "--chunk_size",
-            "1",
-            "--experiment_output_directory",
-            str(tmp_path / "exact-experiment-output"),
-        ],
-    )
-
-    with pytest.raises(AssertionError, match="not supported when --chunk_size dispatches multiple chunks"):
-        experiment_runner.main()
-
-
 def test_experiment_runner_rejects_nonempty_exact_output_before_starting_simulation(monkeypatch, tmp_path):
     exact_experiment_output_directory = tmp_path / "existing-experiment-output"
     exact_experiment_output_directory.mkdir()
@@ -481,33 +401,10 @@ def test_experiment_runner_rejects_nonempty_exact_output_before_starting_simulat
         experiment_runner.main()
 
 
-def test_legacy_json_experiment_rejects_hydra_overrides(legacy_json_experiment_path):
-    with pytest.raises(AssertionError, match="only for typed YAML"):
-        load_arena_experiment_from_config_file(
-            legacy_json_experiment_path,
-            device="cuda:0",
-            overrides=["runs.baseline.rollout_limit.num_steps=2"],
-        )
-
-
-def test_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch, legacy_json_experiment_path):
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "experiment_runner.py",
-            "--experiment_config",
-            str(legacy_json_experiment_path),
-            "runs.baseline.rollout_limit.num_steps=2",
-        ],
-    )
-
-    with pytest.raises(AssertionError, match="only for typed YAML"):
-        experiment_runner.main()
-
-
-def test_unknown_experiment_config_file_type_is_rejected(tmp_path):
-    config_path = tmp_path / "experiment.toml"
+@pytest.mark.parametrize("file_name", ["experiment.toml", "experiment.json"])
+def test_unknown_experiment_config_file_type_is_rejected(tmp_path, file_name):
+    config_path = tmp_path / file_name
     config_path.write_text("", encoding="utf-8")
 
-    with pytest.raises(AssertionError, match="must use .json, .yaml, or .yml"):
+    with pytest.raises(AssertionError, match="must be a YAML file"):
         validate_experiment_config_path(config_path)

@@ -27,7 +27,6 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.evaluation.rollout import rollout_policy
 from isaaclab_arena.evaluation.run_status import RunStatus
-from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
@@ -40,7 +39,6 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
     from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
@@ -114,10 +112,9 @@ def build_and_run(
 ) -> ArenaRunResult:
     """Build and execute one typed Arena run, then return its result stamped with its start and end times."""
     start_timestamp_ns = time.time_ns()
-    # TODO(xinjieyao, 2026-11-15): Move the per-rebuild collectors (metrics, placement diagnostics, and the coming
+    # TODO(xinjieyao, 2026-11-15): Move the per-rebuild collectors (placement diagnostics and the coming
     # inference usage) behind one interface with before_rollout(), after_rollout() and on_error() hooks, so this
     # function need not know about each of them.
-    metrics_per_rebuild: list[MetricsDataCollection] = []
     placement_diagnostics_per_rebuild: list[PlacementDiagnostics] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
@@ -154,9 +151,7 @@ def build_and_run(
                 num_episodes,
             )
             env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
-            metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
-            if metrics is not None:
-                metrics_per_rebuild.append(metrics)
+            rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
         except Exception as error:
             # A failed fill leaves no pool to read its diagnostics from, so they are taken from its error.
             if isinstance(error, PlacementPoolFillError):
@@ -172,7 +167,6 @@ def build_and_run(
         status=RunStatus.COMPLETED,
         start_timestamp_ns=start_timestamp_ns,
         end_timestamp_ns=time.time_ns(),
-        metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
         placement_diagnostics=placement_diagnostics,
     )
 

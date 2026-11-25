@@ -15,17 +15,13 @@ _DEFAULT_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "outputs"
 
 def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
     """Add Experiment Runner specific arguments to the parser."""
-    # TODO(cvolk, 2026-07-09): [typed-config-migration] Remove the --eval_jobs_config alias
-    # when legacy JSON Experiments are retired. Both flags currently populate experiment_config.
     parser.add_argument(
         "--experiment_config",
-        "--eval_jobs_config",
-        dest="experiment_config",
         type=str,
         default=_DEFAULT_EXPERIMENT_CONFIG_PATH,
         help=(
-            "Path to a typed YAML Experiment or legacy JSON evaluation config. "
-            "For YAML, use shared.<path>=<value> to change a default for every Run, or "
+            "Path to a typed YAML Experiment. "
+            "Use shared.<path>=<value> to change a default for every Run, or "
             "runs.<name>.<path>=<value> to change one Run. Shared values must already be declared in the YAML; "
             "Hydra's +, ++, and ~ operators are not supported for them."
         ),
@@ -85,17 +81,6 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         default=False,
         help="Continue evaluation with remaining Runs when a Run fails instead of stopping immediately.",
-    )
-    parser.add_argument(
-        "--chunk_size",
-        type=int,
-        default=None,
-        help=(
-            "Run legacy JSON entries in chunks of at most this many, one fresh subprocess per chunk."
-            " Each restart lets the OS reclaim accumulated memory, avoiding OOM on"
-            " long sweeps. Default unset — single process. Leave unset for normal runs;"
-            " set only if a long sweep grows in host memory or gets OOM-killed."
-        ),
     )
 
 

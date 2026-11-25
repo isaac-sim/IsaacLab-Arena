@@ -88,7 +88,7 @@ the OpenPI client only in its response key and adapter.
 .. dropdown:: ``cosmos_remote_policy.py``
    :animate: fade-in
 
-   .. literalinclude:: ../../../../isaaclab_arena_cosmos/policy/cosmos_remote_policy.py
+   .. literalinclude:: ../../../../isaaclab_arena_policies/isaaclab_arena_cosmos/policy/cosmos_remote_policy.py
       :language: python
       :lines: 6-
 

@@ -69,6 +69,8 @@ Read only the references relevant to the requested behavior:
   and [predicates and progress](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst)
   for ordered milestones, current final conditions, simultaneous truth, temporal holds, and reporting.
   Reuse existing tasks and preserve their sensors and failure conditions.
+- **Per-episode values:** to record a value of your own, add an episode recorder term in Python, as in the
+  [external environment example](../../../isaaclab_arena_examples/external_environments/advanced.py). Graph YAML has no field for these terms.
 - **Variations:** read the [variation concepts](../../../docs/pages/concepts/variations/variations.rst)
   and inspect asset constructors, including [object base classes](../../../isaaclab_arena/assets/object_base.py),
   for existing attachments before adding one. Verify names, units, and sampling timing against the
