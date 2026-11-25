@@ -20,6 +20,9 @@ from isaaclab_arena.variations.continuous_sampler import ContinuousSampler, Cont
 class DiscreteSamplerCfg(ContinuousSamplerCfg):
     """Config for :class:`DiscreteSampler`."""
 
+    distribution: str = "discrete"
+    """Selects this sampler in a variation override: ``<variation>.sampler_cfg.distribution=discrete``."""
+
     values: list[list[float]] = field(default_factory=list)
     """Value vectors to take samples from, for example ``[[0.17], [0.24]]`` for two scalar values. Required. Every
     vector has the same length, which sets the sampler's shape_per_sample."""

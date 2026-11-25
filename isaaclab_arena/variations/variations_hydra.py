@@ -8,19 +8,24 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from dataclasses import field, make_dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_type_hints
 
 from hydra import compose, initialize
 from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
+from hydra.core.override_parser.overrides_parser import OverridesParser
 from hydra.errors import ConfigCompositionException
 from omegaconf import OmegaConf
 
 if TYPE_CHECKING:
+    from isaaclab_arena.variations.sampler_base import SamplerBaseCfg
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
 # TODO(cvolk, 2026-07-08): Move variation composition under isaaclab_arena.hydra without changing behavior.
+
+# Path, below a variation, of the field that selects the variation's sampler cfg type.
+_SAMPLER_DISTRIBUTION_PATH = "sampler_cfg.distribution"
 
 
 def overrides_from_dict(values: dict[str, Any]) -> list[str]:
@@ -116,7 +121,8 @@ def build_variations_cfg_with_overrides(
         The built ``VariationsCfg`` instance, including overridden values, or ``None`` when
         ``variations`` is empty.
     """
-    variations_cfg_cls = _build_variations_cfg_type(variations)
+    selected_sampler_cfgs = _get_sampler_cfgs_selected_by_overrides(variations, hydra_overrides)
+    variations_cfg_cls = _build_variations_cfg_type(variations, selected_sampler_cfgs)
     if variations_cfg_cls is None:
         return None
     ConfigStore.instance().store(name="arena_variations_schema", node=variations_cfg_cls)
@@ -131,7 +137,73 @@ def build_variations_cfg_with_overrides(
     return variations_cfg
 
 
-def _build_variations_cfg_type(variations: dict[str, list[VariationBase]]) -> type | None:
+def _get_sampler_cfgs_selected_by_overrides(
+    variations: dict[str, list[VariationBase]],
+    hydra_overrides: list[str],
+) -> dict[str, SamplerBaseCfg]:
+    """Return a default sampler cfg for each variation whose ``sampler_cfg.distribution`` override changes its sampler.
+
+    Hydra overrides cannot change the type of a config node, so the schema must hold the selected sampler cfg type
+    before the remaining overrides set its fields. When a variation has several such overrides, the last one wins.
+
+    Args:
+        variations: ``{asset_name: [variation, ...]}`` the variations.
+        hydra_overrides: Hydra override strings.
+
+    Returns:
+        ``{"<asset_name>.<variation_name>": sampler_cfg}`` for each variation whose selected distribution differs from
+        its current one.
+    """
+    distribution_overrides = [override for override in hydra_overrides if _SAMPLER_DISTRIBUTION_PATH in override]
+    if not distribution_overrides:
+        return {}
+    distributions_by_variation_path: dict[str, Any] = {}
+    for override in OverridesParser.create().parse_overrides(distribution_overrides):
+        key_parts = override.key_or_group.split(".")
+        if override.is_delete() or ".".join(key_parts[2:]) != _SAMPLER_DISTRIBUTION_PATH:
+            continue
+        distributions_by_variation_path[".".join(key_parts[:2])] = override.value()
+
+    variations_by_path: dict[str, VariationBase] = {}
+    for asset_name, asset_variations in variations.items():
+        for variation in asset_variations:
+            variations_by_path[f"{asset_name}.{variation.name}"] = variation
+    selected_sampler_cfgs: dict[str, SamplerBaseCfg] = {}
+    for variation_path, distribution in distributions_by_variation_path.items():
+        variation = variations_by_path.get(variation_path)
+        # Hydra composition reports an override of a variation that does not exist.
+        if variation is None:
+            continue
+        # Selecting the current distribution keeps the current sampler cfg and its values.
+        if getattr(variation.cfg.sampler_cfg, "distribution", None) == distribution:
+            continue
+        sampler_cfg_types = _get_sampler_cfg_types_by_distribution(variation)
+        assert distribution in sampler_cfg_types, (
+            f"'{variation_path}.{_SAMPLER_DISTRIBUTION_PATH}={distribution}' names no sampler that"
+            f" {type(variation).__name__} accepts. Available distributions: {sorted(sampler_cfg_types)}."
+        )
+        selected_sampler_cfgs[variation_path] = sampler_cfg_types[distribution]()
+    return selected_sampler_cfgs
+
+
+def _get_sampler_cfg_types_by_distribution(variation: VariationBase) -> dict[str, type[SamplerBaseCfg]]:
+    """Return the sampler cfg types that ``variation``'s ``sampler_cfg`` field accepts, keyed by distribution name."""
+    # Deferred so that importing this module does not import the samplers.
+    from isaaclab_arena.variations.discrete_sampler import DiscreteSamplerCfg  # noqa: PLC0415
+    from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg  # noqa: PLC0415
+
+    accepted_sampler_cfg_type = get_type_hints(type(variation.cfg))["sampler_cfg"]
+    sampler_cfg_types: dict[str, type[SamplerBaseCfg]] = {}
+    for sampler_cfg_type in (UniformSamplerCfg, DiscreteSamplerCfg):
+        if issubclass(sampler_cfg_type, accepted_sampler_cfg_type):
+            sampler_cfg_types[sampler_cfg_type().distribution] = sampler_cfg_type
+    return sampler_cfg_types
+
+
+def _build_variations_cfg_type(
+    variations: dict[str, list[VariationBase]],
+    selected_sampler_cfgs: dict[str, SamplerBaseCfg] | None = None,
+) -> type | None:
     """Build a nested variation configuration dataclass type, or return ``None`` for an empty mapping.
 
     The class has one field per asset; each asset field's type is a
@@ -141,6 +213,8 @@ def _build_variations_cfg_type(variations: dict[str, list[VariationBase]]) -> ty
 
     Args:
         variations: ``{asset_name: [variation, ...]}`` dict.
+        selected_sampler_cfgs: ``{"<asset_name>.<variation_name>": sampler_cfg}`` sampler cfgs that replace the
+            variations' current ``sampler_cfg`` in the field defaults.
 
     Returns:
         The dynamically-built ``VariationsCfg`` dataclass type, or ``None``
@@ -148,6 +222,7 @@ def _build_variations_cfg_type(variations: dict[str, list[VariationBase]]) -> ty
     """
     if not variations:
         return None
+    selected_sampler_cfgs = selected_sampler_cfgs or {}
 
     # Loop over all the assets and their variations.
     asset_fields: list[tuple[str, type, Any]] = []
@@ -163,6 +238,9 @@ def _build_variations_cfg_type(variations: dict[str, list[VariationBase]]) -> ty
         for variation in asset_variations:
             cfg_cls = type(variation.cfg)
             default_cfg = deepcopy(variation.cfg)
+            selected_sampler_cfg = selected_sampler_cfgs.get(f"{asset_name}.{variation.name}")
+            if selected_sampler_cfg is not None:
+                default_cfg.sampler_cfg = selected_sampler_cfg
             variation_fields.append((variation.name, cfg_cls, field(default_factory=lambda d=default_cfg: deepcopy(d))))
         # Make a dataclass for the asset.
         asset_cls_name = "".join(part.capitalize() for part in asset_name.split("_")) + "VariationsCfg"
@@ -188,9 +266,16 @@ def _raise_unknown_override_error(
     cause: ConfigCompositionException,
 ) -> None:
     override_hint = ", ".join(hydra_overrides)
+    sampler_hint = ""
+    if any(".sampler_cfg." in override for override in hydra_overrides):
+        sampler_hint = (
+            "A sampler_cfg field must belong to the variation's sampler. Set '<host>.<variation>."
+            f"{_SAMPLER_DISTRIBUTION_PATH}' (for example to 'discrete') to change the sampler.\n"
+        )
     raise ValueError(
         f"Unknown Hydra variation override ({override_hint}). "
         "No matching host or variation name in this environment.\n"
+        f"{sampler_hint}"
         f"Available variation paths:\n{_format_available_variation_paths(variations)}\n"
         f"Original error:\n{cause}"
     ) from cause

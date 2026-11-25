@@ -85,6 +85,7 @@ defaults:
        Enable: pick_up_object.mass.enabled=true  (default: False)
        Fields:
          pick_up_object.mass.recompute_inertia = True
+         pick_up_object.mass.sampler_cfg.distribution = 'uniform'
          pick_up_object.mass.sampler_cfg.high = [2.0]
          pick_up_object.mass.sampler_cfg.low = [0.05]
 
@@ -146,6 +147,51 @@ append the same variation overrides to the recording command, for example
 Arena consumes its variation overrides and returns the remaining arguments to the Isaac Lab script.
 See :doc:`Teleoperation Data Collection <../../example_workflows/sequential_static_manipulation/step_2_teleoperation>`
 for recording setup and the full command using the callback.
+
+
+.. _discrete-variation-values:
+
+Drawing from a fixed set of values
+----------------------------------
+
+Variations that draw numbers (object mass, the light intensity, color temperature, color and
+direction, and camera extrinsics and intrinsics) sample uniformly between ``sampler_cfg.low`` and
+``sampler_cfg.high`` by default. Set ``sampler_cfg.distribution=discrete`` to draw from a list of
+values instead. For example, to give the object one of two masses:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type zero_action \
+     --num_steps 50 \
+     pick_and_place_maple_table \
+     pick_up_object.mass.enabled=true \
+     pick_up_object.mass.sampler_cfg.distribution=discrete \
+     "pick_up_object.mass.sampler_cfg.values=[[0.17],[0.24]]"
+
+Each entry of ``values`` is a list with one number per dimension of the variation, so a scalar
+such as mass uses one-number lists. The discrete sampler has two modes:
+
+- By default (``sampler_cfg.random_choice=true``), every reset draws an entry at random, seeded by
+  ``--seed``. Every entry is equally likely unless ``sampler_cfg.probabilities`` lists one weight per
+  entry, for example ``"pick_up_object.mass.sampler_cfg.probabilities=[0.25,0.75]"``.
+- With ``sampler_cfg.random_choice=false``, the sampler draws no random numbers: parallel
+  environment ``i`` gets entry ``i % len(values)`` on every reset, so with ``--num_envs 2`` the two
+  environments above always run with 0.17 kg and 0.24 kg. A build-time variation draws one value for
+  every environment, so in this mode it always gets the first entry.
+
+In an experiment config, the same settings go under the Run's ``variations``:
+
+.. code-block:: yaml
+
+   variations:
+     pick_up_object.mass.enabled: true
+     pick_up_object.mass.sampler_cfg.distribution: discrete
+     pick_up_object.mass.sampler_cfg.values: [[0.17], [0.24]]
+     pick_up_object.mass.sampler_cfg.random_choice: false
+
+Set ``sampler_cfg.distribution`` whenever you set the discrete fields: without it, the variation
+keeps its uniform sampler and rejects ``values`` as an unknown field.
 
 
 Configuring variations in an experiment config
