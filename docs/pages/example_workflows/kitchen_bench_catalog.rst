@@ -134,18 +134,18 @@ the maintained DROID external camera. Rows are grouped by task category.
           :alt: Pi policy pressing the right toaster cancel button in the G-shaped Scandinavian kitchen
           :width: 100%
    * - Press button
-     - `kitchen_bench_press_palatial_blender_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_palatial_blender_one_wall_coastal.yaml>`_
+     - `kitchen_bench_press_blender_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_blender_one_wall_coastal.yaml>`_
      - 38%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_palatial_blender_one_wall_coastal_pi05.gif
-          :alt: Pi0.5 policy: Press the small pulse button to the right of the blender speed dial.
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_blender_one_wall_coastal_pi05.gif
+          :alt: Pi0.5 policy: Press the power button to the right of the blender's speed dial.
           :width: 100%
 
        Pi0.5, 2x speed.
    * - Press button
-     - `kitchen_bench_press_slow_cooker_galley_industrial.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_slow_cooker_galley_industrial.yaml>`_
+     - `kitchen_bench_press_toaster_oven_galley_industrial.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_toaster_oven_galley_industrial.yaml>`_
      - 43%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_slow_cooker_galley_industrial_pi05.gif
-          :alt: Pi0.5 policy: Press the Select button on the front of the slow cooker.
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_toaster_oven_galley_industrial_pi05.gif
+          :alt: Pi0.5 policy: Press the button below the timer knob on the right of the toaster oven's front panel.
           :width: 100%
 
        Pi0.5, 2x speed.
@@ -169,7 +169,7 @@ the maintained DROID external camera. Rows are grouped by task category.
      - `kitchen_bench_press_food_processor_l_shaped_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_food_processor_l_shaped_scandinavian.yaml>`_
      - 37%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_food_processor_l_shaped_scandinavian_pi05.gif
-          :alt: Pi0.5 policy: Press the rectangular pulse button on the base of the food processor.
+          :alt: Pi0.5 policy: Press the power button at the upper left of the food processor's front control panel.
           :width: 100%
 
        Pi0.5, 2x speed.

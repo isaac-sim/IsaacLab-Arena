@@ -18,7 +18,7 @@ background:
     collision_mode: mesh
 objects:
 - id: appliance
-  registry_name: forgecad_food_processor
+  registry_name: palatial_food_processor
 - id: distractor_1
   registry_name: orange_02_fruits_veggies_robolab
 - id: distractor_2
@@ -110,7 +110,7 @@ relations:
     tolerance_m: 0.05
 task:
   composition: atomic
-  description: Press the rectangular pulse button on the base of the food processor.
+  description: Press the power button at the upper left of the food processor's front control panel.
   subtasks:
   - kind: PressButtonTask
     params:
