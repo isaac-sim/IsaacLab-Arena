@@ -116,7 +116,8 @@ class ResourceUsageTrackerDaemon:
         """Create a tracker; sampling starts when the context is entered.
 
         Args:
-            interval_s: Seconds between samples.
+            interval_s: Seconds between samples. A Run shorter than this has only the sample taken at entry, with
+                no CPU utilization.
             gpu_index: Index of the GPU to read.
         """
         self._interval_s = interval_s
@@ -145,18 +146,13 @@ class ResourceUsageTrackerDaemon:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        """Stop the sampling thread, take the last sample and close the reader."""
+        """Stop the sampling thread and close the reader."""
         if self._thread is None:
             return
         try:
             self._stop_event.set()
             self._thread.join()
             self._thread = None
-            if not self._failed:
-                try:
-                    self._record(self._reader.sample())
-                except Exception as error:
-                    self._report_failure(error)
         finally:
             self._reader.close()
 

@@ -74,12 +74,12 @@ def test_peak_and_mean_match_scripted_samples(monkeypatch):
     assert reader.closed
 
 
-def test_immediate_exit_has_start_and_stop_samples(monkeypatch):
+def test_immediate_exit_has_only_the_start_sample(monkeypatch):
     reader = FakeReader([_sample()])
     _patch_reader(monkeypatch, reader)
     with ResourceUsageTrackerDaemon(interval_s=10.0) as tracker:
         pass
-    assert tracker.get_usage().vram.count >= 2
+    assert tracker.get_usage().vram.count == 1
 
 
 def test_first_cpu_sample_is_skipped(monkeypatch):
@@ -88,7 +88,7 @@ def test_first_cpu_sample_is_skipped(monkeypatch):
     with ResourceUsageTrackerDaemon(interval_s=10.0) as tracker:
         pass
     assert tracker.get_usage().cpu_util.count == 0
-    assert tracker.get_usage().vram.count == 2
+    assert tracker.get_usage().vram.count == 1
 
 
 def test_thread_is_gone_after_exit_and_after_exception(monkeypatch):
@@ -97,11 +97,13 @@ def test_thread_is_gone_after_exit_and_after_exception(monkeypatch):
         assert THREAD_NAME in _thread_names()
     assert THREAD_NAME not in _thread_names()
 
-    _patch_reader(monkeypatch, FakeReader([_sample()]))
+    reader = FakeReader([_sample()])
+    _patch_reader(monkeypatch, reader)
     with pytest.raises(RuntimeError):
         with ResourceUsageTrackerDaemon(interval_s=0.01):
             raise RuntimeError("boom")
     assert THREAD_NAME not in _thread_names()
+    assert reader.closed
 
 
 def test_exit_twice_is_harmless(monkeypatch):
@@ -188,20 +190,6 @@ def test_reader_shuts_down_nvml_when_handle_lookup_fails(monkeypatch):
     with pytest.raises(RuntimeError, match="no such GPU"):
         ProcessResourceReader(gpu_index=7)
     assert fake.shutdown_calls == 1
-
-
-def test_reader_closed_even_if_stop_sample_is_interrupted(monkeypatch):
-    reader = FakeReader([_sample()])
-
-    def interrupted():
-        raise KeyboardInterrupt()
-
-    with pytest.raises(KeyboardInterrupt):
-        _patch_reader(monkeypatch, reader)
-        with ResourceUsageTrackerDaemon(interval_s=60.0):
-            reader.sample = interrupted
-    assert reader.closed
-    assert THREAD_NAME not in _thread_names()
 
 
 def test_reader_uses_v2_used_memory_and_proc_rss(monkeypatch):
