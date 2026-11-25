@@ -2253,7 +2253,7 @@ class LightwheelBlender003(LibraryObject, Turnable):
 
     registry_name = "lightwheel_blender003"
     tags = ["object", "turnable", "kitchen"]
-    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Blender003", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Blender003", file_type="USD")
     object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_speed_joint"
     min_level_angle_deg = 30.0
@@ -2269,7 +2269,7 @@ class LightwheelBlender008(LibraryObject, Turnable):
 
     registry_name = "lightwheel_blender008"
     tags = ["object", "turnable", "kitchen"]
-    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Blender008", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Blender008", file_type="USD")
     object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_speed_joint"
     min_level_angle_deg = 30.0
@@ -2285,7 +2285,7 @@ class LightwheelStandMixer003(LibraryObject, Turnable):
 
     registry_name = "lightwheel_stand_mixer003"
     tags = ["object", "turnable", "kitchen"]
-    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="StandMixer003", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="StandMixer003", file_type="USD")
     object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_speed_joint"
     min_level_angle_deg = 30.0
@@ -2301,7 +2301,7 @@ class LightwheelToaster002(LibraryObject, Turnable):
 
     registry_name = "lightwheel_toaster002"
     tags = ["object", "turnable", "kitchen"]
-    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="Toaster002", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Toaster002", file_type="USD")
     object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_doneness_joint"
     min_level_angle_deg = 30.0
@@ -2317,7 +2317,7 @@ class LightwheelToasterOven001(LibraryObject, Turnable):
 
     registry_name = "lightwheel_toaster_oven001"
     tags = ["object", "turnable", "kitchen"]
-    usd_source = LightwheelUsdSource(registry_type="fixtures", file_name="ToasterOven001", file_type="USD")
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="ToasterOven001", file_type="USD")
     object_type = ObjectType.ARTICULATION
     turnable_joint_name = "knob_temp_joint"
     min_level_angle_deg = 30.0
