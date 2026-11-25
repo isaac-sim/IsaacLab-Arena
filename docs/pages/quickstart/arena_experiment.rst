@@ -143,6 +143,10 @@ Select **baseline** under **Runs**, then open the episode. **Task completion sum
 placement check as **Not reached**. The ``pick_and_place`` criteria below it show the completed
 settling check.
 
+.. image:: ../../images/first_arena_experiment_episode_summary.png
+   :width: 100%
+   :alt: Baseline episode 0 in the HTML report, marked Partial with 33% progress and placement Not reached.
+
 See :doc:`Predicates and Subtask Progress Tracking <../concepts/task/concept_progress_tracking_design>`
 for how Arena records subtask progress and :ref:`consecutive-step-episode-summary` for the
 meaning of each status in **Task completion summary**.
