@@ -179,6 +179,8 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
    Choose a persistent output location available to every recording and replay process.
    The script runs headlessly and refuses to overwrite an existing file. It saves the
    simulation TetMesh and visual Mesh without backend physics schemas or materials.
+   The destination is created atomically only after the temporary USD exports successfully,
+   so a failed or interrupted export does not leave an incomplete bake at that path.
    Generating another file can produce a different topology, so keep and reuse the first
    output. Generated USDs are local assets and are not included in this repository.
 

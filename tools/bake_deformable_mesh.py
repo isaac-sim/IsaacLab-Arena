@@ -12,9 +12,32 @@ The output contains geometry only; source materials and textures are not copied.
 """
 
 import argparse
+import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 
 from isaaclab.app import AppLauncher
+
+if TYPE_CHECKING:
+    from pxr import Sdf
+
+
+def _export_layer_without_overwrite(layer: "Sdf.Layer", output: Path) -> None:
+    """Export to a temporary file, then atomically create the destination without replacing it.
+
+    Args:
+        layer: Completed USD layer to export.
+        output: Destination USD file; must not already exist.
+    """
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix=".bake-deformable-", dir=output.parent) as temporary_dir:
+        temporary_output = Path(temporary_dir) / output.name
+        if not layer.Export(str(temporary_output)):
+            raise OSError(f"Failed to export baked geometry to {output}")
+        # A sibling temporary file keeps the hard link on the same filesystem.
+        # Unlike rename/replace, link fails if another process created the destination.
+        os.link(temporary_output, output)
 
 
 def bake_deformable_mesh(asset_name: str, output: Path) -> None:
@@ -47,8 +70,7 @@ def bake_deformable_mesh(asset_name: str, output: Path) -> None:
         assert len(tetrahedra) == 1, "Baking requires exactly one volume simulation TetMesh."
         assert len(surfaces) == 1, "Baking requires exactly one visual Mesh."
 
-        output.parent.mkdir(parents=True, exist_ok=True)
-        stage = Usd.Stage.CreateNew(str(output))
+        stage = Usd.Stage.CreateInMemory()
         body = UsdGeom.Xform.Define(stage, "/Deformable")
         stage.SetDefaultPrim(body.GetPrim())
         UsdGeom.SetStageMetersPerUnit(stage, 1.0)
@@ -71,7 +93,7 @@ def bake_deformable_mesh(asset_name: str, output: Path) -> None:
             for point_M in source.GetPointsAttr().Get():
                 points_W.append(Gf.Vec3f(T_W_M.Transform(Gf.Vec3d(point_M))))
             destination.CreatePointsAttr(points_W)
-        stage.GetRootLayer().Save()
+        _export_layer_without_overwrite(stage.GetRootLayer(), output)
         print(f"Baked {asset_name}: {len(tet.GetPointsAttr().Get())} nodes -> {output}", flush=True)
     finally:
         sim.clear_instance()
