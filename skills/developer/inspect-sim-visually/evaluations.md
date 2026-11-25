@@ -10,8 +10,9 @@ Expected behavior:
 
 - Launches one `policy_runner.py` zero-action run (or `environment_runner.py`) with the Python server in `--kit_args`,
   `--viz kit`, `DISPLAY` unset, and `--output_base_dir` under `/tmp`.
-- Waits with the skill's loop, sends `sim_helpers.py`, captures the default view, then moves the camera and captures
-  again in a separate request; reads both PNGs.
+- Waits with the skill's loop, sends `sim_helpers.py`, catches the start of a new episode with `pause_when` on
+  the episode step plus `end_episode()`, captures the default view, then moves the camera and captures again in a
+  separate request; reads both PNGs.
 - Stops the run by the session id printed at launch (`pkill -s <sid>`) and confirms with `pgrep -s <sid>` that
   nothing is left.
 
@@ -22,6 +23,7 @@ Known failure modes:
   telemetry process running.
 - Passes `--headless`, or sets `HEADLESS=1` together with the Python server, so requests never return.
 - Relaunches the simulation for every camera angle.
+- Waits minutes for the current episode to time out instead of using `end_episode()`.
 - Moves the camera with `sim.set_camera_view()` or adds a camera sensor to get a side view.
 
 ## Scenario 2: Object Falls Through The Table

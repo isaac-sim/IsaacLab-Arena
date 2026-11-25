@@ -93,13 +93,14 @@ def move_object(scene_key, position, env_index=0):
 def pause_physics():
     """Pause the simulation; the server keeps answering, so the frozen state can be captured from several views.
 
-    Pausing also stops the episode clock. The pause takes effect after the env step in progress.
+    Pausing also stops the episode clock. The pause takes effect a step or two later. Needs a playing Kit timeline:
+    PhysX runs, or Newton runs with the Kit viewer (--viz kit).
     """
     import omni.timeline
 
     timeline = omni.timeline.get_timeline_interface()
-    # Newton runs keep the Kit timeline stopped and step regardless, so pausing it would do nothing.
-    assert timeline.is_playing(), "The Kit timeline is not playing; pausing works only in PhysX runs."
+    # Newton runs without the Kit viewer keep the timeline stopped and step regardless, so pausing would do nothing.
+    assert not timeline.is_stopped(), "The Kit timeline is stopped; pausing needs PhysX or --viz kit."
     timeline.pause()
 
 
@@ -109,8 +110,8 @@ _pause_observer = None
 def pause_when(condition):
     """Pause the simulation on the first Kit update where condition(env) is true.
 
-    For events faster than a request round trip, such as an object falling. The pause takes effect after the env step
-    in progress. PhysX only.
+    For events faster than a request round trip, such as an object falling. The pause takes effect a step or two later.
+    Can be armed while paused, before resume_physics(). Needs PhysX or --viz kit, like pause_physics().
 
     Args:
         condition: Function of the Arena env that returns true when to pause, for example
@@ -123,7 +124,7 @@ def pause_when(condition):
 
     env = find_arena_env()
     timeline = omni.timeline.get_timeline_interface()
-    assert timeline.is_playing(), "The Kit timeline is not playing; pausing works only in PhysX runs."
+    assert not timeline.is_stopped(), "The Kit timeline is stopped; pausing needs PhysX or --viz kit."
 
     def pause_if_condition_holds(_event):
         global _pause_observer
@@ -145,3 +146,12 @@ def resume_physics():
     import omni.timeline
 
     omni.timeline.get_timeline_interface().play()
+
+
+def end_episode():
+    """Start a new episode in every env at the next env step, without waiting for the timeout.
+
+    Uses Isaac Lab's reset request (the Kit window's reset button), which env.step() handles through the normal reset
+    path, so Arena's episode bookkeeping stays consistent.
+    """
+    find_arena_env().sim.request_reset()
