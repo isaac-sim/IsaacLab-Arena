@@ -30,8 +30,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
     ArenaExperimentResult,
 )
-from isaaclab_arena.evaluation.experiment_resource_usage import aggregate_experiment_resource_usage
-from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
+from isaaclab_arena.evaluation.experiment_outputs import aggregate_experiment_run_outputs
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
@@ -217,16 +216,10 @@ def build_experiment_output(
     ArenaExperimentResult.from_run_outputs(
         experiment_output_directory, run_metadata_by_name, git_stamp, experiment_name=experiment_name
     ).write()
-    experiment_timings_path = aggregate_experiment_timings(
+    aggregate_experiment_run_outputs(
         experiment_output_directory,
         [report.run_name for report in run_execution_reports if report.status is RunStatus.COMPLETED],
     )
-    print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
-    experiment_resource_usage_path = aggregate_experiment_resource_usage(
-        experiment_output_directory,
-        [report.run_name for report in run_execution_reports if report.status is RunStatus.COMPLETED],
-    )
-    print(f"Wrote Arena Experiment resource usage to: {experiment_resource_usage_path}")
     report_path = build_report(experiment_output_directory, run_executions=run_execution_reports)
     # Last step, so the Experiment output is complete when a raising exporter fails the collector and with it the
     # OSMO workflow.
