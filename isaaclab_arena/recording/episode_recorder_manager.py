@@ -52,6 +52,10 @@ class EpisodeRecorderTerm(ManagerTermBase):
         """
 
     @abstractmethod
+    def reset(self, env_ids: Sequence[int] | torch.Tensor | None = None) -> None:
+        """Clear the tracked values of env_ids, or of all envs when None, when they start a new episode."""
+
+    @abstractmethod
     def __call__(self, env, env_id: int) -> Any:
         """Return a JSON value for env_id's finished episode, or None to leave this term out of the record.
 

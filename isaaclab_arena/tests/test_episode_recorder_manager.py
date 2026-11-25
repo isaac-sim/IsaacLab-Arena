@@ -271,6 +271,9 @@ def _test_class_term_without_post_step_fails_when_built(simulation_app, output_d
         def post_stpe(self):
             pass
 
+        def reset(self, env_ids=None):
+            pass
+
         def __call__(self, env, env_id):
             return {"steps": 0}
 
@@ -299,6 +302,9 @@ def _test_post_step_term_is_found_before_the_simulation_plays(simulation_app):
         """Follows the episode step by step."""
 
         def post_step(self):
+            pass
+
+        def reset(self, env_ids=None):
             pass
 
         def __call__(self, env, env_id):

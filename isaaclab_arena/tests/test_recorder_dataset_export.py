@@ -94,6 +94,9 @@ def _test_episode_recorder_term_alone_is_stepped_without_dataset_file(simulation
         def post_step(self):
             self.steps += 1
 
+        def reset(self, env_ids=None):
+            self.steps[slice(None) if env_ids is None else env_ids] = 0
+
         def __call__(self, env, env_id):
             return {"steps": int(self.steps[env_id])}
 
