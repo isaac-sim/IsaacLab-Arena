@@ -3,7 +3,7 @@ Deformable Pick and Place
 
 Pick up a deformable cube with the DROID robot and place it on a plate. The same task can run
 with either the Newton or PhysX deformable-body backend. This walkthrough covers previewing
-the environment, teleoperating it, recording and replaying demonstrations, and evaluating an OpenPI policy.
+the environment, teleoperating it, and evaluating an OpenPI policy.
 
 Task Overview
 -------------
@@ -147,93 +147,74 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
 
 .. note::
 
-   Both cube presets load a packaged USD containing a pre-generated ``UsdGeom.TetMesh``.
-   Their simulation topology is fixed across process launches: 69 nodes for Newton and
-   21 for PhysX. These are separate assets preserving the presets' different meshing resolutions.
-   Isaac Lab reuses these meshes instead of running fTetWild at scene creation.
+   The cube in this example uses ``MeshCuboidCfg``, which initially authors only a triangle
+   surface mesh. A volume deformable also needs a tetrahedral simulation mesh, so Isaac Lab
+   calls fTetWild during scene creation when it cannot find an existing ``UsdGeom.TetMesh``.
+   This on-the-fly conversion is nondeterministic between process launches and may produce
+   different node counts or connectivity. Demonstration datasets include the initial nodal
+   state, which can be restored only into the same topology. Seeding the environment does
+   not make this conversion repeatable: the current ``pytetwild`` wrapper exposes no random
+   seed parameter.
 
-Record and Replay
------------------
+   Before recording demonstrations, bake the desired cube **once** into a USD containing a
+   ``UsdGeom.TetMesh``. Run the command for your backend from the repository root in your
+   activated Arena runtime, before changing the object library:
 
-Use the same cube asset, physics backend, embodiment, and environment settings for recording
-and replay. The commands below select Newton. For PhysX, replace
-``deformable_cube_newton`` with ``deformable_cube_physx`` in **both** commands.
+   **Newton**
 
-Record one successful keyboard demonstration in a window:
+   .. code-block:: bash
 
-.. code-block:: bash
+      python isaaclab_arena/scripts/bake_deformable_mesh.py \
+        --asset deformable_cube_newton \
+        --output /absolute/path/to/deformable_cube_newton.usda
 
-   python submodules/IsaacLab/scripts/tools/record_demos.py \
-     --task droid_deformable_pick_and_place \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-     --pick_object deformable_cube_newton \
-     --embodiment droid_differential_ik \
-     --teleop_device keyboard \
-     --viz kit \
-     --no-reset_sim_buffer_each_episode \
-     --num_demos 1 \
-     --dataset_file datasets/deformable_pick_and_place.hdf5
+   **PhysX**
 
-Complete the pick-and-place task to export the demonstration. After recording exits, replay
-in a fresh process without a window:
+   .. code-block:: bash
 
-.. code-block:: bash
+      python isaaclab_arena/scripts/bake_deformable_mesh.py \
+        --asset deformable_cube_physx \
+        --output /absolute/path/to/deformable_cube_physx.usda
 
-   python submodules/IsaacLab/scripts/tools/replay_demos.py \
-     --task droid_deformable_pick_and_place \
-     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-     --pick_object deformable_cube_newton \
-     --embodiment droid_differential_ik \
-     --viz none \
-     --experience isaaclab.python.kit \
-     --validate_success_rate \
-     --dataset_file datasets/deformable_pick_and_place.hdf5
+   Choose a persistent output location available to every recording and replay process.
+   The script runs headlessly and refuses to overwrite an existing file. It saves the
+   simulation TetMesh and visual Mesh without backend physics schemas or materials.
+   Generating another file can produce a different topology, so keep and reuse the first
+   output. Generated USDs are local assets and are not included in this repository.
 
-The pinned Lab replay script creates a pause/resume keyboard even when running headlessly.
-``--experience isaaclab.python.kit`` loads its input modules; ``--viz none`` keeps execution
-headless. Use ``--viz kit`` instead to watch the replay. Fixed topology makes restoring the initial
-nodal state possible; it does not guarantee numerically identical trajectories or task success.
+   Next, edit ``isaaclab_arena/assets/deformable_object_library.py`` to load that file.
+   In ``DeformableCubeNewton``, change the start of ``spawner_cfg`` as follows:
 
-.. warning::
+   .. code-block:: diff
 
-   Re-record demonstrations made with the earlier procedural cubes. Their randomly generated
-   simulation meshes may have different node counts, node ordering, or tetrahedron connectivity.
-   A matching node count alone does not make an old dataset compatible. Arena rejects a nodal
-   shape mismatch before resetting the environment, with an error naming the asset and the
-   recorded and required shapes. Equal-sized topology differences cannot be detected from the
-   recorded nodal state alone. Do not replace or regenerate a mesh between recording and replay,
-   and do not replay a Newton recording using the PhysX cube or vice versa.
+      -    spawner_cfg = sim_utils.MeshCuboidCfg(
+      -        size=(0.15, 0.04, 0.04),
+      -        edge_refinement=8.0,
+      +    spawner_cfg = sim_utils.UsdFileCfg(
+      +        usd_path="/absolute/path/to/deformable_cube_newton.usda",
+               deformable_props=NewtonDeformableBodyPropertiesCfg(),
 
-Bake a Custom Volume Deformable
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For PhysX, make the corresponding change in ``DeformableCubePhysx``:
 
-For other volume deformables, Isaac Lab calls fTetWild if the source contains only a triangle
-surface mesh. Its current Python wrapper exposes no random seed option, and seeding the
-environment does not establish repeatable meshing. Generate the mesh once and keep the USD
-alongside the recordings instead.
+   .. code-block:: diff
 
-The baking tool accepts a registered Arena volume deformable. For example, to freeze the
-Teddy Bear asset's simulation and visual geometry:
+      -    spawner_cfg = sim_utils.MeshCuboidCfg(
+      -        size=(0.15, 0.04, 0.04),
+      +    spawner_cfg = sim_utils.UsdFileCfg(
+      +        usd_path="/absolute/path/to/deformable_cube_physx.usda",
+               deformable_props=PhysxDeformableBodyPropertiesCfg(linear_damping=0.0),
 
-.. code-block:: bash
+   Leave the remaining backend-specific physics, collision, and material settings unchanged.
+   Remove procedural meshing options such as ``size`` and ``edge_refinement``; they are not
+   ``UsdFileCfg`` arguments. Source transforms are already applied to the baked vertices,
+   so do not apply the original source scale again when baking other volume assets.
 
-   python isaaclab_arena/scripts/bake_deformable_mesh.py \
-     --asset deformable_teddy_bear_newton \
-     --output /absolute/path/to/teddy_fixed.usda
-
-The tool runs headlessly, saves one simulation ``UsdGeom.TetMesh`` and one visual
-``UsdGeom.Mesh``, and refuses to overwrite an existing file. Baking a procedural asset twice
-can produce different meshes; reuse the first output for all subsequent launches. The file
-contains geometry in meters, with source transforms applied to its vertices. Do not apply the
-original source scale again. Backend physics properties and materials are configured at spawn time.
-
-In your custom registered ``DeformableObject`` definition, load the baked file with
-``isaaclab.sim.UsdFileCfg(usd_path="/absolute/path/to/teddy_fixed.usda", ...)``.
-Keep the same backend-specific ``deformable_props``, ``collision_props``, and
-``physics_material`` settings. The ``DeformableCubeNewton`` and ``DeformableCubePhysx``
-definitions in ``isaaclab_arena/assets/deformable_object_library.py`` show this configuration.
-Register and select that asset before recording, then use the same definition for replay.
-Package the generated USD with your custom asset, as the two cube presets do.
+   Record new demonstrations after making this change, then use the same generated USD,
+   library definition, and physics backend for every replay. Isaac Lab will reuse the
+   TetMesh instead of calling fTetWild. Earlier procedural recordings must be recreated:
+   even matching node counts do not guarantee matching node ordering or connectivity.
+   Fixed topology permits restoring nodal state; it does not guarantee numerically
+   identical trajectories or task success.
 
 Evaluate with OpenPI
 --------------------
