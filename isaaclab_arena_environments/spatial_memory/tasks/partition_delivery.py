@@ -24,12 +24,16 @@ class PartitionDeliveryLogic(BayDeliveryLogic):
     name = "spatial_memory_partition_delivery"
     task_description = "Deliver the carton to the room matching the requested color."
 
+    marker_heights_m = (0.24, 0.24, 0.24, 0.24)
+    """Heights of the four room markers in instruction order."""
+
     def obstacle_names(self):
         return list(ITEM_COLORS[:4])
 
     def build_part_specs(self):
         fixtures = self.receiving_parts()
-        fixtures.extend(board(name, (0.06, 0.21, 0.24), name) for name in self.obstacle_names())
+        for name, height in zip(self.obstacle_names(), self.marker_heights_m, strict=True):
+            fixtures.append(board(name, (0.06, 0.21, height), name))
         for i in range(5):
             fixtures.append(board(f"wall_{i}", (0.84, 0.05, 1.45), "gray"))
         return fixtures
@@ -63,3 +67,11 @@ class PartitionDeliveryLogic(BayDeliveryLogic):
     def instruction(self, env, episode):
         color = torch.nn.functional.one_hot(episode.layout_params["color"], self.instruction_dim())
         return color.float() * episode.instruction_revealed[:, None]
+
+
+class PartitionSilhouetteDeliveryLogic(PartitionDeliveryLogic):
+    """Distinguish the four room markers by physical height during inspection."""
+
+    name = "spatial_memory_partition_silhouettes"
+    marker_heights_m = (0.24, 0.38, 0.52, 0.66)
+    """Distinct plaque heights with the original mounting centers and horizontal footprints."""

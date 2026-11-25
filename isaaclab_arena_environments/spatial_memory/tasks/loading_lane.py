@@ -76,6 +76,10 @@ class LoadingLaneLogic(BoxCarryLogic):
     def commitment_made(self, env, episode, active):
         return episode.task_state_buffer("crossed_line", False, torch.bool)
 
+    def inside_lane_entrance(self, t_E_pelvis_xy):
+        """Return whether the pelvis has passed the loading-side entrance line."""
+        return t_E_pelvis_xy[:, 0] < COMMIT_X_M
+
     def on_step(self, env, episode, visible, active):
         """Reveal the query at pickup and latch the first crossing of the lane boundary."""
         t_E_pelvis_xy = self._pelvis_xy_e(env)
@@ -85,7 +89,7 @@ class LoadingLaneLogic(BoxCarryLogic):
             env, episode, visible, active, reveal_allowed=at_pickup & surveyed & episode.gripper_closed
         )
         committed = self.commitment_made(env, episode, active)
-        crossing = active & ~committed & (t_E_pelvis_xy[:, 0] < COMMIT_X_M)
+        crossing = active & ~committed & self.inside_lane_entrance(t_E_pelvis_xy)
         correct = episode.task_state_buffer("correct_lane", False, torch.bool)
         correct[crossing] = (
             episode.instruction_revealed[crossing]
@@ -136,6 +140,12 @@ class LoadingLaneLogic(BoxCarryLogic):
                 hold_steps=15,
                 max_steps=500,
             ),
+            *self.approach_and_pickup(),
+        ]
+
+    def approach_and_pickup(self) -> list[G1Waypoint]:
+        """Approach the loading table facing +x, lift the carton and step clear."""
+        return [
             G1Waypoint((-0.25, 0, 0), ARMS_WIDE, tolerance_m=0.15, max_steps=650),
             G1Waypoint((0, 0, 0), ARMS_WIDE, tolerance_m=0.08, hold_steps=12, max_steps=200),
             G1Waypoint((0, 0, 0), ARMS_SQUEEZE, tolerance_m=0.10, hold_steps=15, max_steps=125),

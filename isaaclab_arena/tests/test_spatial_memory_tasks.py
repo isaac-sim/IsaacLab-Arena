@@ -23,6 +23,14 @@ TASK_ENV_NAMES = [
     "spatial_memory_kitting",
     "spatial_memory_restock_slot",
     "spatial_memory_moved_cart",
+    "spatial_memory_dogleg_exit",
+    "spatial_memory_turning_pocket",
+    "spatial_memory_two_view_exit",
+    "spatial_memory_funnel_retreat",
+    "spatial_memory_staggered_lips",
+    "spatial_memory_curved_channel",
+    "spatial_memory_post_turn",
+    "spatial_memory_column_grid",
 ]
 
 
@@ -72,3 +80,29 @@ def test_deterministic_reset(env_name: str):
 @pytest.mark.parametrize("env_name", TASK_ENV_NAMES)
 def test_observation_variants(env_name: str):
     assert run_function_with_persistent_simulation_app(_test_observation_variants, env_name=env_name)
+
+
+def _test_two_gates_require_separate_views(simulation_app):
+    import math
+    import torch
+
+    from isaaclab_arena_environments.spatial_memory.g1_adapter import G1Adapter
+    from isaaclab_arena_environments.spatial_memory.tasks.two_view_exit import TwoViewExitLogic
+
+    logic = TwoViewExitLogic(None, G1Adapter())
+    camera = logic.embodiment.camera_model()
+    half_diagonal = math.hypot(camera.width_px / (2 * camera.focal_x_px), camera.height_px / (2 * camera.focal_y_px))
+    # A cone enclosing the frustum extends from the pinhole to a disc at the far clip plane.
+    diameter = camera.far_m * max(2 * half_diagonal, math.hypot(1, half_diagonal))
+    poses = logic.sample_layout(torch.Generator().manual_seed(11)).part_poses_e
+    names = logic.part_names()
+    near = names.index("outer_left")
+    far = names.index("inner_left")
+    sizes = logic.part_specs()
+    gap = abs(float(poses[near, 0] - poses[far, 0])) - (sizes[near].size_xyz[0] + sizes[far].size_xyz[0]) / 2
+    assert gap > diameter, "A single camera frustum could contain evidence from both gate rows."
+    return True
+
+
+def test_two_gates_require_separate_views():
+    assert run_function_with_persistent_simulation_app(_test_two_gates_require_separate_views)

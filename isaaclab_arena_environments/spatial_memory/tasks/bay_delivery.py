@@ -52,12 +52,15 @@ class BayDeliveryLogic(LoadingLaneLogic):
 
     def plan(self, env, episode, env_id, mode):
         y = float(episode.layout_params["t_E_target_y"][env_id]) if mode == PlanMode.ORACLE else -0.5 * LANE_PITCH_M
+        return [*self.inspection_and_pickup(), *self.deliver_to_lane(y)]
+
+    def deliver_to_lane(self, lane_y_E: float):
+        """Cross the selected lane and unload the carton using its supplied lateral position."""
         return [
-            *self.inspection_and_pickup(),
-            self.carry_to(-0.4, y, 0),
-            self.carry_to(-0.93, y, 0),
-            *self.turn_toward_bay(y),
-            *self.unload_at(SHELF_X_M + TABLE_AHEAD_M, y, math.pi, (-0.91, y)),
+            self.carry_to(-0.4, lane_y_E, 0),
+            self.carry_to(-0.93, lane_y_E, 0),
+            *self.turn_toward_bay(lane_y_E),
+            *self.unload_at(SHELF_X_M + TABLE_AHEAD_M, lane_y_E, math.pi, (-0.91, lane_y_E)),
         ]
 
     def success_terms(self, env, episode):

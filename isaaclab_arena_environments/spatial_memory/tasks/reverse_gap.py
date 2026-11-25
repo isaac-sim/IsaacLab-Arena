@@ -76,10 +76,13 @@ class ReverseGapLogic(LoadingLaneLogic):
 
     def plan(self, env, episode, env_id, mode):
         gap_y = float(episode.layout_params["t_E_target_y"][env_id]) if mode == PlanMode.ORACLE else -0.5 * LANE_PITCH_M
+        return [*self.inspection_and_pickup(), *self.deliver_to_lane(gap_y)]
+
+    def deliver_to_lane(self, lane_y_E: float):
+        """Cross the selected lane and unload the carton using its supplied lateral position."""
         return [
-            *self.inspection_and_pickup(),
-            self.carry_to(-0.4, gap_y, 0),
-            self.carry_to(-1.91, gap_y, 0),
-            self.carry_to(-2.15, gap_y, math.pi / 2),
+            self.carry_to(-0.4, lane_y_E, 0),
+            self.carry_to(-1.91, lane_y_E, 0),
+            self.carry_to(-2.15, lane_y_E, math.pi / 2),
             *self.unload_at(-2.15, RECEIVING_Y_M, math.pi / 2, (-2.15, RECEIVING_Y_M - 0.45)),
         ]

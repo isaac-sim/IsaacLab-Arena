@@ -241,3 +241,147 @@ class SpatialMemoryPartitionDeliveryEnvironment(
     name = "spatial_memory_partition_delivery"
     _legacy_argparse_cfg_type = SpatialMemoryPartitionDeliveryEnvironmentCfg
     task_logic_path = f"{_TASKS_PACKAGE}.partition_delivery.PartitionDeliveryLogic"
+
+
+@dataclass
+class SpatialMemoryPartitionSilhouettesEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the experimental room delivery with depth-readable plaques."""
+
+
+@register_environment
+class SpatialMemoryPartitionSilhouettesEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryPartitionSilhouettesEnvironmentCfg]
+):
+    """Carry to a requested room identifiable from the silhouette of its marker."""
+
+    name = "spatial_memory_partition_silhouettes"
+    _legacy_argparse_cfg_type = SpatialMemoryPartitionSilhouettesEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.partition_delivery.PartitionSilhouetteDeliveryLogic"
+
+
+@dataclass
+class SpatialMemoryDoglegExitEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 dogleg exit task."""
+
+
+@register_environment
+class SpatialMemoryDoglegExitEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryDoglegExitEnvironmentCfg]
+):
+    """Back through an inspected dogleg and deliver the carton."""
+
+    name = "spatial_memory_dogleg_exit"
+    _legacy_argparse_cfg_type = SpatialMemoryDoglegExitEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.dogleg_exit.DoglegExitLogic"
+
+
+@dataclass
+class SpatialMemoryTurningPocketEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 turning pocket task."""
+
+
+@register_environment
+class SpatialMemoryTurningPocketEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryTurningPocketEnvironmentCfg]
+):
+    """Turn a loaded carton around inside a previously inspected recess."""
+
+    name = "spatial_memory_turning_pocket"
+    _legacy_argparse_cfg_type = SpatialMemoryTurningPocketEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.turning_pocket.TurningPocketLogic"
+
+
+@dataclass
+class SpatialMemoryTwoViewExitEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 two view exit task."""
+
+
+@register_environment
+class SpatialMemoryTwoViewExitEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryTwoViewExitEnvironmentCfg]
+):
+    """Find the common clear lane through two gates."""
+
+    name = "spatial_memory_two_view_exit"
+    _legacy_argparse_cfg_type = SpatialMemoryTwoViewExitEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.two_view_exit.TwoViewExitLogic"
+
+
+@dataclass
+class SpatialMemoryFunnelRetreatEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 funnel retreat task."""
+
+
+@register_environment
+class SpatialMemoryFunnelRetreatEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryFunnelRetreatEnvironmentCfg]
+):
+    """Back a carton through a previously surveyed funnel."""
+
+    name = "spatial_memory_funnel_retreat"
+    _legacy_argparse_cfg_type = SpatialMemoryFunnelRetreatEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.funnel_retreat.FunnelRetreatLogic"
+
+
+@dataclass
+class SpatialMemoryStaggeredLipsEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 staggered lips task."""
+
+
+@register_environment
+class SpatialMemoryStaggeredLipsEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryStaggeredLipsEnvironmentCfg]
+):
+    """Withdraw a carried carton past two projecting shelf lips."""
+
+    name = "spatial_memory_staggered_lips"
+    _legacy_argparse_cfg_type = SpatialMemoryStaggeredLipsEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.staggered_lips.StaggeredLipsLogic"
+
+
+@dataclass
+class SpatialMemoryCurvedChannelEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 curved channel task."""
+
+
+@register_environment
+class SpatialMemoryCurvedChannelEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryCurvedChannelEnvironmentCfg]
+):
+    """Back along the remembered curvature of two rack rails."""
+
+    name = "spatial_memory_curved_channel"
+    _legacy_argparse_cfg_type = SpatialMemoryCurvedChannelEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.curved_channel.CurvedChannelLogic"
+
+
+@dataclass
+class SpatialMemoryPostTurnEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 post turn task."""
+
+
+@register_environment
+class SpatialMemoryPostTurnEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryPostTurnEnvironmentCfg]
+):
+    """Turn a carried carton between a remembered post and stop."""
+
+    name = "spatial_memory_post_turn"
+    _legacy_argparse_cfg_type = SpatialMemoryPostTurnEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.post_turn.PostTurnLogic"
+
+
+@dataclass
+class SpatialMemoryColumnGridEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the G1 column grid task."""
+
+
+@register_environment
+class SpatialMemoryColumnGridEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryColumnGridEnvironmentCfg]
+):
+    """Carry through a surveyed column grid to a dock requested at pickup."""
+
+    name = "spatial_memory_column_grid"
+    _legacy_argparse_cfg_type = SpatialMemoryColumnGridEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.column_grid.ColumnGridLogic"
