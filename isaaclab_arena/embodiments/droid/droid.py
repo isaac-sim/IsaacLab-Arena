@@ -58,11 +58,23 @@ if TYPE_CHECKING:
     import trimesh
 
 _DROID_ROBOT_PRIM = RobotPrimSpec(
-    robot_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
+    robot_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened_v2.usd",
     root_prim_path="/panda",
     robot_base_prim_name="panda_link0",
     stand_prim_name="stand_instanceable",
 )
+"""DROID robot USD and prim layout for the on-stand compose.
+
+``franka_robotiq_2f_85_flattened_v2.usd`` differs from ``franka_robotiq_2f_85_flattened.usd`` only in how the
+Robotiq 2F-85 gripper authors collision. The original applies the collision schemas of its 11 collision groups to
+Xform prims; v2 moves those Physics and PhysX schemas and their attributes onto each group's child mesh. Collision
+geometry, joints, and appearance are unchanged. As a result:
+
+- Newton's USD importer, which builds no shape from an Xform collider, creates the gripper's shapes, so the Newton
+  Warp renderer draws the gripper under PhysX and the Newton spawn no longer needs to move the schemas.
+- PhysX applies the masses authored on the gripper meshes, about 0.85 kg for the gripper (the real 2F-85 is about
+  0.9 kg), instead of deriving them from the default density, about 0.43 kg.
+"""
 _DROID_STAND_PRIM = StandPrimSpec(
     stand_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda",
     ref_prim_path="/World/franka_table",
