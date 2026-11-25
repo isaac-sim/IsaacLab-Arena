@@ -209,11 +209,7 @@ def test_reader_uses_v2_used_memory_and_proc_rss(monkeypatch):
 
 
 def test_real_nvml_reports_vram():
-    pytest.importorskip("pynvml")
-    try:
-        reader = ProcessResourceReader()
-    except Exception as error:
-        pytest.skip(f"NVML cannot initialize: {error}")
+    reader = ProcessResourceReader()
     try:
         assert reader.sample().vram_mb > 0
     finally:
