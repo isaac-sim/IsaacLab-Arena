@@ -188,6 +188,8 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
         render_interval=2,
     )
     decimation: int = 8
+    # Refresh RTX cameras before post-reset recording and observation history updates on either physics backend.
+    num_rerenders_on_reset: int = 1
     wait_for_textures: bool = False
 
 
