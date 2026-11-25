@@ -1,5 +1,7 @@
 # Spatial-memory task suite
 
+The [30-task G1 catalog](LOCO_CATALOG.md) lists the three controls and 27 selected challenges, with a real-life example and the scored operation for each.
+
 Thirteen Isaac Lab-Arena environments in which the geometry that matters at action time is out of the egocentric camera's
 view, so a policy must have remembered or mapped it. Every task has four observation variants, a difficulty knob, a
 privileged scripted oracle, a "blind" scripted controller, collision and visibility logging, and tests that check that
@@ -105,9 +107,13 @@ the opening, then carry the carton to a receiving table and release it upright.
 from the shelf. The first crossing of the loading aisle selects the bay. After committing, the G1 turns to the shelf,
 inserts the carton into the remembered empty bay, opens its hands and steps back.
 
-**13. Deliver to the queried room.** The G1 inspects the colour at each of four partitioned entrances. The requested
+**13. Deliver to the queried room.** The G1 inspects the colour of an identically shaped plaque at each of four partitioned entrances. The requested
 colour is revealed at the pickup table after the entrances leave view. The G1 must commit to the matching lane and
 deliver the carton there. The same colour can correspond to any entrance across resets.
+
+For depth-only experiments, the separate experimental environment `spatial_memory_partition_silhouettes` varies plaque height with room identity. Its centers and horizontal footprints match the original. The original colour assignment cannot be read from XYZ, and the silhouette variant reached 45/50 full deliveries with layout access and 11/50 with a fixed choice. The learned cloud classifier selected the requested entrance on 36/64 held-out prescribed surveys.
+
+These three tasks are the easier controls in the planned 30-task G1 benchmark. They test whether a policy can retain a bay, gap or room location through pickup. A compact route or room lookup can encode that information.
 
 The three layouts remain static throughout each episode. The inspection path and pickup are common to all four
 answers. The instruction requires all remembered targets to have been seen and subsequently hidden for 3.5 s.
@@ -129,12 +135,14 @@ The environment flags select the observation variant and the difficulty:
 | `--observation_variant current` | the egocentric image and proprioception only (default) |
 | `--observation_variant history_k` | as `current`, with the last `k` frames of every observation group stacked (`--history_k`, default 3 s of control steps) |
 | `--observation_variant oracle_map` | adds an `oracle_map` group: a labelled point cloud of every fixture and object surface, hidden ones included, in the robot base frame |
-| `--observation_variant mapped` | adds a `mapped` group filled by an online map provider; the default provider returns an empty map (the hook for an nvblox-next reconstruction, see `observations.OnlineMapProvider`) |
+| `--observation_variant mapped` | adds `mapped.online_map`, up to 4,096 XYZ points from registered egocentric depth accumulated during the episode, in the current robot frame, with a binary validity channel |
 | `--difficulty <value>` | the task's difficulty knob (see the table above) |
 
 Tasks that give an instruction (2, 6, 8, 9 and 11–13) also add a `task_obs` group with it in every variant
 (for example the one-hot colour in tasks 2 and 8).
-Add `--enable_cameras` to render the egocentric camera.
+Add `--enable_cameras` to render the egocentric camera. For a sensor-matched baseline, set `include_depth=True` on the current or history environment configuration. Both policies then receive the same raw depth modality. Camera-free runs return zero valid map points. With cameras enabled, the default map provider registers every eighth depth pixel along each image axis using camera intrinsics and the simulator's calibrated camera pose. It retains a bounded sample of 3 cm occupied voxels. Unobserved space has no points. Surfaces of moving objects can leave old points. Ground-truth scene meshes, object poses and instance IDs are excluded. A custom provider can be installed with `set_online_map_provider`.
+
+In a prescribed G1 head-camera sweep, a single-robot cloud update took 7.3 ms median and 17.4 ms at the 95th percentile with GPU synchronization. These timings cover projection, accumulation and conversion to the robot frame after a depth image is ready. Rendering, pose estimation and policy inference are additional costs.
 
 ```bash
 # Run a policy on task 1 with the oracle map, at a door angle of 80 degrees.
@@ -147,10 +155,17 @@ python isaaclab_arena/evaluation/policy_runner.py \
     --policy_type <dotted.path.to.YourPolicy> --num_episodes 10 --enable_cameras \
     spatial_memory_high_shelf --observation_variant history_k
 
-# Task 3 (G1) with the online-map hook.
+# Task 3 (G1) with a depth point cloud accumulated onboard.
 python isaaclab_arena/evaluation/policy_runner.py \
     --policy_type <dotted.path.to.YourPolicy> --num_episodes 4 --num_envs 4 --enable_cameras \
     spatial_memory_box_carry --observation_variant mapped
+```
+
+The pilot lane-choice probe fits a linear classifier on voxel histograms from measured clouds at prescribed inspection poses. It evaluates the public request on separate layouts alongside a separately trained current-frame classifier and a layout swap at evaluation. The default survey samples the endpoints of the turn. Pass `--survey sweep` for eleven intermediate and endpoint views with the robot held in its inspection posture. Use `--survey walking` to collect training and held-out clouds at the instant the instruction arrives during the standard G1 walk. The optional `--deliver` flag runs a fresh batch using the learned choice and the scripted pickup, gait and release.
+
+```bash
+./submodules/IsaacLab/isaaclab.sh -p isaaclab_arena_examples/spatial_memory/learn_pilot_lane.py \
+    --task shelf_bay --num_envs 4 --deliver --output /tmp/shelf_bay_cloud.json
 ```
 
 ## Running the oracle and the blind controller
@@ -225,12 +240,12 @@ their bars:
 | 10 | The cart someone moved | 0.94 | 0.26 |
 | 11 | Reverse through a loading gap | 0.96 | 0.24 |
 | 12 | Restock a shelf bay | 0.94 | 0.26 |
-| 13 | Deliver to the queried room | 0.90 | 0.22 |
+| 13 | Deliver to the queried room (original equal-height plaques) | 0.90 | 0.22 |
 
-The room-delivery oracle met the 45/50 acceptance threshold exactly. Three handling failures and two
+On the original equal-height layout, the room-delivery oracle met the 45/50 acceptance threshold exactly. Three handling failures and two
 carton contacts with partitions accounted for its five unsuccessful trials.
 
-For the G1 pilots, head-camera instance segmentation agreed with analytic visibility on 98.6% of decided
+For the original G1 pilots, head-camera instance segmentation agreed with analytic visibility on 98.6% of decided
 samples for the gap, 99.9% for the shelf and 99.8% for the room entrances. In the paired video trials, the
 oracle saw all remembered targets before the query. Their instance masks occupied zero pixels across 82
 sampled hidden frames for the gap, 149 for the shelf and 127 for the room entrances.

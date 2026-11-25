@@ -165,6 +165,8 @@ def check_observation_variants(env_name: str, enable_cameras: bool = False, num_
         )
         try:
             obs, _ = env.reset()
+            if variant == "mapped":
+                assert not obs["mapped"]["online_map"].any(), "A new layout must start with an empty map."
             action = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             for _ in range(2):
                 obs, *_ = env.step(action)

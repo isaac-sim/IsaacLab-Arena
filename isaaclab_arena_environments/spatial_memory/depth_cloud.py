@@ -43,6 +43,9 @@ class DepthCloudProvider:
         points_C = unproject_depth(depth, intrinsics)
         valid = (points_C[..., 2] > 0) & (points_C[..., 2] < self.far_m)
         episode = get_episode_state(env)
+        # A reset can return the renderer's last frame from the preceding layout.
+        # Wait for the first control step before fusing measurements in a new episode.
+        valid &= env.episode_length_buf[:, None] > 0
         if episode.logic.withholds_camera_frames:
             valid &= ~episode.logic.camera_blocked(env, episode)[:, None]
         points_E = transform_points(points_C, data.pos_w.torch - env.scene.env_origins, data.quat_w_ros.torch)
@@ -58,6 +61,8 @@ class DepthCloudProvider:
                 priority = (x * 73856093 ^ y * 19349663 ^ z * 83492791) % 2147483647
                 voxels = voxels[priority.argsort(stable=True)[:ONLINE_MAP_MAX_POINTS]]
             self.voxels_E[i] = voxels
+            if not len(voxels):
+                continue
             centers_E = (voxels.to(points_E.dtype) + 0.5) * VOXEL_SIZE_M
             output[i, : len(voxels), :3] = inverse_transform_points(T_E_R[i], centers_E)
             output[i, : len(voxels), 3] = 1

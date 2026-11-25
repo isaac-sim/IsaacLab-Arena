@@ -81,8 +81,8 @@ Tests: `isaaclab_arena/tests/test_spatial_memory_*.py`.
   `policy` and `camera_obs` groups; `history_k` defaults to `ceil(3.0 s / step_dt)` = 45 frames),
   `oracle_map` (adds an `oracle_map` group: a fixed-size labelled point cloud sampled on every fixture
   and object surface, including hidden ones, expressed in the robot base frame), `mapped` (adds a
-  `mapped` group fed by an `OnlineMapProvider` protocol; the default provider returns an empty map and
-  carries the nvblox-next TODO).
+  `mapped` group fed by an `OnlineMapProvider`; with cameras enabled the default accumulates measured
+  depth surfaces in episode-local voxels).
 - **Visibility logging.** Per step and per task-relevant surface: sample points on the surface, test them
   against the egocentric camera frustum (pose from the camera's mount body and offset, intrinsics from
   the camera config), and ray-cast each point against every box in the scene (fixtures, objects and a

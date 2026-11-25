@@ -385,3 +385,355 @@ class SpatialMemoryColumnGridEnvironment(
     name = "spatial_memory_column_grid"
     _legacy_argparse_cfg_type = SpatialMemoryColumnGridEnvironmentCfg
     task_logic_path = f"{_TASKS_PACKAGE}.column_grid.ColumnGridLogic"
+
+
+@dataclass
+class SpatialMemoryServiceTrenchEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the service trench task."""
+
+
+@register_environment
+class SpatialMemoryServiceTrenchEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryServiceTrenchEnvironmentCfg]
+):
+    """Walk headfirst to the end of the narrow service trench. Back out to the mouth facing the end."""
+
+    name = "spatial_memory_service_trench"
+    _legacy_argparse_cfg_type = SpatialMemoryServiceTrenchEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.inspection_walks.ServiceTrench"
+
+
+@dataclass
+class SpatialMemoryDockEdgeEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the dock edge task."""
+
+
+@register_environment
+class SpatialMemoryDockEdgeEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryDockEdgeEnvironmentCfg]
+):
+    """Back toward an inspected dock sill, stop at the standoff line facing away, then walk clear."""
+
+    name = "spatial_memory_dock_edge"
+    _legacy_argparse_cfg_type = SpatialMemoryDockEdgeEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.inspection_walks.DockEdge"
+
+
+@dataclass
+class SpatialMemorySidewaysStacksEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the sideways stacks task."""
+
+
+@register_environment
+class SpatialMemorySidewaysStacksEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemorySidewaysStacksEnvironmentCfg]
+):
+    """Face the shelving and sidestep between the stacks, maintaining that heading at three stations."""
+
+    name = "spatial_memory_sideways_stacks"
+    _legacy_argparse_cfg_type = SpatialMemorySidewaysStacksEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.inspection_walks.SidewaysStacks"
+
+
+@dataclass
+class SpatialMemoryLowHeaderEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the low header task."""
+
+
+@register_environment
+class SpatialMemoryLowHeaderEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryLowHeaderEnvironmentCfg]
+):
+    """Lower the pelvis beneath the inspected lintel and emerge on its far side."""
+
+    name = "spatial_memory_low_header"
+    _legacy_argparse_cfg_type = SpatialMemoryLowHeaderEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.inspection_walks.LowHeader"
+
+
+@dataclass
+class SpatialMemoryTankPerimeterEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the tank perimeter task."""
+
+
+@register_environment
+class SpatialMemoryTankPerimeterEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryTankPerimeterEnvironmentCfg]
+):
+    """Inspect all four faces of an enclosed tank in order and return to the first face."""
+
+    name = "spatial_memory_tank_perimeter"
+    _legacy_argparse_cfg_type = SpatialMemoryTankPerimeterEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.inspection_walks.TankPerimeter"
+
+
+@dataclass
+class SpatialMemorySightlineEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the sightline task."""
+
+
+@register_environment
+class SpatialMemorySightlineEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemorySightlineEnvironmentCfg]
+):
+    """Inspect a pair of survey posts, then occupy their extended sightline and face along it."""
+
+    name = "spatial_memory_sightline"
+    _legacy_argparse_cfg_type = SpatialMemorySightlineEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.inspection_walks.Sightline"
+
+
+@dataclass
+class SpatialMemoryRecessedResetEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the recessed reset task."""
+
+
+@register_environment
+class SpatialMemoryRecessedResetEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryRecessedResetEnvironmentCfg]
+):
+    """Reach the left palm into the hooded reset recess, hold at the pad, then withdraw the hand."""
+
+    name = "spatial_memory_recessed_reset"
+    _legacy_argparse_cfg_type = SpatialMemoryRecessedResetEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.RecessedReset"
+
+
+@dataclass
+class SpatialMemoryTwoHandInterlockEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the two hand interlock task."""
+
+
+@register_environment
+class SpatialMemoryTwoHandInterlockEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryTwoHandInterlockEnvironmentCfg]
+):
+    """Hold both palms at the two separated interlock pads simultaneously."""
+
+    name = "spatial_memory_two_hand_interlock"
+    _legacy_argparse_cfg_type = SpatialMemoryTwoHandInterlockEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.TwoHandInterlock"
+
+
+@dataclass
+class SpatialMemorySeamTraceEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the seam trace task."""
+
+
+@register_environment
+class SpatialMemorySeamTraceEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemorySeamTraceEnvironmentCfg]
+):
+    """Follow a stepped seam with the right palm, passing the start, bend and raised end in order."""
+
+    name = "spatial_memory_seam_trace"
+    _legacy_argparse_cfg_type = SpatialMemorySeamTraceEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.SeamTrace"
+
+
+@dataclass
+class SpatialMemoryBlindReturnHookEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the blind return hook task."""
+
+
+@register_environment
+class SpatialMemoryBlindReturnHookEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryBlindReturnHookEnvironmentCfg]
+):
+    """Guide a palm around the free edge of a screen, behind its flange and back out."""
+
+    name = "spatial_memory_blind_return_hook"
+    _legacy_argparse_cfg_type = SpatialMemoryBlindReturnHookEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.BlindReturnHook"
+
+
+@dataclass
+class SpatialMemoryFloorSledEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the floor sled task."""
+
+
+@register_environment
+class SpatialMemoryFloorSledEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryFloorSledEnvironmentCfg]
+):
+    """Move the low floor sled down its guide to a remembered bumper, then clear the sled."""
+
+    name = "spatial_memory_floor_sled"
+    _legacy_argparse_cfg_type = SpatialMemoryFloorSledEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.FloorSled"
+
+
+@dataclass
+class SpatialMemoryCounterSlideEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the counter slide task."""
+
+
+@register_environment
+class SpatialMemoryCounterSlideEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryCounterSlideEnvironmentCfg]
+):
+    """Slide a tray laterally under a low pass-through cover and leave it at the outlet."""
+
+    name = "spatial_memory_counter_slide"
+    _legacy_argparse_cfg_type = SpatialMemoryCounterSlideEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.CounterSlide"
+
+
+@dataclass
+class SpatialMemoryJigRotationEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the jig rotation task."""
+
+
+@register_environment
+class SpatialMemoryJigRotationEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryJigRotationEnvironmentCfg]
+):
+    """Quarter-turn a long workpiece on the bench and settle it beside the locating fence."""
+
+    name = "spatial_memory_jig_rotation"
+    _legacy_argparse_cfg_type = SpatialMemoryJigRotationEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.JigRotation"
+
+
+@dataclass
+class SpatialMemoryToteExtractionEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the tote extraction task."""
+
+
+@register_environment
+class SpatialMemoryToteExtractionEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryToteExtractionEnvironmentCfg]
+):
+    """Draw a tote out from under a shelf lip. Bring it beyond the apron before raising it."""
+
+    name = "spatial_memory_tote_extraction"
+    _legacy_argparse_cfg_type = SpatialMemoryToteExtractionEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.ToteExtraction"
+
+
+@dataclass
+class SpatialMemoryScaleTransferEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the scale transfer task."""
+
+
+@register_environment
+class SpatialMemoryScaleTransferEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryScaleTransferEnvironmentCfg]
+):
+    """Set the case down on the scale, release it for a reading, then remove it to the outbound pad."""
+
+    name = "spatial_memory_scale_transfer"
+    _legacy_argparse_cfg_type = SpatialMemoryScaleTransferEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.ScaleTransfer"
+
+
+@dataclass
+class SpatialMemoryRaisedSillEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the raised sill task."""
+
+
+@register_environment
+class SpatialMemoryRaisedSillEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryRaisedSillEnvironmentCfg]
+):
+    """Lift the case above a raised sill, carry it across the divider and lower it onto the far support."""
+
+    name = "spatial_memory_raised_sill"
+    _legacy_argparse_cfg_type = SpatialMemoryRaisedSillEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.manual_work.RaisedSill"
+
+
+@dataclass
+class SpatialMemoryCartRefugeEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the cart refuge task."""
+
+
+@register_environment
+class SpatialMemoryCartRefugeEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryCartRefugeEnvironmentCfg]
+):
+    """Yield inside an inspected passing recess as the cart goes by; then rejoin the aisle."""
+
+    name = "spatial_memory_cart_refuge"
+    _legacy_argparse_cfg_type = SpatialMemoryCartRefugeEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.traffic_work.CartRefuge"
+
+
+@dataclass
+class SpatialMemorySwingingBoomEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the swinging boom task."""
+
+
+@register_environment
+class SpatialMemorySwingingBoomEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemorySwingingBoomEnvironmentCfg]
+):
+    """Round the outside of a sweeping boom and reach the service side of its pedestal."""
+
+    name = "spatial_memory_swinging_boom"
+    _legacy_argparse_cfg_type = SpatialMemorySwingingBoomEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.traffic_work.SwingingBoom"
+
+
+@dataclass
+class SpatialMemoryLiftGateEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the lift gate task."""
+
+
+@register_environment
+class SpatialMemoryLiftGateEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryLiftGateEnvironmentCfg]
+):
+    """Stage at the remembered portal, cross beneath the raised shutter and clear its exit."""
+
+    name = "spatial_memory_lift_gate"
+    _legacy_argparse_cfg_type = SpatialMemoryLiftGateEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.traffic_work.LiftGate"
+
+
+@dataclass
+class SpatialMemoryShuttleEscortEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the shuttle escort task."""
+
+
+@register_environment
+class SpatialMemoryShuttleEscortEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryShuttleEscortEnvironmentCfg]
+):
+    """Meet the shuttle beside its guide rail, escort it past the midpoint and leave at the far berth."""
+
+    name = "spatial_memory_shuttle_escort"
+    _legacy_argparse_cfg_type = SpatialMemoryShuttleEscortEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.traffic_work.ShuttleEscort"
+
+
+@dataclass
+class SpatialMemoryMovingReceiverEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the moving receiver task."""
+
+
+@register_environment
+class SpatialMemoryMovingReceiverEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryMovingReceiverEnvironmentCfg]
+):
+    """Lift the parcel from the fixed bench and release it on the moving receiver near the dispatch end."""
+
+    name = "spatial_memory_moving_receiver"
+    _legacy_argparse_cfg_type = SpatialMemoryMovingReceiverEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.traffic_work.MovingReceiver"
+
+
+@dataclass
+class SpatialMemoryBollardChicaneEnvironmentCfg(SpatialMemoryEnvironmentCfg):
+    """Configure the bollard chicane task."""
+
+
+@register_environment
+class SpatialMemoryBollardChicaneEnvironment(
+    _SpatialMemoryEnvironmentBuilder, ArenaEnvironmentFactory[SpatialMemoryBollardChicaneEnvironmentCfg]
+):
+    """Negotiate two offset retracting bollards. Cross each footprint only when that bollard is down."""
+
+    name = "spatial_memory_bollard_chicane"
+    _legacy_argparse_cfg_type = SpatialMemoryBollardChicaneEnvironmentCfg
+    task_logic_path = f"{_TASKS_PACKAGE}.traffic_work.BollardChicane"

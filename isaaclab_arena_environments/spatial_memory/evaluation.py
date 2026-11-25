@@ -26,6 +26,7 @@ def make_spatial_memory_env(
     history_k: int | None = None,
     with_segmentation: bool = False,
     with_depth: bool = False,
+    recorder_directory: str | None = None,
 ):
     """Build and return the gym-wrapped environment registered under ``env_name``.
 
@@ -57,7 +58,10 @@ def make_spatial_memory_env(
             camera_cfg.data_types = list(dict.fromkeys([*camera_cfg.data_types, "instance_id_segmentation_fast"]))
             camera_cfg.colorize_instance_id_segmentation = False
             camera_cfg.update_latest_camera_pose = True
-    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=num_envs, seed=seed, env_spacing=ENV_SPACING_M))
+    builder_cfg = ArenaEnvBuilderCfg(
+        num_envs=num_envs, seed=seed, env_spacing=ENV_SPACING_M, recorder_dataset_export_dir_path=recorder_directory
+    )
+    builder = ArenaEnvBuilder(arena_env, builder_cfg)
     return builder.make_registered()
 
 
