@@ -56,6 +56,8 @@ def detect_object_type(
         # Update the DFS list
         prim = open_prims.pop(0)
         open_prims.extend(prim.GetChildren())
+        if found and get_prim_depth(prim) > found_depth:
+            break
         # Check if we found an interesting prim on this level
         if is_articulation_root(prim) or is_rigid_body(prim):
             if found:
@@ -63,14 +65,13 @@ def detect_object_type(
             found_depth = get_prim_depth(prim)
             found = True
             interesting_prim = prim
-        if found and get_prim_depth(prim) > found_depth:
-            break
     if not found:
         return ObjectType.BASE
-    if found and is_rigid_body(interesting_prim):
-        return ObjectType.RIGID
-    if found and is_articulation_root(interesting_prim):
+    # PhysX simulates a rigid body that is also an articulation root as the articulation's root link.
+    if is_articulation_root(interesting_prim):
         return ObjectType.ARTICULATION
+    if is_rigid_body(interesting_prim):
+        return ObjectType.RIGID
     else:
         raise ValueError("This should not happen. There is an unknown USD type in the tree.")
 
